@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-29T21:28:12.710904",
+  "timestamp": "2026-01-29T21:28:27.912858",
   "total_tests": 18,
   "passed_tests": 17,
   "success_rate": 94.44444444444444,
@@ -8,109 +8,109 @@
       "test": "User Registration",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.237867"
+      "timestamp": "2026-01-29T21:28:27.430262"
     },
     {
       "test": "Get Current User",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.252198"
+      "timestamp": "2026-01-29T21:28:27.438607"
     },
     {
       "test": "Dashboard Stats",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.310704"
+      "timestamp": "2026-01-29T21:28:27.491278"
     },
     {
       "test": "Create Client",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.362432"
+      "timestamp": "2026-01-29T21:28:27.502348"
     },
     {
       "test": "Get Clients",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.373784"
+      "timestamp": "2026-01-29T21:28:27.510777"
     },
     {
       "test": "Get Client Details",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.387511"
+      "timestamp": "2026-01-29T21:28:27.559920"
     },
     {
       "test": "Update Client",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.404056"
+      "timestamp": "2026-01-29T21:28:27.610003"
     },
     {
       "test": "Get Pipeline",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.418758"
+      "timestamp": "2026-01-29T21:28:27.661712"
     },
     {
       "test": "Create Event",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.485831"
+      "timestamp": "2026-01-29T21:28:27.678194"
     },
     {
       "test": "Create Recipe",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.511065"
+      "timestamp": "2026-01-29T21:28:27.736434"
     },
     {
       "test": "Create Supplier",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.522308"
+      "timestamp": "2026-01-29T21:28:27.744182"
     },
     {
       "test": "Create Ingredient",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.533154"
+      "timestamp": "2026-01-29T21:28:27.750738"
     },
     {
       "test": "Get Ingredients",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.583087"
+      "timestamp": "2026-01-29T21:28:27.798869"
     },
     {
       "test": "Get Suppliers",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.635386"
+      "timestamp": "2026-01-29T21:28:27.806412"
     },
     {
       "test": "Get Low Stock",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.645785"
+      "timestamp": "2026-01-29T21:28:27.855569"
     },
     {
       "test": "Documents Operations",
       "success": false,
       "details": "No event_id available",
-      "timestamp": "2026-01-29T21:28:12.645825"
+      "timestamp": "2026-01-29T21:28:27.855614"
     },
     {
       "test": "Get Company Settings",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.657069"
+      "timestamp": "2026-01-29T21:28:27.863556"
     },
     {
       "test": "Update Company Settings",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:28:12.710721"
+      "timestamp": "2026-01-29T21:28:27.912709"
     }
   ]
 }
