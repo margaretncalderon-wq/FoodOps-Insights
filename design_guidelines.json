@@ -1,0 +1,157 @@
+{
+  "identity": {
+    "name": "EEP Evoque Events Platform",
+    "persona": "E1 - The Anti-AI Designer",
+    "tone": "Professional, Airy, Organic Luxury, Trustworthy",
+    "aesthetic": "Minimalist, Generous Whitespace, Nature-inspired tones",
+    "target_audience": "Event planners, catering businesses, wedding planners in LATAM"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Playfair Display, serif",
+      "weights": ["400", "600", "700"],
+      "usage": "Main page titles, hero sections, document headers (Quotes, BEOs)",
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "font_family": "Manrope, sans-serif",
+      "weights": ["300", "400", "500", "600"],
+      "usage": "Dashboard data, form inputs, general text",
+      "letter_spacing": "tracking-normal"
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "usage": "Order numbers, SKU codes, financial data alignment"
+    }
+  },
+  "colors": {
+    "palette_name": "Organic Luxury (Archetype 1 Variant)",
+    "primary": {
+      "DEFAULT": "#3A4D3F",
+      "foreground": "#FFFFFF",
+      "description": "Deep Sage Green - evokes nature, freshness, and stability"
+    },
+    "secondary": {
+      "DEFAULT": "#E5DCC5",
+      "foreground": "#2C2C2C",
+      "description": "Champagne Sand - warm, elegant accent"
+    },
+    "background": {
+      "DEFAULT": "#F9F9F7",
+      "description": "Bone White - softer than pure white, reduces eye strain"
+    },
+    "surface": {
+      "DEFAULT": "#FFFFFF",
+      "description": "Pure White - for cards and content areas to pop"
+    },
+    "text": {
+      "primary": "#1A1A1A",
+      "secondary": "#5A5A5A",
+      "muted": "#8A8A8A"
+    },
+    "status": {
+      "success": "#4A6C4C",
+      "warning": "#D4A017",
+      "error": "#B93632",
+      "info": "#4A7C8C"
+    }
+  },
+  "layout_strategy": {
+    "spacing": {
+      "base_scale": "Tailwind default",
+      "philosophy": "Generous. Use p-6 or p-8 where p-4 is standard.",
+      "container_padding": "px-6 py-8 md:px-12 md:py-12"
+    },
+    "grids": {
+      "dashboard": {
+        "type": "Bento Mode B (High Density)",
+        "columns": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+        "gap": "gap-6",
+        "rules": "Use col-span-2 for main charts, col-span-1 for metrics. Fill height."
+      },
+      "client_portal": {
+        "type": "Tetris Mode A (Visual)",
+        "columns": "grid-cols-1 md:grid-cols-8 lg:grid-cols-12",
+        "gap": "gap-8",
+        "rules": "Asymmetrical layouts. Large hero images mixed with small text blocks."
+      }
+    },
+    "surfaces": {
+      "cards": "bg-white border border-black/5 shadow-sm rounded-xl hover:shadow-md transition-all duration-300",
+      "documents": "bg-white shadow-md max-w-[210mm] mx-auto min-h-[297mm] p-12 border-t-4 border-primary",
+      "glass": "bg-white/80 backdrop-blur-xl border-b border-white/20"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-white rounded-full px-8 py-3 hover:bg-primary/90 transition-transform hover:-translate-y-0.5 shadow-lg shadow-primary/20",
+      "secondary": "bg-secondary text-secondary-foreground rounded-full px-6 py-3 hover:bg-secondary/80",
+      "ghost": "text-primary hover:bg-primary/5 rounded-lg px-4 py-2"
+    },
+    "inputs": {
+      "style": "bg-white border-border focus:border-primary focus:ring-1 focus:ring-primary rounded-md h-11"
+    },
+    "navigation": {
+      "sidebar": "bg-primary text-white w-64 hidden md:flex flex-col fixed h-full z-50",
+      "mobile_nav": "bg-white border-b border-border md:hidden"
+    }
+  },
+  "visual_enhancers": {
+    "textures": "Subtle noise overlay on the #F9F9F7 background to add tactility.",
+    "shadows": "Soft, diffuse shadows. shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+    "borders": "1px solid border-black/5 for definition without harsh lines.",
+    "motion": {
+      "page_transition": "initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: 'easeOut' }}",
+      "hover": "scale-105"
+    }
+  },
+  "images": {
+    "hero_wedding": {
+      "url": "https://images.unsplash.com/photo-1768777270907-235286662f98?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Elegant wedding reception table setting",
+      "usage": "Landing page hero, Client Portal welcome"
+    },
+    "catering_chef": {
+      "url": "https://images.pexels.com/photos/32611685/pexels-photo-32611685.jpeg",
+      "alt": "Chef plating gourmet food",
+      "usage": "Recipes module, Kitchen Sheet background (faded)"
+    },
+    "event_details": {
+      "url": "https://images.unsplash.com/photo-1761110840708-9d6814876068?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Wedding table details",
+      "usage": "Quotes, Moodboards"
+    },
+    "workspace": {
+      "url": "https://images.unsplash.com/photo-1746021535489-00edc5efb203?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Modern event planner workspace",
+      "usage": "CRM Dashboard empty state, Settings page"
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure text meets APCA standards. Use dark grey (#1A1A1A) on bone white.",
+    "focus_states": "Visible ring-2 ring-primary ring-offset-2",
+    "multilingual": "Design containers to handle 20-30% text expansion for Spanish translations. Avoid fixed widths for text containers."
+  },
+  "tech_stack_specifics": {
+    "charts": "Recharts with custom colors (Primary, Secondary, Muted Gold)",
+    "icons": "Lucide React (stroke-width=1.5 for elegance)",
+    "date_picker": "Shadcn Calendar with 'rounded-xl' and 'p-4'",
+    "toast": "Sonner (rich colors, not default black/white)"
+  },
+  "instructions_to_main_agent": [
+    "Implement the 'Organic Luxury' color theme immediately in tailwind.config.js.",
+    "Use 'Playfair Display' for all H1-H3 headings and 'Manrope' for body.",
+    "Create a 'Layout' component that handles the Sidebar (Admin) vs Topbar (Client) logic.",
+    "Ensure the 'Documents' module (BEO, Quotes) uses a print-friendly CSS structure (@media print).",
+    "Use the provided image URLs for placeholders; do not use generic placeholders.",
+    "Apply 'data-testid' to all interactive elements.",
+    "For the Multilingual toggle, ensure it persists state and swaps text instantly."
+  ],
+  "universal_guidelines": [
+    "Avoid gradients for backgrounds; use solid colors or subtle textures.",
+    "Do not center-align text blocks longer than 3 lines.",
+    "Use 'gap-6' or 'gap-8' for grid layouts to maintain 'airiness'.",
+    "Interactive elements must have a hover state that changes color or lifts.",
+    "Never use pure black (#000000); use #1A1A1A."
+  ]
+}
