@@ -1,116 +1,116 @@
 {
-  "timestamp": "2026-01-29T21:27:23.855921",
+  "timestamp": "2026-01-29T21:28:00.400081",
   "total_tests": 18,
-  "passed_tests": 15,
-  "success_rate": 83.33333333333334,
+  "passed_tests": 17,
+  "success_rate": 94.44444444444444,
   "results": [
     {
       "test": "User Registration",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.208708"
+      "timestamp": "2026-01-29T21:27:59.943039"
     },
     {
       "test": "Get Current User",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.244015"
+      "timestamp": "2026-01-29T21:27:59.954575"
     },
     {
       "test": "Dashboard Stats",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.283022"
+      "timestamp": "2026-01-29T21:28:00.009830"
     },
     {
       "test": "Create Client",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.321979"
+      "timestamp": "2026-01-29T21:28:00.024347"
     },
     {
       "test": "Get Clients",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.357083"
+      "timestamp": "2026-01-29T21:28:00.039236"
     },
     {
       "test": "Get Client Details",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.397000"
+      "timestamp": "2026-01-29T21:28:00.091517"
     },
     {
       "test": "Update Client",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.435878"
+      "timestamp": "2026-01-29T21:28:00.103006"
     },
     {
       "test": "Get Pipeline",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.472437"
+      "timestamp": "2026-01-29T21:28:00.156320"
     },
     {
       "test": "Create Event",
-      "success": false,
-      "details": "Status: 401, Error: Not authenticated",
-      "timestamp": "2026-01-29T21:27:23.522109"
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:28:00.178417"
     },
     {
       "test": "Create Recipe",
-      "success": false,
-      "details": "Status: 401, Error: Not authenticated",
-      "timestamp": "2026-01-29T21:27:23.573199"
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:28:00.200212"
     },
     {
       "test": "Create Supplier",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.618670"
+      "timestamp": "2026-01-29T21:28:00.253267"
     },
     {
       "test": "Create Ingredient",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.675841"
+      "timestamp": "2026-01-29T21:28:00.261689"
     },
     {
       "test": "Get Ingredients",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.714666"
+      "timestamp": "2026-01-29T21:28:00.310611"
     },
     {
       "test": "Get Suppliers",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.747550"
+      "timestamp": "2026-01-29T21:28:00.321794"
     },
     {
       "test": "Get Low Stock",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.781502"
+      "timestamp": "2026-01-29T21:28:00.373552"
     },
     {
       "test": "Documents Operations",
       "success": false,
       "details": "No event_id available",
-      "timestamp": "2026-01-29T21:27:23.782188"
+      "timestamp": "2026-01-29T21:28:00.373597"
     },
     {
       "test": "Get Company Settings",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.817577"
+      "timestamp": "2026-01-29T21:28:00.384337"
     },
     {
       "test": "Update Company Settings",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-29T21:27:23.855035"
+      "timestamp": "2026-01-29T21:28:00.399912"
     }
   ]
 }
