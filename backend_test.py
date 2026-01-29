@@ -339,8 +339,6 @@ class EEPEvoqueAPITester:
         return self.tests_passed == self.tests_run
 
 def main():
-    from datetime import timedelta
-    
     tester = EEPEvoqueAPITester()
     success = tester.run_all_tests()
     
