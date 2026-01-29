@@ -65,7 +65,10 @@ class EEPEvoqueAPITester:
             
             if success:
                 try:
-                    return response.json()
+                    result = response.json()
+                    if name == "Create Event":  # Debug event creation
+                        print(f"DEBUG: Event creation response: {result}")
+                    return result
                 except:
                     return {}
             return None
