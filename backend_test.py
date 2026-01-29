@@ -327,7 +327,12 @@ class EEPEvoqueAPITester:
         event_id = self.test_events_operations(client_id)
         recipe_id = self.test_recipes_operations()
         ingredient_id = self.test_inventory_operations()
-        doc_id = self.test_documents_operations(event_id)
+        
+        # Only test documents if we have an event
+        if event_id:
+            doc_id = self.test_documents_operations(event_id)
+        else:
+            self.log_test("Documents Operations", False, "No event_id available")
         
         # Test settings
         self.test_settings_operations()
