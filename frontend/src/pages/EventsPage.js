@@ -1,0 +1,403 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import { Layout } from "../components/Layout";
+import { useLanguage } from "../contexts/LanguageContext";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Badge } from "../components/ui/badge";
+import { Calendar } from "../components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Plus, Search, Calendar as CalendarIcon, MapPin, Users, DollarSign, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
+const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
+
+export default function EventsPage() {
+  const { t, language } = useLanguage();
+  const [events, setEvents] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [formData, setFormData] = useState({
+    client_id: "",
+    name: "",
+    event_type: "wedding",
+    event_date: new Date(),
+    venue: "",
+    guest_count: 0,
+    budget: 0,
+    notes: "",
+    status: "planning",
+  });
+
+  useEffect(() => {
+    fetchEvents();
+    fetchClients();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const response = await axios.get(`${API}/events`, { withCredentials: true });
+      setEvents(response.data);
+    } catch (error) {
+      console.error("Failed to fetch events:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get(`${API}/crm/clients`, { withCredentials: true });
+      setClients(response.data);
+    } catch (error) {
+      console.error("Failed to fetch clients:", error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...formData,
+        event_date: formData.event_date.toISOString(),
+        guest_count: parseInt(formData.guest_count) || 0,
+        budget: parseFloat(formData.budget) || 0,
+      };
+      
+      if (editingEvent) {
+        await axios.put(`${API}/events/${editingEvent.event_id}`, payload, { withCredentials: true });
+        toast.success(language === "es" ? "Evento actualizado" : "Event updated");
+      } else {
+        await axios.post(`${API}/events`, payload, { withCredentials: true });
+        toast.success(language === "es" ? "Evento creado" : "Event created");
+      }
+      fetchEvents();
+      setDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to save event");
+    }
+  };
+
+  const handleDelete = async (eventId) => {
+    if (!confirm(language === "es" ? "¿Eliminar evento?" : "Delete event?")) return;
+    try {
+      await axios.delete(`${API}/events/${eventId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Evento eliminado" : "Event deleted");
+      fetchEvents();
+    } catch (error) {
+      toast.error("Failed to delete event");
+    }
+  };
+
+  const handleEdit = (event) => {
+    setEditingEvent(event);
+    setFormData({
+      client_id: event.client_id,
+      name: event.name,
+      event_type: event.event_type,
+      event_date: new Date(event.event_date),
+      venue: event.venue || "",
+      guest_count: event.guest_count,
+      budget: event.budget,
+      notes: event.notes || "",
+      status: event.status,
+    });
+    setDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingEvent(null);
+    setFormData({
+      client_id: "",
+      name: "",
+      event_type: "wedding",
+      event_date: new Date(),
+      venue: "",
+      guest_count: 0,
+      budget: 0,
+      notes: "",
+      status: "planning",
+    });
+  };
+
+  const filteredEvents = events.filter((event) =>
+    event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    event.venue?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const statusColors = {
+    planning: "bg-info/10 text-info",
+    confirmed: "bg-success/10 text-success",
+    inProgress: "bg-warning/10 text-warning",
+    completed: "bg-primary/10 text-primary",
+    cancelled: "bg-destructive/10 text-destructive",
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-6" data-testid="events-page">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-3xl font-bold text-foreground">{t("events")}</h1>
+            <p className="text-muted-foreground mt-1">
+              {language === "es" ? "Gestiona tus eventos" : "Manage your events"}
+            </p>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button className="rounded-full gap-2" data-testid="add-event-btn">
+                <Plus className="w-4 h-4" />
+                {t("addEvent")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading">
+                  {editingEvent ? t("edit") : t("addEvent")}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t("clients")} *</Label>
+                  <Select
+                    value={formData.client_id}
+                    onValueChange={(value) => setFormData({ ...formData, client_id: value })}
+                  >
+                    <SelectTrigger data-testid="event-client-select">
+                      <SelectValue placeholder={language === "es" ? "Seleccionar cliente" : "Select client"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((client) => (
+                        <SelectItem key={client.client_id} value={client.client_id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("name")} *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    data-testid="event-name-input"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t("eventType")}</Label>
+                    <Select
+                      value={formData.event_type}
+                      onValueChange={(value) => setFormData({ ...formData, event_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVENT_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("status")}</Label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVENT_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {t(status)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("eventDate")}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(formData.event_date, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.event_date}
+                        onSelect={(date) => date && setFormData({ ...formData, event_date: date })}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("venue")}</Label>
+                  <Input
+                    value={formData.venue}
+                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t("guestCount")}</Label>
+                    <Input
+                      type="number"
+                      value={formData.guest_count}
+                      onChange={(e) => setFormData({ ...formData, guest_count: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("budget")}</Label>
+                    <Input
+                      type="number"
+                      value={formData.budget}
+                      onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("notes")}</Label>
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    {t("cancel")}
+                  </Button>
+                  <Button type="submit" data-testid="save-event-btn">
+                    {t("save")}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder={t("search")}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+            data-testid="event-search-input"
+          />
+        </div>
+
+        {/* Events Grid */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredEvents.map((event) => (
+            <Card
+              key={event.event_id}
+              className="hover:shadow-card transition-all duration-300 group"
+              data-testid={`event-card-${event.event_id}`}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(event)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        {t("edit")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(event.event_id)} className="text-destructive">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {t("delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <Link to={`/events/${event.event_id}`}>
+                  <h3 className="font-heading text-xl font-semibold mb-2 hover:text-primary transition-colors">
+                    {event.name}
+                  </h3>
+                </Link>
+                <p className="text-sm text-muted-foreground mb-4 capitalize">{event.event_type}</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CalendarIcon className="w-4 h-4" />
+                    {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                  </div>
+                  {event.venue && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      {event.venue}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Users className="w-4 h-4" />
+                    {event.guest_count} {language === "es" ? "invitados" : "guests"}
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <DollarSign className="w-4 h-4" />
+                    ${event.budget.toLocaleString()}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {filteredEvents.length === 0 && (
+            <div className="col-span-full text-center py-12">
+              <CalendarIcon className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground">{t("noResults")}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </Layout>
+  );
+}
