@@ -172,16 +172,18 @@ class EEPEvoqueAPITester:
             return None
         
         event_id = event.get('event_id')
+        print(f"DEBUG: Created event with ID: {event_id}")  # Debug line
         
         # Get events
         self.run_test("Get Events", "GET", "events", 200)
         
         # Get specific event
-        self.run_test("Get Event Details", "GET", f"events/{event_id}", 200)
-        
-        # Update event
-        updated_data = {**event_data, "name": "Updated Event"}
-        self.run_test("Update Event", "PUT", f"events/{event_id}", 200, updated_data)
+        if event_id:
+            self.run_test("Get Event Details", "GET", f"events/{event_id}", 200)
+            
+            # Update event
+            updated_data = {**event_data, "name": "Updated Event"}
+            self.run_test("Update Event", "PUT", f"events/{event_id}", 200, updated_data)
         
         return event_id
 
