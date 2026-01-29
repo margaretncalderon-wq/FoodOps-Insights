@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-01-29T21:27:23.855921",
+  "total_tests": 18,
+  "passed_tests": 15,
+  "success_rate": 83.33333333333334,
+  "results": [
+    {
+      "test": "User Registration",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.208708"
+    },
+    {
+      "test": "Get Current User",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.244015"
+    },
+    {
+      "test": "Dashboard Stats",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.283022"
+    },
+    {
+      "test": "Create Client",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.321979"
+    },
+    {
+      "test": "Get Clients",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.357083"
+    },
+    {
+      "test": "Get Client Details",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.397000"
+    },
+    {
+      "test": "Update Client",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.435878"
+    },
+    {
+      "test": "Get Pipeline",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.472437"
+    },
+    {
+      "test": "Create Event",
+      "success": false,
+      "details": "Status: 401, Error: Not authenticated",
+      "timestamp": "2026-01-29T21:27:23.522109"
+    },
+    {
+      "test": "Create Recipe",
+      "success": false,
+      "details": "Status: 401, Error: Not authenticated",
+      "timestamp": "2026-01-29T21:27:23.573199"
+    },
+    {
+      "test": "Create Supplier",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.618670"
+    },
+    {
+      "test": "Create Ingredient",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.675841"
+    },
+    {
+      "test": "Get Ingredients",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.714666"
+    },
+    {
+      "test": "Get Suppliers",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.747550"
+    },
+    {
+      "test": "Get Low Stock",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.781502"
+    },
+    {
+      "test": "Documents Operations",
+      "success": false,
+      "details": "No event_id available",
+      "timestamp": "2026-01-29T21:27:23.782188"
+    },
+    {
+      "test": "Get Company Settings",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.817577"
+    },
+    {
+      "test": "Update Company Settings",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-29T21:27:23.855035"
+    }
+  ]
+}
