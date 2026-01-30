@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN"];
+const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
 
 export default function SettingsPage() {
   const { t, language, changeLanguage } = useLanguage();
