@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   Select,
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, Loader2 } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -24,8 +25,10 @@ const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN"];
 export default function SettingsPage() {
   const { t, language, changeLanguage } = useLanguage();
   const [company, setCompany] = useState(null);
+  const [documentTypes, setDocumentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     logo_url: "",
@@ -37,6 +40,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchCompany();
+    fetchDocumentTypes();
   }, []);
 
   const fetchCompany = async () => {
@@ -58,6 +62,15 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchDocumentTypes = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/document-types`, { withCredentials: true });
+      setDocumentTypes(response.data);
+    } catch (error) {
+      console.error("Failed to fetch document types:", error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -70,6 +83,62 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleTemplateSettingChange = async (docType, setting, value) => {
+    const typeIndex = documentTypes.findIndex(dt => dt.type === docType);
+    if (typeIndex === -1) return;
+
+    // Update local state immediately
+    const updatedTypes = [...documentTypes];
+    if (!updatedTypes[typeIndex].custom_settings) {
+      updatedTypes[typeIndex].custom_settings = {};
+    }
+    updatedTypes[typeIndex].custom_settings[setting] = value;
+    setDocumentTypes(updatedTypes);
+
+    // Save to backend
+    setSavingTemplate(docType);
+    try {
+      const existingTemplate = updatedTypes[typeIndex].template_id;
+      const settings = updatedTypes[typeIndex].custom_settings;
+
+      if (existingTemplate) {
+        await axios.put(`${API}/settings/templates/${existingTemplate}`, {
+          name: docType,
+          settings,
+        }, { withCredentials: true });
+      } else {
+        const response = await axios.post(`${API}/settings/templates`, {
+          name: docType,
+          type: docType,
+          settings,
+        }, { withCredentials: true });
+        updatedTypes[typeIndex].template_id = response.data.template_id;
+        setDocumentTypes(updatedTypes);
+      }
+      toast.success(language === "es" ? "Plantilla actualizada" : "Template updated");
+    } catch (error) {
+      toast.error("Failed to save template settings");
+      // Revert
+      fetchDocumentTypes();
+    } finally {
+      setSavingTemplate(null);
+    }
+  };
+
+  const getDocTypeLabel = (dt) => {
+    const labels = {
+      contract: { en: "Contract", es: "Contrato" },
+      quote: { en: "Proposal", es: "Propuesta" },
+      invoice: { en: "Invoice", es: "Factura" },
+      beo: { en: "Banquet Event Order", es: "Orden de Evento" },
+      kitchen_sheet: { en: "Kitchen Sheet", es: "Hoja de Cocina" },
+      packing_list: { en: "Packing/Setup List", es: "Lista de Montaje" },
+      mise_en_place: { en: "Mise en Place", es: "Mise en Place" },
+      menu: { en: "Menu", es: "Menú" },
+    };
+    return labels[dt.type]?.[language] || dt.name;
   };
 
   if (loading) {
@@ -94,6 +163,10 @@ export default function SettingsPage() {
         <Tabs defaultValue="branding" className="space-y-6">
           <TabsList>
             <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2">
+              <FileText className="w-4 h-4" />
+              {t("documentTemplates")}
+            </TabsTrigger>
             <TabsTrigger value="preferences">
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
@@ -211,6 +284,80 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </form>
+          </TabsContent>
+
+          {/* Document Templates Tab */}
+          <TabsContent value="templates">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  {t("documentTemplates")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-6">
+                  {language === "es"
+                    ? "Configura las opciones de cada tipo de documento. Por ejemplo, la Hoja de Cocina no incluye precios por defecto."
+                    : "Configure options for each document type. For example, Kitchen Sheet doesn't include prices by default."}
+                </p>
+                <div className="space-y-4">
+                  {documentTypes.map((dt) => {
+                    const showPrices = dt.custom_settings?.show_prices ?? dt.show_prices;
+                    const requiresSignature = dt.custom_settings?.requires_signature ?? dt.requires_signature;
+                    const isSaving = savingTemplate === dt.type;
+
+                    return (
+                      <div
+                        key={dt.type}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                        data-testid={`template-${dt.type}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{getDocTypeLabel(dt)}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {dt.type}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`${dt.type}-prices`} className="text-sm">
+                              {t("showPrices")}
+                            </Label>
+                            <Switch
+                              id={`${dt.type}-prices`}
+                              checked={showPrices}
+                              onCheckedChange={(checked) => handleTemplateSettingChange(dt.type, "show_prices", checked)}
+                              disabled={isSaving}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`${dt.type}-signature`} className="text-sm">
+                              {t("requiresSignature")}
+                            </Label>
+                            <Switch
+                              id={`${dt.type}-signature`}
+                              checked={requiresSignature}
+                              onCheckedChange={(checked) => handleTemplateSettingChange(dt.type, "requires_signature", checked)}
+                              disabled={isSaving}
+                            />
+                          </div>
+                          {isSaving && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                          {!isSaving && dt.template_id && (
+                            <Check className="w-4 h-4 text-success" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Preferences Tab */}
