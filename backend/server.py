@@ -2624,11 +2624,13 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
     
     titles = {
         "contract": "Contract", "proposal": "Proposal", "invoice": "Invoice",
-        "kitchen_sheet": "Kitchen Sheet", "packing_list": "Packing List"
+        "kitchen_sheet": "Kitchen Sheet", "packing_list": "Packing List",
+        "mise_en_place": "Mise en Place"
     }
     titles_es = {
         "contract": "Contrato", "proposal": "Propuesta", "invoice": "Factura",
-        "kitchen_sheet": "Hoja de Cocina", "packing_list": "Lista de Montaje"
+        "kitchen_sheet": "Hoja de Cocina", "packing_list": "Lista de Montaje",
+        "mise_en_place": "Mise en Place"
     }
     
     lang = company.get("default_language", "en") if company else "en"
