@@ -55,6 +55,8 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
   const [saving, setSaving] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [selectedPicklistCategory, setSelectedPicklistCategory] = useState("");
+  const [picklistSearch, setPicklistSearch] = useState("");
   
   // Form state for new item
   const [newItem, setNewItem] = useState({
