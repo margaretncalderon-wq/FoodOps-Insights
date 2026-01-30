@@ -1188,12 +1188,70 @@ async def create_template(data: dict, user: User = Depends(get_current_user)):
         "template_id": template_id,
         "company_id": user.company_id,
         "name": data.get("name"),
-        "type": data.get("type"),  # quote, beo, email, etc.
+        "type": data.get("type"),  # contract, quote, beo, kitchen_sheet, etc.
+        "settings": data.get("settings", {}),  # e.g., {"show_prices": false}
         "content": data.get("content", {}),
         "created_at": now.isoformat()
     }
     await db.templates.insert_one(template_doc)
     return template_doc
+
+@settings_router.put("/templates/{template_id}")
+async def update_template(template_id: str, data: dict, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    update_data = {
+        "name": data.get("name"),
+        "settings": data.get("settings", {}),
+        "content": data.get("content", {}),
+        "updated_at": now.isoformat()
+    }
+    
+    result = await db.templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": "Template updated"}
+
+@settings_router.delete("/templates/{template_id}")
+async def delete_template(template_id: str, user: User = Depends(get_current_user)):
+    result = await db.templates.delete_one({
+        "template_id": template_id,
+        "company_id": user.company_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": "Template deleted"}
+
+@settings_router.get("/document-types")
+async def get_document_types(user: User = Depends(get_current_user)):
+    """Get available document types with their default settings"""
+    doc_types = [
+        {"type": "contract", "name": "Contract", "name_es": "Contrato", "requires_signature": True, "show_prices": True},
+        {"type": "quote", "name": "Proposal", "name_es": "Propuesta", "requires_signature": True, "show_prices": True},
+        {"type": "invoice", "name": "Invoice", "name_es": "Factura", "requires_signature": False, "show_prices": True},
+        {"type": "beo", "name": "Banquet Event Order", "name_es": "Orden de Evento", "requires_signature": False, "show_prices": True},
+        {"type": "kitchen_sheet", "name": "Kitchen Sheet", "name_es": "Hoja de Cocina", "requires_signature": False, "show_prices": False},
+        {"type": "packing_list", "name": "Packing/Setup List", "name_es": "Lista de Montaje", "requires_signature": False, "show_prices": False},
+        {"type": "mise_en_place", "name": "Mise en Place", "name_es": "Mise en Place", "requires_signature": False, "show_prices": False},
+        {"type": "menu", "name": "Menu", "name_es": "Menú", "requires_signature": False, "show_prices": False},
+    ]
+    
+    # Get company templates to show customizations
+    templates = await db.templates.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    templates_by_type = {t["type"]: t for t in templates}
+    
+    for dt in doc_types:
+        if dt["type"] in templates_by_type:
+            dt["custom_settings"] = templates_by_type[dt["type"]].get("settings", {})
+            dt["template_id"] = templates_by_type[dt["type"]]["template_id"]
+    
+    return doc_types
 
 # ============== CLIENT PORTAL ROUTES ==============
 
