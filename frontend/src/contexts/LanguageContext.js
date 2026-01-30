@@ -7,6 +7,7 @@ const translations = {
     crm: "CRM",
     clients: "Clients",
     events: "Events",
+    calendar: "Calendar",
     recipes: "Recipes",
     inventory: "Inventory",
     documents: "Documents",
@@ -32,6 +33,8 @@ const translations = {
     total: "Total",
     loading: "Loading...",
     noResults: "No results found",
+    duplicate: "Duplicate",
+    booking: "Booking",
     
     // Auth
     login: "Login",
