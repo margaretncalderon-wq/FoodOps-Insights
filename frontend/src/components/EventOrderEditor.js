@@ -474,14 +474,14 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
               </span>
               <div className="flex-1 flex justify-end items-center gap-2">
                 <Select
-                  value={order.tax_details?.[0]?.tax_id || ""}
-                  onValueChange={(taxId) => handleUpdateOrder({ tax_ids: taxId ? [taxId] : [] })}
+                  value={order.tax_details?.[0]?.tax_id || "none"}
+                  onValueChange={(taxId) => handleUpdateOrder({ tax_ids: taxId === "none" ? [] : [taxId] })}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder={language === "es" ? "Seleccionar impuesto" : "Select tax"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{language === "es" ? "Sin impuesto" : "No tax"}</SelectItem>
+                    <SelectItem value="none">{language === "es" ? "Sin impuesto" : "No tax"}</SelectItem>
                     {taxRates.map(tax => (
                       <SelectItem key={tax.tax_id} value={tax.tax_id}>
                         {tax.name} ({tax.rate}%)
