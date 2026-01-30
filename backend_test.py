@@ -299,28 +299,35 @@ class EEPEvoqueAPITester:
         return ingredient_id
 
     def test_documents_operations(self, event_id):
-        """Test Documents operations"""
+        """Test Documents operations including new document types"""
         if not event_id:
             self.log_test("Documents Operations", False, "No event_id available")
             return None
         
-        # Generate document
-        doc = self.run_test("Generate Quote", "POST", f"documents/generate/{event_id}/quote", 200)
-        if not doc:
-            return None
+        # Test generating different document types
+        doc_types = ["contract", "quote", "invoice", "beo", "kitchen_sheet", "packing_list", "menu", "mise_en_place"]
+        generated_docs = []
         
-        doc_id = doc.get('document_id')
+        for doc_type in doc_types:
+            doc = self.run_test(f"Generate {doc_type.title()}", "POST", f"documents/generate/{event_id}/{doc_type}", 200)
+            if doc:
+                generated_docs.append(doc.get('document_id'))
         
         # Get documents
         self.run_test("Get Documents", "GET", "documents", 200)
         
-        # Get specific document
-        self.run_test("Get Document Details", "GET", f"documents/{doc_id}", 200)
+        # Get documents for specific event
+        self.run_test("Get Event Documents", "GET", f"documents?event_id={event_id}", 200)
         
-        # Test client portal access
-        self.run_test("Client Portal Access", "GET", f"portal/document/{doc_id}", 200)
+        # Test specific document access if we have any
+        if generated_docs:
+            doc_id = generated_docs[0]
+            self.run_test("Get Document Details", "GET", f"documents/{doc_id}", 200)
+            
+            # Test client portal access
+            self.run_test("Client Portal Access", "GET", f"portal/document/{doc_id}", 200)
         
-        return doc_id
+        return generated_docs[0] if generated_docs else None
 
     def test_settings_operations(self):
         """Test Settings operations"""
