@@ -89,25 +89,40 @@ class Company(BaseModel):
     default_tax_rate: float = 0.0
     created_at: datetime
 
-# CRM Models - Enhanced with source and converted status
-class ClientCreate(BaseModel):
+# CRM Models - Enhanced with corporate and direct client types
+class ContactPerson(BaseModel):
     name: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    role: Optional[str] = None  # e.g., "Manager", "Event Coordinator"
+
+class ClientCreate(BaseModel):
+    client_type: str = "direct"  # "corporate" or "direct"
+    # For direct clients - this is the contact name
+    name: str
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    # For corporate clients
     company_name: Optional[str] = None
+    rnc: Optional[str] = None  # Tax ID / RNC
+    contacts: List[ContactPerson] = []  # Multiple contact persons for corporate
+    # Common fields
     address: Optional[str] = None
     notes: Optional[str] = None
     pipeline_stage: str = "lead"  # lead, contacted, proposal, negotiation, won, lost, converted
-    client_source: str = "direct"  # corporate, planner, referral, direct
+    client_source: str = "direct"  # corporate, planner, referral, direct, social_media, website
     tags: List[str] = []
 
 class Client(BaseModel):
     client_id: str
     company_id: str
-    name: str
+    client_type: str = "direct"
+    name: str  # For direct: contact name, For corporate: company name (display)
     email: Optional[str] = None
     phone: Optional[str] = None
     company_name: Optional[str] = None
+    rnc: Optional[str] = None
+    contacts: List[Dict[str, Any]] = []
     address: Optional[str] = None
     notes: Optional[str] = None
     pipeline_stage: str
