@@ -315,7 +315,7 @@ export default function EventsPage() {
                   </div>
 
                   {/* Date fields - Show End Date only when is_booking is true */}
-                  <div className="grid gap-4" style={{ gridTemplateColumns: formData.is_booking ? '1fr 1fr' : '1fr' }}>
+                  <div className={`grid gap-4 ${formData.is_booking ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     <div className="space-y-2">
                       <Label>{formData.is_booking ? (language === "es" ? "Fecha Inicio" : "Start Date") : t("eventDate")}</Label>
                       <Popover>
@@ -345,7 +345,7 @@ export default function EventsPage() {
                         </PopoverContent>
                       </Popover>
                     </div>
-                    {formData.is_booking && (
+                    {formData.is_booking === true && (
                       <div className="space-y-2">
                         <Label>{language === "es" ? "Fecha Fin" : "End Date"}</Label>
                         <Popover>
