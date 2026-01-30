@@ -13,6 +13,7 @@ import CRMPage from "./pages/CRMPage";
 import ClientDetails from "./pages/ClientDetails";
 import EventsPage from "./pages/EventsPage";
 import EventDetails from "./pages/EventDetails";
+import CalendarPage from "./pages/CalendarPage";
 import RecipesPage from "./pages/RecipesPage";
 import RecipeBuilder from "./pages/RecipeBuilder";
 import InventoryPage from "./pages/InventoryPage";
@@ -118,6 +119,7 @@ function AppRouter() {
       <Route path="/crm/:clientId" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
       <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
       <Route path="/events/:eventId" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
+      <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/recipes" element={<ProtectedRoute><RecipesPage /></ProtectedRoute>} />
       <Route path="/recipes/new" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/recipes/:recipeId" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
