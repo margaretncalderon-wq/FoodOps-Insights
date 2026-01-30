@@ -107,6 +107,8 @@ Build a cloud-based, modular web platform for event and catering businesses with
 ## Bug Fixes (January 30, 2026)
 - **CORS Fix**: Changed CORS_ORIGINS from wildcard '*' to explicit origins to support withCredentials cookies
 - **RecipesPage Fix**: Updated field names to match backend (cost_per_portion, yield_quantity) with fallbacks
+- **Document System Refactor**: Documents now live under Events, not as standalone page
+- **DocumentPreview Fix**: Updated to use new Event Order structure with items_by_category and financials
 
 ## Prioritized Backlog
 
