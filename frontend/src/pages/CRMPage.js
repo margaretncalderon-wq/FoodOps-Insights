@@ -24,7 +24,7 @@ import {
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, User, Mail, Phone, Building2, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { Plus, Search, User, Mail, Phone, Building2, MoreHorizontal, Trash2, Edit, UserPlus, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +35,7 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const PIPELINE_STAGES = ["lead", "contacted", "proposal", "negotiation", "won", "lost"];
+const CLIENT_SOURCES = ["direct", "corporate", "planner", "referral", "social_media", "website"];
 
 export default function CRMPage() {
   const { t, language } = useLanguage();
@@ -44,15 +45,19 @@ export default function CRMPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
-  const [viewMode, setViewMode] = useState("list"); // list or pipeline
+  const [viewMode, setViewMode] = useState("list");
   const [formData, setFormData] = useState({
+    client_type: "direct",
     name: "",
     email: "",
     phone: "",
     company_name: "",
+    rnc: "",
+    contacts: [],
     address: "",
     notes: "",
     pipeline_stage: "lead",
+    client_source: "direct",
     tags: [],
   });
 
@@ -84,13 +89,19 @@ export default function CRMPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const submitData = { ...formData };
+      // For corporate clients, use company_name as the display name
+      if (formData.client_type === "corporate" && formData.company_name) {
+        submitData.name = formData.company_name;
+      }
+      
       if (editingClient) {
-        await axios.put(`${API}/crm/clients/${editingClient.client_id}`, formData, {
+        await axios.put(`${API}/crm/clients/${editingClient.client_id}`, submitData, {
           withCredentials: true,
         });
         toast.success(language === "es" ? "Cliente actualizado" : "Client updated");
       } else {
-        await axios.post(`${API}/crm/clients`, formData, { withCredentials: true });
+        await axios.post(`${API}/crm/clients`, submitData, { withCredentials: true });
         toast.success(language === "es" ? "Cliente creado" : "Client created");
       }
       fetchClients();
@@ -117,13 +128,17 @@ export default function CRMPage() {
   const handleEdit = (client) => {
     setEditingClient(client);
     setFormData({
+      client_type: client.client_type || "direct",
       name: client.name,
       email: client.email || "",
       phone: client.phone || "",
       company_name: client.company_name || "",
+      rnc: client.rnc || "",
+      contacts: client.contacts || [],
       address: client.address || "",
       notes: client.notes || "",
       pipeline_stage: client.pipeline_stage,
+      client_source: client.client_source || "direct",
       tags: client.tags || [],
     });
     setDialogOpen(true);
@@ -132,14 +147,38 @@ export default function CRMPage() {
   const resetForm = () => {
     setEditingClient(null);
     setFormData({
+      client_type: "direct",
       name: "",
       email: "",
       phone: "",
       company_name: "",
+      rnc: "",
+      contacts: [],
       address: "",
       notes: "",
       pipeline_stage: "lead",
+      client_source: "direct",
       tags: [],
+    });
+  };
+
+  const addContact = () => {
+    setFormData({
+      ...formData,
+      contacts: [...formData.contacts, { name: "", email: "", phone: "", role: "" }]
+    });
+  };
+
+  const updateContact = (index, field, value) => {
+    const newContacts = [...formData.contacts];
+    newContacts[index] = { ...newContacts[index], [field]: value };
+    setFormData({ ...formData, contacts: newContacts });
+  };
+
+  const removeContact = (index) => {
+    setFormData({
+      ...formData,
+      contacts: formData.contacts.filter((_, i) => i !== index)
     });
   };
 
@@ -147,7 +186,8 @@ export default function CRMPage() {
     (client) =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      client.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.rnc?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const stageColors = {
@@ -159,6 +199,43 @@ export default function CRMPage() {
     lost: "bg-destructive/10 text-destructive",
   };
 
+  const sourceLabels = {
+    direct: { en: "Direct", es: "Directo" },
+    corporate: { en: "Corporate", es: "Corporativo" },
+    planner: { en: "Planner", es: "Planificador" },
+    referral: { en: "Referral", es: "Referido" },
+    social_media: { en: "Social Media", es: "Redes Sociales" },
+    website: { en: "Website", es: "Sitio Web" },
+  };
+
+  const getDisplayName = (client) => {
+    if (client.client_type === "corporate") {
+      return client.company_name || client.name;
+    }
+    return client.name;
+  };
+
+  const getSubtitle = (client) => {
+    if (client.client_type === "corporate") {
+      const primaryContact = client.contacts?.[0];
+      if (primaryContact) {
+        return `${primaryContact.name}${primaryContact.role ? ` (${primaryContact.role})` : ""}`;
+      }
+      return client.rnc ? `RNC: ${client.rnc}` : "";
+    }
+    return client.company_name || client.email || "";
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-pulse text-muted-foreground">{t("loading")}</div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6" data-testid="crm-page">
@@ -166,25 +243,23 @@ export default function CRMPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold text-foreground">{t("crm")}</h1>
-            <p className="text-muted-foreground mt-1">{t("clients")}</p>
+            <p className="text-muted-foreground mt-1">
+              {clients.length} {language === "es" ? "clientes" : "clients"}
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-muted rounded-lg p-1">
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-              >
-                {language === "es" ? "Lista" : "List"}
-              </Button>
-              <Button
-                variant={viewMode === "pipeline" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("pipeline")}
-              >
-                Pipeline
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "list" ? "default" : "outline"}
+              onClick={() => setViewMode("list")}
+            >
+              {language === "es" ? "Lista" : "List"}
+            </Button>
+            <Button
+              variant={viewMode === "pipeline" ? "default" : "outline"}
+              onClick={() => setViewMode("pipeline")}
+            >
+              Pipeline
+            </Button>
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button className="rounded-full gap-2" data-testid="add-client-btn">
@@ -192,90 +267,226 @@ export default function CRMPage() {
                   {t("addClient")}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="font-heading">
-                    {editingClient ? t("edit") : t("addClient")}
+                  <DialogTitle>
+                    {editingClient 
+                      ? (language === "es" ? "Editar Cliente" : "Edit Client")
+                      : (language === "es" ? "Nuevo Cliente" : "New Client")}
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t("name")} *</Label>
-                      <Input
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                        data-testid="client-name-input"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t("email")}</Label>
-                      <Input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        data-testid="client-email-input"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t("phone")}</Label>
-                      <Input
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t("companyName")}</Label>
-                      <Input
-                        value={formData.company_name}
-                        onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("pipelineStage")}</Label>
-                    <Select
-                      value={formData.pipeline_stage}
-                      onValueChange={(value) => setFormData({ ...formData, pipeline_stage: value })}
+                  {/* Client Type Toggle */}
+                  <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                    <Button
+                      type="button"
+                      variant={formData.client_type === "direct" ? "default" : "ghost"}
+                      className="flex-1"
+                      onClick={() => setFormData({ ...formData, client_type: "direct" })}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PIPELINE_STAGES.map((stage) => (
-                          <SelectItem key={stage} value={stage}>
-                            {t(stage)}
-                          </SelectItem>
+                      <User className="w-4 h-4 mr-2" />
+                      {language === "es" ? "Cliente Directo" : "Direct Client"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.client_type === "corporate" ? "default" : "ghost"}
+                      className="flex-1"
+                      onClick={() => setFormData({ ...formData, client_type: "corporate" })}
+                    >
+                      <Building2 className="w-4 h-4 mr-2" />
+                      {language === "es" ? "Cliente Corporativo" : "Corporate Client"}
+                    </Button>
+                  </div>
+
+                  {formData.client_type === "corporate" ? (
+                    /* Corporate Client Fields */
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <Label>{language === "es" ? "Nombre de Empresa" : "Company Name"} *</Label>
+                          <Input
+                            value={formData.company_name}
+                            onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                            placeholder={language === "es" ? "Nombre de la empresa" : "Company name"}
+                            required
+                            data-testid="company-name-input"
+                          />
+                        </div>
+                        <div>
+                          <Label>RNC</Label>
+                          <Input
+                            value={formData.rnc}
+                            onChange={(e) => setFormData({ ...formData, rnc: e.target.value })}
+                            placeholder="000-00000-0"
+                            data-testid="rnc-input"
+                          />
+                        </div>
+                        <div>
+                          <Label>{language === "es" ? "Dirección" : "Address"}</Label>
+                          <Input
+                            value={formData.address}
+                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Contact Persons */}
+                      <div className="border rounded-lg p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-base font-medium">
+                            {language === "es" ? "Personas de Contacto" : "Contact Persons"}
+                          </Label>
+                          <Button type="button" variant="outline" size="sm" onClick={addContact}>
+                            <UserPlus className="w-4 h-4 mr-1" />
+                            {language === "es" ? "Agregar" : "Add"}
+                          </Button>
+                        </div>
+                        
+                        {formData.contacts.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            {language === "es" ? "No hay contactos. Agregue al menos uno." : "No contacts. Add at least one."}
+                          </p>
+                        )}
+
+                        {formData.contacts.map((contact, index) => (
+                          <div key={index} className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg relative">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
+                              onClick={() => removeContact(index)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Nombre" : "Name"}</Label>
+                              <Input
+                                value={contact.name}
+                                onChange={(e) => updateContact(index, "name", e.target.value)}
+                                placeholder="Juan Pérez"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Cargo" : "Role"}</Label>
+                              <Input
+                                value={contact.role}
+                                onChange={(e) => updateContact(index, "role", e.target.value)}
+                                placeholder={language === "es" ? "Gerente de Eventos" : "Event Manager"}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Email</Label>
+                              <Input
+                                type="email"
+                                value={contact.email}
+                                onChange={(e) => updateContact(index, "email", e.target.value)}
+                                placeholder="email@empresa.com"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Teléfono" : "Phone"}</Label>
+                              <Input
+                                value={contact.phone}
+                                onChange={(e) => updateContact(index, "phone", e.target.value)}
+                                placeholder="+1 809 000 0000"
+                              />
+                            </div>
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </>
+                  ) : (
+                    /* Direct Client Fields */
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <Label>{language === "es" ? "Nombre del Contacto" : "Contact Name"} *</Label>
+                        <Input
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder={language === "es" ? "Nombre completo" : "Full name"}
+                          required
+                          data-testid="client-name-input"
+                        />
+                      </div>
+                      <div>
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          data-testid="client-email-input"
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === "es" ? "Teléfono" : "Phone"}</Label>
+                        <Input
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label>{language === "es" ? "Dirección" : "Address"}</Label>
+                        <Input
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Common Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === "es" ? "Etapa" : "Stage"}</Label>
+                      <Select
+                        value={formData.pipeline_stage}
+                        onValueChange={(v) => setFormData({ ...formData, pipeline_stage: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PIPELINE_STAGES.map((stage) => (
+                            <SelectItem key={stage} value={stage}>
+                              {t(stage)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>{language === "es" ? "Fuente" : "Source"}</Label>
+                      <Select
+                        value={formData.client_source}
+                        onValueChange={(v) => setFormData({ ...formData, client_source: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CLIENT_SOURCES.map((source) => (
+                            <SelectItem key={source} value={source}>
+                              {sourceLabels[source]?.[language] || source}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>{t("address")}</Label>
-                    <Input
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("notes")}</Label>
+
+                  <div>
+                    <Label>{language === "es" ? "Notas" : "Notes"}</Label>
                     <Textarea
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      rows={3}
+                      rows={2}
                     />
                   </div>
-                  <div className="flex justify-end gap-3">
-                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                      {t("cancel")}
-                    </Button>
-                    <Button type="submit" data-testid="save-client-btn">
-                      {t("save")}
-                    </Button>
-                  </div>
+
+                  <Button type="submit" className="w-full" data-testid="save-client-btn">
+                    {t("save")}
+                  </Button>
                 </form>
               </DialogContent>
             </Dialog>
@@ -283,130 +494,129 @@ export default function CRMPage() {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder={t("search")}
+            placeholder={language === "es" ? "Buscar clientes..." : "Search clients..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
-            data-testid="client-search-input"
+            data-testid="search-clients-input"
           />
         </div>
 
-        {/* List View */}
+        {/* Client List View */}
         {viewMode === "list" && (
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-left p-4 font-medium">{t("name")}</th>
-                      <th className="text-left p-4 font-medium">{t("email")}</th>
-                      <th className="text-left p-4 font-medium">{t("phone")}</th>
-                      <th className="text-left p-4 font-medium">{t("status")}</th>
-                      <th className="text-left p-4 font-medium">{t("eventsCount")}</th>
-                      <th className="text-right p-4 font-medium">{t("actions")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredClients.map((client) => (
-                      <tr
-                        key={client.client_id}
-                        className="border-b hover:bg-muted/30 transition-colors"
-                        data-testid={`client-row-${client.client_id}`}
-                      >
-                        <td className="p-4">
-                          <Link
-                            to={`/crm/${client.client_id}`}
-                            className="flex items-center gap-3 hover:text-primary"
-                          >
-                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                              <User className="w-5 h-5 text-secondary-foreground" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{client.name}</p>
-                              {client.company_name && (
-                                <p className="text-sm text-muted-foreground">{client.company_name}</p>
-                              )}
-                            </div>
-                          </Link>
-                        </td>
-                        <td className="p-4 text-muted-foreground">{client.email || "-"}</td>
-                        <td className="p-4 text-muted-foreground">{client.phone || "-"}</td>
-                        <td className="p-4">
-                          <Badge className={stageColors[client.pipeline_stage]}>
-                            {t(client.pipeline_stage)}
+          <div className="grid gap-4">
+            {filteredClients.map((client) => (
+              <Card key={client.client_id} className="hover:shadow-md transition-shadow" data-testid={`client-card-${client.client_id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                      {client.client_type === "corporate" ? (
+                        <Building2 className="w-5 h-5 text-secondary-foreground" />
+                      ) : (
+                        <span className="font-heading font-bold text-secondary-foreground">
+                          {getDisplayName(client).charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/crm/${client.client_id}`}
+                          className="font-heading font-semibold text-foreground hover:text-primary truncate"
+                        >
+                          {getDisplayName(client)}
+                        </Link>
+                        {client.client_type === "corporate" && (
+                          <Badge variant="outline" className="text-xs">
+                            {language === "es" ? "Corporativo" : "Corporate"}
                           </Badge>
-                        </td>
-                        <td className="p-4">{client.events_count}</td>
-                        <td className="p-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEdit(client)}>
-                                <Edit className="w-4 h-4 mr-2" />
-                                {t("edit")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(client.client_id)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                {t("delete")}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredClients.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                          {t("noResults")}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                        )}
+                        {client.rnc && (
+                          <span className="text-xs text-muted-foreground">RNC: {client.rnc}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {getSubtitle(client)}
+                      </p>
+                      {client.client_type === "corporate" && client.contacts?.length > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{client.contacts.length - 1} {language === "es" ? "contactos más" : "more contacts"}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={stageColors[client.pipeline_stage]}>
+                        {t(client.pipeline_stage)}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {sourceLabels[client.client_source]?.[language] || client.client_source}
+                      </Badge>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(client)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          {t("edit")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(client.client_id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          {t("delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredClients.length === 0 && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  {t("noResults")}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* Pipeline View */}
         {viewMode === "pipeline" && (
-          <div className="flex gap-4 overflow-x-auto pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {PIPELINE_STAGES.map((stage) => (
-              <div key={stage} className="flex-shrink-0 w-72">
-                <div className="bg-muted/50 rounded-t-lg p-3 flex items-center justify-between">
-                  <span className="font-medium">{t(stage)}</span>
-                  <Badge variant="outline">{pipeline[stage]?.length || 0}</Badge>
-                </div>
-                <div className="bg-muted/30 rounded-b-lg p-2 min-h-[400px] space-y-2">
+              <Card key={stage}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center justify-between">
+                    {t(stage)}
+                    <Badge variant="outline" className="ml-2">
+                      {pipeline[stage]?.length || 0}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
                   {pipeline[stage]?.map((client) => (
                     <Link
                       key={client.client_id}
                       to={`/crm/${client.client_id}`}
-                      className="block"
+                      className="block p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
-                      <Card className="hover:shadow-card transition-all">
-                        <CardContent className="p-4">
-                          <p className="font-medium">{client.name}</p>
-                          {client.email && (
-                            <p className="text-sm text-muted-foreground truncate">{client.email}</p>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <p className="font-medium text-sm truncate">{getDisplayName(client)}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getSubtitle(client)}
+                      </p>
                     </Link>
                   ))}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
