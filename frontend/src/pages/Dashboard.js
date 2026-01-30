@@ -236,10 +236,10 @@ export default function Dashboard() {
                   <span className="text-sm">{t("addRecipe")}</span>
                 </Button>
               </Link>
-              <Link to="/documents">
+              <Link to="/inventory">
                 <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
                   <TrendingUp className="w-5 h-5" />
-                  <span className="text-sm">{t("createDocument")}</span>
+                  <span className="text-sm">{t("inventory")}</span>
                 </Button>
               </Link>
             </div>
