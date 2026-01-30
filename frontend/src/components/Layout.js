@@ -18,7 +18,6 @@ import {
   CalendarDays,
   ChefHat,
   Package,
-  FileText,
   Settings,
   LogOut,
   Menu,
