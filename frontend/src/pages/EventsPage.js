@@ -303,49 +303,51 @@ export default function EventsPage() {
                       </p>
                     </div>
                     <Switch
-                      checked={formData.is_booking}
+                      id="multiday-toggle"
+                      checked={formData.is_booking === true}
                       onCheckedChange={(checked) => {
-                        setFormData(prev => ({
-                          ...prev,
+                        const newEndDate = checked 
+                          ? new Date(formData.event_date.getTime() + 86400000) 
+                          : null;
+                        setFormData({
+                          ...formData,
                           is_booking: checked,
-                          end_date: checked ? new Date(prev.event_date.getTime() + 24 * 60 * 60 * 1000) : null
-                        }));
+                          end_date: newEndDate
+                        });
                       }}
                     />
                   </div>
 
-                  {/* Date fields - Show End Date only when is_booking is true */}
-                  <div className={`grid gap-4 ${formData.is_booking ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    <div className="space-y-2">
-                      <Label>{formData.is_booking ? (language === "es" ? "Fecha Inicio" : "Start Date") : t("eventDate")}</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start text-left font-normal">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {format(formData.event_date, "PPP")}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={formData.event_date}
-                            onSelect={(date) => {
-                              if (date) {
-                                setFormData(prev => {
-                                  const updates = { ...prev, event_date: date };
-                                  if (prev.is_booking && prev.end_date && date > prev.end_date) {
-                                    updates.end_date = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+                  {/* Date fields */}
+                  {formData.is_booking ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Fecha Inicio" : "Start Date"}</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(formData.event_date, "PPP")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={formData.event_date}
+                              onSelect={(date) => {
+                                if (date) {
+                                  const updates = { ...formData, event_date: date };
+                                  if (formData.end_date && date > formData.end_date) {
+                                    updates.end_date = new Date(date.getTime() + 86400000);
                                   }
-                                  return updates;
-                                });
-                              }
-                            }}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    {formData.is_booking === true && (
+                                  setFormData(updates);
+                                }
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <div className="space-y-2">
                         <Label>{language === "es" ? "Fecha Fin" : "End Date"}</Label>
                         <Popover>
@@ -359,15 +361,35 @@ export default function EventsPage() {
                             <Calendar
                               mode="single"
                               selected={formData.end_date}
-                              onSelect={(date) => date && setFormData(prev => ({ ...prev, end_date: date }))}
+                              onSelect={(date) => date && setFormData({ ...formData, end_date: date })}
                               disabled={(date) => date < formData.event_date}
                               initialFocus
                             />
                           </PopoverContent>
                         </Popover>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>{t("eventDate")}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(formData.event_date, "PPP")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={formData.event_date}
+                            onSelect={(date) => date && setFormData({ ...formData, event_date: date })}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>{t("venue")}</Label>
