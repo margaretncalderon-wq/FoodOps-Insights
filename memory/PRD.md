@@ -41,6 +41,9 @@ Build a cloud-based, modular web platform for event and catering businesses with
 
 2. **Events Module**
    - Event CRUD linked to clients
+   - **NEW: Calendar view** with month/year navigation, clickable events
+   - **NEW: Multi-day bookings** (is_booking flag, start_date/end_date)
+   - **NEW: Duplicate event/booking** functionality
    - Event types (Wedding, Corporate, Birthday, Social, Other)
    - Event status tracking
    - Tasks management
@@ -59,10 +62,13 @@ Build a cloud-based, modular web platform for event and catering businesses with
    - Categories and units
 
 5. **Documents Module**
-   - Document generation from events (Quote, BEO, Kitchen Sheet, Packing List, Mise en Place)
+   - **ENHANCED**: All document types (Contract, Proposal, Invoice, BEO, Kitchen Sheet, Packing List, Menu, Mise en Place)
+   - Documents linked to events (visible in event details)
    - Digital signature capability
    - Document preview with print support
    - Client portal link sharing
+   - **NEW: Template settings** (show_prices, requires_signature per doc type)
+   - Kitchen Sheet defaults to NOT showing prices
 
 ### Additional Features ✅
 - Multilingual toggle (EN/ES)
@@ -78,9 +84,8 @@ Build a cloud-based, modular web platform for event and catering businesses with
 
 ### P1 - High Priority
 - [ ] Moodboard feature for Client Portal
-- [ ] Event timeline/calendar view
 - [ ] Automated follow-up reminders
-- [ ] Custom document templates per company
+- [ ] Custom document templates content editor
 
 ### P2 - Medium Priority
 - [ ] Inventory rollover reports
@@ -98,5 +103,5 @@ Build a cloud-based, modular web platform for event and catering businesses with
 1. Integrate payment gateway (user deferred)
 2. Add email notifications
 3. Build moodboard feature
-4. Implement calendar view for events
+4. Add custom document template content editor
 5. Add reporting module
