@@ -1194,6 +1194,8 @@ async def create_template(data: dict, user: User = Depends(get_current_user)):
         "created_at": now.isoformat()
     }
     await db.templates.insert_one(template_doc)
+    # Return without _id
+    del template_doc["_id"]
     return template_doc
 
 @settings_router.put("/templates/{template_id}")
