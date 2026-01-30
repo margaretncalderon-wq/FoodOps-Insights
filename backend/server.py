@@ -579,9 +579,12 @@ async def get_events(user: User = Depends(get_current_user)):
     ).sort("event_date", 1).to_list(1000)
     
     for e in events:
-        for field in ["event_date", "created_at", "updated_at"]:
-            if isinstance(e.get(field), str):
+        for field in ["event_date", "end_date", "created_at", "updated_at"]:
+            if e.get(field) and isinstance(e[field], str):
                 e[field] = datetime.fromisoformat(e[field])
+        # Ensure documents field exists
+        if "documents" not in e:
+            e["documents"] = []
     return events
 
 @events_router.post("", response_model=Event)
@@ -594,9 +597,11 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
         "company_id": user.company_id,
         **data.model_dump(),
         "event_date": data.event_date.isoformat(),
+        "end_date": data.end_date.isoformat() if data.end_date else None,
         "timeline": [],
         "tasks": [],
         "menu_items": [],
+        "documents": [],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
@@ -609,9 +614,49 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
     )
     
     event_doc["event_date"] = data.event_date
+    event_doc["end_date"] = data.end_date
     event_doc["created_at"] = now
     event_doc["updated_at"] = now
     return Event(**event_doc)
+
+@events_router.post("/{event_id}/duplicate", response_model=Event)
+async def duplicate_event(event_id: str, user: User = Depends(get_current_user)):
+    """Duplicate an existing event or booking"""
+    original = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not original:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    new_event_id = f"event_{uuid.uuid4().hex[:12]}"
+    
+    # Create duplicate with new ID and reset certain fields
+    new_event = {
+        **original,
+        "event_id": new_event_id,
+        "name": f"{original['name']} (Copy)",
+        "status": "planning",
+        "tasks": [],  # Reset tasks
+        "documents": [],  # Reset documents
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.events.insert_one(new_event)
+    
+    # Update client events count
+    await db.clients.update_one(
+        {"client_id": original["client_id"]},
+        {"$inc": {"events_count": 1}}
+    )
+    
+    for field in ["event_date", "end_date", "created_at", "updated_at"]:
+        if new_event.get(field) and isinstance(new_event[field], str):
+            new_event[field] = datetime.fromisoformat(new_event[field])
+    
+    return Event(**new_event)
 
 @events_router.get("/{event_id}", response_model=Event)
 async def get_event(event_id: str, user: User = Depends(get_current_user)):
@@ -621,9 +666,11 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
     )
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    for field in ["event_date", "created_at", "updated_at"]:
-        if isinstance(event.get(field), str):
+    for field in ["event_date", "end_date", "created_at", "updated_at"]:
+        if event.get(field) and isinstance(event[field], str):
             event[field] = datetime.fromisoformat(event[field])
+    if "documents" not in event:
+        event["documents"] = []
     return Event(**event)
 
 @events_router.put("/{event_id}", response_model=Event)
@@ -631,6 +678,7 @@ async def update_event(event_id: str, data: EventCreate, user: User = Depends(ge
     now = datetime.now(timezone.utc)
     update_data = data.model_dump()
     update_data["event_date"] = data.event_date.isoformat()
+    update_data["end_date"] = data.end_date.isoformat() if data.end_date else None
     update_data["updated_at"] = now.isoformat()
     
     result = await db.events.update_one(
