@@ -23,10 +23,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Plus, ChefHat, FileText, CheckCircle } from "lucide-react";
+import { ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, Plus, ChefHat, FileText, CheckCircle, PenLine, Share2, Link2, MoreHorizontal, Copy, ExternalLink } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Document types matching the screenshot
+const DOCUMENT_TYPES = [
+  { type: "contract", icon: "📄", requiresSignature: true },
+  { type: "quote", icon: "📝", requiresSignature: true },
+  { type: "invoice", icon: "💰", requiresSignature: false },
+  { type: "beo", icon: "📋", requiresSignature: false },
+  { type: "kitchen_sheet", icon: "👨‍🍳", requiresSignature: false },
+  { type: "packing_list", icon: "📦", requiresSignature: false },
+  { type: "menu", icon: "🍽️", requiresSignature: false },
+  { type: "mise_en_place", icon: "✅", requiresSignature: false },
+];
 
 export default function EventDetails() {
   const { eventId } = useParams();
@@ -36,6 +54,7 @@ export default function EventDetails() {
   const [client, setClient] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [allRecipes, setAllRecipes] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [menuDialogOpen, setMenuDialogOpen] = useState(false);
@@ -57,6 +76,8 @@ export default function EventDetails() {
       if (response.data.menu_items?.length > 0) {
         fetchMenuRecipes(response.data.menu_items);
       }
+      // Fetch documents for this event
+      fetchDocuments();
     } catch (error) {
       console.error("Failed to fetch event:", error);
       toast.error("Event not found");
@@ -95,6 +116,15 @@ export default function EventDetails() {
       }
     }
     setRecipes(fetchedRecipes);
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await axios.get(`${API}/documents?event_id=${eventId}`, { withCredentials: true });
+      setDocuments(response.data);
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
+    }
   };
 
   const handleAddTask = async (e) => {
@@ -139,10 +169,27 @@ export default function EventDetails() {
     try {
       const response = await axios.post(`${API}/documents/generate/${eventId}/${docType}`, {}, { withCredentials: true });
       toast.success(language === "es" ? "Documento generado" : "Document generated");
-      navigate(`/documents/${response.data.document_id}`);
+      fetchDocuments();
+      fetchEvent();
     } catch (error) {
       toast.error("Failed to generate document");
     }
+  };
+
+  const handleDuplicateEvent = async () => {
+    try {
+      const response = await axios.post(`${API}/events/${eventId}/duplicate`, {}, { withCredentials: true });
+      toast.success(language === "es" ? "Evento duplicado" : "Event duplicated");
+      navigate(`/events/${response.data.event_id}`);
+    } catch (error) {
+      toast.error("Failed to duplicate event");
+    }
+  };
+
+  const copyPortalLink = (documentId) => {
+    const url = `${window.location.origin}/portal/${documentId}`;
+    navigator.clipboard.writeText(url);
+    toast.success(language === "es" ? "Enlace copiado" : "Link copied");
   };
 
   const statusColors = {
@@ -151,6 +198,25 @@ export default function EventDetails() {
     inProgress: "bg-warning/10 text-warning",
     completed: "bg-primary/10 text-primary",
     cancelled: "bg-destructive/10 text-destructive",
+  };
+
+  const docTypeLabels = {
+    contract: { en: "Contract", es: "Contrato" },
+    quote: { en: "Proposal", es: "Propuesta" },
+    invoice: { en: "Invoice", es: "Factura" },
+    beo: { en: "Banquet Event Order", es: "Orden de Evento" },
+    kitchen_sheet: { en: "Kitchen Sheet", es: "Hoja de Cocina" },
+    packing_list: { en: "Packing/Setup List", es: "Lista de Montaje" },
+    menu: { en: "Menu", es: "Menú" },
+    mise_en_place: { en: "Mise en Place", es: "Mise en Place" },
+  };
+
+  const getDuration = () => {
+    if (!event?.is_booking || !event?.end_date) return null;
+    const start = new Date(event.event_date);
+    const end = new Date(event.end_date);
+    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    return `${days} ${language === "es" ? "días" : "days"}`;
   };
 
   if (loading) {
@@ -167,10 +233,16 @@ export default function EventDetails() {
     <Layout>
       <div className="space-y-6" data-testid="event-details-page">
         {/* Back Button */}
-        <Link to="/events" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" />
-          {language === "es" ? "Volver a Eventos" : "Back to Events"}
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link to="/events" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            {language === "es" ? "Volver a Eventos" : "Back to Events"}
+          </Link>
+          <Button variant="outline" onClick={handleDuplicateEvent} className="gap-2">
+            <Copy className="w-4 h-4" />
+            {t("duplicate")}
+          </Button>
+        </div>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -178,6 +250,9 @@ export default function EventDetails() {
             <div className="flex items-center gap-3 mb-2">
               <h1 className="font-heading text-3xl font-bold text-foreground">{event?.name}</h1>
               <Badge className={statusColors[event?.status]}>{t(event?.status)}</Badge>
+              {event?.is_booking && (
+                <Badge variant="outline">{language === "es" ? "Reserva" : "Booking"}</Badge>
+              )}
             </div>
             <p className="text-muted-foreground capitalize">{event?.event_type}</p>
           </div>
@@ -194,10 +269,26 @@ export default function EventDetails() {
                 <p className="text-sm text-muted-foreground">{t("date")}</p>
                 <p className="font-medium">
                   {new Date(event?.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                  {event?.is_booking && event?.end_date && (
+                    <span className="text-muted-foreground"> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</span>
+                  )}
                 </p>
               </div>
             </CardContent>
           </Card>
+          {getDuration() && (
+            <Card>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-secondary/50 flex items-center justify-center">
+                  <CalendarDays className="w-6 h-6 text-secondary-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === "es" ? "Duración" : "Duration"}</p>
+                  <p className="font-medium">{getDuration()}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {event?.venue && (
             <Card>
               <CardContent className="p-4 flex items-center gap-4">
@@ -236,12 +327,131 @@ export default function EventDetails() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="tasks" className="space-y-6">
+        <Tabs defaultValue="docs" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="docs" className="gap-2">
+              <FileText className="w-4 h-4" />
+              {t("documents")} ({documents.length})
+            </TabsTrigger>
             <TabsTrigger value="tasks">{t("tasks")}</TabsTrigger>
             <TabsTrigger value="menu">{t("menu")}</TabsTrigger>
-            <TabsTrigger value="documents">{t("documents")}</TabsTrigger>
           </TabsList>
+
+          {/* Documents Tab - Similar to Tripleseat */}
+          <TabsContent value="docs">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-heading text-lg">{t("documents")}</CardTitle>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="gap-2" data-testid="add-document-btn">
+                      <Plus className="w-4 h-4" />
+                      {language === "es" ? "Agregar documento" : "Add document"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {DOCUMENT_TYPES.map((dt) => (
+                      <DropdownMenuItem
+                        key={dt.type}
+                        onClick={() => handleGenerateDocument(dt.type)}
+                        data-testid={`generate-${dt.type}-btn`}
+                      >
+                        <span className="mr-2">{dt.icon}</span>
+                        {docTypeLabels[dt.type]?.[language] || dt.type}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardHeader>
+              <CardContent>
+                {documents.length > 0 ? (
+                  <div className="divide-y">
+                    {documents.map((doc) => {
+                      const requiresSignature = DOCUMENT_TYPES.find(d => d.type === doc.document_type)?.requiresSignature;
+                      const isSigned = doc.status === "signed";
+                      
+                      return (
+                        <div
+                          key={doc.document_id}
+                          className="flex items-center gap-4 py-4 hover:bg-muted/30 -mx-4 px-4 transition-colors"
+                          data-testid={`doc-row-${doc.document_id}`}
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              to={`/documents/${doc.document_id}`}
+                              className="font-medium hover:text-primary truncate block"
+                            >
+                              {doc.title}
+                            </Link>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">PDF</Badge>
+                              {requiresSignature && !isSigned && (
+                                <span className="flex items-center gap-1 text-xs text-destructive">
+                                  <PenLine className="w-3 h-3" />
+                                  {t("notSigned")}
+                                </span>
+                              )}
+                              {isSigned && (
+                                <span className="flex items-center gap-1 text-xs text-success">
+                                  <CheckCircle className="w-3 h-3" />
+                                  {t("signed")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyPortalLink(doc.document_id)}
+                              className="gap-1"
+                            >
+                              <Share2 className="w-4 h-4" />
+                              <span className="hidden sm:inline">Share</span>
+                            </Button>
+                            <Link to={`/portal/${doc.document_id}`} target="_blank">
+                              <Button variant="ghost" size="sm" className="gap-1">
+                                <Link2 className="w-4 h-4" />
+                                <span className="hidden sm:inline">Link</span>
+                              </Button>
+                            </Link>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/documents/${doc.document_id}`}>
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    {language === "es" ? "Ver" : "View"}
+                                  </Link>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>{t("noResults")}</p>
+                    <p className="text-sm mt-2">
+                      {language === "es"
+                        ? "Usa el botón 'Agregar documento' para crear documentos"
+                        : "Use the 'Add document' button to create documents"}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Tasks Tab */}
           <TabsContent value="tasks">
@@ -369,37 +579,6 @@ export default function EventDetails() {
                     <p>{t("noResults")}</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Documents Tab */}
-          <TabsContent value="documents">
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-heading text-lg">{t("documents")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    { type: "quote", label: t("quote") },
-                    { type: "beo", label: t("beo") },
-                    { type: "kitchen_sheet", label: t("kitchenSheet") },
-                    { type: "packing_list", label: t("packingList") },
-                    { type: "mise_en_place", label: t("miseEnPlace") },
-                  ].map((doc) => (
-                    <Button
-                      key={doc.type}
-                      variant="outline"
-                      className="h-auto py-4 flex flex-col gap-2"
-                      onClick={() => handleGenerateDocument(doc.type)}
-                      data-testid={`generate-${doc.type}-btn`}
-                    >
-                      <FileText className="w-6 h-6" />
-                      <span>{doc.label}</span>
-                    </Button>
-                  ))}
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
