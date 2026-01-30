@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import httpx
+import math
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,7 +26,7 @@ db = client[os.environ['DB_NAME']]
 # JWT Configuration
 JWT_SECRET = os.environ.get('JWT_SECRET', 'eep-evoque-secret-key')
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
+JWT_EXPIRATION_HOURS = 24 * 7
 
 # Create the main app
 app = FastAPI(title="EEP Evoque Events Platform API")
@@ -37,11 +38,14 @@ crm_router = APIRouter(prefix="/crm", tags=["CRM"])
 events_router = APIRouter(prefix="/events", tags=["Events"])
 recipes_router = APIRouter(prefix="/recipes", tags=["Recipes"])
 inventory_router = APIRouter(prefix="/inventory", tags=["Inventory"])
+suppliers_router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
+operations_router = APIRouter(prefix="/operations", tags=["Operations Inventory"])
 documents_router = APIRouter(prefix="/documents", tags=["Documents"])
+finance_router = APIRouter(prefix="/finance", tags=["Finance"])
 settings_router = APIRouter(prefix="/settings", tags=["Settings"])
 portal_router = APIRouter(prefix="/portal", tags=["Client Portal"])
+reports_router = APIRouter(prefix="/reports", tags=["Reports"])
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -81,9 +85,10 @@ class Company(BaseModel):
     secondary_color: str = "#E5DCC5"
     default_language: str = "en"
     currency: str = "USD"
+    default_tax_rate: float = 0.0
     created_at: datetime
 
-# CRM Models
+# CRM Models - Enhanced with source and converted status
 class ClientCreate(BaseModel):
     name: str
     email: Optional[EmailStr] = None
@@ -91,7 +96,8 @@ class ClientCreate(BaseModel):
     company_name: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
-    pipeline_stage: str = "lead"
+    pipeline_stage: str = "lead"  # lead, contacted, proposal, negotiation, won, lost, converted
+    client_source: str = "direct"  # corporate, planner, referral, direct
     tags: List[str] = []
 
 class Client(BaseModel):
@@ -104,20 +110,22 @@ class Client(BaseModel):
     address: Optional[str] = None
     notes: Optional[str] = None
     pipeline_stage: str
+    client_source: str = "direct"
     tags: List[str] = []
     total_revenue: float = 0.0
     events_count: int = 0
+    last_contact_date: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
-# Event Models (supports both single events and multi-day bookings)
+# Event Models with multi-day support
 class EventCreate(BaseModel):
     client_id: str
     name: str
     event_type: str
-    event_date: datetime  # Start date
-    end_date: Optional[datetime] = None  # For multi-day bookings
-    is_booking: bool = False  # True for multi-day events
+    event_date: datetime
+    end_date: Optional[datetime] = None
+    is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int = 0
     budget: float = 0.0
@@ -145,71 +153,17 @@ class Event(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-# Recipe Models
-class IngredientItem(BaseModel):
-    ingredient_id: str
-    name: str
-    quantity: float
-    unit: str
-    cost_per_unit: float
-
-class RecipeCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    category: str
-    servings: int = 1
-    prep_time_minutes: int = 0
-    cook_time_minutes: int = 0
-    ingredients: List[IngredientItem] = []
-    instructions: List[str] = []
-    image_url: Optional[str] = None
-
-class Recipe(BaseModel):
-    recipe_id: str
-    company_id: str
-    name: str
-    description: Optional[str] = None
-    category: str
-    servings: int
-    prep_time_minutes: int
-    cook_time_minutes: int
-    ingredients: List[IngredientItem]
-    instructions: List[str]
-    total_cost: float
-    cost_per_serving: float
-    image_url: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
-# Inventory Models
-class IngredientCreate(BaseModel):
-    name: str
-    category: str
-    unit: str
-    cost_per_unit: float
-    stock_quantity: float = 0.0
-    min_stock_level: float = 0.0
-    supplier_id: Optional[str] = None
-
-class Ingredient(BaseModel):
-    ingredient_id: str
-    company_id: str
-    name: str
-    category: str
-    unit: str
-    cost_per_unit: float
-    stock_quantity: float
-    min_stock_level: float
-    supplier_id: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
+# Supplier Models - Enhanced
 class SupplierCreate(BaseModel):
     name: str
     contact_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    delivery_days: List[str] = []  # ["Monday", "Wednesday", "Friday"]
+    minimum_order: float = 0.0
+    payment_terms: str = "net30"
+    notes: Optional[str] = None
 
 class Supplier(BaseModel):
     supplier_id: str
@@ -219,12 +173,185 @@ class Supplier(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    delivery_days: List[str] = []
+    minimum_order: float = 0.0
+    payment_terms: str = "net30"
+    notes: Optional[str] = None
     created_at: datetime
 
-# Document Models
+# Ingredient Models - Enhanced for recipe costing
+class IngredientCreate(BaseModel):
+    name: str
+    category: str  # protein, dairy, produce, dry_goods, beverage, packaging, etc.
+    inventory_type: str = "food"  # food, packaging, disposable, equipment, event_supply
+    unit: str  # g, kg, ml, L, oz, lb, unit
+    cost_per_unit: float = 0.0
+    stock_quantity: float = 0.0
+    min_stock_level: float = 0.0
+    par_level: float = 0.0
+    yield_waste_percent: float = 0.0
+    allergens: List[str] = []
+    storage_location: str = "dry"  # dry, fridge, freezer
+    reorder_threshold: float = 0.0
+    preferred_supplier_id: Optional[str] = None
+    alternate_supplier_ids: List[str] = []
+    pack_size: float = 1.0
+    pack_unit: str = "unit"  # case, bag, box, gallon
+
+class Ingredient(BaseModel):
+    ingredient_id: str
+    company_id: str
+    name: str
+    category: str
+    inventory_type: str = "food"
+    unit: str
+    cost_per_unit: float
+    stock_quantity: float
+    min_stock_level: float
+    par_level: float = 0.0
+    yield_waste_percent: float = 0.0
+    allergens: List[str] = []
+    storage_location: str = "dry"
+    reorder_threshold: float = 0.0
+    preferred_supplier_id: Optional[str] = None
+    alternate_supplier_ids: List[str] = []
+    pack_size: float = 1.0
+    pack_unit: str = "unit"
+    average_cost: float = 0.0
+    price_history: List[Dict[str, Any]] = []
+    created_at: datetime
+    updated_at: datetime
+
+# Supplier Item (SKU Mapping)
+class SupplierItemCreate(BaseModel):
+    supplier_id: str
+    ingredient_id: str
+    supplier_sku: str = ""
+    supplier_item_name: str = ""
+    purchase_unit: str = "unit"  # case, bag, box, gallon, lb, kg
+    pack_size_conversion: float = 1.0  # e.g., 1 case = 12 units
+    last_purchase_price: float = 0.0
+    tax_rate: float = 0.0
+
+# Recipe Models - GastroKaisen style
+class RecipeIngredient(BaseModel):
+    item_id: str  # ingredient_id or recipe_id (for sub-recipes)
+    item_type: str = "ingredient"  # ingredient or recipe
+    item_name: str
+    quantity: float
+    unit: str
+    cost_per_unit: float = 0.0
+    total_cost: float = 0.0
+
+class RecipeCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    recipe_type: str = "final_dish"  # base, component, final_dish
+    category: str = "main"
+    yield_quantity: float = 1.0
+    yield_unit: str = "portion"
+    portion_size: float = 1.0
+    portion_unit: str = "serving"
+    prep_time_minutes: int = 0
+    cook_time_minutes: int = 0
+    labor_minutes: int = 0
+    ingredients: List[RecipeIngredient] = []
+    instructions: List[str] = []
+    sell_price: float = 0.0
+    image_url: Optional[str] = None
+
+class Recipe(BaseModel):
+    recipe_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    recipe_type: str = "final_dish"
+    category: str
+    yield_quantity: float
+    yield_unit: str
+    portion_size: float = 1.0
+    portion_unit: str = "serving"
+    prep_time_minutes: int
+    cook_time_minutes: int
+    labor_minutes: int = 0
+    ingredients: List[RecipeIngredient]
+    instructions: List[str]
+    total_cost: float
+    cost_per_yield: float
+    cost_per_portion: float
+    sell_price: float = 0.0
+    food_cost_percent: float = 0.0
+    image_url: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Menu Item Model
+class MenuItemCreate(BaseModel):
+    name: str
+    recipe_id: str
+    default_portions: int = 1
+    portion_size: float = 1.0
+    sell_price: float = 0.0
+    category: str = "main"
+
+# Event Menu Model
+class EventMenuCreate(BaseModel):
+    event_id: str
+    menu_items: List[Dict[str, Any]]  # [{menu_item_id, quantity, portion_multiplier}]
+    notes: Optional[str] = None
+
+# Purchase Order Models
+class PurchaseOrderLineCreate(BaseModel):
+    ingredient_id: str
+    ingredient_name: str
+    quantity_needed: float
+    quantity_on_hand: float
+    quantity_to_order: float
+    purchase_unit: str
+    pack_size: float = 1.0
+    unit_cost: float
+    total_cost: float
+    notes: Optional[str] = None
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id: str
+    event_id: Optional[str] = None
+    lines: List[PurchaseOrderLineCreate]
+    notes: Optional[str] = None
+
+# Invoice Models - with discounts and taxes
+class InvoiceLineCreate(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    discount_percent: float = 0.0
+    tax_rate: float = 0.0
+    linked_item_id: Optional[str] = None
+    linked_item_type: Optional[str] = None  # menu_item, service, rental
+
+class InvoiceCreate(BaseModel):
+    client_id: str
+    event_id: Optional[str] = None
+    due_date: datetime
+    lines: List[InvoiceLineCreate]
+    discount_percent: float = 0.0
+    tax_rate: float = 0.0
+    notes: Optional[str] = None
+
+# Payment Model
+class PaymentCreate(BaseModel):
+    payment_type: str = "incoming"  # incoming, outgoing
+    invoice_id: str
+    invoice_type: str = "client"  # client, supplier
+    payment_method: str = "transfer"  # cash, transfer, card, check, platform
+    amount: float
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+
+# Document Model
 class DocumentCreate(BaseModel):
     event_id: str
-    document_type: str  # quote, beo, kitchen_sheet, packing_list, mise_en_place
+    document_type: str
     title: str
     content: Dict[str, Any] = {}
 
@@ -239,6 +366,7 @@ class Document(BaseModel):
     signed_at: Optional[datetime] = None
     signed_by: Optional[str] = None
     status: str = "draft"
+    requires_signature: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -259,9 +387,7 @@ def create_jwt_token(user_id: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 async def get_current_user(request: Request) -> User:
-    # Check cookie first
     token = request.cookies.get("session_token")
-    # Then check Authorization header
     if not token:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -270,7 +396,6 @@ async def get_current_user(request: Request) -> User:
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    # Check if it's a session token (Google OAuth)
     session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
     if session:
         expires_at = session.get("expires_at")
@@ -286,7 +411,6 @@ async def get_current_user(request: Request) -> User:
             raise HTTPException(status_code=401, detail="User not found")
         return User(**user_doc)
     
-    # Try JWT token
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_doc = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
@@ -297,6 +421,27 @@ async def get_current_user(request: Request) -> User:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+# ============== UNIT CONVERSION HELPERS ==============
+
+UNIT_CONVERSIONS = {
+    "g": {"kg": 0.001, "oz": 0.035274, "lb": 0.00220462},
+    "kg": {"g": 1000, "oz": 35.274, "lb": 2.20462},
+    "oz": {"g": 28.3495, "kg": 0.0283495, "lb": 0.0625},
+    "lb": {"g": 453.592, "kg": 0.453592, "oz": 16},
+    "ml": {"L": 0.001, "oz": 0.033814},
+    "L": {"ml": 1000, "oz": 33.814},
+    "unit": {"each": 1, "piece": 1},
+    "each": {"unit": 1, "piece": 1},
+}
+
+def convert_units(quantity: float, from_unit: str, to_unit: str) -> float:
+    """Convert quantity from one unit to another"""
+    if from_unit == to_unit:
+        return quantity
+    if from_unit in UNIT_CONVERSIONS and to_unit in UNIT_CONVERSIONS.get(from_unit, {}):
+        return quantity * UNIT_CONVERSIONS[from_unit][to_unit]
+    return quantity  # Return as-is if no conversion found
 
 # ============== AUTH ROUTES ==============
 
@@ -310,7 +455,6 @@ async def register(data: UserCreate, response: Response):
     company_id = f"company_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
     
-    # Create company
     company_doc = {
         "company_id": company_id,
         "name": data.company_name or f"{data.name}'s Company",
@@ -319,11 +463,11 @@ async def register(data: UserCreate, response: Response):
         "secondary_color": "#E5DCC5",
         "default_language": "en",
         "currency": "USD",
+        "default_tax_rate": 0.0,
         "created_at": now.isoformat()
     }
     await db.companies.insert_one(company_doc)
     
-    # Create user
     user_doc = {
         "user_id": user_id,
         "email": data.email,
@@ -337,25 +481,9 @@ async def register(data: UserCreate, response: Response):
     await db.users.insert_one(user_doc)
     
     token = create_jwt_token(user_id)
-    response.set_cookie(
-        key="session_token",
-        value=token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=JWT_EXPIRATION_HOURS * 3600
-    )
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
     
-    user = User(
-        user_id=user_id,
-        email=data.email,
-        name=data.name,
-        picture=None,
-        company_id=company_id,
-        role="admin",
-        created_at=now
-    )
+    user = User(user_id=user_id, email=data.email, name=data.name, picture=None, company_id=company_id, role="admin", created_at=now)
     return TokenResponse(access_token=token, user=user)
 
 @auth_router.post("/login", response_model=TokenResponse)
@@ -368,22 +496,11 @@ async def login(data: UserLogin, response: Response):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_jwt_token(user_doc["user_id"])
-    response.set_cookie(
-        key="session_token",
-        value=token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=JWT_EXPIRATION_HOURS * 3600
-    )
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
     
     user = User(
-        user_id=user_doc["user_id"],
-        email=user_doc["email"],
-        name=user_doc["name"],
-        picture=user_doc.get("picture"),
-        company_id=user_doc.get("company_id"),
+        user_id=user_doc["user_id"], email=user_doc["email"], name=user_doc["name"],
+        picture=user_doc.get("picture"), company_id=user_doc.get("company_id"),
         role=user_doc.get("role", "admin"),
         created_at=datetime.fromisoformat(user_doc["created_at"]) if isinstance(user_doc["created_at"], str) else user_doc["created_at"]
     )
@@ -391,18 +508,13 @@ async def login(data: UserLogin, response: Response):
 
 @auth_router.post("/session")
 async def exchange_session(request: Request, response: Response):
-    """Exchange Google OAuth session_id for session_token"""
     body = await request.json()
     session_id = body.get("session_id")
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id required")
     
-    # Fetch user data from Emergent Auth
     async with httpx.AsyncClient() as client_http:
-        resp = await client_http.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
-        )
+        resp = await client_http.get("https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data", headers={"X-Session-ID": session_id})
         if resp.status_code != 200:
             raise HTTPException(status_code=401, detail="Invalid session")
         oauth_data = resp.json()
@@ -417,58 +529,22 @@ async def exchange_session(request: Request, response: Response):
     
     if user_doc:
         user_id = user_doc["user_id"]
-        # Update user info
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {"name": name, "picture": picture}}
-        )
+        await db.users.update_one({"user_id": user_id}, {"$set": {"name": name, "picture": picture}})
     else:
-        # Create new user and company
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         company_id = f"company_{uuid.uuid4().hex[:12]}"
         
-        company_doc = {
-            "company_id": company_id,
-            "name": f"{name}'s Company",
-            "logo_url": None,
-            "primary_color": "#3A4D3F",
-            "secondary_color": "#E5DCC5",
-            "default_language": "en",
-            "currency": "USD",
-            "created_at": now.isoformat()
-        }
+        company_doc = {"company_id": company_id, "name": f"{name}'s Company", "logo_url": None, "primary_color": "#3A4D3F", "secondary_color": "#E5DCC5", "default_language": "en", "currency": "USD", "default_tax_rate": 0.0, "created_at": now.isoformat()}
         await db.companies.insert_one(company_doc)
         
-        user_doc = {
-            "user_id": user_id,
-            "email": email,
-            "name": name,
-            "picture": picture,
-            "company_id": company_id,
-            "role": "admin",
-            "created_at": now.isoformat()
-        }
+        user_doc = {"user_id": user_id, "email": email, "name": name, "picture": picture, "company_id": company_id, "role": "admin", "created_at": now.isoformat()}
         await db.users.insert_one(user_doc)
     
-    # Store session
     expires_at = now + timedelta(days=7)
     await db.user_sessions.delete_many({"user_id": user_id})
-    await db.user_sessions.insert_one({
-        "user_id": user_id,
-        "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": now.isoformat()
-    })
+    await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": now.isoformat()})
     
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=7 * 24 * 3600
-    )
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 3600)
     
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     return user_doc
@@ -485,20 +561,17 @@ async def logout(request: Request, response: Response):
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out successfully"}
 
-# ============== CRM ROUTES ==============
+# ============== CRM ROUTES - Enhanced ==============
 
 @crm_router.get("/clients", response_model=List[Client])
 async def get_clients(user: User = Depends(get_current_user)):
-    clients = await db.clients.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(1000)
-    
+    clients = await db.clients.find({"company_id": user.company_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     for c in clients:
-        if isinstance(c.get("created_at"), str):
-            c["created_at"] = datetime.fromisoformat(c["created_at"])
-        if isinstance(c.get("updated_at"), str):
-            c["updated_at"] = datetime.fromisoformat(c["updated_at"])
+        for field in ["created_at", "updated_at", "last_contact_date"]:
+            if c.get(field) and isinstance(c[field], str):
+                c[field] = datetime.fromisoformat(c[field])
+        if "client_source" not in c:
+            c["client_source"] = "direct"
     return clients
 
 @crm_router.post("/clients", response_model=Client)
@@ -512,26 +585,27 @@ async def create_client(data: ClientCreate, user: User = Depends(get_current_use
         **data.model_dump(),
         "total_revenue": 0.0,
         "events_count": 0,
+        "last_contact_date": now.isoformat(),
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
     await db.clients.insert_one(client_doc)
     client_doc["created_at"] = now
     client_doc["updated_at"] = now
+    client_doc["last_contact_date"] = now
+    del client_doc["_id"]
     return Client(**client_doc)
 
 @crm_router.get("/clients/{client_id}", response_model=Client)
 async def get_client(client_id: str, user: User = Depends(get_current_user)):
-    client = await db.clients.find_one(
-        {"client_id": client_id, "company_id": user.company_id},
-        {"_id": 0}
-    )
+    client = await db.clients.find_one({"client_id": client_id, "company_id": user.company_id}, {"_id": 0})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    if isinstance(client.get("created_at"), str):
-        client["created_at"] = datetime.fromisoformat(client["created_at"])
-    if isinstance(client.get("updated_at"), str):
-        client["updated_at"] = datetime.fromisoformat(client["updated_at"])
+    for field in ["created_at", "updated_at", "last_contact_date"]:
+        if client.get(field) and isinstance(client[field], str):
+            client[field] = datetime.fromisoformat(client[field])
+    if "client_source" not in client:
+        client["client_source"] = "direct"
     return Client(**client)
 
 @crm_router.put("/clients/{client_id}", response_model=Client)
@@ -554,255 +628,448 @@ async def delete_client(client_id: str, user: User = Depends(get_current_user)):
 
 @crm_router.get("/pipeline")
 async def get_pipeline(user: User = Depends(get_current_user)):
-    stages = ["lead", "contacted", "proposal", "negotiation", "won", "lost"]
+    stages = ["lead", "contacted", "proposal", "negotiation", "won", "lost", "converted"]
     pipeline = {}
     for stage in stages:
-        clients = await db.clients.find(
-            {"company_id": user.company_id, "pipeline_stage": stage},
-            {"_id": 0}
-        ).to_list(100)
+        clients = await db.clients.find({"company_id": user.company_id, "pipeline_stage": stage}, {"_id": 0}).to_list(100)
         for c in clients:
-            if isinstance(c.get("created_at"), str):
-                c["created_at"] = datetime.fromisoformat(c["created_at"])
-            if isinstance(c.get("updated_at"), str):
-                c["updated_at"] = datetime.fromisoformat(c["updated_at"])
+            for field in ["created_at", "updated_at"]:
+                if c.get(field) and isinstance(c[field], str):
+                    c[field] = datetime.fromisoformat(c[field])
+            if "client_source" not in c:
+                c["client_source"] = "direct"
         pipeline[stage] = clients
     return pipeline
 
-# ============== EVENTS ROUTES ==============
+@crm_router.get("/sources")
+async def get_client_sources(user: User = Depends(get_current_user)):
+    """Get client count by source"""
+    sources = ["corporate", "planner", "referral", "direct"]
+    result = {}
+    for source in sources:
+        count = await db.clients.count_documents({"company_id": user.company_id, "client_source": source})
+        result[source] = count
+    return result
 
-@events_router.get("", response_model=List[Event])
-async def get_events(user: User = Depends(get_current_user)):
-    events = await db.events.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).sort("event_date", 1).to_list(1000)
+@crm_router.get("/stats")
+async def get_crm_stats(user: User = Depends(get_current_user)):
+    """Get CRM statistics"""
+    total = await db.clients.count_documents({"company_id": user.company_id})
+    active = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": {"$in": ["lead", "contacted", "proposal", "negotiation"]}})
+    converted = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": "converted"})
+    won = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": "won"})
     
-    for e in events:
-        for field in ["event_date", "end_date", "created_at", "updated_at"]:
-            if e.get(field) and isinstance(e[field], str):
-                e[field] = datetime.fromisoformat(e[field])
-        # Ensure documents field exists
-        if "documents" not in e:
-            e["documents"] = []
-    return events
+    # Revenue by source
+    pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$group": {"_id": "$client_source", "total_revenue": {"$sum": "$total_revenue"}, "count": {"$sum": 1}}}
+    ]
+    source_stats = await db.clients.aggregate(pipeline).to_list(10)
+    
+    return {
+        "total_clients": total,
+        "active_clients": active,
+        "converted_clients": converted,
+        "won_clients": won,
+        "by_source": {s["_id"]: {"revenue": s["total_revenue"], "count": s["count"]} for s in source_stats if s["_id"]}
+    }
 
-@events_router.post("", response_model=Event)
-async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
+# ============== SUPPLIERS ROUTES ==============
+
+@suppliers_router.get("", response_model=List[Supplier])
+async def get_suppliers(user: User = Depends(get_current_user)):
+    suppliers = await db.suppliers.find({"company_id": user.company_id}, {"_id": 0}).sort("name", 1).to_list(1000)
+    for s in suppliers:
+        if isinstance(s.get("created_at"), str):
+            s["created_at"] = datetime.fromisoformat(s["created_at"])
+        if "delivery_days" not in s:
+            s["delivery_days"] = []
+        if "minimum_order" not in s:
+            s["minimum_order"] = 0.0
+        if "payment_terms" not in s:
+            s["payment_terms"] = "net30"
+    return suppliers
+
+@suppliers_router.post("", response_model=Supplier)
+async def create_supplier(data: SupplierCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    event_id = f"event_{uuid.uuid4().hex[:12]}"
+    supplier_id = f"sup_{uuid.uuid4().hex[:12]}"
     
-    event_doc = {
-        "event_id": event_id,
+    supplier_doc = {
+        "supplier_id": supplier_id,
         "company_id": user.company_id,
         **data.model_dump(),
-        "event_date": data.event_date.isoformat(),
-        "end_date": data.end_date.isoformat() if data.end_date else None,
-        "timeline": [],
-        "tasks": [],
-        "menu_items": [],
-        "documents": [],
+        "created_at": now.isoformat()
+    }
+    await db.suppliers.insert_one(supplier_doc)
+    del supplier_doc["_id"]
+    supplier_doc["created_at"] = now
+    return Supplier(**supplier_doc)
+
+@suppliers_router.get("/{supplier_id}", response_model=Supplier)
+async def get_supplier(supplier_id: str, user: User = Depends(get_current_user)):
+    supplier = await db.suppliers.find_one({"supplier_id": supplier_id, "company_id": user.company_id}, {"_id": 0})
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    if isinstance(supplier.get("created_at"), str):
+        supplier["created_at"] = datetime.fromisoformat(supplier["created_at"])
+    return Supplier(**supplier)
+
+@suppliers_router.put("/{supplier_id}", response_model=Supplier)
+async def update_supplier(supplier_id: str, data: SupplierCreate, user: User = Depends(get_current_user)):
+    result = await db.suppliers.update_one(
+        {"supplier_id": supplier_id, "company_id": user.company_id},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return await get_supplier(supplier_id, user)
+
+@suppliers_router.delete("/{supplier_id}")
+async def delete_supplier(supplier_id: str, user: User = Depends(get_current_user)):
+    result = await db.suppliers.delete_one({"supplier_id": supplier_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return {"message": "Supplier deleted"}
+
+# Supplier Items (SKU mapping)
+@suppliers_router.post("/items")
+async def create_supplier_item(data: SupplierItemCreate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    item_id = f"si_{uuid.uuid4().hex[:12]}"
+    
+    item_doc = {
+        "item_id": item_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "created_at": now.isoformat()
+    }
+    await db.supplier_items.insert_one(item_doc)
+    del item_doc["_id"]
+    return item_doc
+
+@suppliers_router.get("/items/by-ingredient/{ingredient_id}")
+async def get_supplier_items_for_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):
+    items = await db.supplier_items.find({"company_id": user.company_id, "ingredient_id": ingredient_id}, {"_id": 0}).to_list(100)
+    return items
+
+# ============== INVENTORY ROUTES - Enhanced ==============
+
+@inventory_router.get("/ingredients", response_model=List[Ingredient])
+async def get_ingredients(inventory_type: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {"company_id": user.company_id}
+    if inventory_type:
+        query["inventory_type"] = inventory_type
+    
+    ingredients = await db.ingredients.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
+    
+    for i in ingredients:
+        for field in ["created_at", "updated_at"]:
+            if i.get(field) and isinstance(i[field], str):
+                i[field] = datetime.fromisoformat(i[field])
+        # Set defaults for new fields
+        for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
+            if field not in i:
+                i[field] = default
+    return ingredients
+
+@inventory_router.post("/ingredients", response_model=Ingredient)
+async def create_ingredient(data: IngredientCreate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    ingredient_id = f"ing_{uuid.uuid4().hex[:12]}"
+    
+    ingredient_doc = {
+        "ingredient_id": ingredient_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "average_cost": data.cost_per_unit,
+        "price_history": [{"price": data.cost_per_unit, "date": now.isoformat()}],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
-    await db.events.insert_one(event_doc)
-    
-    # Update client events count
-    await db.clients.update_one(
-        {"client_id": data.client_id},
-        {"$inc": {"events_count": 1}}
-    )
-    
-    event_doc["event_date"] = data.event_date
-    event_doc["end_date"] = data.end_date
-    event_doc["created_at"] = now
-    event_doc["updated_at"] = now
-    return Event(**event_doc)
+    await db.ingredients.insert_one(ingredient_doc)
+    del ingredient_doc["_id"]
+    ingredient_doc["created_at"] = now
+    ingredient_doc["updated_at"] = now
+    return Ingredient(**ingredient_doc)
 
-@events_router.post("/{event_id}/duplicate", response_model=Event)
-async def duplicate_event(event_id: str, user: User = Depends(get_current_user)):
-    """Duplicate an existing event or booking"""
-    original = await db.events.find_one(
-        {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0}
-    )
-    if not original:
-        raise HTTPException(status_code=404, detail="Event not found")
-    
+@inventory_router.get("/ingredients/{ingredient_id}", response_model=Ingredient)
+async def get_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):
+    ingredient = await db.ingredients.find_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0})
+    if not ingredient:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    for field in ["created_at", "updated_at"]:
+        if ingredient.get(field) and isinstance(ingredient[field], str):
+            ingredient[field] = datetime.fromisoformat(ingredient[field])
+    return Ingredient(**ingredient)
+
+@inventory_router.put("/ingredients/{ingredient_id}", response_model=Ingredient)
+async def update_ingredient(ingredient_id: str, data: IngredientCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    new_event_id = f"event_{uuid.uuid4().hex[:12]}"
     
-    # Create duplicate with new ID and reset certain fields
-    new_event = {
-        **original,
-        "event_id": new_event_id,
-        "name": f"{original['name']} (Copy)",
-        "status": "planning",
-        "tasks": [],  # Reset tasks
-        "documents": [],  # Reset documents
-        "created_at": now.isoformat(),
-        "updated_at": now.isoformat()
-    }
+    # Get current ingredient to check price change
+    current = await db.ingredients.find_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0})
+    if not current:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
     
-    await db.events.insert_one(new_event)
+    update_data = {**data.model_dump(), "updated_at": now.isoformat()}
     
-    # Update client events count
-    await db.clients.update_one(
-        {"client_id": original["client_id"]},
-        {"$inc": {"events_count": 1}}
-    )
+    # Log price change
+    if current.get("cost_per_unit", 0) != data.cost_per_unit:
+        price_history = current.get("price_history", [])
+        price_history.append({"price": data.cost_per_unit, "date": now.isoformat(), "previous": current.get("cost_per_unit")})
+        update_data["price_history"] = price_history
     
-    for field in ["event_date", "end_date", "created_at", "updated_at"]:
-        if new_event.get(field) and isinstance(new_event[field], str):
-            new_event[field] = datetime.fromisoformat(new_event[field])
-    
-    return Event(**new_event)
+    await db.ingredients.update_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"$set": update_data})
+    return await get_ingredient(ingredient_id, user)
 
-@events_router.get("/{event_id}", response_model=Event)
-async def get_event(event_id: str, user: User = Depends(get_current_user)):
-    event = await db.events.find_one(
-        {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0}
-    )
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-    for field in ["event_date", "end_date", "created_at", "updated_at"]:
-        if event.get(field) and isinstance(event[field], str):
-            event[field] = datetime.fromisoformat(event[field])
-    if "documents" not in event:
-        event["documents"] = []
-    return Event(**event)
+@inventory_router.delete("/ingredients/{ingredient_id}")
+async def delete_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):
+    result = await db.ingredients.delete_one({"ingredient_id": ingredient_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    return {"message": "Ingredient deleted"}
 
-@events_router.put("/{event_id}", response_model=Event)
-async def update_event(event_id: str, data: EventCreate, user: User = Depends(get_current_user)):
+@inventory_router.post("/ingredients/{ingredient_id}/adjust")
+async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Adjust stock quantity (waste, breakage, count correction)"""
     now = datetime.now(timezone.utc)
-    update_data = data.model_dump()
-    update_data["event_date"] = data.event_date.isoformat()
-    update_data["end_date"] = data.end_date.isoformat() if data.end_date else None
-    update_data["updated_at"] = now.isoformat()
+    adjustment = data.get("adjustment", 0)
+    reason = data.get("reason", "manual")
     
-    result = await db.events.update_one(
-        {"event_id": event_id, "company_id": user.company_id},
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return await get_event(event_id, user)
-
-@events_router.delete("/{event_id}")
-async def delete_event(event_id: str, user: User = Depends(get_current_user)):
-    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+    ingredient = await db.ingredients.find_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0})
+    if not ingredient:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
     
-    await db.events.delete_one({"event_id": event_id})
-    await db.clients.update_one(
-        {"client_id": event["client_id"]},
-        {"$inc": {"events_count": -1}}
-    )
-    return {"message": "Event deleted"}
-
-@events_router.post("/{event_id}/tasks")
-async def add_task(event_id: str, task: dict, user: User = Depends(get_current_user)):
-    task["task_id"] = f"task_{uuid.uuid4().hex[:8]}"
-    task["completed"] = False
-    task["created_at"] = datetime.now(timezone.utc).isoformat()
+    new_quantity = ingredient.get("stock_quantity", 0) + adjustment
     
-    result = await db.events.update_one(
-        {"event_id": event_id, "company_id": user.company_id},
-        {"$push": {"tasks": task}}
+    await db.ingredients.update_one(
+        {"ingredient_id": ingredient_id},
+        {"$set": {"stock_quantity": new_quantity, "updated_at": now.isoformat()}}
     )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return task
+    
+    # Log adjustment
+    await db.inventory_adjustments.insert_one({
+        "adjustment_id": f"adj_{uuid.uuid4().hex[:8]}",
+        "company_id": user.company_id,
+        "ingredient_id": ingredient_id,
+        "adjustment": adjustment,
+        "reason": reason,
+        "previous_quantity": ingredient.get("stock_quantity", 0),
+        "new_quantity": new_quantity,
+        "user_id": user.user_id,
+        "created_at": now.isoformat()
+    })
+    
+    return {"new_quantity": new_quantity}
 
-@events_router.put("/{event_id}/tasks/{task_id}")
-async def update_task(event_id: str, task_id: str, task: dict, user: User = Depends(get_current_user)):
-    await db.events.update_one(
-        {"event_id": event_id, "company_id": user.company_id, "tasks.task_id": task_id},
-        {"$set": {"tasks.$": {**task, "task_id": task_id}}}
-    )
-    return {"message": "Task updated"}
+@inventory_router.get("/low-stock")
+async def get_low_stock(user: User = Depends(get_current_user)):
+    """Get ingredients below reorder threshold or par level"""
+    ingredients = await db.ingredients.find({
+        "company_id": user.company_id,
+        "$or": [
+            {"$expr": {"$lte": ["$stock_quantity", "$min_stock_level"]}},
+            {"$expr": {"$lte": ["$stock_quantity", "$par_level"]}}
+        ]
+    }, {"_id": 0}).to_list(100)
+    return ingredients
 
-@events_router.post("/{event_id}/menu")
-async def add_menu_item(event_id: str, data: dict, user: User = Depends(get_current_user)):
-    recipe_id = data.get("recipe_id")
-    result = await db.events.update_one(
-        {"event_id": event_id, "company_id": user.company_id},
-        {"$addToSet": {"menu_items": recipe_id}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return {"message": "Menu item added"}
+@inventory_router.get("/valuation")
+async def get_inventory_valuation(user: User = Depends(get_current_user)):
+    """Get total inventory valuation"""
+    pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$group": {
+            "_id": "$inventory_type",
+            "total_value": {"$sum": {"$multiply": ["$stock_quantity", "$cost_per_unit"]}},
+            "item_count": {"$sum": 1}
+        }}
+    ]
+    result = await db.ingredients.aggregate(pipeline).to_list(10)
+    return {r["_id"]: {"value": r["total_value"], "count": r["item_count"]} for r in result if r["_id"]}
 
-# ============== RECIPES ROUTES ==============
+# ============== OPERATIONS INVENTORY (Non-food) ==============
 
-@recipes_router.get("/", response_model=List[Recipe])
-async def get_recipes(user: User = Depends(get_current_user)):
-    recipes = await db.recipes.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).sort("name", 1).to_list(1000)
+@operations_router.get("/items")
+async def get_operations_items(user: User = Depends(get_current_user)):
+    """Get all non-food inventory items"""
+    items = await db.ingredients.find({
+        "company_id": user.company_id,
+        "inventory_type": {"$in": ["packaging", "disposable", "equipment", "event_supply"]}
+    }, {"_id": 0}).sort("name", 1).to_list(1000)
+    return items
+
+@operations_router.get("/below-par")
+async def get_below_par(user: User = Depends(get_current_user)):
+    """Get items below par level"""
+    items = await db.ingredients.find({
+        "company_id": user.company_id,
+        "inventory_type": {"$in": ["packaging", "disposable", "equipment", "event_supply"]},
+        "$expr": {"$lt": ["$stock_quantity", "$par_level"]}
+    }, {"_id": 0}).to_list(100)
+    return items
+
+@operations_router.get("/reorder-list")
+async def get_reorder_list(user: User = Depends(get_current_user)):
+    """Generate reorder list grouped by supplier"""
+    items = await db.ingredients.find({
+        "company_id": user.company_id,
+        "inventory_type": {"$in": ["packaging", "disposable", "equipment", "event_supply"]},
+        "$expr": {"$lt": ["$stock_quantity", "$par_level"]}
+    }, {"_id": 0}).to_list(100)
+    
+    # Group by supplier
+    by_supplier = {}
+    for item in items:
+        supplier_id = item.get("preferred_supplier_id", "no_supplier")
+        if supplier_id not in by_supplier:
+            by_supplier[supplier_id] = []
+        
+        qty_needed = item.get("par_level", 0) - item.get("stock_quantity", 0)
+        pack_size = item.get("pack_size", 1)
+        packs_to_order = math.ceil(qty_needed / pack_size)
+        
+        by_supplier[supplier_id].append({
+            "ingredient_id": item["ingredient_id"],
+            "name": item["name"],
+            "current_stock": item.get("stock_quantity", 0),
+            "par_level": item.get("par_level", 0),
+            "qty_needed": qty_needed,
+            "pack_size": pack_size,
+            "pack_unit": item.get("pack_unit", "unit"),
+            "packs_to_order": packs_to_order,
+            "estimated_cost": packs_to_order * pack_size * item.get("cost_per_unit", 0)
+        })
+    
+    return by_supplier
+
+# ============== RECIPES ROUTES - GastroKaisen Style ==============
+
+@recipes_router.get("", response_model=List[Recipe])
+async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {"company_id": user.company_id}
+    if recipe_type:
+        query["recipe_type"] = recipe_type
+    
+    recipes = await db.recipes.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
     
     for r in recipes:
         for field in ["created_at", "updated_at"]:
-            if isinstance(r.get(field), str):
+            if r.get(field) and isinstance(r[field], str):
                 r[field] = datetime.fromisoformat(r[field])
+        for field, default in [("recipe_type", "final_dish"), ("yield_quantity", 1.0), ("yield_unit", "portion"), ("portion_size", 1.0), ("portion_unit", "serving"), ("labor_minutes", 0), ("cost_per_yield", r.get("cost_per_serving", 0)), ("cost_per_portion", r.get("cost_per_serving", 0)), ("sell_price", 0.0), ("food_cost_percent", 0.0)]:
+            if field not in r:
+                r[field] = default
     return recipes
 
-@recipes_router.post("/", response_model=Recipe)
+async def calculate_recipe_cost(ingredients: List[RecipeIngredient], company_id: str) -> tuple:
+    """Calculate total cost for a recipe's ingredients, including nested recipes"""
+    total_cost = 0.0
+    updated_ingredients = []
+    
+    for ing in ingredients:
+        if ing.item_type == "ingredient":
+            # Get ingredient cost
+            ingredient = await db.ingredients.find_one(
+                {"ingredient_id": ing.item_id, "company_id": company_id},
+                {"_id": 0}
+            )
+            if ingredient:
+                cost_per_unit = ingredient.get("cost_per_unit", 0)
+                # Apply yield/waste adjustment
+                waste_percent = ingredient.get("yield_waste_percent", 0)
+                if waste_percent > 0:
+                    cost_per_unit = cost_per_unit / (1 - waste_percent / 100)
+                line_cost = ing.quantity * cost_per_unit
+                updated_ingredients.append({
+                    **ing.model_dump(),
+                    "cost_per_unit": cost_per_unit,
+                    "total_cost": line_cost
+                })
+                total_cost += line_cost
+            else:
+                updated_ingredients.append(ing.model_dump())
+        else:
+            # Get sub-recipe cost
+            sub_recipe = await db.recipes.find_one(
+                {"recipe_id": ing.item_id, "company_id": company_id},
+                {"_id": 0}
+            )
+            if sub_recipe:
+                cost_per_yield = sub_recipe.get("cost_per_yield", 0)
+                line_cost = ing.quantity * cost_per_yield
+                updated_ingredients.append({
+                    **ing.model_dump(),
+                    "cost_per_unit": cost_per_yield,
+                    "total_cost": line_cost
+                })
+                total_cost += line_cost
+            else:
+                updated_ingredients.append(ing.model_dump())
+    
+    return total_cost, updated_ingredients
+
+@recipes_router.post("", response_model=Recipe)
 async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     recipe_id = f"recipe_{uuid.uuid4().hex[:12]}"
     
-    # Calculate total cost
-    total_cost = sum(i.quantity * i.cost_per_unit for i in data.ingredients)
-    cost_per_serving = total_cost / data.servings if data.servings > 0 else 0
+    # Calculate costs
+    total_cost, updated_ingredients = await calculate_recipe_cost(data.ingredients, user.company_id)
+    cost_per_yield = total_cost / data.yield_quantity if data.yield_quantity > 0 else 0
+    cost_per_portion = cost_per_yield / data.portion_size if data.portion_size > 0 else cost_per_yield
+    food_cost_percent = (cost_per_portion / data.sell_price * 100) if data.sell_price > 0 else 0
     
     recipe_doc = {
         "recipe_id": recipe_id,
         "company_id": user.company_id,
         **data.model_dump(),
-        "ingredients": [i.model_dump() for i in data.ingredients],
+        "ingredients": updated_ingredients,
         "total_cost": total_cost,
-        "cost_per_serving": cost_per_serving,
+        "cost_per_yield": cost_per_yield,
+        "cost_per_portion": cost_per_portion,
+        "food_cost_percent": food_cost_percent,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
     await db.recipes.insert_one(recipe_doc)
+    del recipe_doc["_id"]
     recipe_doc["created_at"] = now
     recipe_doc["updated_at"] = now
     return Recipe(**recipe_doc)
 
 @recipes_router.get("/{recipe_id}", response_model=Recipe)
 async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
-    recipe = await db.recipes.find_one(
-        {"recipe_id": recipe_id, "company_id": user.company_id},
-        {"_id": 0}
-    )
+    recipe = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0})
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
     for field in ["created_at", "updated_at"]:
-        if isinstance(recipe.get(field), str):
+        if recipe.get(field) and isinstance(recipe[field], str):
             recipe[field] = datetime.fromisoformat(recipe[field])
     return Recipe(**recipe)
 
 @recipes_router.put("/{recipe_id}", response_model=Recipe)
 async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    total_cost = sum(i.quantity * i.cost_per_unit for i in data.ingredients)
-    cost_per_serving = total_cost / data.servings if data.servings > 0 else 0
     
-    update_data = data.model_dump()
-    update_data["ingredients"] = [i.model_dump() for i in data.ingredients]
-    update_data["total_cost"] = total_cost
-    update_data["cost_per_serving"] = cost_per_serving
-    update_data["updated_at"] = now.isoformat()
+    # Recalculate costs
+    total_cost, updated_ingredients = await calculate_recipe_cost(data.ingredients, user.company_id)
+    cost_per_yield = total_cost / data.yield_quantity if data.yield_quantity > 0 else 0
+    cost_per_portion = cost_per_yield / data.portion_size if data.portion_size > 0 else cost_per_yield
+    food_cost_percent = (cost_per_portion / data.sell_price * 100) if data.sell_price > 0 else 0
     
-    result = await db.recipes.update_one(
-        {"recipe_id": recipe_id, "company_id": user.company_id},
-        {"$set": update_data}
-    )
+    update_data = {
+        **data.model_dump(),
+        "ingredients": updated_ingredients,
+        "total_cost": total_cost,
+        "cost_per_yield": cost_per_yield,
+        "cost_per_portion": cost_per_portion,
+        "food_cost_percent": food_cost_percent,
+        "updated_at": now.isoformat()
+    }
+    
+    result = await db.recipes.update_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return await get_recipe(recipe_id, user)
@@ -827,11 +1094,7 @@ async def ai_analyze_recipe(data: dict, user: User = Depends(get_current_user)):
     if not api_key:
         raise HTTPException(status_code=500, detail="AI service not configured")
     
-    chat = LlmChat(
-        api_key=api_key,
-        session_id=f"recipe_{uuid.uuid4().hex[:8]}",
-        system_message="You are a professional chef and recipe cost analyst. Provide accurate ingredient quantities and cooking guidance. Always respond in JSON format."
-    ).with_model("openai", "gpt-5.2")
+    chat = LlmChat(api_key=api_key, session_id=f"recipe_{uuid.uuid4().hex[:8]}", system_message="You are a professional chef and recipe cost analyst. Provide accurate ingredient quantities and cooking guidance. Always respond in JSON format.").with_model("openai", "gpt-5.2")
     
     prompt = f"""Analyze this recipe and suggest accurate ingredient quantities:
 Recipe: {recipe_name}
@@ -839,19 +1102,11 @@ Servings: {servings}
 Current ingredients: {ingredients}
 
 Provide suggestions in this JSON format:
-{{
-  "ingredients": [
-    {{"name": "ingredient name", "quantity": number, "unit": "unit", "notes": "any tips"}}
-  ],
-  "cooking_tips": ["tip1", "tip2"],
-  "estimated_prep_time_minutes": number,
-  "estimated_cook_time_minutes": number
-}}"""
+{{"ingredients": [{{"name": "ingredient name", "quantity": number, "unit": "unit", "notes": "any tips"}}], "cooking_tips": ["tip1", "tip2"], "estimated_prep_time_minutes": number, "estimated_cook_time_minutes": number}}"""
     
     try:
         response = await chat.send_message(UserMessage(text=prompt))
         import json
-        # Try to parse JSON from response
         response_text = response.strip()
         if response_text.startswith("```json"):
             response_text = response_text[7:]
@@ -859,111 +1114,365 @@ Provide suggestions in this JSON format:
             response_text = response_text[3:]
         if response_text.endswith("```"):
             response_text = response_text[:-3]
-        
         return json.loads(response_text)
     except Exception as e:
         logger.error(f"AI analysis error: {e}")
         raise HTTPException(status_code=500, detail="AI analysis failed")
 
-# ============== INVENTORY ROUTES ==============
-
-@inventory_router.get("/ingredients", response_model=List[Ingredient])
-async def get_ingredients(user: User = Depends(get_current_user)):
-    ingredients = await db.ingredients.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).sort("name", 1).to_list(1000)
+@recipes_router.post("/recalculate-all")
+async def recalculate_all_recipes(user: User = Depends(get_current_user)):
+    """Recalculate costs for all recipes (call when ingredient prices change)"""
+    recipes = await db.recipes.find({"company_id": user.company_id}, {"_id": 0}).to_list(1000)
+    updated_count = 0
     
-    for i in ingredients:
-        for field in ["created_at", "updated_at"]:
-            if isinstance(i.get(field), str):
-                i[field] = datetime.fromisoformat(i[field])
-    return ingredients
+    for recipe in recipes:
+        ingredients = [RecipeIngredient(**i) for i in recipe.get("ingredients", [])]
+        total_cost, updated_ingredients = await calculate_recipe_cost(ingredients, user.company_id)
+        
+        yield_qty = recipe.get("yield_quantity", 1)
+        portion_size = recipe.get("portion_size", 1)
+        sell_price = recipe.get("sell_price", 0)
+        
+        cost_per_yield = total_cost / yield_qty if yield_qty > 0 else 0
+        cost_per_portion = cost_per_yield / portion_size if portion_size > 0 else cost_per_yield
+        food_cost_percent = (cost_per_portion / sell_price * 100) if sell_price > 0 else 0
+        
+        await db.recipes.update_one(
+            {"recipe_id": recipe["recipe_id"]},
+            {"$set": {
+                "ingredients": updated_ingredients,
+                "total_cost": total_cost,
+                "cost_per_yield": cost_per_yield,
+                "cost_per_portion": cost_per_portion,
+                "food_cost_percent": food_cost_percent
+            }}
+        )
+        updated_count += 1
+    
+    return {"updated_recipes": updated_count}
 
-@inventory_router.post("/ingredients", response_model=Ingredient)
-async def create_ingredient(data: IngredientCreate, user: User = Depends(get_current_user)):
+# ============== EVENT MENU & STOCK CHECK ==============
+
+@events_router.get("", response_model=List[Event])
+async def get_events(user: User = Depends(get_current_user)):
+    events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("event_date", 1).to_list(1000)
+    
+    for e in events:
+        for field in ["event_date", "end_date", "created_at", "updated_at"]:
+            if e.get(field) and isinstance(e[field], str):
+                e[field] = datetime.fromisoformat(e[field])
+        if "documents" not in e:
+            e["documents"] = []
+    return events
+
+@events_router.post("", response_model=Event)
+async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    ingredient_id = f"ing_{uuid.uuid4().hex[:12]}"
+    event_id = f"event_{uuid.uuid4().hex[:12]}"
     
-    ingredient_doc = {
-        "ingredient_id": ingredient_id,
+    event_doc = {
+        "event_id": event_id,
         "company_id": user.company_id,
         **data.model_dump(),
+        "event_date": data.event_date.isoformat(),
+        "end_date": data.end_date.isoformat() if data.end_date else None,
+        "timeline": [],
+        "tasks": [],
+        "menu_items": [],
+        "documents": [],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
-    await db.ingredients.insert_one(ingredient_doc)
-    ingredient_doc["created_at"] = now
-    ingredient_doc["updated_at"] = now
-    return Ingredient(**ingredient_doc)
+    await db.events.insert_one(event_doc)
+    
+    await db.clients.update_one({"client_id": data.client_id}, {"$inc": {"events_count": 1}})
+    
+    del event_doc["_id"]
+    event_doc["event_date"] = data.event_date
+    event_doc["end_date"] = data.end_date
+    event_doc["created_at"] = now
+    event_doc["updated_at"] = now
+    return Event(**event_doc)
 
-@inventory_router.put("/ingredients/{ingredient_id}", response_model=Ingredient)
-async def update_ingredient(ingredient_id: str, data: IngredientCreate, user: User = Depends(get_current_user)):
+@events_router.post("/{event_id}/duplicate", response_model=Event)
+async def duplicate_event(event_id: str, user: User = Depends(get_current_user)):
+    original = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not original:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
     now = datetime.now(timezone.utc)
-    result = await db.ingredients.update_one(
-        {"ingredient_id": ingredient_id, "company_id": user.company_id},
-        {"$set": {**data.model_dump(), "updated_at": now.isoformat()}}
+    new_event_id = f"event_{uuid.uuid4().hex[:12]}"
+    
+    new_event = {**original, "event_id": new_event_id, "name": f"{original['name']} (Copy)", "status": "planning", "tasks": [], "documents": [], "created_at": now.isoformat(), "updated_at": now.isoformat()}
+    
+    await db.events.insert_one(new_event)
+    await db.clients.update_one({"client_id": original["client_id"]}, {"$inc": {"events_count": 1}})
+    
+    del new_event["_id"]
+    for field in ["event_date", "end_date", "created_at", "updated_at"]:
+        if new_event.get(field) and isinstance(new_event[field], str):
+            new_event[field] = datetime.fromisoformat(new_event[field])
+    
+    return Event(**new_event)
+
+@events_router.get("/{event_id}", response_model=Event)
+async def get_event(event_id: str, user: User = Depends(get_current_user)):
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    for field in ["event_date", "end_date", "created_at", "updated_at"]:
+        if event.get(field) and isinstance(event[field], str):
+            event[field] = datetime.fromisoformat(event[field])
+    if "documents" not in event:
+        event["documents"] = []
+    return Event(**event)
+
+@events_router.put("/{event_id}", response_model=Event)
+async def update_event(event_id: str, data: EventCreate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    update_data = data.model_dump()
+    update_data["event_date"] = data.event_date.isoformat()
+    update_data["end_date"] = data.end_date.isoformat() if data.end_date else None
+    update_data["updated_at"] = now.isoformat()
+    
+    result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return await get_event(event_id, user)
+
+@events_router.delete("/{event_id}")
+async def delete_event(event_id: str, user: User = Depends(get_current_user)):
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    await db.events.delete_one({"event_id": event_id})
+    await db.clients.update_one({"client_id": event["client_id"]}, {"$inc": {"events_count": -1}})
+    return {"message": "Event deleted"}
+
+@events_router.post("/{event_id}/tasks")
+async def add_task(event_id: str, task: dict, user: User = Depends(get_current_user)):
+    task["task_id"] = f"task_{uuid.uuid4().hex[:8]}"
+    task["completed"] = False
+    task["created_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$push": {"tasks": task}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return task
+
+@events_router.put("/{event_id}/tasks/{task_id}")
+async def update_task(event_id: str, task_id: str, task: dict, user: User = Depends(get_current_user)):
+    await db.events.update_one({"event_id": event_id, "company_id": user.company_id, "tasks.task_id": task_id}, {"$set": {"tasks.$": {**task, "task_id": task_id}}})
+    return {"message": "Task updated"}
+
+@events_router.post("/{event_id}/menu")
+async def add_menu_item(event_id: str, data: dict, user: User = Depends(get_current_user)):
+    recipe_id = data.get("recipe_id")
+    result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$addToSet": {"menu_items": recipe_id}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"message": "Menu item added"}
+
+@events_router.get("/{event_id}/stock-check")
+async def check_event_stock(event_id: str, user: User = Depends(get_current_user)):
+    """Check stock availability for event menu and generate purchase list"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    guest_count = event.get("guest_count", 1)
+    menu_items = event.get("menu_items", [])
+    
+    # Calculate required ingredients
+    required_ingredients = {}
+    
+    for recipe_id in menu_items:
+        recipe = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0})
+        if not recipe:
+            continue
+        
+        recipe_yield = recipe.get("yield_quantity", 1)
+        multiplier = guest_count / recipe_yield
+        
+        for ing in recipe.get("ingredients", []):
+            if ing.get("item_type") == "ingredient":
+                ing_id = ing["item_id"]
+                needed_qty = ing["quantity"] * multiplier
+                
+                if ing_id in required_ingredients:
+                    required_ingredients[ing_id]["quantity_needed"] += needed_qty
+                else:
+                    required_ingredients[ing_id] = {
+                        "ingredient_id": ing_id,
+                        "name": ing.get("item_name", ""),
+                        "quantity_needed": needed_qty,
+                        "unit": ing.get("unit", "unit")
+                    }
+    
+    # Check against current stock
+    available = []
+    short = []
+    
+    for ing_id, req in required_ingredients.items():
+        ingredient = await db.ingredients.find_one({"ingredient_id": ing_id, "company_id": user.company_id}, {"_id": 0})
+        if not ingredient:
+            short.append({**req, "quantity_on_hand": 0, "shortage": req["quantity_needed"], "supplier_id": None})
+            continue
+        
+        on_hand = ingredient.get("stock_quantity", 0)
+        # Apply waste factor
+        waste_percent = ingredient.get("yield_waste_percent", 0)
+        effective_needed = req["quantity_needed"] * (1 + waste_percent / 100)
+        
+        if on_hand >= effective_needed:
+            available.append({
+                **req,
+                "quantity_on_hand": on_hand,
+                "surplus": on_hand - effective_needed
+            })
+        else:
+            short.append({
+                **req,
+                "quantity_on_hand": on_hand,
+                "shortage": effective_needed - on_hand,
+                "supplier_id": ingredient.get("preferred_supplier_id"),
+                "pack_size": ingredient.get("pack_size", 1),
+                "pack_unit": ingredient.get("pack_unit", "unit"),
+                "cost_per_unit": ingredient.get("cost_per_unit", 0)
+            })
+    
+    return {
+        "event_id": event_id,
+        "guest_count": guest_count,
+        "available": available,
+        "short": short,
+        "total_ingredients": len(required_ingredients)
+    }
+
+@events_router.post("/{event_id}/generate-purchase-list")
+async def generate_purchase_list(event_id: str, user: User = Depends(get_current_user)):
+    """Generate purchase orders grouped by supplier for event"""
+    stock_check = await check_event_stock(event_id, user)
+    short_items = stock_check.get("short", [])
+    
+    if not short_items:
+        return {"message": "No items to purchase", "purchase_orders": []}
+    
+    # Group by supplier
+    by_supplier = {}
+    for item in short_items:
+        supplier_id = item.get("supplier_id") or "no_supplier"
+        if supplier_id not in by_supplier:
+            by_supplier[supplier_id] = []
+        
+        pack_size = item.get("pack_size", 1)
+        shortage = item.get("shortage", 0)
+        packs_needed = math.ceil(shortage / pack_size)
+        
+        by_supplier[supplier_id].append({
+            "ingredient_id": item["ingredient_id"],
+            "ingredient_name": item["name"],
+            "quantity_needed": item["quantity_needed"],
+            "quantity_on_hand": item.get("quantity_on_hand", 0),
+            "quantity_to_order": packs_needed * pack_size,
+            "purchase_unit": item.get("pack_unit", "unit"),
+            "pack_size": pack_size,
+            "packs_to_order": packs_needed,
+            "unit_cost": item.get("cost_per_unit", 0),
+            "total_cost": packs_needed * pack_size * item.get("cost_per_unit", 0)
+        })
+    
+    # Create purchase order drafts
+    now = datetime.now(timezone.utc)
+    purchase_orders = []
+    
+    for supplier_id, lines in by_supplier.items():
+        if supplier_id == "no_supplier":
+            continue
+        
+        po_id = f"po_{uuid.uuid4().hex[:12]}"
+        total = sum(l["total_cost"] for l in lines)
+        
+        po_doc = {
+            "po_id": po_id,
+            "company_id": user.company_id,
+            "supplier_id": supplier_id,
+            "event_id": event_id,
+            "lines": lines,
+            "total_amount": total,
+            "status": "draft",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.purchase_orders.insert_one(po_doc)
+        del po_doc["_id"]
+        purchase_orders.append(po_doc)
+    
+    return {
+        "event_id": event_id,
+        "purchase_orders": purchase_orders,
+        "unassigned_items": by_supplier.get("no_supplier", [])
+    }
+
+# ============== PURCHASE ORDERS ==============
+
+@events_router.get("/purchase-orders")
+async def get_purchase_orders(status: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {"company_id": user.company_id}
+    if status:
+        query["status"] = status
+    
+    pos = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return pos
+
+@events_router.put("/purchase-orders/{po_id}/status")
+async def update_po_status(po_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update PO status: draft, ordered, partially_received, received"""
+    new_status = data.get("status")
+    if new_status not in ["draft", "ordered", "partially_received", "received"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    now = datetime.now(timezone.utc)
+    result = await db.purchase_orders.update_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"$set": {"status": new_status, "updated_at": now.isoformat()}}
     )
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Ingredient not found")
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return {"message": "Status updated"}
+
+@events_router.post("/purchase-orders/{po_id}/receive")
+async def receive_purchase_order(po_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Receive items from purchase order into inventory"""
+    po = await db.purchase_orders.find_one({"po_id": po_id, "company_id": user.company_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
     
-    ingredient = await db.ingredients.find_one(
-        {"ingredient_id": ingredient_id},
-        {"_id": 0}
-    )
-    for field in ["created_at", "updated_at"]:
-        if isinstance(ingredient.get(field), str):
-            ingredient[field] = datetime.fromisoformat(ingredient[field])
-    return Ingredient(**ingredient)
-
-@inventory_router.delete("/ingredients/{ingredient_id}")
-async def delete_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):
-    result = await db.ingredients.delete_one({"ingredient_id": ingredient_id, "company_id": user.company_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Ingredient not found")
-    return {"message": "Ingredient deleted"}
-
-@inventory_router.get("/suppliers", response_model=List[Supplier])
-async def get_suppliers(user: User = Depends(get_current_user)):
-    suppliers = await db.suppliers.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).sort("name", 1).to_list(1000)
-    
-    for s in suppliers:
-        if isinstance(s.get("created_at"), str):
-            s["created_at"] = datetime.fromisoformat(s["created_at"])
-    return suppliers
-
-@inventory_router.post("/suppliers", response_model=Supplier)
-async def create_supplier(data: SupplierCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    supplier_id = f"sup_{uuid.uuid4().hex[:12]}"
+    received_items = data.get("items", [])  # [{ingredient_id, quantity_received}]
     
-    supplier_doc = {
-        "supplier_id": supplier_id,
-        "company_id": user.company_id,
-        **data.model_dump(),
-        "created_at": now.isoformat()
-    }
-    await db.suppliers.insert_one(supplier_doc)
-    supplier_doc["created_at"] = now
-    return Supplier(**supplier_doc)
+    for item in received_items:
+        ing_id = item.get("ingredient_id")
+        qty = item.get("quantity_received", 0)
+        
+        # Update inventory
+        await db.ingredients.update_one(
+            {"ingredient_id": ing_id, "company_id": user.company_id},
+            {"$inc": {"stock_quantity": qty}, "$set": {"updated_at": now.isoformat()}}
+        )
+    
+    # Update PO status
+    await db.purchase_orders.update_one(
+        {"po_id": po_id},
+        {"$set": {"status": "received", "received_at": now.isoformat(), "updated_at": now.isoformat()}}
+    )
+    
+    return {"message": "Items received into inventory"}
 
-@inventory_router.get("/low-stock")
-async def get_low_stock(user: User = Depends(get_current_user)):
-    ingredients = await db.ingredients.find(
-        {
-            "company_id": user.company_id,
-            "$expr": {"$lte": ["$stock_quantity", "$min_stock_level"]}
-        },
-        {"_id": 0}
-    ).to_list(100)
-    return ingredients
+# ============== DOCUMENTS ROUTES - Enhanced with taxes/discounts ==============
 
-# ============== DOCUMENTS ROUTES ==============
-
-@documents_router.get("/", response_model=List[Document])
+@documents_router.get("", response_model=List[Document])
 async def get_documents(event_id: Optional[str] = None, user: User = Depends(get_current_user)):
     query = {"company_id": user.company_id}
     if event_id:
@@ -975,9 +1484,11 @@ async def get_documents(event_id: Optional[str] = None, user: User = Depends(get
         for field in ["created_at", "updated_at", "signed_at"]:
             if d.get(field) and isinstance(d[field], str):
                 d[field] = datetime.fromisoformat(d[field])
+        if "requires_signature" not in d:
+            d["requires_signature"] = d.get("document_type") in ["contract", "quote"]
     return documents
 
-@documents_router.post("/", response_model=Document)
+@documents_router.post("", response_model=Document)
 async def create_document(data: DocumentCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     document_id = f"doc_{uuid.uuid4().hex[:12]}"
@@ -990,20 +1501,19 @@ async def create_document(data: DocumentCreate, user: User = Depends(get_current
         "signed_at": None,
         "signed_by": None,
         "status": "draft",
+        "requires_signature": data.document_type in ["contract", "quote"],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
     await db.documents.insert_one(doc)
+    del doc["_id"]
     doc["created_at"] = now
     doc["updated_at"] = now
     return Document(**doc)
 
 @documents_router.get("/{document_id}", response_model=Document)
 async def get_document(document_id: str, user: User = Depends(get_current_user)):
-    doc = await db.documents.find_one(
-        {"document_id": document_id, "company_id": user.company_id},
-        {"_id": 0}
-    )
+    doc = await db.documents.find_one({"document_id": document_id, "company_id": user.company_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     for field in ["created_at", "updated_at", "signed_at"]:
@@ -1025,20 +1535,12 @@ async def update_document(document_id: str, data: DocumentCreate, user: User = D
 @documents_router.post("/{document_id}/sign")
 async def sign_document(document_id: str, data: dict, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    signature = data.get("signature")  # Base64 signature image
+    signature = data.get("signature")
     signed_by = data.get("signed_by", user.name)
     
     result = await db.documents.update_one(
         {"document_id": document_id, "company_id": user.company_id},
-        {
-            "$set": {
-                "signature": signature,
-                "signed_at": now.isoformat(),
-                "signed_by": signed_by,
-                "status": "signed",
-                "updated_at": now.isoformat()
-            }
-        }
+        {"$set": {"signature": signature, "signed_at": now.isoformat(), "signed_by": signed_by, "status": "signed", "updated_at": now.isoformat()}}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -1046,18 +1548,12 @@ async def sign_document(document_id: str, data: dict, user: User = Depends(get_c
 
 @documents_router.post("/generate/{event_id}/{doc_type}")
 async def generate_document(event_id: str, doc_type: str, user: User = Depends(get_current_user)):
-    """Generate a document (BEO, kitchen_sheet, packing_list, mise_en_place, quote) for an event"""
-    event = await db.events.find_one(
-        {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0}
-    )
+    """Generate a document for an event with full content including discounts/taxes"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
-    client = await db.clients.find_one(
-        {"client_id": event["client_id"]},
-        {"_id": 0}
-    )
+    client = await db.clients.find_one({"client_id": event["client_id"]}, {"_id": 0})
     
     # Get recipes for the event
     recipes = []
@@ -1071,52 +1567,51 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     now = datetime.now(timezone.utc)
     document_id = f"doc_{uuid.uuid4().hex[:12]}"
     
-    # Generate content based on document type
+    # Get template settings
+    template = await db.templates.find_one({"company_id": user.company_id, "type": doc_type}, {"_id": 0})
+    template_settings = template.get("settings", {}) if template else {}
+    
+    if doc_type == "kitchen_sheet" and "show_prices" not in template_settings:
+        template_settings["show_prices"] = False
+    
+    # Calculate totals with taxes/discounts
+    subtotal = sum(r.get("cost_per_portion", 0) * event.get("guest_count", 1) for r in recipes)
+    discount_rate = template_settings.get("discount_percent", 0) / 100
+    tax_rate = company.get("default_tax_rate", 0) / 100 if company else 0
+    
+    discount_amount = subtotal * discount_rate
+    taxable_amount = subtotal - discount_amount
+    tax_amount = taxable_amount * tax_rate
+    total = taxable_amount + tax_amount
+    
     content = {
         "event": event,
         "client": client,
         "company": company,
         "recipes": recipes,
+        "template_settings": template_settings,
+        "financials": {
+            "subtotal": subtotal,
+            "discount_percent": discount_rate * 100,
+            "discount_amount": discount_amount,
+            "tax_percent": tax_rate * 100,
+            "tax_amount": tax_amount,
+            "total": total
+        },
         "generated_at": now.isoformat()
     }
     
-    # Get template settings for this document type
-    template = await db.templates.find_one({
-        "company_id": user.company_id,
-        "type": doc_type
-    }, {"_id": 0})
-    
-    # Apply template settings (e.g., hide prices for kitchen_sheet)
-    template_settings = template.get("settings", {}) if template else {}
-    content["template_settings"] = template_settings
-    
-    # Default: kitchen_sheet should not show prices
-    if doc_type == "kitchen_sheet" and "show_prices" not in template_settings:
-        content["template_settings"]["show_prices"] = False
-    
     titles = {
-        "contract": "Contract",
-        "beo": "Banquet Event Order",
-        "kitchen_sheet": "Kitchen Production Sheet",
-        "packing_list": "Packing/Setup List",
-        "mise_en_place": "Mise en Place Checklist",
-        "quote": "Event Proposal",
-        "invoice": "Invoice",
-        "menu": "Menu"
+        "contract": "Contract", "beo": "Banquet Event Order", "kitchen_sheet": "Kitchen Production Sheet",
+        "packing_list": "Packing/Setup List", "mise_en_place": "Mise en Place Checklist",
+        "quote": "Event Proposal", "invoice": "Invoice", "menu": "Menu"
     }
-    
     titles_es = {
-        "contract": "Contrato",
-        "beo": "Orden de Evento de Banquete",
-        "kitchen_sheet": "Hoja de Cocina",
-        "packing_list": "Lista de Montaje",
-        "mise_en_place": "Mise en Place",
-        "quote": "Propuesta",
-        "invoice": "Factura",
-        "menu": "Menú"
+        "contract": "Contrato", "beo": "Orden de Evento de Banquete", "kitchen_sheet": "Hoja de Cocina",
+        "packing_list": "Lista de Montaje", "mise_en_place": "Mise en Place",
+        "quote": "Propuesta", "invoice": "Factura", "menu": "Menú"
     }
     
-    # Use company language for title
     lang = company.get("default_language", "en") if company else "en"
     title_dict = titles_es if lang == "es" else titles
     
@@ -1137,15 +1632,311 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     }
     await db.documents.insert_one(doc)
     
-    # Link document to event
     await db.events.update_one(
         {"event_id": event_id},
         {"$push": {"documents": {"document_id": document_id, "type": doc_type, "title": doc["title"]}}}
     )
     
+    del doc["_id"]
     doc["created_at"] = now
     doc["updated_at"] = now
     return Document(**doc)
+
+# ============== FINANCE ROUTES ==============
+
+@finance_router.get("/invoices")
+async def get_invoices(invoice_type: str = "client", status: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get invoices (client or supplier)"""
+    query = {"company_id": user.company_id, "invoice_type": invoice_type}
+    if status:
+        query["status"] = status
+    
+    invoices = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return invoices
+
+@finance_router.post("/invoices")
+async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_user)):
+    """Create a client invoice"""
+    now = datetime.now(timezone.utc)
+    invoice_id = f"inv_{uuid.uuid4().hex[:12]}"
+    invoice_number = f"INV-{now.strftime('%Y%m')}-{uuid.uuid4().hex[:4].upper()}"
+    
+    # Calculate totals
+    subtotal = 0
+    lines = []
+    for line in data.lines:
+        line_subtotal = line.quantity * line.unit_price
+        line_discount = line_subtotal * (line.discount_percent / 100)
+        line_taxable = line_subtotal - line_discount
+        line_tax = line_taxable * (line.tax_rate / 100)
+        line_total = line_taxable + line_tax
+        
+        lines.append({
+            **line.model_dump(),
+            "line_subtotal": line_subtotal,
+            "line_discount": line_discount,
+            "line_tax": line_tax,
+            "line_total": line_total
+        })
+        subtotal += line_subtotal
+    
+    # Apply invoice-level discount and tax
+    invoice_discount = subtotal * (data.discount_percent / 100)
+    taxable = subtotal - invoice_discount
+    invoice_tax = taxable * (data.tax_rate / 100)
+    total = taxable + invoice_tax
+    
+    invoice_doc = {
+        "invoice_id": invoice_id,
+        "invoice_number": invoice_number,
+        "company_id": user.company_id,
+        "invoice_type": "client",
+        "client_id": data.client_id,
+        "event_id": data.event_id,
+        "issue_date": now.isoformat(),
+        "due_date": data.due_date.isoformat(),
+        "lines": lines,
+        "subtotal": subtotal,
+        "discount_percent": data.discount_percent,
+        "discount_amount": invoice_discount,
+        "tax_rate": data.tax_rate,
+        "tax_amount": invoice_tax,
+        "total": total,
+        "amount_paid": 0,
+        "balance_due": total,
+        "status": "draft",
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.invoices.insert_one(invoice_doc)
+    del invoice_doc["_id"]
+    return invoice_doc
+
+@finance_router.put("/invoices/{invoice_id}")
+async def update_invoice(invoice_id: str, data: dict, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    update_data = {k: v for k, v in data.items() if k in ["status", "notes", "due_date"]}
+    update_data["updated_at"] = now.isoformat()
+    
+    result = await db.invoices.update_one(
+        {"invoice_id": invoice_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return {"message": "Invoice updated"}
+
+@finance_router.post("/supplier-invoices")
+async def create_supplier_invoice(data: dict, user: User = Depends(get_current_user)):
+    """Create a supplier invoice (accounts payable)"""
+    now = datetime.now(timezone.utc)
+    invoice_id = f"sinv_{uuid.uuid4().hex[:12]}"
+    
+    invoice_doc = {
+        "invoice_id": invoice_id,
+        "company_id": user.company_id,
+        "invoice_type": "supplier",
+        "supplier_id": data.get("supplier_id"),
+        "supplier_invoice_number": data.get("supplier_invoice_number"),
+        "issue_date": data.get("issue_date", now.isoformat()),
+        "due_date": data.get("due_date"),
+        "category": data.get("category", "food"),
+        "lines": data.get("lines", []),
+        "subtotal": data.get("subtotal", 0),
+        "tax_amount": data.get("tax_amount", 0),
+        "total": data.get("total", 0),
+        "amount_paid": 0,
+        "balance_due": data.get("total", 0),
+        "status": "pending",
+        "linked_po_id": data.get("linked_po_id"),
+        "notes": data.get("notes"),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.invoices.insert_one(invoice_doc)
+    del invoice_doc["_id"]
+    return invoice_doc
+
+@finance_router.post("/payments")
+async def create_payment(data: PaymentCreate, user: User = Depends(get_current_user)):
+    """Record a payment"""
+    now = datetime.now(timezone.utc)
+    payment_id = f"pay_{uuid.uuid4().hex[:12]}"
+    
+    # Get invoice
+    invoice = await db.invoices.find_one({"invoice_id": data.invoice_id, "company_id": user.company_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    payment_doc = {
+        "payment_id": payment_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "payment_date": now.isoformat(),
+        "created_at": now.isoformat()
+    }
+    await db.payments.insert_one(payment_doc)
+    
+    # Update invoice
+    new_amount_paid = invoice.get("amount_paid", 0) + data.amount
+    new_balance = invoice.get("total", 0) - new_amount_paid
+    new_status = "paid" if new_balance <= 0 else "partially_paid"
+    
+    await db.invoices.update_one(
+        {"invoice_id": data.invoice_id},
+        {"$set": {"amount_paid": new_amount_paid, "balance_due": max(0, new_balance), "status": new_status, "updated_at": now.isoformat()}}
+    )
+    
+    del payment_doc["_id"]
+    return payment_doc
+
+@finance_router.get("/payments")
+async def get_payments(payment_type: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {"company_id": user.company_id}
+    if payment_type:
+        query["payment_type"] = payment_type
+    
+    payments = await db.payments.find(query, {"_id": 0}).sort("payment_date", -1).to_list(1000)
+    return payments
+
+@finance_router.get("/summary")
+async def get_finance_summary(user: User = Depends(get_current_user)):
+    """Get financial summary dashboard"""
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Accounts Receivable
+    ar_pipeline = [
+        {"$match": {"company_id": user.company_id, "invoice_type": "client", "status": {"$nin": ["paid"]}}},
+        {"$group": {"_id": None, "total": {"$sum": "$balance_due"}}}
+    ]
+    ar_result = await db.invoices.aggregate(ar_pipeline).to_list(1)
+    total_ar = ar_result[0]["total"] if ar_result else 0
+    
+    # Accounts Payable
+    ap_pipeline = [
+        {"$match": {"company_id": user.company_id, "invoice_type": "supplier", "status": {"$nin": ["paid"]}}},
+        {"$group": {"_id": None, "total": {"$sum": "$balance_due"}}}
+    ]
+    ap_result = await db.invoices.aggregate(ap_pipeline).to_list(1)
+    total_ap = ap_result[0]["total"] if ap_result else 0
+    
+    # Cash received this month
+    cash_in_pipeline = [
+        {"$match": {"company_id": user.company_id, "payment_type": "incoming", "payment_date": {"$gte": month_start.isoformat()}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    cash_in_result = await db.payments.aggregate(cash_in_pipeline).to_list(1)
+    cash_in = cash_in_result[0]["total"] if cash_in_result else 0
+    
+    # Cash paid this month
+    cash_out_pipeline = [
+        {"$match": {"company_id": user.company_id, "payment_type": "outgoing", "payment_date": {"$gte": month_start.isoformat()}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    cash_out_result = await db.payments.aggregate(cash_out_pipeline).to_list(1)
+    cash_out = cash_out_result[0]["total"] if cash_out_result else 0
+    
+    return {
+        "total_accounts_receivable": total_ar,
+        "total_accounts_payable": total_ap,
+        "cash_received_this_month": cash_in,
+        "cash_paid_this_month": cash_out,
+        "net_cash_flow": cash_in - cash_out
+    }
+
+@finance_router.get("/aging")
+async def get_aging_report(invoice_type: str = "client", user: User = Depends(get_current_user)):
+    """Get aging report for receivables or payables"""
+    now = datetime.now(timezone.utc)
+    
+    invoices = await db.invoices.find({
+        "company_id": user.company_id,
+        "invoice_type": invoice_type,
+        "status": {"$nin": ["paid"]}
+    }, {"_id": 0}).to_list(1000)
+    
+    aging = {"0-30": 0, "31-60": 0, "61-90": 0, "90+": 0}
+    
+    for inv in invoices:
+        due_date = datetime.fromisoformat(inv["due_date"]) if isinstance(inv.get("due_date"), str) else inv.get("due_date")
+        if not due_date:
+            continue
+        
+        if due_date.tzinfo is None:
+            due_date = due_date.replace(tzinfo=timezone.utc)
+        
+        days_overdue = (now - due_date).days
+        balance = inv.get("balance_due", 0)
+        
+        if days_overdue <= 30:
+            aging["0-30"] += balance
+        elif days_overdue <= 60:
+            aging["31-60"] += balance
+        elif days_overdue <= 90:
+            aging["61-90"] += balance
+        else:
+            aging["90+"] += balance
+    
+    return aging
+
+# ============== REPORTS ROUTES ==============
+
+@reports_router.get("/recipe-costs")
+async def get_recipe_cost_report(user: User = Depends(get_current_user)):
+    """Get recipe cost dashboard - top cost drivers"""
+    recipes = await db.recipes.find({"company_id": user.company_id}, {"_id": 0}).sort("total_cost", -1).limit(20).to_list(20)
+    return recipes
+
+@reports_router.get("/price-changes")
+async def get_price_change_log(user: User = Depends(get_current_user)):
+    """Get ingredient price change history"""
+    ingredients = await db.ingredients.find(
+        {"company_id": user.company_id, "price_history.1": {"$exists": True}},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "price_history": 1}
+    ).to_list(100)
+    return ingredients
+
+@reports_router.get("/event-costs/{event_id}")
+async def get_event_cost_summary(event_id: str, user: User = Depends(get_current_user)):
+    """Get cost summary for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get menu costs
+    menu_costs = []
+    total_food_cost = 0
+    for recipe_id in event.get("menu_items", []):
+        recipe = await db.recipes.find_one({"recipe_id": recipe_id}, {"_id": 0})
+        if recipe:
+            cost = recipe.get("cost_per_portion", 0) * event.get("guest_count", 1)
+            menu_costs.append({"name": recipe["name"], "cost": cost})
+            total_food_cost += cost
+    
+    # Get invoices for event
+    invoices = await db.invoices.find({"event_id": event_id, "invoice_type": "client"}, {"_id": 0}).to_list(10)
+    total_revenue = sum(inv.get("total", 0) for inv in invoices)
+    
+    return {
+        "event": event,
+        "menu_costs": menu_costs,
+        "total_food_cost": total_food_cost,
+        "total_revenue": total_revenue,
+        "gross_profit": total_revenue - total_food_cost,
+        "food_cost_percent": (total_food_cost / total_revenue * 100) if total_revenue > 0 else 0
+    }
+
+@reports_router.get("/supplier-spend")
+async def get_supplier_spend(user: User = Depends(get_current_user)):
+    """Get monthly spend by supplier"""
+    pipeline = [
+        {"$match": {"company_id": user.company_id, "invoice_type": "supplier"}},
+        {"$group": {"_id": "$supplier_id", "total_spend": {"$sum": "$total"}, "invoice_count": {"$sum": 1}}}
+    ]
+    result = await db.invoices.aggregate(pipeline).to_list(100)
+    return result
 
 # ============== SETTINGS ROUTES ==============
 
@@ -1156,27 +1947,23 @@ async def get_company_settings(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Company not found")
     if isinstance(company.get("created_at"), str):
         company["created_at"] = datetime.fromisoformat(company["created_at"])
+    if "default_tax_rate" not in company:
+        company["default_tax_rate"] = 0.0
     return Company(**company)
 
 @settings_router.put("/company")
 async def update_company_settings(data: dict, user: User = Depends(get_current_user)):
-    allowed_fields = ["name", "logo_url", "primary_color", "secondary_color", "default_language", "currency"]
+    allowed_fields = ["name", "logo_url", "primary_color", "secondary_color", "default_language", "currency", "default_tax_rate"]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
     
-    result = await db.companies.update_one(
-        {"company_id": user.company_id},
-        {"$set": update_data}
-    )
+    result = await db.companies.update_one({"company_id": user.company_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Company not found")
     return await get_company_settings(user)
 
 @settings_router.get("/templates")
 async def get_templates(user: User = Depends(get_current_user)):
-    templates = await db.templates.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).to_list(100)
+    templates = await db.templates.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
     return templates
 
 @settings_router.post("/templates")
@@ -1188,47 +1975,34 @@ async def create_template(data: dict, user: User = Depends(get_current_user)):
         "template_id": template_id,
         "company_id": user.company_id,
         "name": data.get("name"),
-        "type": data.get("type"),  # contract, quote, beo, kitchen_sheet, etc.
-        "settings": data.get("settings", {}),  # e.g., {"show_prices": false}
+        "type": data.get("type"),
+        "settings": data.get("settings", {}),
         "content": data.get("content", {}),
         "created_at": now.isoformat()
     }
     await db.templates.insert_one(template_doc)
-    # Return without _id
     del template_doc["_id"]
     return template_doc
 
 @settings_router.put("/templates/{template_id}")
 async def update_template(template_id: str, data: dict, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    update_data = {
-        "name": data.get("name"),
-        "settings": data.get("settings", {}),
-        "content": data.get("content", {}),
-        "updated_at": now.isoformat()
-    }
+    update_data = {"name": data.get("name"), "settings": data.get("settings", {}), "content": data.get("content", {}), "updated_at": now.isoformat()}
     
-    result = await db.templates.update_one(
-        {"template_id": template_id, "company_id": user.company_id},
-        {"$set": update_data}
-    )
+    result = await db.templates.update_one({"template_id": template_id, "company_id": user.company_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Template not found")
     return {"message": "Template updated"}
 
 @settings_router.delete("/templates/{template_id}")
 async def delete_template(template_id: str, user: User = Depends(get_current_user)):
-    result = await db.templates.delete_one({
-        "template_id": template_id,
-        "company_id": user.company_id
-    })
+    result = await db.templates.delete_one({"template_id": template_id, "company_id": user.company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Template not found")
     return {"message": "Template deleted"}
 
 @settings_router.get("/document-types")
 async def get_document_types(user: User = Depends(get_current_user)):
-    """Get available document types with their default settings"""
     doc_types = [
         {"type": "contract", "name": "Contract", "name_es": "Contrato", "requires_signature": True, "show_prices": True},
         {"type": "quote", "name": "Proposal", "name_es": "Propuesta", "requires_signature": True, "show_prices": True},
@@ -1240,12 +2014,7 @@ async def get_document_types(user: User = Depends(get_current_user)):
         {"type": "menu", "name": "Menu", "name_es": "Menú", "requires_signature": False, "show_prices": False},
     ]
     
-    # Get company templates to show customizations
-    templates = await db.templates.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).to_list(100)
-    
+    templates = await db.templates.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
     templates_by_type = {t["type"]: t for t in templates}
     
     for dt in doc_types:
@@ -1259,7 +2028,6 @@ async def get_document_types(user: User = Depends(get_current_user)):
 
 @portal_router.get("/document/{document_id}")
 async def get_portal_document(document_id: str, token: Optional[str] = None):
-    """Public endpoint for clients to view documents"""
     doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -1271,22 +2039,13 @@ async def get_portal_document(document_id: str, token: Optional[str] = None):
 
 @portal_router.post("/document/{document_id}/sign")
 async def client_sign_document(document_id: str, data: dict):
-    """Public endpoint for clients to sign documents"""
     now = datetime.now(timezone.utc)
     signature = data.get("signature")
     signed_by = data.get("signed_by", "Client")
     
     result = await db.documents.update_one(
         {"document_id": document_id},
-        {
-            "$set": {
-                "signature": signature,
-                "signed_at": now.isoformat(),
-                "signed_by": signed_by,
-                "status": "signed",
-                "updated_at": now.isoformat()
-            }
-        }
+        {"$set": {"signature": signature, "signed_at": now.isoformat(), "signed_by": signed_by, "status": "signed", "updated_at": now.isoformat()}}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -1296,44 +2055,28 @@ async def client_sign_document(document_id: str, data: dict):
 
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
-    """Get dashboard statistics"""
     now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
-    # Count clients
     total_clients = await db.clients.count_documents({"company_id": user.company_id})
-    
-    # Count events
     total_events = await db.events.count_documents({"company_id": user.company_id})
-    upcoming_events = await db.events.count_documents({
-        "company_id": user.company_id,
-        "event_date": {"$gte": now.isoformat()}
-    })
-    
-    # Count recipes
+    upcoming_events = await db.events.count_documents({"company_id": user.company_id, "event_date": {"$gte": now.isoformat()}})
     total_recipes = await db.recipes.count_documents({"company_id": user.company_id})
     
-    # Count low stock ingredients
     low_stock = await db.ingredients.count_documents({
         "company_id": user.company_id,
-        "$expr": {"$lte": ["$stock_quantity", "$min_stock_level"]}
+        "$or": [
+            {"$expr": {"$lte": ["$stock_quantity", "$min_stock_level"]}},
+            {"$expr": {"$lte": ["$stock_quantity", "$par_level"]}}
+        ]
     })
     
-    # Pipeline stats
     pipeline_stats = {}
-    stages = ["lead", "contacted", "proposal", "negotiation", "won", "lost"]
+    stages = ["lead", "contacted", "proposal", "negotiation", "won", "lost", "converted"]
     for stage in stages:
-        count = await db.clients.count_documents({
-            "company_id": user.company_id,
-            "pipeline_stage": stage
-        })
+        count = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": stage})
         pipeline_stats[stage] = count
     
-    # Recent events
-    recent_events = await db.events.find(
-        {"company_id": user.company_id},
-        {"_id": 0}
-    ).sort("event_date", 1).limit(5).to_list(5)
+    recent_events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("event_date", 1).limit(5).to_list(5)
     
     return {
         "total_clients": total_clients,
@@ -1345,11 +2088,9 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         "recent_events": recent_events
     }
 
-# ============== ROOT ROUTE ==============
-
 @api_router.get("/")
 async def root():
-    return {"message": "EEP Evoque Events Platform API", "version": "1.0.0"}
+    return {"message": "EEP Evoque Events Platform API", "version": "2.0.0"}
 
 # Include all routers
 api_router.include_router(auth_router)
@@ -1357,9 +2098,13 @@ api_router.include_router(crm_router)
 api_router.include_router(events_router)
 api_router.include_router(recipes_router)
 api_router.include_router(inventory_router)
+api_router.include_router(suppliers_router)
+api_router.include_router(operations_router)
 api_router.include_router(documents_router)
+api_router.include_router(finance_router)
 api_router.include_router(settings_router)
 api_router.include_router(portal_router)
+api_router.include_router(reports_router)
 
 app.include_router(api_router)
 
