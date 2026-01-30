@@ -110,12 +110,14 @@ class Client(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-# Event Models
+# Event Models (supports both single events and multi-day bookings)
 class EventCreate(BaseModel):
     client_id: str
     name: str
     event_type: str
-    event_date: datetime
+    event_date: datetime  # Start date
+    end_date: Optional[datetime] = None  # For multi-day bookings
+    is_booking: bool = False  # True for multi-day events
     venue: Optional[str] = None
     guest_count: int = 0
     budget: float = 0.0
@@ -129,6 +131,8 @@ class Event(BaseModel):
     name: str
     event_type: str
     event_date: datetime
+    end_date: Optional[datetime] = None
+    is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int
     budget: float
@@ -137,6 +141,7 @@ class Event(BaseModel):
     timeline: List[Dict[str, Any]] = []
     tasks: List[Dict[str, Any]] = []
     menu_items: List[str] = []
+    documents: List[Dict[str, Any]] = []
     created_at: datetime
     updated_at: datetime
 
