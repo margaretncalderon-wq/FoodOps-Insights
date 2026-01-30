@@ -32,7 +32,7 @@ export default function DocumentPreview() {
     } catch (error) {
       console.error("Failed to fetch document:", error);
       toast.error("Document not found");
-      navigate("/documents");
+      navigate("/events");
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export default function DocumentPreview() {
     try {
       await axios.post(`${API}/documents/${documentId}/sign`, {
         signature,
-        signed_by: "User",
+        signed_by: "Client",
       }, { withCredentials: true });
       toast.success(language === "es" ? "Documento firmado" : "Document signed");
       fetchDocument();
@@ -69,11 +69,14 @@ export default function DocumentPreview() {
   };
 
   const docTypeLabels = {
-    quote: t("quote"),
-    beo: t("beo"),
-    kitchen_sheet: t("kitchenSheet"),
-    packing_list: t("packingList"),
-    mise_en_place: t("miseEnPlace"),
+    contract: { en: "Contract", es: "Contrato" },
+    proposal: { en: "Proposal", es: "Propuesta" },
+    invoice: { en: "Invoice", es: "Factura" },
+    quote: { en: "Quote", es: "Cotización" },
+    beo: { en: "Banquet Event Order", es: "Orden de Evento" },
+    kitchen_sheet: { en: "Kitchen Sheet", es: "Hoja de Cocina" },
+    packing_list: { en: "Packing List", es: "Lista de Montaje" },
+    mise_en_place: { en: "Mise en Place", es: "Mise en Place" },
   };
 
   if (loading) {
@@ -90,15 +93,29 @@ export default function DocumentPreview() {
   const event = content.event || {};
   const client = content.client || {};
   const company = content.company || {};
+  const order = content.order || {};
+  const itemsByCategory = content.items_by_category || {};
+  const financials = content.financials || {};
+  const showPrices = content.show_prices !== false;
+  const showInternalNotes = content.show_internal_notes === true;
+
+  // Legacy support for old document format
   const recipes = content.recipes || [];
+
+  const getDocTypeLabel = () => {
+    return docTypeLabels[document?.document_type]?.[language] || document?.document_type;
+  };
 
   return (
     <Layout>
       <div className="space-y-6 no-print" data-testid="document-preview-page">
         {/* Back Button */}
-        <Link to="/documents" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
+        <Link 
+          to={event.event_id ? `/events/${event.event_id}` : "/events"} 
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="w-4 h-4" />
-          {language === "es" ? "Volver a Documentos" : "Back to Documents"}
+          {language === "es" ? "Volver al Evento" : "Back to Event"}
         </Link>
 
         {/* Header */}
@@ -106,7 +123,7 @@ export default function DocumentPreview() {
           <div>
             <h1 className="font-heading text-3xl font-bold text-foreground">{document?.title}</h1>
             <div className="flex items-center gap-3 mt-2">
-              <Badge variant="outline">{docTypeLabels[document?.document_type]}</Badge>
+              <Badge variant="outline">{getDocTypeLabel()}</Badge>
               <Badge className={document?.status === "signed" ? "bg-success/10 text-success" : "bg-muted"}>
                 {document?.status === "signed" ? (
                   <><CheckCircle className="w-3 h-3 mr-1" /> {t("signed")}</>
@@ -121,7 +138,7 @@ export default function DocumentPreview() {
               <Download className="w-4 h-4 mr-2" />
               {language === "es" ? "Imprimir" : "Print"}
             </Button>
-            {document?.status !== "signed" && (
+            {document?.requires_signature && document?.status !== "signed" && (
               <Button onClick={() => setSigning(true)} data-testid="sign-document-btn">
                 {t("sign")}
               </Button>
@@ -135,11 +152,14 @@ export default function DocumentPreview() {
         {/* Company Header */}
         <div className="flex items-start justify-between mb-8 pb-8 border-b">
           <div>
+            {company.logo_url && (
+              <img src={company.logo_url} alt={company.name} className="h-12 mb-2" />
+            )}
             <h2 className="font-heading text-2xl font-bold" style={{ color: company.primary_color || "#3A4D3F" }}>
               {company.name || "Company Name"}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {docTypeLabels[document?.document_type]}
+              {getDocTypeLabel()}
             </p>
           </div>
           <div className="text-right text-sm text-muted-foreground">
@@ -157,6 +177,9 @@ export default function DocumentPreview() {
               <p className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="w-4 h-4" />
                 {event.event_date ? new Date(event.event_date).toLocaleDateString() : "-"}
+                {event.end_date && event.is_booking && (
+                  <span> - {new Date(event.end_date).toLocaleDateString()}</span>
+                )}
               </p>
               {event.venue && (
                 <p className="flex items-center gap-2 text-muted-foreground">
@@ -181,118 +204,148 @@ export default function DocumentPreview() {
           </div>
         </div>
 
-        {/* Document Type Specific Content */}
-        {document?.document_type === "quote" && (
+        {/* Items by Category - NEW FORMAT from Event Order */}
+        {Object.keys(itemsByCategory).length > 0 && (
           <div className="mb-8">
-            <h3 className="font-heading font-semibold mb-4">{t("menu")}</h3>
-            {recipes.length > 0 ? (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">{language === "es" ? "Plato" : "Item"}</th>
-                    <th className="text-center py-2">{t("servings")}</th>
-                    <th className="text-right py-2">{language === "es" ? "Precio/Porción" : "Price/Serving"}</th>
-                    <th className="text-right py-2">{t("total")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recipes.map((recipe, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="py-2">{recipe.name}</td>
-                      <td className="text-center py-2">{event.guest_count}</td>
-                      <td className="text-right py-2">${recipe.cost_per_serving?.toFixed(2)}</td>
-                      <td className="text-right py-2">${(recipe.cost_per_serving * event.guest_count).toFixed(2)}</td>
+            <h3 className="font-heading font-semibold mb-4">
+              {language === "es" ? "Detalle de Ítems" : "Item Details"}
+            </h3>
+            
+            {Object.entries(itemsByCategory).map(([catId, catData]) => (
+              <div key={catId} className="mb-6">
+                <h4 className="font-medium text-sm uppercase tracking-wide text-muted-foreground mb-3">
+                  {catData.name}
+                </h4>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">{language === "es" ? "Ítem" : "Item"}</th>
+                      <th className="text-center py-2">{language === "es" ? "Cant." : "Qty"}</th>
+                      {showPrices && (
+                        <>
+                          <th className="text-right py-2">{language === "es" ? "Precio" : "Price"}</th>
+                          <th className="text-right py-2">{t("total")}</th>
+                        </>
+                      )}
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="font-semibold">
-                    <td colSpan={3} className="py-4 text-right">{t("total")}:</td>
-                    <td className="py-4 text-right">
-                      ${recipes.reduce((sum, r) => sum + (r.cost_per_serving * event.guest_count), 0).toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            ) : (
-              <p className="text-muted-foreground">{t("noResults")}</p>
+                  </thead>
+                  <tbody>
+                    {catData.items?.map((item, index) => (
+                      <tr key={index} className="border-b">
+                        <td className="py-2">
+                          <div>
+                            <p>{item.name}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground">{item.description}</p>
+                            )}
+                            {showInternalNotes && item.internal_notes && (
+                              <p className="text-xs text-warning italic mt-1">📝 {item.internal_notes}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-center py-2">{item.quantity}</td>
+                        {showPrices && (
+                          <>
+                            <td className="text-right py-2">${item.unit_price?.toFixed(2)}</td>
+                            <td className="text-right py-2">
+                              ${item.subtotal?.toFixed(2)}
+                              {item.discount_amount > 0 && (
+                                <span className="text-xs text-destructive block">
+                                  (-${item.discount_amount?.toFixed(2)})
+                                </span>
+                              )}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+
+            {/* Totals Section */}
+            {showPrices && financials && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex justify-end">
+                  <div className="w-64 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{language === "es" ? "Subtotal" : "Subtotal"}:</span>
+                      <span>${financials.subtotal?.toFixed(2) || "0.00"}</span>
+                    </div>
+                    {financials.discount_amount > 0 && (
+                      <div className="flex justify-between text-destructive">
+                        <span>{language === "es" ? "Descuento" : "Discount"}:</span>
+                        <span>-${financials.discount_amount?.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {financials.tax_details?.map((tax, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span className="text-muted-foreground">{tax.name} ({tax.rate}%):</span>
+                        <span>${tax.amount?.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between font-bold text-lg border-t pt-2">
+                      <span>{t("total")}:</span>
+                      <span>${financials.total?.toFixed(2) || "0.00"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {(document?.document_type === "beo" || document?.document_type === "kitchen_sheet") && (
+        {/* Legacy Support: Old recipe-based documents */}
+        {recipes.length > 0 && Object.keys(itemsByCategory).length === 0 && (
           <div className="mb-8">
             <h3 className="font-heading font-semibold mb-4">{t("menu")}</h3>
-            {recipes.map((recipe, index) => (
-              <div key={index} className="mb-6 p-4 border rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <ChefHat className="w-5 h-5 text-primary" />
-                  <h4 className="font-semibold">{recipe.name}</h4>
-                  <Badge variant="outline">{recipe.category}</Badge>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium mb-2">{t("ingredients")}:</p>
-                    <ul className="text-sm space-y-1">
-                      {recipe.ingredients?.map((ing, i) => (
-                        <li key={i} className="flex justify-between">
-                          <span>{ing.name}</span>
-                          <span className="text-muted-foreground">
-                            {(ing.quantity * event.guest_count / recipe.servings).toFixed(2)} {ing.unit}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium mb-2">{t("instructions")}:</p>
-                    <ol className="text-sm space-y-1 list-decimal list-inside">
-                      {recipe.instructions?.map((step, i) => (
-                        <li key={i}>{step}</li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2">{language === "es" ? "Plato" : "Item"}</th>
+                  <th className="text-center py-2">{t("servings")}</th>
+                  <th className="text-right py-2">{language === "es" ? "Precio/Porción" : "Price/Serving"}</th>
+                  <th className="text-right py-2">{t("total")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recipes.map((recipe, index) => (
+                  <tr key={index} className="border-b">
+                    <td className="py-2">{recipe.name}</td>
+                    <td className="text-center py-2">{event.guest_count}</td>
+                    <td className="text-right py-2">${(recipe.cost_per_serving || recipe.cost_per_portion || 0).toFixed(2)}</td>
+                    <td className="text-right py-2">${((recipe.cost_per_serving || recipe.cost_per_portion || 0) * event.guest_count).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="font-semibold">
+                  <td colSpan={3} className="py-4 text-right">{t("total")}:</td>
+                  <td className="py-4 text-right">
+                    ${recipes.reduce((sum, r) => sum + ((r.cost_per_serving || r.cost_per_portion || 0) * event.guest_count), 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
 
-        {document?.document_type === "packing_list" && (
-          <div className="mb-8">
-            <h3 className="font-heading font-semibold mb-4">{t("packingList")}</h3>
-            <div className="space-y-2">
-              {recipes.flatMap((recipe) => recipe.ingredients || []).map((ing, index) => (
-                <div key={index} className="flex items-center gap-3 p-2 border-b">
-                  <div className="w-5 h-5 border-2 rounded" />
-                  <Package className="w-4 h-4 text-muted-foreground" />
-                  <span>{ing.name}</span>
-                  <span className="ml-auto text-muted-foreground">{ing.quantity} {ing.unit}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {document?.document_type === "mise_en_place" && (
-          <div className="mb-8">
-            <h3 className="font-heading font-semibold mb-4">{t("miseEnPlace")}</h3>
-            {recipes.map((recipe, index) => (
-              <div key={index} className="mb-4">
-                <h4 className="font-medium mb-2">{recipe.name}</h4>
-                <div className="space-y-1">
-                  {recipe.ingredients?.map((ing, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 bg-muted/50 rounded">
-                      <div className="w-5 h-5 border-2 rounded" />
-                      <span>{ing.name}</span>
-                      <span className="ml-auto text-sm text-muted-foreground">
-                        {(ing.quantity * event.guest_count / recipe.servings).toFixed(2)} {ing.unit}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+        {/* Payment Terms & Client Notes */}
+        {(content.payment_terms || content.client_notes) && (
+          <div className="mb-8 p-4 bg-muted/30 rounded-lg">
+            {content.payment_terms && (
+              <div className="mb-3">
+                <p className="font-medium text-sm">{language === "es" ? "Términos de Pago" : "Payment Terms"}:</p>
+                <p className="text-sm text-muted-foreground">{content.payment_terms}</p>
               </div>
-            ))}
+            )}
+            {content.client_notes && (
+              <div>
+                <p className="font-medium text-sm">{language === "es" ? "Notas" : "Notes"}:</p>
+                <p className="text-sm text-muted-foreground">{content.client_notes}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -306,6 +359,22 @@ export default function DocumentPreview() {
             <p className="text-xs text-muted-foreground mt-2">
               {new Date(document.signed_at).toLocaleString()}
             </p>
+          </div>
+        )}
+
+        {/* Signature Line for unsigned documents */}
+        {document?.requires_signature && !document?.signature && (
+          <div className="mt-8 pt-8 border-t">
+            <div className="flex justify-between items-end">
+              <div className="w-64">
+                <div className="border-b border-dashed border-gray-400 mb-2 h-12"></div>
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Firma del Cliente" : "Client Signature"}</p>
+              </div>
+              <div className="w-48">
+                <div className="border-b border-dashed border-gray-400 mb-2 h-12"></div>
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Fecha" : "Date"}</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
