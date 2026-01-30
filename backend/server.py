@@ -566,7 +566,7 @@ async def get_pipeline(user: User = Depends(get_current_user)):
 
 # ============== EVENTS ROUTES ==============
 
-@events_router.get("/", response_model=List[Event])
+@events_router.get("", response_model=List[Event])
 async def get_events(user: User = Depends(get_current_user)):
     events = await db.events.find(
         {"company_id": user.company_id},
@@ -579,7 +579,7 @@ async def get_events(user: User = Depends(get_current_user)):
                 e[field] = datetime.fromisoformat(e[field])
     return events
 
-@events_router.post("/", response_model=Event)
+@events_router.post("", response_model=Event)
 async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     event_id = f"event_{uuid.uuid4().hex[:12]}"
