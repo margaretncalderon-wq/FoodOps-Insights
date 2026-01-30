@@ -212,7 +212,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
   };
 
   const handleGenerateAllDocuments = async () => {
-    const docTypes = ["proposal", "contract", "invoice", "kitchen_sheet", "packing_list"];
+    const docTypes = ["proposal", "contract", "invoice", "kitchen_sheet", "mise_en_place", "packing_list"];
     let successCount = 0;
     
     for (const docType of docTypes) {
