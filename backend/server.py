@@ -2637,8 +2637,8 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
     title_dict = titles_es if lang == "es" else titles
     
     # Determine what to show based on doc type
-    show_prices = doc_type not in ["kitchen_sheet", "packing_list"]
-    show_internal_notes = doc_type in ["kitchen_sheet", "packing_list"]
+    show_prices = doc_type not in ["kitchen_sheet", "packing_list", "mise_en_place"]
+    show_internal_notes = doc_type in ["kitchen_sheet", "packing_list", "mise_en_place"]
     
     content = {
         "event": event,
