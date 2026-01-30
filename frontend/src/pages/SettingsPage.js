@@ -498,10 +498,10 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <Label>{language === "es" ? "Receta (opcional)" : "Recipe (optional)"}</Label>
-                    <Select value={newPicklist.recipe_id} onValueChange={(v) => setNewPicklist({ ...newPicklist, recipe_id: v })}>
+                    <Select value={newPicklist.recipe_id || "none"} onValueChange={(v) => setNewPicklist({ ...newPicklist, recipe_id: v === "none" ? "" : v })}>
                       <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin receta" : "No recipe"} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">{language === "es" ? "Sin receta" : "No recipe"}</SelectItem>
+                        <SelectItem value="none">{language === "es" ? "Sin receta" : "No recipe"}</SelectItem>
                         {recipes.map(r => (
                           <SelectItem key={r.recipe_id} value={r.recipe_id}>{r.name}</SelectItem>
                         ))}
