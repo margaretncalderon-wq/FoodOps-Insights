@@ -601,43 +601,117 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
       )}
 
       {/* Add Item Dialog */}
-      <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={addItemOpen} onOpenChange={(open) => {
+        setAddItemOpen(open);
+        if (!open) {
+          setSelectedPicklistCategory("");
+          setPicklistSearch("");
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {language === "es" ? "Agregar Ítem" : "Add Item"}
             </DialogTitle>
           </DialogHeader>
           
-          {/* Quick Add from Picklist */}
+          {/* Category Tabs for Picklist */}
           {picklist.length > 0 && (
-            <div className="mb-4">
-              <Label className="mb-2 block text-sm">
-                {language === "es" ? "Selección Rápida" : "Quick Select"}
+            <div className="mb-4 border rounded-lg p-4 bg-muted/30">
+              <Label className="mb-3 block text-sm font-medium">
+                {language === "es" ? "Selección Rápida por Categoría" : "Quick Select by Category"}
               </Label>
-              <Select onValueChange={(id) => {
-                const item = picklist.find(p => p.item_id === id);
-                if (item) handlePicklistSelect(item);
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "es" ? "Seleccionar de lista..." : "Select from list..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {picklist.map(item => (
-                    <SelectItem key={item.item_id} value={item.item_id}>
-                      {item.name} - ${item.default_price}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              
+              {/* Category Pills */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Badge 
+                  variant={selectedPicklistCategory === "" ? "default" : "outline"}
+                  className="cursor-pointer px-3 py-1"
+                  onClick={() => setSelectedPicklistCategory("")}
+                >
+                  {language === "es" ? "Todos" : "All"}
+                </Badge>
+                {categories.map(cat => {
+                  const catItems = picklist.filter(p => p.category_id === cat.category_id);
+                  if (catItems.length === 0) return null;
+                  const IconComponent = getCategoryIcon(cat.icon);
+                  return (
+                    <Badge 
+                      key={cat.category_id}
+                      variant={selectedPicklistCategory === cat.category_id ? "default" : "outline"}
+                      className="cursor-pointer px-3 py-1 gap-1"
+                      style={selectedPicklistCategory === cat.category_id ? { backgroundColor: cat.color } : {}}
+                      onClick={() => setSelectedPicklistCategory(cat.category_id)}
+                    >
+                      <IconComponent className="w-3 h-3" />
+                      {language === "es" ? cat.name_es || cat.name : cat.name}
+                      <span className="text-xs opacity-70">({catItems.length})</span>
+                    </Badge>
+                  );
+                })}
+              </div>
+
+              {/* Search Input */}
+              <Input
+                placeholder={language === "es" ? "Buscar ítem..." : "Search item..."}
+                value={picklistSearch}
+                onChange={(e) => setPicklistSearch(e.target.value)}
+                className="mb-3"
+              />
+
+              {/* Filtered Picklist Items */}
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {picklist
+                  .filter(item => {
+                    const matchesCategory = !selectedPicklistCategory || item.category_id === selectedPicklistCategory;
+                    const matchesSearch = !picklistSearch || item.name.toLowerCase().includes(picklistSearch.toLowerCase());
+                    return matchesCategory && matchesSearch;
+                  })
+                  .map(item => {
+                    const cat = categories.find(c => c.category_id === item.category_id);
+                    return (
+                      <div
+                        key={item.item_id}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-background cursor-pointer border border-transparent hover:border-border"
+                        onClick={() => {
+                          handlePicklistSelect(item);
+                          setPicklistSearch("");
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: cat?.color || "#6B7280" }}
+                          />
+                          <span className="font-medium">{item.name}</span>
+                          {item.recipe_id && (
+                            <Badge variant="outline" className="text-xs">
+                              {language === "es" ? "Receta" : "Recipe"}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-sm font-mono">${item.default_price.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                {picklist.filter(item => {
+                  const matchesCategory = !selectedPicklistCategory || item.category_id === selectedPicklistCategory;
+                  const matchesSearch = !picklistSearch || item.name.toLowerCase().includes(picklistSearch.toLowerCase());
+                  return matchesCategory && matchesSearch;
+                }).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {language === "es" ? "No se encontraron ítems" : "No items found"}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Or from Recipes (for food) */}
+          {/* Recipes Section (for food items) */}
           {recipes.length > 0 && (
             <div className="mb-4">
               <Label className="mb-2 block text-sm">
-                {language === "es" ? "Desde Receta" : "From Recipe"}
+                {language === "es" ? "Desde Receta (con cálculo de costo)" : "From Recipe (with cost calculation)"}
               </Label>
               <Select onValueChange={(id) => {
                 const recipe = recipes.find(r => r.recipe_id === id);
@@ -649,13 +723,25 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                 <SelectContent>
                   {recipes.map(recipe => (
                     <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
-                      {recipe.name}
+                      {recipe.name} - ${(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)} costo
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           )}
+
+          {/* Divider */}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                {language === "es" ? "O agregar manualmente" : "Or add manually"}
+              </span>
+            </div>
+          </div>
 
           <form onSubmit={handleAddItem} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
