@@ -301,7 +301,10 @@ export default function EventsPage() {
                     </div>
                     <Switch
                       checked={formData.is_booking}
-                      onCheckedChange={(checked) => setFormData({ ...formData, is_booking: checked, end_date: checked ? formData.event_date : null })}
+                      onCheckedChange={(checked) => {
+                        const newEndDate = checked ? new Date(formData.event_date.getTime() + 24 * 60 * 60 * 1000) : null;
+                        setFormData({ ...formData, is_booking: checked, end_date: newEndDate });
+                      }}
                     />
                   </div>
 
@@ -319,7 +322,15 @@ export default function EventsPage() {
                           <Calendar
                             mode="single"
                             selected={formData.event_date}
-                            onSelect={(date) => date && setFormData({ ...formData, event_date: date })}
+                            onSelect={(date) => {
+                              if (date) {
+                                const updates = { event_date: date };
+                                if (formData.is_booking && formData.end_date && date > formData.end_date) {
+                                  updates.end_date = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+                                }
+                                setFormData({ ...formData, ...updates });
+                              }
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
