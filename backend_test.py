@@ -330,7 +330,7 @@ class EEPEvoqueAPITester:
         return generated_docs[0] if generated_docs else None
 
     def test_settings_operations(self):
-        """Test Settings operations"""
+        """Test Settings operations including document templates"""
         # Get company settings
         self.run_test("Get Company Settings", "GET", "settings/company", 200)
         
@@ -340,6 +340,36 @@ class EEPEvoqueAPITester:
             "primary_color": "#FF0000"
         }
         self.run_test("Update Company Settings", "PUT", "settings/company", 200, settings_data)
+        
+        # Test document types endpoint
+        self.run_test("Get Document Types", "GET", "settings/document-types", 200)
+        
+        # Test templates
+        self.run_test("Get Templates", "GET", "settings/templates", 200)
+        
+        # Create a template
+        template_data = {
+            "name": "kitchen_sheet",
+            "type": "kitchen_sheet",
+            "settings": {
+                "show_prices": False,
+                "requires_signature": False
+            }
+        }
+        template = self.run_test("Create Template", "POST", "settings/templates", 200, template_data)
+        
+        if template:
+            template_id = template.get('template_id')
+            if template_id:
+                # Update template
+                updated_template = {
+                    "name": "kitchen_sheet",
+                    "settings": {
+                        "show_prices": True,
+                        "requires_signature": False
+                    }
+                }
+                self.run_test("Update Template", "PUT", f"settings/templates/{template_id}", 200, updated_template)
 
     def run_all_tests(self):
         """Run all API tests"""
