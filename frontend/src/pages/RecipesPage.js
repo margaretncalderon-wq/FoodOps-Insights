@@ -163,16 +163,16 @@ export default function RecipesPage() {
                   <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Clock className="w-4 h-4" />
-                      {recipe.prep_time_minutes + recipe.cook_time_minutes}m
+                      {(recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)}m
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <ChefHat className="w-4 h-4" />
-                      {recipe.servings}
+                      {recipe.yield_quantity || recipe.servings || 1}
                     </span>
                   </div>
                   <span className="flex items-center gap-1 font-medium text-primary">
                     <DollarSign className="w-4 h-4" />
-                    {recipe.cost_per_serving.toFixed(2)}
+                    {(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)}
                   </span>
                 </div>
               </CardContent>
