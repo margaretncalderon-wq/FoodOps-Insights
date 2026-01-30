@@ -211,9 +211,12 @@ export default function EventsPage() {
                 {t("calendar")}
               </Button>
             </Link>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { 
+              setDialogOpen(open); 
+              if (!open) resetForm(); 
+            }}>
               <DialogTrigger asChild>
-                <Button className="rounded-full gap-2" data-testid="add-event-btn">
+                <Button className="rounded-full gap-2" data-testid="add-event-btn" onClick={() => { if (!editingEvent) resetForm(); }}>
                   <Plus className="w-4 h-4" />
                   {t("addEvent")}
                 </Button>
