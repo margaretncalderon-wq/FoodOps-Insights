@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
+import EventOrderEditor from "../components/EventOrderEditor";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -30,21 +31,13 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, Plus, ChefHat, FileText, CheckCircle, PenLine, Share2, Link2, MoreHorizontal, Copy, ExternalLink } from "lucide-react";
+import { 
+  ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
+  Plus, ChefHat, FileText, CheckCircle, PenLine, Share2, Link2, 
+  MoreHorizontal, Copy, ExternalLink, ClipboardList
+} from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-// Document types matching the screenshot
-const DOCUMENT_TYPES = [
-  { type: "contract", icon: "📄", requiresSignature: true },
-  { type: "quote", icon: "📝", requiresSignature: true },
-  { type: "invoice", icon: "💰", requiresSignature: false },
-  { type: "beo", icon: "📋", requiresSignature: false },
-  { type: "kitchen_sheet", icon: "👨‍🍳", requiresSignature: false },
-  { type: "packing_list", icon: "📦", requiresSignature: false },
-  { type: "menu", icon: "🍽️", requiresSignature: false },
-  { type: "mise_en_place", icon: "✅", requiresSignature: false },
-];
 
 export default function EventDetails() {
   const { eventId } = useParams();
@@ -76,7 +69,6 @@ export default function EventDetails() {
       if (response.data.menu_items?.length > 0) {
         fetchMenuRecipes(response.data.menu_items);
       }
-      // Fetch documents for this event
       fetchDocuments();
     } catch (error) {
       console.error("Failed to fetch event:", error);
@@ -165,17 +157,6 @@ export default function EventDetails() {
     }
   };
 
-  const handleGenerateDocument = async (docType) => {
-    try {
-      const response = await axios.post(`${API}/documents/generate/${eventId}/${docType}`, {}, { withCredentials: true });
-      toast.success(language === "es" ? "Documento generado" : "Document generated");
-      fetchDocuments();
-      fetchEvent();
-    } catch (error) {
-      toast.error("Failed to generate document");
-    }
-  };
-
   const handleDuplicateEvent = async () => {
     try {
       const response = await axios.post(`${API}/events/${eventId}/duplicate`, {}, { withCredentials: true });
@@ -184,6 +165,10 @@ export default function EventDetails() {
     } catch (error) {
       toast.error("Failed to duplicate event");
     }
+  };
+
+  const handleDocumentGenerated = (doc) => {
+    setDocuments([...documents, doc]);
   };
 
   const copyPortalLink = (documentId) => {
@@ -202,7 +187,7 @@ export default function EventDetails() {
 
   const docTypeLabels = {
     contract: { en: "Contract", es: "Contrato" },
-    quote: { en: "Proposal", es: "Propuesta" },
+    proposal: { en: "Proposal", es: "Propuesta" },
     invoice: { en: "Invoice", es: "Factura" },
     beo: { en: "Banquet Event Order", es: "Orden de Evento" },
     kitchen_sheet: { en: "Kitchen Sheet", es: "Hoja de Cocina" },
@@ -326,48 +311,46 @@ export default function EventDetails() {
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="docs" className="space-y-6">
+        {/* Tabs - Contract & Event Order is now the main tab */}
+        <Tabs defaultValue="order" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="docs" className="gap-2">
+            <TabsTrigger value="order" className="gap-2" data-testid="tab-order">
+              <ClipboardList className="w-4 h-4" />
+              {language === "es" ? "Contrato y Orden" : "Contract & Order"}
+            </TabsTrigger>
+            <TabsTrigger value="docs" className="gap-2" data-testid="tab-docs">
               <FileText className="w-4 h-4" />
               {t("documents")} ({documents.length})
             </TabsTrigger>
-            <TabsTrigger value="tasks">{t("tasks")}</TabsTrigger>
-            <TabsTrigger value="menu">{t("menu")}</TabsTrigger>
+            <TabsTrigger value="tasks" data-testid="tab-tasks">{t("tasks")}</TabsTrigger>
+            <TabsTrigger value="menu" data-testid="tab-menu">{t("menu")}</TabsTrigger>
           </TabsList>
 
-          {/* Documents Tab - Similar to Tripleseat */}
+          {/* Contract & Event Order Tab - THE MAIN DATA ENTRY */}
+          <TabsContent value="order">
+            <EventOrderEditor 
+              eventId={eventId} 
+              event={event}
+              onDocumentGenerated={handleDocumentGenerated}
+            />
+          </TabsContent>
+
+          {/* Documents Tab - Shows generated documents */}
           <TabsContent value="docs">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader>
                 <CardTitle className="font-heading text-lg">{t("documents")}</CardTitle>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button className="gap-2" data-testid="add-document-btn">
-                      <Plus className="w-4 h-4" />
-                      {language === "es" ? "Agregar documento" : "Add document"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {DOCUMENT_TYPES.map((dt) => (
-                      <DropdownMenuItem
-                        key={dt.type}
-                        onClick={() => handleGenerateDocument(dt.type)}
-                        data-testid={`generate-${dt.type}-btn`}
-                      >
-                        <span className="mr-2">{dt.icon}</span>
-                        {docTypeLabels[dt.type]?.[language] || dt.type}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <p className="text-sm text-muted-foreground">
+                  {language === "es" 
+                    ? "Documentos generados desde la Orden de Evento" 
+                    : "Documents generated from the Event Order"}
+                </p>
               </CardHeader>
               <CardContent>
                 {documents.length > 0 ? (
                   <div className="divide-y">
                     {documents.map((doc) => {
-                      const requiresSignature = DOCUMENT_TYPES.find(d => d.type === doc.document_type)?.requiresSignature;
+                      const requiresSignature = doc.requires_signature;
                       const isSigned = doc.status === "signed";
                       
                       return (
@@ -387,7 +370,9 @@ export default function EventDetails() {
                               {doc.title}
                             </Link>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">PDF</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {docTypeLabels[doc.document_type]?.[language] || doc.document_type}
+                              </Badge>
                               {requiresSignature && !isSigned && (
                                 <span className="flex items-center gap-1 text-xs text-destructive">
                                   <PenLine className="w-3 h-3" />
@@ -444,8 +429,8 @@ export default function EventDetails() {
                     <p>{t("noResults")}</p>
                     <p className="text-sm mt-2">
                       {language === "es"
-                        ? "Usa el botón 'Agregar documento' para crear documentos"
-                        : "Use the 'Add document' button to create documents"}
+                        ? "Agrega ítems a la Orden de Evento y genera documentos"
+                        : "Add items to the Event Order and generate documents"}
                     </p>
                   </div>
                 )}
@@ -569,7 +554,9 @@ export default function EventDetails() {
                           <p className="font-medium">{recipe.name}</p>
                           <p className="text-sm text-muted-foreground">{recipe.category}</p>
                         </div>
-                        <p className="text-sm font-medium">${recipe.cost_per_serving.toFixed(2)}/serving</p>
+                        <p className="text-sm font-medium">
+                          ${(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)}/serving
+                        </p>
                       </Link>
                     ))}
                   </div>
