@@ -730,6 +730,20 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                   onChange={(e) => setNewItem({ ...newItem, unit_price: parseFloat(e.target.value) || 0 })}
                   data-testid="item-price-input"
                 />
+                {/* Price Alert based on recipe cost */}
+                {newItem._recipeCost > 0 && (
+                  <div className={`mt-1 text-xs flex items-center gap-1 ${
+                    newItem.unit_price < newItem._recipeCost * 1.5 
+                      ? "text-destructive" 
+                      : newItem.unit_price > newItem._recipeCost * 5 
+                        ? "text-warning" 
+                        : "text-success"
+                  }`}>
+                    <AlertTriangle className="w-3 h-3" />
+                    {language === "es" ? "Costo" : "Cost"}: ${newItem._recipeCost.toFixed(2)} | 
+                    {language === "es" ? " Margen" : " Margin"}: {newItem.unit_price > 0 ? (((newItem.unit_price - newItem._recipeCost) / newItem.unit_price) * 100).toFixed(0) : 0}%
+                  </div>
+                )}
               </div>
 
               <div>
