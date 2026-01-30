@@ -2695,6 +2695,7 @@ api_router.include_router(finance_router)
 api_router.include_router(settings_router)
 api_router.include_router(portal_router)
 api_router.include_router(reports_router)
+api_router.include_router(event_order_router)
 
 app.include_router(api_router)
 
