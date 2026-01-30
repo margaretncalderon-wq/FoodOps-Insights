@@ -45,6 +45,7 @@ finance_router = APIRouter(prefix="/finance", tags=["Finance"])
 settings_router = APIRouter(prefix="/settings", tags=["Settings"])
 portal_router = APIRouter(prefix="/portal", tags=["Client Portal"])
 reports_router = APIRouter(prefix="/reports", tags=["Reports"])
+event_order_router = APIRouter(prefix="/event-orders", tags=["Event Orders"])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
