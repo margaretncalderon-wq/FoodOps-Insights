@@ -211,7 +211,45 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
     }
   };
 
+  const handleGenerateAllDocuments = async () => {
+    const docTypes = ["proposal", "contract", "invoice", "kitchen_sheet", "packing_list"];
+    let successCount = 0;
+    
+    for (const docType of docTypes) {
+      try {
+        const response = await axios.get(`${API}/event-orders/${eventId}/document/${docType}`, { withCredentials: true });
+        if (onDocumentGenerated) onDocumentGenerated(response.data);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to generate ${docType}:`, error);
+      }
+    }
+    
+    if (successCount === docTypes.length) {
+      toast.success(language === "es" ? `${successCount} documentos generados` : `${successCount} documents generated`);
+    } else {
+      toast.warning(language === "es" ? `${successCount} de ${docTypes.length} documentos generados` : `${successCount} of ${docTypes.length} documents generated`);
+    }
+  };
+
   const handlePicklistSelect = (picklistItem) => {
+    // Get recipe cost for price alert
+    let priceAlert = null;
+    if (picklistItem.recipe_id) {
+      const recipe = recipes.find(r => r.recipe_id === picklistItem.recipe_id);
+      if (recipe) {
+        const recipeCost = recipe.cost_per_portion || recipe.cost_per_serving || 0;
+        const sellPrice = picklistItem.default_price;
+        const margin = sellPrice > 0 ? ((sellPrice - recipeCost) / sellPrice) * 100 : 0;
+        
+        if (margin < 20) {
+          priceAlert = { type: "low", message: language === "es" ? `¡Alerta! Margen muy bajo (${margin.toFixed(0)}%). Costo: $${recipeCost.toFixed(2)}` : `Warning! Very low margin (${margin.toFixed(0)}%). Cost: $${recipeCost.toFixed(2)}` };
+        } else if (margin > 80) {
+          priceAlert = { type: "high", message: language === "es" ? `Nota: Margen alto (${margin.toFixed(0)}%). Costo: $${recipeCost.toFixed(2)}` : `Note: High margin (${margin.toFixed(0)}%). Cost: $${recipeCost.toFixed(2)}` };
+        }
+      }
+    }
+
     setNewItem({
       ...newItem,
       name: picklistItem.name,
@@ -219,18 +257,37 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
       category_id: picklistItem.category_id,
       unit_price: picklistItem.default_price,
       recipe_id: picklistItem.recipe_id || "",
+      _priceAlert: priceAlert,
     });
+
+    if (priceAlert) {
+      if (priceAlert.type === "low") {
+        toast.warning(priceAlert.message);
+      } else {
+        toast.info(priceAlert.message);
+      }
+    }
   };
 
   const handleRecipeSelect = (recipe) => {
+    const recipeCost = recipe.cost_per_portion || recipe.cost_per_serving || 0;
+    const suggestedPrice = recipeCost * 3; // 33% food cost target
+    
     setNewItem({
       ...newItem,
       name: recipe.name,
       description: recipe.description || "",
       category_id: "cat_food",
-      unit_price: recipe.sell_price || recipe.cost_per_portion || 0,
+      unit_price: suggestedPrice,
       recipe_id: recipe.recipe_id,
+      _recipeCost: recipeCost,
     });
+
+    toast.info(
+      language === "es" 
+        ? `Costo de receta: $${recipeCost.toFixed(2)}. Precio sugerido: $${suggestedPrice.toFixed(2)} (33% food cost)`
+        : `Recipe cost: $${recipeCost.toFixed(2)}. Suggested price: $${suggestedPrice.toFixed(2)} (33% food cost)`
+    );
   };
 
   const toggleCategory = (catId) => {
