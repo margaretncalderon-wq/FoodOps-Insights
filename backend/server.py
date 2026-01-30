@@ -1080,29 +1080,69 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
         "generated_at": now.isoformat()
     }
     
+    # Get template settings for this document type
+    template = await db.templates.find_one({
+        "company_id": user.company_id,
+        "type": doc_type
+    }, {"_id": 0})
+    
+    # Apply template settings (e.g., hide prices for kitchen_sheet)
+    template_settings = template.get("settings", {}) if template else {}
+    content["template_settings"] = template_settings
+    
+    # Default: kitchen_sheet should not show prices
+    if doc_type == "kitchen_sheet" and "show_prices" not in template_settings:
+        content["template_settings"]["show_prices"] = False
+    
     titles = {
+        "contract": "Contract",
         "beo": "Banquet Event Order",
         "kitchen_sheet": "Kitchen Production Sheet",
-        "packing_list": "Packing List",
+        "packing_list": "Packing/Setup List",
         "mise_en_place": "Mise en Place Checklist",
-        "quote": "Event Quote"
+        "quote": "Event Proposal",
+        "invoice": "Invoice",
+        "menu": "Menu"
     }
+    
+    titles_es = {
+        "contract": "Contrato",
+        "beo": "Orden de Evento de Banquete",
+        "kitchen_sheet": "Hoja de Cocina",
+        "packing_list": "Lista de Montaje",
+        "mise_en_place": "Mise en Place",
+        "quote": "Propuesta",
+        "invoice": "Factura",
+        "menu": "Menú"
+    }
+    
+    # Use company language for title
+    lang = company.get("default_language", "en") if company else "en"
+    title_dict = titles_es if lang == "es" else titles
     
     doc = {
         "document_id": document_id,
         "company_id": user.company_id,
         "event_id": event_id,
         "document_type": doc_type,
-        "title": f"{titles.get(doc_type, doc_type)} - {event['name']}",
+        "title": f"{title_dict.get(doc_type, doc_type)} - {event['name']}",
         "content": content,
         "signature": None,
         "signed_at": None,
         "signed_by": None,
         "status": "draft",
+        "requires_signature": doc_type in ["contract", "quote"],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
     await db.documents.insert_one(doc)
+    
+    # Link document to event
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$push": {"documents": {"document_id": document_id, "type": doc_type, "title": doc["title"]}}}
+    )
+    
     doc["created_at"] = now
     doc["updated_at"] = now
     return Document(**doc)
