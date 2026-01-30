@@ -153,12 +153,12 @@ class EEPEvoqueAPITester:
         return client_id
 
     def test_events_operations(self, client_id):
-        """Test Events operations"""
+        """Test Events operations including new multi-day booking features"""
         if not client_id:
             self.log_test("Events Operations", False, "No client_id available")
             return None
         
-        # Create event
+        # Create regular event
         event_data = {
             "client_id": client_id,
             "name": "Test Event",
@@ -175,7 +175,24 @@ class EEPEvoqueAPITester:
             return None
         
         event_id = event.get('event_id')
-        print(f"DEBUG: Created event with ID: {event_id}")  # Debug line
+        print(f"DEBUG: Created event with ID: {event_id}")
+        
+        # Create multi-day booking
+        booking_data = {
+            "client_id": client_id,
+            "name": "Test Multi-day Booking",
+            "event_type": "corporate",
+            "event_date": (datetime.now() + timedelta(days=45)).isoformat(),
+            "end_date": (datetime.now() + timedelta(days=47)).isoformat(),
+            "is_booking": True,
+            "venue": "Conference Center",
+            "guest_count": 200,
+            "budget": 15000.0,
+            "status": "planning"
+        }
+        
+        booking = self.run_test("Create Multi-day Booking", "POST", "events", 200, booking_data)
+        booking_id = booking.get('event_id') if booking else None
         
         # Get events
         self.run_test("Get Events", "GET", "events", 200)
@@ -187,6 +204,12 @@ class EEPEvoqueAPITester:
             # Update event
             updated_data = {**event_data, "name": "Updated Event"}
             self.run_test("Update Event", "PUT", f"events/{event_id}", 200, updated_data)
+            
+            # Test duplicate event functionality
+            duplicate = self.run_test("Duplicate Event", "POST", f"events/{event_id}/duplicate", 200)
+            if duplicate:
+                duplicate_id = duplicate.get('event_id')
+                print(f"DEBUG: Duplicated event with ID: {duplicate_id}")
         
         return event_id
 
