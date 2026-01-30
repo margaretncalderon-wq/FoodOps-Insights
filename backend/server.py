@@ -2599,9 +2599,13 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
             # Only food and drinks
             if cat_id not in ["cat_food", "cat_drinks"]:
                 continue
+        elif doc_type == "mise_en_place":
+            # Only food items for mise en place prep list
+            if cat_id not in ["cat_food"]:
+                continue
         elif doc_type == "packing_list":
-            # Physical items only (rentals, décor, equipment)
-            if cat_id in ["cat_labor"]:
+            # Physical items only - exclude food, drinks, labor
+            if cat_id in ["cat_food", "cat_drinks", "cat_labor"]:
                 continue
         
         # Group by category
