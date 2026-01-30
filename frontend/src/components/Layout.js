@@ -33,7 +33,6 @@ const navItems = [
   { path: "/calendar", icon: CalendarDays, labelKey: "calendar" },
   { path: "/recipes", icon: ChefHat, labelKey: "recipes" },
   { path: "/inventory", icon: Package, labelKey: "inventory" },
-  { path: "/documents", icon: FileText, labelKey: "documents" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
 ];
 
