@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -10,6 +10,7 @@ import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Calendar } from "../components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { Switch } from "../components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -27,11 +28,12 @@ import {
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Search, Calendar as CalendarIcon, MapPin, Users, DollarSign, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Calendar as CalendarIcon, CalendarDays, MapPin, Users, DollarSign, MoreHorizontal, Trash2, Edit, Copy, List } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 
@@ -42,17 +44,20 @@ const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "can
 
 export default function EventsPage() {
   const { t, language } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(searchParams.get("new") === "true");
   const [editingEvent, setEditingEvent] = useState(null);
   const [formData, setFormData] = useState({
     client_id: "",
     name: "",
     event_type: "wedding",
     event_date: new Date(),
+    end_date: null,
+    is_booking: false,
     venue: "",
     guest_count: 0,
     budget: 0,
@@ -91,6 +96,7 @@ export default function EventsPage() {
       const payload = {
         ...formData,
         event_date: formData.event_date.toISOString(),
+        end_date: formData.is_booking && formData.end_date ? formData.end_date.toISOString() : null,
         guest_count: parseInt(formData.guest_count) || 0,
         budget: parseFloat(formData.budget) || 0,
       };
@@ -121,6 +127,16 @@ export default function EventsPage() {
     }
   };
 
+  const handleDuplicate = async (eventId) => {
+    try {
+      await axios.post(`${API}/events/${eventId}/duplicate`, {}, { withCredentials: true });
+      toast.success(language === "es" ? "Evento duplicado" : "Event duplicated");
+      fetchEvents();
+    } catch (error) {
+      toast.error("Failed to duplicate event");
+    }
+  };
+
   const handleEdit = (event) => {
     setEditingEvent(event);
     setFormData({
@@ -128,6 +144,8 @@ export default function EventsPage() {
       name: event.name,
       event_type: event.event_type,
       event_date: new Date(event.event_date),
+      end_date: event.end_date ? new Date(event.end_date) : null,
+      is_booking: event.is_booking || false,
       venue: event.venue || "",
       guest_count: event.guest_count,
       budget: event.budget,
@@ -144,6 +162,8 @@ export default function EventsPage() {
       name: "",
       event_type: "wedding",
       event_date: new Date(),
+      end_date: null,
+      is_booking: false,
       venue: "",
       guest_count: 0,
       budget: 0,
@@ -165,6 +185,14 @@ export default function EventsPage() {
     cancelled: "bg-destructive/10 text-destructive",
   };
 
+  const getDuration = (event) => {
+    if (!event.is_booking || !event.end_date) return null;
+    const start = new Date(event.event_date);
+    const end = new Date(event.end_date);
+    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    return `${days} ${language === "es" ? "días" : "days"}`;
+  };
+
   return (
     <Layout>
       <div className="space-y-6" data-testid="events-page">
@@ -173,151 +201,198 @@ export default function EventsPage() {
           <div>
             <h1 className="font-heading text-3xl font-bold text-foreground">{t("events")}</h1>
             <p className="text-muted-foreground mt-1">
-              {language === "es" ? "Gestiona tus eventos" : "Manage your events"}
+              {language === "es" ? "Gestiona tus eventos y reservas" : "Manage your events and bookings"}
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full gap-2" data-testid="add-event-btn">
-                <Plus className="w-4 h-4" />
-                {t("addEvent")}
+          <div className="flex items-center gap-3">
+            <Link to="/calendar">
+              <Button variant="outline" className="gap-2">
+                <CalendarDays className="w-4 h-4" />
+                {t("calendar")}
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-heading">
-                  {editingEvent ? t("edit") : t("addEvent")}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t("clients")} *</Label>
-                  <Select
-                    value={formData.client_id}
-                    onValueChange={(value) => setFormData({ ...formData, client_id: value })}
-                  >
-                    <SelectTrigger data-testid="event-client-select">
-                      <SelectValue placeholder={language === "es" ? "Seleccionar cliente" : "Select client"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.client_id} value={client.client_id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("name")} *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    data-testid="event-name-input"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+            </Link>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button className="rounded-full gap-2" data-testid="add-event-btn">
+                  <Plus className="w-4 h-4" />
+                  {t("addEvent")}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-heading">
+                    {editingEvent ? t("edit") : t("addEvent")}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{t("eventType")}</Label>
+                    <Label>{t("clients")} *</Label>
                     <Select
-                      value={formData.event_type}
-                      onValueChange={(value) => setFormData({ ...formData, event_type: value })}
+                      value={formData.client_id}
+                      onValueChange={(value) => setFormData({ ...formData, client_id: value })}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger data-testid="event-client-select">
+                        <SelectValue placeholder={language === "es" ? "Seleccionar cliente" : "Select client"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {EVENT_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                        {clients.map((client) => (
+                          <SelectItem key={client.client_id} value={client.client_id}>
+                            {client.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("status")}</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) => setFormData({ ...formData, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EVENT_STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {t(status)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>{t("name")} *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      data-testid="event-name-input"
+                    />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("eventDate")}</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(formData.event_date, "PPP")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.event_date}
-                        onSelect={(date) => date && setFormData({ ...formData, event_date: date })}
-                        initialFocus
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t("eventType")}</Label>
+                      <Select
+                        value={formData.event_type}
+                        onValueChange={(value) => setFormData({ ...formData, event_type: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EVENT_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t("status")}</Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) => setFormData({ ...formData, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EVENT_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {t(status)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Multi-day booking toggle */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <Label className="font-medium">{language === "es" ? "Reserva Multi-día" : "Multi-day Booking"}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es" ? "Evento con múltiples días" : "Event spanning multiple days"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.is_booking}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_booking: checked, end_date: checked ? formData.event_date : null })}
+                    />
+                  </div>
+
+                  <div className={`grid ${formData.is_booking ? "grid-cols-2" : "grid-cols-1"} gap-4`}>
+                    <div className="space-y-2">
+                      <Label>{formData.is_booking ? (language === "es" ? "Fecha Inicio" : "Start Date") : t("eventDate")}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(formData.event_date, "PPP")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={formData.event_date}
+                            onSelect={(date) => date && setFormData({ ...formData, event_date: date })}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {formData.is_booking && (
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Fecha Fin" : "End Date"}</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {formData.end_date ? format(formData.end_date, "PPP") : (language === "es" ? "Seleccionar" : "Select")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={formData.end_date}
+                              onSelect={(date) => date && setFormData({ ...formData, end_date: date })}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{t("venue")}</Label>
+                    <Input
+                      value={formData.venue}
+                      onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t("guestCount")}</Label>
+                      <Input
+                        type="number"
+                        value={formData.guest_count}
+                        onChange={(e) => setFormData({ ...formData, guest_count: e.target.value })}
                       />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("venue")}</Label>
-                  <Input
-                    value={formData.venue}
-                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{t("guestCount")}</Label>
-                    <Input
-                      type="number"
-                      value={formData.guest_count}
-                      onChange={(e) => setFormData({ ...formData, guest_count: e.target.value })}
-                    />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t("budget")}</Label>
+                      <Input
+                        type="number"
+                        value={formData.budget}
+                        onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("budget")}</Label>
-                    <Input
-                      type="number"
-                      value={formData.budget}
-                      onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                    <Label>{t("notes")}</Label>
+                    <Textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={3}
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("notes")}</Label>
-                  <Textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={3}
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    {t("cancel")}
-                  </Button>
-                  <Button type="submit" data-testid="save-event-btn">
-                    {t("save")}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="flex justify-end gap-3">
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      {t("cancel")}
+                    </Button>
+                    <Button type="submit" data-testid="save-event-btn">
+                      {t("save")}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Search */}
@@ -342,7 +417,14 @@ export default function EventsPage() {
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
+                    {event.is_booking && (
+                      <Badge variant="outline" className="text-xs">
+                        {language === "es" ? "Reserva" : "Booking"}
+                      </Badge>
+                    )}
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -354,6 +436,11 @@ export default function EventsPage() {
                         <Edit className="w-4 h-4 mr-2" />
                         {t("edit")}
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDuplicate(event.event_id)}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        {t("duplicate")}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleDelete(event.event_id)} className="text-destructive">
                         <Trash2 className="w-4 h-4 mr-2" />
                         {t("delete")}
@@ -370,8 +457,19 @@ export default function EventsPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <CalendarIcon className="w-4 h-4" />
-                    {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                    <span>
+                      {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                      {event.is_booking && event.end_date && (
+                        <> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</>
+                      )}
+                    </span>
                   </div>
+                  {getDuration(event) && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CalendarDays className="w-4 h-4" />
+                      {getDuration(event)}
+                    </div>
+                  )}
                   {event.venue && (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <MapPin className="w-4 h-4" />
