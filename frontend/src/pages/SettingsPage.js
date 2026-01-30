@@ -453,8 +453,10 @@ export default function SettingsPage() {
                       <div key={item.item_id} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`picklist-row-${item.item_id}`}>
                         <div>
                           <p className="font-medium">{item.name}</p>
+                          {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
                           <p className="text-sm text-muted-foreground">
                             {getCategoryName(item.category_id)} · ${item.default_price.toFixed(2)}
+                            {item.recipe_id && <span className="ml-2 text-primary">• {language === "es" ? "Con receta" : "Has recipe"}</span>}
                           </p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePicklist(item.item_id)}>
@@ -476,11 +478,19 @@ export default function SettingsPage() {
                 </DialogHeader>
                 <form onSubmit={handleAddPicklist} className="space-y-4">
                   <div>
-                    <Label>{language === "es" ? "Nombre" : "Name"}</Label>
+                    <Label>{language === "es" ? "Nombre" : "Name"} *</Label>
                     <Input value={newPicklist.name} onChange={(e) => setNewPicklist({ ...newPicklist, name: e.target.value })} required />
                   </div>
                   <div>
-                    <Label>{language === "es" ? "Categoría" : "Category"}</Label>
+                    <Label>{language === "es" ? "Descripción" : "Description"}</Label>
+                    <Input 
+                      value={newPicklist.description} 
+                      onChange={(e) => setNewPicklist({ ...newPicklist, description: e.target.value })} 
+                      placeholder={language === "es" ? "Descripción opcional del ítem" : "Optional item description"}
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === "es" ? "Categoría" : "Category"} *</Label>
                     <Select value={newPicklist.category_id} onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -497,7 +507,7 @@ export default function SettingsPage() {
                     <Input type="number" step="0.01" value={newPicklist.default_price} onChange={(e) => setNewPicklist({ ...newPicklist, default_price: parseFloat(e.target.value) || 0 })} />
                   </div>
                   <div>
-                    <Label>{language === "es" ? "Receta (opcional)" : "Recipe (optional)"}</Label>
+                    <Label>{language === "es" ? "Receta (opcional, para comida)" : "Recipe (optional, for food)"}</Label>
                     <Select value={newPicklist.recipe_id || "none"} onValueChange={(v) => setNewPicklist({ ...newPicklist, recipe_id: v === "none" ? "" : v })}>
                       <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin receta" : "No recipe"} /></SelectTrigger>
                       <SelectContent>
