@@ -340,6 +340,7 @@ export default function EventsPage() {
                               mode="single"
                               selected={formData.end_date}
                               onSelect={(date) => date && setFormData({ ...formData, end_date: date })}
+                              disabled={(date) => date < formData.event_date}
                               initialFocus
                             />
                           </PopoverContent>
