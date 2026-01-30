@@ -302,13 +302,17 @@ export default function EventsPage() {
                     <Switch
                       checked={formData.is_booking}
                       onCheckedChange={(checked) => {
-                        const newEndDate = checked ? new Date(formData.event_date.getTime() + 24 * 60 * 60 * 1000) : null;
-                        setFormData({ ...formData, is_booking: checked, end_date: newEndDate });
+                        setFormData(prev => ({
+                          ...prev,
+                          is_booking: checked,
+                          end_date: checked ? new Date(prev.event_date.getTime() + 24 * 60 * 60 * 1000) : null
+                        }));
                       }}
                     />
                   </div>
 
-                  <div className={`grid ${formData.is_booking ? "grid-cols-2" : "grid-cols-1"} gap-4`}>
+                  {/* Date fields - Show End Date only when is_booking is true */}
+                  <div className="grid gap-4" style={{ gridTemplateColumns: formData.is_booking ? '1fr 1fr' : '1fr' }}>
                     <div className="space-y-2">
                       <Label>{formData.is_booking ? (language === "es" ? "Fecha Inicio" : "Start Date") : t("eventDate")}</Label>
                       <Popover>
@@ -324,11 +328,13 @@ export default function EventsPage() {
                             selected={formData.event_date}
                             onSelect={(date) => {
                               if (date) {
-                                const updates = { event_date: date };
-                                if (formData.is_booking && formData.end_date && date > formData.end_date) {
-                                  updates.end_date = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-                                }
-                                setFormData({ ...formData, ...updates });
+                                setFormData(prev => {
+                                  const updates = { ...prev, event_date: date };
+                                  if (prev.is_booking && prev.end_date && date > prev.end_date) {
+                                    updates.end_date = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+                                  }
+                                  return updates;
+                                });
                               }
                             }}
                             initialFocus
@@ -350,7 +356,7 @@ export default function EventsPage() {
                             <Calendar
                               mode="single"
                               selected={formData.end_date}
-                              onSelect={(date) => date && setFormData({ ...formData, end_date: date })}
+                              onSelect={(date) => date && setFormData(prev => ({ ...prev, end_date: date }))}
                               disabled={(date) => date < formData.event_date}
                               initialFocus
                             />
