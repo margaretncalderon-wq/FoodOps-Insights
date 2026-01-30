@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { 
   Plus, Trash2, FileText, Download, Eye, Utensils, Wine, 
   Armchair, Users, Flower2, Package, GripVertical, Percent,
-  DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle
+  DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, Search
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
