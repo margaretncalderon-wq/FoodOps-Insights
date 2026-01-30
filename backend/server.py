@@ -2200,6 +2200,488 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
 async def root():
     return {"message": "EEP Evoque Events Platform API", "version": "2.0.0"}
 
+# ============== ITEM CATEGORIES ROUTES ==============
+
+@settings_router.get("/categories")
+async def get_item_categories(user: User = Depends(get_current_user)):
+    """Get all item categories for event orders"""
+    categories = await db.item_categories.find({"company_id": user.company_id}, {"_id": 0}).sort("sort_order", 1).to_list(100)
+    
+    # If no custom categories, return defaults
+    if not categories:
+        defaults = [
+            {"category_id": "cat_food", "company_id": user.company_id, "name": "Food", "name_es": "Comida", "color": "#22C55E", "icon": "utensils", "sort_order": 0, "is_default": True},
+            {"category_id": "cat_drinks", "company_id": user.company_id, "name": "Drinks", "name_es": "Bebidas", "color": "#3B82F6", "icon": "wine", "sort_order": 1, "is_default": True},
+            {"category_id": "cat_rentals", "company_id": user.company_id, "name": "Rentals", "name_es": "Alquiler", "color": "#F59E0B", "icon": "armchair", "sort_order": 2, "is_default": True},
+            {"category_id": "cat_labor", "company_id": user.company_id, "name": "Labor/Staff", "name_es": "Personal", "color": "#8B5CF6", "icon": "users", "sort_order": 3, "is_default": True},
+            {"category_id": "cat_decor", "company_id": user.company_id, "name": "Décor", "name_es": "Decoración", "color": "#EC4899", "icon": "flower", "sort_order": 4, "is_default": True},
+            {"category_id": "cat_other", "company_id": user.company_id, "name": "Other", "name_es": "Otro", "color": "#6B7280", "icon": "package", "sort_order": 5, "is_default": True},
+        ]
+        # Save defaults
+        for cat in defaults:
+            cat["created_at"] = datetime.now(timezone.utc).isoformat()
+            await db.item_categories.insert_one(cat)
+        return defaults
+    
+    return categories
+
+@settings_router.post("/categories")
+async def create_item_category(data: ItemCategoryCreate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    category_id = f"cat_{uuid.uuid4().hex[:12]}"
+    
+    cat_doc = {
+        "category_id": category_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "is_default": False,
+        "created_at": now.isoformat()
+    }
+    await db.item_categories.insert_one(cat_doc)
+    del cat_doc["_id"]
+    return cat_doc
+
+@settings_router.put("/categories/{category_id}")
+async def update_item_category(category_id: str, data: ItemCategoryCreate, user: User = Depends(get_current_user)):
+    result = await db.item_categories.update_one(
+        {"category_id": category_id, "company_id": user.company_id},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category updated"}
+
+@settings_router.delete("/categories/{category_id}")
+async def delete_item_category(category_id: str, user: User = Depends(get_current_user)):
+    # Check if it's a default category
+    cat = await db.item_categories.find_one({"category_id": category_id, "company_id": user.company_id})
+    if cat and cat.get("is_default"):
+        raise HTTPException(status_code=400, detail="Cannot delete default category")
+    
+    result = await db.item_categories.delete_one({"category_id": category_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category deleted"}
+
+# ============== PICKLIST ITEMS ROUTES ==============
+
+@settings_router.get("/picklist")
+async def get_picklist_items(category_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get picklist items for quick selection"""
+    query = {"company_id": user.company_id}
+    if category_id:
+        query["category_id"] = category_id
+    
+    items = await db.picklist_items.find(query, {"_id": 0}).sort("name", 1).to_list(500)
+    return items
+
+@settings_router.post("/picklist")
+async def create_picklist_item(data: PicklistItemCreate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    item_id = f"pli_{uuid.uuid4().hex[:12]}"
+    
+    item_doc = {
+        "item_id": item_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "created_at": now.isoformat()
+    }
+    await db.picklist_items.insert_one(item_doc)
+    del item_doc["_id"]
+    return item_doc
+
+@settings_router.put("/picklist/{item_id}")
+async def update_picklist_item(item_id: str, data: PicklistItemCreate, user: User = Depends(get_current_user)):
+    result = await db.picklist_items.update_one(
+        {"item_id": item_id, "company_id": user.company_id},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"message": "Item updated"}
+
+@settings_router.delete("/picklist/{item_id}")
+async def delete_picklist_item(item_id: str, user: User = Depends(get_current_user)):
+    result = await db.picklist_items.delete_one({"item_id": item_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"message": "Item deleted"}
+
+# ============== TAX RATES ROUTES ==============
+
+@settings_router.get("/taxes")
+async def get_tax_rates(user: User = Depends(get_current_user)):
+    """Get all tax rates"""
+    taxes = await db.tax_rates.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    return taxes
+
+@settings_router.post("/taxes")
+async def create_tax_rate(data: TaxRateCreate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    tax_id = f"tax_{uuid.uuid4().hex[:12]}"
+    
+    # If this is default, unset other defaults
+    if data.is_default:
+        await db.tax_rates.update_many(
+            {"company_id": user.company_id},
+            {"$set": {"is_default": False}}
+        )
+    
+    tax_doc = {
+        "tax_id": tax_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "created_at": now.isoformat()
+    }
+    await db.tax_rates.insert_one(tax_doc)
+    del tax_doc["_id"]
+    return tax_doc
+
+@settings_router.put("/taxes/{tax_id}")
+async def update_tax_rate(tax_id: str, data: TaxRateCreate, user: User = Depends(get_current_user)):
+    if data.is_default:
+        await db.tax_rates.update_many(
+            {"company_id": user.company_id, "tax_id": {"$ne": tax_id}},
+            {"$set": {"is_default": False}}
+        )
+    
+    result = await db.tax_rates.update_one(
+        {"tax_id": tax_id, "company_id": user.company_id},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Tax rate not found")
+    return {"message": "Tax rate updated"}
+
+@settings_router.delete("/taxes/{tax_id}")
+async def delete_tax_rate(tax_id: str, user: User = Depends(get_current_user)):
+    result = await db.tax_rates.delete_one({"tax_id": tax_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Tax rate not found")
+    return {"message": "Tax rate deleted"}
+
+# ============== EVENT ORDER ROUTES ==============
+
+@event_order_router.get("/{event_id}")
+async def get_event_order(event_id: str, user: User = Depends(get_current_user)):
+    """Get the Contract & Event Order for an event"""
+    order = await db.event_orders.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    
+    if not order:
+        # Create empty order if doesn't exist
+        now = datetime.now(timezone.utc)
+        order = {
+            "order_id": f"eo_{uuid.uuid4().hex[:12]}",
+            "event_id": event_id,
+            "company_id": user.company_id,
+            "items": [],
+            "subtotal": 0,
+            "discount_amount": 0,
+            "tax_details": [],
+            "total_tax": 0,
+            "total": 0,
+            "payment_terms": None,
+            "client_notes": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.event_orders.insert_one(order)
+        del order["_id"]
+    
+    return order
+
+@event_order_router.put("/{event_id}")
+async def update_event_order(event_id: str, data: EventOrderCreate, user: User = Depends(get_current_user)):
+    """Update the Contract & Event Order - this is the main data entry point"""
+    now = datetime.now(timezone.utc)
+    
+    # Get categories for item names
+    categories = await db.item_categories.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
+    cat_map = {c["category_id"]: c["name"] for c in categories}
+    
+    # Process items
+    processed_items = []
+    subtotal = 0
+    
+    for idx, item in enumerate(data.items):
+        item_id = f"eoi_{uuid.uuid4().hex[:8]}"
+        item_subtotal = (item.quantity * item.unit_price) - item.discount_amount
+        subtotal += item_subtotal
+        
+        processed_items.append({
+            "item_id": item_id,
+            "name": item.name,
+            "description": item.description,
+            "category_id": item.category_id,
+            "category_name": cat_map.get(item.category_id, "Other"),
+            "quantity": item.quantity,
+            "unit_price": item.unit_price,
+            "discount_amount": item.discount_amount,
+            "subtotal": item_subtotal,
+            "recipe_id": item.recipe_id,
+            "internal_notes": item.internal_notes,
+            "event_date": item.event_date,
+            "sort_order": item.sort_order if item.sort_order else idx,
+            "created_at": now.isoformat()
+        })
+    
+    # Apply overall discount
+    subtotal_after_discount = subtotal - data.discount_amount
+    
+    # Calculate taxes
+    tax_details = []
+    total_tax = 0
+    for tax_id in data.tax_ids:
+        tax = await db.tax_rates.find_one({"tax_id": tax_id, "company_id": user.company_id}, {"_id": 0})
+        if tax:
+            tax_amount = subtotal_after_discount * (tax["rate"] / 100)
+            total_tax += tax_amount
+            tax_details.append({
+                "tax_id": tax_id,
+                "name": tax["name"],
+                "rate": tax["rate"],
+                "amount": tax_amount
+            })
+    
+    total = subtotal_after_discount + total_tax
+    
+    order_doc = {
+        "event_id": event_id,
+        "company_id": user.company_id,
+        "items": processed_items,
+        "subtotal": subtotal,
+        "discount_amount": data.discount_amount,
+        "tax_details": tax_details,
+        "total_tax": total_tax,
+        "total": total,
+        "payment_terms": data.payment_terms,
+        "client_notes": data.client_notes,
+        "updated_at": now.isoformat()
+    }
+    
+    # Upsert the order
+    existing = await db.event_orders.find_one({"event_id": event_id, "company_id": user.company_id})
+    if existing:
+        await db.event_orders.update_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"$set": order_doc}
+        )
+        order_doc["order_id"] = existing["order_id"]
+        order_doc["created_at"] = existing["created_at"]
+    else:
+        order_doc["order_id"] = f"eo_{uuid.uuid4().hex[:12]}"
+        order_doc["created_at"] = now.isoformat()
+        await db.event_orders.insert_one(order_doc)
+        del order_doc["_id"]
+    
+    return order_doc
+
+@event_order_router.post("/{event_id}/items")
+async def add_event_order_item(event_id: str, data: EventOrderItemCreate, user: User = Depends(get_current_user)):
+    """Add a single item to the event order"""
+    now = datetime.now(timezone.utc)
+    
+    # Get or create order
+    order = await db.event_orders.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not order:
+        order = {
+            "order_id": f"eo_{uuid.uuid4().hex[:12]}",
+            "event_id": event_id,
+            "company_id": user.company_id,
+            "items": [],
+            "subtotal": 0,
+            "discount_amount": 0,
+            "tax_details": [],
+            "total_tax": 0,
+            "total": 0,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.event_orders.insert_one(order)
+    
+    # Get category name
+    cat = await db.item_categories.find_one({"category_id": data.category_id}, {"_id": 0})
+    cat_name = cat["name"] if cat else "Other"
+    
+    item_id = f"eoi_{uuid.uuid4().hex[:8]}"
+    item_subtotal = (data.quantity * data.unit_price) - data.discount_amount
+    
+    new_item = {
+        "item_id": item_id,
+        "name": data.name,
+        "description": data.description,
+        "category_id": data.category_id,
+        "category_name": cat_name,
+        "quantity": data.quantity,
+        "unit_price": data.unit_price,
+        "discount_amount": data.discount_amount,
+        "subtotal": item_subtotal,
+        "recipe_id": data.recipe_id,
+        "internal_notes": data.internal_notes,
+        "event_date": data.event_date,
+        "sort_order": data.sort_order,
+        "created_at": now.isoformat()
+    }
+    
+    # Add item and recalculate totals
+    await db.event_orders.update_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {
+            "$push": {"items": new_item},
+            "$inc": {"subtotal": item_subtotal, "total": item_subtotal},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    return new_item
+
+@event_order_router.delete("/{event_id}/items/{item_id}")
+async def delete_event_order_item(event_id: str, item_id: str, user: User = Depends(get_current_user)):
+    """Delete an item from the event order"""
+    now = datetime.now(timezone.utc)
+    
+    order = await db.event_orders.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Event order not found")
+    
+    # Find item and its subtotal
+    item_to_remove = None
+    for item in order.get("items", []):
+        if item["item_id"] == item_id:
+            item_to_remove = item
+            break
+    
+    if not item_to_remove:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Remove item and update totals
+    await db.event_orders.update_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {
+            "$pull": {"items": {"item_id": item_id}},
+            "$inc": {"subtotal": -item_to_remove["subtotal"], "total": -item_to_remove["subtotal"]},
+            "$set": {"updated_at": now.isoformat()}
+        }
+    )
+    
+    return {"message": "Item deleted"}
+
+@event_order_router.get("/{event_id}/document/{doc_type}")
+async def generate_document_from_order(event_id: str, doc_type: str, user: User = Depends(get_current_user)):
+    """Generate a document from the event order data"""
+    # Get event order
+    order = await db.event_orders.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Event order not found")
+    
+    # Get event and client info
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    client = await db.clients.find_one({"client_id": event.get("client_id")}, {"_id": 0})
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+    
+    # Get categories
+    categories = await db.item_categories.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
+    
+    # Filter and group items based on document type
+    items_by_category = {}
+    items_by_date = {}
+    
+    for item in order.get("items", []):
+        cat_id = item.get("category_id", "cat_other")
+        cat_name = item.get("category_name", "Other")
+        date_key = item.get("event_date") or "main"
+        
+        # Filter based on doc type
+        if doc_type == "kitchen_sheet":
+            # Only food and drinks
+            if cat_id not in ["cat_food", "cat_drinks"]:
+                continue
+        elif doc_type == "packing_list":
+            # Physical items only (rentals, décor, equipment)
+            if cat_id in ["cat_labor"]:
+                continue
+        
+        # Group by category
+        if cat_id not in items_by_category:
+            items_by_category[cat_id] = {"name": cat_name, "items": []}
+        items_by_category[cat_id]["items"].append(item)
+        
+        # Group by date
+        if date_key not in items_by_date:
+            items_by_date[date_key] = []
+        items_by_date[date_key].append(item)
+    
+    # Build document content
+    now = datetime.now(timezone.utc)
+    document_id = f"doc_{uuid.uuid4().hex[:12]}"
+    
+    titles = {
+        "contract": "Contract", "proposal": "Proposal", "invoice": "Invoice",
+        "kitchen_sheet": "Kitchen Sheet", "packing_list": "Packing List"
+    }
+    titles_es = {
+        "contract": "Contrato", "proposal": "Propuesta", "invoice": "Factura",
+        "kitchen_sheet": "Hoja de Cocina", "packing_list": "Lista de Montaje"
+    }
+    
+    lang = company.get("default_language", "en") if company else "en"
+    title_dict = titles_es if lang == "es" else titles
+    
+    # Determine what to show based on doc type
+    show_prices = doc_type not in ["kitchen_sheet", "packing_list"]
+    show_internal_notes = doc_type in ["kitchen_sheet", "packing_list"]
+    
+    content = {
+        "event": event,
+        "client": client,
+        "company": company,
+        "order": order,
+        "items_by_category": items_by_category,
+        "items_by_date": items_by_date,
+        "show_prices": show_prices,
+        "show_internal_notes": show_internal_notes,
+        "financials": {
+            "subtotal": order.get("subtotal", 0),
+            "discount_amount": order.get("discount_amount", 0),
+            "tax_details": order.get("tax_details", []),
+            "total_tax": order.get("total_tax", 0),
+            "total": order.get("total", 0)
+        } if show_prices else None,
+        "payment_terms": order.get("payment_terms"),
+        "client_notes": order.get("client_notes"),
+        "generated_at": now.isoformat()
+    }
+    
+    doc = {
+        "document_id": document_id,
+        "company_id": user.company_id,
+        "event_id": event_id,
+        "document_type": doc_type,
+        "title": f"{title_dict.get(doc_type, doc_type)} - {event['name']}",
+        "content": content,
+        "signature": None,
+        "signed_at": None,
+        "signed_by": None,
+        "status": "draft",
+        "requires_signature": doc_type in ["contract", "proposal"],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.documents.insert_one(doc)
+    del doc["_id"]
+    
+    # Update event with document reference
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$push": {"documents": {"document_id": document_id, "type": doc_type, "title": doc["title"]}}}
+    )
+    
+    return doc
+
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
