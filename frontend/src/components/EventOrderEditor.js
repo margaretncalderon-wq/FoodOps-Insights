@@ -327,6 +327,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
     { type: "contract", label: language === "es" ? "Contrato" : "Contract", icon: "📄" },
     { type: "invoice", label: language === "es" ? "Factura" : "Invoice", icon: "💰" },
     { type: "kitchen_sheet", label: language === "es" ? "Hoja de Cocina" : "Kitchen Sheet", icon: "👨‍🍳" },
+    { type: "mise_en_place", label: "Mise en Place", icon: "🔪" },
     { type: "packing_list", label: language === "es" ? "Lista de Montaje" : "Packing List", icon: "📦" },
   ];
 
