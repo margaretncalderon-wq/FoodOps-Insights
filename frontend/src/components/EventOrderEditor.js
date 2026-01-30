@@ -352,16 +352,26 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
               : "Add items to generate proposals, invoices, and work sheets"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => setAddItemOpen(true)} className="gap-2" data-testid="add-order-item-btn">
             <Plus className="w-4 h-4" />
             {language === "es" ? "Agregar Ítem" : "Add Item"}
+          </Button>
+          <Button 
+            variant="secondary" 
+            className="gap-2" 
+            onClick={handleGenerateAllDocuments}
+            disabled={!order?.items?.length}
+            data-testid="generate-all-docs-btn"
+          >
+            <FileText className="w-4 h-4" />
+            {language === "es" ? "Generar Todos los Docs" : "Generate All Docs"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2" data-testid="generate-doc-btn">
                 <FileText className="w-4 h-4" />
-                {language === "es" ? "Generar Documento" : "Generate Document"}
+                {language === "es" ? "Individual" : "Individual"}
                 <ChevronDown className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
