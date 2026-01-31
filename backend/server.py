@@ -505,6 +505,176 @@ class Document(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+# ============== FEATURE FLAGS MODELS ==============
+
+class FeatureFlags(BaseModel):
+    """Feature flags for controlling module visibility"""
+    is_proposal_editing_enabled: bool = True
+    is_order_items_enabled: bool = True
+    is_margin_tracking_enabled: bool = True
+    is_document_autogeneration_enabled: bool = True
+    is_custom_fields_enabled: bool = True
+    is_food_ops_enabled: bool = True  # Links to recipes module
+
+class FeatureFlagsUpdate(BaseModel):
+    is_proposal_editing_enabled: Optional[bool] = None
+    is_order_items_enabled: Optional[bool] = None
+    is_margin_tracking_enabled: Optional[bool] = None
+    is_document_autogeneration_enabled: Optional[bool] = None
+    is_custom_fields_enabled: Optional[bool] = None
+    is_food_ops_enabled: Optional[bool] = None
+
+# ============== PROPOSAL MODELS (Client-facing Contract) ==============
+
+class ProposalCreate(BaseModel):
+    """Proposal acts as commercial proposal and client-facing contract"""
+    valid_until: Optional[datetime] = None
+    client_notes: Optional[str] = None
+    payment_terms: Optional[str] = None
+
+class ProposalUpdate(BaseModel):
+    status: Optional[str] = None  # Draft, Sent, Accepted, Rejected
+    valid_until: Optional[datetime] = None
+    client_notes: Optional[str] = None
+    payment_terms: Optional[str] = None
+
+class Proposal(BaseModel):
+    proposal_id: str
+    event_id: str
+    company_id: str
+    proposal_number: str
+    status: str = "Draft"  # Draft, Sent, Accepted, Rejected
+    valid_until: Optional[datetime] = None
+    client_notes: Optional[str] = None
+    payment_terms: Optional[str] = None
+    subtotal: float = 0.0
+    discount_amount: float = 0.0
+    tax_details: List[Dict[str, Any]] = []
+    total_tax: float = 0.0
+    total: float = 0.0
+    # Internal financials (admin/owner only)
+    total_cost: float = 0.0
+    total_margin: float = 0.0
+    margin_percentage: float = 0.0
+    last_edited_at: datetime
+    created_at: datetime
+
+# ============== ORDER ITEM MODELS (Unified Commercial Engine) ==============
+
+class OrderItemCreate(BaseModel):
+    """Unified order item - represents everything sold in an event"""
+    item_type: str = "Service"  # Food, Service, Rental, Fee
+    reference_id: Optional[str] = None  # menu_id / recipe_id (nullable)
+    description: str  # Client-facing description
+    quantity: float = 1.0
+    unit_price: float = 0.0  # Visible to client
+    internal_cost: Optional[float] = None  # Hidden, internal only
+    category_id: Optional[str] = None
+    internal_notes: Optional[str] = None
+    event_date: Optional[str] = None
+    sort_order: int = 0
+
+class OrderItemUpdate(BaseModel):
+    item_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    description: Optional[str] = None
+    quantity: Optional[float] = None
+    unit_price: Optional[float] = None
+    internal_cost: Optional[float] = None
+    category_id: Optional[str] = None
+    internal_notes: Optional[str] = None
+    event_date: Optional[str] = None
+    sort_order: Optional[int] = None
+
+class OrderItem(BaseModel):
+    """Order item with calculated fields"""
+    item_id: str
+    event_id: str
+    proposal_id: str
+    item_type: str
+    reference_id: Optional[str] = None
+    description: str
+    quantity: float
+    unit_price: float
+    internal_cost: Optional[float] = None
+    total_price: float  # quantity * unit_price
+    total_cost: Optional[float] = None  # quantity * internal_cost
+    margin_amount: Optional[float] = None  # total_price - total_cost
+    margin_percentage: Optional[float] = None
+    category_id: Optional[str] = None
+    category_name: Optional[str] = None
+    internal_notes: Optional[str] = None
+    event_date: Optional[str] = None
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+# ============== DOCUMENT TEMPLATE & CUSTOM FIELDS MODELS ==============
+
+class CustomFieldDefinition(BaseModel):
+    """Custom field definition for templates"""
+    field_key: str
+    label_en: str
+    label_es: str
+    field_type: str = "Text"  # Text, Number, Date, Boolean, Dropdown
+    default_value: Optional[str] = None
+    required: bool = False
+    visibility: str = "Client-facing"  # Internal, Client-facing
+    applies_to: List[str] = []  # Proposal, Invoice, Packing, Kitchen, Service
+    options: List[str] = []  # For Dropdown type
+    is_active: bool = True
+
+class DocumentTemplateCreate(BaseModel):
+    """Document template configuration"""
+    template_type: str  # Proposal, Invoice, PackingList, KitchenSheet, ServiceSheet
+    name: str
+    is_active: bool = True
+    custom_fields: List[CustomFieldDefinition] = []
+    header_text_en: Optional[str] = None
+    header_text_es: Optional[str] = None
+    footer_text_en: Optional[str] = None
+    footer_text_es: Optional[str] = None
+
+class DocumentTemplate(BaseModel):
+    template_id: str
+    company_id: str
+    template_type: str
+    name: str
+    is_active: bool
+    custom_fields: List[Dict[str, Any]] = []
+    header_text_en: Optional[str] = None
+    header_text_es: Optional[str] = None
+    footer_text_en: Optional[str] = None
+    footer_text_es: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+# ============== AUDIT LOG MODEL ==============
+
+class AuditLogEntry(BaseModel):
+    """Audit log for tracking changes after proposal acceptance"""
+    log_id: str
+    event_id: str
+    proposal_id: str
+    company_id: str
+    user_id: str
+    user_name: str
+    action_type: str  # add_item, remove_item, edit_item, status_change
+    item_id: Optional[str] = None
+    item_description: Optional[str] = None
+    changes: Dict[str, Any] = {}
+    impact_on_total: Optional[float] = None
+    timestamp: datetime
+
+# ============== EVENT EXTENSION MODELS ==============
+
+class EventExtendedUpdate(BaseModel):
+    """Extended event fields for the new proposal system"""
+    owner_id: Optional[str] = None
+    internal_notes: Optional[str] = None
+    financial_status: Optional[str] = None  # Draft, In Review, Approved
+    operational_status: Optional[str] = None  # Open, In Production, Completed, Closed
+
 # ============== EVENT ORDER MODELS (Contract & Event Order) ==============
 
 # Item Category Model (Food, Drinks, Rentals, Labor/Staff, Décor, Other)
