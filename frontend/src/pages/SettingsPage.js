@@ -490,12 +490,42 @@ export default function SettingsPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" onClick={() => copyFormLink(form.form_id)} title={language === "es" ? "Copiar enlace" : "Copy link"}>
-                                <Copy className="w-4 h-4" />
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => copyEmbedCode(form.form_id)} title={language === "es" ? "Código embed" : "Embed code"}>
-                                <ExternalLink className="w-4 h-4" />
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm" title={language === "es" ? "Copiar enlace" : "Copy link"}>
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => copyFormLink(form.form_id)}>
+                                    {language === "es" ? "Enlace (auto-detectar)" : "Link (auto-detect)"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => copyFormLink(form.form_id, "es")}>
+                                    {language === "es" ? "Enlace Español" : "Spanish Link"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => copyFormLink(form.form_id, "en")}>
+                                    {language === "es" ? "Enlace Inglés" : "English Link"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm" title={language === "es" ? "Código embed" : "Embed code"}>
+                                    <ExternalLink className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => copyEmbedCode(form.form_id)}>
+                                    {language === "es" ? "Embed (auto-detectar)" : "Embed (auto-detect)"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => copyEmbedCode(form.form_id, "es")}>
+                                    {language === "es" ? "Embed Español" : "Spanish Embed"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => copyEmbedCode(form.form_id, "en")}>
+                                    {language === "es" ? "Embed Inglés" : "English Embed"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <Button variant="outline" size="sm" onClick={() => handleEditLeadForm(form)}>
                                 <Edit className="w-4 h-4" />
                               </Button>
