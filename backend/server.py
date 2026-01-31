@@ -778,21 +778,274 @@ async def logout(request: Request, response: Response):
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out successfully"}
 
-# ============== CRM ROUTES - Enhanced ==============
+# ============== NEW CRM ROUTES ==============
 
-@crm_router.get("/clients", response_model=List[Client])
-async def get_clients(user: User = Depends(get_current_user)):
-    clients = await db.clients.find({"company_id": user.company_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+# ----- LEADS ROUTES -----
+@leads_router.get("")
+async def get_leads(
+    user: User = Depends(get_current_user),
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+    event_type: Optional[str] = None
+):
+    """Get all leads with optional filters"""
+    query = {"company_id": user.company_id}
+    if status:
+        query["status"] = status
+    if source:
+        query["source"] = source
+    if event_type:
+        query["event_type"] = event_type
+    
+    leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    for lead in leads:
+        for field in ["created_at", "updated_at"]:
+            if lead.get(field) and isinstance(lead[field], str):
+                lead[field] = datetime.fromisoformat(lead[field])
+    return leads
+
+@leads_router.post("")
+async def create_lead(data: LeadCreate, user: User = Depends(get_current_user)):
+    """Create a new lead (internal)"""
+    now = datetime.now(timezone.utc)
+    lead_id = f"lead_{uuid.uuid4().hex[:12]}"
+    
+    lead_doc = {
+        "lead_id": lead_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "status": "New",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.leads.insert_one(lead_doc)
+    del lead_doc["_id"]
+    lead_doc["created_at"] = now
+    lead_doc["updated_at"] = now
+    return lead_doc
+
+@leads_router.get("/stats")
+async def get_lead_stats(user: User = Depends(get_current_user)):
+    """Get lead statistics"""
+    total = await db.leads.count_documents({"company_id": user.company_id})
+    new_count = await db.leads.count_documents({"company_id": user.company_id, "status": "New"})
+    contacted = await db.leads.count_documents({"company_id": user.company_id, "status": "Contacted"})
+    converted = await db.leads.count_documents({"company_id": user.company_id, "status": "Converted"})
+    discarded = await db.leads.count_documents({"company_id": user.company_id, "status": "Discarded"})
+    
+    # By source
+    pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$group": {"_id": "$source", "count": {"$sum": 1}}}
+    ]
+    by_source = await db.leads.aggregate(pipeline).to_list(10)
+    
+    return {
+        "total": total,
+        "new": new_count,
+        "contacted": contacted,
+        "converted": converted,
+        "discarded": discarded,
+        "by_source": {s["_id"]: s["count"] for s in by_source if s["_id"]}
+    }
+
+@leads_router.get("/{lead_id}")
+async def get_lead(lead_id: str, user: User = Depends(get_current_user)):
+    """Get a specific lead"""
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    for field in ["created_at", "updated_at"]:
+        if lead.get(field) and isinstance(lead[field], str):
+            lead[field] = datetime.fromisoformat(lead[field])
+    return lead
+
+@leads_router.put("/{lead_id}")
+async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update a lead"""
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Don't allow updates to converted leads
+    if lead.get("status") == "Converted":
+        raise HTTPException(status_code=400, detail="Cannot update a converted lead")
+    
+    now = datetime.now(timezone.utc)
+    update_data = {k: v for k, v in data.items() if k not in ["lead_id", "company_id", "created_at"]}
+    update_data["updated_at"] = now.isoformat()
+    
+    await db.leads.update_one({"lead_id": lead_id}, {"$set": update_data})
+    return await get_lead(lead_id, user)
+
+@leads_router.post("/{lead_id}/convert")
+async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
+    """Convert a lead to Client + Contact + Event"""
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    if lead.get("status") == "Converted":
+        raise HTTPException(status_code=400, detail="Lead already converted")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Check for existing client by email or company name
+    existing_client = None
+    if lead.get("email"):
+        existing_client = await db.clients.find_one({"company_id": user.company_id, "email": lead["email"]}, {"_id": 0})
+    if not existing_client and lead.get("company_name"):
+        existing_client = await db.clients.find_one({"company_id": user.company_id, "display_name": lead["company_name"]}, {"_id": 0})
+    
+    if existing_client:
+        client_id = existing_client["client_id"]
+    else:
+        # Create new client
+        client_id = f"client_{uuid.uuid4().hex[:12]}"
+        client_type = "Company" if lead.get("company_name") else "Individual"
+        display_name = lead.get("company_name") or lead.get("lead_name")
+        
+        client_doc = {
+            "client_id": client_id,
+            "company_id": user.company_id,
+            "client_type": client_type,
+            "display_name": display_name,
+            "email": lead.get("email"),
+            "phone": lead.get("phone"),
+            "source": lead.get("source", "Website"),
+            "tags": [],
+            "notes": lead.get("message"),
+            "status": "Active",
+            "total_revenue": 0.0,
+            "events_count": 0,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.clients.insert_one(client_doc)
+    
+    # Create contact for the client
+    contact_id = f"contact_{uuid.uuid4().hex[:12]}"
+    contact_doc = {
+        "contact_id": contact_id,
+        "company_id": user.company_id,
+        "client_id": client_id,
+        "name": lead.get("lead_name"),
+        "email": lead.get("email"),
+        "phone": lead.get("phone"),
+        "role_title": None,
+        "is_primary": True,
+        "is_billing_contact": False,
+        "created_at": now.isoformat()
+    }
+    # Only insert if contact doesn't already exist
+    existing_contact = await db.contacts.find_one({"client_id": client_id, "email": lead.get("email")})
+    if not existing_contact:
+        await db.contacts.insert_one(contact_doc)
+    
+    # Create event
+    event_id = f"event_{uuid.uuid4().hex[:12]}"
+    event_date = None
+    event_date_tbd = True
+    if lead.get("event_date") and lead.get("event_date") != "TBD":
+        try:
+            event_date = datetime.fromisoformat(lead["event_date"]).isoformat()
+            event_date_tbd = False
+        except:
+            event_date_tbd = True
+    
+    event_doc = {
+        "event_id": event_id,
+        "company_id": user.company_id,
+        "client_id": client_id,
+        "name": f"{lead.get('event_type', 'Event')} - {lead.get('lead_name', 'New Event')}",
+        "event_type": lead.get("event_type", "other"),
+        "event_date": event_date,
+        "event_date_tbd": event_date_tbd,
+        "end_date": None,
+        "is_booking": False,
+        "venue": None,
+        "guest_count": lead.get("estimated_guest_count") or 0,
+        "budget": 0.0,
+        "notes": lead.get("message"),
+        "status": "planning",
+        "stage": "Lead",
+        "expected_value": None,
+        "next_followup_date": None,
+        "next_step": None,
+        "lost_reason": None,
+        "source": lead.get("source"),
+        "timeline": [],
+        "tasks": [],
+        "menu_items": [],
+        "documents": [],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.events.insert_one(event_doc)
+    
+    # Update client events count
+    await db.clients.update_one({"client_id": client_id}, {"$inc": {"events_count": 1}})
+    
+    # Mark lead as converted
+    await db.leads.update_one(
+        {"lead_id": lead_id},
+        {"$set": {
+            "status": "Converted",
+            "converted_client_id": client_id,
+            "converted_event_id": event_id,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {
+        "message": "Lead converted successfully",
+        "client_id": client_id,
+        "contact_id": contact_id,
+        "event_id": event_id
+    }
+
+@leads_router.post("/{lead_id}/discard")
+async def discard_lead(lead_id: str, user: User = Depends(get_current_user)):
+    """Mark a lead as discarded"""
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    if lead.get("status") == "Converted":
+        raise HTTPException(status_code=400, detail="Cannot discard a converted lead")
+    
+    now = datetime.now(timezone.utc)
+    await db.leads.update_one(
+        {"lead_id": lead_id},
+        {"$set": {"status": "Discarded", "updated_at": now.isoformat()}}
+    )
+    return {"message": "Lead discarded"}
+
+# ----- CLIENTS ROUTES -----
+@crm_router.get("/clients")
+async def get_clients(user: User = Depends(get_current_user), status: Optional[str] = None):
+    """Get all clients (qualified accounts)"""
+    query = {"company_id": user.company_id}
+    if status:
+        query["status"] = status
+    
+    clients = await db.clients.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     for c in clients:
-        for field in ["created_at", "updated_at", "last_contact_date"]:
+        for field in ["created_at", "updated_at"]:
             if c.get(field) and isinstance(c[field], str):
                 c[field] = datetime.fromisoformat(c[field])
-        if "client_source" not in c:
-            c["client_source"] = "direct"
+        # Ensure new fields have defaults
+        if "display_name" not in c:
+            c["display_name"] = c.get("name", c.get("company_name", ""))
+        if "client_type" not in c:
+            c["client_type"] = "Company" if c.get("company_name") else "Individual"
+        if "status" not in c:
+            c["status"] = "Active"
     return clients
 
-@crm_router.post("/clients", response_model=Client)
+@crm_router.post("/clients")
 async def create_client(data: ClientCreate, user: User = Depends(get_current_user)):
+    """Create a new client"""
     now = datetime.now(timezone.utc)
     client_id = f"client_{uuid.uuid4().hex[:12]}"
     
@@ -802,31 +1055,46 @@ async def create_client(data: ClientCreate, user: User = Depends(get_current_use
         **data.model_dump(),
         "total_revenue": 0.0,
         "events_count": 0,
-        "last_contact_date": now.isoformat(),
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
     await db.clients.insert_one(client_doc)
+    del client_doc["_id"]
     client_doc["created_at"] = now
     client_doc["updated_at"] = now
-    client_doc["last_contact_date"] = now
-    del client_doc["_id"]
-    return Client(**client_doc)
+    return client_doc
 
-@crm_router.get("/clients/{client_id}", response_model=Client)
+@crm_router.get("/clients/{client_id}")
 async def get_client(client_id: str, user: User = Depends(get_current_user)):
+    """Get a specific client with contacts"""
     client = await db.clients.find_one({"client_id": client_id, "company_id": user.company_id}, {"_id": 0})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    for field in ["created_at", "updated_at", "last_contact_date"]:
+    
+    for field in ["created_at", "updated_at"]:
         if client.get(field) and isinstance(client[field], str):
             client[field] = datetime.fromisoformat(client[field])
-    if "client_source" not in client:
-        client["client_source"] = "direct"
-    return Client(**client)
+    
+    # Ensure new fields have defaults
+    if "display_name" not in client:
+        client["display_name"] = client.get("name", client.get("company_name", ""))
+    if "client_type" not in client:
+        client["client_type"] = "Company" if client.get("company_name") else "Individual"
+    if "status" not in client:
+        client["status"] = "Active"
+    
+    # Get contacts
+    contacts = await db.contacts.find({"client_id": client_id}, {"_id": 0}).to_list(100)
+    for contact in contacts:
+        if contact.get("created_at") and isinstance(contact["created_at"], str):
+            contact["created_at"] = datetime.fromisoformat(contact["created_at"])
+    client["contacts"] = contacts
+    
+    return client
 
-@crm_router.put("/clients/{client_id}", response_model=Client)
+@crm_router.put("/clients/{client_id}")
 async def update_client(client_id: str, data: ClientCreate, user: User = Depends(get_current_user)):
+    """Update a client"""
     now = datetime.now(timezone.utc)
     result = await db.clients.update_one(
         {"client_id": client_id, "company_id": user.company_id},
@@ -838,57 +1106,234 @@ async def update_client(client_id: str, data: ClientCreate, user: User = Depends
 
 @crm_router.delete("/clients/{client_id}")
 async def delete_client(client_id: str, user: User = Depends(get_current_user)):
+    """Delete a client"""
     result = await db.clients.delete_one({"client_id": client_id, "company_id": user.company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Client not found")
+    # Also delete associated contacts
+    await db.contacts.delete_many({"client_id": client_id})
     return {"message": "Client deleted"}
-
-@crm_router.get("/pipeline")
-async def get_pipeline(user: User = Depends(get_current_user)):
-    stages = ["lead", "contacted", "proposal", "negotiation", "won", "lost", "converted"]
-    pipeline = {}
-    for stage in stages:
-        clients = await db.clients.find({"company_id": user.company_id, "pipeline_stage": stage}, {"_id": 0}).to_list(100)
-        for c in clients:
-            for field in ["created_at", "updated_at"]:
-                if c.get(field) and isinstance(c[field], str):
-                    c[field] = datetime.fromisoformat(c[field])
-            if "client_source" not in c:
-                c["client_source"] = "direct"
-        pipeline[stage] = clients
-    return pipeline
-
-@crm_router.get("/sources")
-async def get_client_sources(user: User = Depends(get_current_user)):
-    """Get client count by source"""
-    sources = ["corporate", "planner", "referral", "direct"]
-    result = {}
-    for source in sources:
-        count = await db.clients.count_documents({"company_id": user.company_id, "client_source": source})
-        result[source] = count
-    return result
 
 @crm_router.get("/stats")
 async def get_crm_stats(user: User = Depends(get_current_user)):
     """Get CRM statistics"""
-    total = await db.clients.count_documents({"company_id": user.company_id})
-    active = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": {"$in": ["lead", "contacted", "proposal", "negotiation"]}})
-    converted = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": "converted"})
-    won = await db.clients.count_documents({"company_id": user.company_id, "pipeline_stage": "won"})
-    
-    # Revenue by source
-    pipeline = [
-        {"$match": {"company_id": user.company_id}},
-        {"$group": {"_id": "$client_source", "total_revenue": {"$sum": "$total_revenue"}, "count": {"$sum": 1}}}
-    ]
-    source_stats = await db.clients.aggregate(pipeline).to_list(10)
+    total_clients = await db.clients.count_documents({"company_id": user.company_id})
+    active_clients = await db.clients.count_documents({"company_id": user.company_id, "status": "Active"})
+    total_leads = await db.leads.count_documents({"company_id": user.company_id})
+    new_leads = await db.leads.count_documents({"company_id": user.company_id, "status": "New"})
     
     return {
-        "total_clients": total,
-        "active_clients": active,
-        "converted_clients": converted,
-        "won_clients": won,
-        "by_source": {s["_id"]: {"revenue": s["total_revenue"], "count": s["count"]} for s in source_stats if s["_id"]}
+        "total_clients": total_clients,
+        "active_clients": active_clients,
+        "total_leads": total_leads,
+        "new_leads": new_leads
+    }
+
+# ----- CONTACTS ROUTES -----
+@contacts_router.get("")
+async def get_contacts(user: User = Depends(get_current_user), client_id: Optional[str] = None):
+    """Get contacts, optionally filtered by client"""
+    query = {"company_id": user.company_id}
+    if client_id:
+        query["client_id"] = client_id
+    
+    contacts = await db.contacts.find(query, {"_id": 0}).to_list(1000)
+    for contact in contacts:
+        if contact.get("created_at") and isinstance(contact["created_at"], str):
+            contact["created_at"] = datetime.fromisoformat(contact["created_at"])
+    return contacts
+
+@contacts_router.post("")
+async def create_contact(data: ContactCreate, user: User = Depends(get_current_user)):
+    """Create a new contact"""
+    # Verify client exists
+    client = await db.clients.find_one({"client_id": data.client_id, "company_id": user.company_id})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    now = datetime.now(timezone.utc)
+    contact_id = f"contact_{uuid.uuid4().hex[:12]}"
+    
+    # If this is primary, unset other primary contacts
+    if data.is_primary:
+        await db.contacts.update_many(
+            {"client_id": data.client_id},
+            {"$set": {"is_primary": False}}
+        )
+    
+    contact_doc = {
+        "contact_id": contact_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "created_at": now.isoformat()
+    }
+    await db.contacts.insert_one(contact_doc)
+    del contact_doc["_id"]
+    contact_doc["created_at"] = now
+    return contact_doc
+
+@contacts_router.get("/{contact_id}")
+async def get_contact(contact_id: str, user: User = Depends(get_current_user)):
+    """Get a specific contact"""
+    contact = await db.contacts.find_one({"contact_id": contact_id, "company_id": user.company_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    if contact.get("created_at") and isinstance(contact["created_at"], str):
+        contact["created_at"] = datetime.fromisoformat(contact["created_at"])
+    return contact
+
+@contacts_router.put("/{contact_id}")
+async def update_contact(contact_id: str, data: ContactCreate, user: User = Depends(get_current_user)):
+    """Update a contact"""
+    contact = await db.contacts.find_one({"contact_id": contact_id, "company_id": user.company_id})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # If setting as primary, unset other primary contacts
+    if data.is_primary:
+        await db.contacts.update_many(
+            {"client_id": data.client_id, "contact_id": {"$ne": contact_id}},
+            {"$set": {"is_primary": False}}
+        )
+    
+    await db.contacts.update_one(
+        {"contact_id": contact_id},
+        {"$set": data.model_dump()}
+    )
+    return await get_contact(contact_id, user)
+
+@contacts_router.delete("/{contact_id}")
+async def delete_contact(contact_id: str, user: User = Depends(get_current_user)):
+    """Delete a contact"""
+    result = await db.contacts.delete_one({"contact_id": contact_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return {"message": "Contact deleted"}
+
+# ----- LEAD FORMS ROUTES -----
+@lead_forms_router.get("")
+async def get_lead_forms(user: User = Depends(get_current_user)):
+    """Get all lead forms"""
+    forms = await db.lead_forms.find({"company_id": user.company_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    for form in forms:
+        for field in ["created_at", "updated_at"]:
+            if form.get(field) and isinstance(form[field], str):
+                form[field] = datetime.fromisoformat(form[field])
+    return forms
+
+@lead_forms_router.post("")
+async def create_lead_form(data: LeadFormCreate, user: User = Depends(get_current_user)):
+    """Create a new lead form"""
+    now = datetime.now(timezone.utc)
+    form_id = f"form_{uuid.uuid4().hex[:12]}"
+    
+    form_doc = {
+        "form_id": form_id,
+        "company_id": user.company_id,
+        **data.model_dump(),
+        "submissions_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.lead_forms.insert_one(form_doc)
+    del form_doc["_id"]
+    form_doc["created_at"] = now
+    form_doc["updated_at"] = now
+    return form_doc
+
+@lead_forms_router.get("/{form_id}")
+async def get_lead_form(form_id: str, user: User = Depends(get_current_user)):
+    """Get a specific lead form"""
+    form = await db.lead_forms.find_one({"form_id": form_id, "company_id": user.company_id}, {"_id": 0})
+    if not form:
+        raise HTTPException(status_code=404, detail="Lead form not found")
+    for field in ["created_at", "updated_at"]:
+        if form.get(field) and isinstance(form[field], str):
+            form[field] = datetime.fromisoformat(form[field])
+    return form
+
+@lead_forms_router.put("/{form_id}")
+async def update_lead_form(form_id: str, data: LeadFormCreate, user: User = Depends(get_current_user)):
+    """Update a lead form"""
+    now = datetime.now(timezone.utc)
+    result = await db.lead_forms.update_one(
+        {"form_id": form_id, "company_id": user.company_id},
+        {"$set": {**data.model_dump(), "updated_at": now.isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lead form not found")
+    return await get_lead_form(form_id, user)
+
+@lead_forms_router.delete("/{form_id}")
+async def delete_lead_form(form_id: str, user: User = Depends(get_current_user)):
+    """Delete a lead form"""
+    result = await db.lead_forms.delete_one({"form_id": form_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lead form not found")
+    return {"message": "Lead form deleted"}
+
+# ----- PUBLIC LEAD FORM SUBMISSION -----
+@lead_forms_router.get("/{form_id}/public")
+async def get_public_lead_form(form_id: str):
+    """Get public lead form configuration (no auth required)"""
+    form = await db.lead_forms.find_one({"form_id": form_id, "is_active": True}, {"_id": 0})
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found or inactive")
+    
+    # Return only public-safe fields
+    return {
+        "form_id": form["form_id"],
+        "form_name": form["form_name"],
+        "description": form.get("description"),
+        "fields": form.get("fields", []),
+        "default_event_type": form.get("default_event_type"),
+        "thank_you_message": form.get("thank_you_message", "Thank you!")
+    }
+
+@lead_forms_router.post("/{form_id}/submit")
+async def submit_lead_form(form_id: str, data: dict):
+    """Submit a lead form (no auth required - public endpoint)"""
+    form = await db.lead_forms.find_one({"form_id": form_id, "is_active": True}, {"_id": 0})
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found or inactive")
+    
+    now = datetime.now(timezone.utc)
+    lead_id = f"lead_{uuid.uuid4().hex[:12]}"
+    
+    # Create lead from form submission
+    lead_doc = {
+        "lead_id": lead_id,
+        "company_id": form["company_id"],
+        "lead_name": data.get("lead_name", data.get("name", "")),
+        "email": data.get("email", ""),
+        "phone": data.get("phone"),
+        "company_name": data.get("company_name"),
+        "event_type": data.get("event_type", form.get("default_event_type", "other")),
+        "event_date": data.get("event_date"),
+        "estimated_guest_count": data.get("estimated_guest_count") or data.get("guest_count"),
+        "budget_range": data.get("budget_range"),
+        "message": data.get("message", data.get("notes", "")),
+        "source": form.get("default_source", "Website"),
+        "form_name": form["form_name"],
+        "status": "New",
+        "owner_id": form.get("assign_owner_id"),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.leads.insert_one(lead_doc)
+    
+    # Update form submission count
+    await db.lead_forms.update_one(
+        {"form_id": form_id},
+        {"$inc": {"submissions_count": 1}}
+    )
+    
+    # TODO: Send email notification here
+    
+    return {
+        "success": True,
+        "message": form.get("thank_you_message", "Thank you for your inquiry!"),
+        "lead_id": lead_id
     }
 
 # ============== SUPPLIERS ROUTES ==============
