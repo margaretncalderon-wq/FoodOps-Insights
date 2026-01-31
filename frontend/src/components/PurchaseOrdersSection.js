@@ -20,7 +20,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { 
   Plus, Search, Edit, Trash2, Truck, FileText, Package, Check,
   X, RefreshCw, Calendar, DollarSign, Clock, Send, CheckCircle2,
-  AlertTriangle, Receipt, ArrowRight
+  AlertTriangle, Receipt, ArrowRight, Printer
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
