@@ -2588,19 +2588,30 @@ async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
 async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     
-    # Recalculate costs
-    total_cost, updated_ingredients = await calculate_recipe_cost(data.ingredients, user.company_id)
+    # Check for circular dependencies in sub-recipes
+    for sub in data.sub_recipes:
+        if await check_circular_dependency(recipe_id, sub.child_recipe_id, user.company_id):
+            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {sub.child_recipe_name}")
+    
+    # Recalculate costs including sub-recipes
+    sub_recipes_data = [s.model_dump() for s in data.sub_recipes] if data.sub_recipes else []
+    total_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+        data.ingredients, sub_recipes_data, user.company_id
+    )
+    
     cost_per_yield = total_cost / data.yield_quantity if data.yield_quantity > 0 else 0
-    cost_per_portion = cost_per_yield / data.portion_size if data.portion_size > 0 else cost_per_yield
+    portions = data.portions_per_yield if data.portions_per_yield > 0 else 1
+    cost_per_portion = cost_per_yield / portions
     food_cost_percent = (cost_per_portion / data.sell_price * 100) if data.sell_price > 0 else 0
     
     update_data = {
         **data.model_dump(),
         "ingredients": updated_ingredients,
+        "sub_recipes": updated_sub_recipes,
         "total_cost": total_cost,
-        "cost_per_yield": cost_per_yield,
-        "cost_per_portion": cost_per_portion,
-        "food_cost_percent": food_cost_percent,
+        "cost_per_yield": round(cost_per_yield, 4),
+        "cost_per_portion": round(cost_per_portion, 4),
+        "food_cost_percent": round(food_cost_percent, 2),
         "updated_at": now.isoformat()
     }
     
