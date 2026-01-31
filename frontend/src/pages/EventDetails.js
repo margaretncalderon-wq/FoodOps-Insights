@@ -46,7 +46,6 @@ export default function EventDetails() {
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [client, setClient] = useState(null);
-  const [recipes, setRecipes] = useState([]);
   const [allRecipes, setAllRecipes] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
