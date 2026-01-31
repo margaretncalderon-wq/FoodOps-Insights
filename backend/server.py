@@ -185,30 +185,53 @@ class LeadFormFieldConfig(BaseModel):
     field_name: str
     enabled: bool = True
     required: bool = False
+    label_en: Optional[str] = None  # Custom label in English
+    label_es: Optional[str] = None  # Custom label in Spanish
+
+class CustomFieldConfig(BaseModel):
+    field_id: str
+    field_type: str = "text"  # text, textarea, select, number, date
+    label_en: str
+    label_es: str
+    placeholder_en: Optional[str] = None
+    placeholder_es: Optional[str] = None
+    required: bool = False
+    options: List[str] = []  # For select type
 
 class LeadFormCreate(BaseModel):
     form_name: str
     description: Optional[str] = None
+    description_es: Optional[str] = None
     fields: List[LeadFormFieldConfig] = []
+    custom_fields: List[CustomFieldConfig] = []
     default_source: str = "Website"
     default_event_type: Optional[str] = None
     assign_owner_id: Optional[str] = None
     is_active: bool = True
     thank_you_message_en: str = "Thank you for your inquiry! We will contact you soon."
     thank_you_message_es: str = "¡Gracias por tu consulta! Te contactaremos pronto."
+    # Branding
+    banner_url: Optional[str] = None
+    show_logo: bool = True
+    primary_color: Optional[str] = None  # Override company primary color
 
 class LeadForm(BaseModel):
     form_id: str
     company_id: str
     form_name: str
     description: Optional[str] = None
+    description_es: Optional[str] = None
     fields: List[Dict[str, Any]] = []
+    custom_fields: List[Dict[str, Any]] = []
     default_source: str = "Website"
     default_event_type: Optional[str] = None
     assign_owner_id: Optional[str] = None
     is_active: bool = True
     thank_you_message_en: str = "Thank you for your inquiry! We will contact you soon."
     thank_you_message_es: str = "¡Gracias por tu consulta! Te contactaremos pronto."
+    banner_url: Optional[str] = None
+    show_logo: bool = True
+    primary_color: Optional[str] = None
     submissions_count: int = 0
     created_at: datetime
     updated_at: datetime
