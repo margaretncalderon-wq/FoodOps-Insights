@@ -2818,7 +2818,7 @@ async def check_event_stock(event_id: str, user: User = Depends(get_current_user
     }
 
 @events_router.post("/{event_id}/generate-purchase-list")
-async def generate_purchase_list(event_id: str, user: User = Depends(get_current_user)):
+async def generate_event_purchase_list(event_id: str, user: User = Depends(get_current_user)):
     """Generate purchase orders grouped by supplier for event"""
     stock_check = await check_event_stock(event_id, user)
     short_items = stock_check.get("short", [])
