@@ -218,6 +218,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       costing: { en: "Costing", es: "Costeo" },
       details: { en: "Details", es: "Detalles" },
       packaging: { en: "Packaging", es: "Empaque" },
+      save: { en: "Save", es: "Guardar" },
+      cancel: { en: "Cancel", es: "Cancelar" },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   };
