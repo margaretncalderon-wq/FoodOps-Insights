@@ -168,6 +168,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  const fetchMenus = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/menus`, { withCredentials: true });
+      setMenus(response.data);
+    } catch (error) {
+      console.error("Failed to fetch menus:", error);
+    }
+  };
+
   const fetchRecipes = async () => {
     try {
       const response = await axios.get(`${API}/recipes`, { withCredentials: true });
