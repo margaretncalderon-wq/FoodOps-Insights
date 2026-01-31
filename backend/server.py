@@ -2734,7 +2734,7 @@ async def update_task(event_id: str, task_id: str, task: dict, user: User = Depe
     return {"message": "Task updated"}
 
 @events_router.post("/{event_id}/menu")
-async def add_menu_item(event_id: str, data: dict, user: User = Depends(get_current_user)):
+async def add_event_menu_item(event_id: str, data: dict, user: User = Depends(get_current_user)):
     recipe_id = data.get("recipe_id")
     result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$addToSet": {"menu_items": recipe_id}})
     if result.matched_count == 0:
