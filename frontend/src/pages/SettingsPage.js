@@ -243,14 +243,16 @@ export default function SettingsPage() {
     }));
   };
 
-  const copyFormLink = (formId) => {
-    const link = `${window.location.origin}/forms/${formId}`;
+  const copyFormLink = (formId, lang = null) => {
+    let link = `${window.location.origin}/forms/${formId}`;
+    if (lang) link += `?lang=${lang}`;
     navigator.clipboard.writeText(link);
     toast.success(language === "es" ? "Enlace copiado" : "Link copied");
   };
 
-  const copyEmbedCode = (formId) => {
-    const link = `${window.location.origin}/forms/${formId}`;
+  const copyEmbedCode = (formId, lang = null) => {
+    let link = `${window.location.origin}/forms/${formId}`;
+    if (lang) link += `?lang=${lang}`;
     const code = `<iframe src="${link}" width="100%" height="700" frameborder="0"></iframe>`;
     navigator.clipboard.writeText(code);
     toast.success(language === "es" ? "Código embed copiado" : "Embed code copied");
