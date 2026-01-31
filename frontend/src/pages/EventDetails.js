@@ -35,7 +35,7 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
   Plus, ChefHat, FileText, CheckCircle, PenLine, Share2, Link2, 
-  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock
+  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
