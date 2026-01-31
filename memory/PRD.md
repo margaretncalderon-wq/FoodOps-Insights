@@ -193,5 +193,8 @@ Build a cloud-based, modular web platform for event and catering businesses with
 - GET /api/settings/document-types - Available document types
 
 ## Test Credentials
-- Email: test@evoque.com
-- Password: Test123!
+- Email: test@example.com
+- Password: password123
+
+## Known Issues
+- **Google OAuth**: The "Invalid state parameter" error may occur due to browser cookie settings or session handling. The code implementation is correct but depends on the Emergent Auth service.
