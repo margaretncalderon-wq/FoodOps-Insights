@@ -2628,6 +2628,62 @@ async def delete_recipe(recipe_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Recipe not found")
     return {"message": "Recipe deleted"}
 
+@recipes_router.post("/{recipe_id}/duplicate", response_model=Recipe)
+async def duplicate_recipe(recipe_id: str, user: User = Depends(get_current_user)):
+    """Duplicate an existing recipe"""
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    now = datetime.now(timezone.utc)
+    new_recipe_id = f"recipe_{uuid.uuid4().hex[:12]}"
+    
+    # Create new recipe with copied data
+    new_recipe = {
+        **recipe,
+        "recipe_id": new_recipe_id,
+        "name": f"{recipe['name']} (Copy)",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.recipes.insert_one(new_recipe)
+    return new_recipe
+
+@recipes_router.get("/{recipe_id}/cost-history")
+async def get_recipe_cost_history(recipe_id: str, user: User = Depends(get_current_user)):
+    """Get cost history for a recipe's ingredients"""
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    cost_history = []
+    for ing in recipe.get("ingredients", []):
+        if ing.get("item_type") == "ingredient":
+            ingredient = await db.ingredients.find_one(
+                {"ingredient_id": ing.get("item_id"), "company_id": user.company_id},
+                {"_id": 0, "name": 1, "price_history": 1, "cost_per_unit": 1}
+            )
+            if ingredient:
+                cost_history.append({
+                    "item_id": ing.get("item_id"),
+                    "item_name": ingredient.get("name"),
+                    "current_cost": ingredient.get("cost_per_unit", 0),
+                    "price_history": ingredient.get("price_history", [])
+                })
+    
+    return {
+        "recipe_id": recipe_id,
+        "recipe_name": recipe.get("name"),
+        "ingredient_cost_history": cost_history
+    }
+
 @recipes_router.post("/ai-analyze")
 async def ai_analyze_recipe(data: dict, user: User = Depends(get_current_user)):
     """Use AI to analyze recipe and suggest quantities"""
