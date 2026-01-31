@@ -196,7 +196,7 @@ export default function CRMPage() {
       // Navigate to event
       window.location.href = `/events/${result.data.event_id}`;
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to convert lead");
+      toast.error(getErrorMessage(error, "Failed to convert lead"));
     }
   };
 
@@ -208,7 +208,7 @@ export default function CRMPage() {
       fetchLeads();
       fetchStats();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to discard lead");
+      toast.error(getErrorMessage(error, "Failed to discard lead"));
     }
   };
 
@@ -219,7 +219,7 @@ export default function CRMPage() {
       fetchLeads();
       fetchStats();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to update status");
+      toast.error(getErrorMessage(error, "Failed to update status"));
     }
   };
 
@@ -231,7 +231,7 @@ export default function CRMPage() {
       fetchClients();
       fetchStats();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to delete client");
+      toast.error(getErrorMessage(error, "Failed to delete client"));
     }
   };
 
