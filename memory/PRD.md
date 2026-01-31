@@ -338,9 +338,22 @@ Auto-generated from Event Order:
   - Credit warnings and alerts
   - **CSV/PDF download for account statements**
   - Fixed client endpoint to use /api/crm/clients
+- [x] **Business Clarity UI Alignment (Jan 31, 2026)**:
+  - Removed Layout wrapper from BusinessClarityPage
+  - Sidebar width changed from w-56 to w-64 (matching Culinary Intelligence)
+  - Added ArrowLeft icon in "Back to Dashboard" link
+  - Descriptive tagline: "Where finances move from numbers to decisions"
+  - Navigation paths changed from relative to absolute (/business-clarity/dashboard, etc.)
+- [x] **Event Pending Balance Display (Jan 31, 2026)**:
+  - Backend: GET /api/events now returns pending_balance calculated from unpaid invoices
+  - Backend: GET /api/events/pipeline also returns pending_balance
+  - Frontend: List view shows "Pending Balance: $X,XXX" in red when > 0
+  - Frontend: Pipeline (Kanban) view shows "Pending: $X,XXX" in red when > 0
+  - Added data-testid attributes for testing
 
 ## Upcoming Tasks
 - [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
+- [ ] Verify merma (waste) calculations in recipes
 - [ ] Business Clarity enhancements:
   - CSV/Excel/PDF export for all reports
   - Email notifications for overdue invoices
