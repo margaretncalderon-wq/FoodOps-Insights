@@ -158,6 +158,10 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         recipe_code: initialRecipe.recipe_code || "",
         verified_status: initialRecipe.verified_status || "Draft"
       });
+      // Load image
+      if (initialRecipe.image_url) {
+        setImageUrl(initialRecipe.image_url);
+      }
       if (initialRecipe.instructions?.length > 0) {
         setInstructionText(Array.isArray(initialRecipe.instructions) 
           ? initialRecipe.instructions.join("\n") 
