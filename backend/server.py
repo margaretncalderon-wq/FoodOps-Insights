@@ -1931,17 +1931,31 @@ async def duplicate_event(event_id: str, user: User = Depends(get_current_user))
     
     return Event(**new_event)
 
-@events_router.get("/{event_id}", response_model=Event)
+@events_router.get("/{event_id}")
 async def get_event(event_id: str, user: User = Depends(get_current_user)):
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    for field in ["event_date", "end_date", "created_at", "updated_at"]:
+    for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
         if event.get(field) and isinstance(event[field], str):
-            event[field] = datetime.fromisoformat(event[field])
+            try:
+                event[field] = datetime.fromisoformat(event[field])
+            except:
+                event[field] = None
     if "documents" not in event:
         event["documents"] = []
-    return Event(**event)
+    if "stage" not in event:
+        event["stage"] = "Lead"
+    
+    # Get client info
+    client = await db.clients.find_one({"client_id": event.get("client_id")}, {"_id": 0, "display_name": 1, "client_type": 1})
+    if client:
+        event["client_info"] = {
+            "display_name": client.get("display_name", ""),
+            "client_type": client.get("client_type", "Individual")
+        }
+    
+    return event
 
 @events_router.put("/{event_id}")
 async def update_event(event_id: str, data: EventCreate, user: User = Depends(get_current_user)):
