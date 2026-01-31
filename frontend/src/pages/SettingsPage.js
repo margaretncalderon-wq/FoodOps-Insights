@@ -59,9 +59,12 @@ export default function SettingsPage() {
   const [taxes, setTaxes] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [leadForms, setLeadForms] = useState([]);
+  const [featureFlags, setFeatureFlags] = useState(null);
+  const [documentTemplates, setDocumentTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(null);
+  const [savingFlags, setSavingFlags] = useState(false);
   
   // Dialogs
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -116,6 +119,8 @@ export default function SettingsPage() {
       fetchTaxes(),
       fetchRecipes(),
       fetchLeadForms(),
+      fetchFeatureFlags(),
+      fetchDocumentTemplates(),
     ]).finally(() => setLoading(false));
   }, []);
 
