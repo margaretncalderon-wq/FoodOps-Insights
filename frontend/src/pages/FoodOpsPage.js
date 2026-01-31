@@ -455,13 +455,44 @@ function InventorySection() {
 
       {/* Supplier Dialog */}
       <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editingSupplier ? (language === "es" ? "Editar Proveedor" : "Edit Supplier") : t("addSupplier")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>{t("name")}</Label><Input value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} /></div>
             <div><Label>{t("contact")}</Label><Input value={supplierForm.contact_name} onChange={(e) => setSupplierForm({ ...supplierForm, contact_name: e.target.value })} /></div>
             <div><Label>{t("email")}</Label><Input type="email" value={supplierForm.email} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })} /></div>
             <div><Label>{t("phone")}</Label><Input value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} /></div>
+            
+            {/* Payment & Credit Section */}
+            <div className="border-t pt-4 mt-2">
+              <p className="text-sm font-medium mb-3">{language === "es" ? "Términos de Pago" : "Payment Terms"}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{language === "es" ? "Forma de Pago" : "Payment Method"}</Label>
+                  <Select value={supplierForm.payment_terms || "cash"} onValueChange={(v) => setSupplierForm({ ...supplierForm, payment_terms: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">{language === "es" ? "Efectivo" : "Cash"}</SelectItem>
+                      <SelectItem value="transfer">{language === "es" ? "Transferencia" : "Transfer"}</SelectItem>
+                      <SelectItem value="credit">{language === "es" ? "Crédito" : "Credit"}</SelectItem>
+                      <SelectItem value="mixed">{language === "es" ? "Mixto" : "Mixed"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{language === "es" ? "Límite de Crédito" : "Credit Limit"}</Label>
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    step="100" 
+                    value={supplierForm.credit_limit || 0} 
+                    onChange={(e) => setSupplierForm({ ...supplierForm, credit_limit: parseFloat(e.target.value) || 0, has_credit: parseFloat(e.target.value) > 0 })} 
+                    disabled={supplierForm.payment_terms !== "credit"}
+                  />
+                </div>
+              </div>
+            </div>
+            
             <div><Label>{t("notes")}</Label><Input value={supplierForm.notes} onChange={(e) => setSupplierForm({ ...supplierForm, notes: e.target.value })} /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setSupplierDialogOpen(false)}>{t("cancel")}</Button><Button onClick={handleSaveSupplier}>{t("save")}</Button></DialogFooter>
