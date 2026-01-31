@@ -2832,6 +2832,11 @@ async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
     for field in ["created_at", "updated_at"]:
         if recipe.get(field) and isinstance(recipe[field], str):
             recipe[field] = datetime.fromisoformat(recipe[field])
+    # Ensure extended fields have defaults for old recipes
+    recipe.setdefault("allergens", [])
+    recipe.setdefault("work_category", None)
+    recipe.setdefault("recipe_code", None)
+    recipe.setdefault("verified_status", "Draft")
     return Recipe(**recipe)
 
 @recipes_router.put("/{recipe_id}", response_model=Recipe)
