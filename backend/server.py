@@ -194,7 +194,8 @@ class LeadFormCreate(BaseModel):
     default_event_type: Optional[str] = None
     assign_owner_id: Optional[str] = None
     is_active: bool = True
-    thank_you_message: str = "Thank you for your inquiry! We will contact you soon."
+    thank_you_message_en: str = "Thank you for your inquiry! We will contact you soon."
+    thank_you_message_es: str = "¡Gracias por tu consulta! Te contactaremos pronto."
 
 class LeadForm(BaseModel):
     form_id: str
@@ -206,7 +207,8 @@ class LeadForm(BaseModel):
     default_event_type: Optional[str] = None
     assign_owner_id: Optional[str] = None
     is_active: bool = True
-    thank_you_message: str
+    thank_you_message_en: str = "Thank you for your inquiry! We will contact you soon."
+    thank_you_message_es: str = "¡Gracias por tu consulta! Te contactaremos pronto."
     submissions_count: int = 0
     created_at: datetime
     updated_at: datetime
