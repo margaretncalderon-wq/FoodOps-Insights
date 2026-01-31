@@ -1,13 +1,17 @@
-# EEP Evoque Events Platform - PRD
+# Evoke OS - PRD
 
 ## Overview
-Cloud-based, modular web platform for event management with CRM, Event Management, Recipe Costing, Quoting System, and full Proposal/Contract workflow.
+Cloud-based, modular web platform for event management with CRM, Event Management, Recipe Costing (Culinary Intelligence), Quoting System, and full Proposal/Contract workflow.
+
+**Rebranded: January 31, 2026**
+- Platform: "Evoque Events Platform" → "Evoke OS"
+- Module: "Food Ops" → "Culinary Intelligence"
 
 ## Core Modules
 
 ### 1. Authentication
 - JWT-based email/password authentication (WORKING ✅)
-- Google OAuth via Emergent-managed auth (IMPLEMENTED - needs user verification)
+- Google OAuth via Emergent-managed auth (WORKING ✅)
 
 ### 2. CRM Module (Refactored)
 - **Leads**: Inbound inquiries from embeddable forms, separate from clients
