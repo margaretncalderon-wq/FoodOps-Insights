@@ -8217,7 +8217,7 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
             {"event_id": event_id, "company_id": user.company_id},
             {"_id": 0, "internal_cost": 1}
         ).to_list(100)
-        internal_costs = sum(item.get("internal_cost", 0) for item in order_items)
+        internal_costs = sum(item.get("internal_cost") or 0 for item in order_items)
         total_costs = costs + internal_costs
         
         profit = revenue - total_costs
