@@ -127,8 +127,13 @@ const ProtectedRoute = ({ children }) => {
 function AppRouter() {
   const location = useLocation();
 
-  // Check URL fragment for session_id BEFORE rendering routes
-  if (location.hash?.includes("session_id=")) {
+  // Check for session_id in URL (hash, query params, or full URL)
+  const hasSessionId = 
+    location.hash?.includes("session_id=") || 
+    location.search?.includes("session_id=") ||
+    window.location.href.includes("session_id=");
+    
+  if (hasSessionId) {
     return <AuthCallback />;
   }
 
