@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
-import EventOrderEditor from "../components/EventOrderEditor";
+import ProposalEditor from "../components/ProposalEditor";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -34,7 +34,7 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
   Plus, ChefHat, FileText, CheckCircle, PenLine, Share2, Link2, 
-  MoreHorizontal, Copy, ExternalLink, ClipboardList
+  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
