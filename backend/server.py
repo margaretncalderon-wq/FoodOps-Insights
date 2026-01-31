@@ -7089,6 +7089,1170 @@ async def create_po_from_purchase_list(
     del po["_id"]
     return po
 
+# ============== BUSINESS CLARITY ROUTES ==============
+
+# Stripe API Key
+STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
+
+@business_clarity_router.get("/dashboard")
+async def get_business_clarity_dashboard(user: User = Depends(get_current_user)):
+    """Get Business Clarity executive dashboard"""
+    now = datetime.now(timezone.utc)
+    
+    # Get invoices with balances
+    invoices = await db.invoices.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    total_receivables = sum(inv.get("balance_due", inv.get("total", 0)) for inv in invoices if inv.get("status") != "paid")
+    total_overdue = sum(inv.get("balance_due", inv.get("total", 0)) for inv in invoices 
+                       if inv.get("due_date") and datetime.fromisoformat(inv["due_date"].replace("Z", "+00:00")) < now 
+                       and inv.get("status") != "paid")
+    
+    # Get payables
+    payables = await db.supplier_payables.find(
+        {"company_id": user.company_id, "status": {"$ne": "paid"}},
+        {"_id": 0}
+    ).to_list(1000)
+    total_payables = sum(p.get("balance_due", p.get("amount", 0)) for p in payables)
+    
+    # Get recent payments
+    recent_payments = await db.payments.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    # Aging buckets
+    aging = {"current": 0, "1_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0}
+    for inv in invoices:
+        if inv.get("status") == "paid":
+            continue
+        balance = inv.get("balance_due", inv.get("total", 0))
+        due_date = inv.get("due_date")
+        if due_date:
+            try:
+                due_dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+                days_overdue = (now - due_dt).days
+                if days_overdue <= 0:
+                    aging["current"] += balance
+                elif days_overdue <= 30:
+                    aging["1_30"] += balance
+                elif days_overdue <= 60:
+                    aging["31_60"] += balance
+                elif days_overdue <= 90:
+                    aging["61_90"] += balance
+                else:
+                    aging["90_plus"] += balance
+            except:
+                aging["current"] += balance
+    
+    return {
+        "total_receivables": round(total_receivables, 2),
+        "total_overdue": round(total_overdue, 2),
+        "total_payables": round(total_payables, 2),
+        "aging_buckets": {k: round(v, 2) for k, v in aging.items()},
+        "recent_payments": recent_payments,
+        "invoices_count": len(invoices),
+        "open_invoices_count": len([i for i in invoices if i.get("status") != "paid"])
+    }
+
+# ============== INVOICE MANAGEMENT ==============
+
+@business_clarity_router.get("/invoices")
+async def get_all_invoices(
+    client_id: Optional[str] = None,
+    event_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all invoices with payment status"""
+    query = {"company_id": user.company_id}
+    if client_id:
+        query["client_id"] = client_id
+    if event_id:
+        query["event_id"] = event_id
+    if status:
+        query["status"] = status
+    
+    invoices = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    # Enrich with client and event names
+    for inv in invoices:
+        if inv.get("client_id"):
+            client = await db.clients.find_one({"client_id": inv["client_id"]}, {"_id": 0, "display_name": 1})
+            inv["client_name"] = client.get("display_name") if client else None
+        if inv.get("event_id"):
+            event = await db.events.find_one({"event_id": inv["event_id"]}, {"_id": 0, "name": 1})
+            inv["event_name"] = event.get("name") if event else None
+    
+    return invoices
+
+@business_clarity_router.post("/invoices")
+async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_user)):
+    """Create a new invoice"""
+    now = datetime.now(timezone.utc)
+    
+    # Calculate totals
+    subtotal = sum(
+        line.quantity * line.unit_price * (1 - line.discount_percent / 100)
+        for line in data.lines
+    )
+    tax_amount = subtotal * (data.tax_rate / 100)
+    total = subtotal * (1 - data.discount_percent / 100) + tax_amount
+    
+    # Generate invoice number
+    count = await db.invoices.count_documents({"company_id": user.company_id})
+    invoice_number = f"INV-{now.year}-{str(count + 1).zfill(4)}"
+    
+    invoice = {
+        "invoice_id": f"inv_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "client_id": data.client_id,
+        "event_id": data.event_id,
+        "invoice_number": invoice_number,
+        "issue_date": now.isoformat(),
+        "due_date": data.due_date.isoformat(),
+        "lines": [line.model_dump() for line in data.lines],
+        "subtotal": round(subtotal, 2),
+        "discount_percent": data.discount_percent,
+        "tax_rate": data.tax_rate,
+        "total": round(total, 2),
+        "paid_amount": 0.0,
+        "balance_due": round(total, 2),
+        "status": "open",
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.invoices.insert_one(invoice)
+    
+    # Audit log
+    await db.audit_logs.insert_one({
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "action": "invoice_created",
+        "entity_type": "invoice",
+        "entity_id": invoice["invoice_id"],
+        "details": {"invoice_number": invoice_number, "total": total},
+        "created_at": now.isoformat()
+    })
+    
+    del invoice["_id"]
+    return invoice
+
+@business_clarity_router.get("/invoices/{invoice_id}")
+async def get_invoice(invoice_id: str, user: User = Depends(get_current_user)):
+    """Get invoice details with payment history"""
+    invoice = await db.invoices.find_one(
+        {"invoice_id": invoice_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Get payment applications
+    applications = await db.payment_applications.find(
+        {"invoice_id": invoice_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Get payment details for each application
+    for app in applications:
+        payment = await db.payments.find_one(
+            {"payment_id": app["payment_id"]},
+            {"_id": 0, "payment_date": 1, "payment_method": 1, "reference": 1}
+        )
+        if payment:
+            app["payment_date"] = payment.get("payment_date")
+            app["payment_method"] = payment.get("payment_method")
+            app["reference"] = payment.get("reference")
+    
+    invoice["payment_applications"] = applications
+    
+    return invoice
+
+# ============== PAYMENT MANAGEMENT ==============
+
+@business_clarity_router.post("/payments")
+async def create_payment(data: PaymentCreate, user: User = Depends(get_current_user)):
+    """Create a payment record"""
+    now = datetime.now(timezone.utc)
+    
+    payment = {
+        "payment_id": f"pay_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "client_id": data.client_id,
+        "amount": data.amount,
+        "payment_method": data.payment_method,
+        "payment_date": (data.payment_date or now).isoformat(),
+        "reference": data.reference,
+        "notes": data.notes,
+        "stripe_session_id": data.stripe_session_id,
+        "status": "completed",
+        "applied_amount": 0.0,
+        "unapplied_amount": data.amount,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.payments.insert_one(payment)
+    
+    # Audit log
+    await db.audit_logs.insert_one({
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "action": "payment_created",
+        "entity_type": "payment",
+        "entity_id": payment["payment_id"],
+        "details": {"amount": data.amount, "method": data.payment_method, "client_id": data.client_id},
+        "created_at": now.isoformat()
+    })
+    
+    del payment["_id"]
+    return payment
+
+@business_clarity_router.get("/payments")
+async def get_payments(
+    client_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all payments"""
+    query = {"company_id": user.company_id}
+    if client_id:
+        query["client_id"] = client_id
+    
+    payments = await db.payments.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    # Enrich with client names
+    for pay in payments:
+        if pay.get("client_id"):
+            client = await db.clients.find_one({"client_id": pay["client_id"]}, {"_id": 0, "display_name": 1})
+            pay["client_name"] = client.get("display_name") if client else None
+    
+    return payments
+
+@business_clarity_router.post("/payments/{payment_id}/apply")
+async def apply_payment_to_invoices(payment_id: str, data: PaymentApplicationCreate, user: User = Depends(get_current_user)):
+    """Apply a payment to one or multiple invoices"""
+    now = datetime.now(timezone.utc)
+    
+    # Get payment
+    payment = await db.payments.find_one(
+        {"payment_id": payment_id, "company_id": user.company_id}
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    unapplied = payment.get("unapplied_amount", payment.get("amount", 0))
+    total_to_apply = sum(app["amount_applied"] for app in data.applications)
+    
+    if total_to_apply > unapplied + 0.01:  # Small tolerance for floating point
+        raise HTTPException(status_code=400, detail=f"Cannot apply ${total_to_apply:.2f}. Only ${unapplied:.2f} available.")
+    
+    applications_created = []
+    
+    for app in data.applications:
+        invoice_id = app["invoice_id"]
+        amount_to_apply = app["amount_applied"]
+        
+        # Get invoice
+        invoice = await db.invoices.find_one(
+            {"invoice_id": invoice_id, "company_id": user.company_id}
+        )
+        if not invoice:
+            continue
+        
+        balance_due = invoice.get("balance_due", invoice.get("total", 0))
+        actual_apply = min(amount_to_apply, balance_due)
+        
+        if actual_apply <= 0:
+            continue
+        
+        # Create application record
+        application = {
+            "application_id": f"app_{uuid.uuid4().hex[:12]}",
+            "payment_id": payment_id,
+            "invoice_id": invoice_id,
+            "amount_applied": actual_apply,
+            "created_at": now.isoformat()
+        }
+        await db.payment_applications.insert_one(application)
+        
+        # Update invoice
+        new_paid = invoice.get("paid_amount", 0) + actual_apply
+        new_balance = invoice.get("total", 0) - new_paid
+        new_status = "paid" if new_balance <= 0.01 else ("partially_paid" if new_paid > 0 else "open")
+        
+        await db.invoices.update_one(
+            {"invoice_id": invoice_id},
+            {"$set": {
+                "paid_amount": round(new_paid, 2),
+                "balance_due": round(max(0, new_balance), 2),
+                "status": new_status,
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        del application["_id"]
+        applications_created.append(application)
+    
+    # Update payment
+    total_applied = sum(a["amount_applied"] for a in applications_created)
+    new_applied = payment.get("applied_amount", 0) + total_applied
+    new_unapplied = payment.get("amount", 0) - new_applied
+    
+    await db.payments.update_one(
+        {"payment_id": payment_id},
+        {"$set": {
+            "applied_amount": round(new_applied, 2),
+            "unapplied_amount": round(max(0, new_unapplied), 2),
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Audit log
+    await db.audit_logs.insert_one({
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "action": "payment_applied",
+        "entity_type": "payment",
+        "entity_id": payment_id,
+        "details": {"applications": [{"invoice_id": a["invoice_id"], "amount": a["amount_applied"]} for a in applications_created]},
+        "created_at": now.isoformat()
+    })
+    
+    return {"applications": applications_created, "total_applied": total_applied}
+
+# ============== STRIPE PAYMENT INTEGRATION ==============
+
+@business_clarity_router.post("/checkout/session")
+async def create_stripe_checkout(request: Request, data: InvoicePaymentRequest, user: User = Depends(get_current_user)):
+    """Create Stripe checkout session for invoice payment"""
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    # Get invoices and calculate total
+    invoices = []
+    total_amount = 0.0
+    client_id = None
+    
+    for inv_id in data.invoice_ids:
+        invoice = await db.invoices.find_one(
+            {"invoice_id": inv_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if invoice and invoice.get("balance_due", 0) > 0:
+            invoices.append(invoice)
+            total_amount += invoice.get("balance_due", invoice.get("total", 0))
+            if not client_id:
+                client_id = invoice.get("client_id")
+    
+    if not invoices:
+        raise HTTPException(status_code=400, detail="No invoices with balance due")
+    
+    if total_amount <= 0:
+        raise HTTPException(status_code=400, detail="Total amount must be greater than 0")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create Stripe checkout
+    host_url = data.origin_url
+    webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+    
+    success_url = f"{host_url}/business-clarity/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{host_url}/business-clarity/invoices"
+    
+    metadata = {
+        "company_id": user.company_id,
+        "client_id": client_id or "",
+        "invoice_ids": ",".join(data.invoice_ids),
+        "user_id": user.user_id
+    }
+    
+    checkout_request = CheckoutSessionRequest(
+        amount=float(total_amount),
+        currency="usd",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=metadata
+    )
+    
+    session = await stripe_checkout.create_checkout_session(checkout_request)
+    
+    # Create payment transaction record
+    transaction = {
+        "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "client_id": client_id,
+        "invoice_ids": data.invoice_ids,
+        "amount": round(total_amount, 2),
+        "currency": "usd",
+        "session_id": session.session_id,
+        "payment_status": "initiated",
+        "metadata": metadata,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.payment_transactions.insert_one(transaction)
+    
+    return {"url": session.url, "session_id": session.session_id}
+
+@business_clarity_router.get("/checkout/status/{session_id}")
+async def get_checkout_status(session_id: str, user: User = Depends(get_current_user)):
+    """Get Stripe checkout status and process payment if successful"""
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    # Get transaction
+    transaction = await db.payment_transactions.find_one(
+        {"session_id": session_id, "company_id": user.company_id}
+    )
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # If already processed, return current status
+    if transaction.get("payment_status") == "paid":
+        return {
+            "status": "complete",
+            "payment_status": "paid",
+            "amount": transaction.get("amount"),
+            "payment_id": transaction.get("payment_id")
+        }
+    
+    # Check Stripe status
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+    status = await stripe_checkout.get_checkout_status(session_id)
+    
+    now = datetime.now(timezone.utc)
+    
+    if status.payment_status == "paid" and transaction.get("payment_status") != "paid":
+        # Process the payment
+        client_id = transaction.get("client_id")
+        amount = transaction.get("amount", 0)
+        invoice_ids = transaction.get("invoice_ids", [])
+        
+        # Create payment record
+        payment = {
+            "payment_id": f"pay_{uuid.uuid4().hex[:12]}",
+            "company_id": user.company_id,
+            "client_id": client_id,
+            "amount": amount,
+            "payment_method": "card",
+            "payment_date": now.isoformat(),
+            "reference": f"Stripe: {session_id}",
+            "notes": f"Online payment via Stripe",
+            "stripe_session_id": session_id,
+            "status": "completed",
+            "applied_amount": 0.0,
+            "unapplied_amount": amount,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.payments.insert_one(payment)
+        
+        # Auto-apply to invoices
+        remaining = amount
+        for inv_id in invoice_ids:
+            if remaining <= 0:
+                break
+            
+            invoice = await db.invoices.find_one({"invoice_id": inv_id, "company_id": user.company_id})
+            if not invoice:
+                continue
+            
+            balance = invoice.get("balance_due", invoice.get("total", 0))
+            to_apply = min(remaining, balance)
+            
+            if to_apply > 0:
+                # Create application
+                app = {
+                    "application_id": f"app_{uuid.uuid4().hex[:12]}",
+                    "payment_id": payment["payment_id"],
+                    "invoice_id": inv_id,
+                    "amount_applied": to_apply,
+                    "created_at": now.isoformat()
+                }
+                await db.payment_applications.insert_one(app)
+                
+                # Update invoice
+                new_paid = invoice.get("paid_amount", 0) + to_apply
+                new_balance = invoice.get("total", 0) - new_paid
+                new_status = "paid" if new_balance <= 0.01 else "partially_paid"
+                
+                await db.invoices.update_one(
+                    {"invoice_id": inv_id},
+                    {"$set": {
+                        "paid_amount": round(new_paid, 2),
+                        "balance_due": round(max(0, new_balance), 2),
+                        "status": new_status,
+                        "updated_at": now.isoformat()
+                    }}
+                )
+                
+                remaining -= to_apply
+        
+        # Update payment applied amounts
+        applied = amount - remaining
+        await db.payments.update_one(
+            {"payment_id": payment["payment_id"]},
+            {"$set": {
+                "applied_amount": round(applied, 2),
+                "unapplied_amount": round(remaining, 2),
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        # Update transaction
+        await db.payment_transactions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "payment_status": "paid",
+                "payment_id": payment["payment_id"],
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        # Audit log
+        await db.audit_logs.insert_one({
+            "log_id": f"log_{uuid.uuid4().hex[:12]}",
+            "company_id": user.company_id,
+            "user_id": user.user_id,
+            "action": "stripe_payment_completed",
+            "entity_type": "payment",
+            "entity_id": payment["payment_id"],
+            "details": {"amount": amount, "session_id": session_id, "invoice_ids": invoice_ids},
+            "created_at": now.isoformat()
+        })
+        
+        return {
+            "status": "complete",
+            "payment_status": "paid",
+            "amount": amount,
+            "payment_id": payment["payment_id"]
+        }
+    
+    elif status.status == "expired":
+        await db.payment_transactions.update_one(
+            {"session_id": session_id},
+            {"$set": {"payment_status": "expired", "updated_at": now.isoformat()}}
+        )
+    
+    return {
+        "status": status.status,
+        "payment_status": status.payment_status,
+        "amount": status.amount_total / 100 if status.amount_total else 0
+    }
+
+# Stripe Webhook
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhooks"""
+    try:
+        body = await request.body()
+        signature = request.headers.get("Stripe-Signature")
+        
+        if STRIPE_API_KEY:
+            stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+            webhook_response = await stripe_checkout.handle_webhook(body, signature)
+            
+            if webhook_response and webhook_response.payment_status == "paid":
+                # Find and update transaction
+                await db.payment_transactions.update_one(
+                    {"session_id": webhook_response.session_id},
+                    {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}}
+                )
+        
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"status": "error", "message": str(e)}
+
+# ============== CLIENT FINANCIAL VIEW ==============
+
+@business_clarity_router.get("/clients/{client_id}/financial")
+async def get_client_financial_view(client_id: str, user: User = Depends(get_current_user)):
+    """Get client account statement / financial view"""
+    # Get client
+    client = await db.clients.find_one(
+        {"client_id": client_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Get all invoices for client
+    invoices = await db.invoices.find(
+        {"client_id": client_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("issue_date", 1).to_list(1000)
+    
+    # Enrich invoices with event names
+    for inv in invoices:
+        if inv.get("event_id"):
+            event = await db.events.find_one({"event_id": inv["event_id"]}, {"_id": 0, "name": 1})
+            inv["event_name"] = event.get("name") if event else None
+    
+    # Get all payments for client
+    payments = await db.payments.find(
+        {"client_id": client_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("payment_date", 1).to_list(1000)
+    
+    # Get payment applications
+    for pay in payments:
+        applications = await db.payment_applications.find(
+            {"payment_id": pay["payment_id"]},
+            {"_id": 0}
+        ).to_list(100)
+        pay["applications"] = applications
+    
+    # Calculate running balance (activity log)
+    activity = []
+    balance = 0.0
+    
+    # Combine invoices and payments, sort by date
+    all_items = []
+    for inv in invoices:
+        all_items.append({
+            "type": "invoice",
+            "date": inv.get("issue_date"),
+            "data": inv
+        })
+    for pay in payments:
+        all_items.append({
+            "type": "payment",
+            "date": pay.get("payment_date"),
+            "data": pay
+        })
+    
+    all_items.sort(key=lambda x: x["date"] or "")
+    
+    for item in all_items:
+        if item["type"] == "invoice":
+            inv = item["data"]
+            balance += inv.get("total", 0)
+            activity.append({
+                "date": inv.get("issue_date"),
+                "type": "invoice",
+                "description": f"Invoice {inv.get('invoice_number')}",
+                "reference": inv.get("invoice_id"),
+                "debit": inv.get("total", 0),
+                "credit": 0,
+                "balance": round(balance, 2)
+            })
+        else:
+            pay = item["data"]
+            balance -= pay.get("amount", 0)
+            activity.append({
+                "date": pay.get("payment_date"),
+                "type": "payment",
+                "description": f"Payment ({pay.get('payment_method', 'N/A')})",
+                "reference": pay.get("payment_id"),
+                "debit": 0,
+                "credit": pay.get("amount", 0),
+                "balance": round(balance, 2)
+            })
+    
+    # Summary
+    total_invoiced = sum(inv.get("total", 0) for inv in invoices)
+    total_paid = sum(pay.get("amount", 0) for pay in payments)
+    current_balance = total_invoiced - total_paid
+    
+    # Credit warnings
+    warnings = []
+    if client.get("has_credit") and client.get("credit_limit", 0) > 0:
+        if current_balance > client.get("credit_limit", 0):
+            warnings.append(f"Credit limit exceeded: ${current_balance:.2f} / ${client.get('credit_limit', 0):.2f}")
+    
+    overdue_invoices = [inv for inv in invoices if inv.get("status") not in ["paid"] and inv.get("due_date")]
+    now = datetime.now(timezone.utc)
+    for inv in overdue_invoices:
+        try:
+            due_dt = datetime.fromisoformat(inv["due_date"].replace("Z", "+00:00"))
+            if due_dt < now:
+                warnings.append(f"Overdue invoice: {inv.get('invoice_number')} (${inv.get('balance_due', 0):.2f})")
+        except:
+            pass
+    
+    return {
+        "client": client,
+        "invoices": invoices,
+        "payments": payments,
+        "activity": activity,
+        "summary": {
+            "total_invoiced": round(total_invoiced, 2),
+            "total_paid": round(total_paid, 2),
+            "current_balance": round(current_balance, 2),
+            "invoices_count": len(invoices),
+            "payments_count": len(payments)
+        },
+        "warnings": warnings
+    }
+
+# ============== ACCOUNTS RECEIVABLE ==============
+
+@business_clarity_router.get("/accounts-receivable")
+async def get_accounts_receivable(user: User = Depends(get_current_user)):
+    """Get accounts receivable with aging analysis"""
+    now = datetime.now(timezone.utc)
+    
+    # Get all open invoices
+    invoices = await db.invoices.find(
+        {"company_id": user.company_id, "status": {"$ne": "paid"}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    ar_records = []
+    aging = {"current": 0, "1_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0}
+    total_outstanding = 0
+    total_overdue = 0
+    
+    for inv in invoices:
+        balance = inv.get("balance_due", inv.get("total", 0))
+        total_outstanding += balance
+        
+        # Get client and event names
+        client_name = None
+        event_name = None
+        if inv.get("client_id"):
+            client = await db.clients.find_one({"client_id": inv["client_id"]}, {"_id": 0, "display_name": 1})
+            client_name = client.get("display_name") if client else None
+        if inv.get("event_id"):
+            event = await db.events.find_one({"event_id": inv["event_id"]}, {"_id": 0, "name": 1})
+            event_name = event.get("name") if event else None
+        
+        # Calculate aging
+        days_overdue = 0
+        status = "current"
+        due_date = inv.get("due_date")
+        
+        if due_date:
+            try:
+                due_dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+                days_overdue = max(0, (now - due_dt).days)
+                
+                if days_overdue > 0:
+                    total_overdue += balance
+                    status = "overdue"
+                    if days_overdue <= 30:
+                        aging["1_30"] += balance
+                    elif days_overdue <= 60:
+                        aging["31_60"] += balance
+                    elif days_overdue <= 90:
+                        aging["61_90"] += balance
+                    else:
+                        aging["90_plus"] += balance
+                else:
+                    aging["current"] += balance
+            except:
+                aging["current"] += balance
+        else:
+            aging["current"] += balance
+        
+        ar_records.append({
+            "invoice_id": inv.get("invoice_id"),
+            "invoice_number": inv.get("invoice_number"),
+            "client_id": inv.get("client_id"),
+            "client_name": client_name,
+            "event_id": inv.get("event_id"),
+            "event_name": event_name,
+            "issue_date": inv.get("issue_date"),
+            "due_date": due_date,
+            "total": inv.get("total", 0),
+            "paid_amount": inv.get("paid_amount", 0),
+            "balance_due": balance,
+            "days_overdue": days_overdue,
+            "status": status
+        })
+    
+    # Sort by days overdue desc
+    ar_records.sort(key=lambda x: x["days_overdue"], reverse=True)
+    
+    return {
+        "records": ar_records,
+        "aging_buckets": {k: round(v, 2) for k, v in aging.items()},
+        "summary": {
+            "total_outstanding": round(total_outstanding, 2),
+            "total_overdue": round(total_overdue, 2),
+            "total_current": round(aging["current"], 2),
+            "invoices_count": len(ar_records),
+            "overdue_count": len([r for r in ar_records if r["status"] == "overdue"])
+        }
+    }
+
+# ============== ACCOUNTS PAYABLE ==============
+
+@business_clarity_router.get("/accounts-payable")
+async def get_accounts_payable(user: User = Depends(get_current_user)):
+    """Get accounts payable overview"""
+    # Get payables from supplier_payables collection
+    payables = await db.supplier_payables.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Also include unpaid expenses
+    expenses = await db.expenses.find(
+        {"company_id": user.company_id, "payment_status": {"$ne": "Paid"}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    records = []
+    total_pending = 0
+    total_paid = 0
+    
+    for exp in expenses:
+        supplier_name = None
+        event_name = None
+        
+        if exp.get("supplier_id"):
+            supplier = await db.suppliers.find_one({"supplier_id": exp["supplier_id"]}, {"_id": 0, "name": 1})
+            supplier_name = supplier.get("name") if supplier else None
+        if exp.get("event_id"):
+            event = await db.events.find_one({"event_id": exp["event_id"]}, {"_id": 0, "name": 1})
+            event_name = event.get("name") if event else None
+        
+        amount = exp.get("amount", 0)
+        status = exp.get("payment_status", "Pending")
+        
+        if status != "Paid":
+            total_pending += amount
+        else:
+            total_paid += amount
+        
+        records.append({
+            "payable_id": exp.get("expense_id"),
+            "type": "expense",
+            "supplier_id": exp.get("supplier_id"),
+            "supplier_name": supplier_name,
+            "event_id": exp.get("event_id"),
+            "event_name": event_name,
+            "description": exp.get("description", exp.get("vendor_name")),
+            "amount": amount,
+            "paid_amount": 0 if status != "Paid" else amount,
+            "balance_due": amount if status != "Paid" else 0,
+            "status": status.lower(),
+            "date": exp.get("expense_date") or exp.get("created_at"),
+            "due_date": exp.get("due_date")
+        })
+    
+    # Add supplier payables
+    for pay in payables:
+        supplier_name = None
+        event_name = None
+        
+        if pay.get("supplier_id"):
+            supplier = await db.suppliers.find_one({"supplier_id": pay["supplier_id"]}, {"_id": 0, "name": 1})
+            supplier_name = supplier.get("name") if supplier else None
+        if pay.get("event_id"):
+            event = await db.events.find_one({"event_id": pay["event_id"]}, {"_id": 0, "name": 1})
+            event_name = event.get("name") if event else None
+        
+        balance = pay.get("balance_due", pay.get("amount", 0))
+        if pay.get("status") != "paid":
+            total_pending += balance
+        
+        records.append({
+            "payable_id": pay.get("payable_id"),
+            "type": "payable",
+            "supplier_id": pay.get("supplier_id"),
+            "supplier_name": supplier_name,
+            "event_id": pay.get("event_id"),
+            "event_name": event_name,
+            "description": pay.get("description"),
+            "amount": pay.get("amount", 0),
+            "paid_amount": pay.get("paid_amount", 0),
+            "balance_due": balance,
+            "status": pay.get("status", "pending"),
+            "date": pay.get("created_at"),
+            "due_date": pay.get("due_date")
+        })
+    
+    # Sort by date desc
+    records.sort(key=lambda x: x.get("date") or "", reverse=True)
+    
+    return {
+        "records": records,
+        "summary": {
+            "total_pending": round(total_pending, 2),
+            "total_paid": round(total_paid, 2),
+            "records_count": len(records),
+            "pending_count": len([r for r in records if r["status"] not in ["paid"]])
+        }
+    }
+
+# ============== CLIENT CREDIT MANAGEMENT ==============
+
+@business_clarity_router.put("/clients/{client_id}/credit")
+async def update_client_credit(client_id: str, data: ClientCreditUpdate, user: User = Depends(get_current_user)):
+    """Update client credit settings"""
+    now = datetime.now(timezone.utc)
+    
+    result = await db.clients.update_one(
+        {"client_id": client_id, "company_id": user.company_id},
+        {"$set": {
+            "has_credit": data.has_credit,
+            "credit_limit": data.credit_limit,
+            "payment_terms": data.payment_terms,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Audit log
+    await db.audit_logs.insert_one({
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "action": "client_credit_updated",
+        "entity_type": "client",
+        "entity_id": client_id,
+        "details": {"has_credit": data.has_credit, "credit_limit": data.credit_limit, "payment_terms": data.payment_terms},
+        "created_at": now.isoformat()
+    })
+    
+    return {"message": "Credit settings updated"}
+
+# ============== EXECUTIVE REPORTS ==============
+
+@business_clarity_router.get("/reports/financial-snapshot")
+async def get_financial_snapshot(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get financial snapshot report"""
+    query = {"company_id": user.company_id}
+    
+    # Date filtering
+    if start_date:
+        query["created_at"] = {"$gte": start_date}
+    if end_date:
+        if "created_at" in query:
+            query["created_at"]["$lte"] = end_date
+        else:
+            query["created_at"] = {"$lte": end_date}
+    
+    # Revenue (from invoices)
+    invoices = await db.invoices.find(query, {"_id": 0}).to_list(1000)
+    total_invoiced = sum(inv.get("total", 0) for inv in invoices)
+    total_collected = sum(inv.get("paid_amount", 0) for inv in invoices)
+    total_outstanding = total_invoiced - total_collected
+    
+    # Expenses
+    expenses_query = {"company_id": user.company_id}
+    if start_date:
+        expenses_query["expense_date"] = {"$gte": start_date}
+    if end_date:
+        if "expense_date" in expenses_query:
+            expenses_query["expense_date"]["$lte"] = end_date
+        else:
+            expenses_query["expense_date"] = {"$lte": end_date}
+    
+    expenses = await db.expenses.find(expenses_query, {"_id": 0}).to_list(1000)
+    total_expenses = sum(exp.get("amount", 0) for exp in expenses)
+    
+    # Profit
+    gross_profit = total_collected - total_expenses
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "revenue": {
+            "total_invoiced": round(total_invoiced, 2),
+            "total_collected": round(total_collected, 2),
+            "total_outstanding": round(total_outstanding, 2),
+            "collection_rate": round((total_collected / total_invoiced * 100) if total_invoiced > 0 else 0, 1)
+        },
+        "expenses": {
+            "total": round(total_expenses, 2),
+            "count": len(expenses)
+        },
+        "profit": {
+            "gross": round(gross_profit, 2),
+            "margin": round((gross_profit / total_collected * 100) if total_collected > 0 else 0, 1)
+        },
+        "invoices_count": len(invoices),
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+@business_clarity_router.get("/reports/client-revenue")
+async def get_client_revenue_report(user: User = Depends(get_current_user)):
+    """Get revenue by client report"""
+    # Get all invoices grouped by client
+    invoices = await db.invoices.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    client_revenue = {}
+    for inv in invoices:
+        cid = inv.get("client_id")
+        if cid not in client_revenue:
+            client_revenue[cid] = {
+                "client_id": cid,
+                "total_invoiced": 0,
+                "total_paid": 0,
+                "total_outstanding": 0,
+                "invoices_count": 0
+            }
+        client_revenue[cid]["total_invoiced"] += inv.get("total", 0)
+        client_revenue[cid]["total_paid"] += inv.get("paid_amount", 0)
+        client_revenue[cid]["total_outstanding"] += inv.get("balance_due", 0)
+        client_revenue[cid]["invoices_count"] += 1
+    
+    # Get client names
+    records = []
+    for cid, data in client_revenue.items():
+        client = await db.clients.find_one({"client_id": cid}, {"_id": 0, "display_name": 1})
+        data["client_name"] = client.get("display_name") if client else "Unknown"
+        data["total_invoiced"] = round(data["total_invoiced"], 2)
+        data["total_paid"] = round(data["total_paid"], 2)
+        data["total_outstanding"] = round(data["total_outstanding"], 2)
+        records.append(data)
+    
+    # Sort by total invoiced desc
+    records.sort(key=lambda x: x["total_invoiced"], reverse=True)
+    
+    return {
+        "records": records,
+        "summary": {
+            "total_revenue": round(sum(r["total_invoiced"] for r in records), 2),
+            "total_collected": round(sum(r["total_paid"] for r in records), 2),
+            "clients_count": len(records)
+        }
+    }
+
+@business_clarity_router.get("/reports/supplier-spend")
+async def get_supplier_spend_report(user: User = Depends(get_current_user)):
+    """Get spending by supplier report"""
+    # Get expenses grouped by supplier
+    expenses = await db.expenses.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    supplier_spend = {}
+    for exp in expenses:
+        sid = exp.get("supplier_id") or "no_supplier"
+        if sid not in supplier_spend:
+            supplier_spend[sid] = {
+                "supplier_id": sid if sid != "no_supplier" else None,
+                "total_amount": 0,
+                "paid_amount": 0,
+                "pending_amount": 0,
+                "transactions_count": 0
+            }
+        amount = exp.get("amount", 0)
+        supplier_spend[sid]["total_amount"] += amount
+        if exp.get("payment_status") == "Paid":
+            supplier_spend[sid]["paid_amount"] += amount
+        else:
+            supplier_spend[sid]["pending_amount"] += amount
+        supplier_spend[sid]["transactions_count"] += 1
+    
+    # Get supplier names
+    records = []
+    for sid, data in supplier_spend.items():
+        if sid and sid != "no_supplier":
+            supplier = await db.suppliers.find_one({"supplier_id": sid}, {"_id": 0, "name": 1})
+            data["supplier_name"] = supplier.get("name") if supplier else "Unknown"
+        else:
+            data["supplier_name"] = "Other / No Supplier"
+        data["total_amount"] = round(data["total_amount"], 2)
+        data["paid_amount"] = round(data["paid_amount"], 2)
+        data["pending_amount"] = round(data["pending_amount"], 2)
+        records.append(data)
+    
+    # Sort by total amount desc
+    records.sort(key=lambda x: x["total_amount"], reverse=True)
+    
+    return {
+        "records": records,
+        "summary": {
+            "total_spend": round(sum(r["total_amount"] for r in records), 2),
+            "total_paid": round(sum(r["paid_amount"] for r in records), 2),
+            "total_pending": round(sum(r["pending_amount"] for r in records), 2),
+            "suppliers_count": len(records)
+        }
+    }
+
+@business_clarity_router.get("/reports/event-profitability")
+async def get_event_profitability_report(user: User = Depends(get_current_user)):
+    """Get event profitability summary"""
+    # Get all events
+    events = await db.events.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    records = []
+    for event in events:
+        event_id = event.get("event_id")
+        
+        # Get revenue from invoices
+        invoices = await db.invoices.find(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0, "total": 1, "paid_amount": 1}
+        ).to_list(100)
+        revenue = sum(inv.get("total", 0) for inv in invoices)
+        collected = sum(inv.get("paid_amount", 0) for inv in invoices)
+        
+        # Get costs from expenses
+        expenses = await db.expenses.find(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0, "amount": 1}
+        ).to_list(100)
+        costs = sum(exp.get("amount", 0) for exp in expenses)
+        
+        # Get costs from order items internal cost
+        order_items = await db.order_items.find(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0, "internal_cost": 1}
+        ).to_list(100)
+        internal_costs = sum(item.get("internal_cost", 0) for item in order_items)
+        total_costs = costs + internal_costs
+        
+        profit = revenue - total_costs
+        margin = (profit / revenue * 100) if revenue > 0 else 0
+        
+        records.append({
+            "event_id": event_id,
+            "event_name": event.get("name"),
+            "event_date": event.get("event_date"),
+            "status": event.get("status"),
+            "revenue": round(revenue, 2),
+            "collected": round(collected, 2),
+            "costs": round(total_costs, 2),
+            "profit": round(profit, 2),
+            "margin_percent": round(margin, 1)
+        })
+    
+    # Sort by profit desc
+    records.sort(key=lambda x: x["profit"], reverse=True)
+    
+    total_revenue = sum(r["revenue"] for r in records)
+    total_costs = sum(r["costs"] for r in records)
+    total_profit = sum(r["profit"] for r in records)
+    
+    return {
+        "records": records,
+        "summary": {
+            "total_revenue": round(total_revenue, 2),
+            "total_costs": round(total_costs, 2),
+            "total_profit": round(total_profit, 2),
+            "average_margin": round((total_profit / total_revenue * 100) if total_revenue > 0 else 0, 1),
+            "events_count": len(records)
+        }
+    }
+
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
