@@ -549,7 +549,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           )}
           <TabsTrigger value="generate" className="gap-2" data-testid="tab-generate">
             <FileText className="w-4 h-4" />
-            {language === "es" ? "Documentos" : "Documents"}
+            {language === "es" ? "Generar" : "Generate"}
           </TabsTrigger>
         </TabsList>
 
