@@ -215,7 +215,7 @@ Auto-generated from Event Order:
 - **Auth**: JWT + Emergent Google OAuth
 
 ## Known Issues
-1. **Google OAuth Login** - BROKEN (Invalid state parameter) - P1
+1. **Google OAuth Login** - Needs user verification (code implemented, cannot test end-to-end due to external auth provider)
 
 ## Completed (Jan 31, 2026)
 - [x] Full CRM Refactor with Leads/Clients/Pipeline
