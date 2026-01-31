@@ -83,7 +83,7 @@ export const Layout = ({ children }) => {
                 }`}
               >
                 <Icon className="w-5 h-5" strokeWidth={1.5} />
-                <span className="font-medium">{t(item.labelKey)}</span>
+                <span className="font-medium">{item.label || t(item.labelKey)}</span>
               </Link>
             );
           })}
@@ -159,7 +159,7 @@ export const Layout = ({ children }) => {
                   }`}
                 >
                   <Icon className="w-5 h-5" strokeWidth={1.5} />
-                  <span className="font-medium">{t(item.labelKey)}</span>
+                  <span className="font-medium">{item.label || t(item.labelKey)}</span>
                 </Link>
               );
             })}
