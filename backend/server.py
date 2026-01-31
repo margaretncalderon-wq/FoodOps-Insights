@@ -3122,14 +3122,59 @@ async def delete_item_category(category_id: str, user: User = Depends(get_curren
 # ============== PICKLIST ITEMS ROUTES ==============
 
 @settings_router.get("/picklist")
-async def get_picklist_items(category_id: Optional[str] = None, user: User = Depends(get_current_user)):
+async def get_picklist_items(category_id: Optional[str] = None, item_type: Optional[str] = None, active_only: bool = True, user: User = Depends(get_current_user)):
     """Get picklist items for quick selection"""
     query = {"company_id": user.company_id}
     if category_id:
         query["category_id"] = category_id
+    if item_type:
+        query["item_type"] = item_type
+    if active_only:
+        query["$or"] = [{"is_active": True}, {"is_active": {"$exists": False}}]
     
     items = await db.picklist_items.find(query, {"_id": 0}).sort("name", 1).to_list(500)
+    
+    # Enrich with recipe/inventory cost info
+    for item in items:
+        calculated_cost = item.get("internal_cost")
+        cost_source = "manual" if calculated_cost else None
+        
+        # If linked to recipe, get recipe cost
+        if item.get("recipe_id"):
+            recipe = await db.recipes.find_one({"recipe_id": item["recipe_id"]}, {"_id": 0, "name": 1, "cost_per_portion": 1, "cost_per_serving": 1})
+            if recipe:
+                item["recipe_name"] = recipe.get("name")
+                recipe_cost = recipe.get("cost_per_portion") or recipe.get("cost_per_serving") or 0
+                if not calculated_cost:
+                    calculated_cost = recipe_cost
+                    cost_source = "recipe"
+        
+        # If linked to inventory, get inventory cost
+        if item.get("inventory_item_id"):
+            inv_item = await db.inventory.find_one({"item_id": item["inventory_item_id"]}, {"_id": 0, "name": 1, "unit_cost": 1})
+            if inv_item:
+                item["inventory_item_name"] = inv_item.get("name")
+                inv_cost = inv_item.get("unit_cost") or 0
+                if not calculated_cost:
+                    calculated_cost = inv_cost
+                    cost_source = "inventory"
+        
+        item["calculated_cost"] = calculated_cost
+        item["cost_source"] = cost_source
+        
+        # Calculate suggested margin
+        if calculated_cost and item.get("default_price", 0) > 0:
+            item["margin_percentage"] = ((item["default_price"] - calculated_cost) / item["default_price"]) * 100
+    
     return items
+
+@settings_router.get("/picklist/{item_id}")
+async def get_picklist_item(item_id: str, user: User = Depends(get_current_user)):
+    """Get a single picklist item with full details"""
+    item = await db.picklist_items.find_one({"item_id": item_id, "company_id": user.company_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
 
 @settings_router.post("/picklist")
 async def create_picklist_item(data: PicklistItemCreate, user: User = Depends(get_current_user)):
@@ -3140,21 +3185,49 @@ async def create_picklist_item(data: PicklistItemCreate, user: User = Depends(ge
         "item_id": item_id,
         "company_id": user.company_id,
         **data.model_dump(),
-        "created_at": now.isoformat()
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
     }
     await db.picklist_items.insert_one(item_doc)
     del item_doc["_id"]
     return item_doc
 
+@settings_router.post("/picklist/bulk")
+async def create_picklist_items_bulk(data: PicklistBulkCreate, user: User = Depends(get_current_user)):
+    """Create multiple picklist items at once"""
+    now = datetime.now(timezone.utc)
+    created_items = []
+    
+    for item_data in data.items:
+        item_id = f"pli_{uuid.uuid4().hex[:12]}"
+        item_doc = {
+            "item_id": item_id,
+            "company_id": user.company_id,
+            **item_data.model_dump(),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.picklist_items.insert_one(item_doc)
+        del item_doc["_id"]
+        created_items.append(item_doc)
+    
+    return {"created": len(created_items), "items": created_items}
+
 @settings_router.put("/picklist/{item_id}")
-async def update_picklist_item(item_id: str, data: PicklistItemCreate, user: User = Depends(get_current_user)):
+async def update_picklist_item(item_id: str, data: PicklistItemUpdate, user: User = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = now.isoformat()
+    
     result = await db.picklist_items.update_one(
         {"item_id": item_id, "company_id": user.company_id},
-        {"$set": data.model_dump()}
+        {"$set": update_data}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
-    return {"message": "Item updated"}
+    
+    # Return updated item
+    return await db.picklist_items.find_one({"item_id": item_id}, {"_id": 0})
 
 @settings_router.delete("/picklist/{item_id}")
 async def delete_picklist_item(item_id: str, user: User = Depends(get_current_user)):
@@ -3162,6 +3235,7 @@ async def delete_picklist_item(item_id: str, user: User = Depends(get_current_us
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
     return {"message": "Item deleted"}
+
 
 # ============== TAX RATES ROUTES ==============
 
