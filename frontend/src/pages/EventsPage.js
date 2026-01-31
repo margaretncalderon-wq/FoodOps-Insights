@@ -576,107 +576,198 @@ export default function EventsPage() {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={t("search")}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-            data-testid="event-search-input"
-          />
-        </div>
+        {viewMode !== "pipeline" && (
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("search")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="event-search-input"
+            />
+          </div>
+        )}
 
-        {/* Events Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
-            <Card
-              key={event.event_id}
-              className="hover:shadow-card transition-all duration-300 group"
-              data-testid={`event-card-${event.event_id}`}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
-                    {event.is_booking && (
-                      <Badge variant="outline" className="text-xs">
-                        {language === "es" ? "Reserva" : "Booking"}
-                      </Badge>
+        {/* List View */}
+        {viewMode === "list" && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.map((event) => (
+              <Card
+                key={event.event_id}
+                className="hover:shadow-card transition-all duration-300 group"
+                data-testid={`event-card-${event.event_id}`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
+                      <Badge className={stageColors[event.stage || "Lead"]}>{event.stage || "Lead"}</Badge>
+                      {event.is_booking && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === "es" ? "Reserva" : "Booking"}
+                        </Badge>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(event)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          {t("edit")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicate(event.event_id)}>
+                          <Copy className="w-4 h-4 mr-2" />
+                          {t("duplicate")}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDelete(event.event_id)} className="text-destructive">
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          {t("delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <Link to={`/events/${event.event_id}`}>
+                    <h3 className="font-heading text-xl font-semibold mb-2 hover:text-primary transition-colors">
+                      {event.client_info?.client_type === "Company" && event.client_info?.display_name 
+                        ? `${event.client_info.display_name} - ${event.name}`
+                        : event.name}
+                    </h3>
+                  </Link>
+                  <p className="text-sm text-muted-foreground mb-4 capitalize">{event.event_type}</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CalendarIcon className="w-4 h-4" />
+                      <span>
+                        {event.event_date_tbd || !event.event_date 
+                          ? "TBD" 
+                          : new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                        {event.is_booking && event.end_date && (
+                          <> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</>
+                        )}
+                      </span>
+                    </div>
+                    {getDuration(event) && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <CalendarDays className="w-4 h-4" />
+                        {getDuration(event)}
+                      </div>
+                    )}
+                    {event.venue && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="w-4 h-4" />
+                        {event.venue}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="w-4 h-4" />
+                      {event.guest_count} {language === "es" ? "invitados" : "guests"}
+                    </div>
+                    {event.expected_value && (
+                      <div className="flex items-center gap-2 text-green-600 font-medium">
+                        <DollarSign className="w-4 h-4" />
+                        ${Number(event.expected_value).toLocaleString()}
+                      </div>
                     )}
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(event)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        {t("edit")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(event.event_id)}>
-                        <Copy className="w-4 h-4 mr-2" />
-                        {t("duplicate")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleDelete(event.event_id)} className="text-destructive">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        {t("delete")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredEvents.length === 0 && (
+              <div className="col-span-full text-center py-12">
+                <CalendarIcon className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">{t("noResults")}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pipeline View (Kanban) */}
+        {viewMode === "pipeline" && (
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-4 min-w-max">
+              {PIPELINE_STAGES.map((stage) => (
+                <div key={stage} className="w-80 flex-shrink-0">
+                  <div className={`${stageHeaderColors[stage]} text-white rounded-t-lg px-4 py-3 flex items-center justify-between`}>
+                    <span className="font-semibold">{stage}</span>
+                    <Badge variant="secondary" className="bg-white/20 text-white">
+                      {(pipeline[stage] || []).length}
+                    </Badge>
+                  </div>
+                  <div className="bg-muted/30 rounded-b-lg p-3 min-h-[400px] space-y-3">
+                    {(pipeline[stage] || []).map((event) => (
+                      <Card key={event.event_id} className="cursor-pointer hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <Link to={`/events/${event.event_id}`}>
+                            <h4 className="font-semibold text-sm mb-1 hover:text-primary">
+                              {event.client_info?.display_name 
+                                ? `${event.client_info.display_name}`
+                                : ""}
+                            </h4>
+                            <p className="text-xs text-muted-foreground mb-2">{event.name}</p>
+                          </Link>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            <CalendarIcon className="w-3 h-3" />
+                            {event.event_date_tbd || !event.event_date 
+                              ? "TBD" 
+                              : new Date(event.event_date).toLocaleDateString()}
+                          </div>
+                          {event.expected_value && (
+                            <div className="flex items-center gap-1 text-xs font-medium text-green-600">
+                              <DollarSign className="w-3 h-3" />
+                              ${Number(event.expected_value).toLocaleString()}
+                            </div>
+                          )}
+                          <div className="mt-3 flex gap-1">
+                            {PIPELINE_STAGES.filter(s => s !== stage).slice(0, 3).map((targetStage) => (
+                              <Button
+                                key={targetStage}
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleStageChange(event.event_id, targetStage);
+                                }}
+                              >
+                                → {targetStage}
+                              </Button>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {(pipeline[stage] || []).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        {language === "es" ? "Sin eventos" : "No events"}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <Link to={`/events/${event.event_id}`}>
-                  <h3 className="font-heading text-xl font-semibold mb-2 hover:text-primary transition-colors">
-                    {event.client_info?.client_type === "corporate" && event.client_info?.company_name 
-                      ? `${event.client_info.company_name} - ${event.name}`
-                      : event.name}
-                  </h3>
-                </Link>
-                <p className="text-sm text-muted-foreground mb-4 capitalize">{event.event_type}</p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CalendarIcon className="w-4 h-4" />
-                    <span>
-                      {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
-                      {event.is_booking && event.end_date && (
-                        <> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</>
-                      )}
-                    </span>
-                  </div>
-                  {getDuration(event) && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <CalendarDays className="w-4 h-4" />
-                      {getDuration(event)}
-                    </div>
-                  )}
-                  {event.venue && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="w-4 h-4" />
-                      {event.venue}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    {event.guest_count} {language === "es" ? "invitados" : "guests"}
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <DollarSign className="w-4 h-4" />
-                    ${event.budget.toLocaleString()}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {filteredEvents.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <CalendarIcon className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">{t("noResults")}</p>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Calendar View */}
+        {viewMode === "calendar" && (
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-center text-muted-foreground py-12">
+                {language === "es" ? "Ir a la página de calendario para ver los eventos en formato calendario" : "Go to calendar page to view events in calendar format"}
+                <br />
+                <Link to="/calendar" className="text-primary hover:underline mt-2 inline-block">
+                  {language === "es" ? "Abrir Calendario" : "Open Calendar"} →
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );
