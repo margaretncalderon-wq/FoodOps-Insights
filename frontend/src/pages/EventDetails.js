@@ -323,8 +323,10 @@ export default function EventDetails() {
               <FileText className="w-4 h-4" />
               {t("documents")} ({documents.length})
             </TabsTrigger>
-            <TabsTrigger value="tasks" data-testid="tab-tasks">{t("tasks")}</TabsTrigger>
-            <TabsTrigger value="menu" data-testid="tab-menu">{t("menu")}</TabsTrigger>
+            <TabsTrigger value="tasks" className="gap-2" data-testid="tab-tasks">
+              <ClipboardList className="w-4 h-4" />
+              {t("tasks")}
+            </TabsTrigger>
             <TabsTrigger value="purchase" className="gap-2" data-testid="tab-purchase">
               <ShoppingCart className="w-4 h-4" />
               {language === "es" ? "Compras" : "Purchases"}
