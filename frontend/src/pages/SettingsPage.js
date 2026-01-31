@@ -982,6 +982,50 @@ export default function SettingsPage() {
                       disabled={savingFlags}
                     />
                   </label>
+
+                  {/* Inventory Module */}
+                  <label className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Package className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">{language === "es" ? "Módulo de Inventario" : "Inventory Module"}</span>
+                        <span className="block text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Gestiona inventario, proveedores y stock"
+                            : "Manage inventory, suppliers, and stock levels"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_inventory_enabled ?? false}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_inventory_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Purchase Lists */}
+                  <label className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-cyan-100 rounded-lg">
+                        <ShoppingCart className="w-5 h-5 text-cyan-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">{language === "es" ? "Listas de Compra" : "Purchase Lists"}</span>
+                        <span className="block text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Genera listas de compra automáticas para eventos"
+                            : "Auto-generate purchase lists for events"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_purchase_list_enabled ?? false}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_purchase_list_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
                 </div>
               </CardContent>
             </Card>
