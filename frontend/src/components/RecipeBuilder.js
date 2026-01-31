@@ -23,7 +23,7 @@ import {
   Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle,
   Link2, DollarSign, History, Percent, Info, Layers, Utensils,
   Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package,
-  AlertOctagon, Tag
+  AlertOctagon, Tag, Upload, Image, FileText
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
