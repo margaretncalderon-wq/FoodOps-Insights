@@ -430,7 +430,7 @@ export default function EventsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>{language === "es" ? "Fecha Inicio" : "Start Date"}</Label>
-                        <Popover>
+                        <Popover modal={true}>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-start text-left font-normal">
                               <CalendarIcon className="mr-2 h-4 w-4" />
@@ -457,7 +457,7 @@ export default function EventsPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>{language === "es" ? "Fecha Fin" : "End Date"}</Label>
-                        <Popover>
+                        <Popover modal={true}>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-start text-left font-normal">
                               <CalendarIcon className="mr-2 h-4 w-4" />
