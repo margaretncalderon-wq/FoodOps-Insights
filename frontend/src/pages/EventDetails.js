@@ -328,7 +328,7 @@ export default function EventDetails() {
 
           {/* Contract & Event Order Tab - THE MAIN DATA ENTRY */}
           <TabsContent value="order">
-            <EventOrderEditor 
+            <ProposalEditor 
               eventId={eventId} 
               event={event}
               onDocumentGenerated={handleDocumentGenerated}
