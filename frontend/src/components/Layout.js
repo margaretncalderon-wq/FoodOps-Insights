@@ -31,7 +31,7 @@ const navItems = [
   { path: "/crm", icon: Users, labelKey: "crm" },
   { path: "/events", icon: Calendar, labelKey: "events" },
   { path: "/calendar", icon: CalendarDays, labelKey: "calendar" },
-  { path: "/food-ops", icon: UtensilsCrossed, label: "Food Ops" },
+  { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
 ];
 
