@@ -206,7 +206,7 @@ export default function LandingPage() {
               <span className="font-heading text-sm font-bold text-white">E</span>
             </div>
             <span className="text-sm text-muted-foreground">
-              © 2024 Evoque Events Platform
+              © 2024 Evoke OS
             </span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">

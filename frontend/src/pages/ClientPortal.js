@@ -316,7 +316,7 @@ export default function ClientPortal() {
       {/* Footer */}
       <footer className="border-t border-border mt-auto">
         <div className="max-w-4xl mx-auto px-6 py-4 text-center text-sm text-muted-foreground">
-          Powered by Evoque Events Platform
+          Powered by Evoke OS
         </div>
       </footer>
     </div>
