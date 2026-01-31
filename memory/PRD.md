@@ -162,6 +162,13 @@ Tracks changes after Proposal.status = Accepted:
   - Manual internal_cost override
   - Bulk Add (multiple items at once)
   - Margin % display and cost source tracking
+- [x] **Menus / Packages System**:
+  - Create menus that group multiple picklist items
+  - Each menu has name, description (bilingual), type (Menu/Package/Bundle)
+  - Fixed price option or calculated sum of items
+  - Quantity per item in the menu
+  - Auto-calculated total cost and margin
+  - Add entire menu to proposal with one click
 
 ## Upcoming Tasks
 - [ ] Fix Google OAuth Login (P0)
