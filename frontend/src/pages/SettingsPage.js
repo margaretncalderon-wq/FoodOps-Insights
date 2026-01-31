@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 
