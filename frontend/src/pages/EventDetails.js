@@ -93,19 +93,6 @@ export default function EventDetails() {
     }
   };
 
-  const fetchMenuRecipes = async (recipeIds) => {
-    const fetchedRecipes = [];
-    for (const id of recipeIds) {
-      try {
-        const response = await axios.get(`${API}/recipes/${id}`, { withCredentials: true });
-        fetchedRecipes.push(response.data);
-      } catch (error) {
-        console.error("Failed to fetch recipe:", error);
-      }
-    }
-    setRecipes(fetchedRecipes);
-  };
-
   const fetchDocuments = async () => {
     try {
       const response = await axios.get(`${API}/documents?event_id=${eventId}`, { withCredentials: true });
@@ -137,19 +124,6 @@ export default function EventDetails() {
       fetchEvent();
     } catch (error) {
       toast.error("Failed to update task");
-    }
-  };
-
-  const handleAddMenuItem = async () => {
-    if (!selectedRecipe) return;
-    try {
-      await axios.post(`${API}/events/${eventId}/menu`, { recipe_id: selectedRecipe }, { withCredentials: true });
-      toast.success(language === "es" ? "Plato agregado al menú" : "Dish added to menu");
-      fetchEvent();
-      setMenuDialogOpen(false);
-      setSelectedRecipe("");
-    } catch (error) {
-      toast.error("Failed to add menu item");
     }
   };
 
