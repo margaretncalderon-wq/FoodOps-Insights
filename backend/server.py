@@ -448,6 +448,41 @@ class MenuItemCreate(BaseModel):
     sell_price: float = 0.0
     category: str = "main"
 
+# Plated Menu Models
+class MenuCourse(BaseModel):
+    """A course in a plated menu (Appetizer, Entree, Dessert, etc.)"""
+    course_id: str
+    course_name: str  # appetizer, salad, soup, entree, dessert
+    course_order: int = 0
+    items: List[Dict[str, Any]] = []  # [{recipe_id, recipe_name, portions_per_guest, notes}]
+
+class PlatedMenuCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    menu_type: str = "plated"  # plated, buffet, cocktail, grab_and_go
+    pricing_model: str = "per_guest"  # per_guest, fixed
+    serving_style: str = "plated"  # plated, family_style, stations
+    courses: List[MenuCourse] = []
+    buffer_percentage: float = 0.0  # Extra % for prep loss/overage
+    notes: Optional[str] = None
+
+class PlatedMenu(BaseModel):
+    menu_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    menu_type: str = "plated"
+    pricing_model: str = "per_guest"
+    serving_style: str = "plated"
+    courses: List[MenuCourse] = []
+    buffer_percentage: float = 0.0
+    cost_per_guest: float = 0.0  # Calculated from recipe costs
+    cost_with_buffer: float = 0.0  # cost_per_guest * (1 + buffer_percentage/100)
+    notes: Optional[str] = None
+    status: str = "active"  # active, archived
+    created_at: datetime
+    updated_at: datetime
+
 # Event Menu Model
 class EventMenuCreate(BaseModel):
     event_id: str
