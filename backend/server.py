@@ -7099,6 +7099,24 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user))
     """Get Business Clarity executive dashboard"""
     now = datetime.now(timezone.utc)
     
+    def parse_due_date(due_date):
+        """Parse due_date to timezone-aware datetime"""
+        if due_date is None:
+            return None
+        if isinstance(due_date, datetime):
+            if due_date.tzinfo is None:
+                return due_date.replace(tzinfo=timezone.utc)
+            return due_date
+        if isinstance(due_date, str):
+            try:
+                dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except:
+                return None
+        return None
+    
     # Get invoices with balances
     invoices = await db.invoices.find(
         {"company_id": user.company_id},
@@ -7106,9 +7124,15 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user))
     ).to_list(1000)
     
     total_receivables = sum(inv.get("balance_due", inv.get("total", 0)) for inv in invoices if inv.get("status") != "paid")
-    total_overdue = sum(inv.get("balance_due", inv.get("total", 0)) for inv in invoices 
-                       if inv.get("due_date") and datetime.fromisoformat(inv["due_date"].replace("Z", "+00:00")) < now 
-                       and inv.get("status") != "paid")
+    
+    # Calculate overdue with safe datetime parsing
+    total_overdue = 0
+    for inv in invoices:
+        if inv.get("status") == "paid":
+            continue
+        due_dt = parse_due_date(inv.get("due_date"))
+        if due_dt and due_dt < now:
+            total_overdue += inv.get("balance_due", inv.get("total", 0))
     
     # Get payables
     payables = await db.supplier_payables.find(
