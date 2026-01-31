@@ -158,7 +158,7 @@ export default function CRMPage() {
         budget_range: "", message: "", source: "Website"
       });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to create lead");
+      toast.error(getErrorMessage(error, "Failed to create lead"));
     }
   };
 
@@ -181,7 +181,7 @@ export default function CRMPage() {
         address: "", source: "Direct", tags: [], notes: "", status: "Active"
       });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to save client");
+      toast.error(getErrorMessage(error, "Failed to save client"));
     }
   };
 
