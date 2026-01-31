@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [documentTypes, setDocumentTypes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [picklist, setPicklist] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
   const [taxes, setTaxes] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [leadForms, setLeadForms] = useState([]);
