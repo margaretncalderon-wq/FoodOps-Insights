@@ -952,17 +952,28 @@ export default function FoodOpsPage() {
     { path: "/food-ops/recipes", label: language === "es" ? "Recetas" : "Recipes", icon: ChefHat },
     { path: "/food-ops/menus", label: language === "es" ? "Menús" : "Menus", icon: BookOpen },
     { path: "/food-ops/purchases", label: language === "es" ? "Compras" : "Purchases", icon: ShoppingCart },
+    { path: "/food-ops/purchase-orders", label: language === "es" ? "Órdenes de Compra" : "Purchase Orders", icon: Truck },
+    { path: "/food-ops/consolidated", label: language === "es" ? "Consolidado" : "Consolidated", icon: Layers },
   ];
 
   return (
     <div className="flex h-[calc(100vh-4rem)]" data-testid="food-ops-page">
       {/* Sidebar Navigation */}
-      <div className="w-64 border-r bg-muted/30 p-4">
+      <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
+        {/* Back to Dashboard */}
+        <NavLink 
+          to="/dashboard" 
+          className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowUpDown className="w-4 h-4 rotate-90" />
+          {language === "es" ? "← Volver al Dashboard" : "← Back to Dashboard"}
+        </NavLink>
+        
         <div className="flex items-center gap-2 mb-6">
           <UtensilsCrossed className="w-6 h-6 text-primary" />
           <h2 className="text-xl font-bold">Food Ops</h2>
         </div>
-        <nav className="space-y-2">
+        <nav className="space-y-2 flex-1">
           {navItems.map(item => (
             <NavLink
               key={item.path}
@@ -990,8 +1001,29 @@ export default function FoodOpsPage() {
           <Route path="recipes" element={<RecipesSection />} />
           <Route path="menus" element={<PlatedMenusSection />} />
           <Route path="purchases" element={<PurchasesSection />} />
+          <Route path="purchase-orders" element={<PurchaseOrdersSectionWrapper />} />
+          <Route path="consolidated" element={<ConsolidatedPurchaseSectionWrapper />} />
         </Routes>
       </div>
     </div>
   );
+}
+
+// Lazy load wrappers
+function PurchaseOrdersSectionWrapper() {
+  const [Component, setComponent] = useState(null);
+  useEffect(() => {
+    import("../components/PurchaseOrdersSection").then(mod => setComponent(() => mod.default));
+  }, []);
+  if (!Component) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  return <Component />;
+}
+
+function ConsolidatedPurchaseSectionWrapper() {
+  const [Component, setComponent] = useState(null);
+  useEffect(() => {
+    import("../components/ConsolidatedPurchaseSection").then(mod => setComponent(() => mod.default));
+  }, []);
+  if (!Component) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  return <Component />;
 }
