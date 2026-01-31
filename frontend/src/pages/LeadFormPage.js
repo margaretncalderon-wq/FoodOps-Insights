@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -14,14 +14,89 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle, Loader2, Calendar, Users, Mail, Phone, Building2, User } from "lucide-react";
+import { CheckCircle, Loader2, Calendar, Users, Mail, Phone, Building2, User, Globe } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Translations
+const translations = {
+  en: {
+    loading: "Loading...",
+    formNotFound: "Form not found or inactive",
+    thankYou: "Thank You!",
+    fullName: "Full Name",
+    email: "Email",
+    phone: "Phone",
+    company: "Company",
+    eventType: "Event Type",
+    eventDate: "Event Date",
+    estimatedGuests: "Estimated Guests",
+    budgetRange: "Budget Range",
+    message: "Message",
+    selectEventType: "Select event type",
+    selectBudgetRange: "Select budget range",
+    placeholderName: "Your full name",
+    placeholderEmail: "your@email.com",
+    placeholderPhone: "+1 (555) 000-0000",
+    placeholderCompany: "Company name (optional)",
+    placeholderGuests: "Number of guests",
+    placeholderMessage: "Tell us more about your event...",
+    submitting: "Submitting...",
+    submitInquiry: "Submit Inquiry",
+    budgetLess5k: "Less than $5,000",
+    budget5k10k: "$5,000 - $10,000",
+    budget10k25k: "$10,000 - $25,000",
+    budget25k50k: "$25,000 - $50,000",
+    budgetMore50k: "More than $50,000",
+    // Event types
+    wedding: "Wedding",
+    corporate: "Corporate",
+    birthday: "Birthday",
+    social: "Social",
+    other: "Other",
+  },
+  es: {
+    loading: "Cargando...",
+    formNotFound: "Formulario no encontrado o inactivo",
+    thankYou: "¡Gracias!",
+    fullName: "Nombre Completo",
+    email: "Correo Electrónico",
+    phone: "Teléfono",
+    company: "Empresa",
+    eventType: "Tipo de Evento",
+    eventDate: "Fecha del Evento",
+    estimatedGuests: "Invitados Estimados",
+    budgetRange: "Rango de Presupuesto",
+    message: "Mensaje",
+    selectEventType: "Seleccionar tipo de evento",
+    selectBudgetRange: "Seleccionar rango de presupuesto",
+    placeholderName: "Tu nombre completo",
+    placeholderEmail: "tu@correo.com",
+    placeholderPhone: "+1 (809) 000-0000",
+    placeholderCompany: "Nombre de la empresa (opcional)",
+    placeholderGuests: "Número de invitados",
+    placeholderMessage: "Cuéntanos más sobre tu evento...",
+    submitting: "Enviando...",
+    submitInquiry: "Enviar Consulta",
+    budgetLess5k: "Menos de $5,000",
+    budget5k10k: "$5,000 - $10,000",
+    budget10k25k: "$10,000 - $25,000",
+    budget25k50k: "$25,000 - $50,000",
+    budgetMore50k: "Más de $50,000",
+    // Event types
+    wedding: "Boda",
+    corporate: "Corporativo",
+    birthday: "Cumpleaños",
+    social: "Social",
+    other: "Otro",
+  }
+};
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 
 export default function LeadFormPage() {
   const { formId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +112,24 @@ export default function LeadFormPage() {
     budget_range: "",
     message: ""
   });
+
+  // Language detection: URL param > browser language > default 'en'
+  const getInitialLanguage = () => {
+    const urlLang = searchParams.get("lang");
+    if (urlLang === "es" || urlLang === "en") return urlLang;
+    
+    const browserLang = navigator.language?.toLowerCase();
+    if (browserLang?.startsWith("es")) return "es";
+    return "en";
+  };
+
+  const [language, setLanguage] = useState(getInitialLanguage);
+  const t = translations[language];
+
+  const changeLanguage = (newLang) => {
+    setLanguage(newLang);
+    setSearchParams({ lang: newLang });
+  };
 
   useEffect(() => {
     fetchForm();
@@ -62,9 +155,9 @@ export default function LeadFormPage() {
     try {
       const response = await axios.post(`${API}/lead-forms/${formId}/submit`, formData);
       setSubmitted(true);
-      toast.success(response.data.message || "Thank you for your inquiry!");
+      toast.success(response.data.message || t.thankYou);
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to submit form");
+      toast.error(error.response?.data?.detail || "Error");
     } finally {
       setSubmitting(false);
     }
@@ -84,20 +177,38 @@ export default function LeadFormPage() {
     return field ? field.required : false;
   };
 
+  // Language Selector Component
+  const LanguageSelector = () => (
+    <div className="absolute top-4 right-4">
+      <Select value={language} onValueChange={changeLanguage}>
+        <SelectTrigger className="w-[100px] h-8 text-xs">
+          <Globe className="w-3 h-3 mr-1" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="en">English</SelectItem>
+          <SelectItem value="es">Español</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
+        <LanguageSelector />
+        <div className="animate-pulse text-muted-foreground">{t.loading}</div>
       </div>
     );
   }
 
   if (!form) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
+        <LanguageSelector />
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Form not found or inactive</p>
+            <p className="text-muted-foreground">{t.formNotFound}</p>
           </CardContent>
         </Card>
       </div>
@@ -106,13 +217,14 @@ export default function LeadFormPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
+        <LanguageSelector />
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
             <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Thank You!</h2>
+            <h2 className="text-2xl font-bold mb-2">{t.thankYou}</h2>
             <p className="text-muted-foreground">{form.thank_you_message}</p>
           </CardContent>
         </Card>
@@ -121,7 +233,8 @@ export default function LeadFormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
+      <LanguageSelector />
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-2xl">{form.form_name}</CardTitle>
@@ -136,13 +249,13 @@ export default function LeadFormPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  Full Name {isFieldRequired("lead_name") && <span className="text-red-500">*</span>}
+                  {t.fullName} {isFieldRequired("lead_name") && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   value={formData.lead_name}
                   onChange={(e) => setFormData({ ...formData, lead_name: e.target.value })}
                   required={isFieldRequired("lead_name")}
-                  placeholder="Your full name"
+                  placeholder={t.placeholderName}
                 />
               </div>
             )}
@@ -152,14 +265,14 @@ export default function LeadFormPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Mail className="w-4 h-4" />
-                  Email {isFieldRequired("email") && <span className="text-red-500">*</span>}
+                  {t.email} {isFieldRequired("email") && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required={isFieldRequired("email")}
-                  placeholder="your@email.com"
+                  placeholder={t.placeholderEmail}
                 />
               </div>
             )}
@@ -169,13 +282,13 @@ export default function LeadFormPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Phone className="w-4 h-4" />
-                  Phone {isFieldRequired("phone") && <span className="text-red-500">*</span>}
+                  {t.phone} {isFieldRequired("phone") && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required={isFieldRequired("phone")}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder={t.placeholderPhone}
                 />
               </div>
             )}
@@ -185,13 +298,13 @@ export default function LeadFormPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Building2 className="w-4 h-4" />
-                  Company {isFieldRequired("company_name") && <span className="text-red-500">*</span>}
+                  {t.company} {isFieldRequired("company_name") && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   value={formData.company_name}
                   onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
                   required={isFieldRequired("company_name")}
-                  placeholder="Company name (optional)"
+                  placeholder={t.placeholderCompany}
                 />
               </div>
             )}
@@ -200,7 +313,7 @@ export default function LeadFormPage() {
             {isFieldEnabled("event_type") && (
               <div className="space-y-2">
                 <Label>
-                  Event Type {isFieldRequired("event_type") && <span className="text-red-500">*</span>}
+                  {t.eventType} {isFieldRequired("event_type") && <span className="text-red-500">*</span>}
                 </Label>
                 <Select 
                   value={formData.event_type} 
@@ -208,12 +321,12 @@ export default function LeadFormPage() {
                   required={isFieldRequired("event_type")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select event type" />
+                    <SelectValue placeholder={t.selectEventType} />
                   </SelectTrigger>
                   <SelectContent>
                     {EVENT_TYPES.map(type => (
                       <SelectItem key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                        {t[type]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -226,7 +339,7 @@ export default function LeadFormPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  Event Date {isFieldRequired("event_date") && <span className="text-red-500">*</span>}
+                  {t.eventDate} {isFieldRequired("event_date") && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   type="date"
@@ -242,14 +355,14 @@ export default function LeadFormPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  Estimated Guests {isFieldRequired("estimated_guest_count") && <span className="text-red-500">*</span>}
+                  {t.estimatedGuests} {isFieldRequired("estimated_guest_count") && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   type="number"
                   value={formData.estimated_guest_count}
                   onChange={(e) => setFormData({ ...formData, estimated_guest_count: e.target.value })}
                   required={isFieldRequired("estimated_guest_count")}
-                  placeholder="Number of guests"
+                  placeholder={t.placeholderGuests}
                 />
               </div>
             )}
@@ -258,7 +371,7 @@ export default function LeadFormPage() {
             {isFieldEnabled("budget_range") && (
               <div className="space-y-2">
                 <Label>
-                  Budget Range {isFieldRequired("budget_range") && <span className="text-red-500">*</span>}
+                  {t.budgetRange} {isFieldRequired("budget_range") && <span className="text-red-500">*</span>}
                 </Label>
                 <Select 
                   value={formData.budget_range} 
@@ -266,14 +379,14 @@ export default function LeadFormPage() {
                   required={isFieldRequired("budget_range")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select budget range" />
+                    <SelectValue placeholder={t.selectBudgetRange} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="< $5,000">Less than $5,000</SelectItem>
-                    <SelectItem value="$5,000 - $10,000">$5,000 - $10,000</SelectItem>
-                    <SelectItem value="$10,000 - $25,000">$10,000 - $25,000</SelectItem>
-                    <SelectItem value="$25,000 - $50,000">$25,000 - $50,000</SelectItem>
-                    <SelectItem value="> $50,000">More than $50,000</SelectItem>
+                    <SelectItem value="< $5,000">{t.budgetLess5k}</SelectItem>
+                    <SelectItem value="$5,000 - $10,000">{t.budget5k10k}</SelectItem>
+                    <SelectItem value="$10,000 - $25,000">{t.budget10k25k}</SelectItem>
+                    <SelectItem value="$25,000 - $50,000">{t.budget25k50k}</SelectItem>
+                    <SelectItem value="> $50,000">{t.budgetMore50k}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -283,13 +396,13 @@ export default function LeadFormPage() {
             {isFieldEnabled("message") && (
               <div className="space-y-2">
                 <Label>
-                  Message {isFieldRequired("message") && <span className="text-red-500">*</span>}
+                  {t.message} {isFieldRequired("message") && <span className="text-red-500">*</span>}
                 </Label>
                 <Textarea
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   required={isFieldRequired("message")}
-                  placeholder="Tell us more about your event..."
+                  placeholder={t.placeholderMessage}
                   rows={4}
                 />
               </div>
@@ -299,10 +412,10 @@ export default function LeadFormPage() {
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Submitting...
+                  {t.submitting}
                 </>
               ) : (
-                "Submit Inquiry"
+                t.submitInquiry
               )}
             </Button>
           </form>
