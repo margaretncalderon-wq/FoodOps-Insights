@@ -47,9 +47,16 @@ export default function CalendarPage() {
 
   const getEventsForDate = (date) => {
     return events.filter((event) => {
-      const eventStart = parseISO(event.event_date || event.start_date);
-      const eventEnd = event.end_date ? parseISO(event.end_date) : eventStart;
-      return isWithinInterval(date, { start: eventStart, end: eventEnd }) || isSameDay(date, eventStart);
+      // Skip events without a valid date
+      if (!event.event_date && !event.start_date) return false;
+      
+      try {
+        const eventStart = parseISO(event.event_date || event.start_date);
+        const eventEnd = event.end_date ? parseISO(event.end_date) : eventStart;
+        return isWithinInterval(date, { start: eventStart, end: eventEnd }) || isSameDay(date, eventStart);
+      } catch (e) {
+        return false;
+      }
     });
   };
 
