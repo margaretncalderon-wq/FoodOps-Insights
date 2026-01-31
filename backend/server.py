@@ -2698,6 +2698,184 @@ async def recalculate_all_recipes(user: User = Depends(get_current_user)):
     
     return {"updated_recipes": updated_count}
 
+# ============== PLATED MENUS ==============
+
+async def calculate_menu_cost(courses: List[Dict], company_id: str) -> float:
+    """Calculate total cost per guest for a plated menu"""
+    total_cost = 0.0
+    
+    for course in courses:
+        for item in course.get("items", []):
+            recipe_id = item.get("recipe_id")
+            portions_per_guest = item.get("portions_per_guest", 1)
+            
+            recipe = await db.recipes.find_one(
+                {"recipe_id": recipe_id, "company_id": company_id},
+                {"_id": 0, "cost_per_portion": 1}
+            )
+            if recipe:
+                total_cost += recipe.get("cost_per_portion", 0) * portions_per_guest
+    
+    return round(total_cost, 4)
+
+@plated_menus_router.get("")
+async def get_plated_menus(menu_type: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all plated menus"""
+    query = {"company_id": user.company_id}
+    if menu_type:
+        query["menu_type"] = menu_type
+    
+    menus = await db.plated_menus.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    for m in menus:
+        for field in ["created_at", "updated_at"]:
+            if m.get(field) and isinstance(m[field], str):
+                m[field] = datetime.fromisoformat(m[field])
+    return menus
+
+@plated_menus_router.get("/{menu_id}")
+async def get_plated_menu(menu_id: str, user: User = Depends(get_current_user)):
+    """Get a single plated menu with recipe details"""
+    menu = await db.plated_menus.find_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    # Enrich course items with recipe details
+    for course in menu.get("courses", []):
+        for item in course.get("items", []):
+            recipe = await db.recipes.find_one(
+                {"recipe_id": item.get("recipe_id"), "company_id": user.company_id},
+                {"_id": 0, "name": 1, "cost_per_portion": 1, "recipe_type": 1, "yield_unit": 1}
+            )
+            if recipe:
+                item["recipe_details"] = recipe
+    
+    for field in ["created_at", "updated_at"]:
+        if menu.get(field) and isinstance(menu[field], str):
+            menu[field] = datetime.fromisoformat(menu[field])
+    
+    return menu
+
+@plated_menus_router.post("")
+async def create_plated_menu(data: PlatedMenuCreate, user: User = Depends(get_current_user)):
+    """Create a new plated menu"""
+    now = datetime.now(timezone.utc)
+    menu_id = f"pmenu_{uuid.uuid4().hex[:12]}"
+    
+    # Ensure course_ids are set
+    courses_with_ids = []
+    for i, course in enumerate(data.courses):
+        course_dict = course.model_dump() if hasattr(course, 'model_dump') else dict(course)
+        if not course_dict.get("course_id"):
+            course_dict["course_id"] = f"course_{uuid.uuid4().hex[:8]}"
+        course_dict["course_order"] = i
+        courses_with_ids.append(course_dict)
+    
+    # Calculate cost per guest
+    cost_per_guest = await calculate_menu_cost(courses_with_ids, user.company_id)
+    buffer_pct = data.buffer_percentage or 0
+    cost_with_buffer = cost_per_guest * (1 + buffer_pct / 100)
+    
+    menu_doc = {
+        "menu_id": menu_id,
+        "company_id": user.company_id,
+        "name": data.name,
+        "description": data.description,
+        "menu_type": data.menu_type,
+        "pricing_model": data.pricing_model,
+        "serving_style": data.serving_style,
+        "courses": courses_with_ids,
+        "buffer_percentage": buffer_pct,
+        "cost_per_guest": cost_per_guest,
+        "cost_with_buffer": round(cost_with_buffer, 4),
+        "notes": data.notes,
+        "status": "active",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.plated_menus.insert_one(menu_doc)
+    del menu_doc["_id"]
+    menu_doc["created_at"] = now
+    menu_doc["updated_at"] = now
+    return menu_doc
+
+@plated_menus_router.put("/{menu_id}")
+async def update_plated_menu(menu_id: str, data: PlatedMenuCreate, user: User = Depends(get_current_user)):
+    """Update a plated menu"""
+    now = datetime.now(timezone.utc)
+    
+    # Ensure course_ids are set
+    courses_with_ids = []
+    for i, course in enumerate(data.courses):
+        course_dict = course.model_dump() if hasattr(course, 'model_dump') else dict(course)
+        if not course_dict.get("course_id"):
+            course_dict["course_id"] = f"course_{uuid.uuid4().hex[:8]}"
+        course_dict["course_order"] = i
+        courses_with_ids.append(course_dict)
+    
+    # Recalculate cost per guest
+    cost_per_guest = await calculate_menu_cost(courses_with_ids, user.company_id)
+    buffer_pct = data.buffer_percentage or 0
+    cost_with_buffer = cost_per_guest * (1 + buffer_pct / 100)
+    
+    update_data = {
+        "name": data.name,
+        "description": data.description,
+        "menu_type": data.menu_type,
+        "pricing_model": data.pricing_model,
+        "serving_style": data.serving_style,
+        "courses": courses_with_ids,
+        "buffer_percentage": buffer_pct,
+        "cost_per_guest": cost_per_guest,
+        "cost_with_buffer": round(cost_with_buffer, 4),
+        "notes": data.notes,
+        "updated_at": now.isoformat()
+    }
+    
+    result = await db.plated_menus.update_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    return await get_plated_menu(menu_id, user)
+
+@plated_menus_router.delete("/{menu_id}")
+async def delete_plated_menu(menu_id: str, user: User = Depends(get_current_user)):
+    """Delete a plated menu"""
+    result = await db.plated_menus.delete_one(
+        {"menu_id": menu_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return {"message": "Menu deleted"}
+
+@plated_menus_router.post("/recalculate-all")
+async def recalculate_all_menus(user: User = Depends(get_current_user)):
+    """Recalculate costs for all menus (call when recipe costs change)"""
+    menus = await db.plated_menus.find({"company_id": user.company_id}, {"_id": 0}).to_list(500)
+    updated_count = 0
+    
+    for menu in menus:
+        cost_per_guest = await calculate_menu_cost(menu.get("courses", []), user.company_id)
+        buffer_pct = menu.get("buffer_percentage", 0)
+        cost_with_buffer = cost_per_guest * (1 + buffer_pct / 100)
+        
+        await db.plated_menus.update_one(
+            {"menu_id": menu["menu_id"]},
+            {"$set": {
+                "cost_per_guest": cost_per_guest,
+                "cost_with_buffer": round(cost_with_buffer, 4)
+            }}
+        )
+        updated_count += 1
+    
+    return {"updated_menus": updated_count}
+
 # ============== EVENT MENU & STOCK CHECK ==============
 
 @events_router.get("")
