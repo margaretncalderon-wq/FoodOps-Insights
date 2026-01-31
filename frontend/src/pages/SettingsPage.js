@@ -283,6 +283,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleUpdateTemplate = async (templateId, templateData) => {
+    setSavingTemplate(templateId);
+    try {
+      await axios.put(`${API}/settings/document-templates/${templateId}`, {
+        template_type: templateData.template_type,
+        name: templateData.name,
+        is_active: templateData.is_active,
+        custom_fields: templateData.custom_fields || [],
+        header_text_en: templateData.header_text_en,
+        header_text_es: templateData.header_text_es,
+        footer_text_en: templateData.footer_text_en,
+        footer_text_es: templateData.footer_text_es
+      }, { withCredentials: true });
+      
+      // Update local state
+      setDocumentTemplates(prev => prev.map(t => 
+        t.template_id === templateId ? { ...t, ...templateData } : t
+      ));
+      
+      toast.success(language === "es" ? "Plantilla actualizada" : "Template updated");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to update template");
+    } finally {
+      setSavingTemplate(null);
+    }
+  };
+
   const handleSaveLeadForm = async () => {
     try {
       if (editingLeadForm) {
