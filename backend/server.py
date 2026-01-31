@@ -208,12 +208,13 @@ class LeadForm(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-# Event Models with multi-day support
+# Event Models with multi-day support and CRM pipeline
 class EventCreate(BaseModel):
     client_id: str
     name: str
     event_type: str
-    event_date: datetime
+    event_date: Optional[datetime] = None
+    event_date_tbd: bool = False
     end_date: Optional[datetime] = None
     is_booking: bool = False
     venue: Optional[str] = None
@@ -221,6 +222,13 @@ class EventCreate(BaseModel):
     budget: float = 0.0
     notes: Optional[str] = None
     status: str = "planning"
+    # CRM Pipeline fields
+    stage: str = "Lead"  # Lead, Contacted, Proposal, Negotiation, Won, Lost
+    expected_value: Optional[float] = None
+    next_followup_date: Optional[datetime] = None
+    next_step: Optional[str] = None
+    lost_reason: Optional[str] = None
+    source: Optional[str] = None
 
 class Event(BaseModel):
     event_id: str
@@ -228,7 +236,8 @@ class Event(BaseModel):
     client_id: str
     name: str
     event_type: str
-    event_date: datetime
+    event_date: Optional[datetime] = None
+    event_date_tbd: bool = False
     end_date: Optional[datetime] = None
     is_booking: bool = False
     venue: Optional[str] = None
@@ -236,6 +245,14 @@ class Event(BaseModel):
     budget: float
     notes: Optional[str] = None
     status: str
+    # CRM Pipeline fields
+    stage: str = "Lead"
+    expected_value: Optional[float] = None
+    next_followup_date: Optional[datetime] = None
+    next_step: Optional[str] = None
+    lost_reason: Optional[str] = None
+    source: Optional[str] = None
+    # Existing fields
     timeline: List[Dict[str, Any]] = []
     tasks: List[Dict[str, Any]] = []
     menu_items: List[str] = []
