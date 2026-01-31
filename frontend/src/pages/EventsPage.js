@@ -165,7 +165,8 @@ export default function EventsPage() {
       client_id: event.client_id,
       name: event.name,
       event_type: event.event_type,
-      event_date: new Date(event.event_date),
+      event_date: event.event_date ? new Date(event.event_date) : null,
+      event_date_tbd: event.event_date_tbd || !event.event_date,
       end_date: event.end_date ? new Date(event.end_date) : null,
       is_booking: event.is_booking || false,
       venue: event.venue || "",
@@ -173,6 +174,10 @@ export default function EventsPage() {
       budget: event.budget,
       notes: event.notes || "",
       status: event.status,
+      stage: event.stage || "Lead",
+      expected_value: event.expected_value || "",
+      next_followup_date: event.next_followup_date ? new Date(event.next_followup_date) : null,
+      next_step: event.next_step || "",
     });
     setDialogOpen(true);
   };
@@ -183,7 +188,8 @@ export default function EventsPage() {
       client_id: "",
       name: "",
       event_type: "wedding",
-      event_date: new Date(),
+      event_date: null,
+      event_date_tbd: false,
       end_date: null,
       is_booking: false,
       venue: "",
@@ -191,7 +197,31 @@ export default function EventsPage() {
       budget: 0,
       notes: "",
       status: "planning",
+      stage: "Lead",
+      expected_value: "",
+      next_followup_date: null,
+      next_step: "",
     });
+  };
+
+  const handleStageChange = async (eventId, newStage) => {
+    try {
+      const event = events.find(e => e.event_id === eventId);
+      if (!event) return;
+      
+      await axios.put(`${API}/events/${eventId}`, {
+        ...event,
+        stage: newStage,
+        event_date: event.event_date ? new Date(event.event_date).toISOString() : null,
+        end_date: event.end_date ? new Date(event.end_date).toISOString() : null,
+      }, { withCredentials: true });
+      
+      toast.success(language === "es" ? "Etapa actualizada" : "Stage updated");
+      fetchEvents();
+      if (viewMode === "pipeline") fetchPipeline();
+    } catch (error) {
+      toast.error("Failed to update stage");
+    }
   };
 
   const filteredEvents = events.filter((event) =>
