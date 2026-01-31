@@ -306,7 +306,19 @@ function InventorySection() {
                       <TableCell className="text-right">{item.par_level || 0} {item.unit}</TableCell>
                       <TableCell className="text-right">${(item.cost_per_unit || 0).toFixed(2)}/{item.unit}</TableCell>
                       <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
-                      <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => handleEditItem(item)}><Edit className="w-4 h-4" /></Button><Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.ingredient_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button></div></TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleViewPriceHistory(item)} title={language === "es" ? "Historial de Precios" : "Price History"}>
+                            <History className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditItem(item)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.ingredient_id)}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredItems.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{language === "es" ? "No hay artículos" : "No items found"}</TableCell></TableRow>}
