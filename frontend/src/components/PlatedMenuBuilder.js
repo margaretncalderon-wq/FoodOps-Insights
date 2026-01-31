@@ -47,6 +47,8 @@ const DEFAULT_COURSES = [
 export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null, recipes = [] }) {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
+  const [portionFormats, setPortionFormats] = useState({}); // Store portion formats by recipe_id
+  const [selectedFormat, setSelectedFormat] = useState({}); // Store selected format per recipe
   
   const [form, setForm] = useState({
     name: "",
@@ -63,6 +65,19 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     target_margin_pct: 35,
     tax_included: false
   });
+
+  // Load portion formats for a recipe
+  const loadPortionFormats = async (recipeId) => {
+    if (portionFormats[recipeId]) return portionFormats[recipeId];
+    try {
+      const res = await axios.get(`${API}/api/recipes/${recipeId}/portion-formats`, { withCredentials: true });
+      setPortionFormats(prev => ({ ...prev, [recipeId]: res.data }));
+      return res.data;
+    } catch (error) {
+      console.error("Error loading portion formats", error);
+      return [];
+    }
+  };
 
   useEffect(() => {
     if (initialMenu) {
