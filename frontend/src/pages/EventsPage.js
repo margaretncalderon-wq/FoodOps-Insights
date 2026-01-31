@@ -674,6 +674,12 @@ export default function EventsPage() {
                         ${Number(event.expected_value).toLocaleString()}
                       </div>
                     )}
+                    {event.pending_balance > 0 && (
+                      <div className="flex items-center gap-2 text-red-600 font-medium" data-testid={`pending-balance-${event.event_id}`}>
+                        <DollarSign className="w-4 h-4" />
+                        {language === "es" ? "Saldo Pendiente:" : "Pending Balance:"} ${Number(event.pending_balance).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
