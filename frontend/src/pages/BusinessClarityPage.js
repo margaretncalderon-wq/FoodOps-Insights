@@ -783,6 +783,17 @@ export default function BusinessClarityPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
 
+  // Navigation items - same structure as FoodOpsPage
+  const sidebarNavItems = [
+    { path: "/business-clarity/dashboard", label: isEs ? "Panel Ejecutivo" : "Executive Dashboard", icon: PieChart },
+    { path: "/business-clarity/invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
+    { path: "/business-clarity/payments", label: isEs ? "Pagos Recibidos" : "Received Payments", icon: Banknote },
+    { path: "/business-clarity/statements", label: isEs ? "Estados de Cuenta" : "Account Statements", icon: UserCircle },
+    { path: "/business-clarity/receivables", label: isEs ? "Cuentas por Cobrar" : "Accounts Receivable", icon: TrendingUp },
+    { path: "/business-clarity/payables", label: isEs ? "Cuentas por Pagar" : "Accounts Payable", icon: TrendingDown },
+    { path: "/business-clarity/reports", label: isEs ? "Reportes Ejecutivos" : "Executive Reports", icon: FileBarChart },
+  ];
+
   // Check for payment success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -804,61 +815,63 @@ export default function BusinessClarityPage() {
   }, [isEs]);
 
   return (
-    <Layout>
-      <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar - Same style as Culinary Intelligence */}
-        <div className="w-56 border-r bg-muted/30 p-4 flex flex-col">
-          <NavLink 
-            to="/dashboard" 
-            className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {isEs ? "← Volver al Dashboard" : "← Back to Dashboard"}
-          </NavLink>
-          
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-1">
-              <Landmark className="w-6 h-6 text-primary" />
-              <h2 className="text-xl font-bold">Business Clarity</h2>
-            </div>
-            <p className="text-xs text-muted-foreground pl-8">
-              {isEs ? "Claridad para decidir" : "Clarity for decisions"}
-            </p>
+    <div className="flex h-[calc(100vh-4rem)]" data-testid="business-clarity-page">
+      {/* Sidebar Navigation - Identical structure to FoodOpsPage */}
+      <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
+        {/* Back to Dashboard */}
+        <NavLink 
+          to="/dashboard" 
+          className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {isEs ? "Volver al Dashboard" : "Back to Dashboard"}
+        </NavLink>
+        
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Landmark className="w-6 h-6 text-primary" />
+            <h2 className="text-xl font-bold">Business Clarity</h2>
           </div>
-          
-          <nav className="space-y-1 flex-1">
-            {navItems.map(item => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "hover:bg-muted"
-                  }`
-                }
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{isEs ? item.labelEs : item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
+          <p className="text-xs text-muted-foreground pl-8">
+            {isEs 
+              ? "Donde las finanzas dejan de ser números y se convierten en decisiones" 
+              : "Where finances move from numbers to decisions"}
+          </p>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto p-6">
-          <Routes>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardSection />} />
-            <Route path="invoices" element={<InvoicesSection />} />
-            <Route path="payments" element={<PaymentsSection />} />
-            <Route path="statements" element={<AccountStatementsSection />} />
-            <Route path="receivables" element={<AccountsReceivableSection />} />
-            <Route path="payables" element={<AccountsPayableSection />} />
-            <Route path="reports" element={<ReportsSection />} />
-          </Routes>
-        </div>
+        <nav className="space-y-1 flex-1">
+          {sidebarNavItems.map(item => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? "bg-primary text-primary-foreground" 
+                    : "hover:bg-muted"
+                }`
+              }
+            >
+              <item.icon className="w-4 h-4" />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </div>
-    </Layout>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-6">
+        <Routes>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardSection />} />
+          <Route path="invoices" element={<InvoicesSection />} />
+          <Route path="payments" element={<PaymentsSection />} />
+          <Route path="statements" element={<AccountStatementsSection />} />
+          <Route path="receivables" element={<AccountsReceivableSection />} />
+          <Route path="payables" element={<AccountsPayableSection />} />
+          <Route path="reports" element={<ReportsSection />} />
+        </Routes>
+      </div>
+    </div>
   );
 }
