@@ -360,6 +360,53 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  // Create Invoice in Business Clarity
+  const handleCreateInvoice = async () => {
+    if (!proposal?.items?.length) {
+      toast.error(language === "es" ? "No hay ítems para facturar" : "No items to invoice");
+      return;
+    }
+    
+    try {
+      // Calculate due date (30 days from now or based on client payment terms)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+      
+      // Create invoice lines from proposal items
+      const lines = proposal.items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        discount_percent: 0
+      }));
+      
+      const invoiceData = {
+        client_id: event?.client_id,
+        event_id: eventId,
+        due_date: dueDate.toISOString(),
+        lines: lines,
+        discount_percent: financials?.discount_percent || 0,
+        tax_rate: financials?.tax_rate || 0,
+        notes: `${language === "es" ? "Factura generada desde evento" : "Invoice generated from event"}: ${event?.name}`
+      };
+      
+      const res = await axios.post(`${API}/business-clarity/invoices`, invoiceData, { withCredentials: true });
+      toast.success(
+        language === "es" 
+          ? `Factura ${res.data.invoice_number} creada exitosamente` 
+          : `Invoice ${res.data.invoice_number} created successfully`
+      );
+      
+      // Optionally open Business Clarity
+      if (window.confirm(language === "es" ? "¿Desea ver la factura en Business Clarity?" : "Would you like to view the invoice in Business Clarity?")) {
+        window.open("/business-clarity?tab=invoices", "_blank");
+      }
+    } catch (error) {
+      const msg = error.response?.data?.detail || (language === "es" ? "Error al crear factura" : "Failed to create invoice");
+      toast.error(msg);
+    }
+  };
+
   const handlePicklistSelect = (picklistItem) => {
     // Use pre-calculated cost from API (comes from recipe, inventory, or manual)
     let internal_cost = picklistItem.calculated_cost || picklistItem.internal_cost || null;
