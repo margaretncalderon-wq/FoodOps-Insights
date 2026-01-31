@@ -2745,6 +2745,7 @@ async def recalculate_all_recipes(user: User = Depends(get_current_user)):
             {"recipe_id": recipe["recipe_id"]},
             {"$set": {
                 "ingredients": updated_ingredients,
+                "sub_recipes": updated_sub_recipes,
                 "total_cost": total_cost,
                 "cost_per_yield": cost_per_yield,
                 "cost_per_portion": cost_per_portion,
