@@ -154,6 +154,14 @@ Tracks changes after Proposal.status = Accepted:
 - [x] Event Financials tab
 - [x] Audit Logging for post-acceptance changes
 - [x] Document generation UI (6 types)
+- [x] **Enhanced Picklist System**:
+  - Full CRUD (Add, Edit, Delete) from Settings
+  - Item Types: Food, Service, Rental, Fee
+  - Link to Recipes for auto cost calculation
+  - Link to Inventory for disposables/supplies
+  - Manual internal_cost override
+  - Bulk Add (multiple items at once)
+  - Margin % display and cost source tracking
 
 ## Upcoming Tasks
 - [ ] Fix Google OAuth Login (P0)
