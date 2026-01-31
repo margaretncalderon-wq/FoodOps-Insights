@@ -2662,6 +2662,11 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
         for field, default in [("recipe_type", "final_dish"), ("yield_quantity", 1.0), ("yield_unit", "portion"), ("portion_size", 1.0), ("portion_unit", "serving"), ("labor_minutes", 0), ("cost_per_yield", r.get("cost_per_serving", 0)), ("cost_per_portion", r.get("cost_per_serving", 0)), ("sell_price", 0.0), ("food_cost_percent", 0.0)]:
             if field not in r:
                 r[field] = default
+        # Ensure extended fields have defaults for old recipes
+        r.setdefault("allergens", [])
+        r.setdefault("work_category", None)
+        r.setdefault("recipe_code", None)
+        r.setdefault("verified_status", "Draft")
     return recipes
 
 async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes: List[Dict] = None, company_id: str = "") -> tuple:
