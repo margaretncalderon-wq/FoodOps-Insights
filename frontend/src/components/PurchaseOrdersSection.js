@@ -350,6 +350,9 @@ export default function PurchaseOrdersSection() {
                         <Button variant="ghost" size="icon" onClick={() => openViewDialog(po)} title={t("view")}>
                           <FileText className="w-4 h-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handlePrintPO(po)} title={language === "es" ? "Imprimir" : "Print"}>
+                          <Printer className="w-4 h-4" />
+                        </Button>
                         {po.status === "Draft" && (
                           <Button variant="ghost" size="icon" onClick={() => handleSendPO(po.po_id)} title={t("send")}>
                             <Send className="w-4 h-4 text-blue-500" />
