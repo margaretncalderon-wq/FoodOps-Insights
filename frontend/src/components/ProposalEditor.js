@@ -90,6 +90,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDocType, setPreviewDocType] = useState("proposal");
+  const [client, setClient] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState({});
   const [selectedPicklistCategory, setSelectedPicklistCategory] = useState("");
   const [picklistSearch, setPicklistSearch] = useState("");
