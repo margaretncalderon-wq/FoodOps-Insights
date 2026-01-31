@@ -519,6 +519,10 @@ export default function SettingsPage() {
         <Tabs defaultValue="branding" className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
+            <TabsTrigger value="features" className="gap-2">
+              <ToggleLeft className="w-4 h-4" />
+              {language === "es" ? "Funciones" : "Features"}
+            </TabsTrigger>
             <TabsTrigger value="leadforms" className="gap-2">
               <FormInput className="w-4 h-4" />
               {language === "es" ? "Formularios de Leads" : "Lead Forms"}
@@ -543,6 +547,171 @@ export default function SettingsPage() {
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
           </TabsList>
+
+          {/* Feature Flags Tab */}
+          <TabsContent value="features">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <ToggleLeft className="w-5 h-5" />
+                  {language === "es" ? "Configuración de Funciones" : "Feature Configuration"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <p className="text-sm text-muted-foreground">
+                  {language === "es" 
+                    ? "Activa o desactiva las funcionalidades del sistema según tus necesidades."
+                    : "Enable or disable system features based on your needs."}
+                </p>
+                
+                <div className="space-y-4">
+                  {/* Proposal Editing */}
+                  <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <FileStack className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <span className="font-medium block">
+                          {language === "es" ? "Edición de Propuestas" : "Proposal Editing"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Permite editar propuestas y contratos de eventos"
+                            : "Enable editing of event proposals and contracts"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_proposal_editing_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_proposal_editing_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Order Items */}
+                  <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <Package className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <span className="font-medium block">
+                          {language === "es" ? "Ítems de Orden" : "Order Items"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Sistema unificado de ítems (Comida, Servicios, Alquiler, Cargos)"
+                            : "Unified item system (Food, Services, Rentals, Fees)"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_order_items_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_order_items_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Margin Tracking */}
+                  <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <Calculator className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div>
+                        <span className="font-medium block">
+                          {language === "es" ? "Seguimiento de Márgenes" : "Margin Tracking"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Costo interno y cálculo de márgenes (solo visible para admin)"
+                            : "Internal cost and margin calculation (admin only)"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_margin_tracking_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_margin_tracking_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Document Autogeneration */}
+                  <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <span className="font-medium block">
+                          {language === "es" ? "Auto-generación de Documentos" : "Document Auto-generation"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Genera automáticamente propuestas, facturas y hojas de trabajo"
+                            : "Auto-generate proposals, invoices, and worksheets"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_document_autogeneration_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_document_autogeneration_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Custom Fields */}
+                  <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
+                        <FormInput className="w-5 h-5 text-pink-600 dark:text-pink-400" />
+                      </div>
+                      <div>
+                        <span className="font-medium block">
+                          {language === "es" ? "Campos Personalizados" : "Custom Fields"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Campos adicionales en plantillas de documentos"
+                            : "Additional fields in document templates"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_custom_fields_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_custom_fields_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Food Ops */}
+                  <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <Utensils className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <span className="font-medium block">
+                          {language === "es" ? "Operaciones de Comida" : "Food Operations"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Vincula ítems de comida con recetas y calcula costos automáticamente"
+                            : "Link food items to recipes and auto-calculate costs"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_food_ops_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_food_ops_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Lead Forms Tab */}
           <TabsContent value="leadforms">
