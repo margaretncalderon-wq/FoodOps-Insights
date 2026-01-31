@@ -679,6 +679,28 @@ export default function SettingsPage() {
     }));
   };
 
+  const addVariantToMenu = () => {
+    if (!newVariant.name) return;
+    setNewMenu(prev => ({
+      ...prev,
+      variants: [...prev.variants, { ...newVariant, variant_id: `var_${Date.now()}` }]
+    }));
+    setNewVariant({
+      name: "",
+      name_es: "",
+      discount_type: "percentage",
+      discount_value: 0,
+      is_default: false
+    });
+  };
+
+  const removeVariantFromMenu = (index) => {
+    setNewMenu(prev => ({
+      ...prev,
+      variants: prev.variants.filter((_, i) => i !== index)
+    }));
+  };
+
   // Tax handlers
   const handleAddTax = async (e) => {
     e.preventDefault();
