@@ -402,8 +402,15 @@ export default function EventPayments({ eventId, event, client }) {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isEs ? "Aplicar Pago a Facturas" : "Apply Payment to Invoices"}</DialogTitle>
-            <DialogDescription>
-              {isEs ? "Disponible para aplicar" : "Available to apply"}: {formatCurrency(selectedPayment?.unapplied_amount)}
+            <DialogDescription className="flex items-center justify-between">
+              <span>
+                {isEs ? "Disponible para aplicar" : "Available to apply"}: <strong className="text-green-600">{formatCurrency(selectedPayment?.unapplied_amount)}</strong>
+              </span>
+              <span className="text-sm">
+                {isEs ? "Total a aplicar" : "Total to apply"}: <strong className={Object.values(applicationAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0) > 0 ? "text-primary" : "text-muted-foreground"}>
+                  {formatCurrency(Object.values(applicationAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0))}
+                </strong>
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-80 overflow-y-auto">
@@ -421,7 +428,7 @@ export default function EventPayments({ eventId, event, client }) {
                   <TableRow key={inv.invoice_id}>
                     <TableCell>{inv.invoice_number}</TableCell>
                     <TableCell>{new Date(inv.due_date).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(inv.balance_due)}</TableCell>
+                    <TableCell className="text-right font-medium text-red-600">{formatCurrency(inv.balance_due)}</TableCell>
                     <TableCell className="text-right">
                       <Input
                         type="number"
