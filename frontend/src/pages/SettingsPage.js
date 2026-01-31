@@ -414,6 +414,10 @@ export default function SettingsPage() {
         <Tabs defaultValue="branding" className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
+            <TabsTrigger value="leadforms" className="gap-2">
+              <FormInput className="w-4 h-4" />
+              {language === "es" ? "Formularios de Leads" : "Lead Forms"}
+            </TabsTrigger>
             <TabsTrigger value="categories" className="gap-2">
               <Tag className="w-4 h-4" />
               {language === "es" ? "Categorías" : "Categories"}
@@ -434,6 +438,201 @@ export default function SettingsPage() {
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
           </TabsList>
+
+          {/* Lead Forms Tab */}
+          <TabsContent value="leadforms">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <FormInput className="w-5 h-5" />
+                  {language === "es" ? "Formularios de Leads" : "Lead Forms"}
+                </CardTitle>
+                <Button onClick={() => { resetLeadFormForm(); setLeadFormDialogOpen(true); }} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  {language === "es" ? "Nuevo Formulario" : "New Form"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {language === "es" 
+                    ? "Crea formularios personalizados para capturar leads desde tu sitio web o redes sociales."
+                    : "Create custom forms to capture leads from your website or social media."}
+                </p>
+                
+                {leadForms.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {language === "es" ? "No hay formularios creados" : "No forms created yet"}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {leadForms.map((form) => (
+                      <Card key={form.form_id} className="border">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold">{form.form_name}</h4>
+                                <Badge variant={form.is_active ? "default" : "secondary"}>
+                                  {form.is_active ? (language === "es" ? "Activo" : "Active") : (language === "es" ? "Inactivo" : "Inactive")}
+                                </Badge>
+                              </div>
+                              {form.description && (
+                                <p className="text-sm text-muted-foreground mb-2">{form.description}</p>
+                              )}
+                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                <span>{language === "es" ? "Fuente" : "Source"}: {form.default_source}</span>
+                                {form.default_event_type && (
+                                  <span>• {language === "es" ? "Tipo" : "Type"}: {form.default_event_type}</span>
+                                )}
+                                <span>• {form.submissions_count || 0} {language === "es" ? "envíos" : "submissions"}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" onClick={() => copyFormLink(form.form_id)} title={language === "es" ? "Copiar enlace" : "Copy link"}>
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => copyEmbedCode(form.form_id)} title={language === "es" ? "Código embed" : "Embed code"}>
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleEditLeadForm(form)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteLeadForm(form.form_id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Lead Form Dialog */}
+            <Dialog open={leadFormDialogOpen} onOpenChange={(open) => { setLeadFormDialogOpen(open); if (!open) resetLeadFormForm(); }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingLeadForm 
+                      ? (language === "es" ? "Editar Formulario" : "Edit Form")
+                      : (language === "es" ? "Nuevo Formulario de Leads" : "New Lead Form")}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  {/* Basic Info */}
+                  <div className="grid gap-4">
+                    <div>
+                      <Label>{language === "es" ? "Nombre del Formulario" : "Form Name"} *</Label>
+                      <Input 
+                        value={newLeadForm.form_name} 
+                        onChange={(e) => setNewLeadForm({ ...newLeadForm, form_name: e.target.value })}
+                        placeholder={language === "es" ? "Ej: Formulario de Bodas" : "E.g., Wedding Inquiry Form"}
+                      />
+                    </div>
+                    <div>
+                      <Label>{language === "es" ? "Descripción" : "Description"}</Label>
+                      <Textarea 
+                        value={newLeadForm.description} 
+                        onChange={(e) => setNewLeadForm({ ...newLeadForm, description: e.target.value })}
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Default Settings */}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === "es" ? "Fuente por Defecto" : "Default Source"}</Label>
+                      <Select value={newLeadForm.default_source} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, default_source: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>{language === "es" ? "Tipo de Evento por Defecto" : "Default Event Type"}</Label>
+                      <Select value={newLeadForm.default_event_type || ""} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, default_event_type: v })}>
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Ninguno" : "None"} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">{language === "es" ? "Ninguno" : "None"}</SelectItem>
+                          {EVENT_TYPES.map(t => <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Field Configuration */}
+                  <div>
+                    <Label className="text-base font-semibold mb-3 block">
+                      {language === "es" ? "Configuración de Campos" : "Field Configuration"}
+                    </Label>
+                    <div className="border rounded-lg divide-y">
+                      {newLeadForm.fields.map((field) => (
+                        <div key={field.field_name} className="p-3 flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{language === "es" ? field.label_es : field.label}</span>
+                            <span className="text-xs text-muted-foreground ml-2">({field.field_name})</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                checked={field.enabled} 
+                                onCheckedChange={() => toggleFieldEnabled(field.field_name)}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                {language === "es" ? "Habilitado" : "Enabled"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                checked={field.required}
+                                onCheckedChange={() => toggleFieldRequired(field.field_name)}
+                                disabled={!field.enabled}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                {language === "es" ? "Requerido" : "Required"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Thank You Message */}
+                  <div>
+                    <Label>{language === "es" ? "Mensaje de Agradecimiento" : "Thank You Message"}</Label>
+                    <Textarea 
+                      value={newLeadForm.thank_you_message} 
+                      onChange={(e) => setNewLeadForm({ ...newLeadForm, thank_you_message: e.target.value })}
+                      rows={2}
+                    />
+                  </div>
+
+                  {/* Active Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <Label className="font-medium">{language === "es" ? "Formulario Activo" : "Form Active"}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es" ? "Solo los formularios activos pueden recibir envíos" : "Only active forms can receive submissions"}
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={newLeadForm.is_active} 
+                      onCheckedChange={(v) => setNewLeadForm({ ...newLeadForm, is_active: v })}
+                    />
+                  </div>
+
+                  <Button onClick={handleSaveLeadForm} className="w-full" disabled={!newLeadForm.form_name}>
+                    {editingLeadForm ? t("save") : (language === "es" ? "Crear Formulario" : "Create Form")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
 
           {/* Branding Tab */}
           <TabsContent value="branding">
