@@ -268,9 +268,23 @@ Auto-generated from Event Order:
   - Fixed date display for null/invalid dates (shows TBD instead of 1/1/1970)
   - Verified waste/merma calculations from ingredients
   - Full system integration test passed: 100% backend (19/19), 100% frontend
+- [x] **Culinary Intelligence Rebranding (Jan 31, 2026)**:
+  - "Food Ops" → "Culinary Intelligence" with tagline "Where food decisions move from intuition to system"
+  - Inventory → Supply Intelligence / Inteligencia de Abastecimiento
+  - Recipes → Recipe Architecture / Arquitectura de Recetas  
+  - Menus → Menu Strategy / Estrategia de Menús
+  - Purchases → Procurement / Gestión de Compras
+  - Purchase Orders → Vendor Orders / Órdenes a Proveedores
+  - Consolidated → Cost & Usage Overview / Resumen de Costos y Consumo
+  - Events: "Purchases" tab renamed to "Procurement", obsolete "Menu" tab removed
+  - ProposalEditor: "Documents" tab renamed to "Generate" (to avoid confusion with Documents tab in Events)
+- [x] **Packaging Formats with Cost Calculation (Jan 31, 2026)**:
+  - Packaging dialog shows items from inventory with cost per unit
+  - Auto-calculates: Unit Cost × Qty per Portion = Cost per Portion
+  - Table shows columns: Item, Qty/Portion, Unit Cost, Cost/Portion, Notes
 
 ## Upcoming Tasks
-- [ ] Recipe Packaging Formats UI completion (tab exists, needs linking to packaging inventory items)
+- [ ] Recipe cost summary should include packaging costs
 
 ## Future/Backlog
 - [ ] AI integrations for supplier suggestions
@@ -280,3 +294,4 @@ Auto-generated from Event Order:
 - [ ] Finance & Reporting Module
 - [ ] CSV Export
 - [ ] Email POs to suppliers
+- [ ] PDF export for recipe technical sheets (like GastroKaizen)
