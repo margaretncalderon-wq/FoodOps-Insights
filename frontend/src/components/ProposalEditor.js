@@ -78,6 +78,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [categories, setCategories] = useState([]);
   const [taxRates, setTaxRates] = useState([]);
   const [picklist, setPicklist] = useState([]);
+  const [menus, setMenus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [featureFlags, setFeatureFlags] = useState(null);
   const [financials, setFinancials] = useState(null);
@@ -85,6 +86,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
