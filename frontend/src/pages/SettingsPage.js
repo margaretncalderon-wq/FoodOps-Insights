@@ -90,7 +90,8 @@ export default function SettingsPage() {
     default_source: "Website",
     default_event_type: "",
     is_active: true,
-    thank_you_message: "Thank you for your inquiry! We will contact you soon."
+    thank_you_message_en: "Thank you for your inquiry! We will contact you soon.",
+    thank_you_message_es: "¡Gracias por tu consulta! Te contactaremos pronto."
   });
 
   useEffect(() => {
