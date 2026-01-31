@@ -373,16 +373,33 @@ Auto-generated from Event Order:
     - Category filters: Accounting, Communication, Payments
     - API: GET/POST/DELETE /api/settings/integrations
   - New UI components in /app/frontend/src/components/settings/
+- [x] **Event Orchestration Module - COMPLETE (Jan 31, 2026)**:
+  - New module for event execution intelligence
+  - 8 functional tabs:
+    1. **Event Blueprint**: Objectives, scope, assumptions, constraints, success criteria
+    2. **Experience Design**: Color palette, catering setup, materials, moodboard, zones
+    3. **Operational Flow**: Phases (Pre-Event, Live, Post-Event), checklists, risks, dependencies
+    4. **Run of Show**: Time blocks with drag-and-drop, 4 templates (Wedding, Corporate, Social, Blank)
+    5. **Team & Roles**: Quick add common roles, custom roles with assignees
+    6. **Production Assets**: Assets with status tracking, preparation checklist
+    7. **Event Calendar**: Global calendar view with conflict detection
+    8. **Post-Event Review**: Rating, what worked/failed, deviations, learnings, lock feature
+  - Backend: 12+ new endpoints under /api/orchestration/
+  - Frontend: New EventOrchestrationPage with sidebar navigation
+  - Uses @hello-pangea/dnd for Run of Show drag-and-drop
+  - Full bilingual support (EN/ES)
+  - Testing: 100% backend (22/22 tests), 100% frontend verified
 
 ## Upcoming Tasks
-- [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
-  - Note: The issue is that order_items of type "Food" don't have recipe_id linked
-  - The procurement feature requires recipes to be linked to food items
-- [ ] Verify merma (waste) calculations in recipes
-  - Note: Merma (waste_factor_pct) calculation is implemented correctly in server.py
+- [ ] Dashboard Additions: "Task Due Date" and "New Leads" sections
 - [ ] Business Clarity enhancements:
   - CSV/Excel/PDF export for all reports
   - Email notifications for overdue invoices (requires Gmail integration)
+- [ ] Client Credit Context: UI warnings based on credit_limit and payment_terms
+
+## Known Issues (User Verification Pending)
+- **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
+- **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
 ## Future/Backlog
 - [ ] Implement actual automation execution (cron jobs for reminders, alerts)
