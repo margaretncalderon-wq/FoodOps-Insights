@@ -5985,11 +5985,14 @@ async def get_recipe_packaging_formats(recipe_id: str, user: User = Depends(get_
 @recipes_router.post("/{recipe_id}/packaging-formats")
 async def create_recipe_packaging_format(recipe_id: str, data: RecipePackagingFormatCreate, user: User = Depends(get_current_user)):
     """Create a new packaging format for a recipe"""
-    # Get packaging item name
+    # Get packaging item details including cost
     packaging_item = await db.ingredients.find_one(
         {"ingredient_id": data.packaging_inventory_item_id, "company_id": user.company_id},
-        {"_id": 0, "name": 1}
+        {"_id": 0, "name": 1, "cost_per_unit": 1, "unit": 1}
     )
+    
+    cost_per_unit = packaging_item.get("cost_per_unit", 0) if packaging_item else 0
+    cost_per_portion = cost_per_unit * data.qty_per_portion
     
     format_id = f"pkgformat_{uuid.uuid4().hex[:12]}"
     packaging_format = {
@@ -5998,6 +6001,9 @@ async def create_recipe_packaging_format(recipe_id: str, data: RecipePackagingFo
         "company_id": user.company_id,
         "packaging_inventory_item_id": data.packaging_inventory_item_id,
         "packaging_item_name": packaging_item.get("name") if packaging_item else None,
+        "unit": packaging_item.get("unit") if packaging_item else None,
+        "cost_per_unit": cost_per_unit,
+        "cost_per_portion": round(cost_per_portion, 4),
         "qty_per_portion": data.qty_per_portion,
         "notes": data.notes
     }
