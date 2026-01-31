@@ -799,13 +799,29 @@ export default function SettingsPage() {
         <Tabs defaultValue="branding" className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="w-4 h-4" />
+              {language === "es" ? "Usuarios" : "Users"}
+            </TabsTrigger>
+            <TabsTrigger value="roles" className="gap-2">
+              <Shield className="w-4 h-4" />
+              {language === "es" ? "Roles" : "Roles"}
+            </TabsTrigger>
+            <TabsTrigger value="automations" className="gap-2">
+              <Zap className="w-4 h-4" />
+              {language === "es" ? "Automatizaciones" : "Automations"}
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="gap-2">
+              <Plug className="w-4 h-4" />
+              {language === "es" ? "Integraciones" : "Integrations"}
+            </TabsTrigger>
             <TabsTrigger value="features" className="gap-2">
               <ToggleLeft className="w-4 h-4" />
               {language === "es" ? "Funciones" : "Features"}
             </TabsTrigger>
             <TabsTrigger value="leadforms" className="gap-2">
               <FormInput className="w-4 h-4" />
-              {language === "es" ? "Formularios de Leads" : "Lead Forms"}
+              {language === "es" ? "Formularios" : "Lead Forms"}
             </TabsTrigger>
             <TabsTrigger value="categories" className="gap-2">
               <Tag className="w-4 h-4" />
@@ -813,7 +829,7 @@ export default function SettingsPage() {
             </TabsTrigger>
             <TabsTrigger value="picklist" className="gap-2">
               <ListChecks className="w-4 h-4" />
-              {language === "es" ? "Lista de Ítems" : "Item Picklist"}
+              {language === "es" ? "Ítems" : "Picklist"}
             </TabsTrigger>
             <TabsTrigger value="taxes" className="gap-2">
               <Percent className="w-4 h-4" />
@@ -821,12 +837,32 @@ export default function SettingsPage() {
             </TabsTrigger>
             <TabsTrigger value="templates" className="gap-2">
               <FileText className="w-4 h-4" />
-              {t("documentTemplates")}
+              {language === "es" ? "Plantillas" : "Templates"}
             </TabsTrigger>
             <TabsTrigger value="preferences">
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
           </TabsList>
+
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <UsersSettingsSection />
+          </TabsContent>
+
+          {/* Roles Tab */}
+          <TabsContent value="roles">
+            <RolesSettingsSection />
+          </TabsContent>
+
+          {/* Automations Tab */}
+          <TabsContent value="automations">
+            <AutomationsSettingsSection />
+          </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integrations">
+            <IntegrationsSettingsSection />
+          </TabsContent>
 
           {/* Feature Flags Tab */}
           <TabsContent value="features">
