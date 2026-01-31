@@ -1,0 +1,349 @@
+import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "../contexts/LanguageContext";
+import axios from "axios";
+import { toast } from "sonner";
+
+// UI Components
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Checkbox } from "./ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
+import { ScrollArea } from "./ui/scroll-area";
+
+// Icons
+import { 
+  ShoppingCart, Package, Truck, RefreshCw, FileText, Check,
+  Calendar, Users, ArrowRight, AlertTriangle, Download
+} from "lucide-react";
+
+const API = process.env.REACT_APP_BACKEND_URL;
+
+export default function ConsolidatedPurchaseSection() {
+  const { language } = useLanguage();
+  const [events, setEvents] = useState([]);
+  const [selectedEvents, setSelectedEvents] = useState([]);
+  const [purchaseData, setPurchaseData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [creatingPO, setCreatingPO] = useState(null);
+
+  const t = useCallback((key) => {
+    const translations = {
+      title: { en: "Consolidated Purchases", es: "Compras Consolidadas" },
+      selectEvents: { en: "Select Events to Generate Purchase List", es: "Selecciona Eventos para Generar Lista" },
+      generate: { en: "Generate Purchase List", es: "Generar Lista de Compras" },
+      noEvents: { en: "No upcoming events", es: "No hay eventos próximos" },
+      event: { en: "Event", es: "Evento" },
+      date: { en: "Date", es: "Fecha" },
+      guests: { en: "Guests", es: "Comensales" },
+      totalRequired: { en: "Total Required", es: "Total Requerido" },
+      inStock: { en: "In Stock", es: "En Stock" },
+      toPurchase: { en: "To Purchase", es: "Por Comprar" },
+      cost: { en: "Cost", es: "Costo" },
+      totalCost: { en: "Total Cost", es: "Costo Total" },
+      createPO: { en: "Create PO", es: "Crear OC" },
+      noSupplier: { en: "No Supplier", es: "Sin Proveedor" },
+      recipes: { en: "Recipes", es: "Recetas" },
+      eventsSelected: { en: "events selected", es: "eventos seleccionados" },
+      selectAll: { en: "Select All", es: "Seleccionar Todo" },
+      clearAll: { en: "Clear All", es: "Limpiar Todo" },
+      includeBuffer: { en: "Include 10% buffer", es: "Incluir 10% reserva" },
+      compareStock: { en: "Compare with stock", es: "Comparar con inventario" },
+      noItemsNeeded: { en: "No items needed to purchase", es: "No hay items que comprar" },
+      poCreated: { en: "PO Created!", es: "¡OC Creada!" },
+    };
+    return translations[key]?.[language] || translations[key]?.en || key;
+  }, [language]);
+
+  const fetchEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/events`, { withCredentials: true });
+      // Filter to upcoming events with guest count
+      const upcomingEvents = res.data.filter(e => {
+        const eventDate = e.event_date ? new Date(e.event_date) : null;
+        return !eventDate || eventDate >= new Date();
+      });
+      setEvents(upcomingEvents);
+    } catch (error) {
+      toast.error("Error loading events");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  // Toggle event selection
+  const toggleEvent = (eventId) => {
+    setSelectedEvents(prev => 
+      prev.includes(eventId) 
+        ? prev.filter(id => id !== eventId)
+        : [...prev, eventId]
+    );
+  };
+
+  // Generate purchase list
+  const handleGenerate = async () => {
+    if (selectedEvents.length === 0) {
+      toast.error(language === "es" ? "Selecciona al menos un evento" : "Select at least one event");
+      return;
+    }
+    
+    setGenerating(true);
+    try {
+      const res = await axios.post(`${API}/api/events/generate-purchase-list`, {
+        event_ids: selectedEvents,
+        include_buffer: true,
+        compare_inventory: true
+      }, { withCredentials: true });
+      
+      setPurchaseData(res.data);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error generating list");
+    }
+    setGenerating(false);
+  };
+
+  // Create PO from supplier items
+  const handleCreatePO = async (supplierId, items) => {
+    setCreatingPO(supplierId);
+    try {
+      const itemsToOrder = items.filter(i => i.to_purchase > 0);
+      if (itemsToOrder.length === 0) {
+        toast.error(language === "es" ? "No hay items para ordenar" : "No items to order");
+        setCreatingPO(null);
+        return;
+      }
+      
+      await axios.post(`${API}/api/events/create-po-from-purchase-list`, null, {
+        withCredentials: true,
+        params: { supplier_id: supplierId === "no_supplier" ? "" : supplierId },
+        data: itemsToOrder.map(i => ({
+          inventory_item_id: i.inventory_item_id,
+          item_name: i.item_name,
+          to_purchase: i.to_purchase,
+          unit: i.unit,
+          unit_cost: i.unit_cost
+        }))
+      });
+      
+      toast.success(t("poCreated"));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error creating PO");
+    }
+    setCreatingPO(null);
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6" data-testid="consolidated-purchase-section">
+      {/* Event Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            {t("selectEvents")}
+          </CardTitle>
+          <CardDescription>
+            {selectedEvents.length} {t("eventsSelected")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{t("noEvents")}</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2 mb-4">
+                <Button variant="outline" size="sm" onClick={() => setSelectedEvents(events.map(e => e.event_id))}>
+                  {t("selectAll")}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setSelectedEvents([])}>
+                  {t("clearAll")}
+                </Button>
+              </div>
+              
+              <ScrollArea className="h-64">
+                <div className="space-y-2">
+                  {events.map(event => (
+                    <div 
+                      key={event.event_id}
+                      className={`flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedEvents.includes(event.event_id) 
+                          ? "bg-primary/10 border-primary" 
+                          : "hover:bg-muted/50"
+                      }`}
+                      onClick={() => toggleEvent(event.event_id)}
+                    >
+                      <Checkbox checked={selectedEvents.includes(event.event_id)} />
+                      <div className="flex-1">
+                        <p className="font-medium">{event.name}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {event.guest_count || event.num_guests || 0} {language === "es" ? "personas" : "guests"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleGenerate} disabled={selectedEvents.length === 0 || generating}>
+                  {generating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <ShoppingCart className="w-4 h-4 mr-2" />}
+                  {t("generate")}
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Generated Purchase List */}
+      {purchaseData && (
+        <div className="space-y-4">
+          {/* Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5" />
+                  {language === "es" ? "Lista de Compras Generada" : "Generated Purchase List"}
+                </span>
+                <Badge variant="outline" className="text-lg px-4 py-1">
+                  {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                {purchaseData.events?.length} {language === "es" ? "eventos" : "events"} • 
+                {" "}{Object.keys(purchaseData.items_by_supplier || {}).length} {language === "es" ? "proveedores" : "suppliers"}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          {/* Items by Supplier */}
+          {Object.keys(purchaseData.items_by_supplier || {}).length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <Check className="w-12 h-12 mx-auto mb-2 text-green-500" />
+                <p>{t("noItemsNeeded")}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            Object.entries(purchaseData.items_by_supplier).map(([supplierId, items]) => {
+              const supplierTotal = items.reduce((sum, i) => sum + i.total_cost, 0);
+              const itemsNeedPurchase = items.filter(i => i.to_purchase > 0);
+              
+              return (
+                <Card key={supplierId}>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Truck className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <CardTitle className="text-base">
+                          {items[0]?.supplier_name || t("noSupplier")}
+                        </CardTitle>
+                        <CardDescription>
+                          {items.length} items • ${supplierTotal.toFixed(2)}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    {itemsNeedPurchase.length > 0 && supplierId !== "no_supplier" && (
+                      <Button 
+                        onClick={() => handleCreatePO(supplierId, items)}
+                        disabled={creatingPO === supplierId}
+                      >
+                        {creatingPO === supplierId ? (
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <FileText className="w-4 h-4 mr-2" />
+                        )}
+                        {t("createPO")}
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === "es" ? "Artículo" : "Item"}</TableHead>
+                          <TableHead className="text-right">{t("totalRequired")}</TableHead>
+                          <TableHead className="text-right">{t("inStock")}</TableHead>
+                          <TableHead className="text-right">{t("toPurchase")}</TableHead>
+                          <TableHead className="text-right">{t("cost")}</TableHead>
+                          <TableHead>{t("recipes")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((item, idx) => (
+                          <TableRow key={idx} className={item.to_purchase <= 0 ? "opacity-50" : ""}>
+                            <TableCell className="font-medium">{item.item_name}</TableCell>
+                            <TableCell className="text-right">{item.total_required.toFixed(2)} {item.unit}</TableCell>
+                            <TableCell className="text-right">{item.in_stock.toFixed(2)} {item.unit}</TableCell>
+                            <TableCell className="text-right">
+                              {item.to_purchase > 0 ? (
+                                <span className="text-red-600 font-semibold">{item.to_purchase.toFixed(2)}</span>
+                              ) : (
+                                <span className="text-green-600">✓ OK</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              ${item.total_cost.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {item.recipes_used?.slice(0, 3).map((recipe, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {recipe}
+                                  </Badge>
+                                ))}
+                                {item.recipes_used?.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{item.recipes_used.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+
+          {/* Events included */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">{language === "es" ? "Eventos Incluidos" : "Events Included"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {purchaseData.events?.map((event, idx) => (
+                  <Badge key={idx} variant="secondary" className="flex items-center gap-2">
+                    {event.event_name}
+                    <span className="text-muted-foreground">
+                      ({event.guest_count} {language === "es" ? "pers." : "guests"})
+                    </span>
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
