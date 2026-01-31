@@ -867,32 +867,128 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
 
       {/* Add Portion Format Dialog */}
       <Dialog open={portionDialogOpen} onOpenChange={setPortionDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("addPortionFormat")}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {language === "es" 
+                ? "Define formatos de porción como en GastroKaizen (4oz Mini, 8oz Plato del día, etc.)"
+                : "Define portion formats like GastroKaizen (4oz Mini, 8oz Plato del día, etc.)"}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><Label>{t("formatName")} *</Label><Input value={portionForm.format_name} onChange={(e) => setPortionForm(prev => ({ ...prev, format_name: e.target.value }))} placeholder="Bowl 12oz, Plato, Tray" /></div>
+            {/* Format name with examples */}
+            <div>
+              <Label>{t("formatName")} *</Label>
+              <Input 
+                value={portionForm.format_name} 
+                onChange={(e) => setPortionForm(prev => ({ ...prev, format_name: e.target.value }))} 
+                placeholder={language === "es" ? "Ej: Porción 8oz [Plato del día]" : "E.g., 8oz Portion [Daily Special]"} 
+              />
+            </div>
+            
+            {/* Portions obtained from yield */}
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>{t("portionsObtained")}</Label><Input type="number" min="1" value={portionForm.portions_obtained} onChange={(e) => setPortionForm(prev => ({ ...prev, portions_obtained: parseFloat(e.target.value) || 1 }))} /></div>
-              <div><Label>{t("unit")}</Label><Select value={portionForm.portion_unit} onValueChange={(v) => setPortionForm(prev => ({ ...prev, portion_unit: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PORTION_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>{t("sellPrice")}</Label><Input type="number" min="0" step="0.01" value={portionForm.sell_price} onChange={(e) => setPortionForm(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))} /></div>
-              <div><Label>{t("targetMargin")} %</Label><Input type="number" min="0" max="99" value={portionForm.target_margin_pct} onChange={(e) => setPortionForm(prev => ({ ...prev, target_margin_pct: parseFloat(e.target.value) || 0 }))} /></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox id="is_default" checked={portionForm.is_default} onCheckedChange={(c) => setPortionForm(prev => ({ ...prev, is_default: c }))} />
-              <Label htmlFor="is_default">{t("isDefault")}</Label>
-            </div>
-            {costPerPortion > 0 && portionForm.target_margin_pct > 0 && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">{t("suggestedPrice")}:</p>
-                <p className="text-xl font-bold text-green-600">
-                  ${(costPerPortion / (1 - portionForm.target_margin_pct / 100)).toFixed(2)}
+              <div>
+                <Label>{language === "es" ? "Raciones Obtenidas" : "Portions Obtained"}</Label>
+                <Input 
+                  type="number" 
+                  min="1" 
+                  value={portionForm.portions_obtained} 
+                  onChange={(e) => setPortionForm(prev => ({ ...prev, portions_obtained: parseFloat(e.target.value) || 1 }))} 
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === "es" ? "Cuántas porciones salen del yield total" : "How many portions from total yield"}
                 </p>
               </div>
+              <div>
+                <Label>{t("unit")}</Label>
+                <Select value={portionForm.portion_unit} onValueChange={(v) => setPortionForm(prev => ({ ...prev, portion_unit: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{PORTION_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Cost per portion (calculated) */}
+            {totalCost > 0 && portionForm.portions_obtained > 0 && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-blue-800">{language === "es" ? "Costo por Ración:" : "Cost per Portion:"}</span>
+                  <span className="text-lg font-bold text-blue-900">
+                    ${(totalCost / portionForm.portions_obtained).toFixed(2)}
+                  </span>
+                </div>
+              </div>
             )}
+            
+            {/* Margin-based pricing */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{language === "es" ? "Margen Objetivo %" : "Target Margin %"}</Label>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="99" 
+                  value={portionForm.target_margin_pct} 
+                  onChange={(e) => {
+                    const margin = parseFloat(e.target.value) || 0;
+                    const costPer = totalCost / (portionForm.portions_obtained || 1);
+                    const suggestedPrice = margin < 100 ? costPer / (1 - margin / 100) : costPer;
+                    setPortionForm(prev => ({ 
+                      ...prev, 
+                      target_margin_pct: margin,
+                      sell_price: Math.round(suggestedPrice * 100) / 100
+                    }));
+                  }} 
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === "es" ? "El precio se calcula automáticamente" : "Price is auto-calculated"}
+                </p>
+              </div>
+              <div>
+                <Label>{language === "es" ? "PVP (Precio de Venta)" : "Sell Price"}</Label>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  step="0.01" 
+                  value={portionForm.sell_price} 
+                  onChange={(e) => {
+                    const price = parseFloat(e.target.value) || 0;
+                    const costPer = totalCost / (portionForm.portions_obtained || 1);
+                    const calculatedMargin = price > 0 ? ((price - costPer) / price * 100) : 0;
+                    setPortionForm(prev => ({ 
+                      ...prev, 
+                      sell_price: price,
+                      target_margin_pct: Math.round(calculatedMargin * 10) / 10
+                    }));
+                  }} 
+                />
+              </div>
+            </div>
+            
+            {/* Pricing summary */}
+            {totalCost > 0 && portionForm.portions_obtained > 0 && portionForm.sell_price > 0 && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                <div className="grid grid-cols-2 gap-x-4 text-sm">
+                  <span className="text-green-700">{language === "es" ? "Costo Ración:" : "Portion Cost:"}</span>
+                  <span className="font-medium text-right">${(totalCost / portionForm.portions_obtained).toFixed(2)}</span>
+                  
+                  <span className="text-green-700">{language === "es" ? "Precio de Venta:" : "Sell Price:"}</span>
+                  <span className="font-medium text-right">${portionForm.sell_price.toFixed(2)}</span>
+                  
+                  <span className="text-green-700">{language === "es" ? "Margen Bruto:" : "Gross Margin:"}</span>
+                  <span className="font-bold text-right text-green-800">
+                    ${(portionForm.sell_price - totalCost / portionForm.portions_obtained).toFixed(2)} ({portionForm.target_margin_pct.toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-2">
+              <Checkbox id="is_default" checked={portionForm.is_default} onCheckedChange={(c) => setPortionForm(prev => ({ ...prev, is_default: c }))} />
+              <Label htmlFor="is_default">{language === "es" ? "Formato predeterminado" : "Default format"}</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPortionDialogOpen(false)}>{t("cancel")}</Button>
