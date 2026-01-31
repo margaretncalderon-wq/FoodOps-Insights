@@ -214,7 +214,8 @@ export default function SettingsPage() {
       default_source: form.default_source || "Website",
       default_event_type: form.default_event_type || "",
       is_active: form.is_active !== false,
-      thank_you_message: form.thank_you_message || "Thank you for your inquiry!"
+      thank_you_message_en: form.thank_you_message_en || form.thank_you_message || "Thank you for your inquiry!",
+      thank_you_message_es: form.thank_you_message_es || "¡Gracias por tu consulta! Te contactaremos pronto."
     });
     setLeadFormDialogOpen(true);
   };
@@ -228,7 +229,8 @@ export default function SettingsPage() {
       default_source: "Website",
       default_event_type: "",
       is_active: true,
-      thank_you_message: "Thank you for your inquiry! We will contact you soon."
+      thank_you_message_en: "Thank you for your inquiry! We will contact you soon.",
+      thank_you_message_es: "¡Gracias por tu consulta! Te contactaremos pronto."
     });
   };
 
