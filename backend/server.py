@@ -532,22 +532,6 @@ class FeatureFlagsUpdate(BaseModel):
 
 # ============== INVENTORY MODELS ==============
 
-class SupplierCreate(BaseModel):
-    name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    notes: Optional[str] = None
-
-class Supplier(BaseModel):
-    supplier_id: str
-    company_id: str
-    name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    notes: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
 class InventoryItemCreate(BaseModel):
     name: str
     inventory_type: str = "Food"  # Food, Packaging, Disposable, Equipment, EventSupply
