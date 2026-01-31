@@ -48,8 +48,8 @@ export default function LandingPage() {
               <span className="font-heading text-xl font-bold text-white">E</span>
             </div>
             <div>
-              <h1 className="font-heading text-lg font-semibold text-foreground">Evoque</h1>
-              <p className="text-xs text-muted-foreground">Events Platform</p>
+              <h1 className="font-heading text-lg font-semibold text-foreground">Evoke</h1>
+              <p className="text-xs text-muted-foreground">OS</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
