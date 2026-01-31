@@ -3784,6 +3784,9 @@ async def calculate_proposal_financials(proposal_id: str, company_id: str):
     """Calculate all financial totals for a proposal"""
     items = await db.order_items.find({"proposal_id": proposal_id, "company_id": company_id}, {"_id": 0}).to_list(500)
     
+    # Get current proposal to read discount and tax settings
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id}, {"_id": 0})
+    
     subtotal = 0
     total_cost = 0
     has_missing_cost = False
@@ -3800,8 +3803,30 @@ async def calculate_proposal_financials(proposal_id: str, company_id: str):
     margin = subtotal - total_cost
     margin_pct = (margin / subtotal * 100) if subtotal > 0 else 0
     
+    # Calculate discount (supports both fixed amount and percentage)
+    discount_type = proposal.get("discount_type", "fixed") if proposal else "fixed"  # "fixed" or "percentage"
+    discount_value = proposal.get("discount_value", 0) if proposal else 0
+    
+    if discount_type == "percentage":
+        discount_amount = subtotal * (discount_value / 100)
+    else:
+        discount_amount = discount_value
+    
+    subtotal_after_discount = subtotal - discount_amount
+    
+    # Calculate taxes from stored tax_details
+    total_tax = sum(t.get("amount", 0) for t in (proposal.get("tax_details", []) if proposal else []))
+    
+    # Calculate total (subtotal - discount + tax)
+    total = subtotal_after_discount + total_tax
+    
     return {
         "subtotal": subtotal,
+        "discount_type": discount_type,
+        "discount_value": discount_value,
+        "discount_amount": discount_amount,
+        "total_tax": total_tax,
+        "total": total,
         "total_cost": total_cost,
         "total_margin": margin,
         "margin_percentage": margin_pct,
