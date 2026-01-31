@@ -74,6 +74,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const [portionFormats, setPortionFormats] = useState([]);
   const [packagingFormats, setPackagingFormats] = useState([]);
   const [costHistory, setCostHistory] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
+  const [uploading, setUploading] = useState(false);
   
   // Dialogs
   const [costHistoryOpen, setCostHistoryOpen] = useState(false);
