@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -14,14 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Textarea } from "../components/ui/textarea";
-import { ScrollArea } from "../components/ui/scroll-area";
+
+// Custom Components
+import RecipeBuilder from "../components/RecipeBuilder";
+import PlatedMenuBuilder from "../components/PlatedMenuBuilder";
 
 // Icons
 import { 
   Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, 
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
-  UtensilsCrossed, Link2, RefreshCw, CheckCircle, X
+  UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
+  Utensils, Menu as MenuIcon
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -225,7 +228,7 @@ function InventorySection() {
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="inventory-section">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Package className="h-8 w-8 text-primary" /><div><p className="text-sm text-muted-foreground">{t("items")}</p><p className="text-2xl font-bold">{items.length}</p></div></div></CardContent></Card>
@@ -414,11 +417,8 @@ function RecipesSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  const [recipeForm, setRecipeForm] = useState({
-    name: "", yield_quantity: 1, yield_unit: "portion",
-    ingredients: [], instructions: "", notes: ""
-  });
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [recalculating, setRecalculating] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -437,23 +437,6 @@ function RecipesSection() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleSave = async () => {
-    try {
-      if (editingRecipe) {
-        await axios.put(`${API}/api/recipes/${editingRecipe.recipe_id}`, recipeForm, { withCredentials: true });
-      } else {
-        await axios.post(`${API}/api/recipes`, recipeForm, { withCredentials: true });
-      }
-      toast.success(language === "es" ? "Guardado" : "Saved");
-      setDialogOpen(false);
-      setEditingRecipe(null);
-      setRecipeForm({ name: "", yield_quantity: 1, yield_unit: "portion", ingredients: [], instructions: "", notes: "" });
-      fetchData();
-    } catch (error) {
-      toast.error("Error");
-    }
-  };
-
   const handleDelete = async (recipeId) => {
     if (!window.confirm(language === "es" ? "¿Eliminar?" : "Delete?")) return;
     try {
@@ -465,72 +448,87 @@ function RecipesSection() {
     }
   };
 
-  const handleEdit = (recipe) => {
-    setEditingRecipe(recipe);
-    setRecipeForm({
-      name: recipe.name || "", yield_quantity: recipe.yield_quantity || 1,
-      yield_unit: recipe.yield_unit || "portion", ingredients: recipe.ingredients || [],
-      instructions: recipe.instructions || "", notes: recipe.notes || ""
-    });
-    setDialogOpen(true);
-  };
-
-  const addIngredientToRecipe = (ingredientId) => {
-    const ingredient = ingredients.find(i => i.ingredient_id === ingredientId);
-    if (!ingredient) return;
-    if (recipeForm.ingredients.find(i => i.item_id === ingredientId)) return;
-    
-    setRecipeForm({
-      ...recipeForm,
-      ingredients: [...recipeForm.ingredients, {
-        item_id: ingredientId,
-        item_name: ingredient.name,
-        item_type: "ingredient",
-        quantity: 1,
-        unit: ingredient.unit
-      }]
-    });
-  };
-
-  const removeIngredientFromRecipe = (itemId) => {
-    setRecipeForm({
-      ...recipeForm,
-      ingredients: recipeForm.ingredients.filter(i => i.item_id !== itemId)
-    });
-  };
-
-  const updateIngredientQuantity = (itemId, quantity) => {
-    setRecipeForm({
-      ...recipeForm,
-      ingredients: recipeForm.ingredients.map(i => 
-        i.item_id === itemId ? { ...i, quantity: parseFloat(quantity) || 0 } : i
-      )
-    });
-  };
-
-  const calculateRecipeCost = (recipe) => {
-    let total = 0;
-    for (const ing of recipe.ingredients || []) {
-      const invItem = ingredients.find(i => i.ingredient_id === ing.item_id);
-      if (invItem) {
-        total += (ing.quantity || 0) * (invItem.cost_per_unit || 0);
-      }
+  const handleDuplicate = async (recipeId) => {
+    try {
+      await axios.post(`${API}/api/recipes/${recipeId}/duplicate`, {}, { withCredentials: true });
+      toast.success(language === "es" ? "Receta duplicada" : "Recipe duplicated");
+      fetchData();
+    } catch (error) {
+      toast.error("Error");
     }
-    return total;
   };
 
-  const filteredRecipes = recipes.filter(r => r.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const handleRecalculateAll = async () => {
+    setRecalculating(true);
+    try {
+      await axios.post(`${API}/api/recipes/recalculate-all`, {}, { withCredentials: true });
+      toast.success(language === "es" ? "Costos recalculados" : "Costs recalculated");
+      fetchData();
+    } catch (error) {
+      toast.error("Error");
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
+  const filteredRecipes = recipes.filter(r => {
+    const matchesSearch = r.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === "all" || r.recipe_type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const getRecipeTypeIcon = (type) => {
+    switch (type) {
+      case "base": return <Beaker className="w-4 h-4 text-purple-500" />;
+      case "component": return <Layers className="w-4 h-4 text-blue-500" />;
+      default: return <Utensils className="w-4 h-4 text-green-500" />;
+    }
+  };
+
+  const getRecipeTypeBadge = (type) => {
+    const types = {
+      base: { label: language === "es" ? "Base" : "Base", class: "bg-purple-100 text-purple-700" },
+      component: { label: language === "es" ? "Componente" : "Component", class: "bg-blue-100 text-blue-700" },
+      final_dish: { label: language === "es" ? "Plato Final" : "Final Dish", class: "bg-green-100 text-green-700" }
+    };
+    const t = types[type] || types.final_dish;
+    return <Badge className={t.class}>{t.label}</Badge>;
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="recipes-section">
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Beaker className="h-8 w-8 text-purple-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Bases" : "Base"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "base").length}</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-blue-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Componentes" : "Components"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "component").length}</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Utensils className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Platos" : "Dishes"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "final_dish" || !r.recipe_type).length}</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><ChefHat className="h-8 w-8 text-primary" /><div><p className="text-sm text-muted-foreground">Total</p><p className="text-2xl font-bold">{recipes.length}</p></div></div></CardContent></Card>
+      </div>
+
+      {/* Header */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{language === "es" ? "Recetas" : "Recipes"}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
-            <Button onClick={() => { setEditingRecipe(null); setRecipeForm({ name: "", yield_quantity: 1, yield_unit: "portion", ingredients: [], instructions: "", notes: "" }); setDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{language === "es" ? "Nueva Receta" : "New Recipe"}</Button>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "es" ? "Todos" : "All"}</SelectItem>
+                <SelectItem value="base">{language === "es" ? "Base" : "Base"}</SelectItem>
+                <SelectItem value="component">{language === "es" ? "Componente" : "Component"}</SelectItem>
+                <SelectItem value="final_dish">{language === "es" ? "Plato Final" : "Final Dish"}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${recalculating ? "animate-spin" : ""}`} />
+              {language === "es" ? "Recalcular" : "Recalculate"}
+            </Button>
+            <Button onClick={() => { setEditingRecipe(null); setDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />{language === "es" ? "Nueva Receta" : "New Recipe"}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -539,27 +537,55 @@ function RecipesSection() {
               <Card key={recipe.recipe_id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{recipe.name}</CardTitle>
-                      <CardDescription>{recipe.yield_quantity} {recipe.yield_unit}</CardDescription>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {getRecipeTypeIcon(recipe.recipe_type)}
+                        <CardTitle className="text-lg">{recipe.name}</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getRecipeTypeBadge(recipe.recipe_type)}
+                        <span className="text-sm text-muted-foreground">
+                          {recipe.yield_quantity} {recipe.yield_unit}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(recipe)}><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(recipe.recipe_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(recipe.recipe_id)} title={language === "es" ? "Duplicar" : "Duplicate"}>
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => { setEditingRecipe(recipe); setDialogOpen(true); }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(recipe.recipe_id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">{recipe.ingredients?.length || 0} {language === "es" ? "ingredientes" : "ingredients"}</div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{recipe.ingredients?.length || 0} {language === "es" ? "ingredientes" : "ingredients"}</span>
+                      {recipe.sub_recipes?.length > 0 && (
+                        <span>• {recipe.sub_recipes.length} sub-{language === "es" ? "recetas" : "recipes"}</span>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">{language === "es" ? "Costo Total" : "Total Cost"}</span>
-                      <span className="font-semibold text-green-600">${calculateRecipeCost(recipe).toFixed(2)}</span>
+                      <span className="font-semibold text-green-600">${(recipe.total_cost || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">{language === "es" ? "Costo por" : "Cost per"} {recipe.yield_unit}</span>
-                      <span className="font-semibold">${(calculateRecipeCost(recipe) / (recipe.yield_quantity || 1)).toFixed(2)}</span>
+                      <span className="text-sm">{language === "es" ? "Costo/Porción" : "Cost/Portion"}</span>
+                      <span className="font-semibold">${(recipe.cost_per_portion || 0).toFixed(2)}</span>
                     </div>
+                    {recipe.sell_price > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">{language === "es" ? "% Costo Comida" : "Food Cost %"}</span>
+                        <span className={`font-semibold ${recipe.food_cost_percent > 35 ? "text-red-500" : recipe.food_cost_percent > 30 ? "text-yellow-500" : "text-green-500"}`}>
+                          {(recipe.food_cost_percent || 0).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -574,53 +600,167 @@ function RecipesSection() {
         </CardContent>
       </Card>
 
-      {/* Recipe Dialog */}
+      {/* Recipe Builder Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingRecipe ? (language === "es" ? "Editar Receta" : "Edit Recipe") : (language === "es" ? "Nueva Receta" : "New Recipe")}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2"><Label>{language === "es" ? "Nombre" : "Name"}</Label><Input value={recipeForm.name} onChange={(e) => setRecipeForm({ ...recipeForm, name: e.target.value })} /></div>
-            <div><Label>{language === "es" ? "Rendimiento" : "Yield"}</Label><Input type="number" min="1" value={recipeForm.yield_quantity} onChange={(e) => setRecipeForm({ ...recipeForm, yield_quantity: parseFloat(e.target.value) || 1 })} /></div>
-            <div><Label>{language === "es" ? "Unidad" : "Unit"}</Label><Select value={recipeForm.yield_unit} onValueChange={(v) => setRecipeForm({ ...recipeForm, yield_unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="portion">{language === "es" ? "Porción" : "Portion"}</SelectItem><SelectItem value="serving">{language === "es" ? "Servicio" : "Serving"}</SelectItem><SelectItem value="kg">kg</SelectItem><SelectItem value="unit">{language === "es" ? "Unidad" : "Unit"}</SelectItem></SelectContent></Select></div>
-            
-            {/* Ingredients Section */}
-            <div className="col-span-2">
-              <Label className="mb-2 block">{language === "es" ? "Ingredientes" : "Ingredients"}</Label>
-              <div className="border rounded-lg p-4 space-y-3">
-                {/* Add Ingredient */}
-                <div className="flex gap-2">
-                  <Select onValueChange={addIngredientToRecipe}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder={language === "es" ? "Agregar ingrediente..." : "Add ingredient..."} /></SelectTrigger>
-                    <SelectContent>
-                      {ingredients.filter(i => i.inventory_type === "food").map(ing => (
-                        <SelectItem key={ing.ingredient_id} value={ing.ingredient_id}>{ing.name} (${ing.cost_per_unit}/{ing.unit})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Ingredients List */}
-                {recipeForm.ingredients.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">{language === "es" ? "Sin ingredientes" : "No ingredients"}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {recipeForm.ingredients.map(ing => (
-                      <div key={ing.item_id} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                        <span className="flex-1 font-medium">{ing.item_name}</span>
-                        <Input type="number" min="0" step="0.01" className="w-20" value={ing.quantity} onChange={(e) => updateIngredientQuantity(ing.item_id, e.target.value)} />
-                        <span className="text-sm text-muted-foreground w-12">{ing.unit}</span>
-                        <Button variant="ghost" size="icon" onClick={() => removeIngredientFromRecipe(ing.item_id)}><X className="w-4 h-4" /></Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="col-span-2"><Label>{language === "es" ? "Instrucciones" : "Instructions"}</Label><Textarea rows={4} value={recipeForm.instructions} onChange={(e) => setRecipeForm({ ...recipeForm, instructions: e.target.value })} /></div>
-            <div className="col-span-2"><Label>{language === "es" ? "Notas" : "Notes"}</Label><Input value={recipeForm.notes} onChange={(e) => setRecipeForm({ ...recipeForm, notes: e.target.value })} /></div>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChefHat className="w-5 h-5" />
+              {editingRecipe ? (language === "es" ? "Editar Receta" : "Edit Recipe") : (language === "es" ? "Nueva Receta" : "New Recipe")}
+            </DialogTitle>
+          </DialogHeader>
+          <RecipeBuilder
+            onClose={() => setDialogOpen(false)}
+            onSave={() => fetchData()}
+            initialRecipe={editingRecipe}
+            ingredients={ingredients}
+            allRecipes={recipes}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ==================== PLATED MENUS SECTION ====================
+function PlatedMenusSection() {
+  const { language } = useLanguage();
+  const [menus, setMenus] = useState([]);
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMenu, setEditingMenu] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [menusRes, recipesRes] = await Promise.all([
+        axios.get(`${API}/api/plated-menus`, { withCredentials: true }),
+        axios.get(`${API}/api/recipes`, { withCredentials: true })
+      ]);
+      setMenus(menusRes.data);
+      setRecipes(recipesRes.data);
+    } catch (error) {
+      toast.error("Error loading data");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDelete = async (menuId) => {
+    if (!window.confirm(language === "es" ? "¿Eliminar?" : "Delete?")) return;
+    try {
+      await axios.delete(`${API}/api/plated-menus/${menuId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Eliminado" : "Deleted");
+      fetchData();
+    } catch (error) {
+      toast.error("Error");
+    }
+  };
+
+  const filteredMenus = menus.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const getMenuTypeLabel = (type) => {
+    const types = {
+      plated: { en: "Plated", es: "Emplatado" },
+      buffet: { en: "Buffet", es: "Buffet" },
+      cocktail: { en: "Cocktail", es: "Coctel" },
+      grab_and_go: { en: "Grab & Go", es: "Para Llevar" }
+    };
+    return types[type]?.[language] || type;
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+
+  return (
+    <div className="space-y-6" data-testid="menus-section">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{language === "es" ? "Menús Emplatados" : "Plated Menus"}</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
+            <Button onClick={() => { setEditingMenu(null); setDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />{language === "es" ? "Nuevo Menú" : "New Menu"}
+            </Button>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>{language === "es" ? "Cancelar" : "Cancel"}</Button><Button onClick={handleSave}>{language === "es" ? "Guardar" : "Save"}</Button></DialogFooter>
+        </CardHeader>
+        <CardContent>
+          {filteredMenus.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <MenuIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{language === "es" ? "No hay menús" : "No menus found"}</p>
+              <p className="text-sm mt-2">{language === "es" ? "Crea un menú emplatado con varios tiempos" : "Create a plated menu with multiple courses"}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMenus.map(menu => (
+                <Card key={menu.menu_id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg">{menu.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline">{getMenuTypeLabel(menu.menu_type)}</Badge>
+                          <span>{menu.courses?.length || 0} {language === "es" ? "tiempos" : "courses"}</span>
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => { setEditingMenu(menu); setDialogOpen(true); }}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(menu.menu_id)}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {menu.courses?.slice(0, 3).map((course, idx) => (
+                        <div key={idx} className="text-sm">
+                          <span className="font-medium capitalize">{course.course_name}</span>
+                          <span className="text-muted-foreground ml-1">({course.items?.length || 0})</span>
+                        </div>
+                      ))}
+                      {menu.courses?.length > 3 && (
+                        <p className="text-sm text-muted-foreground">+{menu.courses.length - 3} {language === "es" ? "más" : "more"}</p>
+                      )}
+                      <div className="pt-2 border-t flex items-center justify-between">
+                        <span className="text-sm">{language === "es" ? "Costo/Comensal" : "Cost/Guest"}</span>
+                        <span className="font-semibold text-green-600">${(menu.cost_per_guest || 0).toFixed(2)}</span>
+                      </div>
+                      {menu.buffer_percentage > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">+{menu.buffer_percentage}% buffer</span>
+                          <span className="font-semibold">${(menu.cost_with_buffer || 0).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Plated Menu Builder Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              {editingMenu ? (language === "es" ? "Editar Menú" : "Edit Menu") : (language === "es" ? "Nuevo Menú Emplatado" : "New Plated Menu")}
+            </DialogTitle>
+          </DialogHeader>
+          <PlatedMenuBuilder
+            onClose={() => setDialogOpen(false)}
+            onSave={() => fetchData()}
+            initialMenu={editingMenu}
+            recipes={recipes}
+          />
         </DialogContent>
       </Dialog>
     </div>
@@ -702,7 +842,7 @@ function PurchasesSection() {
   if (loading && !selectedEvent) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="purchases-section">
       {/* Event Selector */}
       <Card>
         <CardHeader>
@@ -745,7 +885,9 @@ function PurchasesSection() {
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-semibold text-lg">${supplierData.total_cost?.toFixed(2)}</span>
-                      <Button variant="outline" size="sm" onClick={() => handleSavePurchaseList(supplierId, supplierData)}><CheckCircle className="w-4 h-4 mr-1" />{language === "es" ? "Guardar" : "Save"}</Button>
+                      <Button variant="outline" size="sm" onClick={() => handleSavePurchaseList(supplierId, supplierData)}>
+                        {language === "es" ? "Guardar" : "Save"}
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -759,7 +901,7 @@ function PurchasesSection() {
                             <TableCell className="text-right">{item.in_stock_qty} {item.unit}</TableCell>
                             <TableCell className="text-right font-semibold">{item.to_purchase_qty > 0 ? <span className="text-red-500">{item.to_purchase_qty}</span> : <span className="text-green-500">0</span>}</TableCell>
                             <TableCell className="text-right">${item.total_cost?.toFixed(2)}</TableCell>
-                            <TableCell><Badge variant={item.status === "InStock" ? "success" : item.status === "Short" ? "destructive" : "secondary"}>{item.status}</Badge></TableCell>
+                            <TableCell><Badge variant={item.status === "InStock" ? "default" : item.status === "Short" ? "destructive" : "secondary"}>{item.status}</Badge></TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -773,7 +915,7 @@ function PurchasesSection() {
           {/* Saved Lists */}
           {savedLists.length > 0 && (
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500" />{language === "es" ? "Listas Guardadas" : "Saved Lists"}</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2">{language === "es" ? "Listas Guardadas" : "Saved Lists"}</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader><TableRow><TableHead>{language === "es" ? "Proveedor" : "Supplier"}</TableHead><TableHead>Items</TableHead><TableHead className="text-right">Total</TableHead><TableHead>{language === "es" ? "Estado" : "Status"}</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -783,10 +925,10 @@ function PurchasesSection() {
                         <TableCell className="font-medium">{list.supplier_name || "-"}</TableCell>
                         <TableCell>{list.items?.length || 0}</TableCell>
                         <TableCell className="text-right">${list.total_cost?.toFixed(2)}</TableCell>
-                        <TableCell><Badge variant={list.status === "Received" ? "success" : list.status === "Ordered" ? "default" : "secondary"}>{list.status}</Badge></TableCell>
+                        <TableCell><Badge variant={list.status === "Received" ? "default" : list.status === "Ordered" ? "secondary" : "outline"}>{list.status}</Badge></TableCell>
                         <TableCell>
                           {list.status === "Draft" && <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(list.purchase_list_id, "Ordered")}>{language === "es" ? "Ordenar" : "Order"}</Button>}
-                          {list.status === "Ordered" && <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(list.purchase_list_id, "Received")}><CheckCircle className="w-4 h-4 mr-1" />{language === "es" ? "Recibido" : "Received"}</Button>}
+                          {list.status === "Ordered" && <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(list.purchase_list_id, "Received")}>{language === "es" ? "Recibido" : "Received"}</Button>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -804,11 +946,11 @@ function PurchasesSection() {
 // ==================== MAIN FOOD OPS PAGE ====================
 export default function FoodOpsPage() {
   const { language } = useLanguage();
-  const location = useLocation();
   
   const navItems = [
     { path: "/food-ops/inventory", label: language === "es" ? "Inventario" : "Inventory", icon: Package },
     { path: "/food-ops/recipes", label: language === "es" ? "Recetas" : "Recipes", icon: ChefHat },
+    { path: "/food-ops/menus", label: language === "es" ? "Menús" : "Menus", icon: BookOpen },
     { path: "/food-ops/purchases", label: language === "es" ? "Compras" : "Purchases", icon: ShoppingCart },
   ];
 
@@ -846,6 +988,7 @@ export default function FoodOpsPage() {
           <Route index element={<Navigate to="inventory" replace />} />
           <Route path="inventory" element={<InventorySection />} />
           <Route path="recipes" element={<RecipesSection />} />
+          <Route path="menus" element={<PlatedMenusSection />} />
           <Route path="purchases" element={<PurchasesSection />} />
         </Routes>
       </div>
