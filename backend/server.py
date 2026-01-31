@@ -6054,6 +6054,59 @@ async def update_recipe_extended(recipe_id: str, data: RecipeExtendedUpdate, use
         raise HTTPException(status_code=404, detail="Recipe not found")
     return {"message": "Updated"}
 
+@recipes_router.post("/{recipe_id}/image")
+async def upload_recipe_image(recipe_id: str, file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload an image for a recipe"""
+    # Verify recipe exists
+    recipe = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id})
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Allowed: JPEG, PNG, WebP, GIF")
+    
+    # Create unique filename
+    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    filename = f"recipe_{recipe_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = UPLOADS_DIR / filename
+    
+    # Save file
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Update recipe with image URL
+    image_url = f"/api/uploads/{filename}"
+    await db.recipes.update_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"$set": {"image_url": image_url, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"image_url": image_url, "filename": filename}
+
+@recipes_router.delete("/{recipe_id}/image")
+async def delete_recipe_image(recipe_id: str, user: User = Depends(get_current_user)):
+    """Delete recipe image"""
+    recipe = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id})
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    # Delete file if exists
+    if recipe.get("image_url"):
+        filename = recipe["image_url"].split("/")[-1]
+        filepath = UPLOADS_DIR / filename
+        if filepath.exists():
+            filepath.unlink()
+    
+    # Update recipe
+    await db.recipes.update_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"$set": {"image_url": None, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Image deleted"}
+
 # ============== PLATED MENU EXTENDED FIELDS ROUTES ==============
 
 @plated_menus_router.put("/{menu_id}/extended")
