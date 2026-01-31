@@ -51,9 +51,7 @@ export default function EventDetails() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  const [menuDialogOpen, setMenuDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", due_date: "" });
-  const [selectedRecipe, setSelectedRecipe] = useState("");
 
   useEffect(() => {
     fetchEvent();
@@ -66,9 +64,6 @@ export default function EventDetails() {
       setEvent(response.data);
       if (response.data.client_id) {
         fetchClient(response.data.client_id);
-      }
-      if (response.data.menu_items?.length > 0) {
-        fetchMenuRecipes(response.data.menu_items);
       }
       fetchDocuments();
     } catch (error) {
