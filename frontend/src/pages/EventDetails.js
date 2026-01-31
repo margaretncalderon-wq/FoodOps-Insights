@@ -297,7 +297,7 @@ export default function EventDetails() {
             </TabsTrigger>
             <TabsTrigger value="purchase" className="gap-2" data-testid="tab-purchase">
               <ShoppingCart className="w-4 h-4" />
-              {language === "es" ? "Compras" : "Purchases"}
+              {language === "es" ? "Gestión de Compras" : "Procurement"}
             </TabsTrigger>
           </TabsList>
 
