@@ -1026,6 +1026,72 @@ export default function SettingsPage() {
                       disabled={savingFlags}
                     />
                   </label>
+
+                  {/* Recipe Composition (Sub-recipes) */}
+                  <label className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-violet-100 rounded-lg">
+                        <ChefHat className="w-5 h-5 text-violet-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">{language === "es" ? "Composición de Recetas" : "Recipe Composition"}</span>
+                        <span className="block text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Permite usar sub-recetas como ingredientes (salsas, bases)"
+                            : "Allow using sub-recipes as ingredients (sauces, bases)"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_recipe_composition_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_recipe_composition_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Plated Menus */}
+                  <label className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-100 rounded-lg">
+                        <Utensils className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">{language === "es" ? "Menús Emplatados" : "Plated Menus"}</span>
+                        <span className="block text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Crea menús con tiempos y calcula costo por comensal"
+                            : "Create menus with courses and calculate cost per guest"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_plated_menu_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_plated_menu_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
+
+                  {/* Base Recipes */}
+                  <label className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-fuchsia-100 rounded-lg">
+                        <Calculator className="w-5 h-5 text-fuchsia-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">{language === "es" ? "Tipos de Receta" : "Recipe Types"}</span>
+                        <span className="block text-sm text-muted-foreground">
+                          {language === "es" 
+                            ? "Clasifica recetas en Base, Componente y Plato Final"
+                            : "Classify recipes as Base, Component, or Final Dish"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={featureFlags?.is_base_recipes_enabled ?? true}
+                      onCheckedChange={(v) => handleUpdateFeatureFlag("is_base_recipes_enabled", v)}
+                      disabled={savingFlags}
+                    />
+                  </label>
                 </div>
               </CardContent>
             </Card>
