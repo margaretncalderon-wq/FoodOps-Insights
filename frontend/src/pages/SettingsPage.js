@@ -1988,6 +1988,90 @@ Mantel Blanco, , 10, 3`}
                     )}
                   </div>
 
+                  {/* Variants Section */}
+                  <div className="border rounded-lg p-4">
+                    <Label className="mb-3 block">{language === "es" ? "Variantes de Precio (Gold/Silver/Bronze)" : "Price Variants (Gold/Silver/Bronze)"}</Label>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {language === "es" 
+                        ? "Crea diferentes niveles de precio con descuentos automáticos"
+                        : "Create different price tiers with automatic discounts"}
+                    </p>
+                    
+                    {/* Add Variant Form */}
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      <Input 
+                        placeholder={language === "es" ? "Nombre (ej: Gold)" : "Name (e.g., Gold)"}
+                        value={newVariant.name}
+                        onChange={(e) => setNewVariant({ ...newVariant, name: e.target.value })}
+                      />
+                      <Select 
+                        value={newVariant.discount_type}
+                        onValueChange={(v) => setNewVariant({ ...newVariant, discount_type: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">{language === "es" ? "% Descuento" : "% Discount"}</SelectItem>
+                          <SelectItem value="fixed_amount">{language === "es" ? "$ Fijo" : "$ Fixed"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        placeholder={newVariant.discount_type === "percentage" ? "10" : "100"}
+                        value={newVariant.discount_value || ""}
+                        onChange={(e) => setNewVariant({ ...newVariant, discount_value: parseFloat(e.target.value) || 0 })}
+                      />
+                      <Button type="button" variant="outline" onClick={addVariantToMenu} disabled={!newVariant.name}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {/* Current Variants */}
+                    {newMenu.variants.length > 0 ? (
+                      <div className="space-y-2">
+                        {newMenu.variants.map((variant, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                            <Badge variant={variant.is_default ? "default" : "outline"}>
+                              {variant.name}
+                            </Badge>
+                            <span className="flex-1 text-sm">
+                              {variant.discount_type === "percentage" 
+                                ? `-${variant.discount_value}%`
+                                : `-$${variant.discount_value}`}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs flex items-center gap-1 cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={variant.is_default}
+                                  onChange={(e) => {
+                                    setNewMenu(prev => ({
+                                      ...prev,
+                                      variants: prev.variants.map((v, i) => ({
+                                        ...v,
+                                        is_default: i === idx ? e.target.checked : false
+                                      }))
+                                    }));
+                                  }}
+                                />
+                                {language === "es" ? "Default" : "Default"}
+                              </label>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeVariantFromMenu(idx)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center py-2 text-xs text-muted-foreground">
+                        {language === "es" ? "Sin variantes - precio único" : "No variants - single price"}
+                      </p>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <Label className="text-base">{language === "es" ? "Activo" : "Active"}</Label>
