@@ -825,6 +825,242 @@ class AuditLogEntry(BaseModel):
     impact_on_total: Optional[float] = None
     timestamp: datetime
 
+# ============== FOOD OPS ENHANCED MODELS ==============
+
+# Allergen Configuration (Settings)
+class AllergenConfig(BaseModel):
+    """Configurable allergen options"""
+    allergen_id: str
+    company_id: str
+    name: str
+    name_es: str
+    icon: Optional[str] = None
+    is_active: bool = True
+    sort_order: int = 0
+
+class AllergenConfigCreate(BaseModel):
+    name: str
+    name_es: str
+    icon: Optional[str] = None
+    is_active: bool = True
+    sort_order: int = 0
+
+# Recipe Portion Format (Multiple pricing formats per recipe)
+class RecipePortionFormatCreate(BaseModel):
+    format_name: str  # "Plato", "Bowl 12oz", "Mini", "Tray 1/2"
+    portions_obtained: float = 1.0
+    portion_unit: str = "serving"  # serving, plate, bowl, tray, piece, ml, oz, g
+    sell_price: float = 0.0
+    sell_price_tax_included: bool = False
+    target_margin_pct: Optional[float] = None
+    is_default: bool = False
+    notes: Optional[str] = None
+
+class RecipePortionFormat(BaseModel):
+    format_id: str
+    recipe_id: str
+    company_id: str
+    format_name: str
+    portions_obtained: float
+    portion_unit: str
+    sell_price: float
+    sell_price_tax_included: bool = False
+    target_margin_pct: Optional[float] = None
+    suggested_price: float = 0.0  # Calculated from cost & target margin
+    cost_per_portion: float = 0.0  # Calculated from recipe cost
+    margin_pct: float = 0.0  # Calculated
+    is_default: bool = False
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Recipe Packaging Format
+class RecipePackagingFormatCreate(BaseModel):
+    packaging_inventory_item_id: str
+    qty_per_portion: float = 1.0
+    notes: Optional[str] = None
+
+class RecipePackagingFormat(BaseModel):
+    format_id: str
+    recipe_id: str
+    company_id: str
+    packaging_inventory_item_id: str
+    packaging_item_name: Optional[str] = None
+    qty_per_portion: float
+    notes: Optional[str] = None
+
+# Extended Recipe fields (add to existing recipe)
+class RecipeExtendedUpdate(BaseModel):
+    allergens: Optional[List[str]] = None  # allergen_ids
+    work_category: Optional[str] = None  # Partida de trabajo (prep station)
+    recipe_code: Optional[str] = None  # Optional internal code
+    verified_status: Optional[str] = None  # Draft, Verified
+
+# Extended PlatedMenu fields (pricing)
+class PlatedMenuExtendedUpdate(BaseModel):
+    default_guest_count: Optional[int] = None
+    sell_price_per_guest: Optional[float] = None
+    target_margin_pct: Optional[float] = None
+    suggested_sell_price_per_guest: Optional[float] = None
+    tax_included: Optional[bool] = None
+
+# Extended Supplier Model
+class SupplierExtendedUpdate(BaseModel):
+    company_name: Optional[str] = None
+    payment_terms: Optional[str] = None  # Cash, Transfer, Credit, Mixed
+    has_credit: Optional[bool] = None
+    credit_limit: Optional[float] = None
+    usual_delivery_days: Optional[List[str]] = None
+    tax_id: Optional[str] = None  # RFC / NIT
+
+# Extended Inventory Item (2 suppliers, purchase details)
+class InventoryItemExtendedUpdate(BaseModel):
+    secondary_supplier_id: Optional[str] = None
+    purchase_unit: Optional[str] = None  # case, box, pack
+    purchase_pack_size: Optional[float] = None  # units per case
+    min_order_qty: Optional[float] = None
+    lead_time_days: Optional[int] = None
+
+# Inventory Price History
+class InventoryPriceHistoryCreate(BaseModel):
+    supplier_id: Optional[str] = None
+    unit_cost: float
+    purchase_unit: str
+    source: str = "Manual"  # Manual, PO, Invoice
+    notes: Optional[str] = None
+
+class InventoryPriceHistory(BaseModel):
+    history_id: str
+    inventory_item_id: str
+    company_id: str
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    effective_date: datetime
+    unit_cost: float
+    purchase_unit: str
+    source: str  # Manual, PO, Invoice
+    notes: Optional[str] = None
+
+# ============== PURCHASE ORDER MODELS (Full PO System) ==============
+
+class PurchaseOrderLineModel(BaseModel):
+    line_id: str
+    inventory_item_id: str
+    item_name: str
+    qty_ordered: float
+    purchase_unit: str
+    unit_cost: float
+    line_total: float  # qty_ordered * unit_cost
+    qty_received: float = 0.0
+    notes: Optional[str] = None
+
+class PurchaseOrderLineCreateModel(BaseModel):
+    inventory_item_id: str
+    item_name: str
+    qty_ordered: float
+    purchase_unit: str
+    unit_cost: float
+    notes: Optional[str] = None
+
+class PurchaseOrderFullCreate(BaseModel):
+    """Full Purchase Order create model"""
+    supplier_id: str
+    needed_by_date: Optional[datetime] = None
+    payment_method: str = "Transfer"  # Cash, Transfer, Credit, Other
+    notes: Optional[str] = None
+    lines: List[PurchaseOrderLineCreateModel] = []
+
+class PurchaseOrderFull(BaseModel):
+    """Full Purchase Order model"""
+    po_id: str
+    company_id: str
+    po_number: str
+    supplier_id: str
+    supplier_name: Optional[str] = None
+    status: str = "Draft"  # Draft, Sent, PartiallyReceived, Received, Cancelled
+    created_at: datetime
+    updated_at: datetime
+    needed_by_date: Optional[datetime] = None
+    payment_method: str = "Transfer"
+    notes: Optional[str] = None
+    lines: List[PurchaseOrderLineModel] = []
+    subtotal: float = 0.0
+    tax_amount: float = 0.0
+    total: float = 0.0
+    received_at: Optional[datetime] = None
+    received_by: Optional[str] = None
+
+# ============== EXPENSE / INVOICE MODELS (Supplier Invoice on receive) ==============
+
+class ExpenseLineCreate(BaseModel):
+    inventory_item_id: Optional[str] = None
+    description: str
+    quantity: float = 1.0
+    unit_cost: float
+    tax_rate: float = 0.0
+
+class ExpenseCreate(BaseModel):
+    """Supplier expense/invoice when receiving PO"""
+    supplier_id: str
+    po_id: Optional[str] = None  # Link to PO if applicable
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    payment_method: str = "Transfer"  # Cash, Transfer, Credit, Other
+    lines: List[ExpenseLineCreate] = []
+    subtotal: float = 0.0
+    tax_amount: float = 0.0
+    total: float = 0.0
+    notes: Optional[str] = None
+    status: str = "Pending"  # Pending, Paid, Partial
+
+class Expense(BaseModel):
+    expense_id: str
+    company_id: str
+    supplier_id: str
+    supplier_name: Optional[str] = None
+    po_id: Optional[str] = None
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    payment_method: str
+    lines: List[Dict[str, Any]] = []
+    subtotal: float
+    tax_amount: float
+    total: float
+    paid_amount: float = 0.0
+    notes: Optional[str] = None
+    status: str = "Pending"
+    created_at: datetime
+    updated_at: datetime
+
+# ============== EVENT SCALING / CONSOLIDATED PURCHASE MODELS ==============
+
+class EventScalingRequest(BaseModel):
+    """Request to generate purchase list from event menu"""
+    event_ids: List[str]  # Can combine multiple events
+    include_buffer: bool = True
+    compare_inventory: bool = True  # Deduct current stock
+
+class ScaledIngredient(BaseModel):
+    inventory_item_id: str
+    item_name: str
+    unit: str
+    total_required: float
+    in_stock: float
+    to_purchase: float
+    unit_cost: float
+    total_cost: float
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    recipes_used: List[str] = []
+
+class ConsolidatedPurchaseList(BaseModel):
+    events: List[Dict[str, Any]]  # [{event_id, event_name, guest_count, date}]
+    items_by_supplier: Dict[str, List[ScaledIngredient]]
+    total_cost: float
+    generated_at: datetime
+
 # ============== EVENT EXTENSION MODELS ==============
 
 class EventExtendedUpdate(BaseModel):
