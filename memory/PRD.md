@@ -240,13 +240,20 @@ Auto-generated from Event Order:
   - Enhanced Supplier (payment terms, credit)
   - Enhanced Inventory (2 suppliers, purchase details)
   - Navigation: Back to Dashboard
+- [x] **Food Ops Module V4 (UI Enhancements - Jan 31, 2026)**:
+  - RecipeBuilder tabs: Basic, Costing, Details, Packaging
+  - Allergens UI in Details tab (14 allergens with checkboxes)
+  - Work Station, Recipe Code, Status fields
+  - Prep/Cook/Labor time fields
+  - PlatedMenuBuilder pricing section with Target Margin %, Default Guest Count
+  - Pricing dashboard: Cost per Guest, With Buffer, Suggested Price, Actual Margin, Profit
+  - Google OAuth fix implemented (needs user verification)
 
 ## Upcoming Tasks
-- [ ] Fix Google OAuth Login (P1)
-- [ ] Recipe Packaging Formats UI
-- [ ] Allergens UI in Recipe Builder
-- [ ] Menu pricing UI with target margin
-- [ ] PDF generation with templates
+- [ ] User verification of Google OAuth Login
+- [ ] Recipe Packaging Formats UI completion (tab exists, needs to be populated after save)
+- [ ] Inventory UI for preferred suppliers & price history
+- [ ] PDF/Print for Purchase Orders
 
 ## Future/Backlog
 - [ ] AI integrations for supplier suggestions
@@ -255,3 +262,4 @@ Auto-generated from Event Order:
 - [ ] Expense payment tracking UI
 - [ ] Finance & Reporting Module
 - [ ] CSV Export
+- [ ] Email POs to suppliers
