@@ -729,6 +729,12 @@ export default function EventsPage() {
                               ${Number(event.expected_value).toLocaleString()}
                             </div>
                           )}
+                          {event.pending_balance > 0 && (
+                            <div className="flex items-center gap-1 text-xs font-medium text-red-600 mt-1" data-testid={`pipeline-pending-balance-${event.event_id}`}>
+                              <DollarSign className="w-3 h-3" />
+                              {language === "es" ? "Pendiente:" : "Pending:"} ${Number(event.pending_balance).toLocaleString()}
+                            </div>
+                          )}
                           <div className="mt-3 flex gap-1">
                             {PIPELINE_STAGES.filter(s => s !== stage).slice(0, 3).map((targetStage) => (
                               <Button
