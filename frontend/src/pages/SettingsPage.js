@@ -86,12 +86,25 @@ export default function SettingsPage() {
   const [newLeadForm, setNewLeadForm] = useState({
     form_name: "",
     description: "",
+    description_es: "",
     fields: [...DEFAULT_FORM_FIELDS],
+    custom_fields: [],
     default_source: "Website",
     default_event_type: "",
     is_active: true,
     thank_you_message_en: "Thank you for your inquiry! We will contact you soon.",
-    thank_you_message_es: "¡Gracias por tu consulta! Te contactaremos pronto."
+    thank_you_message_es: "¡Gracias por tu consulta! Te contactaremos pronto.",
+    banner_url: "",
+    show_logo: true
+  });
+  const [newCustomField, setNewCustomField] = useState({
+    field_type: "text",
+    label_en: "",
+    label_es: "",
+    placeholder_en: "",
+    placeholder_es: "",
+    required: false,
+    options: []
   });
 
   useEffect(() => {
