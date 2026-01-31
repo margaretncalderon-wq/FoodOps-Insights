@@ -523,6 +523,36 @@ export default function EventsPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Pipeline Stage */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Etapa del Pipeline" : "Pipeline Stage"}</Label>
+                      <Select
+                        value={formData.stage}
+                        onValueChange={(value) => setFormData({ ...formData, stage: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PIPELINE_STAGES.map((stage) => (
+                            <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Valor Esperado" : "Expected Value"}</Label>
+                      <Input
+                        type="number"
+                        placeholder="$"
+                        value={formData.expected_value}
+                        onChange={(e) => setFormData({ ...formData, expected_value: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>{t("notes")}</Label>
                     <Textarea
