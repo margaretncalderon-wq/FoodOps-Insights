@@ -4,6 +4,7 @@ import axios from "axios";
 import { Layout } from "../components/Layout";
 import ProposalEditor from "../components/ProposalEditor";
 import EventPurchaseList from "../components/EventPurchaseList";
+import EventPayments from "../components/EventPayments";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -35,7 +36,7 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
   Plus, FileText, CheckCircle, PenLine, Share2, Link2, 
-  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart
+  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart, Banknote
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
