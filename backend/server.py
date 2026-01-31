@@ -1305,15 +1305,25 @@ async def get_public_lead_form(form_id: str):
     if not form:
         raise HTTPException(status_code=404, detail="Form not found or inactive")
     
+    # Get company info for logo
+    company = await db.companies.find_one({"company_id": form["company_id"]}, {"_id": 0, "name": 1, "logo_url": 1, "primary_color": 1})
+    
     # Return only public-safe fields
     return {
         "form_id": form["form_id"],
         "form_name": form["form_name"],
         "description": form.get("description"),
+        "description_es": form.get("description_es"),
         "fields": form.get("fields", []),
+        "custom_fields": form.get("custom_fields", []),
         "default_event_type": form.get("default_event_type"),
         "thank_you_message_en": form.get("thank_you_message_en", form.get("thank_you_message", "Thank you for your inquiry!")),
-        "thank_you_message_es": form.get("thank_you_message_es", "¡Gracias por tu consulta! Te contactaremos pronto.")
+        "thank_you_message_es": form.get("thank_you_message_es", "¡Gracias por tu consulta! Te contactaremos pronto."),
+        "banner_url": form.get("banner_url"),
+        "show_logo": form.get("show_logo", True),
+        "primary_color": form.get("primary_color") or (company.get("primary_color") if company else None),
+        "company_name": company.get("name") if company else None,
+        "company_logo": company.get("logo_url") if company and form.get("show_logo", True) else None
     }
 
 @lead_forms_router.post("/{form_id}/submit")
