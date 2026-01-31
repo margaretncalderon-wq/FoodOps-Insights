@@ -757,6 +757,16 @@ class MenuItemEntry(BaseModel):
     internal_cost_override: Optional[float] = None  # Override default cost
     sort_order: int = 0
 
+class MenuVariant(BaseModel):
+    """A variant of a menu with different pricing tier"""
+    variant_id: Optional[str] = None
+    name: str  # e.g., "Gold", "Silver", "Bronze"
+    name_es: Optional[str] = None
+    description: Optional[str] = None
+    discount_type: str = "percentage"  # percentage, fixed_amount
+    discount_value: float = 0  # e.g., 10 for 10% or 100 for $100 off
+    is_default: bool = False
+
 class MenuCreate(BaseModel):
     """Create a menu/package with items"""
     name: str
@@ -766,6 +776,7 @@ class MenuCreate(BaseModel):
     menu_type: str = "Menu"  # Menu, Package, Bundle
     category_id: Optional[str] = None
     items: List[MenuItemEntry] = []
+    variants: List[MenuVariant] = []  # Gold, Silver, Bronze variants
     default_price: Optional[float] = None  # Fixed price for entire package
     is_fixed_price: bool = False  # If true, use default_price instead of sum
     is_active: bool = True
@@ -778,6 +789,7 @@ class MenuUpdate(BaseModel):
     menu_type: Optional[str] = None
     category_id: Optional[str] = None
     items: Optional[List[MenuItemEntry]] = None
+    variants: Optional[List[MenuVariant]] = None
     default_price: Optional[float] = None
     is_fixed_price: Optional[bool] = None
     is_active: Optional[bool] = None
@@ -792,6 +804,7 @@ class Menu(BaseModel):
     menu_type: str
     category_id: Optional[str] = None
     items: List[Dict[str, Any]] = []
+    variants: List[Dict[str, Any]] = []  # Variants with calculated prices
     default_price: Optional[float] = None
     is_fixed_price: bool
     is_active: bool
