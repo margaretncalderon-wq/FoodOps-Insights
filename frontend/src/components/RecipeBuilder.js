@@ -750,7 +750,6 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </Table>
               )}
             </div>
-          )}
         </TabsContent>
 
         {/* DETAILS TAB */}
