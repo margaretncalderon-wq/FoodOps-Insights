@@ -3297,6 +3297,210 @@ async def delete_picklist_item(item_id: str, user: User = Depends(get_current_us
     return {"message": "Item deleted"}
 
 
+# ============== MENUS / PACKAGES ROUTES ==============
+
+async def enrich_menu_items(menu: dict, company_id: str):
+    """Enrich menu items with picklist/recipe data and calculate totals"""
+    total_price = 0
+    total_cost = 0
+    enriched_items = []
+    
+    for item in menu.get("items", []):
+        enriched = {**item}
+        item_price = 0
+        item_cost = 0
+        
+        # Get picklist item data
+        if item.get("picklist_item_id"):
+            pli = await db.picklist_items.find_one(
+                {"item_id": item["picklist_item_id"], "company_id": company_id}, 
+                {"_id": 0}
+            )
+            if pli:
+                enriched["picklist_item"] = pli
+                item_price = item.get("unit_price_override") or pli.get("default_price", 0)
+                item_cost = item.get("internal_cost_override") or pli.get("internal_cost") or 0
+                
+                # If picklist links to recipe, get recipe cost
+                if pli.get("recipe_id") and not item_cost:
+                    recipe = await db.recipes.find_one({"recipe_id": pli["recipe_id"]}, {"_id": 0, "cost_per_portion": 1})
+                    if recipe:
+                        item_cost = recipe.get("cost_per_portion", 0)
+        
+        # Get recipe data directly
+        elif item.get("recipe_id"):
+            recipe = await db.recipes.find_one(
+                {"recipe_id": item["recipe_id"], "company_id": company_id}, 
+                {"_id": 0}
+            )
+            if recipe:
+                enriched["recipe"] = recipe
+                item_price = item.get("unit_price_override") or (recipe.get("cost_per_portion", 0) * 3)  # 33% food cost
+                item_cost = item.get("internal_cost_override") or recipe.get("cost_per_portion", 0)
+        
+        # Apply quantity
+        qty = item.get("quantity", 1)
+        enriched["calculated_price"] = item_price * qty
+        enriched["calculated_cost"] = item_cost * qty
+        enriched["unit_price"] = item_price
+        enriched["unit_cost"] = item_cost
+        
+        total_price += enriched["calculated_price"]
+        total_cost += enriched["calculated_cost"]
+        enriched_items.append(enriched)
+    
+    menu["items"] = enriched_items
+    
+    # Use fixed price if set
+    if menu.get("is_fixed_price") and menu.get("default_price"):
+        menu["total_price"] = menu["default_price"]
+    else:
+        menu["total_price"] = total_price
+    
+    menu["total_cost"] = total_cost
+    menu["margin_amount"] = menu["total_price"] - total_cost
+    menu["margin_percentage"] = (menu["margin_amount"] / menu["total_price"] * 100) if menu["total_price"] > 0 else 0
+    
+    return menu
+
+@settings_router.get("/menus")
+async def get_menus(menu_type: Optional[str] = None, active_only: bool = True, user: User = Depends(get_current_user)):
+    """Get all menus/packages"""
+    query = {"company_id": user.company_id}
+    if menu_type:
+        query["menu_type"] = menu_type
+    if active_only:
+        query["$or"] = [{"is_active": True}, {"is_active": {"$exists": False}}]
+    
+    menus = await db.menus.find(query, {"_id": 0}).sort("name", 1).to_list(200)
+    
+    # Enrich each menu with calculated totals
+    enriched_menus = []
+    for menu in menus:
+        enriched = await enrich_menu_items(menu, user.company_id)
+        enriched_menus.append(enriched)
+    
+    return enriched_menus
+
+@settings_router.get("/menus/{menu_id}")
+async def get_menu(menu_id: str, user: User = Depends(get_current_user)):
+    """Get a single menu with full details"""
+    menu = await db.menus.find_one({"menu_id": menu_id, "company_id": user.company_id}, {"_id": 0})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    return await enrich_menu_items(menu, user.company_id)
+
+@settings_router.post("/menus")
+async def create_menu(data: MenuCreate, user: User = Depends(get_current_user)):
+    """Create a new menu/package"""
+    now = datetime.now(timezone.utc)
+    menu_id = f"menu_{uuid.uuid4().hex[:12]}"
+    
+    # Process items
+    items = []
+    for idx, item in enumerate(data.items):
+        item_dict = item.model_dump() if hasattr(item, 'model_dump') else item
+        item_dict["item_id"] = f"mi_{uuid.uuid4().hex[:8]}"
+        item_dict["sort_order"] = idx
+        items.append(item_dict)
+    
+    menu_doc = {
+        "menu_id": menu_id,
+        "company_id": user.company_id,
+        "name": data.name,
+        "name_es": data.name_es,
+        "description": data.description,
+        "description_es": data.description_es,
+        "menu_type": data.menu_type,
+        "category_id": data.category_id,
+        "items": items,
+        "default_price": data.default_price,
+        "is_fixed_price": data.is_fixed_price,
+        "is_active": data.is_active,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.menus.insert_one(menu_doc)
+    del menu_doc["_id"]
+    
+    return await enrich_menu_items(menu_doc, user.company_id)
+
+@settings_router.put("/menus/{menu_id}")
+async def update_menu(menu_id: str, data: MenuUpdate, user: User = Depends(get_current_user)):
+    """Update a menu/package"""
+    now = datetime.now(timezone.utc)
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # Process items if provided
+    if "items" in update_data and update_data["items"] is not None:
+        items = []
+        for idx, item in enumerate(update_data["items"]):
+            item_dict = item.model_dump() if hasattr(item, 'model_dump') else item
+            if "item_id" not in item_dict or not item_dict["item_id"]:
+                item_dict["item_id"] = f"mi_{uuid.uuid4().hex[:8]}"
+            item_dict["sort_order"] = idx
+            items.append(item_dict)
+        update_data["items"] = items
+    
+    update_data["updated_at"] = now.isoformat()
+    
+    result = await db.menus.update_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    return await get_menu(menu_id, user)
+
+@settings_router.post("/menus/{menu_id}/items")
+async def add_menu_item(menu_id: str, data: MenuItemEntry, user: User = Depends(get_current_user)):
+    """Add an item to a menu"""
+    now = datetime.now(timezone.utc)
+    
+    menu = await db.menus.find_one({"menu_id": menu_id, "company_id": user.company_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    item_dict = data.model_dump()
+    item_dict["item_id"] = f"mi_{uuid.uuid4().hex[:8]}"
+    item_dict["sort_order"] = len(menu.get("items", []))
+    
+    await db.menus.update_one(
+        {"menu_id": menu_id},
+        {"$push": {"items": item_dict}, "$set": {"updated_at": now.isoformat()}}
+    )
+    
+    return await get_menu(menu_id, user)
+
+@settings_router.delete("/menus/{menu_id}/items/{item_id}")
+async def remove_menu_item(menu_id: str, item_id: str, user: User = Depends(get_current_user)):
+    """Remove an item from a menu"""
+    now = datetime.now(timezone.utc)
+    
+    result = await db.menus.update_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"$pull": {"items": {"item_id": item_id}}, "$set": {"updated_at": now.isoformat()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    return await get_menu(menu_id, user)
+
+@settings_router.delete("/menus/{menu_id}")
+async def delete_menu(menu_id: str, user: User = Depends(get_current_user)):
+    """Delete a menu/package"""
+    result = await db.menus.delete_one({"menu_id": menu_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return {"message": "Menu deleted"}
+
+
 # ============== TAX RATES ROUTES ==============
 
 @settings_router.get("/taxes")
