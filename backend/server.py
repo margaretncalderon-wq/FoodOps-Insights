@@ -3439,6 +3439,14 @@ async def create_menu(data: MenuCreate, user: User = Depends(get_current_user)):
         item_dict["sort_order"] = idx
         items.append(item_dict)
     
+    # Process variants
+    variants = []
+    for variant in data.variants:
+        var_dict = variant.model_dump() if hasattr(variant, 'model_dump') else variant
+        if not var_dict.get("variant_id"):
+            var_dict["variant_id"] = f"var_{uuid.uuid4().hex[:8]}"
+        variants.append(var_dict)
+    
     menu_doc = {
         "menu_id": menu_id,
         "company_id": user.company_id,
@@ -3449,6 +3457,7 @@ async def create_menu(data: MenuCreate, user: User = Depends(get_current_user)):
         "menu_type": data.menu_type,
         "category_id": data.category_id,
         "items": items,
+        "variants": variants,
         "default_price": data.default_price,
         "is_fixed_price": data.is_fixed_price,
         "is_active": data.is_active,
