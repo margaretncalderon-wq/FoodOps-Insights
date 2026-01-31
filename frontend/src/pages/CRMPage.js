@@ -43,6 +43,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+
+// Helper to extract error message from Pydantic validation errors
+const getErrorMessage = (error, fallback = "An error occurred") => {
+  const detail = error?.response?.data?.detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(e => e.msg || e.message || JSON.stringify(e)).join(", ");
+  }
+  return fallback;
+};
 } from "../components/ui/table";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
