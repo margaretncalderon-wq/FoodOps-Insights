@@ -247,20 +247,35 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     });
   };
 
-  const handleAddMenu = async (menu) => {
+  const handleAddMenu = async (menu, variant = null) => {
     // Add all items from the menu to the proposal
     try {
       let addedCount = 0;
+      const variantLabel = variant ? ` (${variant.name})` : "";
+      
       for (const item of menu.items) {
+        // Calculate price with variant discount
+        let itemPrice = item.unit_price || (item.calculated_price / (item.quantity || 1)) || 0;
+        
+        if (variant && variant.discount_value > 0) {
+          if (variant.discount_type === "percentage") {
+            itemPrice = itemPrice * (1 - variant.discount_value / 100);
+          } else {
+            // Distribute fixed discount across items
+            const totalItems = menu.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+            itemPrice = itemPrice - (variant.discount_value / totalItems);
+          }
+        }
+        
         const orderItem = {
           item_type: item.picklist_item?.item_type || "Service",
           description: item.custom_name || item.picklist_item?.name || item.recipe?.name || "Item",
           quantity: item.quantity || 1,
-          unit_price: item.unit_price || item.calculated_price / (item.quantity || 1) || 0,
+          unit_price: Math.max(0, itemPrice),
           internal_cost: item.unit_cost || null,
           reference_id: item.recipe_id || item.picklist_item?.recipe_id || null,
           category_id: item.picklist_item?.category_id || null,
-          internal_notes: `From menu: ${menu.name}`,
+          internal_notes: `From: ${menu.name}${variantLabel}`,
         };
         await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, orderItem, { withCredentials: true });
         addedCount++;
@@ -268,8 +283,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       
       toast.success(
         language === "es" 
-          ? `${addedCount} ítems agregados desde "${menu.name}"`
-          : `${addedCount} items added from "${menu.name}"`
+          ? `${addedCount} ítems agregados desde "${menu.name}${variantLabel}"`
+          : `${addedCount} items added from "${menu.name}${variantLabel}"`
       );
       fetchProposal();
       fetchFinancials();
