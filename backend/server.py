@@ -2419,52 +2419,119 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
                 r[field] = default
     return recipes
 
-async def calculate_recipe_cost(ingredients: List[RecipeIngredient], company_id: str) -> tuple:
-    """Calculate total cost for a recipe's ingredients, including nested recipes"""
+async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes: List[Dict] = None, company_id: str = "") -> tuple:
+    """Calculate total cost for a recipe's ingredients and sub-recipes, including merma (waste)"""
     total_cost = 0.0
     updated_ingredients = []
+    updated_sub_recipes = []
     
+    # Calculate ingredient costs with waste factor (merma)
     for ing in ingredients:
-        if ing.item_type == "ingredient":
-            # Get ingredient cost
+        ing_dict = ing.model_dump() if hasattr(ing, 'model_dump') else dict(ing)
+        
+        if ing_dict.get("item_type") == "ingredient":
+            # Get ingredient cost from inventory
             ingredient = await db.ingredients.find_one(
-                {"ingredient_id": ing.item_id, "company_id": company_id},
+                {"ingredient_id": ing_dict.get("item_id"), "company_id": company_id},
                 {"_id": 0}
             )
             if ingredient:
-                cost_per_unit = ingredient.get("cost_per_unit", 0)
-                # Apply yield/waste adjustment
-                waste_percent = ingredient.get("yield_waste_percent", 0)
-                if waste_percent > 0:
-                    cost_per_unit = cost_per_unit / (1 - waste_percent / 100)
-                line_cost = ing.quantity * cost_per_unit
+                base_cost_per_unit = ingredient.get("cost_per_unit", 0)
+                waste_factor = ing_dict.get("waste_factor_pct", 0)
+                
+                # Apply waste factor (merma): if 10% waste, you need 10% more product
+                # Effective cost = base_cost / (1 - waste_factor/100)
+                if waste_factor > 0 and waste_factor < 100:
+                    effective_cost_per_unit = base_cost_per_unit / (1 - waste_factor / 100)
+                else:
+                    effective_cost_per_unit = base_cost_per_unit
+                
+                # Calculate net quantity (what you actually use after waste)
+                net_quantity = ing_dict.get("quantity", 0) * (1 + waste_factor / 100) if waste_factor > 0 else ing_dict.get("quantity", 0)
+                line_cost = ing_dict.get("quantity", 0) * effective_cost_per_unit
+                
                 updated_ingredients.append({
-                    **ing.model_dump(),
-                    "cost_per_unit": cost_per_unit,
-                    "total_cost": line_cost
+                    **ing_dict,
+                    "cost_per_unit": effective_cost_per_unit,
+                    "total_cost": round(line_cost, 4),
+                    "net_quantity": round(net_quantity, 4)
                 })
                 total_cost += line_cost
             else:
-                updated_ingredients.append(ing.model_dump())
+                updated_ingredients.append(ing_dict)
         else:
-            # Get sub-recipe cost
+            # Get sub-recipe cost (legacy support for item_type="recipe")
             sub_recipe = await db.recipes.find_one(
-                {"recipe_id": ing.item_id, "company_id": company_id},
+                {"recipe_id": ing_dict.get("item_id"), "company_id": company_id},
                 {"_id": 0}
             )
             if sub_recipe:
                 cost_per_yield = sub_recipe.get("cost_per_yield", 0)
-                line_cost = ing.quantity * cost_per_yield
+                line_cost = ing_dict.get("quantity", 0) * cost_per_yield
                 updated_ingredients.append({
-                    **ing.model_dump(),
+                    **ing_dict,
                     "cost_per_unit": cost_per_yield,
-                    "total_cost": line_cost
+                    "total_cost": round(line_cost, 4)
                 })
                 total_cost += line_cost
             else:
-                updated_ingredients.append(ing.model_dump())
+                updated_ingredients.append(ing_dict)
     
-    return total_cost, updated_ingredients
+    # Calculate sub-recipe costs (new structure)
+    if sub_recipes:
+        for sub in sub_recipes:
+            sub_dict = sub if isinstance(sub, dict) else sub.model_dump()
+            child_recipe_id = sub_dict.get("child_recipe_id")
+            
+            child_recipe = await db.recipes.find_one(
+                {"recipe_id": child_recipe_id, "company_id": company_id},
+                {"_id": 0}
+            )
+            if child_recipe:
+                cost_per_yield = child_recipe.get("cost_per_yield", 0)
+                line_cost = sub_dict.get("quantity_used", 0) * cost_per_yield
+                updated_sub_recipes.append({
+                    **sub_dict,
+                    "cost_per_unit": cost_per_yield,
+                    "total_cost": round(line_cost, 4)
+                })
+                total_cost += line_cost
+            else:
+                updated_sub_recipes.append(sub_dict)
+    
+    return round(total_cost, 2), updated_ingredients, updated_sub_recipes
+
+async def check_circular_dependency(parent_id: str, child_id: str, company_id: str, visited: set = None) -> bool:
+    """Check if adding child_id as sub-recipe of parent_id would create a circular dependency"""
+    if visited is None:
+        visited = set()
+    
+    if child_id in visited:
+        return True  # Circular dependency detected
+    
+    if parent_id == child_id:
+        return True  # Direct self-reference
+    
+    visited.add(parent_id)
+    
+    # Get child recipe
+    child_recipe = await db.recipes.find_one(
+        {"recipe_id": child_id, "company_id": company_id},
+        {"_id": 0, "sub_recipes": 1}
+    )
+    
+    if not child_recipe:
+        return False
+    
+    # Check if parent is in child's sub-recipes
+    for sub in child_recipe.get("sub_recipes", []):
+        if sub.get("child_recipe_id") == parent_id:
+            return True
+        # Recursive check
+        if await check_circular_dependency(parent_id, sub.get("child_recipe_id"), company_id, visited):
+            return True
+    
+    return False
 
 @recipes_router.post("", response_model=Recipe)
 async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_user)):
