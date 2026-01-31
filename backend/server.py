@@ -1816,32 +1816,70 @@ async def recalculate_all_recipes(user: User = Depends(get_current_user)):
 # ============== EVENT MENU & STOCK CHECK ==============
 
 @events_router.get("")
-async def get_events(user: User = Depends(get_current_user)):
-    events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("event_date", 1).to_list(1000)
+async def get_events(user: User = Depends(get_current_user), stage: Optional[str] = None):
+    """Get all events with optional stage filter"""
+    query = {"company_id": user.company_id}
+    if stage:
+        query["stage"] = stage
+    
+    events = await db.events.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
     # Get all client IDs to fetch client info
     client_ids = list(set(e.get("client_id") for e in events if e.get("client_id")))
     clients_data = {}
     if client_ids:
-        clients = await db.clients.find({"client_id": {"$in": client_ids}}, {"_id": 0, "client_id": 1, "name": 1, "company_name": 1, "client_type": 1}).to_list(len(client_ids))
+        clients = await db.clients.find({"client_id": {"$in": client_ids}}, {"_id": 0, "client_id": 1, "display_name": 1, "client_type": 1}).to_list(len(client_ids))
         clients_data = {c["client_id"]: c for c in clients}
     
     for e in events:
-        for field in ["event_date", "end_date", "created_at", "updated_at"]:
+        for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
             if e.get(field) and isinstance(e[field], str):
-                e[field] = datetime.fromisoformat(e[field])
+                try:
+                    e[field] = datetime.fromisoformat(e[field])
+                except:
+                    e[field] = None
         if "documents" not in e:
             e["documents"] = []
+        if "stage" not in e:
+            e["stage"] = "Lead"
         # Add client info to event
         client_info = clients_data.get(e.get("client_id"), {})
         e["client_info"] = {
-            "name": client_info.get("name", ""),
-            "company_name": client_info.get("company_name", ""),
-            "client_type": client_info.get("client_type", "direct")
+            "display_name": client_info.get("display_name", client_info.get("name", "")),
+            "client_type": client_info.get("client_type", "Individual")
         }
     return events
 
-@events_router.post("", response_model=Event)
+@events_router.get("/pipeline")
+async def get_events_pipeline(user: User = Depends(get_current_user)):
+    """Get events grouped by pipeline stage"""
+    stages = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost"]
+    pipeline = {}
+    
+    # Get all clients for client info
+    all_clients = await db.clients.find({"company_id": user.company_id}, {"_id": 0, "client_id": 1, "display_name": 1, "client_type": 1}).to_list(1000)
+    clients_data = {c["client_id"]: c for c in all_clients}
+    
+    for stage in stages:
+        events = await db.events.find({"company_id": user.company_id, "stage": stage}, {"_id": 0}).sort("created_at", -1).to_list(100)
+        for e in events:
+            for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
+                if e.get(field) and isinstance(e[field], str):
+                    try:
+                        e[field] = datetime.fromisoformat(e[field])
+                    except:
+                        e[field] = None
+            # Add client info
+            client_info = clients_data.get(e.get("client_id"), {})
+            e["client_info"] = {
+                "display_name": client_info.get("display_name", ""),
+                "client_type": client_info.get("client_type", "Individual")
+            }
+        pipeline[stage] = events
+    
+    return pipeline
+
+@events_router.post("")
 async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     event_id = f"event_{uuid.uuid4().hex[:12]}"
@@ -1850,8 +1888,9 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
         "event_id": event_id,
         "company_id": user.company_id,
         **data.model_dump(),
-        "event_date": data.event_date.isoformat(),
+        "event_date": data.event_date.isoformat() if data.event_date else None,
         "end_date": data.end_date.isoformat() if data.end_date else None,
+        "next_followup_date": data.next_followup_date.isoformat() if data.next_followup_date else None,
         "timeline": [],
         "tasks": [],
         "menu_items": [],
@@ -1866,9 +1905,10 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
     del event_doc["_id"]
     event_doc["event_date"] = data.event_date
     event_doc["end_date"] = data.end_date
+    event_doc["next_followup_date"] = data.next_followup_date
     event_doc["created_at"] = now
     event_doc["updated_at"] = now
-    return Event(**event_doc)
+    return event_doc
 
 @events_router.post("/{event_id}/duplicate", response_model=Event)
 async def duplicate_event(event_id: str, user: User = Depends(get_current_user)):
