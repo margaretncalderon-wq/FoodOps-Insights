@@ -242,18 +242,24 @@ Auto-generated from Event Order:
   - Navigation: Back to Dashboard
 - [x] **Food Ops Module V4 (UI Enhancements - Jan 31, 2026)**:
   - RecipeBuilder tabs: Basic, Costing, Details, Packaging
-  - Allergens UI in Details tab (14 allergens with checkboxes)
+  - Allergens UI in Details tab (14 allergens with checkboxes) - NOW SAVES CORRECTLY
   - Work Station, Recipe Code, Status fields
   - Prep/Cook/Labor time fields
   - PlatedMenuBuilder pricing section with Target Margin %, Default Guest Count
   - Pricing dashboard: Cost per Guest, With Buffer, Suggested Price, Actual Margin, Profit
-  - Google OAuth fix implemented (needs user verification)
+  - Google OAuth fix implemented - USER VERIFIED WORKING ✅
+- [x] **Food Ops Module V5 (Advanced Features - Jan 31, 2026)**:
+  - Margin-based Portion Pricing (GastroKaizen style): Auto-calculates Sell Price from Target Margin %
+  - Value by Category dashboard (Food, Packaging, Disposable, Equipment, Event Supply)
+  - Inventory Price History dialog
+  - Primary & Secondary Suppliers per inventory item
+  - Purchase Unit and Pack Size fields
+  - Supplier Payment Terms (Cash/Transfer/Credit/Mixed) and Credit Limit
+  - Print Purchase Orders with preview dialog
 
 ## Upcoming Tasks
-- [ ] User verification of Google OAuth Login
-- [ ] Recipe Packaging Formats UI completion (tab exists, needs to be populated after save)
-- [ ] Inventory UI for preferred suppliers & price history
-- [ ] PDF/Print for Purchase Orders
+- [ ] Recipe Packaging Formats UI completion (tab exists, needs linking to packaging inventory items)
+- [ ] Multiple portion formats per recipe showing in menus (select which portion to use)
 
 ## Future/Backlog
 - [ ] AI integrations for supplier suggestions
