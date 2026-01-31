@@ -3333,6 +3333,19 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
         clients = await db.clients.find({"client_id": {"$in": client_ids}}, {"_id": 0, "client_id": 1, "display_name": 1, "client_type": 1}).to_list(len(client_ids))
         clients_data = {c["client_id"]: c for c in clients}
     
+    # Get all event IDs to fetch invoice balances
+    event_ids = [e.get("event_id") for e in events if e.get("event_id")]
+    invoices_by_event = {}
+    if event_ids:
+        invoices = await db.invoices.find(
+            {"company_id": user.company_id, "event_id": {"$in": event_ids}, "status": {"$ne": "paid"}},
+            {"_id": 0, "event_id": 1, "balance_due": 1}
+        ).to_list(1000)
+        for inv in invoices:
+            eid = inv.get("event_id")
+            if eid:
+                invoices_by_event[eid] = invoices_by_event.get(eid, 0) + (inv.get("balance_due") or 0)
+    
     for e in events:
         for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
             if e.get(field) and isinstance(e[field], str):
@@ -3350,6 +3363,8 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
             "display_name": client_info.get("display_name", client_info.get("name", "")),
             "client_type": client_info.get("client_type", "Individual")
         }
+        # Add pending balance from invoices
+        e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
     return events
 
 @events_router.get("/pipeline")
