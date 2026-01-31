@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   Globe,
+  UtensilsCrossed,
 } from "lucide-react";
 
 const navItems = [
