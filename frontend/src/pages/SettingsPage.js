@@ -2171,38 +2171,184 @@ Mantel Blanco, , 10, 3`}
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {language === "es" ? "Configura las opciones de cada tipo de documento." : "Configure options for each document type."}
+                  {language === "es" 
+                    ? "Configura las plantillas de documentos, textos de encabezado/pie y campos personalizados." 
+                    : "Configure document templates, header/footer text, and custom fields."}
                 </p>
+                
                 <div className="space-y-4">
-                  {documentTypes.map((dt) => {
-                    const showPrices = dt.custom_settings?.show_prices ?? dt.show_prices;
-                    const requiresSignature = dt.custom_settings?.requires_signature ?? dt.requires_signature;
-                    const isSaving = savingTemplate === dt.type;
-
+                  {documentTemplates.map((template) => {
+                    const isSaving = savingTemplate === template.template_id;
+                    
                     return (
-                      <div key={dt.type} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`template-${dt.type}`}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-muted-foreground" />
+                      <Card key={template.template_id} className="border" data-testid={`template-${template.template_type}`}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                                <FileText className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                              <div>
+                                <h4 className="font-medium">{template.name}</h4>
+                                <p className="text-xs text-muted-foreground">{template.template_type}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                checked={template.is_active} 
+                                onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, is_active: v })}
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {template.is_active ? (language === "es" ? "Activo" : "Active") : (language === "es" ? "Inactivo" : "Inactive")}
+                              </span>
+                              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium">{getDocTypeLabel(dt)}</h4>
-                            <p className="text-xs text-muted-foreground">{dt.type}</p>
+                        </CardHeader>
+                        <CardContent className="pt-2 space-y-4">
+                          {/* Header & Footer */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Encabezado (EN)" : "Header (EN)"}</Label>
+                              <Textarea 
+                                rows={2}
+                                className="text-sm"
+                                placeholder={language === "es" ? "Texto de encabezado en inglés..." : "Header text in English..."}
+                                value={template.header_text_en || ""}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, header_text_en: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Encabezado (ES)" : "Header (ES)"}</Label>
+                              <Textarea 
+                                rows={2}
+                                className="text-sm"
+                                placeholder={language === "es" ? "Texto de encabezado en español..." : "Header text in Spanish..."}
+                                value={template.header_text_es || ""}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, header_text_es: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Pie de Página (EN)" : "Footer (EN)"}</Label>
+                              <Textarea 
+                                rows={2}
+                                className="text-sm"
+                                placeholder={language === "es" ? "Texto de pie en inglés..." : "Footer text in English..."}
+                                value={template.footer_text_en || ""}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, footer_text_en: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Pie de Página (ES)" : "Footer (ES)"}</Label>
+                              <Textarea 
+                                rows={2}
+                                className="text-sm"
+                                placeholder={language === "es" ? "Texto de pie en español..." : "Footer text in Spanish..."}
+                                value={template.footer_text_es || ""}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, footer_text_es: e.target.value })}
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor={`${dt.type}-prices`} className="text-sm">{t("showPrices")}</Label>
-                            <Switch id={`${dt.type}-prices`} checked={showPrices} onCheckedChange={(c) => handleTemplateSettingChange(dt.type, "show_prices", c)} disabled={isSaving} />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor={`${dt.type}-signature`} className="text-sm">{t("requiresSignature")}</Label>
-                            <Switch id={`${dt.type}-signature`} checked={requiresSignature} onCheckedChange={(c) => handleTemplateSettingChange(dt.type, "requires_signature", c)} disabled={isSaving} />
-                          </div>
-                          {isSaving && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                          {!isSaving && dt.template_id && <Check className="w-4 h-4 text-success" />}
-                        </div>
-                      </div>
+                          
+                          {/* Custom Fields */}
+                          {featureFlags?.is_custom_fields_enabled && (
+                            <div className="border-t pt-4">
+                              <Label className="text-xs mb-2 block">{language === "es" ? "Campos Personalizados" : "Custom Fields"}</Label>
+                              
+                              {template.custom_fields?.length > 0 ? (
+                                <div className="space-y-2 mb-3">
+                                  {template.custom_fields.map((field, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 p-2 bg-muted/50 rounded text-sm">
+                                      <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
+                                      <span className="flex-1">{field.label_en}</span>
+                                      {field.required && <Badge variant="secondary" className="text-xs">Required</Badge>}
+                                      <Badge variant={field.visibility === "Internal" ? "outline" : "default"} className="text-xs">
+                                        {field.visibility}
+                                      </Badge>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6"
+                                        onClick={() => {
+                                          const updatedFields = template.custom_fields.filter((_, i) => i !== idx);
+                                          handleUpdateTemplate(template.template_id, { ...template, custom_fields: updatedFields });
+                                        }}
+                                      >
+                                        <Trash2 className="w-3 h-3 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground mb-3">
+                                  {language === "es" ? "Sin campos personalizados" : "No custom fields"}
+                                </p>
+                              )}
+                              
+                              {/* Add Custom Field Form */}
+                              <div className="grid grid-cols-5 gap-2">
+                                <Input 
+                                  placeholder="Label (EN)"
+                                  className="text-sm"
+                                  id={`cf-label-${template.template_id}`}
+                                />
+                                <Select defaultValue="Text">
+                                  <SelectTrigger className="text-sm" id={`cf-type-${template.template_id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Text">Text</SelectItem>
+                                    <SelectItem value="Number">Number</SelectItem>
+                                    <SelectItem value="Date">Date</SelectItem>
+                                    <SelectItem value="Boolean">Boolean</SelectItem>
+                                    <SelectItem value="Dropdown">Dropdown</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Select defaultValue="Client-facing">
+                                  <SelectTrigger className="text-sm" id={`cf-vis-${template.template_id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Client-facing">Client</SelectItem>
+                                    <SelectItem value="Internal">Internal</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <div className="flex items-center gap-1">
+                                  <Checkbox id={`cf-req-${template.template_id}`} />
+                                  <Label htmlFor={`cf-req-${template.template_id}`} className="text-xs">Req</Label>
+                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const labelInput = document.getElementById(`cf-label-${template.template_id}`);
+                                    const typeSelect = document.getElementById(`cf-type-${template.template_id}`);
+                                    const visSelect = document.getElementById(`cf-vis-${template.template_id}`);
+                                    const reqCheck = document.getElementById(`cf-req-${template.template_id}`);
+                                    
+                                    const newField = {
+                                      field_key: `cf_${Date.now()}`,
+                                      label_en: labelInput?.value || "New Field",
+                                      label_es: labelInput?.value || "Nuevo Campo",
+                                      field_type: "Text",
+                                      required: reqCheck?.checked || false,
+                                      visibility: "Client-facing",
+                                      is_active: true
+                                    };
+                                    
+                                    const updatedFields = [...(template.custom_fields || []), newField];
+                                    handleUpdateTemplate(template.template_id, { ...template, custom_fields: updatedFields });
+                                    
+                                    if (labelInput) labelInput.value = "";
+                                  }}
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>
