@@ -59,16 +59,21 @@ function InventorySection() {
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editingSupplier, setEditingSupplier] = useState(null);
+  const [priceHistoryDialogOpen, setPriceHistoryDialogOpen] = useState(false);
+  const [selectedItemForHistory, setSelectedItemForHistory] = useState(null);
+  const [priceHistory, setPriceHistory] = useState([]);
   
   // Forms
   const [itemForm, setItemForm] = useState({
     name: "", category: "dry_goods", inventory_type: "food", unit: "kg",
     cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, 
-    preferred_supplier_id: ""
+    preferred_supplier_id: "", secondary_supplier_id: "",
+    purchase_unit: "", purchase_pack_size: 1
   });
   
   const [supplierForm, setSupplierForm] = useState({
-    name: "", contact_name: "", email: "", phone: "", notes: ""
+    name: "", contact_name: "", email: "", phone: "", notes: "",
+    payment_terms: "cash", has_credit: false, credit_limit: 0
   });
   
   const [transactionForm, setTransactionForm] = useState({
