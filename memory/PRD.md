@@ -318,6 +318,11 @@ Auto-generated from Event Order:
   - Full audit logging for payments and applications
   - Backend: 20+ new endpoints under /api/business-clarity/
   - Frontend: New BusinessClarityPage with 5 tabs
+- [x] **Event-to-Invoice Integration (Jan 31, 2026)**:
+  - "Create Invoice" button in Event's Generate tab
+  - Invoices created from events link to client and event
+  - Auto-calculates totals from order items
+  - Invoices appear in Business Clarity for payment tracking
 
 ## Upcoming Tasks
 - [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
