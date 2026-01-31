@@ -437,7 +437,7 @@ function AccountStatementsSection() {
 
   const fetchClients = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/clients`, { withCredentials: true });
+      const res = await axios.get(`${API}/api/crm/clients`, { withCredentials: true });
       setClients(res.data);
     } catch (err) { console.error(err); }
     setLoading(false);
