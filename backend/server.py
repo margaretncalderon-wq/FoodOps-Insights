@@ -5869,9 +5869,9 @@ async def create_recipe_portion_format(recipe_id: str, data: RecipePortionFormat
     now = datetime.now(timezone.utc)
     format_id = f"pformat_{uuid.uuid4().hex[:12]}"
     
-    # Calculate cost per portion
-    recipe_cost_per_yield = recipe.get("cost_per_yield", 0)
-    cost_per_portion = recipe_cost_per_yield / data.portions_obtained if data.portions_obtained > 0 else 0
+    # Calculate cost per portion using total_cost divided by portions_obtained
+    total_cost = recipe.get("total_cost", 0)
+    cost_per_portion = total_cost / data.portions_obtained if data.portions_obtained > 0 else 0
     
     # Calculate suggested price if target margin provided
     suggested_price = 0.0
