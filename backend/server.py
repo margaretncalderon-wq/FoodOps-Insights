@@ -192,6 +192,10 @@ class Client(BaseModel):
     status: str = "Active"
     total_revenue: float = 0.0
     events_count: int = 0
+    # Credit context fields (Business Clarity)
+    has_credit: bool = False
+    credit_limit: float = 0.0
+    payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
     created_at: datetime
     updated_at: datetime
 
