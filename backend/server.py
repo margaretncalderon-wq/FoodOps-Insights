@@ -63,6 +63,7 @@ audit_router = APIRouter(prefix="/audit", tags=["Audit"])
 purchase_orders_router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
 expenses_router = APIRouter(prefix="/expenses", tags=["Expenses"])
 allergens_router = APIRouter(prefix="/allergens", tags=["Allergens"])
+business_clarity_router = APIRouter(prefix="/business-clarity", tags=["Business Clarity"])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
