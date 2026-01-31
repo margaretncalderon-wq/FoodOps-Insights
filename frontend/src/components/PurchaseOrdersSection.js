@@ -53,6 +53,7 @@ export default function PurchaseOrdersSection() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState(null);
   
   // Form
