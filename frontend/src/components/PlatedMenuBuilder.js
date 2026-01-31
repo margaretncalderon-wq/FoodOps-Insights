@@ -12,11 +12,13 @@ import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
+import { Checkbox } from "./ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 // Icons
 import { 
   Plus, X, GripVertical, ChefHat, Utensils, Check, RefreshCw,
-  DollarSign, Users, Percent
+  DollarSign, Users, Percent, Target, Info, Lightbulb
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -53,8 +55,13 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     pricing_model: "per_guest",
     serving_style: "plated",
     courses: [],
-    buffer_percentage: 0,
-    notes: ""
+    buffer_percentage: 10,
+    notes: "",
+    // Enhanced pricing fields
+    default_guest_count: 50,
+    sell_price_per_guest: 0,
+    target_margin_pct: 35,
+    tax_included: false
   });
 
   useEffect(() => {
@@ -66,8 +73,12 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
         pricing_model: initialMenu.pricing_model || "per_guest",
         serving_style: initialMenu.serving_style || "plated",
         courses: initialMenu.courses || [],
-        buffer_percentage: initialMenu.buffer_percentage || 0,
-        notes: initialMenu.notes || ""
+        buffer_percentage: initialMenu.buffer_percentage || 10,
+        notes: initialMenu.notes || "",
+        default_guest_count: initialMenu.default_guest_count || 50,
+        sell_price_per_guest: initialMenu.sell_price_per_guest || 0,
+        target_margin_pct: initialMenu.target_margin_pct || 35,
+        tax_included: initialMenu.tax_included || false
       });
     }
   }, [initialMenu]);
@@ -92,6 +103,18 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
       noDishes: { en: "No dishes in this course", es: "Sin platos en este tiempo" },
       portionsPerGuest: { en: "Portions/Guest", es: "Porciones/Comensal" },
       courseName: { en: "Course Name", es: "Nombre del Tiempo" },
+      // Enhanced pricing translations
+      pricing: { en: "Pricing", es: "Precios" },
+      defaultGuestCount: { en: "Default Guest Count", es: "Comensales por Defecto" },
+      sellPricePerGuest: { en: "Sell Price per Guest", es: "Precio por Comensal" },
+      targetMargin: { en: "Target Margin %", es: "Margen Objetivo %" },
+      suggestedPrice: { en: "Suggested Price", es: "Precio Sugerido" },
+      taxIncluded: { en: "Tax Included", es: "Impuesto Incluido" },
+      actualMargin: { en: "Actual Margin", es: "Margen Real" },
+      totalRevenue: { en: "Total Revenue", es: "Ingreso Total" },
+      totalCost: { en: "Total Cost", es: "Costo Total" },
+      profit: { en: "Profit", es: "Ganancia" },
+      pricingTip: { en: "Set your target margin to auto-calculate suggested price", es: "Define tu margen objetivo para calcular precio sugerido" },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   };
@@ -99,9 +122,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
   // Add a new course
   const addCourse = (courseType = null) => {
     const courseId = `course_${Date.now()}`;
-    const defaultCourse = courseType 
-      ? DEFAULT_COURSES.find(c => c.name === courseType)
-      : null;
+    const defaultCourse = courseType ? DEFAULT_COURSES.find(c => c.name === courseType) : null;
     
     setForm(prev => ({
       ...prev,
@@ -114,25 +135,17 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     }));
   };
 
-  // Remove a course
   const removeCourse = (courseId) => {
-    setForm(prev => ({
-      ...prev,
-      courses: prev.courses.filter(c => c.course_id !== courseId)
-    }));
+    setForm(prev => ({ ...prev, courses: prev.courses.filter(c => c.course_id !== courseId) }));
   };
 
-  // Update course name
   const updateCourseName = (courseId, name) => {
     setForm(prev => ({
       ...prev,
-      courses: prev.courses.map(c => 
-        c.course_id === courseId ? { ...c, course_name: name } : c
-      )
+      courses: prev.courses.map(c => c.course_id === courseId ? { ...c, course_name: name } : c)
     }));
   };
 
-  // Add dish to course
   const addDishToCourse = (courseId, recipeId) => {
     const recipe = recipes.find(r => r.recipe_id === recipeId);
     if (!recipe) return;
@@ -141,7 +154,6 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
       ...prev,
       courses: prev.courses.map(c => {
         if (c.course_id !== courseId) return c;
-        // Check if already added
         if (c.items.find(item => item.recipe_id === recipeId)) {
           toast.error(language === "es" ? "Ya agregado" : "Already added");
           return c;
@@ -160,21 +172,16 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     }));
   };
 
-  // Remove dish from course
   const removeDishFromCourse = (courseId, recipeId) => {
     setForm(prev => ({
       ...prev,
       courses: prev.courses.map(c => {
         if (c.course_id !== courseId) return c;
-        return {
-          ...c,
-          items: c.items.filter(item => item.recipe_id !== recipeId)
-        };
+        return { ...c, items: c.items.filter(item => item.recipe_id !== recipeId) };
       })
     }));
   };
 
-  // Update dish portions
   const updateDishPortions = (courseId, recipeId, portions) => {
     setForm(prev => ({
       ...prev,
@@ -192,7 +199,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     }));
   };
 
-  // Calculate total cost per guest
+  // Calculate costs
   const calculateCostPerGuest = () => {
     let total = 0;
     for (const course of form.courses) {
@@ -207,8 +214,22 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
 
   const costPerGuest = calculateCostPerGuest();
   const costWithBuffer = costPerGuest * (1 + (form.buffer_percentage || 0) / 100);
+  
+  // Calculate suggested price based on target margin
+  const suggestedPricePerGuest = form.target_margin_pct > 0 && form.target_margin_pct < 100
+    ? costWithBuffer / (1 - form.target_margin_pct / 100)
+    : costWithBuffer * 1.5;
+  
+  // Calculate actual margin based on sell price
+  const actualMarginPct = form.sell_price_per_guest > 0
+    ? ((form.sell_price_per_guest - costWithBuffer) / form.sell_price_per_guest * 100)
+    : 0;
+  
+  // Calculate totals for default guest count
+  const totalRevenue = form.sell_price_per_guest * form.default_guest_count;
+  const totalCost = costWithBuffer * form.default_guest_count;
+  const totalProfit = totalRevenue - totalCost;
 
-  // Get available final dish recipes
   const finalDishRecipes = recipes.filter(r => r.recipe_type === "final_dish");
 
   // Save menu
@@ -223,11 +244,19 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
       const payload = {
         ...form,
         cost_per_guest: costPerGuest,
-        cost_with_buffer: costWithBuffer
+        cost_with_buffer: costWithBuffer,
+        suggested_sell_price_per_guest: suggestedPricePerGuest
       };
       
       if (initialMenu) {
         await axios.put(`${API}/api/plated-menus/${initialMenu.menu_id}`, payload, { withCredentials: true });
+        // Update extended fields
+        await axios.put(`${API}/api/plated-menus/${initialMenu.menu_id}/extended`, {
+          default_guest_count: form.default_guest_count,
+          sell_price_per_guest: form.sell_price_per_guest,
+          target_margin_pct: form.target_margin_pct,
+          tax_included: form.tax_included
+        }, { withCredentials: true });
       } else {
         await axios.post(`${API}/api/plated-menus`, payload, { withCredentials: true });
       }
@@ -244,6 +273,11 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
   const getCourseLabel = (name) => {
     const course = DEFAULT_COURSES.find(c => c.name === name);
     return course ? (language === "es" ? course.labelEs : course.labelEn) : name;
+  };
+
+  // Use suggested price
+  const useSuggestedPrice = () => {
+    setForm(prev => ({ ...prev, sell_price_per_guest: Math.ceil(suggestedPricePerGuest) }));
   };
 
   return (
@@ -292,19 +326,6 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label>{t("bufferPercent")}</Label>
-          <Input 
-            type="number" 
-            min="0" 
-            max="50"
-            value={form.buffer_percentage} 
-            onChange={(e) => setForm(prev => ({ ...prev, buffer_percentage: parseFloat(e.target.value) || 0 }))}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            {language === "es" ? "Porcentaje extra para merma/imprevistos" : "Extra percentage for waste/contingency"}
-          </p>
-        </div>
       </div>
 
       {/* Courses Section */}
@@ -314,23 +335,17 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             <h3 className="font-semibold">{t("courses")}</h3>
             <Badge variant="outline">{form.courses.length}</Badge>
           </div>
-          <div className="flex gap-2">
-            <Select onValueChange={(v) => addCourse(v)}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder={t("addCourse")} />
-              </SelectTrigger>
-              <SelectContent>
-                {DEFAULT_COURSES.map(course => (
-                  <SelectItem key={course.name} value={course.name}>
-                    {language === "es" ? course.labelEs : course.labelEn}
-                  </SelectItem>
-                ))}
-                <SelectItem value="custom">
-                  {language === "es" ? "Tiempo Personalizado" : "Custom Course"}
+          <Select onValueChange={(v) => addCourse(v)}>
+            <SelectTrigger className="w-48"><SelectValue placeholder={t("addCourse")} /></SelectTrigger>
+            <SelectContent>
+              {DEFAULT_COURSES.map(course => (
+                <SelectItem key={course.name} value={course.name}>
+                  {language === "es" ? course.labelEs : course.labelEn}
                 </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              ))}
+              <SelectItem value="custom">{language === "es" ? "Tiempo Personalizado" : "Custom Course"}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {form.courses.length === 0 ? (
@@ -345,9 +360,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                 <CardHeader className="py-3 px-4 flex flex-row items-center justify-between bg-muted/30">
                   <div className="flex items-center gap-3">
                     <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
-                    <span className="text-sm font-semibold text-muted-foreground">
-                      {courseIndex + 1}.
-                    </span>
+                    <span className="text-sm font-semibold text-muted-foreground">{courseIndex + 1}.</span>
                     {course.course_name && DEFAULT_COURSES.find(c => c.name === course.course_name) ? (
                       <span className="font-medium">{getCourseLabel(course.course_name)}</span>
                     ) : (
@@ -361,9 +374,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                   </div>
                   <div className="flex items-center gap-2">
                     <Select onValueChange={(v) => addDishToCourse(course.course_id, v)}>
-                      <SelectTrigger className="w-48 h-8">
-                        <SelectValue placeholder={t("addDish")} />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-48 h-8"><SelectValue placeholder={t("addDish")} /></SelectTrigger>
                       <SelectContent>
                         {finalDishRecipes.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-muted-foreground">
@@ -374,9 +385,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                             <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
                               <div className="flex items-center justify-between w-full">
                                 <span>{recipe.name}</span>
-                                <span className="text-xs text-muted-foreground ml-2">
-                                  ${recipe.cost_per_portion?.toFixed(2)}
-                                </span>
+                                <span className="text-xs text-muted-foreground ml-2">${recipe.cost_per_portion?.toFixed(2)}</span>
                               </div>
                             </SelectItem>
                           ))
@@ -416,17 +425,13 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                               </TableCell>
                               <TableCell>
                                 <Input 
-                                  type="number" 
-                                  min="0.1" 
-                                  step="0.1"
+                                  type="number" min="0.1" step="0.1"
                                   className="w-20 text-right ml-auto"
                                   value={item.portions_per_guest} 
                                   onChange={(e) => updateDishPortions(course.course_id, item.recipe_id, e.target.value)}
                                 />
                               </TableCell>
-                              <TableCell className="text-right font-mono">
-                                ${lineCost.toFixed(2)}
-                              </TableCell>
+                              <TableCell className="text-right font-mono">${lineCost.toFixed(2)}</TableCell>
                               <TableCell>
                                 <Button variant="ghost" size="icon" onClick={() => removeDishFromCourse(course.course_id, item.recipe_id)}>
                                   <X className="w-4 h-4 text-red-500" />
@@ -445,6 +450,144 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
         )}
       </div>
 
+      {/* ENHANCED PRICING SECTION */}
+      <div className="border rounded-lg p-4 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Target className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold">{t("pricing")}</h3>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger><Info className="w-4 h-4 text-muted-foreground" /></TooltipTrigger>
+              <TooltipContent><p className="max-w-xs">{t("pricingTip")}</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <Label>{t("bufferPercent")}</Label>
+            <Input 
+              type="number" min="0" max="50"
+              value={form.buffer_percentage} 
+              onChange={(e) => setForm(prev => ({ ...prev, buffer_percentage: parseFloat(e.target.value) || 0 }))}
+            />
+          </div>
+          <div>
+            <Label>{t("defaultGuestCount")}</Label>
+            <Input 
+              type="number" min="1"
+              value={form.default_guest_count} 
+              onChange={(e) => setForm(prev => ({ ...prev, default_guest_count: parseInt(e.target.value) || 50 }))}
+            />
+          </div>
+          <div>
+            <Label>{t("targetMargin")} %</Label>
+            <Input 
+              type="number" min="0" max="99" step="1"
+              value={form.target_margin_pct} 
+              onChange={(e) => setForm(prev => ({ ...prev, target_margin_pct: parseFloat(e.target.value) || 0 }))}
+            />
+          </div>
+          <div>
+            <Label>{t("sellPricePerGuest")}</Label>
+            <div className="flex gap-2">
+              <Input 
+                type="number" min="0" step="0.01"
+                value={form.sell_price_per_guest} 
+                onChange={(e) => setForm(prev => ({ ...prev, sell_price_per_guest: parseFloat(e.target.value) || 0 }))}
+              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={useSuggestedPrice}>
+                      <Lightbulb className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t("suggestedPrice")}: ${suggestedPricePerGuest.toFixed(2)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Checkbox 
+            id="tax_included"
+            checked={form.tax_included}
+            onCheckedChange={(c) => setForm(prev => ({ ...prev, tax_included: c }))}
+          />
+          <Label htmlFor="tax_included" className="cursor-pointer">{t("taxIncluded")}</Label>
+        </div>
+
+        {/* Cost Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t">
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+              <DollarSign className="w-3 h-3" />
+              {t("costPerGuest")}
+            </div>
+            <p className="text-xl font-bold">${costPerGuest.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+              <Percent className="w-3 h-3" />
+              {t("costWithBuffer")}
+            </div>
+            <p className="text-xl font-bold">${costWithBuffer.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-center gap-1 text-xs text-blue-600 mb-1">
+              <Lightbulb className="w-3 h-3" />
+              {t("suggestedPrice")}
+            </div>
+            <p className="text-xl font-bold text-blue-600">${suggestedPricePerGuest.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+              <Target className="w-3 h-3" />
+              {t("actualMargin")}
+            </div>
+            <p className={`text-xl font-bold ${actualMarginPct < 30 ? "text-red-500" : actualMarginPct < 40 ? "text-yellow-500" : "text-green-500"}`}>
+              {actualMarginPct.toFixed(1)}%
+            </p>
+          </div>
+          <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center justify-center gap-1 text-xs text-green-600 mb-1">
+              <Users className="w-3 h-3" />
+              {t("profit")} ({form.default_guest_count} pax)
+            </div>
+            <p className={`text-xl font-bold ${totalProfit < 0 ? "text-red-500" : "text-green-600"}`}>
+              ${totalProfit.toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        {/* Revenue breakdown for default guest count */}
+        {form.sell_price_per_guest > 0 && (
+          <div className="p-3 bg-muted/30 rounded-lg text-sm">
+            <p className="font-medium mb-2">{language === "es" ? "Resumen para" : "Summary for"} {form.default_guest_count} {language === "es" ? "comensales" : "guests"}:</p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-muted-foreground">{t("totalRevenue")}</p>
+                <p className="font-semibold text-lg">${totalRevenue.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">{t("totalCost")}</p>
+                <p className="font-semibold text-lg">${totalCost.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">{t("profit")}</p>
+                <p className={`font-semibold text-lg ${totalProfit < 0 ? "text-red-500" : "text-green-600"}`}>
+                  ${totalProfit.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Notes */}
       <div>
         <Label>{t("notes")}</Label>
@@ -455,40 +598,9 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
         />
       </div>
 
-      {/* Cost Summary */}
-      <Card className="bg-muted/30">
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-background rounded-lg">
-              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                <Users className="w-3 h-3" />
-                {t("costPerGuest")}
-              </div>
-              <p className="text-2xl font-bold text-green-600">${costPerGuest.toFixed(2)}</p>
-            </div>
-            <div className="text-center p-3 bg-background rounded-lg">
-              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                <Percent className="w-3 h-3" />
-                {t("bufferPercent")}
-              </div>
-              <p className="text-2xl font-bold">{form.buffer_percentage}%</p>
-            </div>
-            <div className="text-center p-3 bg-background rounded-lg">
-              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                <DollarSign className="w-3 h-3" />
-                {t("costWithBuffer")}
-              </div>
-              <p className="text-2xl font-bold text-primary">${costWithBuffer.toFixed(2)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button variant="outline" onClick={onClose} disabled={loading}>
-          {t("cancel")}
-        </Button>
+        <Button variant="outline" onClick={onClose} disabled={loading}>{t("cancel")}</Button>
         <Button onClick={handleSave} disabled={loading || !form.name.trim()}>
           {loading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           {t("save")}
