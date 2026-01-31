@@ -29,9 +29,15 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
+
+// New Settings Sections
+import UsersSettingsSection from "../components/settings/UsersSettingsSection";
+import RolesSettingsSection from "../components/settings/RolesSettingsSection";
+import AutomationsSettingsSection from "../components/settings/AutomationsSettingsSection";
+import IntegrationsSettingsSection from "../components/settings/IntegrationsSettingsSection";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
