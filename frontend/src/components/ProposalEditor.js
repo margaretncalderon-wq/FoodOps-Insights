@@ -157,6 +157,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
   const fetchPicklist = async () => {
     try {
+      // Fetch picklist with calculated costs from recipes/inventory
       const response = await axios.get(`${API}/settings/picklist`, { withCredentials: true });
       setPicklist(response.data);
     } catch (error) {
