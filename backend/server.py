@@ -7153,23 +7153,21 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user))
         if inv.get("status") == "paid":
             continue
         balance = inv.get("balance_due", inv.get("total", 0))
-        due_date = inv.get("due_date")
-        if due_date:
-            try:
-                due_dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
-                days_overdue = (now - due_dt).days
-                if days_overdue <= 0:
-                    aging["current"] += balance
-                elif days_overdue <= 30:
-                    aging["1_30"] += balance
-                elif days_overdue <= 60:
-                    aging["31_60"] += balance
-                elif days_overdue <= 90:
-                    aging["61_90"] += balance
-                else:
-                    aging["90_plus"] += balance
-            except:
+        due_dt = parse_due_date(inv.get("due_date"))
+        if due_dt:
+            days_overdue = (now - due_dt).days
+            if days_overdue <= 0:
                 aging["current"] += balance
+            elif days_overdue <= 30:
+                aging["1_30"] += balance
+            elif days_overdue <= 60:
+                aging["31_60"] += balance
+            elif days_overdue <= 90:
+                aging["61_90"] += balance
+            else:
+                aging["90_plus"] += balance
+        else:
+            aging["current"] += balance
     
     return {
         "total_receivables": round(total_receivables, 2),
