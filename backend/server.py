@@ -2810,6 +2810,11 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
         "cost_per_yield": round(cost_per_yield, 4),
         "cost_per_portion": round(cost_per_portion, 4),
         "food_cost_percent": round(food_cost_percent, 2),
+        # Extended fields with defaults
+        "allergens": [],
+        "work_category": None,
+        "recipe_code": None,
+        "verified_status": "Draft",
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
