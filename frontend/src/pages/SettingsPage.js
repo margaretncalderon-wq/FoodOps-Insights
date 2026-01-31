@@ -84,7 +84,21 @@ export default function SettingsPage() {
   });
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
-  const [newPicklist, setNewPicklist] = useState({ name: "", description: "", category_id: "", default_price: 0, recipe_id: "", unit: "unit" });
+  const [newPicklist, setNewPicklist] = useState({ 
+    name: "", 
+    description: "", 
+    category_id: "", 
+    item_type: "Service",
+    default_price: 0, 
+    internal_cost: null,
+    recipe_id: "", 
+    inventory_item_id: "",
+    unit: "unit",
+    is_active: true
+  });
+  const [editingPicklist, setEditingPicklist] = useState(null);
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
+  const [bulkItems, setBulkItems] = useState("");
   const [newTax, setNewTax] = useState({ name: "", rate: 0, is_default: false });
   const [newLeadForm, setNewLeadForm] = useState({
     form_name: "",
