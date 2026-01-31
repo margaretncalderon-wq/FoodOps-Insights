@@ -456,15 +456,17 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                       <TableHeader>
                         <TableRow>
                           <TableHead>{language === "es" ? "Plato" : "Dish"}</TableHead>
-                          <TableHead className="w-32 text-right">{t("portionsPerGuest")}</TableHead>
-                          <TableHead className="w-28 text-right">{language === "es" ? "Costo" : "Cost"}</TableHead>
+                          <TableHead className="w-40">{language === "es" ? "Formato" : "Format"}</TableHead>
+                          <TableHead className="w-24 text-right">{t("portionsPerGuest")}</TableHead>
+                          <TableHead className="w-24 text-right">{language === "es" ? "Costo" : "Cost"}</TableHead>
                           <TableHead className="w-10"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {course.items.map(item => {
                           const recipe = recipes.find(r => r.recipe_id === item.recipe_id);
-                          const costPerPortion = recipe?.cost_per_portion || item.cost_per_portion || 0;
+                          const formats = portionFormats[item.recipe_id] || [];
+                          const costPerPortion = item.cost_per_portion || recipe?.cost_per_portion || 0;
                           const lineCost = costPerPortion * (item.portions_per_guest || 1);
                           return (
                             <TableRow key={item.recipe_id}>
@@ -475,16 +477,38 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                                 </div>
                               </TableCell>
                               <TableCell>
+                                {formats.length > 0 ? (
+                                  <Select 
+                                    value={item.portion_format_id || "default"} 
+                                    onValueChange={(v) => updateDishPortionFormat(course.course_id, item.recipe_id, v === "default" ? null : v)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder={language === "es" ? "Estándar" : "Standard"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="default">{language === "es" ? "Estándar" : "Standard"} (${recipe?.cost_per_portion?.toFixed(2) || "0.00"})</SelectItem>
+                                      {formats.map(fmt => (
+                                        <SelectItem key={fmt.format_id} value={fmt.format_id}>
+                                          {fmt.format_name} (${fmt.cost_per_portion?.toFixed(2)})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">{language === "es" ? "Estándar" : "Standard"}</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
                                 <Input 
                                   type="number" min="0.1" step="0.1"
-                                  className="w-20 text-right ml-auto"
+                                  className="w-16 text-right ml-auto h-8 text-xs"
                                   value={item.portions_per_guest} 
                                   onChange={(e) => updateDishPortions(course.course_id, item.recipe_id, e.target.value)}
                                 />
                               </TableCell>
-                              <TableCell className="text-right font-mono">${lineCost.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono text-sm">${lineCost.toFixed(2)}</TableCell>
                               <TableCell>
-                                <Button variant="ghost" size="icon" onClick={() => removeDishFromCourse(course.course_id, item.recipe_id)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeDishFromCourse(course.course_id, item.recipe_id)}>
                                   <X className="w-4 h-4 text-red-500" />
                                 </Button>
                               </TableCell>
