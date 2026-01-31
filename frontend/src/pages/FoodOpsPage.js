@@ -1145,24 +1145,31 @@ export default function FoodOpsPage() {
           {language === "es" ? "← Volver al Dashboard" : "← Back to Dashboard"}
         </NavLink>
         
-        <div className="flex items-center gap-2 mb-6">
-          <UtensilsCrossed className="w-6 h-6 text-primary" />
-          <h2 className="text-xl font-bold">Food Ops</h2>
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <UtensilsCrossed className="w-6 h-6 text-primary" />
+            <h2 className="text-xl font-bold">Culinary Intelligence</h2>
+          </div>
+          <p className="text-xs text-muted-foreground pl-8">
+            {language === "es" 
+              ? "Donde la comida deja de ser intuición y se convierte en sistema" 
+              : "Where food decisions move from intuition to system"}
+          </p>
         </div>
-        <nav className="space-y-2 flex-1">
+        <nav className="space-y-1 flex-1">
           {navItems.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
                   isActive 
                     ? "bg-primary text-primary-foreground" 
                     : "hover:bg-muted"
                 }`
               }
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className="w-4 h-4" />
               <span>{item.label}</span>
             </NavLink>
           ))}
