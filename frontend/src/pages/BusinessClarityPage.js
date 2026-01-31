@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
-import { Layout } from "../components/Layout";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -21,7 +20,7 @@ import {
   DollarSign, CreditCard, FileText, Users, TrendingUp, TrendingDown,
   AlertTriangle, Clock, CheckCircle, Plus, Download, RefreshCw, 
   Wallet, PieChart, Calendar, Banknote, UserCircle, Landmark, 
-  FileBarChart, BarChart3, Building2
+  FileBarChart, BarChart3, Building2, ArrowLeft
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
