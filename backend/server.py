@@ -743,6 +743,66 @@ class PicklistItem(BaseModel):
 class PicklistBulkCreate(BaseModel):
     items: List[PicklistItemCreate]
 
+# ============== MENU / PACKAGE MODELS ==============
+# A Menu (or Package) groups multiple picklist items together for quick selection
+
+class MenuItemEntry(BaseModel):
+    """An item within a menu/package"""
+    picklist_item_id: Optional[str] = None  # Reference to picklist item
+    recipe_id: Optional[str] = None  # Or direct recipe reference
+    custom_name: Optional[str] = None  # Custom name override
+    custom_description: Optional[str] = None
+    quantity: float = 1.0
+    unit_price_override: Optional[float] = None  # Override default price
+    internal_cost_override: Optional[float] = None  # Override default cost
+    sort_order: int = 0
+
+class MenuCreate(BaseModel):
+    """Create a menu/package with items"""
+    name: str
+    name_es: Optional[str] = None
+    description: Optional[str] = None
+    description_es: Optional[str] = None
+    menu_type: str = "Menu"  # Menu, Package, Bundle
+    category_id: Optional[str] = None
+    items: List[MenuItemEntry] = []
+    default_price: Optional[float] = None  # Fixed price for entire package
+    is_fixed_price: bool = False  # If true, use default_price instead of sum
+    is_active: bool = True
+
+class MenuUpdate(BaseModel):
+    name: Optional[str] = None
+    name_es: Optional[str] = None
+    description: Optional[str] = None
+    description_es: Optional[str] = None
+    menu_type: Optional[str] = None
+    category_id: Optional[str] = None
+    items: Optional[List[MenuItemEntry]] = None
+    default_price: Optional[float] = None
+    is_fixed_price: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+class Menu(BaseModel):
+    menu_id: str
+    company_id: str
+    name: str
+    name_es: Optional[str] = None
+    description: Optional[str] = None
+    description_es: Optional[str] = None
+    menu_type: str
+    category_id: Optional[str] = None
+    items: List[Dict[str, Any]] = []
+    default_price: Optional[float] = None
+    is_fixed_price: bool
+    is_active: bool
+    # Calculated fields
+    total_price: float = 0
+    total_cost: float = 0
+    margin_amount: float = 0
+    margin_percentage: float = 0
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
 # Tax Rate Model
 class TaxRateCreate(BaseModel):
     name: str
