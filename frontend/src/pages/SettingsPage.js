@@ -571,6 +571,97 @@ export default function SettingsPage() {
     }
   };
 
+  // Menu handlers
+  const handleSaveMenu = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingMenu) {
+        await axios.put(`${API}/settings/menus/${editingMenu.menu_id}`, newMenu, { withCredentials: true });
+        toast.success(language === "es" ? "Menú actualizado" : "Menu updated");
+      } else {
+        await axios.post(`${API}/settings/menus`, newMenu, { withCredentials: true });
+        toast.success(language === "es" ? "Menú creado" : "Menu created");
+      }
+      fetchMenus();
+      setMenuDialogOpen(false);
+      resetMenuForm();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to save menu");
+    }
+  };
+
+  const handleEditMenu = (menu) => {
+    setEditingMenu(menu);
+    setNewMenu({
+      name: menu.name || "",
+      name_es: menu.name_es || "",
+      description: menu.description || "",
+      description_es: menu.description_es || "",
+      menu_type: menu.menu_type || "Menu",
+      items: menu.items || [],
+      default_price: menu.default_price || null,
+      is_fixed_price: menu.is_fixed_price || false,
+      is_active: menu.is_active !== false
+    });
+    setMenuDialogOpen(true);
+  };
+
+  const resetMenuForm = () => {
+    setEditingMenu(null);
+    setNewMenu({
+      name: "",
+      name_es: "",
+      description: "",
+      description_es: "",
+      menu_type: "Menu",
+      items: [],
+      default_price: null,
+      is_fixed_price: false,
+      is_active: true
+    });
+  };
+
+  const handleDeleteMenu = async (menuId) => {
+    if (!confirm(language === "es" ? "¿Eliminar este menú?" : "Delete this menu?")) return;
+    try {
+      await axios.delete(`${API}/settings/menus/${menuId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Menú eliminado" : "Menu deleted");
+      fetchMenus();
+    } catch (error) {
+      toast.error("Failed to delete menu");
+    }
+  };
+
+  const addItemToMenu = (picklistItem) => {
+    const newItem = {
+      picklist_item_id: picklistItem.item_id,
+      custom_name: picklistItem.name,
+      quantity: 1,
+      unit_price_override: null,
+      internal_cost_override: null
+    };
+    setNewMenu(prev => ({
+      ...prev,
+      items: [...prev.items, newItem]
+    }));
+  };
+
+  const removeItemFromMenu = (index) => {
+    setNewMenu(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateMenuItemQuantity = (index, quantity) => {
+    setNewMenu(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => 
+        i === index ? { ...item, quantity: parseFloat(quantity) || 1 } : item
+      )
+    }));
+  };
+
   // Tax handlers
   const handleAddTax = async (e) => {
     e.preventDefault();
