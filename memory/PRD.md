@@ -29,35 +29,127 @@ Each Event has ONE active Proposal that serves as:
 - Client-facing contract  
 - Pricing authority (single source of truth)
 
-**Proposal Fields:**
-- proposal_number (auto-generated: PROP-YYYY-####)
-- status (Draft, Sent, Accepted, Rejected)
-- valid_until, client_notes, payment_terms
-- subtotal, discount_amount, tax_details, total
-- total_cost, total_margin, margin_percentage (internal)
-
 ### 5. Order Items
 Unified commercial engine for all items sold in an event:
-
-**Item Types:**
 - Food (links to recipes for auto cost calculation)
-- Service (manual internal_cost)
-- Rental (manual internal_cost)
-- Fee (manual internal_cost)
+- Service, Rental, Fee (manual internal_cost)
 
-**Item Fields:**
-- description (client-facing)
-- quantity, unit_price (visible to client)
-- internal_cost (hidden, internal only)
-- total_price, total_cost, margin_amount, margin_percentage (calculated)
+### 6. Food Ops Module V3 (ENHANCED - Jan 31, 2026)
 
-### 6. Margin Tracking
-Internal-only financials visible to Admin/Owner:
-- Total revenue
-- Total internal cost
-- Gross margin (amount and percentage)
-- Breakdown by item_type
-- Warnings for missing costs and low margins
+#### 6.1 Inventory Management
+- **Items**: Track food, packaging, disposables, equipment, event supplies
+- **Stock Tracking**: Current stock, par levels, low stock alerts
+- **Value by Type**: Dashboard showing total value per inventory type
+- **Two Preferred Suppliers**: Primary and secondary supplier per item
+- **Purchase Details**: purchase_unit, purchase_pack_size, min_order_qty, lead_time_days
+- **Price History**: Full audit trail of cost changes with source (Manual, PO, Invoice)
+
+#### 6.2 Suppliers (Enhanced)
+- company_name, contact_name, email, phone, address
+- **Payment Terms**: Cash, Transfer, Credit, Mixed
+- **Credit Management**: has_credit, credit_limit
+- **Delivery**: usual_delivery_days
+- **Tax ID**: RFC / NIT support
+
+#### 6.3 Advanced Recipe System
+**Recipe Types:**
+- `Base Recipe` (sauces, stocks, doughs)
+- `Component` (sides, elements)  
+- `Final Dish` (ready to serve)
+
+**Recipe Composition:**
+- Add inventory ingredients with waste factor (merma)
+- Sub-recipes as ingredients
+- Auto-calculated costs propagate through the recipe tree
+
+**Recipe Portion Formats (NEW):**
+- Multiple pricing formats per recipe (Plato, Bowl 12oz, Mini, Tray)
+- portions_obtained, portion_unit, sell_price
+- target_margin_pct with auto-calculated suggested_price
+- cost_per_portion and margin_pct calculations
+
+**Additional Recipe Fields:**
+- allergens[] (multi-select from configurable list)
+- work_category (prep station / partida de trabajo)
+- recipe_code (internal reference)
+- verified_status (Draft, Verified)
+
+**Recipe Packaging Formats:**
+- Link packaging inventory items to recipes
+- qty_per_portion for packaging cost calculations
+
+#### 6.4 Allergens Configuration (NEW)
+- 14 default allergens (Gluten, Dairy, Eggs, Shellfish, Peanuts, Tree Nuts, Soy, Fish, Celery, Mustard, Sesame, Sulfites, Mollusks, Lupin)
+- Fully configurable via Settings
+- Multilingual support (EN/ES)
+
+#### 6.5 Plated Menu System
+**Menu Types:** Plated, Buffet, Cocktail, Grab & Go
+**Serving Styles:** Plated Service, Family Style, Stations
+
+**Course Structure:**
+- Add courses: Appetizer, Salad, Soup, Entree, Dessert, Custom
+- Assign Final Dish recipes to courses
+- Portions per guest (configurable)
+
+**Menu Pricing (Enhanced):**
+- default_guest_count
+- sell_price_per_guest with target_margin_pct
+- suggested_sell_price_per_guest (auto-calculated)
+- tax_included option
+- buffer_percentage for waste/contingency
+
+#### 6.6 Purchase Orders System (NEW)
+**Full PO Lifecycle:**
+- Create PO with supplier and lines
+- Status: Draft → Sent → PartiallyReceived → Received → Cancelled
+- Generate PO number (PO-YYYY-####)
+- needed_by_date, payment_method, notes
+
+**PO Lines:**
+- inventory_item_id, item_name, qty_ordered, purchase_unit, unit_cost
+- line_total (calculated)
+- qty_received tracking
+
+**Receiving Workflow:**
+- Receive items with quantity and optional cost override
+- Auto-create inventory transactions (Purchase type)
+- Auto-update inventory stock levels
+- Auto-add price history entries
+- Auto-update item cost_per_unit
+
+**Expense Integration:**
+- Auto-create expense record on receive
+- Link to PO, supplier, invoice details
+- Track payment status (Pending, Partial, Paid)
+
+#### 6.7 Consolidated Purchase List (NEW - Scaling Automation)
+**Generate from Multiple Events:**
+- Select one or more upcoming events
+- System calculates required ingredients from:
+  - Event guest count
+  - Order items of type "Food" with linked recipes
+  - Recipe portions_per_yield scaling
+  - Sub-recipe ingredient propagation
+  - Waste factor (merma) adjustments
+
+**Inventory Comparison:**
+- Compare required vs current stock
+- Calculate to_purchase quantities
+- Show in_stock vs shortages
+
+**Supplier Grouping:**
+- Group items by preferred supplier
+- Show totals per supplier
+- One-click "Create PO" from supplier items
+
+**Buffer Support:**
+- Optional 10% buffer for waste/contingency
+
+#### 6.8 Navigation
+- Dedicated sidebar at /food-ops
+- Sections: Inventory, Recipes, Menus, Purchases, Purchase Orders, Consolidated
+- **← Back to Dashboard** link at top
 
 ### 7. Feature Flags
 Configurable in Settings > Features:
@@ -68,100 +160,53 @@ Configurable in Settings > Features:
 - is_custom_fields_enabled
 - is_food_ops_enabled
 - is_inventory_enabled
-- is_recipe_composition_enabled (NEW)
-- is_plated_menu_enabled (NEW)
-- is_base_recipes_enabled (NEW)
+- is_recipe_composition_enabled
+- is_plated_menu_enabled
+- is_base_recipes_enabled
 - is_purchase_list_enabled
-
-All flags ON by default.
 
 ### 8. Document Templates
 Auto-generated from Event Order:
 - Proposal / Contract (PDF)
-- Invoice
-- Packing List
-- Kitchen Sheet
-- Service / Setup Sheet
+- Invoice, Packing List, Kitchen Sheet, Service/Setup Sheet
 
-### 9. Audit Log
-Tracks changes after Proposal.status = Accepted:
-- User, timestamp
-- Action type (add/remove/edit item, status change)
-- Impact on totals
+## API Routes
 
-### 10. Food Ops Module (NEW - Jan 31, 2026)
-Comprehensive food operations management system with dedicated UI at `/food-ops`:
+### Food Ops - New Endpoints
+- POST `/api/purchase-orders` - Create PO
+- GET/PUT/DELETE `/api/purchase-orders/{id}` - PO CRUD
+- PUT `/api/purchase-orders/{id}/status` - Update status
+- POST `/api/purchase-orders/{id}/receive` - Receive items with expense
+- GET/POST `/api/allergens` - Allergen configuration
+- GET `/api/inventory/value-summary` - Value by type
+- GET/POST `/api/inventory/ingredients/{id}/price-history` - Price audit trail
+- GET/POST/PUT/DELETE `/api/recipes/{id}/portion-formats` - Multiple pricing formats
+- PUT `/api/recipes/{id}/extended` - Allergens, work_category
+- PUT `/api/plated-menus/{id}/extended` - Guest count, pricing
+- PUT `/api/suppliers/{id}/extended` - Payment terms, credit
+- PUT `/api/inventory/ingredients/{id}/extended` - 2nd supplier, purchase details
+- POST `/api/events/generate-purchase-list` - Consolidated scaling
+- POST `/api/events/create-po-from-purchase-list` - Auto-create PO
+- GET/POST `/api/expenses` - Expense management
+- PUT `/api/expenses/{id}/pay` - Record payment
 
-#### 10.1 Inventory Management
-- **Items**: Track food, packaging, disposables, equipment, event supplies
-- **Stock Tracking**: Current stock, par levels, low stock alerts
-- **Suppliers**: Supplier database with contact info
-- **Transactions**: Purchase, Usage, Adjustment, Waste tracking
-
-#### 10.2 Advanced Recipe System (NEW - Jan 31, 2026)
-**Recipe Types:**
-- `Base Recipe` (salsas, fondos, masas) - Purple badge
-- `Component` (guarniciones, elementos) - Blue badge  
-- `Final Dish` (platos listos para servir) - Green badge
-
-**Recipe Composition:**
-- Add inventory ingredients with quantity and unit
-- **Waste Factor (Merma)**: `waste_factor_pct` per ingredient (increases effective cost)
-- **Sub-Recipes**: Use Base or Component recipes as ingredients in other recipes
-- Auto-calculated costs propagate through the recipe tree
-
-**Recipe Features:**
-- **Duplicate Recipe**: One-click copy with "(Copy)" suffix
-- **Cost History**: Track ingredient price changes over time
-- **Cost Per Portion**: Automatically calculated from total cost / portions
-- **Food Cost %**: Real-time calculation based on sell price
-- Yield quantity, unit, portions per yield
-- Prep time, cook time, labor time tracking
-
-#### 10.3 Plated Menu System (NEW - Jan 31, 2026)
-Build structured menus for events:
-
-**Menu Types:**
-- Plated (Emplatado)
-- Buffet
-- Cocktail (Coctel)
-- Grab & Go (Para Llevar)
-
-**Serving Styles:**
-- Plated Service (Servicio Emplatado)
-- Family Style (Estilo Familiar)
-- Stations (Estaciones)
-
-**Course Structure:**
-- Add courses: Appetizer, Salad, Soup, Entree, Dessert, Custom
-- Assign Final Dish recipes to courses
-- Portions per guest (configurable)
-- **Cost Per Guest**: Auto-calculated from all course items
-- **Buffer Percentage**: Extra % for waste/contingency
-
-#### 10.4 Purchase Lists
-Generate shopping lists for events:
-- Group items by supplier
-- Compare required vs available stock
-- Track purchase status (Draft → Ordered → Received)
-- Auto-create inventory transactions on receipt
-
-### 11. Recipe Costing (Legacy - Integrated into Food Ops)
-- Ingredient management
-- Recipe creation with yield and portions
-- Auto cost calculation per serving
-
-### 12. Menus / Packages System
-- Create menus that group multiple picklist items
-- Each menu has name, description (bilingual), type (Menu/Package/Bundle)
-- Fixed price option or calculated sum of items
-- Quantity per item in the menu
-- Auto-calculated total cost and margin
-- Add entire menu to proposal with one click
-- **Menu Variants (Gold/Silver/Bronze)**:
-  - Create pricing tiers with percentage or fixed discounts
-  - Auto-calculated prices and margins per variant
-  - One-click add variant to proposal
+## Database Collections
+- `users`, `companies`
+- `leads`, `lead_forms`, `clients`, `contacts`
+- `events`, `proposals`, `order_items`
+- `recipes`, `ingredients`, `suppliers`
+- `plated_menus`
+- `recipe_portion_formats` (NEW)
+- `recipe_packaging_formats` (NEW)
+- `allergen_configs` (NEW)
+- `inventory_price_history` (NEW)
+- `purchase_orders_full` (NEW)
+- `expenses` (NEW)
+- `inventory_transactions`
+- `purchase_lists`
+- `feature_flags`, `audit_logs`
+- `document_templates`
+- `item_categories`, `picklist_items`, `tax_rates`
 
 ## Tech Stack
 - **Frontend**: React, Shadcn/UI, Tailwind CSS
@@ -169,113 +214,44 @@ Generate shopping lists for events:
 - **Database**: MongoDB
 - **Auth**: JWT + Emergent Google OAuth
 
-## API Routes
-
-### Food Ops - Inventory
-- GET/POST `/api/inventory/ingredients` - List/create items
-- PUT/DELETE `/api/inventory/ingredients/{id}` - Update/delete items
-- GET/POST `/api/inventory/transactions` - Transaction history
-
-### Food Ops - Recipes
-- GET/POST `/api/recipes` - List/create recipes
-- PUT/DELETE `/api/recipes/{id}` - Update/delete recipes
-- POST `/api/recipes/{id}/duplicate` - Duplicate recipe (NEW)
-- GET `/api/recipes/{id}/cost-history` - Get ingredient cost history (NEW)
-- POST `/api/recipes/recalculate-all` - Recalculate all recipe costs
-
-### Food Ops - Plated Menus
-- GET/POST `/api/plated-menus` - List/create menus
-- PUT/DELETE `/api/plated-menus/{id}` - Update/delete menus
-
-### Food Ops - Suppliers
-- GET/POST `/api/suppliers` - List/create suppliers
-- PUT/DELETE `/api/suppliers/{id}` - Update/delete suppliers
-
-### Food Ops - Purchase Lists
-- GET `/api/purchase-lists` - List purchase lists (filter by event_id)
-- GET `/api/purchase-lists/event/{id}/generate` - Generate from event recipes
-- POST `/api/purchase-lists` - Create/save purchase list
-- PUT `/api/purchase-lists/{id}/status` - Update status
-
-### Settings
-- GET/PUT `/api/settings/feature-flags`
-- GET/POST/PUT/DELETE `/api/settings/document-templates`
-- GET/POST/PUT/DELETE `/api/settings/categories`
-- GET/POST/PUT/DELETE `/api/settings/taxes`
-
-### Proposals
-- GET `/api/proposals/event/{event_id}` - Get or create proposal
-- PUT `/api/proposals/{proposal_id}` - Update proposal
-- PUT `/api/proposals/{proposal_id}/financials` - Update financials
-- PUT `/api/proposals/{proposal_id}/custom-fields` - Update custom fields
-- GET/POST `/api/proposals/{proposal_id}/items` - Order items
-- PUT/DELETE `/api/proposals/{proposal_id}/items/{item_id}` - Item CRUD
-
-### Events
-- GET `/api/events/{event_id}/financials` - Internal financials
-- PUT `/api/events/{event_id}/extended` - Extended fields
-
-### Audit
-- GET `/api/audit/event/{event_id}`
-- GET `/api/audit/proposal/{proposal_id}`
-
-## Database Collections
-- `users`, `companies`
-- `leads`, `lead_forms`, `clients`, `contacts`
-- `events`
-- `proposals`
-- `order_items`
-- `feature_flags`
-- `audit_logs`
-- `document_templates`
-- `recipes` (extended with recipe_type, sub_recipes, waste_factor)
-- `ingredients` (extended with price_history)
-- `suppliers`
-- `inventory_transactions`
-- `purchase_lists`
-- `plated_menus` (NEW)
-- `item_categories`, `picklist_items`, `tax_rates`
-
 ## Known Issues
 1. **Google OAuth Login** - BROKEN (Invalid state parameter) - P1
 
 ## Completed (Jan 31, 2026)
 - [x] Full CRM Refactor with Leads/Clients/Pipeline
-- [x] Lead Form Builder with multilingual support
 - [x] Proposal/Contract System
 - [x] Unified OrderItems (Food, Service, Rental, Fee)
 - [x] Internal Margin Tracking
 - [x] Feature Flags in Settings
-- [x] Event Financials tab
-- [x] Audit Logging for post-acceptance changes
-- [x] Document generation UI (6 types)
-- [x] Enhanced Picklist System with CRUD
+- [x] Document generation UI
 - [x] Menus / Packages System with Variants
-- [x] Document Templates Editor
-- [x] **Food Ops Module V1**:
-  - Inventory management (items, suppliers, transactions)
-  - Basic recipe system
-  - Purchase lists generation
-- [x] **Food Ops Module V2 (Advanced)** (NEW):
-  - Recipe Types: Base, Component, Final Dish
-  - Recipe Composition: Sub-recipes as ingredients
-  - Waste Factor (Merma): % per ingredient
-  - Recipe Duplication: One-click copy
-  - Cost History: Track ingredient price changes
-  - Plated Menu Builder: Courses with dishes
-  - Cost per Guest calculation with buffer %
-  - Dedicated UI at /food-ops with navigation
+- [x] **Food Ops Module V1**: Inventory, Basic Recipes
+- [x] **Food Ops Module V2**: Recipe Types, Sub-recipes, Waste Factor, Plated Menus
+- [x] **Food Ops Module V3 (ENHANCED)**:
+  - Purchase Orders with full workflow (Create → Send → Receive)
+  - Expense auto-creation on receive
+  - Consolidated Purchase List from multiple events
+  - Automatic recipe scaling by guest count
+  - Inventory comparison (required vs stock)
+  - One-click PO creation from purchase list
+  - Recipe Portion Formats (multiple pricing per recipe)
+  - Allergens configuration
+  - Inventory Price History
+  - Enhanced Supplier (payment terms, credit)
+  - Enhanced Inventory (2 suppliers, purchase details)
+  - Navigation: Back to Dashboard
 
 ## Upcoming Tasks
 - [ ] Fix Google OAuth Login (P1)
+- [ ] Recipe Packaging Formats UI
+- [ ] Allergens UI in Recipe Builder
+- [ ] Menu pricing UI with target margin
 - [ ] PDF generation with templates
-- [ ] Connect Purchase Lists to Event Menu
-- [ ] UI validation for circular recipe dependencies
-- [ ] Finance & Reporting Module
-- [ ] CSV Export
 
 ## Future/Backlog
-- [ ] AI integrations for client analysis
-- [ ] AI suggestions for suppliers
+- [ ] AI integrations for supplier suggestions
 - [ ] Integration with Alegra (electronic invoicing)
 - [ ] Payment gateways (Stripe, MercadoPago)
+- [ ] Expense payment tracking UI
+- [ ] Finance & Reporting Module
+- [ ] CSV Export
