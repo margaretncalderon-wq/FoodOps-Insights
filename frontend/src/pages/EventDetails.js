@@ -296,6 +296,10 @@ export default function EventDetails() {
               <ClipboardList className="w-4 h-4" />
               {t("tasks")}
             </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2" data-testid="tab-payments">
+              <Banknote className="w-4 h-4" />
+              {language === "es" ? "Pagos" : "Payments"}
+            </TabsTrigger>
             <TabsTrigger value="purchase" className="gap-2" data-testid="tab-purchase">
               <ShoppingCart className="w-4 h-4" />
               {language === "es" ? "Gestión de Compras" : "Procurement"}
