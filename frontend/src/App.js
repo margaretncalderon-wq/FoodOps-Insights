@@ -36,13 +36,37 @@ const AuthCallback = () => {
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
-    const hash = location.hash;
-    const sessionIdMatch = hash.match(/session_id=([^&]+)/);
+    // Try to get session_id from hash first, then from query params
+    let sessionId = null;
     
-    if (sessionIdMatch) {
-      const sessionId = sessionIdMatch[1];
+    // Check hash fragment (e.g., #session_id=xxx or #/dashboard?session_id=xxx)
+    const hash = location.hash || "";
+    const hashMatch = hash.match(/session_id=([^&\s#]+)/);
+    if (hashMatch) {
+      sessionId = hashMatch[1];
+    }
+    
+    // Check query params as fallback
+    if (!sessionId) {
+      const searchParams = new URLSearchParams(location.search);
+      sessionId = searchParams.get("session_id");
+    }
+    
+    // Also check if full URL contains session_id (some redirects put it differently)
+    if (!sessionId) {
+      const fullUrl = window.location.href;
+      const urlMatch = fullUrl.match(/session_id=([^&\s#]+)/);
+      if (urlMatch) {
+        sessionId = urlMatch[1];
+      }
+    }
+    
+    if (sessionId) {
+      console.log("Found session_id, exchanging...");
       exchangeSession(sessionId)
         .then((user) => {
+          // Clear the URL to remove session_id
+          window.history.replaceState({}, document.title, "/dashboard");
           navigate("/dashboard", { replace: true, state: { user } });
         })
         .catch((err) => {
@@ -50,9 +74,10 @@ const AuthCallback = () => {
           navigate("/login", { replace: true });
         });
     } else {
+      console.log("No session_id found in URL");
       navigate("/login", { replace: true });
     }
-  }, []);
+  }, [exchangeSession, navigate, location]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
