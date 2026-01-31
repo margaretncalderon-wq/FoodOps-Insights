@@ -336,6 +336,8 @@ Auto-generated from Event Order:
   - "Estados de Cuenta" (Account Statements) with client selector
   - Running balance and activity log per client
   - Credit warnings and alerts
+  - **CSV/PDF download for account statements**
+  - Fixed client endpoint to use /api/crm/clients
 
 ## Upcoming Tasks
 - [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
