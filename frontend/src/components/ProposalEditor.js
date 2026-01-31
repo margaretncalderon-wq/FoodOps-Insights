@@ -782,7 +782,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                       disabled={isLocked}
                       onValueChange={(taxId) => handleUpdateFinancials({ 
                         tax_ids: taxId === "none" ? [] : [taxId],
-                        discount_amount: proposal.discount_amount
+                        discount_type: proposal.discount_type || "fixed",
+                        discount_value: proposal.discount_value || 0
                       })}
                     >
                       <SelectTrigger className="w-48">
