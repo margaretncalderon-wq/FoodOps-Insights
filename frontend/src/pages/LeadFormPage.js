@@ -216,6 +216,10 @@ export default function LeadFormPage() {
   }
 
   if (submitted) {
+    const thankYouMsg = language === "es" 
+      ? (form.thank_you_message_es || "¡Gracias por tu consulta!")
+      : (form.thank_you_message_en || "Thank you for your inquiry!");
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
         <LanguageSelector />
@@ -225,7 +229,7 @@ export default function LeadFormPage() {
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold mb-2">{t.thankYou}</h2>
-            <p className="text-muted-foreground">{form.thank_you_message}</p>
+            <p className="text-muted-foreground">{thankYouMsg}</p>
           </CardContent>
         </Card>
       </div>
