@@ -524,9 +524,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
         {/* Items Tab */}
         <TabsContent value="items" className="space-y-4">
-          {/* Add Item Button */}
+          {/* Add Item / Menu Buttons */}
           {!isLocked && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {menus.length > 0 && (
+                <Button variant="outline" onClick={() => setAddMenuOpen(true)} className="gap-2" data-testid="add-menu-btn">
+                  <Package className="w-4 h-4" />
+                  {language === "es" ? "Agregar Menú" : "Add Menu"}
+                </Button>
+              )}
               <Button onClick={() => setAddItemOpen(true)} className="gap-2" data-testid="add-item-btn">
                 <Plus className="w-4 h-4" />
                 {language === "es" ? "Agregar Ítem" : "Add Item"}
