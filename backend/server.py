@@ -669,6 +669,169 @@ class InvoicePaymentRequest(BaseModel):
     invoice_ids: List[str]
     origin_url: str
 
+# ============== EVENT ORCHESTRATION MODELS ==============
+
+class EventBlueprintUpdate(BaseModel):
+    """Extended event metadata for orchestration"""
+    objectives: Optional[str] = None
+    scope_definition: Optional[str] = None
+    critical_assumptions: Optional[str] = None
+    constraints: Optional[str] = None
+    success_criteria: Optional[str] = None
+
+class ExperienceDesignCreate(BaseModel):
+    """Experience design for an event"""
+    event_id: str
+    color_palette: List[str] = []  # List of hex colors
+    materials: List[Dict[str, Any]] = []  # [{name, description, category}]
+    moodboard_images: List[Dict[str, str]] = []  # [{url, caption, type: 'upload'|'url'}]
+    catering_setup: Optional[str] = None  # buffet, plated, stations, etc.
+    layout_zones: List[Dict[str, Any]] = []  # [{name, purpose, capacity, position}]
+    notes: Optional[str] = None
+
+class OperationalPhase(BaseModel):
+    """Phase in operational flow"""
+    phase_id: str
+    name: str  # Pre-Event, Live, Post-Event
+    status: str = "pending"  # pending, in_progress, completed
+    checklist: List[Dict[str, Any]] = []  # [{item, completed, notes}]
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+class OperationalFlowCreate(BaseModel):
+    """Operational flow for an event"""
+    event_id: str
+    phases: List[OperationalPhase] = []
+    dependencies: List[Dict[str, Any]] = []  # [{name, type, status, linked_to}]
+    risks: List[Dict[str, Any]] = []  # [{name, probability, impact, mitigation}]
+    overall_status: str = "planning"  # planning, ready, executing, completed
+
+class TimeBlock(BaseModel):
+    """Time block for Run of Show"""
+    block_id: str
+    start_time: str  # HH:MM format
+    end_time: str
+    title: str
+    description: Optional[str] = None
+    responsible_role: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    is_buffer: bool = False
+    order: int = 0
+
+class RunOfShowCreate(BaseModel):
+    """Run of Show for an event"""
+    event_id: str
+    time_blocks: List[TimeBlock] = []
+    template_name: Optional[str] = None
+    contingency_notes: Optional[str] = None
+
+class EventRole(BaseModel):
+    """Role assignment for an event"""
+    role_id: str
+    role_name: str
+    quantity: int = 1
+    assignees: List[str] = []  # List of names or user_ids
+    responsibilities: Optional[str] = None
+    capacity_notes: Optional[str] = None
+    contact_info: Optional[str] = None
+
+class TeamRolesCreate(BaseModel):
+    """Team and roles for an event"""
+    event_id: str
+    roles: List[EventRole] = []
+    coordinator_notes: Optional[str] = None
+
+class ProductionAsset(BaseModel):
+    """Production asset for an event"""
+    asset_id: str
+    name: str
+    category: str  # equipment, decor, supplies, etc.
+    quantity: int = 1
+    status: str = "pending"  # pending, confirmed, packed, delivered
+    source: Optional[str] = None  # rental, owned, client
+    notes: Optional[str] = None
+
+class ChecklistItem(BaseModel):
+    """Checklist item for production"""
+    item_id: str
+    name: str
+    category: str
+    completed: bool = False
+    assigned_to: Optional[str] = None
+    due_date: Optional[str] = None
+
+class ProductionAssetsCreate(BaseModel):
+    """Production assets for an event"""
+    event_id: str
+    assets: List[ProductionAsset] = []
+    checklists: List[ChecklistItem] = []
+    packing_list: List[Dict[str, Any]] = []  # [{item, quantity, packed}]
+    preparation_status: str = "not_started"  # not_started, in_progress, ready
+
+class PostEventReviewCreate(BaseModel):
+    """Post-event review"""
+    event_id: str
+    what_worked: List[str] = []
+    what_failed: List[str] = []
+    deviations: List[Dict[str, str]] = []  # [{planned, actual, reason}]
+    learnings: List[str] = []
+    client_feedback: Optional[str] = None
+    team_feedback: Optional[str] = None
+    rating: Optional[int] = None  # 1-5
+    is_locked: bool = False
+
+# Run of Show Templates
+RUN_OF_SHOW_TEMPLATES = {
+    "wedding": {
+        "name": "Wedding Ceremony & Reception",
+        "name_es": "Ceremonia y Recepción de Boda",
+        "blocks": [
+            {"start_time": "14:00", "end_time": "14:30", "title": "Guest Arrival", "title_es": "Llegada de Invitados", "is_buffer": False},
+            {"start_time": "14:30", "end_time": "15:00", "title": "Ceremony", "title_es": "Ceremonia", "is_buffer": False},
+            {"start_time": "15:00", "end_time": "15:30", "title": "Cocktail Hour", "title_es": "Hora del Cóctel", "is_buffer": False},
+            {"start_time": "15:30", "end_time": "16:00", "title": "Photos", "title_es": "Fotos", "is_buffer": False},
+            {"start_time": "16:00", "end_time": "16:30", "title": "Reception Entry", "title_es": "Entrada a Recepción", "is_buffer": False},
+            {"start_time": "16:30", "end_time": "17:30", "title": "Dinner Service", "title_es": "Servicio de Cena", "is_buffer": False},
+            {"start_time": "17:30", "end_time": "18:00", "title": "Speeches & Toasts", "title_es": "Discursos y Brindis", "is_buffer": False},
+            {"start_time": "18:00", "end_time": "18:30", "title": "First Dance & Cake", "title_es": "Primer Baile y Pastel", "is_buffer": False},
+            {"start_time": "18:30", "end_time": "22:00", "title": "Dancing & Party", "title_es": "Baile y Fiesta", "is_buffer": False},
+            {"start_time": "22:00", "end_time": "22:30", "title": "Send Off", "title_es": "Despedida", "is_buffer": False},
+        ]
+    },
+    "corporate": {
+        "name": "Corporate Event",
+        "name_es": "Evento Corporativo",
+        "blocks": [
+            {"start_time": "08:00", "end_time": "08:30", "title": "Registration & Coffee", "title_es": "Registro y Café", "is_buffer": False},
+            {"start_time": "08:30", "end_time": "09:00", "title": "Welcome & Opening", "title_es": "Bienvenida y Apertura", "is_buffer": False},
+            {"start_time": "09:00", "end_time": "10:30", "title": "Keynote Session", "title_es": "Sesión Principal", "is_buffer": False},
+            {"start_time": "10:30", "end_time": "11:00", "title": "Coffee Break", "title_es": "Receso de Café", "is_buffer": True},
+            {"start_time": "11:00", "end_time": "12:30", "title": "Breakout Sessions", "title_es": "Sesiones Paralelas", "is_buffer": False},
+            {"start_time": "12:30", "end_time": "14:00", "title": "Networking Lunch", "title_es": "Almuerzo de Networking", "is_buffer": False},
+            {"start_time": "14:00", "end_time": "15:30", "title": "Workshops", "title_es": "Talleres", "is_buffer": False},
+            {"start_time": "15:30", "end_time": "16:00", "title": "Closing & Farewell", "title_es": "Cierre y Despedida", "is_buffer": False},
+        ]
+    },
+    "social": {
+        "name": "Social Gathering",
+        "name_es": "Reunión Social",
+        "blocks": [
+            {"start_time": "18:00", "end_time": "18:30", "title": "Guest Arrival", "title_es": "Llegada de Invitados", "is_buffer": False},
+            {"start_time": "18:30", "end_time": "19:30", "title": "Cocktails & Appetizers", "title_es": "Cócteles y Aperitivos", "is_buffer": False},
+            {"start_time": "19:30", "end_time": "21:00", "title": "Dinner", "title_es": "Cena", "is_buffer": False},
+            {"start_time": "21:00", "end_time": "21:30", "title": "Special Moment", "title_es": "Momento Especial", "is_buffer": False},
+            {"start_time": "21:30", "end_time": "23:00", "title": "Entertainment", "title_es": "Entretenimiento", "is_buffer": False},
+            {"start_time": "23:00", "end_time": "23:30", "title": "Farewell", "title_es": "Despedida", "is_buffer": False},
+        ]
+    },
+    "blank": {
+        "name": "Blank Template",
+        "name_es": "Plantilla en Blanco",
+        "blocks": []
+    }
+}
+
 # Document Model
 class DocumentCreate(BaseModel):
     event_id: str
