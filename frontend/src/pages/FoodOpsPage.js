@@ -166,9 +166,24 @@ function InventorySection() {
     setItemForm({
       name: item.name || "", category: item.category || "dry_goods", inventory_type: item.inventory_type || "food",
       unit: item.unit || "kg", cost_per_unit: item.cost_per_unit || 0, stock_quantity: item.stock_quantity || 0,
-      par_level: item.par_level || 0, pack_size: item.pack_size || 1, preferred_supplier_id: item.preferred_supplier_id || ""
+      par_level: item.par_level || 0, pack_size: item.pack_size || 1, preferred_supplier_id: item.preferred_supplier_id || "",
+      secondary_supplier_id: item.secondary_supplier_id || "", purchase_unit: item.purchase_unit || "",
+      purchase_pack_size: item.purchase_pack_size || 1
     });
     setItemDialogOpen(true);
+  };
+
+  const handleViewPriceHistory = async (item) => {
+    setSelectedItemForHistory(item);
+    try {
+      const res = await axios.get(`${API}/api/inventory/ingredients/${item.ingredient_id}/price-history`, { withCredentials: true });
+      setPriceHistory(res.data.price_history || []);
+      setPriceHistoryDialogOpen(true);
+    } catch (error) {
+      // If endpoint doesn't exist or no history, show empty
+      setPriceHistory([]);
+      setPriceHistoryDialogOpen(true);
+    }
   };
 
   const handleSaveSupplier = async () => {
