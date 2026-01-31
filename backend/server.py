@@ -5722,6 +5722,1172 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
     
     return doc
 
+# ============== ALLERGENS ROUTES ==============
+
+@allergens_router.get("")
+async def get_allergens(user: User = Depends(get_current_user)):
+    """Get all allergen configurations for company"""
+    allergens = await db.allergen_configs.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("sort_order", 1).to_list(100)
+    
+    # Return default allergens if none configured
+    if not allergens:
+        default_allergens = [
+            {"name": "Gluten", "name_es": "Gluten", "icon": "wheat"},
+            {"name": "Dairy", "name_es": "Lácteos", "icon": "milk"},
+            {"name": "Eggs", "name_es": "Huevo", "icon": "egg"},
+            {"name": "Shellfish", "name_es": "Mariscos", "icon": "shell"},
+            {"name": "Peanuts", "name_es": "Maní", "icon": "peanut"},
+            {"name": "Tree Nuts", "name_es": "Nueces", "icon": "nut"},
+            {"name": "Soy", "name_es": "Soya", "icon": "soybean"},
+            {"name": "Fish", "name_es": "Pescado", "icon": "fish"},
+            {"name": "Celery", "name_es": "Apio", "icon": "celery"},
+            {"name": "Mustard", "name_es": "Mostaza", "icon": "mustard"},
+            {"name": "Sesame", "name_es": "Sésamo", "icon": "sesame"},
+            {"name": "Sulfites", "name_es": "Sulfitos", "icon": "sulfite"},
+            {"name": "Mollusks", "name_es": "Moluscos", "icon": "mollusk"},
+            {"name": "Lupin", "name_es": "Lupino", "icon": "lupin"},
+        ]
+        now = datetime.now(timezone.utc)
+        for i, a in enumerate(default_allergens):
+            allergen_id = f"allergen_{uuid.uuid4().hex[:12]}"
+            await db.allergen_configs.insert_one({
+                "allergen_id": allergen_id,
+                "company_id": user.company_id,
+                "name": a["name"],
+                "name_es": a["name_es"],
+                "icon": a.get("icon"),
+                "is_active": True,
+                "sort_order": i,
+                "created_at": now.isoformat()
+            })
+        allergens = await db.allergen_configs.find(
+            {"company_id": user.company_id},
+            {"_id": 0}
+        ).sort("sort_order", 1).to_list(100)
+    
+    return allergens
+
+@allergens_router.post("")
+async def create_allergen(data: AllergenConfigCreate, user: User = Depends(get_current_user)):
+    """Create a new allergen configuration"""
+    now = datetime.now(timezone.utc)
+    allergen_id = f"allergen_{uuid.uuid4().hex[:12]}"
+    
+    # Get max sort order
+    max_order = await db.allergen_configs.find_one(
+        {"company_id": user.company_id},
+        sort=[("sort_order", -1)]
+    )
+    sort_order = (max_order.get("sort_order", 0) + 1) if max_order else 0
+    
+    allergen = {
+        "allergen_id": allergen_id,
+        "company_id": user.company_id,
+        "name": data.name,
+        "name_es": data.name_es,
+        "icon": data.icon,
+        "is_active": data.is_active,
+        "sort_order": data.sort_order if data.sort_order > 0 else sort_order,
+        "created_at": now.isoformat()
+    }
+    await db.allergen_configs.insert_one(allergen)
+    del allergen["_id"]
+    return allergen
+
+@allergens_router.put("/{allergen_id}")
+async def update_allergen(allergen_id: str, data: AllergenConfigCreate, user: User = Depends(get_current_user)):
+    """Update an allergen configuration"""
+    result = await db.allergen_configs.update_one(
+        {"allergen_id": allergen_id, "company_id": user.company_id},
+        {"$set": {
+            "name": data.name,
+            "name_es": data.name_es,
+            "icon": data.icon,
+            "is_active": data.is_active,
+            "sort_order": data.sort_order
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Allergen not found")
+    return {"message": "Updated"}
+
+@allergens_router.delete("/{allergen_id}")
+async def delete_allergen(allergen_id: str, user: User = Depends(get_current_user)):
+    """Delete an allergen configuration"""
+    result = await db.allergen_configs.delete_one(
+        {"allergen_id": allergen_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Allergen not found")
+    return {"message": "Deleted"}
+
+# ============== RECIPE PORTION FORMATS ROUTES ==============
+
+@recipes_router.get("/{recipe_id}/portion-formats")
+async def get_recipe_portion_formats(recipe_id: str, user: User = Depends(get_current_user)):
+    """Get all portion formats for a recipe"""
+    formats = await db.recipe_portion_formats.find(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(50)
+    return formats
+
+@recipes_router.post("/{recipe_id}/portion-formats")
+async def create_recipe_portion_format(recipe_id: str, data: RecipePortionFormatCreate, user: User = Depends(get_current_user)):
+    """Create a new portion format for a recipe"""
+    # Get recipe to calculate cost
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    now = datetime.now(timezone.utc)
+    format_id = f"pformat_{uuid.uuid4().hex[:12]}"
+    
+    # Calculate cost per portion
+    recipe_cost_per_yield = recipe.get("cost_per_yield", 0)
+    cost_per_portion = recipe_cost_per_yield / data.portions_obtained if data.portions_obtained > 0 else 0
+    
+    # Calculate suggested price if target margin provided
+    suggested_price = 0.0
+    margin_pct = 0.0
+    if data.target_margin_pct and data.target_margin_pct > 0 and data.target_margin_pct < 100:
+        suggested_price = cost_per_portion / (1 - data.target_margin_pct / 100)
+    
+    # Calculate actual margin if sell price provided
+    if data.sell_price > 0:
+        margin_pct = ((data.sell_price - cost_per_portion) / data.sell_price * 100) if data.sell_price > 0 else 0
+    
+    # If this is default, unset other defaults
+    if data.is_default:
+        await db.recipe_portion_formats.update_many(
+            {"recipe_id": recipe_id, "company_id": user.company_id},
+            {"$set": {"is_default": False}}
+        )
+    
+    portion_format = {
+        "format_id": format_id,
+        "recipe_id": recipe_id,
+        "company_id": user.company_id,
+        "format_name": data.format_name,
+        "portions_obtained": data.portions_obtained,
+        "portion_unit": data.portion_unit,
+        "sell_price": data.sell_price,
+        "sell_price_tax_included": data.sell_price_tax_included,
+        "target_margin_pct": data.target_margin_pct,
+        "suggested_price": round(suggested_price, 2),
+        "cost_per_portion": round(cost_per_portion, 2),
+        "margin_pct": round(margin_pct, 2),
+        "is_default": data.is_default,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.recipe_portion_formats.insert_one(portion_format)
+    del portion_format["_id"]
+    return portion_format
+
+@recipes_router.put("/{recipe_id}/portion-formats/{format_id}")
+async def update_recipe_portion_format(recipe_id: str, format_id: str, data: RecipePortionFormatCreate, user: User = Depends(get_current_user)):
+    """Update a portion format"""
+    # Get recipe to recalculate cost
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    now = datetime.now(timezone.utc)
+    recipe_cost_per_yield = recipe.get("cost_per_yield", 0)
+    cost_per_portion = recipe_cost_per_yield / data.portions_obtained if data.portions_obtained > 0 else 0
+    
+    suggested_price = 0.0
+    margin_pct = 0.0
+    if data.target_margin_pct and data.target_margin_pct > 0 and data.target_margin_pct < 100:
+        suggested_price = cost_per_portion / (1 - data.target_margin_pct / 100)
+    if data.sell_price > 0:
+        margin_pct = ((data.sell_price - cost_per_portion) / data.sell_price * 100) if data.sell_price > 0 else 0
+    
+    if data.is_default:
+        await db.recipe_portion_formats.update_many(
+            {"recipe_id": recipe_id, "company_id": user.company_id, "format_id": {"$ne": format_id}},
+            {"$set": {"is_default": False}}
+        )
+    
+    result = await db.recipe_portion_formats.update_one(
+        {"format_id": format_id, "recipe_id": recipe_id, "company_id": user.company_id},
+        {"$set": {
+            "format_name": data.format_name,
+            "portions_obtained": data.portions_obtained,
+            "portion_unit": data.portion_unit,
+            "sell_price": data.sell_price,
+            "sell_price_tax_included": data.sell_price_tax_included,
+            "target_margin_pct": data.target_margin_pct,
+            "suggested_price": round(suggested_price, 2),
+            "cost_per_portion": round(cost_per_portion, 2),
+            "margin_pct": round(margin_pct, 2),
+            "is_default": data.is_default,
+            "notes": data.notes,
+            "updated_at": now.isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Portion format not found")
+    return {"message": "Updated"}
+
+@recipes_router.delete("/{recipe_id}/portion-formats/{format_id}")
+async def delete_recipe_portion_format(recipe_id: str, format_id: str, user: User = Depends(get_current_user)):
+    """Delete a portion format"""
+    result = await db.recipe_portion_formats.delete_one(
+        {"format_id": format_id, "recipe_id": recipe_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Portion format not found")
+    return {"message": "Deleted"}
+
+# ============== RECIPE PACKAGING FORMATS ROUTES ==============
+
+@recipes_router.get("/{recipe_id}/packaging-formats")
+async def get_recipe_packaging_formats(recipe_id: str, user: User = Depends(get_current_user)):
+    """Get all packaging formats for a recipe"""
+    formats = await db.recipe_packaging_formats.find(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(50)
+    return formats
+
+@recipes_router.post("/{recipe_id}/packaging-formats")
+async def create_recipe_packaging_format(recipe_id: str, data: RecipePackagingFormatCreate, user: User = Depends(get_current_user)):
+    """Create a new packaging format for a recipe"""
+    # Get packaging item name
+    packaging_item = await db.ingredients.find_one(
+        {"ingredient_id": data.packaging_inventory_item_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
+    format_id = f"pkgformat_{uuid.uuid4().hex[:12]}"
+    packaging_format = {
+        "format_id": format_id,
+        "recipe_id": recipe_id,
+        "company_id": user.company_id,
+        "packaging_inventory_item_id": data.packaging_inventory_item_id,
+        "packaging_item_name": packaging_item.get("name") if packaging_item else None,
+        "qty_per_portion": data.qty_per_portion,
+        "notes": data.notes
+    }
+    await db.recipe_packaging_formats.insert_one(packaging_format)
+    del packaging_format["_id"]
+    return packaging_format
+
+@recipes_router.delete("/{recipe_id}/packaging-formats/{format_id}")
+async def delete_recipe_packaging_format(recipe_id: str, format_id: str, user: User = Depends(get_current_user)):
+    """Delete a packaging format"""
+    result = await db.recipe_packaging_formats.delete_one(
+        {"format_id": format_id, "recipe_id": recipe_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Packaging format not found")
+    return {"message": "Deleted"}
+
+# ============== RECIPE EXTENDED FIELDS ROUTES ==============
+
+@recipes_router.put("/{recipe_id}/extended")
+async def update_recipe_extended(recipe_id: str, data: RecipeExtendedUpdate, user: User = Depends(get_current_user)):
+    """Update extended recipe fields (allergens, work_category, etc.)"""
+    update_data = {}
+    if data.allergens is not None:
+        update_data["allergens"] = data.allergens
+    if data.work_category is not None:
+        update_data["work_category"] = data.work_category
+    if data.recipe_code is not None:
+        update_data["recipe_code"] = data.recipe_code
+    if data.verified_status is not None:
+        update_data["verified_status"] = data.verified_status
+    
+    if not update_data:
+        return {"message": "No updates provided"}
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.recipes.update_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return {"message": "Updated"}
+
+# ============== PLATED MENU EXTENDED FIELDS ROUTES ==============
+
+@plated_menus_router.put("/{menu_id}/extended")
+async def update_plated_menu_extended(menu_id: str, data: PlatedMenuExtendedUpdate, user: User = Depends(get_current_user)):
+    """Update extended plated menu fields (guest count, pricing)"""
+    # Get current menu to calculate suggested price
+    menu = await db.plated_menus.find_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    update_data = {}
+    if data.default_guest_count is not None:
+        update_data["default_guest_count"] = data.default_guest_count
+    if data.sell_price_per_guest is not None:
+        update_data["sell_price_per_guest"] = data.sell_price_per_guest
+    if data.target_margin_pct is not None:
+        update_data["target_margin_pct"] = data.target_margin_pct
+    if data.tax_included is not None:
+        update_data["tax_included"] = data.tax_included
+    
+    # Calculate suggested price if target margin is set
+    cost_with_buffer = menu.get("cost_with_buffer", menu.get("cost_per_guest", 0))
+    target_margin = data.target_margin_pct if data.target_margin_pct is not None else menu.get("target_margin_pct", 0)
+    if target_margin and target_margin > 0 and target_margin < 100:
+        update_data["suggested_sell_price_per_guest"] = round(cost_with_buffer / (1 - target_margin / 100), 2)
+    
+    if not update_data:
+        return {"message": "No updates provided"}
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.plated_menus.update_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    return {"message": "Updated"}
+
+# ============== SUPPLIER EXTENDED FIELDS ROUTES ==============
+
+@suppliers_router.put("/{supplier_id}/extended")
+async def update_supplier_extended(supplier_id: str, data: SupplierExtendedUpdate, user: User = Depends(get_current_user)):
+    """Update extended supplier fields (payment terms, credit)"""
+    update_data = {}
+    if data.company_name is not None:
+        update_data["company_name"] = data.company_name
+    if data.payment_terms is not None:
+        update_data["payment_terms"] = data.payment_terms
+    if data.has_credit is not None:
+        update_data["has_credit"] = data.has_credit
+    if data.credit_limit is not None:
+        update_data["credit_limit"] = data.credit_limit
+    if data.usual_delivery_days is not None:
+        update_data["usual_delivery_days"] = data.usual_delivery_days
+    if data.tax_id is not None:
+        update_data["tax_id"] = data.tax_id
+    
+    if not update_data:
+        return {"message": "No updates provided"}
+    
+    result = await db.suppliers.update_one(
+        {"supplier_id": supplier_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return {"message": "Updated"}
+
+# ============== INVENTORY EXTENDED FIELDS ROUTES ==============
+
+@inventory_router.put("/ingredients/{item_id}/extended")
+async def update_inventory_extended(item_id: str, data: InventoryItemExtendedUpdate, user: User = Depends(get_current_user)):
+    """Update extended inventory item fields (2nd supplier, purchase details)"""
+    update_data = {}
+    if data.secondary_supplier_id is not None:
+        update_data["secondary_supplier_id"] = data.secondary_supplier_id
+    if data.purchase_unit is not None:
+        update_data["purchase_unit"] = data.purchase_unit
+    if data.purchase_pack_size is not None:
+        update_data["purchase_pack_size"] = data.purchase_pack_size
+    if data.min_order_qty is not None:
+        update_data["min_order_qty"] = data.min_order_qty
+    if data.lead_time_days is not None:
+        update_data["lead_time_days"] = data.lead_time_days
+    
+    if not update_data:
+        return {"message": "No updates provided"}
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.ingredients.update_one(
+        {"ingredient_id": item_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    return {"message": "Updated"}
+
+# ============== INVENTORY PRICE HISTORY ROUTES ==============
+
+@inventory_router.get("/ingredients/{item_id}/price-history")
+async def get_inventory_price_history(item_id: str, user: User = Depends(get_current_user)):
+    """Get price history for an inventory item"""
+    history = await db.inventory_price_history.find(
+        {"inventory_item_id": item_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("effective_date", -1).to_list(100)
+    return history
+
+@inventory_router.post("/ingredients/{item_id}/price-history")
+async def add_inventory_price_history(item_id: str, data: InventoryPriceHistoryCreate, user: User = Depends(get_current_user)):
+    """Add a price history entry for an inventory item"""
+    # Get supplier name if provided
+    supplier_name = None
+    if data.supplier_id:
+        supplier = await db.suppliers.find_one(
+            {"supplier_id": data.supplier_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        supplier_name = supplier.get("name") if supplier else None
+    
+    now = datetime.now(timezone.utc)
+    history_id = f"pricehist_{uuid.uuid4().hex[:12]}"
+    
+    history_entry = {
+        "history_id": history_id,
+        "inventory_item_id": item_id,
+        "company_id": user.company_id,
+        "supplier_id": data.supplier_id,
+        "supplier_name": supplier_name,
+        "effective_date": now.isoformat(),
+        "unit_cost": data.unit_cost,
+        "purchase_unit": data.purchase_unit,
+        "source": data.source,
+        "notes": data.notes
+    }
+    await db.inventory_price_history.insert_one(history_entry)
+    del history_entry["_id"]
+    
+    # Update item's current cost
+    await db.ingredients.update_one(
+        {"ingredient_id": item_id, "company_id": user.company_id},
+        {"$set": {"cost_per_unit": data.unit_cost, "updated_at": now.isoformat()}}
+    )
+    
+    return history_entry
+
+# ============== INVENTORY VALUE BY TYPE ==============
+
+@inventory_router.get("/value-summary")
+async def get_inventory_value_summary(user: User = Depends(get_current_user)):
+    """Get inventory value breakdown by type"""
+    pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$group": {
+            "_id": "$inventory_type",
+            "total_value": {"$sum": {"$multiply": ["$stock_quantity", "$cost_per_unit"]}},
+            "item_count": {"$sum": 1}
+        }},
+        {"$sort": {"total_value": -1}}
+    ]
+    results = await db.ingredients.aggregate(pipeline).to_list(20)
+    
+    summary = {
+        "by_type": {r["_id"]: {"value": round(r["total_value"], 2), "count": r["item_count"]} for r in results},
+        "total_value": round(sum(r["total_value"] for r in results), 2)
+    }
+    return summary
+
+# ============== PURCHASE ORDERS ROUTES ==============
+
+@purchase_orders_router.get("")
+async def get_purchase_orders(
+    status: Optional[str] = None,
+    supplier_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all purchase orders"""
+    query = {"company_id": user.company_id}
+    if status:
+        query["status"] = status
+    if supplier_id:
+        query["supplier_id"] = supplier_id
+    
+    pos = await db.purchase_orders_full.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return pos
+
+@purchase_orders_router.get("/{po_id}")
+async def get_purchase_order(po_id: str, user: User = Depends(get_current_user)):
+    """Get a single purchase order"""
+    po = await db.purchase_orders_full.find_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return po
+
+@purchase_orders_router.post("")
+async def create_purchase_order(data: PurchaseOrderFullCreate, user: User = Depends(get_current_user)):
+    """Create a new purchase order"""
+    # Get supplier name
+    supplier = await db.suppliers.find_one(
+        {"supplier_id": data.supplier_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    now = datetime.now(timezone.utc)
+    po_id = f"po_{uuid.uuid4().hex[:12]}"
+    
+    # Generate PO number
+    count = await db.purchase_orders_full.count_documents({"company_id": user.company_id})
+    po_number = f"PO-{now.year}-{str(count + 1).zfill(4)}"
+    
+    # Process lines
+    lines = []
+    subtotal = 0
+    for line_data in data.lines:
+        line_id = f"poline_{uuid.uuid4().hex[:12]}"
+        line_total = line_data.qty_ordered * line_data.unit_cost
+        lines.append({
+            "line_id": line_id,
+            "inventory_item_id": line_data.inventory_item_id,
+            "item_name": line_data.item_name,
+            "qty_ordered": line_data.qty_ordered,
+            "purchase_unit": line_data.purchase_unit,
+            "unit_cost": line_data.unit_cost,
+            "line_total": round(line_total, 2),
+            "qty_received": 0,
+            "notes": line_data.notes
+        })
+        subtotal += line_total
+    
+    po = {
+        "po_id": po_id,
+        "company_id": user.company_id,
+        "po_number": po_number,
+        "supplier_id": data.supplier_id,
+        "supplier_name": supplier.get("name"),
+        "status": "Draft",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "needed_by_date": data.needed_by_date.isoformat() if data.needed_by_date else None,
+        "payment_method": data.payment_method,
+        "notes": data.notes,
+        "lines": lines,
+        "subtotal": round(subtotal, 2),
+        "tax_amount": 0,
+        "total": round(subtotal, 2),
+        "received_at": None,
+        "received_by": None
+    }
+    await db.purchase_orders_full.insert_one(po)
+    del po["_id"]
+    return po
+
+@purchase_orders_router.put("/{po_id}")
+async def update_purchase_order(po_id: str, data: PurchaseOrderFullCreate, user: User = Depends(get_current_user)):
+    """Update a purchase order (only if Draft)"""
+    po = await db.purchase_orders_full.find_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    if po.get("status") != "Draft":
+        raise HTTPException(status_code=400, detail="Can only edit Draft POs")
+    
+    # Get supplier name
+    supplier = await db.suppliers.find_one(
+        {"supplier_id": data.supplier_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
+    now = datetime.now(timezone.utc)
+    
+    # Process lines
+    lines = []
+    subtotal = 0
+    for line_data in data.lines:
+        line_id = f"poline_{uuid.uuid4().hex[:12]}"
+        line_total = line_data.qty_ordered * line_data.unit_cost
+        lines.append({
+            "line_id": line_id,
+            "inventory_item_id": line_data.inventory_item_id,
+            "item_name": line_data.item_name,
+            "qty_ordered": line_data.qty_ordered,
+            "purchase_unit": line_data.purchase_unit,
+            "unit_cost": line_data.unit_cost,
+            "line_total": round(line_total, 2),
+            "qty_received": 0,
+            "notes": line_data.notes
+        })
+        subtotal += line_total
+    
+    await db.purchase_orders_full.update_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"$set": {
+            "supplier_id": data.supplier_id,
+            "supplier_name": supplier.get("name") if supplier else None,
+            "needed_by_date": data.needed_by_date.isoformat() if data.needed_by_date else None,
+            "payment_method": data.payment_method,
+            "notes": data.notes,
+            "lines": lines,
+            "subtotal": round(subtotal, 2),
+            "total": round(subtotal, 2),
+            "updated_at": now.isoformat()
+        }}
+    )
+    return {"message": "Updated"}
+
+@purchase_orders_router.put("/{po_id}/status")
+async def update_purchase_order_status(po_id: str, status: str, user: User = Depends(get_current_user)):
+    """Update PO status"""
+    valid_statuses = ["Draft", "Sent", "PartiallyReceived", "Received", "Cancelled"]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    now = datetime.now(timezone.utc)
+    update_data = {"status": status, "updated_at": now.isoformat()}
+    
+    result = await db.purchase_orders_full.update_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return {"message": "Status updated"}
+
+@purchase_orders_router.post("/{po_id}/receive")
+async def receive_purchase_order(
+    po_id: str,
+    received_lines: List[Dict[str, Any]],
+    create_expense: bool = True,
+    invoice_number: Optional[str] = None,
+    invoice_date: Optional[datetime] = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Receive items from a PO.
+    received_lines: [{line_id, qty_received, unit_cost (optional override)}]
+    Creates inventory transactions and optionally an expense record.
+    """
+    po = await db.purchase_orders_full.find_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Update PO lines with received quantities
+    all_received = True
+    updated_lines = []
+    expense_lines = []
+    
+    for line in po.get("lines", []):
+        received_info = next((r for r in received_lines if r.get("line_id") == line.get("line_id")), None)
+        if received_info:
+            new_qty_received = line.get("qty_received", 0) + received_info.get("qty_received", 0)
+            unit_cost = received_info.get("unit_cost", line.get("unit_cost", 0))
+            
+            line["qty_received"] = new_qty_received
+            line["unit_cost"] = unit_cost
+            line["line_total"] = round(line.get("qty_ordered", 0) * unit_cost, 2)
+            
+            if new_qty_received < line.get("qty_ordered", 0):
+                all_received = False
+            
+            # Create inventory transaction
+            transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
+            await db.inventory_transactions.insert_one({
+                "transaction_id": transaction_id,
+                "company_id": user.company_id,
+                "inventory_item_id": line.get("inventory_item_id"),
+                "event_id": None,
+                "transaction_type": "Purchase",
+                "quantity": received_info.get("qty_received", 0),
+                "unit_cost": unit_cost,
+                "notes": f"PO {po.get('po_number')}",
+                "po_id": po_id,
+                "created_at": now.isoformat(),
+                "created_by": user.user_id
+            })
+            
+            # Update inventory stock
+            await db.ingredients.update_one(
+                {"ingredient_id": line.get("inventory_item_id"), "company_id": user.company_id},
+                {"$inc": {"stock_quantity": received_info.get("qty_received", 0)}}
+            )
+            
+            # Add price history
+            history_id = f"pricehist_{uuid.uuid4().hex[:12]}"
+            await db.inventory_price_history.insert_one({
+                "history_id": history_id,
+                "inventory_item_id": line.get("inventory_item_id"),
+                "company_id": user.company_id,
+                "supplier_id": po.get("supplier_id"),
+                "supplier_name": po.get("supplier_name"),
+                "effective_date": now.isoformat(),
+                "unit_cost": unit_cost,
+                "purchase_unit": line.get("purchase_unit", "unit"),
+                "source": "PO",
+                "notes": f"PO {po.get('po_number')}"
+            })
+            
+            # Update item cost
+            await db.ingredients.update_one(
+                {"ingredient_id": line.get("inventory_item_id"), "company_id": user.company_id},
+                {"$set": {"cost_per_unit": unit_cost, "updated_at": now.isoformat()}}
+            )
+            
+            # Prepare expense line
+            expense_lines.append({
+                "inventory_item_id": line.get("inventory_item_id"),
+                "description": line.get("item_name"),
+                "quantity": received_info.get("qty_received", 0),
+                "unit_cost": unit_cost,
+                "tax_rate": 0
+            })
+        else:
+            if line.get("qty_received", 0) < line.get("qty_ordered", 0):
+                all_received = False
+        
+        updated_lines.append(line)
+    
+    # Update PO
+    new_status = "Received" if all_received else "PartiallyReceived"
+    subtotal = sum(l.get("line_total", 0) for l in updated_lines)
+    
+    await db.purchase_orders_full.update_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"$set": {
+            "lines": updated_lines,
+            "status": new_status,
+            "subtotal": round(subtotal, 2),
+            "total": round(subtotal, 2),
+            "received_at": now.isoformat() if all_received else None,
+            "received_by": user.user_id if all_received else None,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Create expense record if requested
+    expense_id = None
+    if create_expense and expense_lines:
+        expense_id = f"expense_{uuid.uuid4().hex[:12]}"
+        expense_total = sum(l["quantity"] * l["unit_cost"] for l in expense_lines)
+        
+        await db.expenses.insert_one({
+            "expense_id": expense_id,
+            "company_id": user.company_id,
+            "supplier_id": po.get("supplier_id"),
+            "supplier_name": po.get("supplier_name"),
+            "po_id": po_id,
+            "invoice_number": invoice_number,
+            "invoice_date": invoice_date.isoformat() if invoice_date else now.isoformat(),
+            "due_date": None,
+            "payment_method": po.get("payment_method", "Transfer"),
+            "lines": expense_lines,
+            "subtotal": round(expense_total, 2),
+            "tax_amount": 0,
+            "total": round(expense_total, 2),
+            "paid_amount": 0,
+            "notes": f"Auto-created from PO {po.get('po_number')}",
+            "status": "Pending",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        })
+    
+    return {
+        "message": "Items received",
+        "new_status": new_status,
+        "expense_id": expense_id
+    }
+
+@purchase_orders_router.delete("/{po_id}")
+async def delete_purchase_order(po_id: str, user: User = Depends(get_current_user)):
+    """Delete a purchase order (only if Draft)"""
+    po = await db.purchase_orders_full.find_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    if po.get("status") != "Draft":
+        raise HTTPException(status_code=400, detail="Can only delete Draft POs")
+    
+    await db.purchase_orders_full.delete_one({"po_id": po_id, "company_id": user.company_id})
+    return {"message": "Deleted"}
+
+# ============== EXPENSES ROUTES ==============
+
+@expenses_router.get("")
+async def get_expenses(
+    status: Optional[str] = None,
+    supplier_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all expenses"""
+    query = {"company_id": user.company_id}
+    if status:
+        query["status"] = status
+    if supplier_id:
+        query["supplier_id"] = supplier_id
+    
+    expenses = await db.expenses.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return expenses
+
+@expenses_router.get("/{expense_id}")
+async def get_expense(expense_id: str, user: User = Depends(get_current_user)):
+    """Get a single expense"""
+    expense = await db.expenses.find_one(
+        {"expense_id": expense_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return expense
+
+@expenses_router.post("")
+async def create_expense(data: ExpenseCreate, user: User = Depends(get_current_user)):
+    """Create a new expense"""
+    # Get supplier name
+    supplier = await db.suppliers.find_one(
+        {"supplier_id": data.supplier_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
+    now = datetime.now(timezone.utc)
+    expense_id = f"expense_{uuid.uuid4().hex[:12]}"
+    
+    # Calculate totals
+    lines = []
+    subtotal = 0
+    for line in data.lines:
+        line_total = line.quantity * line.unit_cost
+        lines.append({
+            "inventory_item_id": line.inventory_item_id,
+            "description": line.description,
+            "quantity": line.quantity,
+            "unit_cost": line.unit_cost,
+            "tax_rate": line.tax_rate,
+            "line_total": round(line_total, 2)
+        })
+        subtotal += line_total
+    
+    expense = {
+        "expense_id": expense_id,
+        "company_id": user.company_id,
+        "supplier_id": data.supplier_id,
+        "supplier_name": supplier.get("name") if supplier else None,
+        "po_id": data.po_id,
+        "invoice_number": data.invoice_number,
+        "invoice_date": data.invoice_date.isoformat() if data.invoice_date else now.isoformat(),
+        "due_date": data.due_date.isoformat() if data.due_date else None,
+        "payment_method": data.payment_method,
+        "lines": lines,
+        "subtotal": round(subtotal, 2),
+        "tax_amount": data.tax_amount,
+        "total": round(subtotal + data.tax_amount, 2),
+        "paid_amount": 0,
+        "notes": data.notes,
+        "status": data.status,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.expenses.insert_one(expense)
+    del expense["_id"]
+    return expense
+
+@expenses_router.put("/{expense_id}/pay")
+async def pay_expense(expense_id: str, amount: float, user: User = Depends(get_current_user)):
+    """Record payment against an expense"""
+    expense = await db.expenses.find_one(
+        {"expense_id": expense_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    
+    now = datetime.now(timezone.utc)
+    new_paid = expense.get("paid_amount", 0) + amount
+    new_status = "Paid" if new_paid >= expense.get("total", 0) else "Partial"
+    
+    await db.expenses.update_one(
+        {"expense_id": expense_id, "company_id": user.company_id},
+        {"$set": {
+            "paid_amount": round(new_paid, 2),
+            "status": new_status,
+            "updated_at": now.isoformat()
+        }}
+    )
+    return {"message": "Payment recorded", "new_status": new_status, "paid_amount": new_paid}
+
+# ============== EVENT SCALING / CONSOLIDATED PURCHASE ROUTES ==============
+
+@events_router.post("/generate-purchase-list")
+async def generate_consolidated_purchase_list(data: EventScalingRequest, user: User = Depends(get_current_user)):
+    """
+    Generate a consolidated purchase list from one or more events.
+    Scales recipe ingredients based on guest count and compares with inventory.
+    """
+    now = datetime.now(timezone.utc)
+    events_info = []
+    all_ingredients = {}  # {inventory_item_id: ScaledIngredient}
+    
+    for event_id in data.event_ids:
+        # Get event
+        event = await db.events.find_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if not event:
+            continue
+        
+        guest_count = event.get("guest_count", event.get("num_guests", 0)) or 0
+        events_info.append({
+            "event_id": event_id,
+            "event_name": event.get("name"),
+            "guest_count": guest_count,
+            "date": event.get("event_date")
+        })
+        
+        # Get event's menu/proposal items
+        proposal = await db.proposals.find_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        
+        if not proposal:
+            continue
+        
+        # Get order items
+        order_items = await db.order_items.find(
+            {"proposal_id": proposal.get("proposal_id"), "event_id": event_id},
+            {"_id": 0}
+        ).to_list(500)
+        
+        for item in order_items:
+            if item.get("item_type") != "Food":
+                continue
+            
+            recipe_id = item.get("reference_id")
+            if not recipe_id:
+                continue
+            
+            # Get recipe
+            recipe = await db.recipes.find_one(
+                {"recipe_id": recipe_id, "company_id": user.company_id},
+                {"_id": 0}
+            )
+            if not recipe:
+                continue
+            
+            # Calculate portions needed
+            item_qty = item.get("quantity", 1)
+            portions_needed = guest_count * item_qty
+            
+            # Get yield info
+            portions_per_yield = recipe.get("portions_per_yield", 1) or 1
+            yields_needed = portions_needed / portions_per_yield
+            
+            # Apply buffer if requested
+            if data.include_buffer:
+                buffer_pct = 1.1  # 10% default buffer
+                yields_needed *= buffer_pct
+            
+            # Process recipe ingredients
+            for ing in recipe.get("ingredients", []):
+                item_id = ing.get("item_id")
+                if not item_id:
+                    continue
+                
+                # Get inventory item
+                inv_item = await db.ingredients.find_one(
+                    {"ingredient_id": item_id, "company_id": user.company_id},
+                    {"_id": 0}
+                )
+                if not inv_item:
+                    continue
+                
+                # Calculate required quantity
+                qty_per_yield = ing.get("quantity", 0)
+                waste_factor = ing.get("waste_factor_pct", 0)
+                effective_qty = qty_per_yield * (1 + waste_factor / 100) if waste_factor > 0 else qty_per_yield
+                total_required = effective_qty * yields_needed
+                
+                if item_id in all_ingredients:
+                    all_ingredients[item_id]["total_required"] += total_required
+                    if recipe.get("name") not in all_ingredients[item_id]["recipes_used"]:
+                        all_ingredients[item_id]["recipes_used"].append(recipe.get("name"))
+                else:
+                    all_ingredients[item_id] = {
+                        "inventory_item_id": item_id,
+                        "item_name": inv_item.get("name"),
+                        "unit": inv_item.get("unit"),
+                        "total_required": total_required,
+                        "in_stock": inv_item.get("stock_quantity", 0) if data.compare_inventory else 0,
+                        "to_purchase": 0,
+                        "unit_cost": inv_item.get("cost_per_unit", 0),
+                        "total_cost": 0,
+                        "supplier_id": inv_item.get("preferred_supplier_id"),
+                        "supplier_name": None,
+                        "recipes_used": [recipe.get("name")]
+                    }
+            
+            # Process sub-recipes (recursive)
+            for sub in recipe.get("sub_recipes", []):
+                sub_recipe = await db.recipes.find_one(
+                    {"recipe_id": sub.get("child_recipe_id"), "company_id": user.company_id},
+                    {"_id": 0}
+                )
+                if not sub_recipe:
+                    continue
+                
+                sub_qty = sub.get("quantity_used", 1)
+                sub_yields_needed = sub_qty * yields_needed
+                
+                for ing in sub_recipe.get("ingredients", []):
+                    item_id = ing.get("item_id")
+                    if not item_id:
+                        continue
+                    
+                    inv_item = await db.ingredients.find_one(
+                        {"ingredient_id": item_id, "company_id": user.company_id},
+                        {"_id": 0}
+                    )
+                    if not inv_item:
+                        continue
+                    
+                    qty_per_yield = ing.get("quantity", 0)
+                    waste_factor = ing.get("waste_factor_pct", 0)
+                    effective_qty = qty_per_yield * (1 + waste_factor / 100) if waste_factor > 0 else qty_per_yield
+                    total_required = effective_qty * sub_yields_needed
+                    
+                    if item_id in all_ingredients:
+                        all_ingredients[item_id]["total_required"] += total_required
+                        if sub_recipe.get("name") not in all_ingredients[item_id]["recipes_used"]:
+                            all_ingredients[item_id]["recipes_used"].append(sub_recipe.get("name"))
+                    else:
+                        all_ingredients[item_id] = {
+                            "inventory_item_id": item_id,
+                            "item_name": inv_item.get("name"),
+                            "unit": inv_item.get("unit"),
+                            "total_required": total_required,
+                            "in_stock": inv_item.get("stock_quantity", 0) if data.compare_inventory else 0,
+                            "to_purchase": 0,
+                            "unit_cost": inv_item.get("cost_per_unit", 0),
+                            "total_cost": 0,
+                            "supplier_id": inv_item.get("preferred_supplier_id"),
+                            "supplier_name": None,
+                            "recipes_used": [sub_recipe.get("name")]
+                        }
+    
+    # Calculate to_purchase and group by supplier
+    items_by_supplier = {}
+    total_cost = 0
+    
+    for item_id, item in all_ingredients.items():
+        to_purchase = max(0, item["total_required"] - item["in_stock"])
+        item["to_purchase"] = round(to_purchase, 2)
+        item["total_required"] = round(item["total_required"], 2)
+        item["total_cost"] = round(to_purchase * item["unit_cost"], 2)
+        total_cost += item["total_cost"]
+        
+        # Get supplier name
+        supplier_id = item["supplier_id"] or "no_supplier"
+        if supplier_id != "no_supplier":
+            supplier = await db.suppliers.find_one(
+                {"supplier_id": supplier_id, "company_id": user.company_id},
+                {"_id": 0, "name": 1}
+            )
+            item["supplier_name"] = supplier.get("name") if supplier else None
+        
+        if supplier_id not in items_by_supplier:
+            items_by_supplier[supplier_id] = []
+        items_by_supplier[supplier_id].append(item)
+    
+    return {
+        "events": events_info,
+        "items_by_supplier": items_by_supplier,
+        "total_cost": round(total_cost, 2),
+        "generated_at": now.isoformat()
+    }
+
+@events_router.post("/create-po-from-purchase-list")
+async def create_po_from_purchase_list(
+    supplier_id: str,
+    items: List[Dict[str, Any]],
+    needed_by_date: Optional[datetime] = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Create a PO from a generated purchase list.
+    items: [{inventory_item_id, item_name, to_purchase, unit, unit_cost}]
+    """
+    # Get supplier
+    supplier = await db.suppliers.find_one(
+        {"supplier_id": supplier_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    now = datetime.now(timezone.utc)
+    po_id = f"po_{uuid.uuid4().hex[:12]}"
+    
+    # Generate PO number
+    count = await db.purchase_orders_full.count_documents({"company_id": user.company_id})
+    po_number = f"PO-{now.year}-{str(count + 1).zfill(4)}"
+    
+    # Create lines
+    lines = []
+    subtotal = 0
+    for item in items:
+        if item.get("to_purchase", 0) <= 0:
+            continue
+        
+        line_id = f"poline_{uuid.uuid4().hex[:12]}"
+        line_total = item.get("to_purchase", 0) * item.get("unit_cost", 0)
+        lines.append({
+            "line_id": line_id,
+            "inventory_item_id": item.get("inventory_item_id"),
+            "item_name": item.get("item_name"),
+            "qty_ordered": item.get("to_purchase", 0),
+            "purchase_unit": item.get("unit", "unit"),
+            "unit_cost": item.get("unit_cost", 0),
+            "line_total": round(line_total, 2),
+            "qty_received": 0,
+            "notes": None
+        })
+        subtotal += line_total
+    
+    if not lines:
+        raise HTTPException(status_code=400, detail="No items to order")
+    
+    po = {
+        "po_id": po_id,
+        "company_id": user.company_id,
+        "po_number": po_number,
+        "supplier_id": supplier_id,
+        "supplier_name": supplier.get("name"),
+        "status": "Draft",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "needed_by_date": needed_by_date.isoformat() if needed_by_date else None,
+        "payment_method": "Transfer",
+        "notes": "Generated from purchase list",
+        "lines": lines,
+        "subtotal": round(subtotal, 2),
+        "tax_amount": 0,
+        "total": round(subtotal, 2),
+        "received_at": None,
+        "received_by": None
+    }
+    await db.purchase_orders_full.insert_one(po)
+    del po["_id"]
+    return po
+
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
