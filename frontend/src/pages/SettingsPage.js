@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [picklist, setPicklist] = useState([]);
   const [taxes, setTaxes] = useState([]);
   const [recipes, setRecipes] = useState([]);
+  const [leadForms, setLeadForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(null);
@@ -60,6 +61,8 @@ export default function SettingsPage() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [picklistDialogOpen, setPicklistDialogOpen] = useState(false);
   const [taxDialogOpen, setTaxDialogOpen] = useState(false);
+  const [leadFormDialogOpen, setLeadFormDialogOpen] = useState(false);
+  const [editingLeadForm, setEditingLeadForm] = useState(null);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -74,6 +77,15 @@ export default function SettingsPage() {
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
   const [newPicklist, setNewPicklist] = useState({ name: "", description: "", category_id: "", default_price: 0, recipe_id: "", unit: "unit" });
   const [newTax, setNewTax] = useState({ name: "", rate: 0, is_default: false });
+  const [newLeadForm, setNewLeadForm] = useState({
+    form_name: "",
+    description: "",
+    fields: [...DEFAULT_FORM_FIELDS],
+    default_source: "Website",
+    default_event_type: "",
+    is_active: true,
+    thank_you_message: "Thank you for your inquiry! We will contact you soon."
+  });
 
   useEffect(() => {
     Promise.all([
@@ -83,6 +95,7 @@ export default function SettingsPage() {
       fetchPicklist(),
       fetchTaxes(),
       fetchRecipes(),
+      fetchLeadForms(),
     ]).finally(() => setLoading(false));
   }, []);
 
