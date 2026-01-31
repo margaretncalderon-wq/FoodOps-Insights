@@ -48,7 +48,7 @@ const translations = {
     budget10k25k: "$10,000 - $25,000",
     budget25k50k: "$25,000 - $50,000",
     budgetMore50k: "More than $50,000",
-    // Event types
+    select: "Select...",
     wedding: "Wedding",
     corporate: "Corporate",
     birthday: "Birthday",
@@ -83,7 +83,7 @@ const translations = {
     budget10k25k: "$10,000 - $25,000",
     budget25k50k: "$25,000 - $50,000",
     budgetMore50k: "Más de $50,000",
-    // Event types
+    select: "Seleccionar...",
     wedding: "Boda",
     corporate: "Corporativo",
     birthday: "Cumpleaños",
@@ -112,12 +112,12 @@ export default function LeadFormPage() {
     budget_range: "",
     message: ""
   });
+  const [customFieldValues, setCustomFieldValues] = useState({});
 
   // Language detection: URL param > browser language > default 'en'
   const getInitialLanguage = () => {
     const urlLang = searchParams.get("lang");
     if (urlLang === "es" || urlLang === "en") return urlLang;
-    
     const browserLang = navigator.language?.toLowerCase();
     if (browserLang?.startsWith("es")) return "es";
     return "en";
@@ -142,6 +142,14 @@ export default function LeadFormPage() {
       if (response.data.default_event_type) {
         setFormData(prev => ({ ...prev, event_type: response.data.default_event_type }));
       }
+      // Initialize custom field values
+      if (response.data.custom_fields) {
+        const initialValues = {};
+        response.data.custom_fields.forEach(field => {
+          initialValues[field.field_id] = "";
+        });
+        setCustomFieldValues(initialValues);
+      }
     } catch (error) {
       console.error("Failed to fetch form:", error);
     } finally {
@@ -153,7 +161,12 @@ export default function LeadFormPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const response = await axios.post(`${API}/lead-forms/${formId}/submit`, formData);
+      // Combine form data with custom fields
+      const submitData = {
+        ...formData,
+        custom_fields: customFieldValues
+      };
+      const response = await axios.post(`${API}/lead-forms/${formId}/submit`, submitData);
       setSubmitted(true);
       toast.success(response.data.message || t.thankYou);
     } catch (error) {
@@ -177,11 +190,14 @@ export default function LeadFormPage() {
     return field ? field.required : false;
   };
 
+  // Get primary color with fallback
+  const primaryColor = form?.primary_color || "#3A4D3F";
+
   // Language Selector Component
   const LanguageSelector = () => (
-    <div className="absolute top-4 right-4">
+    <div className="absolute top-4 right-4 z-10">
       <Select value={language} onValueChange={changeLanguage}>
-        <SelectTrigger className="w-[100px] h-8 text-xs">
+        <SelectTrigger className="w-[100px] h-8 text-xs bg-white/90 backdrop-blur-sm">
           <Globe className="w-3 h-3 mr-1" />
           <SelectValue />
         </SelectTrigger>
@@ -192,6 +208,93 @@ export default function LeadFormPage() {
       </Select>
     </div>
   );
+
+  // Render custom field based on type
+  const renderCustomField = (field) => {
+    const label = language === "es" ? field.label_es : field.label_en;
+    const placeholder = language === "es" ? field.placeholder_es : field.placeholder_en;
+    const value = customFieldValues[field.field_id] || "";
+    const onChange = (val) => setCustomFieldValues(prev => ({ ...prev, [field.field_id]: val }));
+
+    switch (field.field_type) {
+      case "textarea":
+        return (
+          <div key={field.field_id} className="space-y-2">
+            <Label>
+              {label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Textarea
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              required={field.required}
+              placeholder={placeholder}
+              rows={3}
+            />
+          </div>
+        );
+      case "select":
+        return (
+          <div key={field.field_id} className="space-y-2">
+            <Label>
+              {label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Select value={value} onValueChange={onChange} required={field.required}>
+              <SelectTrigger>
+                <SelectValue placeholder={t.select} />
+              </SelectTrigger>
+              <SelectContent>
+                {field.options?.map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      case "number":
+        return (
+          <div key={field.field_id} className="space-y-2">
+            <Label>
+              {label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              type="number"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              required={field.required}
+              placeholder={placeholder}
+            />
+          </div>
+        );
+      case "date":
+        return (
+          <div key={field.field_id} className="space-y-2">
+            <Label>
+              {label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              type="date"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              required={field.required}
+            />
+          </div>
+        );
+      default: // text
+        return (
+          <div key={field.field_id} className="space-y-2">
+            <Label>
+              {label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              required={field.required}
+              placeholder={placeholder}
+            />
+          </div>
+        );
+    }
+  };
 
   if (loading) {
     return (
@@ -223,10 +326,16 @@ export default function LeadFormPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
         <LanguageSelector />
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md overflow-hidden">
+          {form.banner_url && (
+            <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url(${form.banner_url})` }} />
+          )}
           <CardContent className="py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+            <div 
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: `${primaryColor}20` }}
+            >
+              <CheckCircle className="w-8 h-8" style={{ color: primaryColor }} />
             </div>
             <h2 className="text-2xl font-bold mb-2">{t.thankYou}</h2>
             <p className="text-muted-foreground">{thankYouMsg}</p>
@@ -236,19 +345,42 @@ export default function LeadFormPage() {
     );
   }
 
+  const description = language === "es" ? (form.description_es || form.description) : form.description;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4 relative">
       <LanguageSelector />
-      <Card className="w-full max-w-lg shadow-lg">
-        <CardHeader className="text-center pb-2">
+      <Card className="w-full max-w-lg shadow-lg overflow-hidden">
+        {/* Banner */}
+        {form.banner_url && (
+          <div 
+            className="h-40 bg-cover bg-center relative"
+            style={{ backgroundImage: `url(${form.banner_url})` }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+          </div>
+        )}
+        
+        <CardHeader className={`text-center ${form.banner_url ? '-mt-8 relative z-10' : 'pb-2'}`}>
+          {/* Logo */}
+          {form.company_logo && (
+            <div className={`mx-auto mb-3 ${form.banner_url ? 'bg-white rounded-full p-2 shadow-lg w-20 h-20 flex items-center justify-center' : ''}`}>
+              <img 
+                src={form.company_logo} 
+                alt={form.company_name || "Company"} 
+                className={`${form.banner_url ? 'max-w-14 max-h-14' : 'max-w-24 max-h-16'} object-contain`}
+              />
+            </div>
+          )}
           <CardTitle className="text-2xl">{form.form_name}</CardTitle>
-          {form.description && (
-            <CardDescription className="mt-2">{form.description}</CardDescription>
+          {description && (
+            <CardDescription className="mt-2">{description}</CardDescription>
           )}
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name */}
+            {/* Standard Fields */}
             {isFieldEnabled("lead_name") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -264,7 +396,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Email */}
             {isFieldEnabled("email") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -281,7 +412,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Phone */}
             {isFieldEnabled("phone") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -297,7 +427,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Company */}
             {isFieldEnabled("company_name") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -313,7 +442,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Event Type */}
             {isFieldEnabled("event_type") && (
               <div className="space-y-2">
                 <Label>
@@ -338,7 +466,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Event Date */}
             {isFieldEnabled("event_date") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -354,7 +481,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Guest Count */}
             {isFieldEnabled("estimated_guest_count") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -371,7 +497,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Budget Range */}
             {isFieldEnabled("budget_range") && (
               <div className="space-y-2">
                 <Label>
@@ -396,7 +521,6 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            {/* Message */}
             {isFieldEnabled("message") && (
               <div className="space-y-2">
                 <Label>
@@ -412,7 +536,19 @@ export default function LeadFormPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full h-12" disabled={submitting}>
+            {/* Custom Fields */}
+            {form.custom_fields && form.custom_fields.length > 0 && (
+              <>
+                {form.custom_fields.map(field => renderCustomField(field))}
+              </>
+            )}
+
+            <Button 
+              type="submit" 
+              className="w-full h-12" 
+              disabled={submitting}
+              style={{ backgroundColor: primaryColor }}
+            >
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
