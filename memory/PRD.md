@@ -256,6 +256,12 @@ Auto-generated from Event Order:
   - Purchase Unit and Pack Size fields
   - Supplier Payment Terms (Cash/Transfer/Credit/Mixed) and Credit Limit
   - Print Purchase Orders with preview dialog
+- [x] **Food Ops Module V6 (Portion Formats in Menus - Jan 31, 2026)**:
+  - Multiple Portion Formats per Recipe (Almuerzo 10oz, Cena 6oz, Mini 4oz, etc.)
+  - Each format has: Custom name, Portions obtained from yield, Cost per portion, Sell price based on target margin
+  - When adding recipe to menu, dropdown to select which portion format to use
+  - Cost automatically updates based on selected format
+  - Format selector shows: Standard, and all custom formats with prices
 
 ## Upcoming Tasks
 - [ ] Recipe Packaging Formats UI completion (tab exists, needs linking to packaging inventory items)
