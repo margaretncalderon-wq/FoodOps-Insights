@@ -571,6 +571,9 @@ class FeatureFlags(BaseModel):
     is_food_ops_enabled: bool = True  # Links to recipes module
     is_inventory_enabled: bool = False  # Inventory management module
     is_purchase_list_enabled: bool = False  # Purchase lists for events
+    is_recipe_composition_enabled: bool = True  # Sub-recipes in recipes
+    is_plated_menu_enabled: bool = True  # Plated menu with courses
+    is_base_recipes_enabled: bool = True  # Base/Component recipe types
 
 class FeatureFlagsUpdate(BaseModel):
     is_proposal_editing_enabled: Optional[bool] = None
@@ -581,6 +584,9 @@ class FeatureFlagsUpdate(BaseModel):
     is_food_ops_enabled: Optional[bool] = None
     is_inventory_enabled: Optional[bool] = None
     is_purchase_list_enabled: Optional[bool] = None
+    is_recipe_composition_enabled: Optional[bool] = None
+    is_plated_menu_enabled: Optional[bool] = None
+    is_base_recipes_enabled: Optional[bool] = None
 
 # ============== INVENTORY MODELS ==============
 
