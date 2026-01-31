@@ -109,7 +109,12 @@ export default function CRMPage() {
       setDialogOpen(false);
       resetForm();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to save client");
+      const detail = error.response?.data?.detail;
+      // Handle validation errors array from Pydantic
+      const errorMessage = Array.isArray(detail) 
+        ? detail.map(e => e.msg || e.message).join(', ')
+        : (typeof detail === 'string' ? detail : "Failed to save client");
+      toast.error(errorMessage);
     }
   };
 

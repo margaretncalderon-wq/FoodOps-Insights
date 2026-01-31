@@ -92,7 +92,7 @@ class Company(BaseModel):
 # CRM Models - Enhanced with corporate and direct client types
 class ContactPerson(BaseModel):
     name: str
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None  # Changed from EmailStr to str to allow empty strings
     phone: Optional[str] = None
     role: Optional[str] = None  # e.g., "Manager", "Event Coordinator"
 
@@ -100,7 +100,7 @@ class ClientCreate(BaseModel):
     client_type: str = "direct"  # "corporate" or "direct"
     # For direct clients - this is the contact name
     name: str
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None  # Changed from EmailStr to str to allow empty strings
     phone: Optional[str] = None
     # For corporate clients
     company_name: Optional[str] = None
