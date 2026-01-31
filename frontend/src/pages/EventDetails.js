@@ -325,6 +325,10 @@ export default function EventDetails() {
             </TabsTrigger>
             <TabsTrigger value="tasks" data-testid="tab-tasks">{t("tasks")}</TabsTrigger>
             <TabsTrigger value="menu" data-testid="tab-menu">{t("menu")}</TabsTrigger>
+            <TabsTrigger value="purchase" className="gap-2" data-testid="tab-purchase">
+              <ShoppingCart className="w-4 h-4" />
+              {language === "es" ? "Compras" : "Purchases"}
+            </TabsTrigger>
           </TabsList>
 
           {/* Contract & Event Order Tab - THE MAIN DATA ENTRY */}
