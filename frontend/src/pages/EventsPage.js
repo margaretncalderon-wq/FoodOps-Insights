@@ -644,10 +644,10 @@ export default function EventsPage() {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <CalendarIcon className="w-4 h-4" />
                       <span>
-                        {event.event_date_tbd || !event.event_date 
+                        {event.event_date_tbd || !event.event_date || new Date(event.event_date).getTime() < 86400000
                           ? "TBD" 
                           : new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
-                        {event.is_booking && event.end_date && (
+                        {event.is_booking && event.end_date && new Date(event.end_date).getTime() > 86400000 && (
                           <> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</>
                         )}
                       </span>
