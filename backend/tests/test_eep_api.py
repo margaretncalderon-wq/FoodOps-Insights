@@ -175,27 +175,27 @@ class TestPlatedMenus:
 class TestInventory:
     """Inventory module tests"""
     
-    def test_get_inventory_items(self, auth_headers):
-        """Test fetching inventory items"""
-        response = requests.get(f"{BASE_URL}/api/inventory", headers=auth_headers)
+    def test_get_inventory_ingredients(self, auth_headers):
+        """Test fetching inventory ingredients"""
+        response = requests.get(f"{BASE_URL}/api/inventory/ingredients", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        print(f"Found {len(data)} inventory items")
+        print(f"Found {len(data)} inventory ingredients")
         if len(data) > 0:
             item = data[0]
-            assert "item_id" in item
+            assert "ingredient_id" in item
             assert "name" in item
-            print(f"First item: {item['name']}")
+            print(f"First ingredient: {item['name']}")
     
-    def test_get_inventory_stats(self, auth_headers):
-        """Test fetching inventory statistics"""
-        response = requests.get(f"{BASE_URL}/api/inventory/stats", headers=auth_headers)
+    def test_get_inventory_valuation(self, auth_headers):
+        """Test fetching inventory valuation"""
+        response = requests.get(f"{BASE_URL}/api/inventory/valuation", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
-        # Check for expected stats fields
-        assert "total_items" in data or "items" in data or isinstance(data, dict)
-        print(f"Inventory stats: {data}")
+        # Check for expected valuation fields
+        assert isinstance(data, dict)
+        print(f"Inventory valuation: {data}")
 
 
 class TestSuppliers:
