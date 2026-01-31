@@ -1122,13 +1122,14 @@ function PurchasesSection() {
 export default function FoodOpsPage() {
   const { language } = useLanguage();
   
+  // Culinary Intelligence - New branding
   const navItems = [
-    { path: "/food-ops/inventory", label: language === "es" ? "Inventario" : "Inventory", icon: Package },
-    { path: "/food-ops/recipes", label: language === "es" ? "Recetas" : "Recipes", icon: ChefHat },
-    { path: "/food-ops/menus", label: language === "es" ? "Menús" : "Menus", icon: BookOpen },
-    { path: "/food-ops/purchases", label: language === "es" ? "Compras" : "Purchases", icon: ShoppingCart },
-    { path: "/food-ops/purchase-orders", label: language === "es" ? "Órdenes de Compra" : "Purchase Orders", icon: Truck },
-    { path: "/food-ops/consolidated", label: language === "es" ? "Consolidado" : "Consolidated", icon: Layers },
+    { path: "/food-ops/inventory", label: language === "es" ? "Inteligencia de Abastecimiento" : "Supply Intelligence", icon: Package },
+    { path: "/food-ops/recipes", label: language === "es" ? "Arquitectura de Recetas" : "Recipe Architecture", icon: ChefHat },
+    { path: "/food-ops/menus", label: language === "es" ? "Estrategia de Menús" : "Menu Strategy", icon: BookOpen },
+    { path: "/food-ops/purchases", label: language === "es" ? "Gestión de Compras" : "Procurement", icon: ShoppingCart },
+    { path: "/food-ops/purchase-orders", label: language === "es" ? "Órdenes a Proveedores" : "Vendor Orders", icon: Truck },
+    { path: "/food-ops/consolidated", label: language === "es" ? "Resumen de Costos y Consumo" : "Cost & Usage Overview", icon: Layers },
   ];
 
   return (
