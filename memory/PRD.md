@@ -300,27 +300,37 @@ Auto-generated from Event Order:
   - "Evoque Events Platform" → "Evoke OS"
   - Landing page, Login page, Register page all updated
   - Layout/sidebar updated
+- [x] **Business Clarity Module - COMPLETE (Jan 31, 2026)**:
+  - Executive Dashboard with KPIs (Receivables, Overdue, Payables, Net Flow)
+  - Aging Analysis (Current, 1-30, 31-60, 61-90, 90+ days buckets)
+  - Invoice Management (create, list, filter by status/client/event)
+  - Payment Engine (create payments, apply to multiple invoices)
+  - Stripe Integration (card payments for invoices via checkout)
+  - Accounts Receivable Intelligence with aging and risk indicators
+  - Accounts Payable Overview (from expenses and supplier payables)
+  - Client Financial View (account statements with running balance)
+  - Client Credit Context (has_credit, credit_limit, payment_terms)
+  - Executive Reports:
+    - Financial Snapshot (invoiced, collected, expenses, profit)
+    - Client Revenue Report
+    - Supplier Spend Report
+    - Event Profitability Summary
+  - Full audit logging for payments and applications
+  - Backend: 20+ new endpoints under /api/business-clarity/
+  - Frontend: New BusinessClarityPage with 5 tabs
 
 ## Upcoming Tasks
-- [ ] **Business Clarity Module - Phase 1**: Core Payment Engine
-  - Create Payment and PaymentApplication models
-  - Extend Invoice model (paid_amount, balance_due, status)
-  - API endpoints for creating and applying payments
-  - Frontend UI for recording payments and allocation
 - [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
+- [ ] Business Clarity enhancements:
+  - CSV/Excel/PDF export for all reports
+  - Email notifications for overdue invoices
+  - Payment reminders
+  - Permissions (Admin/Finance vs. Ops access levels)
 
 ## Future/Backlog
-- [ ] **Business Clarity Module - Phase 2**: Client & A/R Views
-  - Client Financial View (Account Statement)
-  - Accounts Receivable Intelligence with aging buckets (1-30, 31-60, 61-90, 90+)
-- [ ] **Business Clarity Module - Phase 3**: Centralized Records
-  - Unified Invoices and Payables views
-- [ ] **Business Clarity Module - Phase 4**: Executive Reporting
-  - Financial Snapshot, A/R Summary, A/P Summary, Event Profitability
-- [ ] Client Credit Context (has_credit, credit_limit, payment_terms) - advisory feature
-- [ ] Permissions (Admin/Finance vs. Ops) and audit logs for Business Clarity
 - [ ] AI integrations for supplier suggestions
 - [ ] Integration with Alegra (electronic invoicing)
-- [ ] Payment gateways (Stripe, MercadoPago)
+- [ ] Additional payment gateways (MercadoPago)
 - [ ] Email POs to suppliers
+- [ ] Multi-currency support
 
