@@ -43,6 +43,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+} from "../components/ui/table";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Helper to extract error message from Pydantic validation errors
 const getErrorMessage = (error, fallback = "An error occurred") => {
@@ -54,9 +57,6 @@ const getErrorMessage = (error, fallback = "An error occurred") => {
   }
   return fallback;
 };
-} from "../components/ui/table";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const LEAD_SOURCES = ["Website", "Instagram", "QR", "Referral", "Other"];
 const LEAD_STATUSES = ["New", "Contacted", "Converted", "Discarded"];
