@@ -1204,6 +1204,92 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Menu Dialog */}
+      <Dialog open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              {language === "es" ? "Seleccionar Menú / Paquete" : "Select Menu / Package"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <p className="text-sm text-muted-foreground mb-4">
+            {language === "es" 
+              ? "Selecciona un menú para agregar todos sus ítems a la propuesta de una vez."
+              : "Select a menu to add all its items to the proposal at once."}
+          </p>
+
+          {menus.length > 0 ? (
+            <div className="space-y-3">
+              {menus.map((menu) => (
+                <Card 
+                  key={menu.menu_id} 
+                  className="cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => handleAddMenu(menu)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold">{language === "es" && menu.name_es ? menu.name_es : menu.name}</h4>
+                          <Badge variant="outline" className="text-xs">{menu.menu_type}</Badge>
+                          <Badge variant="secondary" className="text-xs">{menu.items?.length || 0} {language === "es" ? "ítems" : "items"}</Badge>
+                        </div>
+                        {menu.description && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {language === "es" && menu.description_es ? menu.description_es : menu.description}
+                          </p>
+                        )}
+                        {/* Items preview */}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {menu.items?.slice(0, 4).map((item, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {item.custom_name || item.picklist_item?.name || item.recipe?.name || "Item"}
+                              {item.quantity > 1 && ` ×${item.quantity}`}
+                            </Badge>
+                          ))}
+                          {menu.items?.length > 4 && (
+                            <Badge variant="outline" className="text-xs">+{menu.items.length - 4} {language === "es" ? "más" : "more"}</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="font-mono font-medium">${menu.total_price?.toFixed(2)}</span>
+                          {featureFlags?.is_margin_tracking_enabled && (
+                            <>
+                              <span className="text-muted-foreground">
+                                {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
+                              </span>
+                              <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
+                                {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="ml-4">
+                        <Plus className="w-4 h-4 mr-1" />
+                        {language === "es" ? "Agregar" : "Add"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>{language === "es" ? "No hay menús creados" : "No menus created"}</p>
+              <p className="text-sm mt-2">
+                {language === "es" 
+                  ? "Crea menús en Settings → Lista de Ítems → Menús"
+                  : "Create menus in Settings → Item Picklist → Menus"}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
