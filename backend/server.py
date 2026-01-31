@@ -6997,6 +6997,14 @@ api_router.include_router(purchase_orders_router)
 api_router.include_router(expenses_router)
 api_router.include_router(allergens_router)
 
+# Serve uploaded files
+@api_router.get("/uploads/{filename}")
+async def get_upload(filename: str):
+    filepath = UPLOADS_DIR / filename
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(filepath)
+
 app.include_router(api_router)
 
 app.add_middleware(
