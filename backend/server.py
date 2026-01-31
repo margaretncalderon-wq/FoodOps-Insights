@@ -1289,7 +1289,8 @@ async def get_public_lead_form(form_id: str):
         "description": form.get("description"),
         "fields": form.get("fields", []),
         "default_event_type": form.get("default_event_type"),
-        "thank_you_message": form.get("thank_you_message", "Thank you!")
+        "thank_you_message_en": form.get("thank_you_message_en", form.get("thank_you_message", "Thank you for your inquiry!")),
+        "thank_you_message_es": form.get("thank_you_message_es", "¡Gracias por tu consulta! Te contactaremos pronto.")
     }
 
 @lead_forms_router.post("/{form_id}/submit")
