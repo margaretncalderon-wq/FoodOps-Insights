@@ -350,20 +350,46 @@ Auto-generated from Event Order:
   - Frontend: List view shows "Pending Balance: $X,XXX" in red when > 0
   - Frontend: Pipeline (Kanban) view shows "Pending: $X,XXX" in red when > 0
   - Added data-testid attributes for testing
+- [x] **Settings Module Enhancement (Jan 31, 2026)**:
+  - **Users Management**: List, invite, edit, deactivate users
+    - API: GET/POST/PUT /api/settings/users
+  - **Roles & Permissions**: Admin, Finance, Operations roles
+    - Permissions grouped by module: Events, CRM, Culinary, Finance, Settings
+    - System roles protected from modification
+    - API: GET/POST/PUT/DELETE /api/settings/roles
+  - **Automations**: 
+    - Payment Reminder (email, days after overdue)
+    - Low Stock Alert (email, in_app)
+    - Event Reminder (email, days before)
+    - Task Due Date notifications
+    - New Lead notifications
+    - API: GET/POST/PUT/DELETE /api/settings/automations
+  - **Integrations**:
+    - Alegra (electronic invoicing)
+    - QuickBooks (accounting)
+    - Gmail (email API)
+    - WhatsApp Business (messaging)
+    - Stripe (pre-configured)
+    - Category filters: Accounting, Communication, Payments
+    - API: GET/POST/DELETE /api/settings/integrations
+  - New UI components in /app/frontend/src/components/settings/
 
 ## Upcoming Tasks
 - [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
+  - Note: The issue is that order_items of type "Food" don't have recipe_id linked
+  - The procurement feature requires recipes to be linked to food items
 - [ ] Verify merma (waste) calculations in recipes
+  - Note: Merma (waste_factor_pct) calculation is implemented correctly in server.py
 - [ ] Business Clarity enhancements:
   - CSV/Excel/PDF export for all reports
-  - Email notifications for overdue invoices
-  - Payment reminders
-  - Permissions (Admin/Finance vs. Ops access levels)
+  - Email notifications for overdue invoices (requires Gmail integration)
 
 ## Future/Backlog
+- [ ] Implement actual automation execution (cron jobs for reminders, alerts)
+- [ ] Complete OAuth flow for Gmail integration
+- [ ] Complete WhatsApp Business API integration
+- [ ] Implement Alegra/QuickBooks integration
 - [ ] AI integrations for supplier suggestions
-- [ ] Integration with Alegra (electronic invoicing)
 - [ ] Additional payment gateways (MercadoPago)
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
-
