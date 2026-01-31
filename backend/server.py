@@ -377,6 +377,17 @@ class RecipeIngredient(BaseModel):
     item_name: str
     quantity: float
     unit: str
+    waste_factor_pct: float = 0.0  # Merma percentage (e.g., 10 = 10% waste)
+    cost_per_unit: float = 0.0
+    total_cost: float = 0.0
+    net_quantity: float = 0.0  # quantity after waste applied
+
+class RecipeComponentLink(BaseModel):
+    """Link a parent recipe to a child recipe (sub-recipe)"""
+    child_recipe_id: str
+    child_recipe_name: str
+    quantity_used: float
+    unit: str
     cost_per_unit: float = 0.0
     total_cost: float = 0.0
 
@@ -389,11 +400,14 @@ class RecipeCreate(BaseModel):
     yield_unit: str = "portion"
     portion_size: float = 1.0
     portion_unit: str = "serving"
+    portions_per_yield: float = 1.0  # How many portions from one yield
     prep_time_minutes: int = 0
     cook_time_minutes: int = 0
     labor_minutes: int = 0
     ingredients: List[RecipeIngredient] = []
+    sub_recipes: List[RecipeComponentLink] = []  # Sub-recipes used in this recipe
     instructions: List[str] = []
+    notes: Optional[str] = None
     sell_price: float = 0.0
     image_url: Optional[str] = None
 
@@ -402,18 +416,21 @@ class Recipe(BaseModel):
     company_id: str
     name: str
     description: Optional[str] = None
-    recipe_type: str = "final_dish"
+    recipe_type: str = "final_dish"  # base, component, final_dish
     category: str
     yield_quantity: float
     yield_unit: str
     portion_size: float = 1.0
     portion_unit: str = "serving"
+    portions_per_yield: float = 1.0
     prep_time_minutes: int
     cook_time_minutes: int
     labor_minutes: int = 0
     ingredients: List[RecipeIngredient]
+    sub_recipes: List[RecipeComponentLink] = []
     instructions: List[str]
-    total_cost: float
+    notes: Optional[str] = None
+    total_cost: float  # Total cost including sub-recipes
     cost_per_yield: float
     cost_per_portion: float
     sell_price: float = 0.0
