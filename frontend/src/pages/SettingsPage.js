@@ -607,6 +607,7 @@ export default function SettingsPage() {
       description_es: menu.description_es || "",
       menu_type: menu.menu_type || "Menu",
       items: menu.items || [],
+      variants: menu.variants || [],
       default_price: menu.default_price || null,
       is_fixed_price: menu.is_fixed_price || false,
       is_active: menu.is_active !== false
