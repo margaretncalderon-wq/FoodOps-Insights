@@ -207,6 +207,15 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchMenus = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/menus?active_only=false`, { withCredentials: true });
+      setMenus(response.data);
+    } catch (error) {
+      console.error("Failed to fetch menus:", error);
+    }
+  };
+
   const fetchTaxes = async () => {
     try {
       const response = await axios.get(`${API}/settings/taxes`, { withCredentials: true });
