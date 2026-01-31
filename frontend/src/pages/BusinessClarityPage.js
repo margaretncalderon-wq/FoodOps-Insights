@@ -807,21 +807,37 @@ export default function BusinessClarityPage() {
   return (
     <Layout>
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar */}
+        {/* Sidebar - Same style as Culinary Intelligence */}
         <div className="w-56 border-r bg-muted/30 p-4 flex flex-col">
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <Landmark className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-bold">Business Clarity</h2>
+          <NavLink 
+            to="/dashboard" 
+            className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {isEs ? "← Volver al Dashboard" : "← Back to Dashboard"}
+          </NavLink>
+          
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Landmark className="w-6 h-6 text-primary" />
+              <h2 className="text-xl font-bold">Business Clarity</h2>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{isEs ? "Claridad para decidir" : "Clarity for decisions"}</p>
+            <p className="text-xs text-muted-foreground pl-8">
+              {isEs ? "Claridad para decidir" : "Clarity for decisions"}
+            </p>
           </div>
+          
           <nav className="space-y-1 flex-1">
             {navItems.map(item => (
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "hover:bg-muted"
+                  }`
+                }
               >
                 <item.icon className="w-4 h-4" />
                 <span>{isEs ? item.labelEs : item.label}</span>
