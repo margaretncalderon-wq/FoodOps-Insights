@@ -703,9 +703,25 @@ class PicklistItemCreate(BaseModel):
     name: str
     description: Optional[str] = None
     category_id: str
+    item_type: str = "Service"  # Food, Service, Rental, Fee
     default_price: float = 0.0
-    recipe_id: Optional[str] = None  # Link to recipe for food items
+    internal_cost: Optional[float] = None  # Manual cost override
+    recipe_id: Optional[str] = None  # Link to recipe for food items (auto cost)
+    inventory_item_id: Optional[str] = None  # Link to inventory for disposables
     unit: str = "unit"
+    is_active: bool = True
+
+class PicklistItemUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[str] = None
+    item_type: Optional[str] = None
+    default_price: Optional[float] = None
+    internal_cost: Optional[float] = None
+    recipe_id: Optional[str] = None
+    inventory_item_id: Optional[str] = None
+    unit: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class PicklistItem(BaseModel):
     item_id: str
@@ -713,10 +729,19 @@ class PicklistItem(BaseModel):
     name: str
     description: Optional[str] = None
     category_id: str
+    item_type: str
     default_price: float
+    internal_cost: Optional[float] = None
     recipe_id: Optional[str] = None
+    inventory_item_id: Optional[str] = None
     unit: str
+    is_active: bool
     created_at: datetime
+    updated_at: Optional[datetime] = None
+
+# Bulk Add Picklist Items
+class PicklistBulkCreate(BaseModel):
+    items: List[PicklistItemCreate]
 
 # Tax Rate Model
 class TaxRateCreate(BaseModel):
