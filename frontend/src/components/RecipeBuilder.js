@@ -677,13 +677,13 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           </Card>
 
           {/* Portion Formats */}
-          {initialRecipe && (
-            <div className="border rounded-lg p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{t("portionFormats")}</h3>
-                  <Badge variant="outline">{portionFormats.length}</Badge>
-                </div>
+          <div className="border rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">{t("portionFormats")}</h3>
+                <Badge variant="outline">{portionFormats.length}</Badge>
+              </div>
+              {initialRecipe ? (
                 <Button variant="outline" size="sm" onClick={() => {
                   // Calculate suggested price when opening dialog
                   const costPer = totalCost / 1; // portions_obtained default is 1
@@ -701,9 +701,20 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 }}>
                   <Plus className="w-4 h-4 mr-1" />{t("addPortionFormat")}
                 </Button>
-              </div>
+              ) : (
+                <Badge variant="secondary" className="text-xs">
+                  {language === "es" ? "Guarda primero para agregar formatos" : "Save first to add formats"}
+                </Badge>
+              )}
+            </div>
 
-              {portionFormats.length === 0 ? (
+            {!initialRecipe ? (
+              <p className="text-center py-4 text-muted-foreground text-sm">
+                {language === "es" 
+                  ? "💡 Guarda la receta primero, luego podrás agregar formatos de porción (Almuerzo 10oz, Cena 6oz, Mini 4oz, etc.)" 
+                  : "💡 Save the recipe first, then you can add portion formats (Lunch 10oz, Dinner 6oz, Mini 4oz, etc.)"}
+              </p>
+            ) : portionFormats.length === 0 ? (
                 <p className="text-center py-4 text-muted-foreground">{language === "es" ? "Sin formatos de porción" : "No portion formats"}</p>
               ) : (
                 <Table>
