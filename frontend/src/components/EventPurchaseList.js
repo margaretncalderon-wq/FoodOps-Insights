@@ -69,9 +69,33 @@ export default function EventPurchaseList({ eventId, eventName }) {
   };
 
   useEffect(() => {
-    if (eventId) {
-      fetchPurchaseList();
-    }
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (!eventId || !isMounted) return;
+      setLoading(true);
+      try {
+        const [generateRes, savedRes] = await Promise.all([
+          axios.get(`${API}/api/purchase-lists/event/${eventId}/generate`, { withCredentials: true }),
+          axios.get(`${API}/api/purchase-lists?event_id=${eventId}`, { withCredentials: true })
+        ]);
+        if (isMounted) {
+          setPurchaseData(generateRes.data);
+          setSavedLists(savedRes.data);
+          const expanded = {};
+          Object.keys(generateRes.data.items_by_supplier || {}).forEach(sid => {
+            expanded[sid] = true;
+          });
+          setExpandedSuppliers(expanded);
+        }
+      } catch (error) {
+        if (isMounted) toast.error("Error loading purchase list");
+      }
+      if (isMounted) setLoading(false);
+    };
+    
+    loadData();
+    return () => { isMounted = false; };
   }, [eventId]);
 
   const handleSavePurchaseList = async (supplierId, supplierData) => {
