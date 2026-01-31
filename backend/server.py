@@ -3934,13 +3934,22 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
     if event and event.get("operational_status") == "Closed":
         raise HTTPException(status_code=400, detail="Cannot edit proposal for a closed event")
     
-    # Get financials
-    financials = await calculate_proposal_financials(proposal_id, user.company_id)
+    # Get base items subtotal
+    items = await db.order_items.find({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0}).to_list(500)
+    subtotal = sum(item.get("quantity", 1) * item.get("unit_price", 0) for item in items)
+    total_cost = sum(item.get("quantity", 1) * (item.get("internal_cost") or 0) for item in items)
     
-    discount_amount = data.get("discount_amount", proposal.get("discount_amount", 0))
+    # Handle discount - supports both fixed amount and percentage
+    discount_type = data.get("discount_type", proposal.get("discount_type", "fixed"))  # "fixed" or "percentage"
+    discount_value = data.get("discount_value", proposal.get("discount_value", 0))
+    
+    if discount_type == "percentage":
+        discount_amount = subtotal * (discount_value / 100)
+    else:
+        discount_amount = discount_value
+    
+    subtotal_after_discount = subtotal - discount_amount
     tax_ids = data.get("tax_ids", [])
-    
-    subtotal_after_discount = financials["subtotal"] - discount_amount
     
     # Calculate taxes
     tax_details = []
@@ -3958,16 +3967,20 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
             })
     
     total = subtotal_after_discount + total_tax
+    margin = subtotal - total_cost
+    margin_pct = (margin / subtotal * 100) if subtotal > 0 else 0
     
     update_data = {
-        "subtotal": financials["subtotal"],
+        "subtotal": subtotal,
+        "discount_type": discount_type,
+        "discount_value": discount_value,
         "discount_amount": discount_amount,
         "tax_details": tax_details,
         "total_tax": total_tax,
         "total": total,
-        "total_cost": financials["total_cost"],
-        "total_margin": financials["total_margin"],
-        "margin_percentage": financials["margin_percentage"],
+        "total_cost": total_cost,
+        "total_margin": margin,
+        "margin_percentage": margin_pct,
         "payment_terms": data.get("payment_terms", proposal.get("payment_terms")),
         "client_notes": data.get("client_notes", proposal.get("client_notes")),
         "last_edited_at": now.isoformat()
