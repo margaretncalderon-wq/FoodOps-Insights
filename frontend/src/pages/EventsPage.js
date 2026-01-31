@@ -493,7 +493,9 @@ export default function EventsPage() {
                 </div>
                 <Link to={`/events/${event.event_id}`}>
                   <h3 className="font-heading text-xl font-semibold mb-2 hover:text-primary transition-colors">
-                    {event.name}
+                    {event.client_info?.client_type === "corporate" && event.client_info?.company_name 
+                      ? `${event.client_info.company_name} - ${event.name}`
+                      : event.name}
                   </h3>
                 </Link>
                 <p className="text-sm text-muted-foreground mb-4 capitalize">{event.event_type}</p>
