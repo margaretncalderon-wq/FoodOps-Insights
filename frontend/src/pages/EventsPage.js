@@ -275,12 +275,34 @@ export default function EventsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/calendar">
-              <Button variant="outline" className="gap-2">
-                <CalendarDays className="w-4 h-4" />
-                {t("calendar")}
+            {/* View Mode Toggle */}
+            <div className="flex items-center border rounded-lg p-1 bg-muted/30">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => { setViewMode("list"); setSearchParams({ view: "list" }); }}
+                className="gap-1"
+              >
+                <List className="w-4 h-4" />
+                {language === "es" ? "Lista" : "List"}
               </Button>
-            </Link>
+              <Button
+                variant={viewMode === "pipeline" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => { setViewMode("pipeline"); setSearchParams({ view: "pipeline" }); fetchPipeline(); }}
+                className="gap-1"
+              >
+                Pipeline
+              </Button>
+              <Button
+                variant={viewMode === "calendar" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => { setViewMode("calendar"); setSearchParams({ view: "calendar" }); }}
+                className="gap-1"
+              >
+                <CalendarDays className="w-4 h-4" />
+              </Button>
+            </div>
             <Dialog open={dialogOpen} onOpenChange={(open) => { 
               setDialogOpen(open); 
               if (!open) resetForm(); 
@@ -310,7 +332,7 @@ export default function EventsPage() {
                       <SelectContent>
                         {clients.map((client) => (
                           <SelectItem key={client.client_id} value={client.client_id}>
-                            {client.name}
+                            {client.display_name || client.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
