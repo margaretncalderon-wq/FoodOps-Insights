@@ -160,14 +160,14 @@ class TestExperienceDesign:
     def test_update_experience_design(self, session):
         """PUT /api/orchestration/experience/{event_id} - Update experience design"""
         test_color = "#FF5733"
-        test_material = {"id": 1, "name": "TEST_Linen", "category": "linens", "description": "Test material"}
-        test_zone = {"id": 1, "name": "TEST_Zone", "purpose": "Test purpose", "capacity": "50"}
+        test_material = {"name": "TEST_Linen", "category": "linens", "description": "Test material"}
+        test_zone = {"name": "TEST_Zone", "purpose": "Test purpose", "capacity": "50"}
         
         response = session.put(f"{BASE_URL}/api/orchestration/experience/{TEST_EVENT_ID}", json={
             "event_id": TEST_EVENT_ID,
             "color_palette": [test_color, "#3498DB"],
             "materials": [test_material],
-            "moodboard_images": [{"id": 1, "url": "https://example.com/test.jpg", "caption": "Test image"}],
+            "moodboard_images": [{"url": "https://example.com/test.jpg", "caption": "Test image"}],
             "catering_setup": "buffet",
             "layout_zones": [test_zone],
             "notes": "Test design notes"
@@ -378,22 +378,24 @@ class TestTeamRoles:
         """PUT /api/orchestration/team/{event_id} - Update team roles"""
         test_role_id = f"role_{uuid.uuid4().hex[:8]}"
         
+        # Using correct Pydantic model fields: role_name, quantity, assignees (list of strings)
         response = session.put(f"{BASE_URL}/api/orchestration/team/{TEST_EVENT_ID}", json={
             "event_id": TEST_EVENT_ID,
             "roles": [
                 {
                     "role_id": test_role_id,
-                    "name": "TEST_Coordinator",
+                    "role_name": "TEST_Coordinator",
+                    "quantity": 1,
                     "responsibilities": "Test responsibilities",
-                    "assignees": [{"name": "John Doe", "contact": "john@test.com"}],
-                    "is_quick_add": False
+                    "assignees": ["John Doe"],
+                    "contact_info": "john@test.com"
                 },
                 {
                     "role_id": f"role_{uuid.uuid4().hex[:8]}",
-                    "name": "TEST_DJ",
+                    "role_name": "TEST_DJ",
+                    "quantity": 1,
                     "responsibilities": "Music",
-                    "assignees": [],
-                    "is_quick_add": True
+                    "assignees": []
                 }
             ],
             "coordinator_notes": "Test coordinator notes"
@@ -402,7 +404,7 @@ class TestTeamRoles:
         
         data = response.json()
         assert len(data["roles"]) == 2
-        assert data["roles"][0]["name"] == "TEST_Coordinator"
+        assert data["roles"][0]["role_name"] == "TEST_Coordinator"
         print("✓ Team roles updated")
         
         # Verify persistence
@@ -549,11 +551,12 @@ class TestPostEventReview:
         if get_response.json().get("is_locked"):
             pytest.skip("Review is locked, cannot update")
         
+        # Using correct Pydantic model: deviations is List[Dict[str, str]] with planned, actual, reason
         response = session.put(f"{BASE_URL}/api/orchestration/review/{TEST_EVENT_ID}", json={
             "event_id": TEST_EVENT_ID,
             "what_worked": ["TEST_Good communication", "TEST_On-time delivery"],
             "what_failed": ["TEST_Minor delay in setup"],
-            "deviations": [{"id": 1, "planned": "10 tables", "actual": "8 tables", "reason": "Space constraint"}],
+            "deviations": [{"planned": "10 tables", "actual": "8 tables", "reason": "Space constraint"}],
             "learnings": ["TEST_Always confirm table count 2 days before"],
             "client_feedback": "TEST_Client was happy",
             "team_feedback": "TEST_Team worked well together",
