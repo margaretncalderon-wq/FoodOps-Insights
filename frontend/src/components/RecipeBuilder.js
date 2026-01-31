@@ -413,6 +413,61 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     }
   };
 
+  // Image upload
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!initialRecipe?.recipe_id) {
+      toast.error(language === "es" ? "Guarda la receta primero" : "Save recipe first");
+      return;
+    }
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast.error(language === "es" ? "Tipo de archivo no válido" : "Invalid file type");
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(language === "es" ? "Archivo muy grande (max 5MB)" : "File too large (max 5MB)");
+      return;
+    }
+    
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await axios.post(
+        `${API}/api/recipes/${initialRecipe.recipe_id}/image`,
+        formData,
+        { withCredentials: true, headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      
+      setImageUrl(res.data.image_url);
+      toast.success(language === "es" ? "Imagen subida" : "Image uploaded");
+    } catch (error) {
+      toast.error(language === "es" ? "Error al subir imagen" : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    if (!initialRecipe?.recipe_id) return;
+    
+    try {
+      await axios.delete(`${API}/api/recipes/${initialRecipe.recipe_id}/image`, { withCredentials: true });
+      setImageUrl(null);
+      toast.success(language === "es" ? "Imagen eliminada" : "Image deleted");
+    } catch (error) {
+      toast.error("Error");
+    }
+  };
+
   // Fetch cost history
   const fetchCostHistory = async () => {
     if (!initialRecipe) return;
