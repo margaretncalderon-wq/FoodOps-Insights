@@ -545,15 +545,124 @@ class InvoiceCreate(BaseModel):
     tax_rate: float = 0.0
     notes: Optional[str] = None
 
-# Payment Model
+# ============== BUSINESS CLARITY MODELS ==============
+
+# Enhanced Payment Model for Business Clarity
 class PaymentCreate(BaseModel):
-    payment_type: str = "incoming"  # incoming, outgoing
-    invoice_id: str
-    invoice_type: str = "client"  # client, supplier
-    payment_method: str = "transfer"  # cash, transfer, card, check, platform
+    """Payment record for Business Clarity"""
+    client_id: str
     amount: float
+    payment_method: str = "transfer"  # cash, transfer, card, check, other
+    payment_date: Optional[datetime] = None
     reference: Optional[str] = None
     notes: Optional[str] = None
+    # For Stripe payments
+    stripe_session_id: Optional[str] = None
+
+class Payment(BaseModel):
+    """Full Payment model"""
+    payment_id: str
+    company_id: str
+    client_id: str
+    amount: float
+    payment_method: str
+    payment_date: datetime
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+    stripe_session_id: Optional[str] = None
+    status: str = "completed"  # pending, completed, failed
+    created_at: datetime
+    updated_at: datetime
+
+class PaymentApplicationCreate(BaseModel):
+    """Apply payment to invoices"""
+    payment_id: str
+    applications: List[Dict[str, Any]]  # [{invoice_id, amount_applied}]
+
+class PaymentApplication(BaseModel):
+    """Payment application to invoice"""
+    application_id: str
+    payment_id: str
+    invoice_id: str
+    amount_applied: float
+    created_at: datetime
+
+# Stripe Payment Transaction
+class StripePaymentTransaction(BaseModel):
+    """Track Stripe payment transactions"""
+    transaction_id: str
+    company_id: str
+    client_id: str
+    invoice_ids: List[str] = []
+    amount: float
+    currency: str = "usd"
+    session_id: str
+    payment_status: str = "initiated"  # initiated, pending, paid, failed, expired
+    metadata: Dict[str, Any] = {}
+    created_at: datetime
+    updated_at: datetime
+
+# Extended Invoice Model for Business Clarity
+class InvoiceExtended(BaseModel):
+    """Extended Invoice with payment tracking"""
+    invoice_id: str
+    company_id: str
+    client_id: str
+    event_id: Optional[str] = None
+    invoice_number: str
+    issue_date: datetime
+    due_date: datetime
+    lines: List[Dict[str, Any]] = []
+    subtotal: float = 0.0
+    discount_percent: float = 0.0
+    tax_rate: float = 0.0
+    total: float = 0.0
+    # Payment tracking fields
+    paid_amount: float = 0.0
+    balance_due: float = 0.0
+    status: str = "open"  # open, partially_paid, paid, overdue
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Client Credit Context
+class ClientCreditUpdate(BaseModel):
+    """Update client credit settings"""
+    has_credit: bool = False
+    credit_limit: float = 0.0
+    payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
+
+# Supplier Payable (for A/P tracking)
+class SupplierPayableCreate(BaseModel):
+    """Create supplier payable"""
+    supplier_id: str
+    event_id: Optional[str] = None
+    purchase_order_id: Optional[str] = None
+    amount: float
+    description: Optional[str] = None
+    due_date: Optional[datetime] = None
+
+class SupplierPayable(BaseModel):
+    """Supplier payable record"""
+    payable_id: str
+    company_id: str
+    supplier_id: str
+    event_id: Optional[str] = None
+    purchase_order_id: Optional[str] = None
+    amount: float
+    paid_amount: float = 0.0
+    balance_due: float = 0.0
+    status: str = "pending"  # pending, partially_paid, paid
+    description: Optional[str] = None
+    due_date: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Stripe Checkout Request for Invoice Payment
+class InvoicePaymentRequest(BaseModel):
+    """Request to pay invoice(s) via Stripe"""
+    invoice_ids: List[str]
+    origin_url: str
 
 # Document Model
 class DocumentCreate(BaseModel):
