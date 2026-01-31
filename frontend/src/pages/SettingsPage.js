@@ -113,7 +113,15 @@ export default function SettingsPage() {
     items: [],
     default_price: null,
     is_fixed_price: false,
-    is_active: true
+    is_active: true,
+    variants: []
+  });
+  const [newVariant, setNewVariant] = useState({
+    name: "",
+    name_es: "",
+    discount_type: "percentage",
+    discount_value: 0,
+    is_default: false
   });
   const [newLeadForm, setNewLeadForm] = useState({
     form_name: "",
