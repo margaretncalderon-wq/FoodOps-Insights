@@ -517,6 +517,8 @@ class FeatureFlags(BaseModel):
     is_document_autogeneration_enabled: bool = True
     is_custom_fields_enabled: bool = True
     is_food_ops_enabled: bool = True  # Links to recipes module
+    is_inventory_enabled: bool = False  # Inventory management module
+    is_purchase_list_enabled: bool = False  # Purchase lists for events
 
 class FeatureFlagsUpdate(BaseModel):
     is_proposal_editing_enabled: Optional[bool] = None
@@ -525,6 +527,118 @@ class FeatureFlagsUpdate(BaseModel):
     is_document_autogeneration_enabled: Optional[bool] = None
     is_custom_fields_enabled: Optional[bool] = None
     is_food_ops_enabled: Optional[bool] = None
+    is_inventory_enabled: Optional[bool] = None
+    is_purchase_list_enabled: Optional[bool] = None
+
+# ============== INVENTORY MODELS ==============
+
+class SupplierCreate(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    notes: Optional[str] = None
+
+class Supplier(BaseModel):
+    supplier_id: str
+    company_id: str
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class InventoryItemCreate(BaseModel):
+    name: str
+    inventory_type: str = "Food"  # Food, Packaging, Disposable, Equipment, EventSupply
+    category: Optional[str] = None
+    unit: str = "unit"  # kg, lb, unit, liter, etc.
+    pack_size: float = 1.0  # purchasing unit (e.g., 1kg bag, 24-pack)
+    pack_unit: Optional[str] = None  # e.g., "bag", "case", "box"
+    current_stock: float = 0.0
+    par_level: float = 0.0  # minimum stock level for alerts
+    preferred_supplier_id: Optional[str] = None
+    cost_per_unit: float = 0.0
+    status: str = "Active"  # Active, Inactive
+
+class InventoryItemUpdate(BaseModel):
+    name: Optional[str] = None
+    inventory_type: Optional[str] = None
+    category: Optional[str] = None
+    unit: Optional[str] = None
+    pack_size: Optional[float] = None
+    pack_unit: Optional[str] = None
+    current_stock: Optional[float] = None
+    par_level: Optional[float] = None
+    preferred_supplier_id: Optional[str] = None
+    cost_per_unit: Optional[float] = None
+    status: Optional[str] = None
+
+class InventoryItem(BaseModel):
+    item_id: str
+    company_id: str
+    name: str
+    inventory_type: str
+    category: Optional[str] = None
+    unit: str
+    pack_size: float = 1.0
+    pack_unit: Optional[str] = None
+    current_stock: float = 0.0
+    par_level: float = 0.0
+    preferred_supplier_id: Optional[str] = None
+    cost_per_unit: float = 0.0
+    status: str = "Active"
+    created_at: datetime
+    updated_at: datetime
+
+class InventoryTransactionCreate(BaseModel):
+    inventory_item_id: str
+    event_id: Optional[str] = None
+    transaction_type: str  # Purchase, Usage, Adjustment, Waste
+    quantity: float
+    unit_cost: Optional[float] = None
+    notes: Optional[str] = None
+
+class InventoryTransaction(BaseModel):
+    transaction_id: str
+    company_id: str
+    inventory_item_id: str
+    event_id: Optional[str] = None
+    transaction_type: str
+    quantity: float
+    unit_cost: Optional[float] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    created_by: str
+
+# ============== PURCHASE LIST MODELS ==============
+
+class PurchaseListItem(BaseModel):
+    inventory_item_id: str
+    item_name: str
+    unit: str
+    required_qty: float
+    in_stock_qty: float
+    to_purchase_qty: float
+    unit_cost: float = 0.0
+    total_cost: float = 0.0
+    status: str = "Short"  # InStock, Short, Unknown
+
+class PurchaseListCreate(BaseModel):
+    event_id: str
+    supplier_id: Optional[str] = None
+
+class PurchaseList(BaseModel):
+    purchase_list_id: str
+    company_id: str
+    event_id: str
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    items: List[PurchaseListItem] = []
+    total_cost: float = 0.0
+    status: str = "Draft"  # Draft, Ordered, Received
+    created_at: datetime
+    updated_at: datetime
 
 # ============== PROPOSAL MODELS (Client-facing Contract) ==============
 
