@@ -767,17 +767,6 @@ function ReportsSection() {
   );
 }
 
-// ==================== NAVIGATION ITEMS ====================
-const navItems = [
-  { path: "dashboard", label: "Dashboard", labelEs: "Dashboard", icon: PieChart },
-  { path: "invoices", label: "Invoices", labelEs: "Facturas", icon: FileText },
-  { path: "payments", label: "Payments", labelEs: "Pagos", icon: Banknote },
-  { path: "statements", label: "Statements", labelEs: "Estados de Cuenta", icon: UserCircle },
-  { path: "receivables", label: "Receivables", labelEs: "Por Cobrar", icon: TrendingUp },
-  { path: "payables", label: "Payables", labelEs: "Por Pagar", icon: TrendingDown },
-  { path: "reports", label: "Reports", labelEs: "Reportes", icon: FileBarChart },
-];
-
 // ==================== MAIN PAGE ====================
 export default function BusinessClarityPage() {
   const { language } = useLanguage();
