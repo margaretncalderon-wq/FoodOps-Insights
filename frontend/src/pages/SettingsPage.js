@@ -1720,6 +1720,233 @@ Mantel Blanco, , 10, 3`}
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Menus / Packages Section */}
+            <Card className="mt-6">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  {language === "es" ? "Menús / Paquetes" : "Menus / Packages"}
+                </CardTitle>
+                <Button onClick={() => { resetMenuForm(); setMenuDialogOpen(true); }} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  {language === "es" ? "Crear Menú" : "Create Menu"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {language === "es" 
+                    ? "Agrupa múltiples ítems en menús o paquetes para agregarlos rápidamente a propuestas."
+                    : "Group multiple items into menus or packages for quick addition to proposals."}
+                </p>
+                
+                {menus.length > 0 ? (
+                  <div className="space-y-3">
+                    {menus.map(menu => (
+                      <Card key={menu.menu_id} className={`border ${menu.is_active === false ? 'opacity-60' : ''}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold">{menu.name}</h4>
+                                <Badge variant="outline" className="text-xs">{menu.menu_type}</Badge>
+                                <Badge variant="secondary" className="text-xs">{menu.items?.length || 0} {language === "es" ? "ítems" : "items"}</Badge>
+                                {menu.is_active === false && <Badge variant="secondary">{language === "es" ? "Inactivo" : "Inactive"}</Badge>}
+                              </div>
+                              {menu.description && <p className="text-sm text-muted-foreground mb-2">{menu.description}</p>}
+                              
+                              {/* Items list */}
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {menu.items?.slice(0, 6).map((item, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    {item.custom_name || item.picklist_item?.name || "Item"}
+                                    {item.quantity > 1 && ` ×${item.quantity}`}
+                                  </Badge>
+                                ))}
+                                {menu.items?.length > 6 && (
+                                  <Badge variant="outline" className="text-xs">+{menu.items.length - 6}</Badge>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-4 text-sm">
+                                <span className="font-mono font-medium">
+                                  {menu.is_fixed_price ? `${language === "es" ? "Precio Fijo" : "Fixed"}: ` : ""}
+                                  ${menu.total_price?.toFixed(2)}
+                                </span>
+                                {featureFlags?.is_margin_tracking_enabled && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
+                                    </span>
+                                    <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
+                                      {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditMenu(menu)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteMenu(menu.menu_id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>{language === "es" ? "No hay menús creados" : "No menus created"}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Menu Dialog */}
+            <Dialog open={menuDialogOpen} onOpenChange={(open) => { setMenuDialogOpen(open); if (!open) resetMenuForm(); }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingMenu 
+                      ? (language === "es" ? "Editar Menú" : "Edit Menu")
+                      : (language === "es" ? "Nuevo Menú / Paquete" : "New Menu / Package")}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSaveMenu} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === "es" ? "Nombre" : "Name"} *</Label>
+                      <Input 
+                        value={newMenu.name} 
+                        onChange={(e) => setNewMenu({ ...newMenu, name: e.target.value })} 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <Label>{language === "es" ? "Nombre (Español)" : "Name (Spanish)"}</Label>
+                      <Input 
+                        value={newMenu.name_es} 
+                        onChange={(e) => setNewMenu({ ...newMenu, name_es: e.target.value })} 
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label>{language === "es" ? "Descripción" : "Description"}</Label>
+                      <Textarea 
+                        value={newMenu.description} 
+                        onChange={(e) => setNewMenu({ ...newMenu, description: e.target.value })} 
+                        rows={2}
+                      />
+                    </div>
+                    <div>
+                      <Label>{language === "es" ? "Tipo" : "Type"}</Label>
+                      <Select value={newMenu.menu_type} onValueChange={(v) => setNewMenu({ ...newMenu, menu_type: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Menu">{language === "es" ? "Menú" : "Menu"}</SelectItem>
+                          <SelectItem value="Package">{language === "es" ? "Paquete" : "Package"}</SelectItem>
+                          <SelectItem value="Bundle">{language === "es" ? "Bundle" : "Bundle"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={newMenu.is_fixed_price}
+                          onCheckedChange={(v) => setNewMenu({ ...newMenu, is_fixed_price: v })}
+                        />
+                        <Label>{language === "es" ? "Precio Fijo" : "Fixed Price"}</Label>
+                      </div>
+                      {newMenu.is_fixed_price && (
+                        <Input 
+                          type="number"
+                          step="0.01"
+                          className="w-32"
+                          placeholder="$0.00"
+                          value={newMenu.default_price || ""}
+                          onChange={(e) => setNewMenu({ ...newMenu, default_price: parseFloat(e.target.value) || null })}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Items in Menu */}
+                  <div className="border rounded-lg p-4">
+                    <Label className="mb-3 block">{language === "es" ? "Ítems del Menú" : "Menu Items"}</Label>
+                    
+                    {/* Add from Picklist */}
+                    <Select onValueChange={(itemId) => {
+                      const item = picklist.find(p => p.item_id === itemId);
+                      if (item) addItemToMenu(item);
+                    }}>
+                      <SelectTrigger className="mb-3">
+                        <SelectValue placeholder={language === "es" ? "Agregar ítem del picklist..." : "Add item from picklist..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {picklist.filter(p => p.is_active !== false).map(item => (
+                          <SelectItem key={item.item_id} value={item.item_id}>
+                            {item.name} - ${item.default_price?.toFixed(2)} ({item.item_type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Current Items */}
+                    {newMenu.items.length > 0 ? (
+                      <div className="space-y-2">
+                        {newMenu.items.map((item, idx) => {
+                          const picklistItem = picklist.find(p => p.item_id === item.picklist_item_id);
+                          return (
+                            <div key={idx} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                              <Input
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                className="w-20"
+                                value={item.quantity}
+                                onChange={(e) => updateMenuItemQuantity(idx, e.target.value)}
+                              />
+                              <span className="flex-1 text-sm">
+                                {item.custom_name || picklistItem?.name || "Item"}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                ${((picklistItem?.default_price || 0) * item.quantity).toFixed(2)}
+                              </span>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => removeItemFromMenu(idx)}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-center py-4 text-sm text-muted-foreground">
+                        {language === "es" ? "Agrega ítems al menú" : "Add items to the menu"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <Label className="text-base">{language === "es" ? "Activo" : "Active"}</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {language === "es" ? "Disponible para agregar a propuestas" : "Available to add to proposals"}
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={newMenu.is_active !== false}
+                      onCheckedChange={(v) => setNewMenu({ ...newMenu, is_active: v })}
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full">{t("save")}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Taxes Tab */}
