@@ -23,6 +23,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ClientPortal from "./pages/ClientPortal";
 import LeadFormPage from "./pages/LeadFormPage";
 import BusinessClarityPage from "./pages/BusinessClarityPage";
+import EventOrchestrationPage from "./pages/EventOrchestrationPage";
 
 import "./App.css";
 
