@@ -285,21 +285,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   };
 
   const handlePicklistSelect = (picklistItem) => {
-    let internal_cost = null;
-    let reference_id = null;
-    
-    // Get recipe cost if linked
-    if (picklistItem.recipe_id) {
-      const recipe = recipes.find(r => r.recipe_id === picklistItem.recipe_id);
-      if (recipe) {
-        internal_cost = recipe.cost_per_portion || recipe.cost_per_serving || 0;
-        reference_id = recipe.recipe_id;
-      }
-    }
+    // Use pre-calculated cost from API (comes from recipe, inventory, or manual)
+    let internal_cost = picklistItem.calculated_cost || picklistItem.internal_cost || null;
+    let reference_id = picklistItem.recipe_id || null;
+    let item_type = picklistItem.item_type || "Service";
 
     setNewItem({
       ...newItem,
-      item_type: picklistItem.recipe_id ? "Food" : "Service",
+      item_type: item_type,
       description: picklistItem.name,
       category_id: picklistItem.category_id,
       unit_price: picklistItem.default_price,
@@ -307,7 +300,17 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       reference_id: reference_id,
     });
 
+    // Show cost info toast
     if (internal_cost && picklistItem.default_price > 0) {
+      const margin = ((picklistItem.default_price - internal_cost) / picklistItem.default_price * 100);
+      const source = picklistItem.cost_source || "manual";
+      toast.info(
+        language === "es" 
+          ? `Costo: $${internal_cost.toFixed(2)} (${source}) | Margen: ${margin.toFixed(0)}%`
+          : `Cost: $${internal_cost.toFixed(2)} (${source}) | Margin: ${margin.toFixed(0)}%`
+      );
+    }
+  };
       const margin = ((picklistItem.default_price - internal_cost) / picklistItem.default_price * 100);
       toast.info(
         language === "es" 
