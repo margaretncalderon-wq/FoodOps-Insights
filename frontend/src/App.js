@@ -22,6 +22,7 @@ import DocumentPreview from "./pages/DocumentPreview";
 import SettingsPage from "./pages/SettingsPage";
 import ClientPortal from "./pages/ClientPortal";
 import LeadFormPage from "./pages/LeadFormPage";
+import BusinessClarityPage from "./pages/BusinessClarityPage";
 
 import "./App.css";
 
