@@ -265,7 +265,6 @@ Auto-generated from Event Order:
 
 ## Upcoming Tasks
 - [ ] Recipe Packaging Formats UI completion (tab exists, needs linking to packaging inventory items)
-- [ ] Multiple portion formats per recipe showing in menus (select which portion to use)
 
 ## Future/Backlog
 - [ ] AI integrations for supplier suggestions
