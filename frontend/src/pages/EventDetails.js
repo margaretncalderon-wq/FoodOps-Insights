@@ -574,6 +574,15 @@ export default function EventDetails() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Purchase List Tab */}
+          <TabsContent value="purchase">
+            <Card>
+              <CardContent className="pt-6">
+                <EventPurchaseList eventId={eventId} eventName={event?.name} />
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Client Info */}
