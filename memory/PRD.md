@@ -291,6 +291,15 @@ Auto-generated from Event Order:
   - Packaging dialog shows items from inventory with cost per unit
   - Auto-calculates: Unit Cost × Qty per Portion = Cost per Portion
   - Table shows columns: Item, Qty/Portion, Unit Cost, Cost/Portion, Notes
+- [x] **Recipe Photo Upload & PDF Export (Jan 31, 2026)**:
+  - Image upload to recipes (POST /api/recipes/{id}/image)
+  - Image serving (GET /api/uploads/{filename})
+  - Image delete functionality
+  - "Technical Sheet" / "Ficha Técnica" PDF export button in RecipeBuilder
+- [x] **Platform Rebranding (Jan 31, 2026)**:
+  - "Evoque Events Platform" → "Evoke OS"
+  - Landing page, Login page, Register page all updated
+  - Layout/sidebar updated
 
 ## Upcoming Tasks
 - [ ] **Business Clarity Module - Phase 1**: Core Payment Engine
