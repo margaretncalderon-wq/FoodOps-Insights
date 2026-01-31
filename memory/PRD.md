@@ -262,6 +262,12 @@ Auto-generated from Event Order:
   - When adding recipe to menu, dropdown to select which portion format to use
   - Cost automatically updates based on selected format
   - Format selector shows: Standard, and all custom formats with prices
+- [x] **System Cleanup (Jan 31, 2026)**:
+  - Removed obsolete Menu tab from Events page
+  - Reorganized tabs: Contract & Order, Documents, Tasks, Purchases
+  - Fixed date display for null/invalid dates (shows TBD instead of 1/1/1970)
+  - Verified waste/merma calculations from ingredients
+  - Full system integration test passed: 100% backend (19/19), 100% frontend
 
 ## Upcoming Tasks
 - [ ] Recipe Packaging Formats UI completion (tab exists, needs linking to packaging inventory items)
