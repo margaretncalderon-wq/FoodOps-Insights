@@ -302,7 +302,7 @@ function PaymentsSection() {
     try {
       const [payRes, clientRes, invRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/payments`, { withCredentials: true }),
-        axios.get(`${API}/api/clients`, { withCredentials: true }),
+        axios.get(`${API}/api/crm/clients`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/invoices`, { withCredentials: true }),
       ]);
       setPayments(payRes.data);
