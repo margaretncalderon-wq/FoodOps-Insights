@@ -1015,16 +1015,29 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <span className="text-xs text-muted-foreground">{language === "es" ? "Con precios" : "With prices"}</span>
                 </Button>
 
-                {/* Invoice */}
+                {/* Invoice Preview */}
                 <Button
                   variant="outline"
                   className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
                   onClick={() => { setPreviewDocType("invoice"); setPreviewOpen(true); }}
                   disabled={!proposal?.items?.length}
                 >
-                  <DollarSign className="w-8 h-8 text-green-500" />
-                  <span className="font-medium">{language === "es" ? "Factura" : "Invoice"}</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Con precios" : "With prices"}</span>
+                  <Eye className="w-8 h-8 text-green-500" />
+                  <span className="font-medium">{language === "es" ? "Vista Previa Factura" : "Invoice Preview"}</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Solo vista" : "View only"}</span>
+                </Button>
+
+                {/* Create Invoice - Business Clarity */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary hover:bg-green-50 border-green-200"
+                  onClick={handleCreateInvoice}
+                  disabled={!proposal?.items?.length || !event?.client_id}
+                  data-testid="create-invoice-btn"
+                >
+                  <DollarSign className="w-8 h-8 text-green-600" />
+                  <span className="font-medium text-green-700">{language === "es" ? "Crear Factura" : "Create Invoice"}</span>
+                  <span className="text-xs text-green-600">{language === "es" ? "Business Clarity" : "Business Clarity"}</span>
                 </Button>
 
                 {/* Kitchen Sheet */}
