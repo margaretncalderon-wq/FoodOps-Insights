@@ -917,28 +917,87 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                {language === "es" ? "Generar Documentos" : "Generate Documents"}
+                {language === "es" ? "Vista Previa de Documentos" : "Document Preview"}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {language === "es" 
-                  ? "Todos los documentos se generan automáticamente desde esta propuesta" 
-                  : "All documents are auto-generated from this proposal"}
+                  ? "Previsualiza e imprime documentos generados desde esta propuesta" 
+                  : "Preview and print documents generated from this proposal"}
               </p>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documentTypes.map(dt => (
-                  <Button
-                    key={dt.type}
-                    variant="outline"
-                    className="h-auto py-4 flex flex-col items-center gap-2"
-                    onClick={() => handleGenerateDocument(dt.type)}
-                    disabled={!proposal?.items?.length}
-                  >
-                    <span className="text-2xl">{dt.icon}</span>
-                    <span>{dt.label}</span>
-                  </Button>
-                ))}
+                {/* Proposal/Contract */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
+                  onClick={() => { setPreviewDocType("proposal"); setPreviewOpen(true); }}
+                  disabled={!proposal?.items?.length}
+                >
+                  <FileText className="w-8 h-8 text-blue-500" />
+                  <span className="font-medium">{language === "es" ? "Propuesta / Contrato" : "Proposal / Contract"}</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Con precios" : "With prices"}</span>
+                </Button>
+
+                {/* Invoice */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
+                  onClick={() => { setPreviewDocType("invoice"); setPreviewOpen(true); }}
+                  disabled={!proposal?.items?.length}
+                >
+                  <DollarSign className="w-8 h-8 text-green-500" />
+                  <span className="font-medium">{language === "es" ? "Factura" : "Invoice"}</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Con precios" : "With prices"}</span>
+                </Button>
+
+                {/* Kitchen Sheet */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
+                  onClick={() => { setPreviewDocType("kitchen_sheet"); setPreviewOpen(true); }}
+                  disabled={!proposal?.items?.length}
+                >
+                  <Utensils className="w-8 h-8 text-orange-500" />
+                  <span className="font-medium">{language === "es" ? "Hoja de Cocina" : "Kitchen Sheet"}</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Sin precios" : "No prices"}</span>
+                </Button>
+
+                {/* Mise en Place */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
+                  onClick={() => { setPreviewDocType("mise_en_place"); setPreviewOpen(true); }}
+                  disabled={!proposal?.items?.length}
+                >
+                  <Utensils className="w-8 h-8 text-amber-500" />
+                  <span className="font-medium">Mise en Place</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Sin precios" : "No prices"}</span>
+                </Button>
+
+                {/* Packing List */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
+                  onClick={() => { setPreviewDocType("packing_list"); setPreviewOpen(true); }}
+                  disabled={!proposal?.items?.length}
+                >
+                  <Package className="w-8 h-8 text-purple-500" />
+                  <span className="font-medium">{language === "es" ? "Lista de Montaje" : "Packing List"}</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Sin precios" : "No prices"}</span>
+                </Button>
+
+                {/* Menu */}
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
+                  onClick={() => { setPreviewDocType("menu"); setPreviewOpen(true); }}
+                  disabled={!proposal?.items?.length}
+                >
+                  <FileText className="w-8 h-8 text-teal-500" />
+                  <span className="font-medium">{language === "es" ? "Menú" : "Menu"}</span>
+                  <span className="text-xs text-muted-foreground">{language === "es" ? "Solo nombres" : "Names only"}</span>
+                </Button>
               </div>
               
               {!proposal?.items?.length && (
@@ -952,6 +1011,18 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Document Preview Modal */}
+      {previewOpen && (
+        <DocumentPreview
+          eventId={eventId}
+          event={event}
+          proposal={proposal}
+          client={client}
+          documentType={previewDocType}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
 
       {/* Add Item Dialog */}
       <Dialog open={addItemOpen} onOpenChange={(open) => {
