@@ -586,11 +586,11 @@ export default function EventDetails() {
               >
                 <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
                   <span className="font-heading font-bold text-secondary-foreground">
-                    {client.name.charAt(0)}
+                    {(client.display_name || client.name || "?").charAt(0)}
                   </span>
                 </div>
                 <div>
-                  <p className="font-medium">{client.name}</p>
+                  <p className="font-medium">{client.display_name || client.name}</p>
                   <p className="text-sm text-muted-foreground">{client.email}</p>
                 </div>
               </Link>
