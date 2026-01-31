@@ -1254,21 +1254,46 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                             <Badge variant="outline" className="text-xs">+{menu.items.length - 4} {language === "es" ? "más" : "more"}</Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-mono font-medium">${menu.total_price?.toFixed(2)}</span>
-                          {featureFlags?.is_margin_tracking_enabled && (
-                            <>
-                              <span className="text-muted-foreground">
-                                {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
-                              </span>
-                              <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
-                                {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
-                              </span>
-                            </>
-                          )}
-                        </div>
+                        
+                        {/* Variants */}
+                        {menu.variants?.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {menu.variants.map((variant, idx) => (
+                              <Badge 
+                                key={idx}
+                                className={`text-xs cursor-pointer hover:opacity-80 ${variant.is_default ? 'bg-primary' : 'bg-muted text-foreground'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Add menu with variant pricing
+                                  handleAddMenu(menu, variant);
+                                }}
+                              >
+                                {variant.name}: ${variant.final_price?.toFixed(2)}
+                                {variant.discount_value > 0 && (
+                                  <span className="ml-1 opacity-75">
+                                    ({variant.discount_type === 'percentage' ? `-${variant.discount_value}%` : `-$${variant.discount_value}`})
+                                  </span>
+                                )}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4 text-sm mb-2">
+                            <span className="font-mono font-medium">${menu.total_price?.toFixed(2)}</span>
+                            {featureFlags?.is_margin_tracking_enabled && (
+                              <>
+                                <span className="text-muted-foreground">
+                                  {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
+                                </span>
+                                <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
+                                  {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <Button variant="outline" size="sm" className="ml-4">
+                      <Button variant="outline" size="sm" className="ml-4" onClick={(e) => { e.stopPropagation(); handleAddMenu(menu); }}>
                         <Plus className="w-4 h-4 mr-1" />
                         {language === "es" ? "Agregar" : "Add"}
                       </Button>
