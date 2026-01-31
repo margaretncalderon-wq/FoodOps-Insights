@@ -24,6 +24,7 @@ import {
   X,
   Globe,
   UtensilsCrossed,
+  Briefcase,
 } from "lucide-react";
 
 const navItems = [
@@ -32,6 +33,7 @@ const navItems = [
   { path: "/events", icon: Calendar, labelKey: "events" },
   { path: "/calendar", icon: CalendarDays, labelKey: "calendar" },
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
+  { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
 ];
 
