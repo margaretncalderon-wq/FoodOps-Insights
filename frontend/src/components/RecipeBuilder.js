@@ -682,7 +682,21 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <h3 className="font-semibold">{t("portionFormats")}</h3>
                   <Badge variant="outline">{portionFormats.length}</Badge>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setPortionDialogOpen(true)}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  // Calculate suggested price when opening dialog
+                  const costPer = totalCost / 1; // portions_obtained default is 1
+                  const margin = 30; // default margin
+                  const suggestedPrice = margin < 100 ? costPer / (1 - margin / 100) : costPer;
+                  setPortionForm({
+                    format_name: "", 
+                    portions_obtained: 1, 
+                    portion_unit: "serving",
+                    sell_price: Math.round(suggestedPrice * 100) / 100, 
+                    target_margin_pct: margin, 
+                    is_default: false
+                  });
+                  setPortionDialogOpen(true);
+                }}>
                   <Plus className="w-4 h-4 mr-1" />{t("addPortionFormat")}
                 </Button>
               </div>
