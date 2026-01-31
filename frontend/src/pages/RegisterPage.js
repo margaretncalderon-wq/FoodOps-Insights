@@ -50,7 +50,7 @@ export default function RegisterPage() {
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <span className="font-heading text-xl font-bold text-white">E</span>
               </div>
-              <span className="font-heading text-xl font-semibold">Evoque</span>
+              <span className="font-heading text-xl font-semibold">Evoke OS</span>
             </Link>
             <h1 className="font-heading text-3xl font-bold text-foreground">{t("createAccount")}</h1>
             <p className="text-muted-foreground mt-2">
