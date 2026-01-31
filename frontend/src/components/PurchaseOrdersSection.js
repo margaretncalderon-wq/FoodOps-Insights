@@ -740,6 +740,75 @@ export default function PurchaseOrdersSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Print PO Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="w-5 h-5" />
+              {language === "es" ? "Imprimir Orden de Compra" : "Print Purchase Order"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Preview */}
+            <div id="print-po-content" className="border rounded-lg p-6 bg-white">
+              <div className="flex justify-between items-start border-b pb-4 mb-4">
+                <div>
+                  <p className="text-xl font-bold">Evoque Events</p>
+                  <p className="text-sm text-muted-foreground">{language === "es" ? "Orden de Compra" : "Purchase Order"}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold">{selectedPO?.po_number}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedPO?.created_at && new Date(selectedPO.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Proveedor" : "Supplier"}</p>
+                <p className="font-medium">{selectedPO?.supplier_name}</p>
+              </div>
+              
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === "es" ? "Artículo" : "Item"}</TableHead>
+                    <TableHead className="text-right">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
+                    <TableHead className="text-right">{language === "es" ? "Precio" : "Price"}</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedPO?.lines?.map((line, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{line.item_name}</TableCell>
+                      <TableCell className="text-right">{line.qty_ordered} {line.purchase_unit}</TableCell>
+                      <TableCell className="text-right">${line.unit_cost?.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${line.line_total?.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-2xl font-bold">${selectedPO?.total?.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={executePrint}>
+              <Printer className="w-4 h-4 mr-2" />
+              {language === "es" ? "Imprimir" : "Print"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
