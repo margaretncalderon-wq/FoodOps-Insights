@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState([]);
   const [picklist, setPicklist] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
+  const [menus, setMenus] = useState([]);
   const [taxes, setTaxes] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [leadForms, setLeadForms] = useState([]);
@@ -70,9 +71,11 @@ export default function SettingsPage() {
   // Dialogs
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [picklistDialogOpen, setPicklistDialogOpen] = useState(false);
+  const [menuDialogOpen, setMenuDialogOpen] = useState(false);
   const [taxDialogOpen, setTaxDialogOpen] = useState(false);
   const [leadFormDialogOpen, setLeadFormDialogOpen] = useState(false);
   const [editingLeadForm, setEditingLeadForm] = useState(null);
+  const [editingMenu, setEditingMenu] = useState(null);
   
   // Form states
   const [formData, setFormData] = useState({
