@@ -17,6 +17,7 @@ import CalendarPage from "./pages/CalendarPage";
 import RecipesPage from "./pages/RecipesPage";
 import RecipeBuilder from "./pages/RecipeBuilder";
 import InventoryPage from "./pages/InventoryPage";
+import FoodOpsPage from "./pages/FoodOpsPage";
 import DocumentPreview from "./pages/DocumentPreview";
 import SettingsPage from "./pages/SettingsPage";
 import ClientPortal from "./pages/ClientPortal";
