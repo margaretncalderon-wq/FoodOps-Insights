@@ -225,6 +225,17 @@ function InventorySection() {
   const getSupplierName = (id) => suppliers.find(s => s.supplier_id === id)?.name || "-";
   const getItemName = (id) => items.find(i => i.ingredient_id === id)?.name || "Unknown";
 
+  // Calculate value by inventory type
+  const valueByType = INVENTORY_TYPES.reduce((acc, type) => {
+    const typeItems = items.filter(item => item.inventory_type === type.value);
+    acc[type.value] = {
+      count: typeItems.length,
+      value: typeItems.reduce((sum, item) => sum + (item.stock_quantity || 0) * (item.cost_per_unit || 0), 0),
+      label: language === "es" ? type.labelEs : type.label
+    };
+    return acc;
+  }, {});
+
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
   return (
@@ -236,6 +247,26 @@ function InventorySection() {
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><AlertTriangle className="h-8 w-8 text-yellow-500" /><div><p className="text-sm text-muted-foreground">{t("lowStock")}</p><p className="text-2xl font-bold">{lowStockItems.length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Valor Total" : "Total Value"}</p><p className="text-2xl font-bold">${items.reduce((sum, item) => sum + (item.stock_quantity || 0) * (item.cost_per_unit || 0), 0).toFixed(2)}</p></div></div></CardContent></Card>
       </div>
+      
+      {/* Value by Type - Collapsible Summary */}
+      <Card>
+        <CardHeader className="py-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">{language === "es" ? "Valor por Categoría" : "Value by Category"}</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {INVENTORY_TYPES.map(type => (
+              <div key={type.value} className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">{language === "es" ? type.labelEs : type.label}</p>
+                <p className="text-lg font-semibold">${valueByType[type.value]?.value.toFixed(2) || "0.00"}</p>
+                <p className="text-xs text-muted-foreground">{valueByType[type.value]?.count || 0} {language === "es" ? "items" : "items"}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
