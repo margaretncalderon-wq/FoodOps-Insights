@@ -539,6 +539,46 @@ function InventorySection() {
           <DialogFooter><Button variant="outline" onClick={() => setTransactionDialogOpen(false)}>{t("cancel")}</Button><Button onClick={handleSaveTransaction}>{t("save")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Price History Dialog */}
+      <Dialog open={priceHistoryDialogOpen} onOpenChange={setPriceHistoryDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              {language === "es" ? "Historial de Precios" : "Price History"}: {selectedItemForHistory?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Current Price */}
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <p className="text-sm text-muted-foreground">{language === "es" ? "Precio Actual" : "Current Price"}</p>
+              <p className="text-2xl font-bold">${selectedItemForHistory?.cost_per_unit?.toFixed(2) || "0.00"}/{selectedItemForHistory?.unit}</p>
+            </div>
+            
+            {/* History List */}
+            {priceHistory.length === 0 ? (
+              <p className="text-center py-6 text-muted-foreground">
+                {language === "es" ? "Sin historial de cambios de precio" : "No price change history"}
+              </p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {priceHistory.slice().reverse().map((entry, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">${entry.price?.toFixed(2)}/{selectedItemForHistory?.unit}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.source || "Manual"} • {new Date(entry.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {idx === 0 && <Badge variant="secondary">{language === "es" ? "Más reciente" : "Latest"}</Badge>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
