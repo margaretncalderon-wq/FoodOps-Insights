@@ -104,6 +104,17 @@ export default function SettingsPage() {
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [bulkItems, setBulkItems] = useState("");
   const [newTax, setNewTax] = useState({ name: "", rate: 0, is_default: false });
+  const [newMenu, setNewMenu] = useState({
+    name: "",
+    name_es: "",
+    description: "",
+    description_es: "",
+    menu_type: "Menu",
+    items: [],
+    default_price: null,
+    is_fixed_price: false,
+    is_active: true
+  });
   const [newLeadForm, setNewLeadForm] = useState({
     form_name: "",
     description: "",
