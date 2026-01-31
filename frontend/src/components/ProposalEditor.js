@@ -125,8 +125,20 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchRecipes(),
       fetchFeatureFlags(),
       fetchFinancials(),
+      fetchClient(),
     ]).finally(() => setLoading(false));
   }, [eventId]);
+
+  const fetchClient = async () => {
+    if (event?.client_id) {
+      try {
+        const response = await axios.get(`${API}/crm/clients/${event.client_id}`, { withCredentials: true });
+        setClient(response.data);
+      } catch (error) {
+        console.error("Failed to fetch client:", error);
+      }
+    }
+  };
 
   const fetchProposal = async () => {
     try {
