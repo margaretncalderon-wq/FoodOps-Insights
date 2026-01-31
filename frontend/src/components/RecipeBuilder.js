@@ -530,12 +530,30 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
 
   return (
     <div className="space-y-4">
+      {/* Header with PDF Export */}
+      <div className="flex items-center justify-between">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="basic">{t("basic")}</TabsTrigger>
+            <TabsTrigger value="costing">{t("costing")}</TabsTrigger>
+            <TabsTrigger value="details">{t("details")}</TabsTrigger>
+            <TabsTrigger value="packaging" disabled={!initialRecipe}>{t("packaging")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {initialRecipe && (
+          <Button variant="outline" size="sm" className="ml-4" onClick={handleExportPDF}>
+            <FileText className="w-4 h-4 mr-2" />
+            {language === "es" ? "Ficha Técnica" : "Technical Sheet"}
+          </Button>
+        )}
+      </div>
+      
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="basic">{t("basic")}</TabsTrigger>
-          <TabsTrigger value="costing">{t("costing")}</TabsTrigger>
-          <TabsTrigger value="details">{t("details")}</TabsTrigger>
-          <TabsTrigger value="packaging" disabled={!initialRecipe}>{t("packaging")}</TabsTrigger>
+        <TabsList className="hidden">
+          <TabsTrigger value="basic" />
+          <TabsTrigger value="costing" />
+          <TabsTrigger value="details" />
+          <TabsTrigger value="packaging" />
         </TabsList>
 
         {/* BASIC TAB */}
