@@ -1276,9 +1276,16 @@ async def recalculate_all_recipes(user: User = Depends(get_current_user)):
 
 # ============== EVENT MENU & STOCK CHECK ==============
 
-@events_router.get("", response_model=List[Event])
+@events_router.get("")
 async def get_events(user: User = Depends(get_current_user)):
     events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("event_date", 1).to_list(1000)
+    
+    # Get all client IDs to fetch client info
+    client_ids = list(set(e.get("client_id") for e in events if e.get("client_id")))
+    clients_data = {}
+    if client_ids:
+        clients = await db.clients.find({"client_id": {"$in": client_ids}}, {"_id": 0, "client_id": 1, "name": 1, "company_name": 1, "client_type": 1}).to_list(len(client_ids))
+        clients_data = {c["client_id"]: c for c in clients}
     
     for e in events:
         for field in ["event_date", "end_date", "created_at", "updated_at"]:
@@ -1286,6 +1293,13 @@ async def get_events(user: User = Depends(get_current_user)):
                 e[field] = datetime.fromisoformat(e[field])
         if "documents" not in e:
             e["documents"] = []
+        # Add client info to event
+        client_info = clients_data.get(e.get("client_id"), {})
+        e["client_info"] = {
+            "name": client_info.get("name", ""),
+            "company_name": client_info.get("company_name", ""),
+            "client_type": client_info.get("client_type", "direct")
+        }
     return events
 
 @events_router.post("", response_model=Event)
