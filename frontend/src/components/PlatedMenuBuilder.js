@@ -161,9 +161,18 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     }));
   };
 
-  const addDishToCourse = (courseId, recipeId) => {
+  const addDishToCourse = async (courseId, recipeId) => {
     const recipe = recipes.find(r => r.recipe_id === recipeId);
     if (!recipe) return;
+
+    // Load portion formats for this recipe
+    const formats = await loadPortionFormats(recipeId);
+    
+    // Get default format or use recipe's base cost
+    const defaultFormat = formats.find(f => f.is_default) || formats[0];
+    const costPerPortion = defaultFormat?.cost_per_portion || recipe.cost_per_portion || 0;
+    const formatId = defaultFormat?.format_id || null;
+    const formatName = defaultFormat?.format_name || null;
 
     setForm(prev => ({
       ...prev,
@@ -179,9 +188,36 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             recipe_id: recipeId,
             recipe_name: recipe.name,
             portions_per_guest: 1,
-            cost_per_portion: recipe.cost_per_portion || 0,
+            cost_per_portion: costPerPortion,
+            portion_format_id: formatId,
+            portion_format_name: formatName,
             notes: ""
           }]
+        };
+      })
+    }));
+  };
+
+  const updateDishPortionFormat = (courseId, recipeId, formatId) => {
+    const formats = portionFormats[recipeId] || [];
+    const selectedFmt = formats.find(f => f.format_id === formatId);
+    
+    setForm(prev => ({
+      ...prev,
+      courses: prev.courses.map(c => {
+        if (c.course_id !== courseId) return c;
+        return {
+          ...c,
+          items: c.items.map(item => 
+            item.recipe_id === recipeId 
+              ? { 
+                  ...item, 
+                  portion_format_id: formatId,
+                  portion_format_name: selectedFmt?.format_name || null,
+                  cost_per_portion: selectedFmt?.cost_per_portion || item.cost_per_portion
+                }
+              : item
+          )
         };
       })
     }));
