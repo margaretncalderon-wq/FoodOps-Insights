@@ -1035,9 +1035,14 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
 
       {/* Add Packaging Dialog */}
       <Dialog open={packagingDialogOpen} onOpenChange={setPackagingDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("addPackaging")}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {language === "es" 
+                ? "Agrega items de empaque (contenedores, vasos, etc.) y calcula el costo por porción"
+                : "Add packaging items (containers, cups, etc.) and calculate cost per portion"}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1049,14 +1054,50 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     <div className="px-3 py-2 text-sm text-muted-foreground">{language === "es" ? "Agrega items de empaque al inventario primero" : "Add packaging items to inventory first"}</div>
                   ) : (
                     packagingItems.map(item => (
-                      <SelectItem key={item.ingredient_id} value={item.ingredient_id}>{item.name}</SelectItem>
+                      <SelectItem key={item.ingredient_id} value={item.ingredient_id}>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span>{item.name}</span>
+                          <span className="text-muted-foreground text-sm">${item.cost_per_unit?.toFixed(2)}/{item.unit}</span>
+                        </div>
+                      </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>{language === "es" ? "Cantidad por Porción" : "Qty per Portion"}</Label><Input type="number" min="0.01" step="0.01" value={packagingForm.qty_per_portion} onChange={(e) => setPackagingForm(prev => ({ ...prev, qty_per_portion: parseFloat(e.target.value) || 1 }))} /></div>
-            <div><Label>{t("notes")}</Label><Input value={packagingForm.notes} onChange={(e) => setPackagingForm(prev => ({ ...prev, notes: e.target.value }))} placeholder={language === "es" ? "Ej: Usar vaso 4oz para salsa" : "E.g., Use 4oz cup for sauce"} /></div>
+            
+            {/* Selected item details */}
+            {packagingForm.packaging_inventory_item_id && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                {(() => {
+                  const selectedItem = packagingItems.find(i => i.ingredient_id === packagingForm.packaging_inventory_item_id);
+                  const costPerUnit = selectedItem?.cost_per_unit || 0;
+                  const costPerPortion = costPerUnit * packagingForm.qty_per_portion;
+                  return (
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <span className="text-blue-700">{language === "es" ? "Costo Unitario:" : "Unit Cost:"}</span>
+                      <span className="text-right font-medium">${costPerUnit.toFixed(2)}/{selectedItem?.unit}</span>
+                      <span className="text-blue-700">{language === "es" ? "Cantidad por Porción:" : "Qty per Portion:"}</span>
+                      <span className="text-right font-medium">{packagingForm.qty_per_portion}</span>
+                      <span className="text-blue-800 font-semibold">{language === "es" ? "Costo por Porción:" : "Cost per Portion:"}</span>
+                      <span className="text-right font-bold text-blue-900">${costPerPortion.toFixed(4)}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+            
+            <div>
+              <Label>{language === "es" ? "Cantidad por Porción" : "Qty per Portion"}</Label>
+              <Input type="number" min="0.01" step="0.01" value={packagingForm.qty_per_portion} onChange={(e) => setPackagingForm(prev => ({ ...prev, qty_per_portion: parseFloat(e.target.value) || 1 }))} />
+              <p className="text-xs text-muted-foreground mt-1">
+                {language === "es" ? "Cuántas unidades de este empaque se usan por porción" : "How many units of this packaging per portion"}
+              </p>
+            </div>
+            <div>
+              <Label>{t("notes")}</Label>
+              <Input value={packagingForm.notes} onChange={(e) => setPackagingForm(prev => ({ ...prev, notes: e.target.value }))} placeholder={language === "es" ? "Ej: Usar vaso 4oz para salsa" : "E.g., Use 4oz cup for sauce"} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPackagingDialogOpen(false)}>{t("cancel")}</Button>
