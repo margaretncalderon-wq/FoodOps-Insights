@@ -909,7 +909,17 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   type="number" 
                   min="1" 
                   value={portionForm.portions_obtained} 
-                  onChange={(e) => setPortionForm(prev => ({ ...prev, portions_obtained: parseFloat(e.target.value) || 1 }))} 
+                  onChange={(e) => {
+                    const portions = parseFloat(e.target.value) || 1;
+                    const costPer = totalCost / portions;
+                    const margin = portionForm.target_margin_pct || 30;
+                    const suggestedPrice = margin < 100 ? costPer / (1 - margin / 100) : costPer;
+                    setPortionForm(prev => ({ 
+                      ...prev, 
+                      portions_obtained: portions,
+                      sell_price: Math.round(suggestedPrice * 100) / 100
+                    }));
+                  }} 
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   {language === "es" ? "Cuántas porciones salen del yield total" : "How many portions from total yield"}
