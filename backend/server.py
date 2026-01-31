@@ -3191,6 +3191,701 @@ async def delete_tax_rate(tax_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Tax rate not found")
     return {"message": "Tax rate deleted"}
 
+# ============== FEATURE FLAGS ROUTES ==============
+
+@settings_router.get("/feature-flags")
+async def get_feature_flags(user: User = Depends(get_current_user)):
+    """Get feature flags for the company"""
+    flags = await db.feature_flags.find_one({"company_id": user.company_id}, {"_id": 0})
+    
+    if not flags:
+        # Return defaults
+        now = datetime.now(timezone.utc)
+        flags = {
+            "company_id": user.company_id,
+            "is_proposal_editing_enabled": True,
+            "is_order_items_enabled": True,
+            "is_margin_tracking_enabled": True,
+            "is_document_autogeneration_enabled": True,
+            "is_custom_fields_enabled": True,
+            "is_food_ops_enabled": True,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.feature_flags.insert_one(flags)
+        del flags["_id"]
+    
+    return flags
+
+@settings_router.put("/feature-flags")
+async def update_feature_flags(data: FeatureFlagsUpdate, user: User = Depends(get_current_user)):
+    """Update feature flags for the company"""
+    now = datetime.now(timezone.utc)
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = now.isoformat()
+    
+    existing = await db.feature_flags.find_one({"company_id": user.company_id})
+    if existing:
+        await db.feature_flags.update_one(
+            {"company_id": user.company_id},
+            {"$set": update_data}
+        )
+    else:
+        flags = {
+            "company_id": user.company_id,
+            "is_proposal_editing_enabled": True,
+            "is_order_items_enabled": True,
+            "is_margin_tracking_enabled": True,
+            "is_document_autogeneration_enabled": True,
+            "is_custom_fields_enabled": True,
+            "is_food_ops_enabled": True,
+            "created_at": now.isoformat(),
+            **update_data
+        }
+        await db.feature_flags.insert_one(flags)
+    
+    return await get_feature_flags(user)
+
+# ============== DOCUMENT TEMPLATES ROUTES ==============
+
+@settings_router.get("/document-templates")
+async def get_document_templates(user: User = Depends(get_current_user)):
+    """Get all document templates with custom fields"""
+    templates = await db.document_templates.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    
+    if not templates:
+        # Create defaults
+        now = datetime.now(timezone.utc)
+        default_types = ["Proposal", "Invoice", "PackingList", "KitchenSheet", "ServiceSheet"]
+        templates = []
+        for ttype in default_types:
+            template = {
+                "template_id": f"tpl_{uuid.uuid4().hex[:12]}",
+                "company_id": user.company_id,
+                "template_type": ttype,
+                "name": ttype,
+                "is_active": True,
+                "custom_fields": [],
+                "header_text_en": None,
+                "header_text_es": None,
+                "footer_text_en": None,
+                "footer_text_es": None,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat()
+            }
+            await db.document_templates.insert_one(template)
+            del template["_id"]
+            templates.append(template)
+    
+    return templates
+
+@settings_router.post("/document-templates")
+async def create_document_template(data: DocumentTemplateCreate, user: User = Depends(get_current_user)):
+    """Create a new document template"""
+    now = datetime.now(timezone.utc)
+    template_id = f"tpl_{uuid.uuid4().hex[:12]}"
+    
+    # Process custom fields - add field_id if not present
+    custom_fields = []
+    for cf in data.custom_fields:
+        cf_dict = cf.model_dump() if hasattr(cf, 'model_dump') else cf
+        if 'field_id' not in cf_dict:
+            cf_dict['field_id'] = f"cf_{uuid.uuid4().hex[:8]}"
+        custom_fields.append(cf_dict)
+    
+    template_doc = {
+        "template_id": template_id,
+        "company_id": user.company_id,
+        "template_type": data.template_type,
+        "name": data.name,
+        "is_active": data.is_active,
+        "custom_fields": custom_fields,
+        "header_text_en": data.header_text_en,
+        "header_text_es": data.header_text_es,
+        "footer_text_en": data.footer_text_en,
+        "footer_text_es": data.footer_text_es,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.document_templates.insert_one(template_doc)
+    del template_doc["_id"]
+    return template_doc
+
+@settings_router.put("/document-templates/{template_id}")
+async def update_document_template(template_id: str, data: DocumentTemplateCreate, user: User = Depends(get_current_user)):
+    """Update a document template"""
+    now = datetime.now(timezone.utc)
+    
+    # Process custom fields
+    custom_fields = []
+    for cf in data.custom_fields:
+        cf_dict = cf.model_dump() if hasattr(cf, 'model_dump') else cf
+        if 'field_id' not in cf_dict:
+            cf_dict['field_id'] = f"cf_{uuid.uuid4().hex[:8]}"
+        custom_fields.append(cf_dict)
+    
+    update_data = {
+        "name": data.name,
+        "is_active": data.is_active,
+        "custom_fields": custom_fields,
+        "header_text_en": data.header_text_en,
+        "header_text_es": data.header_text_es,
+        "footer_text_en": data.footer_text_en,
+        "footer_text_es": data.footer_text_es,
+        "updated_at": now.isoformat()
+    }
+    
+    result = await db.document_templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return await db.document_templates.find_one({"template_id": template_id}, {"_id": 0})
+
+@settings_router.delete("/document-templates/{template_id}")
+async def delete_document_template(template_id: str, user: User = Depends(get_current_user)):
+    """Deactivate a document template (soft delete)"""
+    result = await db.document_templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": "Template deactivated"}
+
+# ============== PROPOSALS ROUTES ==============
+
+async def generate_proposal_number(company_id: str) -> str:
+    """Generate sequential proposal number"""
+    count = await db.proposals.count_documents({"company_id": company_id})
+    year = datetime.now().year
+    return f"PROP-{year}-{str(count + 1).zfill(4)}"
+
+async def calculate_proposal_financials(proposal_id: str, company_id: str):
+    """Calculate all financial totals for a proposal"""
+    items = await db.order_items.find({"proposal_id": proposal_id, "company_id": company_id}, {"_id": 0}).to_list(500)
+    
+    subtotal = 0
+    total_cost = 0
+    has_missing_cost = False
+    
+    for item in items:
+        item_total = item.get("quantity", 1) * item.get("unit_price", 0)
+        subtotal += item_total
+        
+        if item.get("internal_cost") is not None:
+            total_cost += item.get("quantity", 1) * item["internal_cost"]
+        else:
+            has_missing_cost = True
+    
+    margin = subtotal - total_cost
+    margin_pct = (margin / subtotal * 100) if subtotal > 0 else 0
+    
+    return {
+        "subtotal": subtotal,
+        "total_cost": total_cost,
+        "total_margin": margin,
+        "margin_percentage": margin_pct,
+        "has_missing_cost": has_missing_cost
+    }
+
+@proposals_router.get("/event/{event_id}")
+async def get_event_proposal(event_id: str, user: User = Depends(get_current_user)):
+    """Get or create the proposal for an event"""
+    proposal = await db.proposals.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    
+    if not proposal:
+        # Create new proposal
+        now = datetime.now(timezone.utc)
+        proposal_id = f"prop_{uuid.uuid4().hex[:12]}"
+        proposal_number = await generate_proposal_number(user.company_id)
+        
+        proposal = {
+            "proposal_id": proposal_id,
+            "event_id": event_id,
+            "company_id": user.company_id,
+            "proposal_number": proposal_number,
+            "status": "Draft",
+            "valid_until": None,
+            "client_notes": None,
+            "payment_terms": None,
+            "subtotal": 0,
+            "discount_amount": 0,
+            "tax_details": [],
+            "total_tax": 0,
+            "total": 0,
+            "total_cost": 0,
+            "total_margin": 0,
+            "margin_percentage": 0,
+            "custom_field_values": {},
+            "last_edited_at": now.isoformat(),
+            "created_at": now.isoformat()
+        }
+        await db.proposals.insert_one(proposal)
+        del proposal["_id"]
+    
+    # Get order items
+    items = await db.order_items.find({"proposal_id": proposal["proposal_id"]}, {"_id": 0}).sort("sort_order", 1).to_list(500)
+    proposal["items"] = items
+    
+    # Recalculate financials
+    financials = await calculate_proposal_financials(proposal["proposal_id"], user.company_id)
+    proposal.update(financials)
+    
+    return proposal
+
+@proposals_router.put("/{proposal_id}")
+async def update_proposal(proposal_id: str, data: ProposalUpdate, user: User = Depends(get_current_user)):
+    """Update proposal details"""
+    now = datetime.now(timezone.utc)
+    
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    # Check if event is closed (read-only)
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit proposal for a closed event")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["last_edited_at"] = now.isoformat()
+    
+    # If changing status to Accepted, log it
+    old_status = proposal.get("status")
+    new_status = update_data.get("status")
+    
+    await db.proposals.update_one(
+        {"proposal_id": proposal_id},
+        {"$set": update_data}
+    )
+    
+    # Create audit log if status changed to/from Accepted
+    if old_status != new_status and (old_status == "Accepted" or new_status == "Accepted"):
+        await db.audit_logs.insert_one({
+            "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "user_id": user.user_id,
+            "user_name": user.name,
+            "action_type": "status_change",
+            "changes": {"old_status": old_status, "new_status": new_status},
+            "timestamp": now.isoformat()
+        })
+    
+    return await get_event_proposal(proposal["event_id"], user)
+
+@proposals_router.put("/{proposal_id}/financials")
+async def update_proposal_financials(proposal_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update discount, taxes, and recalculate totals"""
+    now = datetime.now(timezone.utc)
+    
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    # Check if event is closed
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit proposal for a closed event")
+    
+    # Get financials
+    financials = await calculate_proposal_financials(proposal_id, user.company_id)
+    
+    discount_amount = data.get("discount_amount", proposal.get("discount_amount", 0))
+    tax_ids = data.get("tax_ids", [])
+    
+    subtotal_after_discount = financials["subtotal"] - discount_amount
+    
+    # Calculate taxes
+    tax_details = []
+    total_tax = 0
+    for tax_id in tax_ids:
+        tax = await db.tax_rates.find_one({"tax_id": tax_id, "company_id": user.company_id}, {"_id": 0})
+        if tax:
+            tax_amount = subtotal_after_discount * (tax["rate"] / 100)
+            total_tax += tax_amount
+            tax_details.append({
+                "tax_id": tax_id,
+                "name": tax["name"],
+                "rate": tax["rate"],
+                "amount": tax_amount
+            })
+    
+    total = subtotal_after_discount + total_tax
+    
+    update_data = {
+        "subtotal": financials["subtotal"],
+        "discount_amount": discount_amount,
+        "tax_details": tax_details,
+        "total_tax": total_tax,
+        "total": total,
+        "total_cost": financials["total_cost"],
+        "total_margin": financials["total_margin"],
+        "margin_percentage": financials["margin_percentage"],
+        "payment_terms": data.get("payment_terms", proposal.get("payment_terms")),
+        "client_notes": data.get("client_notes", proposal.get("client_notes")),
+        "last_edited_at": now.isoformat()
+    }
+    
+    await db.proposals.update_one(
+        {"proposal_id": proposal_id},
+        {"$set": update_data}
+    )
+    
+    return await get_event_proposal(proposal["event_id"], user)
+
+@proposals_router.put("/{proposal_id}/custom-fields")
+async def update_proposal_custom_fields(proposal_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update custom field values for a proposal"""
+    now = datetime.now(timezone.utc)
+    
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    # Check if event is closed
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit custom fields for a closed event")
+    
+    await db.proposals.update_one(
+        {"proposal_id": proposal_id},
+        {"$set": {"custom_field_values": data.get("values", {}), "last_edited_at": now.isoformat()}}
+    )
+    
+    return await get_event_proposal(proposal["event_id"], user)
+
+# ============== ORDER ITEMS ROUTES ==============
+
+@proposals_router.get("/{proposal_id}/items")
+async def get_order_items(proposal_id: str, user: User = Depends(get_current_user)):
+    """Get all order items for a proposal"""
+    items = await db.order_items.find({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0}).sort("sort_order", 1).to_list(500)
+    return items
+
+@proposals_router.post("/{proposal_id}/items")
+async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = Depends(get_current_user)):
+    """Add an order item to a proposal"""
+    now = datetime.now(timezone.utc)
+    
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    # Check if event is closed
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot add items to a closed event")
+    
+    item_id = f"oi_{uuid.uuid4().hex[:12]}"
+    
+    # Calculate item financials
+    total_price = data.quantity * data.unit_price
+    total_cost = data.quantity * data.internal_cost if data.internal_cost else None
+    margin_amount = total_price - total_cost if total_cost is not None else None
+    margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
+    
+    # Get category name
+    category_name = None
+    if data.category_id:
+        cat = await db.item_categories.find_one({"category_id": data.category_id}, {"_id": 0, "name": 1})
+        category_name = cat.get("name") if cat else None
+    
+    # If Food item with recipe, auto-calculate internal cost
+    internal_cost = data.internal_cost
+    if data.item_type == "Food" and data.reference_id:
+        recipe = await db.recipes.find_one({"recipe_id": data.reference_id, "company_id": user.company_id}, {"_id": 0})
+        if recipe:
+            internal_cost = recipe.get("cost_per_portion") or recipe.get("cost_per_serving") or 0
+            total_cost = data.quantity * internal_cost
+            margin_amount = total_price - total_cost
+            margin_pct = (margin_amount / total_price * 100) if total_price > 0 else 0
+    
+    item_doc = {
+        "item_id": item_id,
+        "event_id": proposal["event_id"],
+        "proposal_id": proposal_id,
+        "company_id": user.company_id,
+        "item_type": data.item_type,
+        "reference_id": data.reference_id,
+        "description": data.description,
+        "quantity": data.quantity,
+        "unit_price": data.unit_price,
+        "internal_cost": internal_cost,
+        "total_price": total_price,
+        "total_cost": total_cost,
+        "margin_amount": margin_amount,
+        "margin_percentage": margin_pct,
+        "category_id": data.category_id,
+        "category_name": category_name,
+        "internal_notes": data.internal_notes,
+        "event_date": data.event_date,
+        "sort_order": data.sort_order,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.order_items.insert_one(item_doc)
+    del item_doc["_id"]
+    
+    # Log if proposal is already accepted
+    if proposal.get("status") == "Accepted":
+        await db.audit_logs.insert_one({
+            "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "user_id": user.user_id,
+            "user_name": user.name,
+            "action_type": "add_item",
+            "item_id": item_id,
+            "item_description": data.description,
+            "changes": {"quantity": data.quantity, "unit_price": data.unit_price},
+            "impact_on_total": total_price,
+            "timestamp": now.isoformat()
+        })
+    
+    return item_doc
+
+@proposals_router.put("/{proposal_id}/items/{item_id}")
+async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdate, user: User = Depends(get_current_user)):
+    """Update an order item"""
+    now = datetime.now(timezone.utc)
+    
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    # Check if event is closed
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit items in a closed event")
+    
+    item = await db.order_items.find_one({"item_id": item_id, "proposal_id": proposal_id, "company_id": user.company_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # Recalculate financials
+    quantity = update_data.get("quantity", item.get("quantity", 1))
+    unit_price = update_data.get("unit_price", item.get("unit_price", 0))
+    internal_cost = update_data.get("internal_cost", item.get("internal_cost"))
+    
+    total_price = quantity * unit_price
+    total_cost = quantity * internal_cost if internal_cost is not None else None
+    margin_amount = total_price - total_cost if total_cost is not None else None
+    margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
+    
+    update_data.update({
+        "total_price": total_price,
+        "total_cost": total_cost,
+        "margin_amount": margin_amount,
+        "margin_percentage": margin_pct,
+        "updated_at": now.isoformat()
+    })
+    
+    # Log if proposal is accepted
+    old_total = item.get("total_price", 0)
+    if proposal.get("status") == "Accepted":
+        await db.audit_logs.insert_one({
+            "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "user_id": user.user_id,
+            "user_name": user.name,
+            "action_type": "edit_item",
+            "item_id": item_id,
+            "item_description": item.get("description"),
+            "changes": update_data,
+            "impact_on_total": total_price - old_total,
+            "timestamp": now.isoformat()
+        })
+    
+    await db.order_items.update_one(
+        {"item_id": item_id},
+        {"$set": update_data}
+    )
+    
+    updated_item = await db.order_items.find_one({"item_id": item_id}, {"_id": 0})
+    return updated_item
+
+@proposals_router.delete("/{proposal_id}/items/{item_id}")
+async def delete_order_item(proposal_id: str, item_id: str, user: User = Depends(get_current_user)):
+    """Delete an order item"""
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    # Check if event is closed
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot delete items from a closed event")
+    
+    item = await db.order_items.find_one({"item_id": item_id, "proposal_id": proposal_id, "company_id": user.company_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Log if proposal is accepted
+    if proposal.get("status") == "Accepted":
+        await db.audit_logs.insert_one({
+            "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "user_id": user.user_id,
+            "user_name": user.name,
+            "action_type": "remove_item",
+            "item_id": item_id,
+            "item_description": item.get("description"),
+            "changes": {},
+            "impact_on_total": -(item.get("total_price", 0)),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+    
+    await db.order_items.delete_one({"item_id": item_id})
+    return {"message": "Item deleted"}
+
+# ============== AUDIT LOG ROUTES ==============
+
+@audit_router.get("/event/{event_id}")
+async def get_event_audit_log(event_id: str, user: User = Depends(get_current_user)):
+    """Get audit log for an event"""
+    logs = await db.audit_logs.find(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).to_list(500)
+    return logs
+
+@audit_router.get("/proposal/{proposal_id}")
+async def get_proposal_audit_log(proposal_id: str, user: User = Depends(get_current_user)):
+    """Get audit log for a proposal"""
+    logs = await db.audit_logs.find(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).to_list(500)
+    return logs
+
+# ============== EVENT FINANCIALS ROUTES ==============
+
+@events_router.get("/{event_id}/financials")
+async def get_event_financials(event_id: str, user: User = Depends(get_current_user)):
+    """Get internal financials for an event (Admin/Owner only)"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    proposal = await db.proposals.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not proposal:
+        return {
+            "total_revenue": 0,
+            "total_cost": 0,
+            "gross_margin": 0,
+            "margin_percentage": 0,
+            "by_item_type": {},
+            "warnings": [],
+            "has_proposal": False
+        }
+    
+    # Get all items
+    items = await db.order_items.find({"proposal_id": proposal["proposal_id"]}, {"_id": 0}).to_list(500)
+    
+    # Calculate by item type
+    by_type = {}
+    warnings = []
+    total_revenue = 0
+    total_cost = 0
+    
+    for item in items:
+        itype = item.get("item_type", "Other")
+        if itype not in by_type:
+            by_type[itype] = {"revenue": 0, "cost": 0, "margin": 0, "count": 0}
+        
+        item_revenue = item.get("total_price", 0)
+        item_cost = item.get("total_cost", 0) or 0
+        
+        by_type[itype]["revenue"] += item_revenue
+        by_type[itype]["cost"] += item_cost
+        by_type[itype]["margin"] += item_revenue - item_cost
+        by_type[itype]["count"] += 1
+        
+        total_revenue += item_revenue
+        total_cost += item_cost
+        
+        # Check for missing cost
+        if item.get("internal_cost") is None:
+            warnings.append({
+                "type": "missing_cost",
+                "item_id": item.get("item_id"),
+                "description": item.get("description"),
+                "message": f"Missing internal cost for: {item.get('description')}"
+            })
+    
+    gross_margin = total_revenue - total_cost
+    margin_pct = (gross_margin / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Low margin warning (threshold: 20%)
+    if margin_pct < 20 and total_revenue > 0:
+        warnings.append({
+            "type": "low_margin",
+            "message": f"Low overall margin: {margin_pct:.1f}%"
+        })
+    
+    return {
+        "total_revenue": total_revenue,
+        "total_cost": total_cost,
+        "gross_margin": gross_margin,
+        "margin_percentage": margin_pct,
+        "by_item_type": by_type,
+        "warnings": warnings,
+        "has_proposal": True,
+        "proposal_status": proposal.get("status"),
+        "proposal_number": proposal.get("proposal_number")
+    }
+
+# ============== EXTENDED EVENT ROUTES ==============
+
+@events_router.put("/{event_id}/extended")
+async def update_event_extended(event_id: str, data: EventExtendedUpdate, user: User = Depends(get_current_user)):
+    """Update extended event fields"""
+    now = datetime.now(timezone.utc)
+    
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = now.isoformat()
+    
+    # If closing event, log it
+    if data.operational_status == "Closed" and event.get("operational_status") != "Closed":
+        proposal = await db.proposals.find_one({"event_id": event_id, "company_id": user.company_id})
+        if proposal:
+            await db.audit_logs.insert_one({
+                "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+                "event_id": event_id,
+                "proposal_id": proposal["proposal_id"],
+                "company_id": user.company_id,
+                "user_id": user.user_id,
+                "user_name": user.name,
+                "action_type": "event_closed",
+                "changes": {"operational_status": "Closed"},
+                "timestamp": now.isoformat()
+            })
+    
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": update_data}
+    )
+    
+    return await db.events.find_one({"event_id": event_id}, {"_id": 0})
+
 # ============== EVENT ORDER ROUTES ==============
 
 @event_order_router.get("/{event_id}")
