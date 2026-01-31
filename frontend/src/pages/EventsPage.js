@@ -41,21 +41,25 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
+const PIPELINE_STAGES = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost"];
 
 export default function EventsPage() {
   const { t, language } = useLanguage();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
+  const [pipeline, setPipeline] = useState({});
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(searchParams.get("new") === "true");
   const [editingEvent, setEditingEvent] = useState(null);
+  const [viewMode, setViewMode] = useState(searchParams.get("view") || "list"); // list, calendar, pipeline
   const [formData, setFormData] = useState({
     client_id: "",
     name: "",
     event_type: "wedding",
-    event_date: new Date(),
+    event_date: null,
+    event_date_tbd: false,
     end_date: null,
     is_booking: false,
     venue: "",
@@ -63,12 +67,19 @@ export default function EventsPage() {
     budget: 0,
     notes: "",
     status: "planning",
+    stage: "Lead",
+    expected_value: "",
+    next_followup_date: null,
+    next_step: "",
   });
 
   useEffect(() => {
     fetchEvents();
     fetchClients();
-  }, []);
+    if (viewMode === "pipeline") {
+      fetchPipeline();
+    }
+  }, [viewMode]);
 
   const fetchEvents = async () => {
     try {
