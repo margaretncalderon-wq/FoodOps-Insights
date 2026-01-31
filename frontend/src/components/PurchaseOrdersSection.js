@@ -281,6 +281,97 @@ export default function PurchaseOrdersSection() {
     setViewDialogOpen(true);
   };
 
+  // Print PO
+  const handlePrintPO = (po) => {
+    setSelectedPO(po);
+    setPrintDialogOpen(true);
+  };
+
+  const executePrint = () => {
+    const printContent = document.getElementById('print-po-content');
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${selectedPO?.po_number || 'Purchase Order'}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .company-info { font-size: 18px; font-weight: bold; }
+          .po-info { text-align: right; }
+          .po-number { font-size: 24px; font-weight: bold; color: #333; }
+          .section { margin-bottom: 20px; }
+          .section-title { font-weight: bold; color: #666; margin-bottom: 5px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+          th { background: #f5f5f5; }
+          .text-right { text-align: right; }
+          .total { font-size: 18px; font-weight: bold; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="company-info">Evoque Events</div>
+          <div class="po-info">
+            <div class="po-number">${selectedPO?.po_number || ''}</div>
+            <div>Fecha: ${selectedPO?.created_at ? new Date(selectedPO.created_at).toLocaleDateString() : ''}</div>
+            ${selectedPO?.needed_by_date ? '<div>Necesario para: ' + new Date(selectedPO.needed_by_date).toLocaleDateString() + '</div>' : ''}
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">Proveedor</div>
+          <div>${selectedPO?.supplier_name || ''}</div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Artículo</th>
+              <th class="text-right">Cantidad</th>
+              <th class="text-right">Unidad</th>
+              <th class="text-right">Precio Unit.</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${selectedPO?.lines?.map(line => `
+              <tr>
+                <td>${line.item_name}</td>
+                <td class="text-right">${line.qty_ordered}</td>
+                <td class="text-right">${line.purchase_unit || ''}</td>
+                <td class="text-right">$${line.unit_cost?.toFixed(2) || '0.00'}</td>
+                <td class="text-right">$${line.line_total?.toFixed(2) || '0.00'}</td>
+              </tr>
+            `).join('') || ''}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" class="text-right total">TOTAL:</td>
+              <td class="text-right total">$${selectedPO?.total?.toFixed(2) || '0.00'}</td>
+            </tr>
+          </tfoot>
+        </table>
+        
+        ${selectedPO?.notes ? '<div class="section"><div class="section-title">Notas</div><div>' + selectedPO.notes + '</div></div>' : ''}
+        
+        <div class="footer">
+          <p>Método de pago: ${selectedPO?.payment_method || 'N/A'}</p>
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
   const getStatusBadge = (status) => {
     const statusInfo = PO_STATUSES.find(s => s.value === status) || PO_STATUSES[0];
     return <Badge className={statusInfo.color}>{language === "es" ? statusInfo.labelEs : statusInfo.label}</Badge>;
