@@ -311,14 +311,6 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       );
     }
   };
-      const margin = ((picklistItem.default_price - internal_cost) / picklistItem.default_price * 100);
-      toast.info(
-        language === "es" 
-          ? `Costo: $${internal_cost.toFixed(2)} | Margen: ${margin.toFixed(0)}%`
-          : `Cost: $${internal_cost.toFixed(2)} | Margin: ${margin.toFixed(0)}%`
-      );
-    }
-  };
 
   const handleRecipeSelect = (recipe) => {
     const recipeCost = recipe.cost_per_portion || recipe.cost_per_serving || 0;
