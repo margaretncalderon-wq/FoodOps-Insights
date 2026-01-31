@@ -3374,6 +3374,27 @@ async def enrich_menu_items(menu: dict, company_id: str):
     menu["margin_amount"] = menu["total_price"] - total_cost
     menu["margin_percentage"] = (menu["margin_amount"] / menu["total_price"] * 100) if menu["total_price"] > 0 else 0
     
+    # Calculate variant prices
+    base_price = menu["total_price"]
+    enriched_variants = []
+    for variant in menu.get("variants", []):
+        var_copy = {**variant}
+        discount_type = variant.get("discount_type", "percentage")
+        discount_value = variant.get("discount_value", 0)
+        
+        if discount_type == "percentage":
+            var_copy["final_price"] = base_price * (1 - discount_value / 100)
+            var_copy["discount_amount"] = base_price * (discount_value / 100)
+        else:  # fixed_amount
+            var_copy["final_price"] = base_price - discount_value
+            var_copy["discount_amount"] = discount_value
+        
+        var_copy["margin_amount"] = var_copy["final_price"] - total_cost
+        var_copy["margin_percentage"] = (var_copy["margin_amount"] / var_copy["final_price"] * 100) if var_copy["final_price"] > 0 else 0
+        enriched_variants.append(var_copy)
+    
+    menu["variants"] = enriched_variants
+    
     return menu
 
 @settings_router.get("/menus")
