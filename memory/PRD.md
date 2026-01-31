@@ -169,6 +169,15 @@ Tracks changes after Proposal.status = Accepted:
   - Quantity per item in the menu
   - Auto-calculated total cost and margin
   - Add entire menu to proposal with one click
+  - **Menu Variants (Gold/Silver/Bronze)**:
+    - Create pricing tiers with percentage or fixed discounts
+    - Auto-calculated prices and margins per variant
+    - One-click add variant to proposal
+- [x] **Document Templates Editor**:
+  - Edit all template types (Proposal, Invoice, PackingList, KitchenSheet, ServiceSheet)
+  - Bilingual Header/Footer text (EN/ES)
+  - Custom Fields builder with type, visibility, required flag
+  - Active/Inactive toggle per template
 
 ## Upcoming Tasks
 - [ ] Fix Google OAuth Login (P0)
