@@ -1943,12 +1943,13 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
         event["documents"] = []
     return Event(**event)
 
-@events_router.put("/{event_id}", response_model=Event)
+@events_router.put("/{event_id}")
 async def update_event(event_id: str, data: EventCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     update_data = data.model_dump()
-    update_data["event_date"] = data.event_date.isoformat()
+    update_data["event_date"] = data.event_date.isoformat() if data.event_date else None
     update_data["end_date"] = data.end_date.isoformat() if data.end_date else None
+    update_data["next_followup_date"] = data.next_followup_date.isoformat() if data.next_followup_date else None
     update_data["updated_at"] = now.isoformat()
     
     result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$set": update_data})
