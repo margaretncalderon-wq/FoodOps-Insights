@@ -479,7 +479,6 @@ export default function EventDetails() {
             </Card>
           </TabsContent>
 
-          {/* Menu Tab */}
           {/* Purchase List Tab */}
           <TabsContent value="purchase">
             <Card>
