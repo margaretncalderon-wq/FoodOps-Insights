@@ -1,143 +1,163 @@
-# EEP Evoque Events Platform - Product Requirements Document
+# EEP Evoque Events Platform - PRD
 
 ## Overview
-Cloud-based, modular web platform for event and catering businesses supporting inbound and outbound sales for event planners, venues, caterers, restaurants, and corporate event teams.
+Cloud-based, modular web platform for event management with CRM, Event Management, Recipe Costing, Quoting System, and full Proposal/Contract workflow.
 
-## Core Architecture
-- **Backend:** FastAPI (Python)
-- **Frontend:** React with Shadcn/UI + Tailwind CSS
-- **Database:** MongoDB
-- **Authentication:** JWT + Emergent-managed Google OAuth
+## Core Modules
 
-## Current Implementation Status
+### 1. Authentication
+- JWT-based email/password authentication (WORKING)
+- Google OAuth via Emergent-managed auth (BROKEN - Invalid state parameter)
 
-### ✅ Completed Modules
+### 2. CRM Module (Refactored)
+- **Leads**: Inbound inquiries from embeddable forms, separate from clients
+- **Clients**: Qualified clients with display_name, client_type (Company/Individual)
+- **Contacts**: Associated contacts per client
+- **Events Pipeline**: Sales funnel with stages (Lead, Contacted, Proposal, Won)
+- **Lead Form Builder**: Configurable public forms with multilingual support (EN/ES)
 
-#### 1. CRM Module (Refactored - Jan 31, 2026)
-**Leads System:**
-- Lead model with fields: lead_name, email, phone, company_name, event_type, event_date, estimated_guest_count, budget_range, message, source, form_name, status
-- Lead statuses: New, Contacted, Converted, Discarded
-- Lead sources: Website, Instagram, QR, Referral, Other
-- Lead filters by status and source
-- Lead conversion logic: Creates Client + Contact + Event automatically
-- Converted leads become read-only
-- Duplicate prevention by email/company name matching
+### 3. Events Module
+- Event creation with client linking
+- Multi-day support, TBD dates
+- Venue, guest count, budget tracking
+- **NEW: Operational Status** (Open, In Production, Completed, Closed)
+- **NEW: Financial Status** (Draft, In Review, Approved)
 
-**Clients System:**
-- Client types: Company, Individual
-- Fields: display_name, email, phone, address, source, tags, notes, status
-- Status: Active, Inactive
+### 4. Proposal/Contract System (NEW - Jan 31, 2026)
+Each Event has ONE active Proposal that serves as:
+- Commercial proposal
+- Client-facing contract  
+- Pricing authority (single source of truth)
 
-**Contacts System:**
-- Linked to clients via client_id
-- Fields: name, email, phone, role_title, is_primary, is_billing_contact
+**Proposal Fields:**
+- proposal_number (auto-generated: PROP-YYYY-####)
+- status (Draft, Sent, Accepted, Rejected)
+- valid_until, client_notes, payment_terms
+- subtotal, discount_amount, tax_details, total
+- total_cost, total_margin, margin_percentage (internal)
 
-**Lead Forms:**
-- Configurable forms with enabled/required fields
-- Default source and event_type settings
-- Public endpoints for embedding (no auth required)
-- Accessible at /forms/{formId}
-- Auto-creates leads on submission
+### 5. Order Items (NEW - Jan 31, 2026)
+Unified commercial engine for all items sold in an event:
 
-#### 2. Events Module (Updated - Jan 31, 2026)
-**Pipeline Stages:** Lead → Contacted → Proposal → Negotiation → Won → Lost
-**Views:**
-- List view with stage badges
-- Pipeline Kanban view with drag-to-move
-- Calendar view (redirect)
+**Item Types:**
+- Food (links to recipes for auto cost calculation)
+- Service (manual internal_cost)
+- Rental (manual internal_cost)
+- Fee (manual internal_cost)
 
-**Event Fields:**
-- event_date (optional, supports TBD)
-- event_date_tbd flag
-- Multi-day booking support
-- stage, expected_value, next_followup_date, next_step, lost_reason (CRM fields)
-- Client info displayed in event titles for Company clients
+**Item Fields:**
+- description (client-facing)
+- quantity, unit_price (visible to client)
+- internal_cost (hidden, internal only)
+- total_price, total_cost, margin_amount, margin_percentage (calculated)
 
-#### 3. Recipe Costing & Inventory
-- Recipe builder with ingredients
-- Cost per portion calculation
-- Inventory tracking
-- Stock checking for events
-- Purchase list generation
+### 6. Margin Tracking (NEW - Jan 31, 2026)
+Internal-only financials visible to Admin/Owner:
+- Total revenue
+- Total internal cost
+- Gross margin (amount and percentage)
+- Breakdown by item_type
+- Warnings for missing costs and low margins
 
-#### 4. Document System
-- Contract & Event Order (centralized)
-- Auto-generated documents: Proposal, Invoice, Kitchen Sheet, Packing List, Mise en Place
-- Item picklist with categories and descriptions
-- Tax rates management
-- Currency support: USD, RD$
+### 7. Feature Flags (NEW - Jan 31, 2026)
+Configurable in Settings > Features:
+- is_proposal_editing_enabled
+- is_order_items_enabled
+- is_margin_tracking_enabled
+- is_document_autogeneration_enabled
+- is_custom_fields_enabled
+- is_food_ops_enabled
 
-#### 5. Settings
-- Company branding
-- Item categories
-- Picklist items with descriptions
-- Tax rates
-- Currency selection
+All flags ON by default.
 
-### 🔄 In Progress
-- Email notifications for new leads
+### 8. Document Templates (NEW - Jan 31, 2026)
+Auto-generated from Event Order:
+- Proposal / Contract (PDF)
+- Invoice
+- Packing List
+- Kitchen Sheet
+- Service / Setup Sheet
 
-### 📋 Backlog (P1)
-- AI integrations for client behavior analysis
-- AI supplier price suggestions
-- Finance & Reporting module (A/R, A/P, invoices, payments)
-- Export to CSV
+### 9. Audit Log (NEW - Jan 31, 2026)
+Tracks changes after Proposal.status = Accepted:
+- User, timestamp
+- Action type (add/remove/edit item, status change)
+- Impact on totals
 
-### 📋 Future (P2)
-- Electronic invoicing integration (Alegra)
-- Payment gateways (Stripe, MercadoPago)
-- Digital signature for quote acceptance
-- Multilingual UI refinement (Spanish + English)
+### 10. Recipe Costing
+- Ingredient management
+- Recipe creation with yield and portions
+- Auto cost calculation per serving
 
-## API Endpoints
+### 11. Inventory
+- Stock tracking
+- Supplier management
 
-### Authentication
-- POST /api/auth/register
-- POST /api/auth/login
-- GET /api/auth/me
-- POST /api/auth/google/exchange-session
+## Tech Stack
+- **Frontend**: React, Shadcn/UI, Tailwind CSS
+- **Backend**: FastAPI (Python)
+- **Database**: MongoDB
+- **Auth**: JWT + Emergent Google OAuth
 
-### Leads
-- GET /api/leads - List leads with filters (status, source, event_type)
-- POST /api/leads - Create lead
-- GET /api/leads/stats - Lead statistics
-- GET /api/leads/{lead_id} - Get lead
-- PUT /api/leads/{lead_id} - Update lead
-- POST /api/leads/{lead_id}/convert - Convert to Client + Contact + Event
-- POST /api/leads/{lead_id}/discard - Mark as discarded
+## API Routes
 
-### Clients
-- GET /api/crm/clients - List clients
-- POST /api/crm/clients - Create client
-- GET /api/crm/clients/{id} - Get client with contacts
-- PUT /api/crm/clients/{id} - Update client
-- DELETE /api/crm/clients/{id} - Delete client
-- GET /api/crm/stats - CRM statistics
+### Settings
+- GET/PUT `/api/settings/feature-flags`
+- GET/POST/PUT/DELETE `/api/settings/document-templates`
+- GET/POST/PUT/DELETE `/api/settings/categories`
+- GET/POST/PUT/DELETE `/api/settings/taxes`
 
-### Contacts
-- GET /api/contacts - List contacts (filter by client_id)
-- POST /api/contacts - Create contact
-- GET/PUT/DELETE /api/contacts/{id}
-
-### Lead Forms
-- GET /api/lead-forms - List forms
-- POST /api/lead-forms - Create form
-- GET /api/lead-forms/{id}/public - Get form config (public, no auth)
-- POST /api/lead-forms/{id}/submit - Submit form (public, no auth)
+### Proposals
+- GET `/api/proposals/event/{event_id}` - Get or create proposal
+- PUT `/api/proposals/{proposal_id}` - Update proposal
+- PUT `/api/proposals/{proposal_id}/financials` - Update financials
+- PUT `/api/proposals/{proposal_id}/custom-fields` - Update custom fields
+- GET/POST `/api/proposals/{proposal_id}/items` - Order items
+- PUT/DELETE `/api/proposals/{proposal_id}/items/{item_id}` - Item CRUD
 
 ### Events
-- GET /api/events - List events (filter by stage)
-- GET /api/events/pipeline - Get pipeline Kanban data
-- POST /api/events - Create event
-- GET/PUT/DELETE /api/events/{id}
-- POST /api/events/{id}/duplicate
+- GET `/api/events/{event_id}/financials` - Internal financials
+- PUT `/api/events/{event_id}/extended` - Extended fields
 
-## Test Credentials
-- Email: test@example.com
-- Password: password123
+### Audit
+- GET `/api/audit/event/{event_id}`
+- GET `/api/audit/proposal/{proposal_id}`
+
+## Locking Rules
+- Proposal, OrderItems, and custom fields are editable when:
+  - Event.operational_status ≠ Closed
+- When Event.operational_status = Closed:
+  - All become READ-ONLY permanently
+
+## Database Collections
+- `users`, `companies`
+- `leads`, `lead_forms`, `clients`, `contacts`
+- `events`
+- `proposals` (NEW)
+- `order_items` (NEW)
+- `feature_flags` (NEW)
+- `audit_logs` (NEW)
+- `document_templates` (NEW)
+- `recipes`, `ingredients`
+- `item_categories`, `picklist_items`, `tax_rates`
 
 ## Known Issues
-- Google OAuth "Invalid state parameter" - may occur due to browser cookie settings
+1. **Google OAuth Login** - BROKEN (Invalid state parameter)
 
-## Last Updated
-January 31, 2026 - CRM Refactor with Leads System and Pipeline Kanban
+## Completed (Jan 31, 2026)
+- [x] Full CRM Refactor with Leads/Clients/Pipeline
+- [x] Lead Form Builder with multilingual support
+- [x] Proposal/Contract System
+- [x] Unified OrderItems (Food, Service, Rental, Fee)
+- [x] Internal Margin Tracking
+- [x] Feature Flags in Settings
+- [x] Event Financials tab
+- [x] Audit Logging for post-acceptance changes
+- [x] Document generation UI (6 types)
+
+## Upcoming Tasks
+- [ ] Fix Google OAuth Login (P0)
+- [ ] PDF generation with templates
+- [ ] AI integrations for client analysis
+- [ ] Finance & Reporting Module
+- [ ] CSV Export
