@@ -3259,6 +3259,9 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
+api_router.include_router(leads_router)
+api_router.include_router(contacts_router)
+api_router.include_router(lead_forms_router)
 api_router.include_router(events_router)
 api_router.include_router(recipes_router)
 api_router.include_router(inventory_router)
