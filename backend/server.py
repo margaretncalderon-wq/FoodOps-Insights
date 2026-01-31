@@ -5743,6 +5743,9 @@ api_router.include_router(reports_router)
 api_router.include_router(event_order_router)
 api_router.include_router(proposals_router)
 api_router.include_router(audit_router)
+api_router.include_router(purchase_orders_router)
+api_router.include_router(expenses_router)
+api_router.include_router(allergens_router)
 
 app.include_router(api_router)
 
