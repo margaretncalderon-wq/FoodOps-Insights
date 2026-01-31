@@ -396,7 +396,7 @@ function InventorySection() {
 
       {/* Item Dialog */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingItem ? (language === "es" ? "Editar Artículo" : "Edit Item") : t("addItem")}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2"><Label>{t("name")}</Label><Input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></div>
@@ -406,7 +406,48 @@ function InventorySection() {
             <div><Label>{t("cost")} / {itemForm.unit}</Label><Input type="number" min="0" step="0.01" value={itemForm.cost_per_unit} onChange={(e) => setItemForm({ ...itemForm, cost_per_unit: parseFloat(e.target.value) || 0 })} /></div>
             <div><Label>{t("stock")}</Label><Input type="number" min="0" step="0.01" value={itemForm.stock_quantity} onChange={(e) => setItemForm({ ...itemForm, stock_quantity: parseFloat(e.target.value) || 0 })} /></div>
             <div><Label>{t("parLevel")}</Label><Input type="number" min="0" step="0.01" value={itemForm.par_level} onChange={(e) => setItemForm({ ...itemForm, par_level: parseFloat(e.target.value) || 0 })} /></div>
-            <div className="col-span-2"><Label>{t("supplier")}</Label><Select value={itemForm.preferred_supplier_id || "none"} onValueChange={(v) => setItemForm({ ...itemForm, preferred_supplier_id: v === "none" ? "" : v })}><SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger><SelectContent><SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>{suppliers.map(s => (<SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>))}</SelectContent></Select></div>
+            
+            {/* Suppliers Section */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <p className="text-sm font-medium mb-3">{language === "es" ? "Proveedores" : "Suppliers"}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{language === "es" ? "Proveedor Principal" : "Primary Supplier"}</Label>
+                  <Select value={itemForm.preferred_supplier_id || "none"} onValueChange={(v) => setItemForm({ ...itemForm, preferred_supplier_id: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
+                      {suppliers.map(s => (<SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{language === "es" ? "Proveedor Secundario" : "Secondary Supplier"}</Label>
+                  <Select value={itemForm.secondary_supplier_id || "none"} onValueChange={(v) => setItemForm({ ...itemForm, secondary_supplier_id: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
+                      {suppliers.map(s => (<SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Purchase Info Section */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <p className="text-sm font-medium mb-3">{language === "es" ? "Info de Compra" : "Purchase Info"}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{language === "es" ? "Unidad de Compra" : "Purchase Unit"}</Label>
+                  <Input value={itemForm.purchase_unit} onChange={(e) => setItemForm({ ...itemForm, purchase_unit: e.target.value })} placeholder={language === "es" ? "Ej: caja, bolsa" : "E.g., box, bag"} />
+                </div>
+                <div>
+                  <Label>{language === "es" ? "Tamaño del Pack" : "Pack Size"}</Label>
+                  <Input type="number" min="1" step="1" value={itemForm.purchase_pack_size} onChange={(e) => setItemForm({ ...itemForm, purchase_pack_size: parseInt(e.target.value) || 1 })} />
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setItemDialogOpen(false)}>{t("cancel")}</Button><Button onClick={handleSaveItem}>{t("save")}</Button></DialogFooter>
         </DialogContent>
