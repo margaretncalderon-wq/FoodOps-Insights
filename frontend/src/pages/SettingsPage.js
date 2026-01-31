@@ -460,23 +460,90 @@ export default function SettingsPage() {
   const handleAddPicklist = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/settings/picklist`, newPicklist, { withCredentials: true });
-      toast.success(language === "es" ? "Ítem creado" : "Item created");
+      if (editingPicklist) {
+        await axios.put(`${API}/settings/picklist/${editingPicklist.item_id}`, newPicklist, { withCredentials: true });
+        toast.success(language === "es" ? "Ítem actualizado" : "Item updated");
+      } else {
+        await axios.post(`${API}/settings/picklist`, newPicklist, { withCredentials: true });
+        toast.success(language === "es" ? "Ítem creado" : "Item created");
+      }
       fetchPicklist();
       setPicklistDialogOpen(false);
-      setNewPicklist({ name: "", description: "", category_id: "", default_price: 0, recipe_id: "", unit: "unit" });
+      resetPicklistForm();
     } catch (error) {
-      toast.error("Failed to create item");
+      toast.error(error.response?.data?.detail || "Failed to save item");
     }
   };
 
+  const handleEditPicklist = (item) => {
+    setEditingPicklist(item);
+    setNewPicklist({
+      name: item.name || "",
+      description: item.description || "",
+      category_id: item.category_id || "",
+      item_type: item.item_type || "Service",
+      default_price: item.default_price || 0,
+      internal_cost: item.internal_cost || null,
+      recipe_id: item.recipe_id || "",
+      inventory_item_id: item.inventory_item_id || "",
+      unit: item.unit || "unit",
+      is_active: item.is_active !== false
+    });
+    setPicklistDialogOpen(true);
+  };
+
+  const resetPicklistForm = () => {
+    setEditingPicklist(null);
+    setNewPicklist({ 
+      name: "", 
+      description: "", 
+      category_id: "", 
+      item_type: "Service",
+      default_price: 0, 
+      internal_cost: null,
+      recipe_id: "", 
+      inventory_item_id: "",
+      unit: "unit",
+      is_active: true
+    });
+  };
+
   const handleDeletePicklist = async (itemId) => {
+    if (!confirm(language === "es" ? "¿Eliminar este ítem?" : "Delete this item?")) return;
     try {
       await axios.delete(`${API}/settings/picklist/${itemId}`, { withCredentials: true });
       toast.success(language === "es" ? "Ítem eliminado" : "Item deleted");
       fetchPicklist();
     } catch (error) {
       toast.error("Failed to delete item");
+    }
+  };
+
+  const handleBulkAddPicklist = async () => {
+    try {
+      // Parse bulk items (one per line: name, price)
+      const lines = bulkItems.split("\n").filter(l => l.trim());
+      const items = lines.map(line => {
+        const parts = line.split(",").map(p => p.trim());
+        return {
+          name: parts[0],
+          description: parts[1] || "",
+          category_id: newPicklist.category_id,
+          item_type: newPicklist.item_type,
+          default_price: parseFloat(parts[2]) || 0,
+          internal_cost: parts[3] ? parseFloat(parts[3]) : null,
+          unit: "unit",
+          is_active: true
+        };
+      });
+      
+      await axios.post(`${API}/settings/picklist/bulk`, { items }, { withCredentials: true });
+      toast.success(language === "es" ? `${items.length} ítems creados` : `${items.length} items created`);
+      fetchPicklist();
+      setBulkAddOpen(false);
+      setBulkItems("");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to bulk add items");
     }
   };
 
