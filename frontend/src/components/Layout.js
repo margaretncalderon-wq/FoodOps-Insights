@@ -25,6 +25,7 @@ import {
   Globe,
   UtensilsCrossed,
   Briefcase,
+  Music4,
 } from "lucide-react";
 
 const navItems = [
@@ -32,6 +33,7 @@ const navItems = [
   { path: "/crm", icon: Users, labelKey: "crm" },
   { path: "/events", icon: Calendar, labelKey: "events" },
   { path: "/calendar", icon: CalendarDays, labelKey: "calendar" },
+  { path: "/event-orchestration", icon: Music4, label: "Event Orchestration", labelEs: "Event Orchestration" },
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
   { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
