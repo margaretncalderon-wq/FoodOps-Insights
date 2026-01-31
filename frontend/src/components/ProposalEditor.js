@@ -721,24 +721,52 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <span className="font-mono">${proposal.subtotal?.toFixed(2) || "0.00"}</span>
                 </div>
 
-                {/* Discount */}
+                {/* Discount with type selector */}
                 <div className="flex items-center gap-4">
                   <span className="text-muted-foreground flex items-center gap-2">
                     <Percent className="w-4 h-4" />
                     {language === "es" ? "Descuento" : "Discount"}
                   </span>
                   <div className="flex-1 flex justify-end items-center gap-2">
-                    <span>$</span>
+                    <Select
+                      value={proposal.discount_type || "fixed"}
+                      disabled={isLocked}
+                      onValueChange={(type) => {
+                        setProposal({ ...proposal, discount_type: type });
+                        handleUpdateFinancials({ 
+                          discount_type: type, 
+                          discount_value: proposal.discount_value || 0,
+                          tax_ids: proposal.tax_details?.map(t => t.tax_id) || []
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">$</SelectItem>
+                        <SelectItem value="percentage">%</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
-                      className="w-28 text-right"
-                      value={proposal.discount_amount || 0}
+                      className="w-24 text-right"
+                      value={proposal.discount_value || 0}
                       disabled={isLocked}
-                      onChange={(e) => setProposal({ ...proposal, discount_amount: parseFloat(e.target.value) || 0 })}
-                      onBlur={() => handleUpdateFinancials({ discount_amount: proposal.discount_amount })}
+                      onChange={(e) => setProposal({ ...proposal, discount_value: parseFloat(e.target.value) || 0 })}
+                      onBlur={() => handleUpdateFinancials({ 
+                        discount_type: proposal.discount_type || "fixed",
+                        discount_value: proposal.discount_value || 0,
+                        tax_ids: proposal.tax_details?.map(t => t.tax_id) || []
+                      })}
                     />
+                    {proposal.discount_amount > 0 && (
+                      <span className="text-sm text-muted-foreground w-24 text-right">
+                        -${proposal.discount_amount?.toFixed(2)}
+                      </span>
+                    )}
                   </div>
                 </div>
 
