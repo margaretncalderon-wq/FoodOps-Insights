@@ -195,6 +195,37 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchFeatureFlags = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/feature-flags`, { withCredentials: true });
+      setFeatureFlags(response.data);
+    } catch (error) {
+      console.error("Failed to fetch feature flags:", error);
+    }
+  };
+
+  const fetchDocumentTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/document-templates`, { withCredentials: true });
+      setDocumentTemplates(response.data);
+    } catch (error) {
+      console.error("Failed to fetch document templates:", error);
+    }
+  };
+
+  const handleUpdateFeatureFlag = async (flagName, value) => {
+    setSavingFlags(true);
+    try {
+      await axios.put(`${API}/settings/feature-flags`, { [flagName]: value }, { withCredentials: true });
+      setFeatureFlags(prev => ({ ...prev, [flagName]: value }));
+      toast.success(language === "es" ? "Configuración actualizada" : "Setting updated");
+    } catch (error) {
+      toast.error("Failed to update feature flag");
+    } finally {
+      setSavingFlags(false);
+    }
+  };
+
   const handleSaveLeadForm = async () => {
     try {
       if (editingLeadForm) {
