@@ -8796,6 +8796,443 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
         }
     }
 
+# ============== EVENT ORCHESTRATION ROUTES ==============
+
+@orchestration_router.get("/events")
+async def get_orchestration_events(user: User = Depends(get_current_user)):
+    """Get all events for orchestration view"""
+    events = await db.events.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("event_date", -1).to_list(500)
+    
+    # Enrich with client names and orchestration status
+    for e in events:
+        if e.get("client_id"):
+            client = await db.clients.find_one({"client_id": e["client_id"]}, {"_id": 0, "display_name": 1})
+            e["client_name"] = client.get("display_name") if client else None
+        
+        # Check orchestration data existence
+        blueprint = await db.event_blueprints.find_one({"event_id": e.get("event_id")}, {"_id": 0, "objectives": 1})
+        e["has_blueprint"] = blueprint is not None and bool(blueprint.get("objectives"))
+        
+        run_of_show = await db.run_of_show.find_one({"event_id": e.get("event_id")}, {"_id": 0, "time_blocks": 1})
+        e["has_run_of_show"] = run_of_show is not None and len(run_of_show.get("time_blocks", [])) > 0
+        
+        team = await db.event_team_roles.find_one({"event_id": e.get("event_id")}, {"_id": 0, "roles": 1})
+        e["has_team"] = team is not None and len(team.get("roles", [])) > 0
+    
+    return events
+
+# --- Event Blueprint ---
+@orchestration_router.get("/blueprint/{event_id}")
+async def get_event_blueprint(event_id: str, user: User = Depends(get_current_user)):
+    """Get event blueprint (extended metadata)"""
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get blueprint extension
+    blueprint = await db.event_blueprints.find_one(
+        {"event_id": event_id},
+        {"_id": 0}
+    )
+    
+    return {
+        "event": event,
+        "blueprint": blueprint or {
+            "objectives": None,
+            "scope_definition": None,
+            "critical_assumptions": None,
+            "constraints": None,
+            "success_criteria": None
+        }
+    }
+
+@orchestration_router.put("/blueprint/{event_id}")
+async def update_event_blueprint(event_id: str, data: EventBlueprintUpdate, user: User = Depends(get_current_user)):
+    """Update event blueprint metadata"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    blueprint_data = data.dict(exclude_unset=True)
+    blueprint_data["event_id"] = event_id
+    blueprint_data["company_id"] = user.company_id
+    blueprint_data["updated_at"] = now.isoformat()
+    
+    await db.event_blueprints.update_one(
+        {"event_id": event_id},
+        {"$set": blueprint_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.event_blueprints.find_one({"event_id": event_id}, {"_id": 0})
+
+# --- Experience Design ---
+@orchestration_router.get("/experience/{event_id}")
+async def get_experience_design(event_id: str, user: User = Depends(get_current_user)):
+    """Get experience design for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    design = await db.experience_designs.find_one({"event_id": event_id}, {"_id": 0})
+    
+    return design or {
+        "event_id": event_id,
+        "color_palette": [],
+        "materials": [],
+        "moodboard_images": [],
+        "catering_setup": None,
+        "layout_zones": [],
+        "notes": None
+    }
+
+@orchestration_router.put("/experience/{event_id}")
+async def update_experience_design(event_id: str, data: ExperienceDesignCreate, user: User = Depends(get_current_user)):
+    """Update experience design for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    design_data = data.dict()
+    design_data["company_id"] = user.company_id
+    design_data["updated_at"] = now.isoformat()
+    
+    await db.experience_designs.update_one(
+        {"event_id": event_id},
+        {"$set": design_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.experience_designs.find_one({"event_id": event_id}, {"_id": 0})
+
+# --- Operational Flow ---
+@orchestration_router.get("/operational-flow/{event_id}")
+async def get_operational_flow(event_id: str, user: User = Depends(get_current_user)):
+    """Get operational flow for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    flow = await db.operational_flows.find_one({"event_id": event_id}, {"_id": 0})
+    
+    if not flow:
+        # Return default structure with 3 phases
+        flow = {
+            "event_id": event_id,
+            "phases": [
+                {"phase_id": f"phase_{uuid.uuid4().hex[:8]}", "name": "Pre-Event", "status": "pending", "checklist": []},
+                {"phase_id": f"phase_{uuid.uuid4().hex[:8]}", "name": "Live", "status": "pending", "checklist": []},
+                {"phase_id": f"phase_{uuid.uuid4().hex[:8]}", "name": "Post-Event", "status": "pending", "checklist": []},
+            ],
+            "dependencies": [],
+            "risks": [],
+            "overall_status": "planning"
+        }
+    
+    return flow
+
+@orchestration_router.put("/operational-flow/{event_id}")
+async def update_operational_flow(event_id: str, data: OperationalFlowCreate, user: User = Depends(get_current_user)):
+    """Update operational flow for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    flow_data = data.dict()
+    flow_data["company_id"] = user.company_id
+    flow_data["updated_at"] = now.isoformat()
+    
+    await db.operational_flows.update_one(
+        {"event_id": event_id},
+        {"$set": flow_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.operational_flows.find_one({"event_id": event_id}, {"_id": 0})
+
+# --- Run of Show ---
+@orchestration_router.get("/run-of-show/templates")
+async def get_run_of_show_templates(user: User = Depends(get_current_user)):
+    """Get available Run of Show templates"""
+    return RUN_OF_SHOW_TEMPLATES
+
+@orchestration_router.get("/run-of-show/{event_id}")
+async def get_run_of_show(event_id: str, user: User = Depends(get_current_user)):
+    """Get Run of Show for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    ros = await db.run_of_show.find_one({"event_id": event_id}, {"_id": 0})
+    
+    return ros or {
+        "event_id": event_id,
+        "time_blocks": [],
+        "template_name": None,
+        "contingency_notes": None
+    }
+
+@orchestration_router.put("/run-of-show/{event_id}")
+async def update_run_of_show(event_id: str, data: RunOfShowCreate, user: User = Depends(get_current_user)):
+    """Update Run of Show for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    ros_data = data.dict()
+    ros_data["company_id"] = user.company_id
+    ros_data["updated_at"] = now.isoformat()
+    
+    await db.run_of_show.update_one(
+        {"event_id": event_id},
+        {"$set": ros_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.run_of_show.find_one({"event_id": event_id}, {"_id": 0})
+
+@orchestration_router.post("/run-of-show/{event_id}/apply-template")
+async def apply_run_of_show_template(event_id: str, template_key: str, user: User = Depends(get_current_user)):
+    """Apply a template to Run of Show"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if template_key not in RUN_OF_SHOW_TEMPLATES:
+        raise HTTPException(status_code=400, detail="Invalid template")
+    
+    template = RUN_OF_SHOW_TEMPLATES[template_key]
+    now = datetime.now(timezone.utc)
+    
+    # Generate time blocks from template
+    time_blocks = []
+    for i, block in enumerate(template["blocks"]):
+        time_blocks.append({
+            "block_id": f"block_{uuid.uuid4().hex[:8]}",
+            "start_time": block["start_time"],
+            "end_time": block["end_time"],
+            "title": block["title"],
+            "description": None,
+            "responsible_role": None,
+            "location": None,
+            "notes": None,
+            "is_buffer": block.get("is_buffer", False),
+            "order": i
+        })
+    
+    ros_data = {
+        "event_id": event_id,
+        "company_id": user.company_id,
+        "time_blocks": time_blocks,
+        "template_name": template["name"],
+        "contingency_notes": None,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.run_of_show.update_one(
+        {"event_id": event_id},
+        {"$set": ros_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.run_of_show.find_one({"event_id": event_id}, {"_id": 0})
+
+# --- Team & Roles ---
+@orchestration_router.get("/team/{event_id}")
+async def get_team_roles(event_id: str, user: User = Depends(get_current_user)):
+    """Get team and roles for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    team = await db.event_team_roles.find_one({"event_id": event_id}, {"_id": 0})
+    
+    return team or {
+        "event_id": event_id,
+        "roles": [],
+        "coordinator_notes": None
+    }
+
+@orchestration_router.put("/team/{event_id}")
+async def update_team_roles(event_id: str, data: TeamRolesCreate, user: User = Depends(get_current_user)):
+    """Update team and roles for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    team_data = data.dict()
+    team_data["company_id"] = user.company_id
+    team_data["updated_at"] = now.isoformat()
+    
+    await db.event_team_roles.update_one(
+        {"event_id": event_id},
+        {"$set": team_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.event_team_roles.find_one({"event_id": event_id}, {"_id": 0})
+
+# --- Production Assets ---
+@orchestration_router.get("/production/{event_id}")
+async def get_production_assets(event_id: str, user: User = Depends(get_current_user)):
+    """Get production assets for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    production = await db.production_assets.find_one({"event_id": event_id}, {"_id": 0})
+    
+    return production or {
+        "event_id": event_id,
+        "assets": [],
+        "checklists": [],
+        "packing_list": [],
+        "preparation_status": "not_started"
+    }
+
+@orchestration_router.put("/production/{event_id}")
+async def update_production_assets(event_id: str, data: ProductionAssetsCreate, user: User = Depends(get_current_user)):
+    """Update production assets for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    production_data = data.dict()
+    production_data["company_id"] = user.company_id
+    production_data["updated_at"] = now.isoformat()
+    
+    await db.production_assets.update_one(
+        {"event_id": event_id},
+        {"$set": production_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.production_assets.find_one({"event_id": event_id}, {"_id": 0})
+
+# --- Event Calendar ---
+@orchestration_router.get("/calendar")
+async def get_events_calendar(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get events for calendar view"""
+    query = {"company_id": user.company_id}
+    
+    # Date filtering
+    if start_date or end_date:
+        date_filter = {}
+        if start_date:
+            date_filter["$gte"] = start_date
+        if end_date:
+            date_filter["$lte"] = end_date
+        if date_filter:
+            query["event_date"] = date_filter
+    
+    events = await db.events.find(query, {"_id": 0}).to_list(500)
+    
+    # Enrich with client names and milestones
+    calendar_events = []
+    for e in events:
+        if e.get("client_id"):
+            client = await db.clients.find_one({"client_id": e["client_id"]}, {"_id": 0, "display_name": 1})
+            e["client_name"] = client.get("display_name") if client else None
+        
+        # Get milestones from operational flow
+        flow = await db.operational_flows.find_one({"event_id": e.get("event_id")}, {"_id": 0, "phases": 1})
+        e["phases"] = flow.get("phases", []) if flow else []
+        
+        calendar_events.append(e)
+    
+    # Detect conflicts (events on same day)
+    from collections import defaultdict
+    events_by_date = defaultdict(list)
+    for e in calendar_events:
+        if e.get("event_date"):
+            date_str = str(e["event_date"])[:10] if isinstance(e["event_date"], str) else e["event_date"].isoformat()[:10]
+            events_by_date[date_str].append(e.get("event_id"))
+    
+    conflicts = {date: ids for date, ids in events_by_date.items() if len(ids) > 1}
+    
+    return {
+        "events": calendar_events,
+        "conflicts": conflicts
+    }
+
+# --- Post-Event Review ---
+@orchestration_router.get("/review/{event_id}")
+async def get_post_event_review(event_id: str, user: User = Depends(get_current_user)):
+    """Get post-event review"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    review = await db.post_event_reviews.find_one({"event_id": event_id}, {"_id": 0})
+    
+    return review or {
+        "event_id": event_id,
+        "what_worked": [],
+        "what_failed": [],
+        "deviations": [],
+        "learnings": [],
+        "client_feedback": None,
+        "team_feedback": None,
+        "rating": None,
+        "is_locked": False
+    }
+
+@orchestration_router.put("/review/{event_id}")
+async def update_post_event_review(event_id: str, data: PostEventReviewCreate, user: User = Depends(get_current_user)):
+    """Update post-event review"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Check if review is locked
+    existing = await db.post_event_reviews.find_one({"event_id": event_id}, {"_id": 0})
+    if existing and existing.get("is_locked"):
+        raise HTTPException(status_code=400, detail="Review is locked and cannot be modified")
+    
+    now = datetime.now(timezone.utc)
+    review_data = data.dict()
+    review_data["company_id"] = user.company_id
+    review_data["updated_at"] = now.isoformat()
+    
+    await db.post_event_reviews.update_one(
+        {"event_id": event_id},
+        {"$set": review_data, "$setOnInsert": {"created_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return await db.post_event_reviews.find_one({"event_id": event_id}, {"_id": 0})
+
+@orchestration_router.post("/review/{event_id}/lock")
+async def lock_post_event_review(event_id: str, user: User = Depends(get_current_user)):
+    """Lock post-event review (make read-only)"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    await db.post_event_reviews.update_one(
+        {"event_id": event_id},
+        {"$set": {"is_locked": True, "locked_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    return {"message": "Review locked successfully"}
+
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
