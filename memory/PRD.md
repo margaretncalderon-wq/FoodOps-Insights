@@ -104,11 +104,19 @@ Build a cloud-based, modular web platform for event and catering businesses with
 - Responsive design (desktop-first)
 - Reports module with recipe costs, price changes, event costs, supplier spend
 
-## Bug Fixes (January 30, 2026)
+## Bug Fixes (January 30-31, 2026)
 - **CORS Fix**: Changed CORS_ORIGINS from wildcard '*' to explicit origins to support withCredentials cookies
 - **RecipesPage Fix**: Updated field names to match backend (cost_per_portion, yield_quantity) with fallbacks
 - **Document System Refactor**: Documents now live under Events, not as standalone page
 - **DocumentPreview Fix**: Updated to use new Event Order structure with items_by_category and financials
+
+## Updates (January 31, 2026)
+- **CRM Enhancement**: Added dual client types - "Corporate" (with company name, RNC, multiple contacts) and "Direct" (individual contact)
+- **CRM Validation Fix**: Changed ContactPerson.email from EmailStr to str to allow empty strings
+- **CRM Error Handling**: Frontend now properly displays validation error arrays from Pydantic
+- **Events Enhancement**: Events endpoint now includes client_info (company_name, client_type)
+- **Events UI**: Event titles show "CompanyName - EventName" for corporate clients
+- **Multi-day Date Picker**: Verified working - calendar opens and responds to clicks inside Dialog
 
 ## Prioritized Backlog
 
