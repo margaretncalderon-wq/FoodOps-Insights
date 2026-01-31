@@ -402,11 +402,11 @@ Auto-generated from Event Order:
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
 ## Future/Backlog
+- [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
+- [ ] Integrations (Settings placeholders): Alegra, QuickBooks
 - [ ] Implement actual automation execution (cron jobs for reminders, alerts)
-- [ ] Complete OAuth flow for Gmail integration
-- [ ] Complete WhatsApp Business API integration
-- [ ] Implement Alegra/QuickBooks integration
 - [ ] AI integrations for supplier suggestions
 - [ ] Additional payment gateways (MercadoPago)
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
+- [ ] Finalize Role-Based Access Control (RBAC) logic in backend
