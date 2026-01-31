@@ -161,6 +161,101 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchLeadForms = async () => {
+    try {
+      const response = await axios.get(`${API}/lead-forms`, { withCredentials: true });
+      setLeadForms(response.data);
+    } catch (error) {
+      console.error("Failed to fetch lead forms:", error);
+    }
+  };
+
+  const handleSaveLeadForm = async () => {
+    try {
+      if (editingLeadForm) {
+        await axios.put(`${API}/lead-forms/${editingLeadForm.form_id}`, newLeadForm, { withCredentials: true });
+        toast.success(language === "es" ? "Formulario actualizado" : "Form updated");
+      } else {
+        await axios.post(`${API}/lead-forms`, newLeadForm, { withCredentials: true });
+        toast.success(language === "es" ? "Formulario creado" : "Form created");
+      }
+      fetchLeadForms();
+      setLeadFormDialogOpen(false);
+      resetLeadFormForm();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to save form");
+    }
+  };
+
+  const handleDeleteLeadForm = async (formId) => {
+    if (!confirm(language === "es" ? "¿Eliminar este formulario?" : "Delete this form?")) return;
+    try {
+      await axios.delete(`${API}/lead-forms/${formId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Formulario eliminado" : "Form deleted");
+      fetchLeadForms();
+    } catch (error) {
+      toast.error("Failed to delete form");
+    }
+  };
+
+  const handleEditLeadForm = (form) => {
+    setEditingLeadForm(form);
+    setNewLeadForm({
+      form_name: form.form_name,
+      description: form.description || "",
+      fields: form.fields?.length > 0 ? form.fields : [...DEFAULT_FORM_FIELDS],
+      default_source: form.default_source || "Website",
+      default_event_type: form.default_event_type || "",
+      is_active: form.is_active !== false,
+      thank_you_message: form.thank_you_message || "Thank you for your inquiry!"
+    });
+    setLeadFormDialogOpen(true);
+  };
+
+  const resetLeadFormForm = () => {
+    setEditingLeadForm(null);
+    setNewLeadForm({
+      form_name: "",
+      description: "",
+      fields: [...DEFAULT_FORM_FIELDS],
+      default_source: "Website",
+      default_event_type: "",
+      is_active: true,
+      thank_you_message: "Thank you for your inquiry! We will contact you soon."
+    });
+  };
+
+  const toggleFieldEnabled = (fieldName) => {
+    setNewLeadForm(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => 
+        f.field_name === fieldName ? { ...f, enabled: !f.enabled } : f
+      )
+    }));
+  };
+
+  const toggleFieldRequired = (fieldName) => {
+    setNewLeadForm(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => 
+        f.field_name === fieldName ? { ...f, required: !f.required } : f
+      )
+    }));
+  };
+
+  const copyFormLink = (formId) => {
+    const link = `${window.location.origin}/forms/${formId}`;
+    navigator.clipboard.writeText(link);
+    toast.success(language === "es" ? "Enlace copiado" : "Link copied");
+  };
+
+  const copyEmbedCode = (formId) => {
+    const link = `${window.location.origin}/forms/${formId}`;
+    const code = `<iframe src="${link}" width="100%" height="700" frameborder="0"></iframe>`;
+    navigator.clipboard.writeText(code);
+    toast.success(language === "es" ? "Código embed copiado" : "Embed code copied");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
