@@ -175,10 +175,19 @@ export default function SettingsPage() {
 
   const fetchPicklist = async () => {
     try {
-      const response = await axios.get(`${API}/settings/picklist`, { withCredentials: true });
+      const response = await axios.get(`${API}/settings/picklist?active_only=false`, { withCredentials: true });
       setPicklist(response.data);
     } catch (error) {
       console.error("Failed to fetch picklist:", error);
+    }
+  };
+
+  const fetchInventory = async () => {
+    try {
+      const response = await axios.get(`${API}/inventory`, { withCredentials: true });
+      setInventoryItems(response.data);
+    } catch (error) {
+      console.error("Failed to fetch inventory:", error);
     }
   };
 
