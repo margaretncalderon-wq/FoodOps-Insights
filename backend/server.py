@@ -440,6 +440,11 @@ class Recipe(BaseModel):
     sell_price: float = 0.0
     food_cost_percent: float = 0.0
     image_url: Optional[str] = None
+    # Extended fields
+    allergens: List[str] = []
+    work_category: Optional[str] = None
+    recipe_code: Optional[str] = None
+    verified_status: str = "Draft"
     created_at: datetime
     updated_at: datetime
 
