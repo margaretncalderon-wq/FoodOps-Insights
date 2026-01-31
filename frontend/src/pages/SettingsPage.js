@@ -1304,30 +1304,93 @@ export default function SettingsPage() {
                   <ListChecks className="w-5 h-5" />
                   {language === "es" ? "Lista de Ítems Predefinidos" : "Predefined Item Picklist"}
                 </CardTitle>
-                <Button onClick={() => setPicklistDialogOpen(true)} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  {language === "es" ? "Agregar" : "Add"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setBulkAddOpen(true)} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    {language === "es" ? "Agregar Múltiples" : "Bulk Add"}
+                  </Button>
+                  <Button onClick={() => { resetPicklistForm(); setPicklistDialogOpen(true); }} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    {language === "es" ? "Agregar" : "Add"}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  {language === "es" ? "Ítems predefinidos para selección rápida al crear órdenes de evento" : "Predefined items for quick selection when creating event orders"}
+                  {language === "es" 
+                    ? "Ítems predefinidos para selección rápida. Vincula con recetas (comida) o inventario (desechables) para cálculo automático de costos."
+                    : "Predefined items for quick selection. Link to recipes (food) or inventory (disposables) for auto cost calculation."}
                 </p>
+                
+                {/* Filter by Type */}
+                <div className="flex gap-2 mb-4 flex-wrap">
+                  {["All", "Food", "Service", "Rental", "Fee"].map(itype => (
+                    <Badge 
+                      key={itype}
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => {/* Filter logic could go here */}}
+                    >
+                      {itype === "All" ? (language === "es" ? "Todos" : "All") : itype}
+                    </Badge>
+                  ))}
+                </div>
+
                 {picklist.length > 0 ? (
                   <div className="space-y-2">
                     {picklist.map(item => (
-                      <div key={item.item_id} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`picklist-row-${item.item_id}`}>
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
-                          <p className="text-sm text-muted-foreground">
-                            {getCategoryName(item.category_id)} · ${item.default_price.toFixed(2)}
-                            {item.recipe_id && <span className="ml-2 text-primary">• {language === "es" ? "Con receta" : "Has recipe"}</span>}
-                          </p>
+                      <div 
+                        key={item.item_id} 
+                        className={`flex items-center justify-between p-3 border rounded-lg ${item.is_active === false ? 'opacity-50' : ''}`} 
+                        data-testid={`picklist-row-${item.item_id}`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium">{item.name}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {item.item_type || "Service"}
+                            </Badge>
+                            {item.is_active === false && (
+                              <Badge variant="secondary" className="text-xs">
+                                {language === "es" ? "Inactivo" : "Inactive"}
+                              </Badge>
+                            )}
+                          </div>
+                          {item.description && <p className="text-xs text-muted-foreground mb-1">{item.description}</p>}
+                          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                            <span>{getCategoryName(item.category_id)}</span>
+                            <span className="font-mono">${item.default_price?.toFixed(2)}</span>
+                            {item.recipe_name && (
+                              <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                                <Utensils className="w-3 h-3" /> {item.recipe_name}
+                              </span>
+                            )}
+                            {item.inventory_item_name && (
+                              <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                <Package className="w-3 h-3" /> {item.inventory_item_name}
+                              </span>
+                            )}
+                            {item.calculated_cost && (
+                              <span className="text-muted-foreground">
+                                {language === "es" ? "Costo" : "Cost"}: ${item.calculated_cost?.toFixed(2)} 
+                                <span className="text-xs ml-1">({item.cost_source})</span>
+                              </span>
+                            )}
+                            {item.margin_percentage !== undefined && (
+                              <span className={`${item.margin_percentage < 20 ? 'text-destructive' : item.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}`}>
+                                {language === "es" ? "Margen" : "Margin"}: {item.margin_percentage?.toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePicklist(item.item_id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditPicklist(item)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePicklist(item.item_id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1337,55 +1400,209 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Dialog open={picklistDialogOpen} onOpenChange={setPicklistDialogOpen}>
-              <DialogContent>
+            {/* Add/Edit Picklist Item Dialog */}
+            <Dialog open={picklistDialogOpen} onOpenChange={(open) => { setPicklistDialogOpen(open); if (!open) resetPicklistForm(); }}>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{language === "es" ? "Nuevo Ítem" : "New Item"}</DialogTitle>
+                  <DialogTitle>
+                    {editingPicklist 
+                      ? (language === "es" ? "Editar Ítem" : "Edit Item")
+                      : (language === "es" ? "Nuevo Ítem" : "New Item")}
+                  </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleAddPicklist} className="space-y-4">
-                  <div>
-                    <Label>{language === "es" ? "Nombre" : "Name"} *</Label>
-                    <Input value={newPicklist.name} onChange={(e) => setNewPicklist({ ...newPicklist, name: e.target.value })} required />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Label>{language === "es" ? "Nombre" : "Name"} *</Label>
+                      <Input 
+                        value={newPicklist.name} 
+                        onChange={(e) => setNewPicklist({ ...newPicklist, name: e.target.value })} 
+                        required 
+                      />
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <Label>{language === "es" ? "Descripción" : "Description"}</Label>
+                      <Input 
+                        value={newPicklist.description} 
+                        onChange={(e) => setNewPicklist({ ...newPicklist, description: e.target.value })} 
+                        placeholder={language === "es" ? "Descripción opcional" : "Optional description"}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>{language === "es" ? "Tipo" : "Type"} *</Label>
+                      <Select 
+                        value={newPicklist.item_type} 
+                        onValueChange={(v) => setNewPicklist({ ...newPicklist, item_type: v })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Food">{language === "es" ? "Comida" : "Food"}</SelectItem>
+                          <SelectItem value="Service">{language === "es" ? "Servicio" : "Service"}</SelectItem>
+                          <SelectItem value="Rental">{language === "es" ? "Alquiler" : "Rental"}</SelectItem>
+                          <SelectItem value="Fee">{language === "es" ? "Cargo" : "Fee"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>{language === "es" ? "Categoría" : "Category"} *</Label>
+                      <Select 
+                        value={newPicklist.category_id} 
+                        onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map(cat => (
+                            <SelectItem key={cat.category_id} value={cat.category_id}>
+                              {language === "es" ? cat.name_es || cat.name : cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>{language === "es" ? "Precio por Defecto" : "Default Price"}</Label>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        value={newPicklist.default_price} 
+                        onChange={(e) => setNewPicklist({ ...newPicklist, default_price: parseFloat(e.target.value) || 0 })} 
+                      />
+                    </div>
+
+                    <div>
+                      <Label>{language === "es" ? "Costo Interno (Manual)" : "Internal Cost (Manual)"}</Label>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        value={newPicklist.internal_cost || ""} 
+                        onChange={(e) => setNewPicklist({ ...newPicklist, internal_cost: e.target.value ? parseFloat(e.target.value) : null })} 
+                        placeholder={language === "es" ? "Auto si hay receta" : "Auto if recipe linked"}
+                      />
+                    </div>
+
+                    {/* Recipe Link (for Food) */}
+                    <div className="col-span-2">
+                      <Label>{language === "es" ? "Vincular Receta (para cálculo de costo automático)" : "Link Recipe (for auto cost calculation)"}</Label>
+                      <Select 
+                        value={newPicklist.recipe_id || "none"} 
+                        onValueChange={(v) => setNewPicklist({ ...newPicklist, recipe_id: v === "none" ? "" : v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin receta" : "No recipe"} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{language === "es" ? "Sin receta" : "No recipe"}</SelectItem>
+                          {recipes.map(r => (
+                            <SelectItem key={r.recipe_id} value={r.recipe_id}>
+                              {r.name} - ${(r.cost_per_portion || r.cost_per_serving || 0).toFixed(2)} {language === "es" ? "costo" : "cost"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Inventory Link (for disposables) */}
+                    <div className="col-span-2">
+                      <Label>{language === "es" ? "Vincular Inventario (para desechables/suministros)" : "Link Inventory (for disposables/supplies)"}</Label>
+                      <Select 
+                        value={newPicklist.inventory_item_id || "none"} 
+                        onValueChange={(v) => setNewPicklist({ ...newPicklist, inventory_item_id: v === "none" ? "" : v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin inventario" : "No inventory"} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{language === "es" ? "Sin inventario" : "No inventory"}</SelectItem>
+                          {inventoryItems.map(inv => (
+                            <SelectItem key={inv.item_id} value={inv.item_id}>
+                              {inv.name} - ${(inv.unit_cost || 0).toFixed(2)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Active Toggle */}
+                    <div className="col-span-2 flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <Label className="text-base">{language === "es" ? "Activo" : "Active"}</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {language === "es" ? "Mostrar en selección rápida" : "Show in quick selection"}
+                        </p>
+                      </div>
+                      <Switch 
+                        checked={newPicklist.is_active !== false}
+                        onCheckedChange={(v) => setNewPicklist({ ...newPicklist, is_active: v })}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label>{language === "es" ? "Descripción" : "Description"}</Label>
-                    <Input 
-                      value={newPicklist.description} 
-                      onChange={(e) => setNewPicklist({ ...newPicklist, description: e.target.value })} 
-                      placeholder={language === "es" ? "Descripción opcional del ítem" : "Optional item description"}
-                    />
-                  </div>
-                  <div>
-                    <Label>{language === "es" ? "Categoría" : "Category"} *</Label>
-                    <Select value={newPicklist.category_id} onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat.category_id} value={cat.category_id}>
-                            {language === "es" ? cat.name_es || cat.name : cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>{language === "es" ? "Precio por Defecto" : "Default Price"}</Label>
-                    <Input type="number" step="0.01" value={newPicklist.default_price} onChange={(e) => setNewPicklist({ ...newPicklist, default_price: parseFloat(e.target.value) || 0 })} />
-                  </div>
-                  <div>
-                    <Label>{language === "es" ? "Receta (opcional, para comida)" : "Recipe (optional, for food)"}</Label>
-                    <Select value={newPicklist.recipe_id || "none"} onValueChange={(v) => setNewPicklist({ ...newPicklist, recipe_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin receta" : "No recipe"} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{language === "es" ? "Sin receta" : "No recipe"}</SelectItem>
-                        {recipes.map(r => (
-                          <SelectItem key={r.recipe_id} value={r.recipe_id}>{r.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+
                   <Button type="submit" className="w-full">{t("save")}</Button>
                 </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Bulk Add Dialog */}
+            <Dialog open={bulkAddOpen} onOpenChange={setBulkAddOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{language === "es" ? "Agregar Múltiples Ítems" : "Bulk Add Items"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {language === "es" 
+                      ? "Ingresa un ítem por línea: nombre, descripción, precio, costo (opcional)"
+                      : "Enter one item per line: name, description, price, cost (optional)"}
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === "es" ? "Tipo" : "Type"}</Label>
+                      <Select 
+                        value={newPicklist.item_type} 
+                        onValueChange={(v) => setNewPicklist({ ...newPicklist, item_type: v })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Food">{language === "es" ? "Comida" : "Food"}</SelectItem>
+                          <SelectItem value="Service">{language === "es" ? "Servicio" : "Service"}</SelectItem>
+                          <SelectItem value="Rental">{language === "es" ? "Alquiler" : "Rental"}</SelectItem>
+                          <SelectItem value="Fee">{language === "es" ? "Cargo" : "Fee"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>{language === "es" ? "Categoría" : "Category"}</Label>
+                      <Select 
+                        value={newPicklist.category_id} 
+                        onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map(cat => (
+                            <SelectItem key={cat.category_id} value={cat.category_id}>
+                              {language === "es" ? cat.name_es || cat.name : cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Textarea
+                    value={bulkItems}
+                    onChange={(e) => setBulkItems(e.target.value)}
+                    placeholder={`${language === "es" ? "Ejemplo:" : "Example:"}
+Silla Tiffany, Silla elegante dorada, 15, 5
+Mesa Redonda, Mesa para 10 personas, 80, 25
+Mantel Blanco, , 10, 3`}
+                    rows={8}
+                  />
+                  
+                  <Button onClick={handleBulkAddPicklist} className="w-full" disabled={!bulkItems.trim() || !newPicklist.category_id}>
+                    {language === "es" ? "Crear Ítems" : "Create Items"}
+                  </Button>
+                </div>
               </DialogContent>
             </Dialog>
           </TabsContent>
