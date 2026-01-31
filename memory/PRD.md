@@ -323,6 +323,19 @@ Auto-generated from Event Order:
   - Invoices created from events link to client and event
   - Auto-calculates totals from order items
   - Invoices appear in Business Clarity for payment tracking
+- [x] **Event Payments Tab (Jan 31, 2026)**:
+  - New "Payments" tab in Event Details
+  - Financial KPIs: Total Invoiced, Collected, Balance Due, % Collected
+  - "Record Payment" button with payment method selector
+  - "Pay with Card" button for Stripe integration
+  - Apply payments to event invoices
+  - Client payments history
+- [x] **Business Clarity UI Reorganization (Jan 31, 2026)**:
+  - Sidebar navigation like Culinary Intelligence
+  - Sub-sections: Dashboard, Invoices, Payments, Statements, Receivables, Payables, Reports
+  - "Estados de Cuenta" (Account Statements) with client selector
+  - Running balance and activity log per client
+  - Credit warnings and alerts
 
 ## Upcoming Tasks
 - [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
