@@ -265,14 +265,14 @@ class TestCRM:
 class TestDashboard:
     """Dashboard stats tests"""
     
-    def test_get_dashboard_stats(self, auth_headers):
-        """Test fetching dashboard statistics"""
-        response = requests.get(f"{BASE_URL}/api/reports/dashboard", headers=auth_headers)
+    def test_get_recipe_costs_report(self, auth_headers):
+        """Test fetching recipe costs report"""
+        response = requests.get(f"{BASE_URL}/api/reports/recipe-costs", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
-        # Check for expected dashboard fields
-        assert isinstance(data, dict)
-        print(f"Dashboard stats: {data}")
+        # Check for expected report fields
+        assert isinstance(data, (dict, list))
+        print(f"Recipe costs report: {type(data)}")
 
 
 class TestEventOrders:
