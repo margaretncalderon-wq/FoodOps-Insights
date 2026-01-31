@@ -278,13 +278,21 @@ class TestDashboard:
 class TestEventOrders:
     """Event Orders module tests"""
     
-    def test_get_event_orders(self, auth_headers):
-        """Test fetching event orders"""
-        response = requests.get(f"{BASE_URL}/api/event-orders", headers=auth_headers)
+    def test_get_event_order_for_event(self, auth_headers):
+        """Test fetching event order for a specific event"""
+        # First get list of events
+        response = requests.get(f"{BASE_URL}/api/events", headers=auth_headers)
         assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"Found {len(data)} event orders")
+        events = response.json()
+        
+        if len(events) > 0:
+            event_id = events[0]["event_id"]
+            response = requests.get(f"{BASE_URL}/api/event-orders/{event_id}", headers=auth_headers)
+            assert response.status_code == 200
+            data = response.json()
+            print(f"Event order retrieved for event: {event_id}")
+        else:
+            pytest.skip("No events available to test")
 
 
 class TestAllergens:
