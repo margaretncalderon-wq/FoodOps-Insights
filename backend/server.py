@@ -89,48 +89,122 @@ class Company(BaseModel):
     default_tax_rate: float = 0.0
     created_at: datetime
 
-# CRM Models - Enhanced with corporate and direct client types
-class ContactPerson(BaseModel):
-    name: str
-    email: Optional[str] = None  # Changed from EmailStr to str to allow empty strings
-    phone: Optional[str] = None
-    role: Optional[str] = None  # e.g., "Manager", "Event Coordinator"
+# ============== NEW CRM MODELS ==============
 
-class ClientCreate(BaseModel):
-    client_type: str = "direct"  # "corporate" or "direct"
-    # For direct clients - this is the contact name
-    name: str
-    email: Optional[str] = None  # Changed from EmailStr to str to allow empty strings
+# Lead Model (Inbound inquiries)
+class LeadCreate(BaseModel):
+    lead_name: str
+    email: str
     phone: Optional[str] = None
-    # For corporate clients
     company_name: Optional[str] = None
-    rnc: Optional[str] = None  # Tax ID / RNC
-    contacts: List[ContactPerson] = []  # Multiple contact persons for corporate
-    # Common fields
+    event_type: str
+    event_date: Optional[str] = None  # Can be "TBD" or a date string
+    estimated_guest_count: Optional[int] = None
+    budget_range: Optional[str] = None
+    message: Optional[str] = None
+    source: str = "Website"  # Website, Instagram, QR, Referral, Other
+    form_name: Optional[str] = None
+
+class Lead(BaseModel):
+    lead_id: str
+    company_id: str
+    lead_name: str
+    email: str
+    phone: Optional[str] = None
+    company_name: Optional[str] = None
+    event_type: str
+    event_date: Optional[str] = None
+    estimated_guest_count: Optional[int] = None
+    budget_range: Optional[str] = None
+    message: Optional[str] = None
+    source: str
+    form_name: Optional[str] = None
+    status: str = "New"  # New, Contacted, Converted, Discarded
+    owner_id: Optional[str] = None
+    converted_client_id: Optional[str] = None
+    converted_event_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Contact Model (People linked to Clients)
+class ContactCreate(BaseModel):
+    client_id: str
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role_title: Optional[str] = None
+    is_primary: bool = False
+    is_billing_contact: bool = False
+
+class Contact(BaseModel):
+    contact_id: str
+    company_id: str
+    client_id: str
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role_title: Optional[str] = None
+    is_primary: bool = False
+    is_billing_contact: bool = False
+    created_at: datetime
+
+# Client Model (Qualified accounts - Company or Individual)
+class ClientCreate(BaseModel):
+    client_type: str = "Individual"  # "Company" or "Individual"
+    display_name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     address: Optional[str] = None
-    notes: Optional[str] = None
-    pipeline_stage: str = "lead"  # lead, contacted, proposal, negotiation, won, lost, converted
-    client_source: str = "direct"  # corporate, planner, referral, direct, social_media, website
+    source: str = "Direct"  # Website, Instagram, QR, Referral, Direct, Other
     tags: List[str] = []
+    notes: Optional[str] = None
+    status: str = "Active"  # Active, Inactive
 
 class Client(BaseModel):
     client_id: str
     company_id: str
-    client_type: str = "direct"
-    name: str  # For direct: contact name, For corporate: company name (display)
+    client_type: str = "Individual"
+    display_name: str
     email: Optional[str] = None
     phone: Optional[str] = None
-    company_name: Optional[str] = None
-    rnc: Optional[str] = None
-    contacts: List[Dict[str, Any]] = []
     address: Optional[str] = None
-    notes: Optional[str] = None
-    pipeline_stage: str
-    client_source: str = "direct"
+    source: str = "Direct"
     tags: List[str] = []
+    notes: Optional[str] = None
+    status: str = "Active"
     total_revenue: float = 0.0
     events_count: int = 0
-    last_contact_date: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Lead Form Model (Configurable forms)
+class LeadFormFieldConfig(BaseModel):
+    field_name: str
+    enabled: bool = True
+    required: bool = False
+
+class LeadFormCreate(BaseModel):
+    form_name: str
+    description: Optional[str] = None
+    fields: List[LeadFormFieldConfig] = []
+    default_source: str = "Website"
+    default_event_type: Optional[str] = None
+    assign_owner_id: Optional[str] = None
+    is_active: bool = True
+    thank_you_message: str = "Thank you for your inquiry! We will contact you soon."
+
+class LeadForm(BaseModel):
+    form_id: str
+    company_id: str
+    form_name: str
+    description: Optional[str] = None
+    fields: List[Dict[str, Any]] = []
+    default_source: str = "Website"
+    default_event_type: Optional[str] = None
+    assign_owner_id: Optional[str] = None
+    is_active: bool = True
+    thank_you_message: str
+    submissions_count: int = 0
     created_at: datetime
     updated_at: datetime
 
