@@ -30,8 +30,7 @@ const navItems = [
   { path: "/crm", icon: Users, labelKey: "crm" },
   { path: "/events", icon: Calendar, labelKey: "events" },
   { path: "/calendar", icon: CalendarDays, labelKey: "calendar" },
-  { path: "/recipes", icon: ChefHat, labelKey: "recipes" },
-  { path: "/inventory", icon: Package, labelKey: "inventory" },
+  { path: "/food-ops", icon: UtensilsCrossed, label: "Food Ops" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
 ];
 
