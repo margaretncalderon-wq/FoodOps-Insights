@@ -468,6 +468,211 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     }
   };
 
+  // Export PDF Technical Sheet
+  const handleExportPDF = () => {
+    const recipe = initialRecipe;
+    if (!recipe) return;
+    
+    // Build allergens string
+    const recipeAllergens = form.allergens.map(id => {
+      const a = allergens.find(al => al.allergen_id === id);
+      return a?.name || id;
+    }).join(', ') || 'Ninguno';
+    
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${form.name} - Ficha Técnica</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; line-height: 1.4; color: #333; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a365d; padding-bottom: 15px; margin-bottom: 15px; }
+          .header-left { flex: 1; }
+          .recipe-name { font-size: 22px; font-weight: bold; color: #1a365d; margin-bottom: 5px; }
+          .recipe-code { font-size: 12px; color: #666; }
+          .recipe-type { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 20px; font-size: 10px; text-transform: uppercase; margin-top: 5px; }
+          .header-right { text-align: right; }
+          .header-right img { max-width: 150px; max-height: 100px; object-fit: cover; border-radius: 8px; }
+          .company-name { font-size: 14px; font-weight: bold; color: #1a365d; }
+          
+          .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+          .meta-item { background: #f7fafc; padding: 10px; border-radius: 6px; text-align: center; }
+          .meta-label { font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 3px; }
+          .meta-value { font-size: 14px; font-weight: bold; color: #1a365d; }
+          
+          .section { margin-bottom: 15px; }
+          .section-title { font-size: 12px; font-weight: bold; color: #1a365d; text-transform: uppercase; padding: 6px 10px; background: #e2e8f0; margin-bottom: 8px; border-radius: 4px; }
+          
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+          th { background: #f7fafc; font-size: 10px; text-transform: uppercase; color: #666; font-weight: 600; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          
+          .cost-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+          .cost-box { background: #f0fff4; border: 1px solid #9ae6b4; padding: 12px; border-radius: 6px; text-align: center; }
+          .cost-box.highlight { background: #1a365d; color: white; border-color: #1a365d; }
+          .cost-label { font-size: 9px; text-transform: uppercase; margin-bottom: 3px; }
+          .cost-value { font-size: 18px; font-weight: bold; }
+          
+          .portion-formats { margin-top: 10px; }
+          .portion-formats table th { background: #ebf4ff; }
+          
+          .allergens { background: #fff5f5; border: 1px solid #feb2b2; padding: 10px; border-radius: 6px; margin-top: 10px; }
+          .allergens-title { font-weight: bold; color: #c53030; margin-bottom: 5px; }
+          
+          .instructions { background: #fffaf0; padding: 12px; border-radius: 6px; }
+          .instructions ol { padding-left: 20px; }
+          .instructions li { margin-bottom: 6px; }
+          
+          .footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #666; }
+          
+          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="header-left">
+            <div class="recipe-name">${form.name}</div>
+            ${form.recipe_code ? `<div class="recipe-code">Código: ${form.recipe_code}</div>` : ''}
+            <span class="recipe-type">${form.recipe_type === 'base' ? 'Base' : form.recipe_type === 'component' ? 'Componente' : 'Plato Final'}</span>
+          </div>
+          <div class="header-right">
+            ${imageUrl ? `<img src="${imageUrl.startsWith('/api') ? API + imageUrl : imageUrl}" alt="${form.name}" />` : '<div class="company-name">Evoke OS</div>'}
+          </div>
+        </div>
+        
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">Rendimiento</div>
+            <div class="meta-value">${form.yield_quantity} ${form.yield_unit}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Porciones</div>
+            <div class="meta-value">${form.portions_per_yield}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Prep + Cocción</div>
+            <div class="meta-value">${form.prep_time_minutes + form.cook_time_minutes} min</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Categoría</div>
+            <div class="meta-value">${form.category}</div>
+          </div>
+        </div>
+        
+        <div class="section">
+          <div class="section-title">🥗 Ingredientes</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th class="text-center">Cantidad</th>
+                <th class="text-center">Unidad</th>
+                <th class="text-center">Merma %</th>
+                <th class="text-right">Costo Unit.</th>
+                <th class="text-right">Costo Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${form.ingredients.map(ing => {
+                const waste = ing.waste_factor_pct || 0;
+                const qty = ing.quantity * (1 + waste / 100);
+                const cost = qty * (ing.cost_per_unit || 0);
+                return `
+                  <tr>
+                    <td>${ing.item_name || ing.item_id}</td>
+                    <td class="text-center">${ing.quantity}</td>
+                    <td class="text-center">${ing.unit}</td>
+                    <td class="text-center">${waste > 0 ? waste + '%' : '-'}</td>
+                    <td class="text-right">$${(ing.cost_per_unit || 0).toFixed(2)}</td>
+                    <td class="text-right">$${cost.toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          
+          <div class="cost-summary">
+            <div class="cost-box">
+              <div class="cost-label">Costo Total</div>
+              <div class="cost-value">$${totalCost.toFixed(2)}</div>
+            </div>
+            <div class="cost-box">
+              <div class="cost-label">Costo / Porción</div>
+              <div class="cost-value">$${costPerPortion.toFixed(2)}</div>
+            </div>
+            <div class="cost-box highlight">
+              <div class="cost-label">Precio Venta</div>
+              <div class="cost-value">$${form.sell_price.toFixed(2)}</div>
+            </div>
+          </div>
+        </div>
+        
+        ${portionFormats.length > 0 ? `
+          <div class="section portion-formats">
+            <div class="section-title">📦 Formatos de Porción</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Formato</th>
+                  <th class="text-center">Porciones</th>
+                  <th class="text-right">Costo/Porción</th>
+                  <th class="text-right">PVP</th>
+                  <th class="text-right">Margen</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${portionFormats.map(pf => `
+                  <tr>
+                    <td>${pf.format_name}${pf.is_default ? ' ⭐' : ''}</td>
+                    <td class="text-center">${pf.portions_obtained}</td>
+                    <td class="text-right">$${pf.cost_per_portion?.toFixed(2) || '0.00'}</td>
+                    <td class="text-right">$${pf.sell_price?.toFixed(2) || '0.00'}</td>
+                    <td class="text-right">${pf.margin_pct?.toFixed(1) || '0'}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+        
+        ${form.allergens.length > 0 ? `
+          <div class="allergens">
+            <div class="allergens-title">⚠️ Alérgenos</div>
+            <div>${recipeAllergens}</div>
+          </div>
+        ` : ''}
+        
+        ${form.instructions.length > 0 ? `
+          <div class="section">
+            <div class="section-title">📝 Procedimiento</div>
+            <div class="instructions">
+              <ol>
+                ${form.instructions.map(inst => `<li>${inst}</li>`).join('')}
+              </ol>
+            </div>
+          </div>
+        ` : ''}
+        
+        <div class="footer">
+          <div>Generado por Evoke OS - Culinary Intelligence</div>
+          <div>${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
+
   // Fetch cost history
   const fetchCostHistory = async () => {
     if (!initialRecipe) return;
