@@ -3377,6 +3377,17 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
     all_clients = await db.clients.find({"company_id": user.company_id}, {"_id": 0, "client_id": 1, "display_name": 1, "client_type": 1}).to_list(1000)
     clients_data = {c["client_id"]: c for c in all_clients}
     
+    # Get all invoices with pending balance for quick lookup
+    all_invoices = await db.invoices.find(
+        {"company_id": user.company_id, "status": {"$ne": "paid"}},
+        {"_id": 0, "event_id": 1, "balance_due": 1}
+    ).to_list(1000)
+    invoices_by_event = {}
+    for inv in all_invoices:
+        eid = inv.get("event_id")
+        if eid:
+            invoices_by_event[eid] = invoices_by_event.get(eid, 0) + (inv.get("balance_due") or 0)
+    
     for stage in stages:
         events = await db.events.find({"company_id": user.company_id, "stage": stage}, {"_id": 0}).sort("created_at", -1).to_list(100)
         for e in events:
@@ -3392,6 +3403,8 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
                 "display_name": client_info.get("display_name", ""),
                 "client_type": client_info.get("client_type", "Individual")
             }
+            # Add pending balance from invoices
+            e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
         pipeline[stage] = events
     
     return pipeline
