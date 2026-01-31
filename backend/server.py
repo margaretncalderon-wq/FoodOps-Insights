@@ -8278,6 +8278,7 @@ api_router.include_router(purchase_orders_router)
 api_router.include_router(expenses_router)
 api_router.include_router(allergens_router)
 api_router.include_router(business_clarity_router)
+api_router.include_router(business_clarity_router)
 
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
