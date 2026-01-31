@@ -6,8 +6,8 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
 ## Core Modules
 
 ### 1. Authentication
-- JWT-based email/password authentication (WORKING)
-- Google OAuth via Emergent-managed auth (BROKEN - Invalid state parameter)
+- JWT-based email/password authentication (WORKING ✅)
+- Google OAuth via Emergent-managed auth (IMPLEMENTED - needs user verification)
 
 ### 2. CRM Module (Refactored)
 - **Leads**: Inbound inquiries from embeddable forms, separate from clients
