@@ -398,8 +398,9 @@ export default function EventsPage() {
                       id="multiday-toggle"
                       checked={formData.is_booking === true}
                       onCheckedChange={(checked) => {
+                        const baseDate = formData.event_date || new Date();
                         const newEndDate = checked 
-                          ? new Date(formData.event_date.getTime() + 86400000) 
+                          ? new Date(baseDate.getTime() + 86400000) 
                           : null;
                         setFormData({
                           ...formData,
@@ -410,8 +411,22 @@ export default function EventsPage() {
                     />
                   </div>
 
+                  {/* TBD Date Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <Label className="font-medium">{language === "es" ? "Fecha Por Definir" : "Date TBD"}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es" ? "La fecha aún no está confirmada" : "Date not yet confirmed"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.event_date_tbd === true}
+                      onCheckedChange={(checked) => setFormData({ ...formData, event_date_tbd: checked })}
+                    />
+                  </div>
+
                   {/* Date fields */}
-                  {formData.is_booking ? (
+                  {!formData.event_date_tbd && (formData.is_booking ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>{language === "es" ? "Fecha Inicio" : "Start Date"}</Label>
@@ -419,7 +434,7 @@ export default function EventsPage() {
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-start text-left font-normal">
                               <CalendarIcon className="mr-2 h-4 w-4" />
-                              {format(formData.event_date, "PPP")}
+                              {formData.event_date ? format(formData.event_date, "PPP") : (language === "es" ? "Seleccionar" : "Select")}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -454,7 +469,7 @@ export default function EventsPage() {
                               mode="single"
                               selected={formData.end_date}
                               onSelect={(date) => date && setFormData({ ...formData, end_date: date })}
-                              disabled={(date) => date < formData.event_date}
+                              disabled={(date) => formData.event_date && date < formData.event_date}
                               initialFocus
                             />
                           </PopoverContent>
@@ -468,7 +483,7 @@ export default function EventsPage() {
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="w-full justify-start text-left font-normal">
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {format(formData.event_date, "PPP")}
+                            {formData.event_date ? format(formData.event_date, "PPP") : (language === "es" ? "Seleccionar" : "Select")}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -481,7 +496,7 @@ export default function EventsPage() {
                         </PopoverContent>
                       </Popover>
                     </div>
-                  )}
+                  ))}
 
                   <div className="space-y-2">
                     <Label>{t("venue")}</Label>
