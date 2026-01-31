@@ -3488,6 +3488,16 @@ async def update_menu(menu_id: str, data: MenuUpdate, user: User = Depends(get_c
             items.append(item_dict)
         update_data["items"] = items
     
+    # Process variants if provided
+    if "variants" in update_data and update_data["variants"] is not None:
+        variants = []
+        for variant in update_data["variants"]:
+            var_dict = variant.model_dump() if hasattr(variant, 'model_dump') else variant
+            if not var_dict.get("variant_id"):
+                var_dict["variant_id"] = f"var_{uuid.uuid4().hex[:8]}"
+            variants.append(var_dict)
+        update_data["variants"] = variants
+    
     update_data["updated_at"] = now.isoformat()
     
     result = await db.menus.update_one(
