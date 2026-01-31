@@ -184,8 +184,8 @@ export default function LandingPage() {
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
             {isEs
-              ? "Únete a cientos de profesionales de eventos que confían en Evoque"
-              : "Join hundreds of event professionals who trust Evoque"}
+              ? "Únete a cientos de profesionales de eventos que confían en Evoke OS"
+              : "Join hundreds of event professionals who trust Evoke OS"}
           </p>
           <div className="mt-8">
             <Link to="/register">
