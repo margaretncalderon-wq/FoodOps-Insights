@@ -740,6 +740,92 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
+                  {/* Custom Fields */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-semibold">
+                      {language === "es" ? "Campos Personalizados" : "Custom Fields"}
+                    </Label>
+                    
+                    {/* Existing custom fields */}
+                    {newLeadForm.custom_fields.length > 0 && (
+                      <div className="border rounded-lg divide-y">
+                        {newLeadForm.custom_fields.map((field) => (
+                          <div key={field.field_id} className="p-3 flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{language === "es" ? field.label_es : field.label_en}</span>
+                              <span className="text-xs text-muted-foreground ml-2">({field.field_type})</span>
+                              {field.required && <Badge variant="outline" className="ml-2 text-xs">Required</Badge>}
+                            </div>
+                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => removeCustomField(field.field_id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add new custom field */}
+                    <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Label (English)</Label>
+                          <Input 
+                            value={newCustomField.label_en}
+                            onChange={(e) => setNewCustomField({ ...newCustomField, label_en: e.target.value })}
+                            placeholder="Field label in English"
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Etiqueta (Español)</Label>
+                          <Input 
+                            value={newCustomField.label_es}
+                            onChange={(e) => setNewCustomField({ ...newCustomField, label_es: e.target.value })}
+                            placeholder="Etiqueta del campo en español"
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid sm:grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">{language === "es" ? "Tipo" : "Type"}</Label>
+                          <Select value={newCustomField.field_type} onValueChange={(v) => setNewCustomField({ ...newCustomField, field_type: v })}>
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">{language === "es" ? "Texto" : "Text"}</SelectItem>
+                              <SelectItem value="textarea">{language === "es" ? "Texto largo" : "Long text"}</SelectItem>
+                              <SelectItem value="number">{language === "es" ? "Número" : "Number"}</SelectItem>
+                              <SelectItem value="date">{language === "es" ? "Fecha" : "Date"}</SelectItem>
+                              <SelectItem value="select">{language === "es" ? "Selector" : "Dropdown"}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <Switch 
+                            checked={newCustomField.required}
+                            onCheckedChange={(v) => setNewCustomField({ ...newCustomField, required: v })}
+                          />
+                          <span className="text-sm">{language === "es" ? "Requerido" : "Required"}</span>
+                        </label>
+                        <Button type="button" onClick={addCustomField} size="sm" className="h-9">
+                          <Plus className="w-4 h-4 mr-1" />
+                          {language === "es" ? "Agregar" : "Add"}
+                        </Button>
+                      </div>
+                      {newCustomField.field_type === "select" && (
+                        <div>
+                          <Label className="text-xs">{language === "es" ? "Opciones (separadas por coma)" : "Options (comma separated)"}</Label>
+                          <Input 
+                            value={newCustomField.options.join(", ")}
+                            onChange={(e) => setNewCustomField({ ...newCustomField, options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                            placeholder={language === "es" ? "Opción 1, Opción 2, Opción 3" : "Option 1, Option 2, Option 3"}
+                            className="h-9"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Thank You Messages - Bilingual */}
                   <div className="space-y-4">
                     <Label className="text-base font-semibold">
