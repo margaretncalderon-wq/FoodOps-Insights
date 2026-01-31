@@ -38,7 +38,12 @@ Unified commercial engine for all items sold in an event:
 - Food (links to recipes for auto cost calculation)
 - Service, Rental, Fee (manual internal_cost)
 
-### 6. Food Ops Module V3 (ENHANCED - Jan 31, 2026)
+### 6. Culinary Intelligence Module V4 (ENHANCED - Jan 31, 2026)
+
+#### 6.0 Recipe Photo & PDF Export (NEW - Jan 31, 2026)
+- **Recipe Images**: Upload, view, and delete images for recipes
+- **Ficha Técnica (Technical Sheet)**: Export recipe details as PDF
+- Backend endpoints: POST/DELETE /api/recipes/{id}/image, GET /api/uploads/{filename}
 
 #### 6.1 Inventory Management
 - **Items**: Track food, packaging, disposables, equipment, event supplies
