@@ -630,14 +630,53 @@ export default function SettingsPage() {
                         placeholder={language === "es" ? "Ej: Formulario de Bodas" : "E.g., Wedding Inquiry Form"}
                       />
                     </div>
-                    <div>
-                      <Label>{language === "es" ? "Descripción" : "Description"}</Label>
-                      <Textarea 
-                        value={newLeadForm.description} 
-                        onChange={(e) => setNewLeadForm({ ...newLeadForm, description: e.target.value })}
-                        rows={2}
-                      />
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Description (English)</Label>
+                        <Textarea 
+                          value={newLeadForm.description} 
+                          onChange={(e) => setNewLeadForm({ ...newLeadForm, description: e.target.value })}
+                          rows={2}
+                          placeholder="Brief description of the form"
+                        />
+                      </div>
+                      <div>
+                        <Label>Descripción (Español)</Label>
+                        <Textarea 
+                          value={newLeadForm.description_es} 
+                          onChange={(e) => setNewLeadForm({ ...newLeadForm, description_es: e.target.value })}
+                          rows={2}
+                          placeholder="Descripción breve del formulario"
+                        />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Branding */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-semibold">
+                      {language === "es" ? "Personalización" : "Branding"}
+                    </Label>
+                    <div>
+                      <Label>{language === "es" ? "URL del Banner" : "Banner URL"}</Label>
+                      <Input 
+                        value={newLeadForm.banner_url} 
+                        onChange={(e) => setNewLeadForm({ ...newLeadForm, banner_url: e.target.value })}
+                        placeholder="https://example.com/banner.jpg"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {language === "es" ? "Imagen de cabecera (recomendado: 1200x400px)" : "Header image (recommended: 1200x400px)"}
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors">
+                      <Switch 
+                        checked={newLeadForm.show_logo} 
+                        onCheckedChange={(v) => setNewLeadForm({ ...newLeadForm, show_logo: v })}
+                      />
+                      <span className="text-sm">
+                        {language === "es" ? "Mostrar logo de la empresa" : "Show company logo"}
+                      </span>
+                    </label>
                   </div>
 
                   {/* Default Settings */}
