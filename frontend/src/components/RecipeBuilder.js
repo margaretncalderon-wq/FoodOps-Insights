@@ -560,7 +560,61 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           </div>
 
           {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Image Section */}
+            <div className="md:row-span-3">
+              <Label className="mb-2 block">{language === "es" ? "Imagen de Receta" : "Recipe Image"}</Label>
+              <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center min-h-[200px] bg-muted/20">
+                {imageUrl ? (
+                  <div className="relative w-full">
+                    <img 
+                      src={imageUrl.startsWith('/api') ? `${API}${imageUrl}` : imageUrl} 
+                      alt={form.name}
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <Button 
+                      variant="destructive" 
+                      size="icon" 
+                      className="absolute top-2 right-2 h-8 w-8"
+                      onClick={handleDeleteImage}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Image className="w-12 h-12 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground text-center mb-3">
+                      {language === "es" ? "Sin imagen" : "No image"}
+                    </p>
+                    {initialRecipe ? (
+                      <label className="cursor-pointer">
+                        <input 
+                          type="file" 
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                        <Button variant="outline" size="sm" disabled={uploading} asChild>
+                          <span>
+                            <Upload className="w-4 h-4 mr-2" />
+                            {uploading 
+                              ? (language === "es" ? "Subiendo..." : "Uploading...") 
+                              : (language === "es" ? "Subir Imagen" : "Upload Image")}
+                          </span>
+                        </Button>
+                      </label>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es" ? "Guarda primero" : "Save first"}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* Name and Description */}
             <div className="md:col-span-2">
               <Label>{t("name")} *</Label>
               <Input value={form.name} onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} />
