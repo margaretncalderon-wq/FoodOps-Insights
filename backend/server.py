@@ -2730,7 +2730,8 @@ async def recalculate_all_recipes(user: User = Depends(get_current_user)):
     
     for recipe in recipes:
         ingredients = [RecipeIngredient(**i) for i in recipe.get("ingredients", [])]
-        total_cost, updated_ingredients = await calculate_recipe_cost(ingredients, user.company_id)
+        sub_recipes = recipe.get("sub_recipes", [])
+        total_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(ingredients, sub_recipes, user.company_id)
         
         yield_qty = recipe.get("yield_quantity", 1)
         portion_size = recipe.get("portion_size", 1)
