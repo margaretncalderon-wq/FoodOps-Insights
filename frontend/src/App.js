@@ -20,6 +20,7 @@ import InventoryPage from "./pages/InventoryPage";
 import DocumentPreview from "./pages/DocumentPreview";
 import SettingsPage from "./pages/SettingsPage";
 import ClientPortal from "./pages/ClientPortal";
+import LeadFormPage from "./pages/LeadFormPage";
 
 import "./App.css";
 
