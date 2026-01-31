@@ -117,6 +117,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchCategories(),
       fetchTaxRates(),
       fetchPicklist(),
+      fetchMenus(),
       fetchRecipes(),
       fetchFeatureFlags(),
       fetchFinancials(),
