@@ -134,10 +134,27 @@ export default function EventPayments({ eventId, event, client }) {
     }
   };
 
-  // Open apply dialog for existing payment
+  // Open apply dialog for existing payment - Auto-fill amounts
   const openApplyDialog = (payment) => {
     setSelectedPayment(payment);
-    setApplicationAmounts({});
+    
+    // Auto-fill: Apply available amount to unpaid invoices proportionally
+    const available = payment.unapplied_amount || payment.amount || 0;
+    const unpaidInvoices = invoices.filter(i => i.status !== "paid" && (i.balance_due || 0) > 0);
+    
+    const autoAmounts = {};
+    let remaining = available;
+    
+    for (const inv of unpaidInvoices) {
+      if (remaining <= 0) break;
+      const toApply = Math.min(remaining, inv.balance_due || 0);
+      if (toApply > 0) {
+        autoAmounts[inv.invoice_id] = toApply.toFixed(2);
+        remaining -= toApply;
+      }
+    }
+    
+    setApplicationAmounts(autoAmounts);
     setApplyDialogOpen(true);
   };
 
