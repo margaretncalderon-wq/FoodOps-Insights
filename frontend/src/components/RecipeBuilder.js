@@ -860,20 +860,29 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <TableHeader>
                     <TableRow>
                       <TableHead>{language === "es" ? "Artículo de Empaque" : "Packaging Item"}</TableHead>
-                      <TableHead className="text-right">{language === "es" ? "Cant. por Porción" : "Qty per Portion"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Cant./Porción" : "Qty/Portion"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Costo Unit." : "Unit Cost"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Costo/Porción" : "Cost/Portion"}</TableHead>
                       <TableHead>{t("notes")}</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {packagingFormats.map(pf => (
-                      <TableRow key={pf.format_id}>
-                        <TableCell className="font-medium">{pf.packaging_item_name || pf.packaging_inventory_item_id}</TableCell>
-                        <TableCell className="text-right">{pf.qty_per_portion}</TableCell>
-                        <TableCell className="text-muted-foreground">{pf.notes || "-"}</TableCell>
-                        <TableCell><Button variant="ghost" size="icon" onClick={() => handleDeletePackagingFormat(pf.format_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button></TableCell>
-                      </TableRow>
-                    ))}
+                    {packagingFormats.map(pf => {
+                      const item = ingredients.find(i => i.ingredient_id === pf.packaging_inventory_item_id);
+                      const unitCost = item?.cost_per_unit || pf.cost_per_unit || 0;
+                      const costPerPortion = unitCost * (pf.qty_per_portion || 1);
+                      return (
+                        <TableRow key={pf.format_id}>
+                          <TableCell className="font-medium">{pf.packaging_item_name || item?.name || pf.packaging_inventory_item_id}</TableCell>
+                          <TableCell className="text-right">{pf.qty_per_portion}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">${unitCost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-medium">${costPerPortion.toFixed(4)}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{pf.notes || "-"}</TableCell>
+                          <TableCell><Button variant="ghost" size="icon" onClick={() => handleDeletePackagingFormat(pf.format_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button></TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
