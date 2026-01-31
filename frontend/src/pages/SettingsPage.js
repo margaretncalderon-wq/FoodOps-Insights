@@ -146,6 +146,7 @@ export default function SettingsPage() {
       fetchCategories(),
       fetchPicklist(),
       fetchInventory(),
+      fetchMenus(),
       fetchTaxes(),
       fetchRecipes(),
       fetchLeadForms(),
