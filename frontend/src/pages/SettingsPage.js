@@ -618,54 +618,75 @@ export default function SettingsPage() {
                             <span className="text-xs text-muted-foreground ml-2">({field.field_name})</span>
                           </div>
                           <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors">
                               <Switch 
                                 checked={field.enabled} 
                                 onCheckedChange={() => toggleFieldEnabled(field.field_name)}
                               />
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground select-none">
                                 {language === "es" ? "Habilitado" : "Enabled"}
                               </span>
-                            </div>
-                            <div className="flex items-center gap-2">
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors">
                               <Switch 
                                 checked={field.required}
                                 onCheckedChange={() => toggleFieldRequired(field.field_name)}
                                 disabled={!field.enabled}
                               />
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground select-none">
                                 {language === "es" ? "Requerido" : "Required"}
                               </span>
-                            </div>
+                            </label>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Thank You Message */}
-                  <div>
-                    <Label>{language === "es" ? "Mensaje de Agradecimiento" : "Thank You Message"}</Label>
-                    <Textarea 
-                      value={newLeadForm.thank_you_message} 
-                      onChange={(e) => setNewLeadForm({ ...newLeadForm, thank_you_message: e.target.value })}
-                      rows={2}
-                    />
+                  {/* Thank You Messages - Bilingual */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-semibold">
+                      {language === "es" ? "Mensajes de Agradecimiento" : "Thank You Messages"}
+                    </Label>
+                    <div className="grid gap-4">
+                      <div>
+                        <Label className="text-sm flex items-center gap-2">
+                          🇺🇸 English
+                        </Label>
+                        <Textarea 
+                          value={newLeadForm.thank_you_message_en} 
+                          onChange={(e) => setNewLeadForm({ ...newLeadForm, thank_you_message_en: e.target.value })}
+                          rows={2}
+                          placeholder="Thank you for your inquiry! We will contact you soon."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm flex items-center gap-2">
+                          🇪🇸 Español
+                        </Label>
+                        <Textarea 
+                          value={newLeadForm.thank_you_message_es} 
+                          onChange={(e) => setNewLeadForm({ ...newLeadForm, thank_you_message_es: e.target.value })}
+                          rows={2}
+                          placeholder="¡Gracias por tu consulta! Te contactaremos pronto."
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Active Toggle */}
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <label className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors">
                     <div>
-                      <Label className="font-medium">{language === "es" ? "Formulario Activo" : "Form Active"}</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <span className="font-medium block">{language === "es" ? "Formulario Activo" : "Form Active"}</span>
+                      <span className="text-xs text-muted-foreground">
                         {language === "es" ? "Solo los formularios activos pueden recibir envíos" : "Only active forms can receive submissions"}
-                      </p>
+                      </span>
                     </div>
                     <Switch 
                       checked={newLeadForm.is_active} 
                       onCheckedChange={(v) => setNewLeadForm({ ...newLeadForm, is_active: v })}
                     />
-                  </div>
+                  </label>
 
                   <Button onClick={handleSaveLeadForm} className="w-full" disabled={!newLeadForm.form_name}>
                     {editingLeadForm ? t("save") : (language === "es" ? "Crear Formulario" : "Create Form")}
