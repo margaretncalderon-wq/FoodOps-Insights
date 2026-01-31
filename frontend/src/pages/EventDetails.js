@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import ProposalEditor from "../components/ProposalEditor";
+import EventPurchaseList from "../components/EventPurchaseList";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
