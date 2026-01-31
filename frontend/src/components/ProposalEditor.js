@@ -247,6 +247,39 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     });
   };
 
+  const handleAddMenu = async (menu) => {
+    // Add all items from the menu to the proposal
+    try {
+      let addedCount = 0;
+      for (const item of menu.items) {
+        const orderItem = {
+          item_type: item.picklist_item?.item_type || "Service",
+          description: item.custom_name || item.picklist_item?.name || item.recipe?.name || "Item",
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || item.calculated_price / (item.quantity || 1) || 0,
+          internal_cost: item.unit_cost || null,
+          reference_id: item.recipe_id || item.picklist_item?.recipe_id || null,
+          category_id: item.picklist_item?.category_id || null,
+          internal_notes: `From menu: ${menu.name}`,
+        };
+        await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, orderItem, { withCredentials: true });
+        addedCount++;
+      }
+      
+      toast.success(
+        language === "es" 
+          ? `${addedCount} ítems agregados desde "${menu.name}"`
+          : `${addedCount} items added from "${menu.name}"`
+      );
+      fetchProposal();
+      fetchFinancials();
+      setAddMenuOpen(false);
+    } catch (error) {
+      const msg = error.response?.data?.detail || "Failed to add menu items";
+      toast.error(msg);
+    }
+  };
+
   const handleDeleteItem = async (itemId) => {
     try {
       await axios.delete(`${API}/proposals/${proposal.proposal_id}/items/${itemId}`, { withCredentials: true });
