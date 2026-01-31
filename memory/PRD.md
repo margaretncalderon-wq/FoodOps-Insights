@@ -293,14 +293,25 @@ Auto-generated from Event Order:
   - Table shows columns: Item, Qty/Portion, Unit Cost, Cost/Portion, Notes
 
 ## Upcoming Tasks
-- [ ] Recipe cost summary should include packaging costs
+- [ ] **Business Clarity Module - Phase 1**: Core Payment Engine
+  - Create Payment and PaymentApplication models
+  - Extend Invoice model (paid_amount, balance_due, status)
+  - API endpoints for creating and applying payments
+  - Frontend UI for recording payments and allocation
+- [ ] Investigate "Purchases/Procurement" functionality in Events (reported as not working)
 
 ## Future/Backlog
+- [ ] **Business Clarity Module - Phase 2**: Client & A/R Views
+  - Client Financial View (Account Statement)
+  - Accounts Receivable Intelligence with aging buckets (1-30, 31-60, 61-90, 90+)
+- [ ] **Business Clarity Module - Phase 3**: Centralized Records
+  - Unified Invoices and Payables views
+- [ ] **Business Clarity Module - Phase 4**: Executive Reporting
+  - Financial Snapshot, A/R Summary, A/P Summary, Event Profitability
+- [ ] Client Credit Context (has_credit, credit_limit, payment_terms) - advisory feature
+- [ ] Permissions (Admin/Finance vs. Ops) and audit logs for Business Clarity
 - [ ] AI integrations for supplier suggestions
 - [ ] Integration with Alegra (electronic invoicing)
 - [ ] Payment gateways (Stripe, MercadoPago)
-- [ ] Expense payment tracking UI
-- [ ] Finance & Reporting Module
-- [ ] CSV Export
 - [ ] Email POs to suppliers
-- [ ] PDF export for recipe technical sheets (like GastroKaizen)
+
