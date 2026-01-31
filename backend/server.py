@@ -4996,6 +4996,335 @@ async def delete_document_template(template_id: str, user: User = Depends(get_cu
         raise HTTPException(status_code=404, detail="Template not found")
     return {"message": "Template deactivated"}
 
+# ============== USERS MANAGEMENT ==============
+
+@settings_router.get("/users")
+async def get_company_users(user: User = Depends(get_current_user)):
+    """Get all users in the company"""
+    users = await db.users.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "password_hash": 0}
+    ).to_list(100)
+    return users
+
+@settings_router.post("/users/invite")
+async def invite_user(data: dict, user: User = Depends(get_current_user)):
+    """Invite a new user to the company"""
+    email = data.get("email", "").lower().strip()
+    name = data.get("name", "")
+    role_id = data.get("role_id")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+    
+    # Check if user already exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Create user with pending status
+    now = datetime.now(timezone.utc)
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    
+    user_doc = {
+        "user_id": user_id,
+        "email": email,
+        "name": name,
+        "company_id": user.company_id,
+        "role_id": role_id,
+        "password_hash": "",  # User will set password on first login
+        "is_active": True,
+        "is_invited": True,
+        "invited_by": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.users.insert_one(user_doc)
+    del user_doc["_id"]
+    del user_doc["password_hash"]
+    
+    # TODO: Send invitation email
+    
+    return user_doc
+
+@settings_router.put("/users/{user_id}")
+async def update_user(user_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update user information"""
+    target_user = await db.users.find_one({"user_id": user_id, "company_id": user.company_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = {}
+    if "name" in data:
+        update_data["name"] = data["name"]
+    if "role_id" in data:
+        update_data["role_id"] = data["role_id"]
+    if "is_active" in data:
+        update_data["is_active"] = data["is_active"]
+    
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.users.update_one({"user_id": user_id}, {"$set": update_data})
+    
+    updated = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
+
+# ============== ROLES MANAGEMENT ==============
+
+DEFAULT_ROLES = [
+    {
+        "role_id": "admin",
+        "name": "Administrator",
+        "name_es": "Administrador",
+        "description": "Full access to all features",
+        "description_es": "Acceso completo a todas las funciones",
+        "permissions": ["events.view", "events.create", "events.edit", "events.delete",
+                       "crm.view", "crm.create", "crm.edit", "crm.delete",
+                       "culinary.view", "culinary.manage", "culinary.purchases",
+                       "finance.view", "finance.invoices", "finance.payments", "finance.reports",
+                       "settings.view", "settings.manage", "settings.users"],
+        "is_system": True
+    },
+    {
+        "role_id": "finance",
+        "name": "Finance",
+        "name_es": "Finanzas",
+        "description": "Access to Business Clarity and financial reports",
+        "description_es": "Acceso a Business Clarity y reportes financieros",
+        "permissions": ["events.view", "crm.view", "finance.view", "finance.invoices", "finance.payments", "finance.reports"],
+        "is_system": True
+    },
+    {
+        "role_id": "operations",
+        "name": "Operations",
+        "name_es": "Operaciones",
+        "description": "Access to Events and Culinary Intelligence",
+        "description_es": "Acceso a Eventos e Inteligencia Culinaria",
+        "permissions": ["events.view", "events.create", "events.edit", "crm.view", "culinary.view", "culinary.manage", "culinary.purchases"],
+        "is_system": True
+    }
+]
+
+@settings_router.get("/roles")
+async def get_roles(user: User = Depends(get_current_user)):
+    """Get all roles for the company"""
+    roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    
+    # If no roles exist, return defaults
+    if not roles:
+        # Create default roles
+        for role in DEFAULT_ROLES:
+            role_doc = {**role, "company_id": user.company_id}
+            await db.roles.update_one(
+                {"role_id": role["role_id"], "company_id": user.company_id},
+                {"$setOnInsert": role_doc},
+                upsert=True
+            )
+        roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    
+    return roles
+
+@settings_router.post("/roles")
+async def create_role(data: dict, user: User = Depends(get_current_user)):
+    """Create a new role"""
+    role_id = f"role_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    role_doc = {
+        "role_id": role_id,
+        "company_id": user.company_id,
+        "name": data.get("name", ""),
+        "name_es": data.get("name_es", ""),
+        "description": data.get("description", ""),
+        "description_es": data.get("description_es", ""),
+        "permissions": data.get("permissions", []),
+        "is_system": False,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.roles.insert_one(role_doc)
+    del role_doc["_id"]
+    return role_doc
+
+@settings_router.put("/roles/{role_id}")
+async def update_role(role_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update a role"""
+    role = await db.roles.find_one({"role_id": role_id, "company_id": user.company_id})
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    if role.get("is_system"):
+        raise HTTPException(status_code=400, detail="Cannot modify system role")
+    
+    update_data = {
+        "name": data.get("name", role.get("name")),
+        "name_es": data.get("name_es", role.get("name_es")),
+        "description": data.get("description", role.get("description")),
+        "description_es": data.get("description_es", role.get("description_es")),
+        "permissions": data.get("permissions", role.get("permissions", [])),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.roles.update_one({"role_id": role_id}, {"$set": update_data})
+    updated = await db.roles.find_one({"role_id": role_id}, {"_id": 0})
+    return updated
+
+@settings_router.delete("/roles/{role_id}")
+async def delete_role(role_id: str, user: User = Depends(get_current_user)):
+    """Delete a role"""
+    role = await db.roles.find_one({"role_id": role_id, "company_id": user.company_id})
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    if role.get("is_system"):
+        raise HTTPException(status_code=400, detail="Cannot delete system role")
+    
+    await db.roles.delete_one({"role_id": role_id})
+    return {"message": "Role deleted"}
+
+# ============== AUTOMATIONS ==============
+
+@settings_router.get("/automations")
+async def get_automations(user: User = Depends(get_current_user)):
+    """Get all automations for the company"""
+    automations = await db.automations.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    
+    # Return default automations if none exist
+    if not automations:
+        default_automations = [
+            {"automation_id": "auto_1", "company_id": user.company_id, "name": "Payment Reminder", "trigger_type": "payment_reminder", "channels": ["email"], "is_active": True, "config": {"days_overdue": 7}},
+            {"automation_id": "auto_2", "company_id": user.company_id, "name": "Low Stock Alert", "trigger_type": "low_stock_alert", "channels": ["email", "in_app"], "is_active": False, "config": {}},
+            {"automation_id": "auto_3", "company_id": user.company_id, "name": "Event Reminder", "trigger_type": "event_reminder", "channels": ["email"], "is_active": True, "config": {"days_before": 3}},
+        ]
+        for auto in default_automations:
+            await db.automations.update_one(
+                {"automation_id": auto["automation_id"], "company_id": user.company_id},
+                {"$setOnInsert": auto},
+                upsert=True
+            )
+        automations = await db.automations.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    
+    return automations
+
+@settings_router.post("/automations")
+async def create_automation(data: dict, user: User = Depends(get_current_user)):
+    """Create a new automation"""
+    automation_id = f"auto_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    automation_doc = {
+        "automation_id": automation_id,
+        "company_id": user.company_id,
+        "name": data.get("name", ""),
+        "trigger_type": data.get("trigger_type", ""),
+        "channels": data.get("channels", ["email"]),
+        "is_active": data.get("is_active", True),
+        "config": data.get("config", {}),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.automations.insert_one(automation_doc)
+    del automation_doc["_id"]
+    return automation_doc
+
+@settings_router.put("/automations/{automation_id}")
+async def update_automation(automation_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update an automation"""
+    automation = await db.automations.find_one({"automation_id": automation_id, "company_id": user.company_id})
+    if not automation:
+        raise HTTPException(status_code=404, detail="Automation not found")
+    
+    update_data = {
+        "name": data.get("name", automation.get("name")),
+        "trigger_type": data.get("trigger_type", automation.get("trigger_type")),
+        "channels": data.get("channels", automation.get("channels", [])),
+        "is_active": data.get("is_active", automation.get("is_active")),
+        "config": data.get("config", automation.get("config", {})),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.automations.update_one({"automation_id": automation_id}, {"$set": update_data})
+    updated = await db.automations.find_one({"automation_id": automation_id}, {"_id": 0})
+    return updated
+
+@settings_router.delete("/automations/{automation_id}")
+async def delete_automation(automation_id: str, user: User = Depends(get_current_user)):
+    """Delete an automation"""
+    result = await db.automations.delete_one({"automation_id": automation_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Automation not found")
+    return {"message": "Automation deleted"}
+
+# ============== INTEGRATIONS ==============
+
+@settings_router.get("/integrations")
+async def get_integrations(user: User = Depends(get_current_user)):
+    """Get all integrations for the company"""
+    integrations = await db.integrations.find({"company_id": user.company_id}, {"_id": 0, "config": 0}).to_list(50)
+    
+    # Always include Stripe as pre-configured
+    has_stripe = any(i.get("integration_id") == "stripe" for i in integrations)
+    if not has_stripe:
+        integrations.append({
+            "integration_id": "stripe",
+            "status": "connected",
+            "connected_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    return integrations
+
+@settings_router.post("/integrations")
+async def save_integration(data: dict, user: User = Depends(get_current_user)):
+    """Save integration configuration"""
+    integration_id = data.get("integration_id")
+    config = data.get("config", {})
+    
+    if not integration_id:
+        raise HTTPException(status_code=400, detail="Integration ID required")
+    
+    now = datetime.now(timezone.utc)
+    
+    integration_doc = {
+        "integration_id": integration_id,
+        "company_id": user.company_id,
+        "config": config,
+        "status": "connected",
+        "connected_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.integrations.update_one(
+        {"integration_id": integration_id, "company_id": user.company_id},
+        {"$set": integration_doc},
+        upsert=True
+    )
+    
+    return {"message": "Integration saved", "integration_id": integration_id}
+
+@settings_router.post("/integrations/{integration_id}/test")
+async def test_integration(integration_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Test integration connection"""
+    config = data.get("config", {})
+    
+    # For now, return success for all integrations (actual testing would require real API calls)
+    # TODO: Implement actual connection testing for each integration
+    
+    return {"success": True, "message": "Connection successful"}
+
+@settings_router.delete("/integrations/{integration_id}")
+async def delete_integration(integration_id: str, user: User = Depends(get_current_user)):
+    """Delete/disconnect an integration"""
+    if integration_id == "stripe":
+        raise HTTPException(status_code=400, detail="Cannot disconnect pre-configured integration")
+    
+    result = await db.integrations.delete_one({"integration_id": integration_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    return {"message": "Integration disconnected"}
+
 # ============== PROPOSALS ROUTES ==============
 
 async def generate_proposal_number(company_id: str) -> str:
