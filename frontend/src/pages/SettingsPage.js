@@ -554,10 +554,10 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <Label>{language === "es" ? "Tipo de Evento por Defecto" : "Default Event Type"}</Label>
-                      <Select value={newLeadForm.default_event_type || ""} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, default_event_type: v })}>
+                      <Select value={newLeadForm.default_event_type || "none"} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, default_event_type: v === "none" ? "" : v })}>
                         <SelectTrigger><SelectValue placeholder={language === "es" ? "Ninguno" : "None"} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">{language === "es" ? "Ninguno" : "None"}</SelectItem>
+                          <SelectItem value="none">{language === "es" ? "Ninguno" : "None"}</SelectItem>
                           {EVENT_TYPES.map(t => <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}
                         </SelectContent>
                       </Select>
