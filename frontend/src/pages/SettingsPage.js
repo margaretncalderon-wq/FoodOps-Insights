@@ -623,9 +623,17 @@ export default function SettingsPage() {
       description_es: "",
       menu_type: "Menu",
       items: [],
+      variants: [],
       default_price: null,
       is_fixed_price: false,
       is_active: true
+    });
+    setNewVariant({
+      name: "",
+      name_es: "",
+      discount_type: "percentage",
+      discount_value: 0,
+      is_default: false
     });
   };
 
