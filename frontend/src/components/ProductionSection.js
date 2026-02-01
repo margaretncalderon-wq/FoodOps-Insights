@@ -187,6 +187,111 @@ export default function ProductionSection() {
     }
   };
 
+  // Generate Mise en Place from active batches
+  const handleGenerateMiseEnPlace = async () => {
+    setGeneratingMep(true);
+    try {
+      // Get active batches (PLANNED or IN_PROGRESS)
+      const activeBatches = batches.filter(b => ["PLANNED", "IN_PROGRESS"].includes(b.status));
+      
+      if (activeBatches.length === 0) {
+        toast.error(language === "es" ? "No hay lotes activos para generar Mise en Place" : "No active batches for Mise en Place");
+        setGeneratingMep(false);
+        return;
+      }
+      
+      // Call API to generate mise en place
+      const res = await axios.post(`${API}/api/production/mise-en-place`, {
+        batch_ids: activeBatches.map(b => b.batch_id)
+      }, { withCredentials: true });
+      
+      setMiseEnPlaceData(res.data);
+      setMiseEnPlaceDialogOpen(true);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (language === "es" ? "Error al generar" : "Failed to generate"));
+    }
+    setGeneratingMep(false);
+  };
+
+  // Print Mise en Place
+  const handlePrintMiseEnPlace = () => {
+    const printWindow = window.open('', '_blank');
+    const isEs = language === "es";
+    
+    const content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Mise en Place - ${new Date().toLocaleDateString()}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          h2 { color: #666; margin-top: 30px; background: #f5f5f5; padding: 10px; }
+          h3 { color: #888; margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background: #f9f9f9; }
+          .event-header { background: #e3f2fd; }
+          .category-header { background: #fff3e0; font-weight: bold; }
+          .checkbox { width: 20px; }
+          @media print { 
+            .no-print { display: none; }
+            h2 { break-before: page; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>🍳 Mise en Place - ${new Date().toLocaleDateString()}</h1>
+        <p><strong>${isEs ? "Responsable" : "Responsible"}:</strong> _________________</p>
+        <p><strong>${isEs ? "Fecha preparación" : "Prep Date"}:</strong> _________________</p>
+        
+        ${miseEnPlaceData?.events?.map(evt => `
+          <h2 class="event-header">📅 ${evt.event_name} - ${evt.event_date ? new Date(evt.event_date).toLocaleDateString() : ''}</h2>
+          <p>${evt.guest_count || 0} ${isEs ? "invitados" : "guests"}</p>
+          
+          ${evt.categories?.map(cat => `
+            <h3 class="category-header">${cat.name}</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th class="checkbox">✓</th>
+                  <th>${isEs ? "Ítem" : "Item"}</th>
+                  <th>${isEs ? "Cantidad" : "Qty"}</th>
+                  <th>${isEs ? "Unidad" : "Unit"}</th>
+                  <th>${isEs ? "Receta" : "Recipe"}</th>
+                  <th>${isEs ? "Notas" : "Notes"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${cat.items?.map(item => `
+                  <tr>
+                    <td class="checkbox">☐</td>
+                    <td>${item.name}</td>
+                    <td><strong>${item.quantity}</strong></td>
+                    <td>${item.unit}</td>
+                    <td>${item.recipe_name || '-'}</td>
+                    <td>${item.notes || ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `).join('')}
+        `).join('')}
+        
+        <div style="margin-top: 40px; border-top: 1px solid #ddd; padding-top: 20px;">
+          <p><strong>${isEs ? "Firma Responsable" : "Responsible Signature"}:</strong> _________________</p>
+          <p><strong>${isEs ? "Hora de Inicio" : "Start Time"}:</strong> _______ <strong>${isEs ? "Hora de Fin" : "End Time"}:</strong> _______</p>
+        </div>
+        
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(content);
+    printWindow.document.close();
+  };
+
   const getStatusBadge = (status) => {
     const styles = {
       PLANNED: "bg-blue-100 text-blue-700",
