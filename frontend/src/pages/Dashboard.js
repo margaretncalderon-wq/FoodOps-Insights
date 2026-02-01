@@ -518,36 +518,62 @@ export default function SystemPulse() {
           </Card>
         )}
 
-        {/* ==================== QUICK NAVIGATION ==================== */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">
-          <Link 
-            to="/client-engagement" 
-            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-          >
-            <Users className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm font-medium">Client Engagement</span>
-          </Link>
-          <Link 
-            to="/event-orchestration" 
-            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-          >
-            <Calendar className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm font-medium">Event Orchestration</span>
-          </Link>
-          <Link 
-            to="/food-ops" 
-            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-          >
-            <ChefHat className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm font-medium">Culinary Intelligence</span>
-          </Link>
-          <Link 
-            to="/business-clarity" 
-            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-          >
-            <Activity className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm font-medium">Business Clarity</span>
-          </Link>
+        {/* ==================== QUICK ACTIONS ==================== */}
+        <div className="pt-6 border-t">
+          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide">
+            {isEs ? "Acciones Rápidas" : "Quick Actions"}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Link 
+              to="/client-engagement/proposals" 
+              className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="quick-action-new-event"
+            >
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Calendar className="w-5 h-5 text-emerald-600" />
+              </div>
+              <span className="text-sm font-medium text-center">
+                {isEs ? "Nueva Oportunidad" : "New Event Opportunity"}
+              </span>
+            </Link>
+            <Link 
+              to="/client-engagement/crm/outreach" 
+              className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="quick-action-new-lead"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <span className="text-sm font-medium text-center">
+                {isEs ? "Nuevo Lead" : "New Lead"}
+              </span>
+            </Link>
+            <Link 
+              to="/client-engagement/crm/follow-ups" 
+              className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="quick-action-follow-ups"
+            >
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <span className="text-sm font-medium text-center">
+                {isEs ? "Seguimientos" : "Follow-ups Due"}
+              </span>
+            </Link>
+            <Link 
+              to="/client-engagement/crm/comms" 
+              className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="quick-action-comms"
+            >
+              <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Bell className="w-5 h-5 text-violet-600" />
+              </div>
+              <span className="text-sm font-medium text-center">
+                {isEs ? "Comunicación" : "Communication"}
+              </span>
+            </Link>
+          </div>
+        </div>
         </div>
       </div>
     </Layout>
