@@ -4663,6 +4663,7 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
         "items_by_day": items_by_day,  # Grouped by day
         "is_multiday": is_multiday,
         "template_settings": template_settings,
+        "section_titles": section_titles,
         "financials": {
             "subtotal": subtotal,
             "discount_percent": discount_percent,
