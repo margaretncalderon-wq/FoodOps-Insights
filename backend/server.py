@@ -4120,7 +4120,7 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
     if "documents" not in event:
         event["documents"] = []
     if "stage" not in event:
-        event["stage"] = "Lead"
+        event["stage"] = "Inquiry Received"
     
     # Get client info
     client = await db.clients.find_one({"client_id": event.get("client_id")}, {"_id": 0, "display_name": 1, "client_type": 1})
