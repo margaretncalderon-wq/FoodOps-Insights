@@ -430,14 +430,35 @@ export default function EngagementCalendar({ embedded = false }) {
                       <div className="space-y-1">
                         {dayEvents.slice(0, 3).map(event => {
                           const colors = getStatusColor(event.stage);
+                          const multiDayPos = getMultiDayPosition(event, dayInfo.date);
+                          const isMultiDay = isMultiDayEvent(event);
+                          
                           return (
                             <div
-                              key={event.event_id}
+                              key={`${event.event_id}-${dayInfo.date.toISOString()}`}
                               onClick={() => openEventDetail(event)}
-                              className={`text-xs p-1 rounded cursor-pointer truncate ${colors.bg} ${colors.border} ${colors.text} border hover:opacity-80 transition-opacity`}
-                              title={`${event.name} - ${event.stage}`}
+                              className={`text-xs p-1 cursor-pointer truncate ${colors.bg} ${colors.text} border hover:opacity-80 transition-opacity ${
+                                isMultiDay 
+                                  ? multiDayPos === "start" 
+                                    ? "rounded-l border-r-0" 
+                                    : multiDayPos === "end" 
+                                      ? "rounded-r border-l-0" 
+                                      : "rounded-none border-l-0 border-r-0"
+                                  : "rounded"
+                              } ${colors.border}`}
+                              title={`${event.name} - ${event.stage}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
                             >
-                              {event.name}
+                              {multiDayPos !== "middle" && multiDayPos !== "end" && (
+                                <>
+                                  {event.start_time && (
+                                    <span className="font-semibold mr-1">{formatTime(event.start_time)}</span>
+                                  )}
+                                  {event.name}
+                                </>
+                              )}
+                              {(multiDayPos === "middle" || multiDayPos === "end") && (
+                                <span className="opacity-60">↔ {event.name}</span>
+                              )}
                             </div>
                           );
                         })}
