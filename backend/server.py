@@ -184,11 +184,17 @@ class ClientCreate(BaseModel):
     display_name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None  # WhatsApp number for direct communication
     address: Optional[str] = None
+    rnc: Optional[str] = None  # Tax ID (RNC)
     source: str = "Direct"  # Website, Instagram, QR, Referral, Direct, Other
     tags: List[str] = []
     notes: Optional[str] = None
     status: str = "Active"  # Active, Inactive
+    # Credit fields
+    has_credit: bool = False
+    credit_limit: float = 0.0
+    payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
 
 class Client(BaseModel):
     client_id: str
@@ -197,7 +203,9 @@ class Client(BaseModel):
     display_name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None  # WhatsApp number
     address: Optional[str] = None
+    rnc: Optional[str] = None  # Tax ID (RNC)
     source: str = "Direct"
     tags: List[str] = []
     notes: Optional[str] = None
@@ -207,6 +215,7 @@ class Client(BaseModel):
     # Credit context fields (Business Clarity)
     has_credit: bool = False
     credit_limit: float = 0.0
+    credit_used: float = 0.0  # Amount of credit currently used
     payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
     created_at: datetime
     updated_at: datetime
