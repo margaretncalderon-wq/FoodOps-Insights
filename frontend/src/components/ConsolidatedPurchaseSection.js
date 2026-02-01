@@ -66,12 +66,8 @@ export default function ConsolidatedPurchaseSection() {
     try {
       // Only fetch confirmed (Won/Closed) events for cost & usage overview
       const res = await axios.get(`${API}/api/events/confirmed`, { withCredentials: true });
-      // Filter to upcoming events with guest count
-      const upcomingEvents = res.data.filter(e => {
-        const eventDate = e.event_date ? new Date(e.event_date) : null;
-        return !eventDate || eventDate >= new Date();
-      });
-      setEvents(upcomingEvents);
+      // Show all confirmed events (removed date filter - past events may still need purchase lists)
+      setEvents(res.data);
     } catch (error) {
       toast.error("Error loading events");
     }
