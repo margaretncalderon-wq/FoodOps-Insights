@@ -513,57 +513,52 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         </div>
       )}
 
-      {/* Header with Status & Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-heading text-xl font-semibold">
-                {language === "es" ? "Propuesta / Contrato" : "Proposal / Contract"}
-              </h2>
-              <Badge variant="outline" className="font-mono">
-                {proposal?.proposal_number}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {language === "es" 
-                ? "Único punto de verdad comercial - genera todos los documentos" 
-                : "Single source of commercial truth - generates all documents"}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Status Badge */}
-          <Badge className={`${STATUS_COLORS[proposal?.status]} px-3 py-1`}>
+      {/* Compact Header - Proposal Status */}
+      <div className="flex items-center justify-between py-3 border-b">
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="font-mono text-xs">
+            {proposal?.proposal_number}
+          </Badge>
+          <Badge className={`${STATUS_COLORS[proposal?.status]} px-2 py-0.5 text-xs`}>
             {proposal?.status === "Draft" && <Edit className="w-3 h-3 mr-1" />}
             {proposal?.status === "Sent" && <Send className="w-3 h-3 mr-1" />}
             {proposal?.status === "Accepted" && <CheckCircle className="w-3 h-3 mr-1" />}
             {proposal?.status === "Rejected" && <XCircle className="w-3 h-3 mr-1" />}
-            {proposal?.status}
+            {proposal?.status === "Draft" ? (language === "es" ? "Borrador" : "Draft") : 
+             proposal?.status === "Sent" ? (language === "es" ? "Enviado" : "Sent") :
+             proposal?.status === "Accepted" ? (language === "es" ? "Aceptado" : "Accepted") :
+             proposal?.status === "Rejected" ? (language === "es" ? "Rechazado" : "Rejected") : proposal?.status}
           </Badge>
-          
+          {proposal?.status === "Accepted" && (
+            <span className="text-xs text-green-600 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              {language === "es" ? "Evento movido a Comprometido" : "Event moved to Committed"}
+            </span>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
           {/* Status Change */}
           {!isLocked && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="h-8 text-xs">
                   {language === "es" ? "Cambiar Estado" : "Change Status"}
-                  <ChevronDown className="w-4 h-4 ml-1" />
+                  <ChevronDown className="w-3 h-3 ml-1" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => handleStatusChange("Draft")}>
-                  <Edit className="w-4 h-4 mr-2" /> Draft
+                  <Edit className="w-4 h-4 mr-2" /> {language === "es" ? "Borrador" : "Draft"}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleStatusChange("Sent")}>
-                  <Send className="w-4 h-4 mr-2" /> Sent
+                  <Send className="w-4 h-4 mr-2" /> {language === "es" ? "Enviado" : "Sent"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleStatusChange("Accepted")}>
-                  <CheckCircle className="w-4 h-4 mr-2" /> Accepted
+                <DropdownMenuItem onClick={() => handleStatusChange("Accepted")} className="text-green-600">
+                  <CheckCircle className="w-4 h-4 mr-2" /> {language === "es" ? "Aceptado (→ Comprometido)" : "Accepted (→ Committed)"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleStatusChange("Rejected")}>
-                  <XCircle className="w-4 h-4 mr-2" /> Rejected
+                <DropdownMenuItem onClick={() => handleStatusChange("Rejected")} className="text-red-600">
+                  <XCircle className="w-4 h-4 mr-2" /> {language === "es" ? "Rechazado" : "Rejected"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -572,30 +567,31 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           {/* Audit History */}
           <Button 
             variant="ghost" 
-            size="sm" 
+            size="sm"
+            className="h-8 text-xs"
             onClick={() => { fetchAuditLogs(); setHistoryOpen(true); }}
           >
-            <History className="w-4 h-4 mr-1" />
+            <History className="w-3 h-3 mr-1" />
             {language === "es" ? "Historial" : "History"}
           </Button>
         </div>
       </div>
 
-      {/* Main Tabs */}
+      {/* Main Content - Single View (no nested tabs) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="items" className="gap-2" data-testid="tab-items">
-            <Package className="w-4 h-4" />
+        <TabsList className="h-9">
+          <TabsTrigger value="items" className="gap-1.5 text-xs h-7" data-testid="tab-items">
+            <Package className="w-3.5 h-3.5" />
             {language === "es" ? "Ítems" : "Items"} ({proposal?.items?.length || 0})
           </TabsTrigger>
           {featureFlags?.is_margin_tracking_enabled && (
-            <TabsTrigger value="financials" className="gap-2" data-testid="tab-financials">
-              <Calculator className="w-4 h-4" />
+            <TabsTrigger value="financials" className="gap-1.5 text-xs h-7" data-testid="tab-financials">
+              <Calculator className="w-3.5 h-3.5" />
               {language === "es" ? "Finanzas" : "Financials"}
             </TabsTrigger>
           )}
-          <TabsTrigger value="generate" className="gap-2" data-testid="tab-generate">
-            <FileText className="w-4 h-4" />
+          <TabsTrigger value="generate" className="gap-1.5 text-xs h-7" data-testid="tab-generate">
+            <FileText className="w-3.5 h-3.5" />
             {language === "es" ? "Generar" : "Generate"}
           </TabsTrigger>
         </TabsList>
