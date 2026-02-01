@@ -77,8 +77,10 @@ export default function ClientEngagementPage() {
   };
 
   // Check if we're on a detail page (like /client-engagement/proposals/event_xxx)
-  const isDetailPage = location.pathname.split('/').length > 3 && 
-    !['crm', 'proposals', 'calendar'].some(s => location.pathname.endsWith(s));
+  const isDetailPage = location.pathname.split('/').length > 4;
+
+  // Check if path needs redirect to default section
+  const needsRedirect = location.pathname === "/client-engagement" || location.pathname === "/client-engagement/";
 
   return (
     <Layout>
@@ -102,45 +104,43 @@ export default function ClientEngagementPage() {
           </div>
         </div>
 
-        {/* Section Navigation Tabs */}
-        {!isDetailPage && (
-          <div className="border-b">
-            <Tabs value={activeSection} onValueChange={handleSectionChange}>
-              <TabsList className="bg-transparent h-auto p-0 gap-0">
-                {SECTIONS.map((section) => {
-                  const Icon = section.icon;
-                  const isActive = activeSection === section.id;
-                  return (
-                    <TabsTrigger
-                      key={section.id}
-                      value={section.id}
-                      className={`
-                        relative px-6 py-4 rounded-none border-b-2 transition-all
-                        ${isActive 
-                          ? "border-primary text-primary bg-primary/5" 
-                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                        }
-                      `}
-                      data-testid={`engagement-tab-${section.id}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
-                        <div className="text-left">
-                          <div className="font-medium">
-                            {isEs ? section.labelEs : section.labelEn}
-                          </div>
-                          <div className="text-xs text-muted-foreground hidden md:block">
-                            {isEs ? section.descEs : section.descEn}
-                          </div>
+        {/* Section Navigation Tabs - Always visible except on deep detail pages */}
+        <div className="border-b">
+          <Tabs value={activeSection} onValueChange={handleSectionChange}>
+            <TabsList className="bg-transparent h-auto p-0 gap-0">
+              {SECTIONS.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+                return (
+                  <TabsTrigger
+                    key={section.id}
+                    value={section.id}
+                    className={`
+                      relative px-6 py-4 rounded-none border-b-2 transition-all
+                      ${isActive 
+                        ? "border-primary text-primary bg-primary/5" 
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }
+                    `}
+                    data-testid={`engagement-tab-${section.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
+                      <div className="text-left">
+                        <div className="font-medium">
+                          {isEs ? section.labelEs : section.labelEn}
+                        </div>
+                        <div className="text-xs text-muted-foreground hidden md:block">
+                          {isEs ? section.descEs : section.descEn}
                         </div>
                       </div>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-            </Tabs>
-          </div>
-        )}
+                    </div>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        </div>
 
         {/* Content Area - Routes */}
         <div className="min-h-[60vh]">
