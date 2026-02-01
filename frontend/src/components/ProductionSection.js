@@ -332,10 +332,21 @@ export default function ProductionSection() {
               : "Convert recipe plans into prepared stock and update inventory"}
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          {language === "es" ? "Nuevo Lote" : "New Batch"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleGenerateMiseEnPlace}
+            disabled={generatingMep || batches.filter(b => ["PLANNED", "IN_PROGRESS"].includes(b.status)).length === 0}
+            className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            {generatingMep ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
+            Mise en Place
+          </Button>
+          <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            {language === "es" ? "Nuevo Lote" : "New Batch"}
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
