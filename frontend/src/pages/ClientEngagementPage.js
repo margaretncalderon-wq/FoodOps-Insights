@@ -181,8 +181,8 @@ export default function ClientEngagementPage() {
             <Route index element={<Navigate to="calendar" replace />} />
             
             {/* Engagement Calendar - Primary View */}
-            <Route path="calendar/*" element={<CalendarPageContent />} />
-            <Route path="calendar" element={<CalendarPageContent />} />
+            <Route path="calendar/*" element={<EngagementCalendar />} />
+            <Route path="calendar" element={<EngagementCalendar />} />
             
             {/* Proposals & Agreements (Events) */}
             <Route path="proposals/*" element={<EventsPageContent />} />
