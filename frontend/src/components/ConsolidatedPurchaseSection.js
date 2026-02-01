@@ -363,17 +363,30 @@ export default function ConsolidatedPurchaseSection() {
               </CardHeader>
               <CardContent>
                 {(purchaseData.stock_requisition?.length || 0) > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {purchaseData.stock_requisition.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                        <span className="font-medium">{item.item_name || item.name}</span>
-                        <div className="text-right">
-                          <span className="font-mono">{(item.in_stock || item.quantity_needed || 0).toFixed(1)} {item.unit}</span>
-                          <span className="text-xs text-emerald-600 ml-2">✓</span>
+                  <>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {purchaseData.stock_requisition.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                          <span className="font-medium">{item.item_name || item.name}</span>
+                          <div className="text-right">
+                            <span className="font-mono">{(item.in_stock || item.quantity_needed || 0).toFixed(1)} {item.unit}</span>
+                            <span className="text-xs text-emerald-600 ml-2">✓</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                    {/* SR Total Value */}
+                    <div className="mt-3 pt-3 border-t border-emerald-200 flex justify-between items-center">
+                      <span className="text-sm font-medium text-emerald-700">
+                        {language === "es" ? "Valor del Inventario Usado:" : "Inventory Value Used:"}
+                      </span>
+                      <span className="text-lg font-bold text-emerald-700">
+                        ${purchaseData.stock_requisition.reduce((sum, item) => 
+                          sum + ((item.in_stock || item.quantity_needed || 0) * (item.unit_cost || item.cost_per_unit || 0)), 0
+                        ).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     {language === "es" ? "No hay items cubiertos por inventario" : "No items covered by inventory"}
@@ -398,19 +411,32 @@ export default function ConsolidatedPurchaseSection() {
               </CardHeader>
               <CardContent>
                 {(purchaseData.purchase_list?.length || 0) > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {purchaseData.purchase_list.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                        <span className="font-medium">{item.item_name || item.name}</span>
-                        <div className="text-right">
-                          <span className="font-mono text-amber-700">{(item.to_purchase || item.shortage || 0).toFixed(1)} {item.unit}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            (${((item.to_purchase || item.shortage || 0) * (item.unit_cost || item.cost_per_unit || 0)).toFixed(2)})
-                          </span>
+                  <>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {purchaseData.purchase_list.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                          <span className="font-medium">{item.item_name || item.name}</span>
+                          <div className="text-right">
+                            <span className="font-mono text-amber-700">{(item.to_purchase || item.shortage || 0).toFixed(1)} {item.unit}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (${((item.to_purchase || item.shortage || 0) * (item.unit_cost || item.cost_per_unit || 0)).toFixed(2)})
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                    {/* PL Total Cost */}
+                    <div className="mt-3 pt-3 border-t border-amber-200 flex justify-between items-center">
+                      <span className="text-sm font-medium text-amber-700">
+                        {language === "es" ? "Total a Comprar:" : "Total to Purchase:"}
+                      </span>
+                      <span className="text-lg font-bold text-amber-700">
+                        ${purchaseData.purchase_list.reduce((sum, item) => 
+                          sum + ((item.to_purchase || item.shortage || 0) * (item.unit_cost || item.cost_per_unit || 0)), 0
+                        ).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <p className="text-sm text-emerald-600 text-center py-4">
                     {language === "es" ? "✓ Todo cubierto con inventario" : "✓ All covered by inventory"}
