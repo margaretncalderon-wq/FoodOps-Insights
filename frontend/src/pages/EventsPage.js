@@ -43,7 +43,7 @@ const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
 const PIPELINE_STAGES = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost", "Closed"];
 
-export default function EventsPage() {
+export default function EventsPage({ embedded = false }) {
   const { t, language } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
