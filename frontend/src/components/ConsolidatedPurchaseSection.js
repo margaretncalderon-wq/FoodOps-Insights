@@ -313,6 +313,31 @@ export default function ConsolidatedPurchaseSection() {
     setCreatingBatch(false);
   };
 
+  // Generate Mise en Place document for selected events
+  const handleGenerateMiseEnPlace = async () => {
+    if (!purchaseData?.events?.length) {
+      toast.error(language === "es" ? "No hay eventos seleccionados" : "No events selected");
+      return;
+    }
+    
+    try {
+      // Generate mise en place for first selected event (or create combined)
+      const eventId = purchaseData.events[0].event_id;
+      const res = await axios.post(
+        `${API}/api/documents/generate/${eventId}/mise_en_place`,
+        {},
+        { withCredentials: true }
+      );
+      
+      toast.success(language === "es" ? "Mise en Place generado" : "Mise en Place generated");
+      
+      // Open in new tab
+      window.open(`/portal/${res.data.document_id}`, '_blank');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (language === "es" ? "Error al generar" : "Failed to generate"));
+    }
+  };
+
   // Mark events as procurement complete
   const handleMarkComplete = async () => {
     if (!purchaseData?.events?.length) return;
