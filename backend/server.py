@@ -8055,6 +8055,8 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
     
     # Calculate to_purchase and group by supplier
     items_by_supplier = {}
+    stock_requisition = []  # Items covered by inventory
+    purchase_list = []       # Items that need purchasing
     total_cost = 0
     
     for item_id, item in all_ingredients.items():
@@ -8076,10 +8078,36 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
         if supplier_id not in items_by_supplier:
             items_by_supplier[supplier_id] = []
         items_by_supplier[supplier_id].append(item)
+        
+        # Categorize into SR vs PL
+        if item["in_stock"] > 0:
+            stock_requisition.append({
+                "inventory_item_id": item_id,
+                "item_name": item["item_name"],
+                "unit": item["unit"],
+                "in_stock": round(min(item["in_stock"], item["total_required"]), 2),
+                "total_required": item["total_required"],
+                "recipes_used": item.get("recipes_used", [])
+            })
+        
+        if to_purchase > 0:
+            purchase_list.append({
+                "inventory_item_id": item_id,
+                "item_name": item["item_name"],
+                "unit": item["unit"],
+                "to_purchase": round(to_purchase, 2),
+                "unit_cost": item["unit_cost"],
+                "total_cost": item["total_cost"],
+                "supplier_id": item.get("supplier_id"),
+                "supplier_name": item.get("supplier_name"),
+                "recipes_used": item.get("recipes_used", [])
+            })
     
     return {
         "events": events_info,
         "items_by_supplier": items_by_supplier,
+        "stock_requisition": stock_requisition,  # Items from inventory (SR)
+        "purchase_list": purchase_list,          # Items to buy (PL)
         "total_cost": round(total_cost, 2),
         "generated_at": now.isoformat()
     }
