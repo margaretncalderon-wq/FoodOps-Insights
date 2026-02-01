@@ -8,8 +8,10 @@ import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Progress } from "../ui/progress";
 import { 
-  Search, RefreshCw, User, UserCircle, Users, Building2, Mail
+  Search, RefreshCw, User, UserCircle, Users, Building2, Mail,
+  TrendingUp, Target, Award
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -33,16 +35,37 @@ export default function OwnerAssignmentSection() {
       setLeads(leadsRes.data);
       setClients(clientsRes.data);
       
-      // Extract unique owners from data
-      const ownerIds = new Set();
-      leadsRes.data.forEach(l => l.owner_id && ownerIds.add(l.owner_id));
-      clientsRes.data.forEach(c => c.owner_id && ownerIds.add(c.owner_id));
+      // Extract unique owners and calculate stats
+      const ownerStats = {};
       
-      // For now, create placeholder users - in production this would come from a users endpoint
-      const uniqueOwners = Array.from(ownerIds).map(id => ({
+      leadsRes.data.forEach(l => {
+        if (l.owner_id) {
+          if (!ownerStats[l.owner_id]) {
+            ownerStats[l.owner_id] = { leads: 0, converted: 0, clients: 0 };
+          }
+          ownerStats[l.owner_id].leads++;
+          if (l.status === "Converted") {
+            ownerStats[l.owner_id].converted++;
+          }
+        }
+      });
+      
+      clientsRes.data.forEach(c => {
+        if (c.owner_id) {
+          if (!ownerStats[c.owner_id]) {
+            ownerStats[c.owner_id] = { leads: 0, converted: 0, clients: 0 };
+          }
+          ownerStats[c.owner_id].clients++;
+        }
+      });
+      
+      const uniqueOwners = Object.entries(ownerStats).map(([id, stats]) => ({
         user_id: id,
-        name: id.replace("user_", "User ")
+        name: id.replace("user_", "User ").slice(0, 20),
+        ...stats,
+        conversionRate: stats.leads > 0 ? Math.round((stats.converted / stats.leads) * 100) : 0
       }));
+      
       setUsers(uniqueOwners);
     } catch (err) {
       console.error(err);
@@ -75,14 +98,11 @@ export default function OwnerAssignmentSection() {
     return matchesSearch && matchesOwner;
   });
 
-  // Stats by owner
+  // Global stats
+  const totalLeads = leads.length;
+  const convertedLeads = leads.filter(l => l.status === "Converted").length;
+  const globalConversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
   const unassignedCount = [...leads, ...clients].filter(item => !item.owner_id).length;
-  const assignedByOwner = {};
-  [...leads, ...clients].forEach(item => {
-    if (item.owner_id) {
-      assignedByOwner[item.owner_id] = (assignedByOwner[item.owner_id] || 0) + 1;
-    }
-  });
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
@@ -93,7 +113,7 @@ export default function OwnerAssignmentSection() {
         <div>
           <h2 className="text-xl font-bold">{isEs ? "Asignación de Responsables" : "Owner Assignment"}</h2>
           <p className="text-muted-foreground text-sm">
-            {isEs ? "Asigna responsables a leads y clientes" : "Assign owners to leads and clients"}
+            {isEs ? "Asigna responsables y mide la conversión" : "Assign owners and measure conversion"}
           </p>
         </div>
         <Button variant="outline" onClick={fetchData}>
@@ -102,7 +122,7 @@ export default function OwnerAssignmentSection() {
         </Button>
       </div>
 
-      {/* Stats */}
+      {/* Global Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className={unassignedCount > 0 ? "border-yellow-300 bg-yellow-50" : ""}>
           <CardContent className="pt-4">
@@ -113,18 +133,71 @@ export default function OwnerAssignmentSection() {
             <div className="text-3xl font-bold">{unassignedCount}</div>
           </CardContent>
         </Card>
-        {Object.entries(assignedByOwner).slice(0, 3).map(([ownerId, count]) => (
-          <Card key={ownerId}>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
-                <User className="w-5 h-5 text-muted-foreground" />
-                <span className="text-sm truncate">{ownerId.replace("user_", "")}</span>
-              </div>
-              <div className="text-3xl font-bold">{count}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">{isEs ? "Total Leads" : "Total Leads"}</span>
+            </div>
+            <div className="text-3xl font-bold">{totalLeads}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Target className="w-5 h-5 text-green-600" />
+              <span className="text-sm">{isEs ? "Convertidos" : "Converted"}</span>
+            </div>
+            <div className="text-3xl font-bold text-green-600">{convertedLeads}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <span className="text-sm">{isEs ? "Tasa Global" : "Global Rate"}</span>
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{globalConversionRate}%</div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Owner Performance Cards */}
+      {users.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <Award className="w-4 h-4" />
+            {isEs ? "Rendimiento por Owner" : "Performance by Owner"}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {users.map(user => (
+              <Card 
+                key={user.user_id} 
+                className={`cursor-pointer transition-all ${ownerFilter === user.user_id ? "ring-2 ring-primary" : ""}`}
+                onClick={() => setOwnerFilter(ownerFilter === user.user_id ? "all" : user.user_id)}
+              >
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <UserCircle className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{user.name}</span>
+                    </div>
+                    <Badge variant={user.conversionRate >= globalConversionRate ? "default" : "secondary"}>
+                      {user.conversionRate}%
+                    </Badge>
+                  </div>
+                  <Progress value={user.conversionRate} className="mb-2" />
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>{user.leads} leads</span>
+                    <span>{user.converted} {isEs ? "convertidos" : "converted"}</span>
+                    <span>{user.clients} {isEs ? "clientes" : "clients"}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4">
@@ -145,7 +218,9 @@ export default function OwnerAssignmentSection() {
             <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
             <SelectItem value="unassigned">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
             {users.map(user => (
-              <SelectItem key={user.user_id} value={user.user_id}>{user.name}</SelectItem>
+              <SelectItem key={user.user_id} value={user.user_id}>
+                {user.name} ({user.conversionRate}%)
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -188,6 +263,11 @@ export default function OwnerAssignmentSection() {
                           <User className="w-4 h-4 text-muted-foreground" />
                         )}
                         {item.name}
+                        {item.status === "Converted" && (
+                          <Badge className="bg-green-100 text-green-700 text-xs ml-2">
+                            {isEs ? "Convertido" : "Converted"}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -207,7 +287,7 @@ export default function OwnerAssignmentSection() {
                       {item.owner_id ? (
                         <div className="flex items-center gap-1">
                           <UserCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">{item.owner_id.replace("user_", "")}</span>
+                          <span className="text-sm">{item.owner_id.replace("user_", "").slice(0, 12)}</span>
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">{isEs ? "Sin asignar" : "Unassigned"}</span>
@@ -223,7 +303,9 @@ export default function OwnerAssignmentSection() {
                         </SelectTrigger>
                         <SelectContent>
                           {users.map(user => (
-                            <SelectItem key={user.user_id} value={user.user_id}>{user.name}</SelectItem>
+                            <SelectItem key={user.user_id} value={user.user_id}>
+                              {user.name}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
