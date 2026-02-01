@@ -1261,6 +1261,7 @@ export default function FoodOpsPage() {
           <Route path="inventory" element={<InventorySection />} />
           <Route path="recipes" element={<RecipesSection />} />
           <Route path="menus" element={<PlatedMenusSection />} />
+          <Route path="production" element={<ProductionSectionWrapper />} />
           <Route path="purchase-orders" element={<PurchaseOrdersSectionWrapper />} />
           <Route path="consolidated" element={<ConsolidatedPurchaseSectionWrapper />} />
         </Routes>
@@ -1270,6 +1271,15 @@ export default function FoodOpsPage() {
 }
 
 // Lazy load wrappers
+function ProductionSectionWrapper() {
+  const [Component, setComponent] = useState(null);
+  useEffect(() => {
+    import("../components/ProductionSection").then(mod => setComponent(() => mod.default));
+  }, []);
+  if (!Component) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  return <Component />;
+}
+
 function PurchaseOrdersSectionWrapper() {
   const [Component, setComponent] = useState(null);
   useEffect(() => {
