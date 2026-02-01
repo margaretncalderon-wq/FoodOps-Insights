@@ -470,11 +470,39 @@ Auto-generated from Event Order:
   - Testing: 100% backend (22/22 tests), 100% frontend verified
 
 ## Upcoming Tasks
-- [ ] Dashboard Additions: "Task Due Date" and "New Leads" sections
+- [ ] **Integrations**: Gmail, WhatsApp, Google Calendar (P1 - User requested)
 - [ ] Business Clarity enhancements:
-  - CSV/Excel/PDF export for all reports
+  - CSV/Excel/PDF export for executive reports
   - Email notifications for overdue invoices (requires Gmail integration)
 - [ ] Client Credit Context: UI warnings based on credit_limit and payment_terms
+- [ ] Finalize Role-Based Access Control (RBAC) logic in backend
+- [ ] Email POs to suppliers
+- [ ] Multi-currency support
+
+## Completed (February 1, 2026)
+- [x] **Client Engagement Module - COMPLETE**:
+  - Consolidated CRM, Events (Proposals & Agreements), and Calendar modules
+  - New sidebar-based navigation matching other modules
+  - Engagement Calendar as default view
+- [x] **Engagement Calendar Enhancements**:
+  - **Multi-day Events**: Events can now span multiple days (start_date to end_date)
+  - **Event Times**: Added start_time and end_time fields to events
+  - **Time Format Preference**: Users can choose 12h or 24h format in Settings > Preferences
+  - **Visual Improvements**: Multi-day events shown with "↔" indicator, sorted by start_time
+  - **Three View Modes**: Month, Week, Day views with time display
+  - **Status-based Coloring**: Events colored by pipeline stage (Lead, Contacted, Proposal, etc.)
+  - **Filters**: Filter by status and event type
+- [x] **Settings > Preferences Enhancement**:
+  - Added Time Format selector (24h/12h)
+  - Backend Company model updated with time_format field
+- [x] **CRM Module Enhancements**:
+  - Full CRUD for clients with RNC (tax ID), WhatsApp, credit fields
+  - Multiple contacts per client
+  - Lead-to-Client conversion workflow
+  - WhatsApp field in lead forms
+- [x] **Dashboard Additions**:
+  - "Tasks Due" widget
+  - "New Leads" widget
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
