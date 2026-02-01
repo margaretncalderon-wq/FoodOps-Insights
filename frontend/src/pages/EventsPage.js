@@ -776,7 +776,7 @@ export default function EventsPage({ embedded = false }) {
         {viewMode === "pipeline" && (
           <div className="overflow-x-auto pb-4">
             <div className="flex gap-4 min-w-max">
-              {PIPELINE_STAGES.map((stage) => (
+              {ENGAGEMENT_STAGES.map((stage) => (
                 <div key={stage} className="w-80 flex-shrink-0">
                   <div className={`${stageHeaderColors[stage]} text-white rounded-t-lg px-4 py-3 flex items-center justify-between`}>
                     <span className="font-semibold">{stage}</span>
