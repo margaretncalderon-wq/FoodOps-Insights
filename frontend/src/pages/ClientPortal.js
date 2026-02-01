@@ -123,10 +123,27 @@ export default function ClientPortal() {
   const isMultiday = content.is_multiday || false;
   const orderItems = content.order_items || [];
   const recipes = content.recipes || [];
+  const sectionTitles = content.section_titles || {};
 
   // Detect language - use company setting or default to Spanish for LATAM context
   const lang = company.default_language || "es";
   const isEs = lang === "es" || lang === "ES";
+
+  // Get section titles from template or use defaults
+  const getSectionTitle = (type) => {
+    const key = isEs ? `${type.toLowerCase()}_es` : `${type.toLowerCase()}_en`;
+    if (sectionTitles[key]) return sectionTitles[key];
+    
+    // Default titles
+    const defaults = {
+      Food: { en: "Custom Menu", es: "Menú Personalizado" },
+      Service: { en: "Services", es: "Servicios" },
+      Rental: { en: "Rentals & Equipment", es: "Alquileres y Equipos" },
+      Fee: { en: "Fees", es: "Cargos" },
+      Other: { en: "Other Items", es: "Otros" }
+    };
+    return defaults[type]?.[isEs ? "es" : "en"] || type;
+  };
 
   const docTypeLabels = {
     quote: isEs ? "Propuesta" : "Proposal",
