@@ -7,6 +7,16 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
 - Platform: "Evoque Events Platform" → "Evoke OS"
 - Module: "Food Ops" → "Culinary Intelligence"
 
+**Major Refactoring: February 1, 2026**
+- Events Module → Sales/Commercial Layer
+- Event Orchestration → Execution Layer
+- Clear separation: Sales (decision) vs Execution (delivery)
+
+## Architecture Principle
+**A single Event entity exists. It moves through layers, not modules.**
+- Events = Sales / Decision layer (Should we take this event?)
+- Event Orchestration = Execution layer (How do we execute it flawlessly?)
+
 ## Core Modules
 
 ### 1. Authentication
@@ -17,28 +27,66 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
 - **Leads**: Inbound inquiries from embeddable forms, separate from clients
 - **Clients**: Qualified clients with display_name, client_type (Company/Individual)
 - **Contacts**: Associated contacts per client
-- **Events Pipeline**: Sales funnel with stages (Lead, Contacted, Proposal, Won)
+- **Events Pipeline**: Sales funnel with stages (Lead, Contacted, Proposal, Won, Closed, Lost)
 - **Lead Form Builder**: Configurable public forms with multilingual support (EN/ES)
 
-### 3. Events Module
-- Event creation with client linking
-- Multi-day support, TBD dates
-- Venue, guest count, budget tracking
-- **Operational Status** (Open, In Production, Completed, Closed)
-- **Financial Status** (Draft, In Review, Approved)
+### 3. Events Module (SALES/COMMERCIAL LAYER)
+The commercial lifecycle of an event. Answers: "Should we take this event, under what conditions?"
 
-### 4. Proposal/Contract System
+**Supports:**
+- Leads, Proposals, Negotiation
+- Pricing & margins
+- Contracts, Client acceptance
+- Go / No-Go decision
+
+**Status Lifecycle:**
+- Lead → Contacted → Proposal → Negotiation → Won → Closed (or Lost)
+
+**Rules:**
+- Events can exist without execution
+- Events in Lead/Proposal/Negotiation cannot be orchestrated
+- No operational planning happens here
+
+### 4. Event Orchestration Module (EXECUTION LAYER - Feb 1, 2026) ✅
+Manages only **confirmed events** (Won/Closed). Answers: "This event is real. How do we execute it flawlessly?"
+
+**Entry Rule:** Only events with stage Won or Closed appear in Event Orchestration.
+
+**Sub-sections (9 Tabs):**
+1. **Event Blueprint**: Objectives, scope, key dates, assumptions, constraints, success criteria
+2. **Experience Design**: Color palette, materials, catering setup, moodboard images, zones
+3. **Operational Flow**: Phases (Pre/Live/Post), dependencies, readiness status, risks
+4. **Run of Show**: Time blocks, action sequences, 4 templates (Wedding, Corporate, Social, Blank)
+5. **Team & Roles**: 
+   - **Synced Roles**: Auto-populated from contract Service items (read-only quantities, billable)
+   - **Operational Roles**: Non-billable additions for execution only
+6. **Production Assets**: Packing lists, equipment, checklists
+7. **Event Calendar**: Global calendar view with conflict detection
+8. **Post-Event Review**: Rating, what worked/failed, deviations, learnings
+9. **Event Binder**: Single source of truth - aggregated read-only view of entire event
+
+**Handoff Mechanism:**
+- When event stage = Won, it becomes "Execution-enabled"
+- Same Event ID is referenced (no duplicate records)
+- "Event Orchestration" link appears in Events dropdown for Won/Closed events
+
+**Locking & Governance:**
+- When event stage = Closed: All tabs lock except Post-Event Review
+- "Close Event" / "Reopen Event" buttons in detail view
+
+### 5. Proposal/Contract System
 Each Event has ONE active Proposal that serves as:
 - Commercial proposal
 - Client-facing contract  
 - Pricing authority (single source of truth)
 
-### 5. Order Items
+### 6. Order Items
 Unified commercial engine for all items sold in an event:
 - Food (links to recipes for auto cost calculation)
 - Service, Rental, Fee (manual internal_cost)
+- **Service items sync to Team & Roles in Orchestration**
 
-### 6. Culinary Intelligence Module V4 (ENHANCED - Jan 31, 2026)
+### 7. Culinary Intelligence Module V4 (ENHANCED - Jan 31, 2026)
 
 #### 6.0 Recipe Photo & PDF Export (NEW - Jan 31, 2026)
 - **Recipe Images**: Upload, view, and delete images for recipes
