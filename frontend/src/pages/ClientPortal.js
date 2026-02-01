@@ -124,12 +124,8 @@ export default function ClientPortal() {
   const orderItems = content.order_items || [];
   const recipes = content.recipes || [];
 
-  // Detect language - prioritize Spanish for this business context
-  // The portal is typically viewed by Spanish-speaking clients
-  const browserLang = navigator.language?.startsWith("es") ? "es" : null;
-  const companyLang = company.default_language;
-  // Use Spanish by default for Latin American catering business
-  const lang = browserLang || (companyLang === "en" ? "es" : companyLang) || "es";
+  // Detect language - use company setting or default to Spanish for LATAM context
+  const lang = company.default_language || "es";
   const isEs = lang === "es" || lang === "ES";
 
   const docTypeLabels = {
