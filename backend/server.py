@@ -96,6 +96,31 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: User
 
+# ============== ENGAGEMENT STAGES ==============
+# Legacy stage mapping to new Engagement Stages (OS-level)
+LEGACY_STAGE_MAP = {
+    "Lead": "Inquiry Received",
+    "Contacted": "Context Captured",
+    "Proposal": "Scope Drafted",
+    "Negotiation": "Definition In Review",
+    "Won": "Committed",
+    "Approved": "Committed",
+    "Closed": "Committed",
+    "Lost": "Archived"
+}
+
+ENGAGEMENT_STAGES = ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review", "Committed", "Archived"]
+
+def normalize_stage(stage: str) -> str:
+    """Normalize legacy stages to new Engagement Stages"""
+    if not stage:
+        return "Inquiry Received"
+    if stage in LEGACY_STAGE_MAP:
+        return LEGACY_STAGE_MAP[stage]
+    if stage in ENGAGEMENT_STAGES:
+        return stage
+    return "Inquiry Received"
+
 # Company Model
 class Company(BaseModel):
     company_id: str
