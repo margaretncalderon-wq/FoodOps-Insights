@@ -1,0 +1,109 @@
+{
+  "summary": "Production Needs (PN) feature testing complete. Backend: 11/11 tests passed. Frontend: All features verified working. The PN card displays correctly in Cost & Usage section showing BASE/COMPONENT recipes that need to be produced. Create Production Batch functionality works from both Cost & Usage and Event Detail pages.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "generate_purchase_list_production_needs": {
+      "status": "PASS",
+      "details": "POST /api/events/generate-purchase-list returns production_needs array with correct structure. Shows 'Salsa Madre' (BASE type) with qty_needed: 49.5L, in_stock: 6.2, to_produce: 43.3L, total_cost: $151.55"
+    },
+    "suggest_from_events_endpoint": {
+      "status": "PASS",
+      "details": "POST /api/production/suggest-from-events returns suggested_lines with recipe_id, recipe_name, recipe_type (base/component), qty_needed, yield_unit, events_using. Works for single and multiple events."
+    },
+    "production_batch_creation": {
+      "status": "PASS",
+      "details": "POST /api/production/batches creates production batch with lines. Returns batch_id, batch_number (PROD-2026-XXXX), status: PLANNED, lines array."
+    },
+    "cost_usage_pn_card": {
+      "status": "PASS",
+      "details": "Production Needs (PN) card displays in Cost & Usage section when events are selected and purchase list is generated. Shows recipe name, type (BASE), qty to produce, current stock, total cost. Create Batch button opens dialog."
+    },
+    "event_detail_production_button": {
+      "status": "PASS",
+      "details": "Create Production Batch button appears on Event Detail page for Committed/Won events. Button has data-testid='create-production-batch-btn'. Clicking opens dialog with suggested production lines."
+    },
+    "production_dialog_functionality": {
+      "status": "PASS",
+      "details": "Create Production Batch dialog shows: Recipe table (name, type, qty), 'This will create' info (production lines count, PLANNED status, linked event). Cancel and Create Batch buttons work correctly."
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_production_needs.py",
+    "/app/test_reports/pytest/pytest_production_needs.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_production_needs.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (All PN features verified working)"
+  },
+  "test_credentials": {
+    "email": "margaret.n.calderon@gmail.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created TEST_BATCH production batch during testing (cleaned up after test)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Production Needs (PN) feature fully implemented and working. The feature calculates BASE/COMPONENT recipes that need to be produced for events. Test event 'Evento Demo - Boda' (event_c35238fcb131) has Food items with 'Buffet' recipe that uses 'Salsa Madre' as a sub-recipe (type: base). The PN card shows in Cost & Usage section after generating purchase list. Create Production Batch button appears on Event Detail page for Committed events.",
+  "features_verified": {
+    "production_needs_card": {
+      "location": "/food-ops/consolidated (Cost & Usage section)",
+      "trigger": "Select events and click 'Generate Purchase List'",
+      "displays": ["Recipe name", "Recipe type (BASE/COMPONENT)", "Qty to produce", "Current stock", "Total cost"],
+      "actions": ["Create Batch button opens dialog"]
+    },
+    "event_detail_production_button": {
+      "location": "/events/{event_id}",
+      "data_testid": "create-production-batch-btn",
+      "visibility": "Only for Committed/Won/Closed stage events",
+      "action": "Opens Create Production Batch dialog"
+    },
+    "create_production_batch_dialog": {
+      "content": ["Recipe table (name, type, qty, events)", "This will create info", "Cancel and Create Batch buttons"],
+      "api_call": "POST /api/production/batches"
+    },
+    "api_endpoints": {
+      "generate_purchase_list": {
+        "method": "POST",
+        "path": "/api/events/generate-purchase-list",
+        "returns": "production_needs array with BASE/COMPONENT recipes"
+      },
+      "suggest_from_events": {
+        "method": "POST",
+        "path": "/api/production/suggest-from-events",
+        "returns": "suggested_lines array for production batch creation"
+      },
+      "create_batch": {
+        "method": "POST",
+        "path": "/api/production/batches",
+        "returns": "Created production batch with PLANNED status"
+      }
+    }
+  },
+  "data_verified": {
+    "event": "Evento Demo - Boda (event_c35238fcb131)",
+    "stage": "Won/Committed",
+    "guest_count": 150,
+    "recipe_with_sub_recipes": "Buffet (uses Salsa Madre as sub-recipe)",
+    "base_recipe": "Salsa Madre (recipe_e8365a2dd090)",
+    "production_needs": {
+      "recipe_name": "Salsa Madre",
+      "recipe_type": "base",
+      "qty_needed": "~45-49.5 L",
+      "in_stock": "6.2 L",
+      "to_produce": "~43.3 L",
+      "total_cost": "$151.55"
+    }
+  }
+}
