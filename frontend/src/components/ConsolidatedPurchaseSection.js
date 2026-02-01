@@ -637,6 +637,23 @@ export default function ConsolidatedPurchaseSection() {
                 </div>
               </div>
 
+              {/* Create Production Batch Button */}
+              <div className="mt-4 pt-4 border-t">
+                <Button 
+                  variant="outline"
+                  onClick={handleOpenProductionDialog}
+                  className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <Factory className="w-4 h-4" />
+                  {language === "es" ? "Crear Lote de Producción desde SR" : "Create Production Batch from SR"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  {language === "es" 
+                    ? "Genera preparaciones BASE/COMPONENT necesarias para estos eventos"
+                    : "Generate BASE/COMPONENT preparations needed for these events"}
+                </p>
+              </div>
+
               {/* Mark Complete Button */}
               <div className="mt-4 pt-4 border-t">
                 <Button 
