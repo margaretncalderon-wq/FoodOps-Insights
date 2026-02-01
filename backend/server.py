@@ -8336,6 +8336,399 @@ async def reopen_event_procurement(event_id: str, user: User = Depends(get_curre
     
     return {"message": "Event reopened for procurement", "event_id": event_id}
 
+# ============== PRODUCTION ROUTES ==============
+
+@production_router.get("/batches")
+async def get_production_batches(
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all production batches"""
+    query = {"company_id": user.company_id}
+    if status:
+        query["status"] = status
+    
+    batches = await db.production_batches.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return batches
+
+@production_router.get("/batches/{batch_id}")
+async def get_production_batch(batch_id: str, user: User = Depends(get_current_user)):
+    """Get a specific production batch"""
+    batch = await db.production_batches.find_one(
+        {"batch_id": batch_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not batch:
+        raise HTTPException(status_code=404, detail="Production batch not found")
+    return batch
+
+@production_router.post("/batches")
+async def create_production_batch(
+    data: ProductionBatchCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a new production batch"""
+    now = datetime.now(timezone.utc)
+    batch_id = f"batch_{uuid.uuid4().hex[:12]}"
+    
+    # Generate batch number
+    count = await db.production_batches.count_documents({"company_id": user.company_id})
+    batch_number = f"PROD-{now.year}-{str(count + 1).zfill(4)}"
+    
+    # Get event name if linked
+    event_name = None
+    if data.linked_event_id:
+        event = await db.events.find_one({"event_id": data.linked_event_id}, {"_id": 0, "name": 1})
+        event_name = event.get("name") if event else None
+    
+    # Process lines - expand BOM for each recipe
+    lines = []
+    total_input_cost = 0
+    
+    for line_data in data.lines:
+        recipe = await db.recipes.find_one(
+            {"recipe_id": line_data.recipe_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if not recipe:
+            continue
+        
+        line_id = f"prodline_{uuid.uuid4().hex[:8]}"
+        
+        # Calculate multiplier based on target output
+        recipe_yield = recipe.get("yield_quantity", 1)
+        multiplier = line_data.target_output_qty / recipe_yield if recipe_yield > 0 else 1
+        
+        # Expand BOM - get all required inputs
+        computed_inputs = []
+        
+        # Direct ingredients
+        for ing in recipe.get("ingredients", []):
+            if ing.get("item_type") == "ingredient":
+                item_id = ing.get("item_id")
+                inv_item = await db.ingredients.find_one(
+                    {"ingredient_id": item_id, "company_id": user.company_id},
+                    {"_id": 0}
+                )
+                
+                required_qty = (ing.get("quantity", 0) * multiplier)
+                unit_cost = inv_item.get("cost_per_unit", 0) if inv_item else 0
+                
+                computed_inputs.append({
+                    "inventory_item_id": item_id,
+                    "item_name": ing.get("item_name", inv_item.get("name") if inv_item else "Unknown"),
+                    "item_type": inv_item.get("item_type", "RAW") if inv_item else "RAW",
+                    "required_qty": round(required_qty, 3),
+                    "unit": ing.get("unit", "unit"),
+                    "unit_cost": unit_cost,
+                    "total_cost": round(required_qty * unit_cost, 2),
+                    "in_stock": inv_item.get("stock_quantity", 0) if inv_item else 0
+                })
+                total_input_cost += required_qty * unit_cost
+        
+        # Sub-recipes (components)
+        for sub in recipe.get("sub_recipes", []):
+            sub_recipe_id = sub.get("recipe_id")
+            sub_recipe = await db.recipes.find_one(
+                {"recipe_id": sub_recipe_id, "company_id": user.company_id},
+                {"_id": 0}
+            )
+            if sub_recipe:
+                sub_qty = sub.get("quantity", 1) * multiplier
+                computed_inputs.append({
+                    "recipe_id": sub_recipe_id,
+                    "item_name": sub_recipe.get("name"),
+                    "item_type": "RECIPE",
+                    "recipe_type": sub_recipe.get("recipe_type", "component"),
+                    "required_qty": round(sub_qty, 3),
+                    "unit": sub_recipe.get("yield_unit", "batch"),
+                    "unit_cost": sub_recipe.get("cost_per_yield", 0),
+                    "total_cost": round(sub_qty * sub_recipe.get("cost_per_yield", 0), 2)
+                })
+                total_input_cost += sub_qty * sub_recipe.get("cost_per_yield", 0)
+        
+        # Determine if this produces stock
+        recipe_type = recipe.get("recipe_type", "final_dish")
+        produces_stock = recipe_type in ["base", "component"] or recipe.get("produces_stock", False)
+        
+        lines.append({
+            "line_id": line_id,
+            "recipe_id": line_data.recipe_id,
+            "recipe_name": recipe.get("name"),
+            "recipe_type": recipe_type,
+            "produces_stock": produces_stock,
+            "target_output_qty": line_data.target_output_qty,
+            "output_unit": line_data.output_unit or recipe.get("yield_unit", "batch"),
+            "computed_inputs": computed_inputs,
+            "actual_output_qty": None
+        })
+    
+    batch = {
+        "batch_id": batch_id,
+        "company_id": user.company_id,
+        "batch_number": batch_number,
+        "status": "PLANNED",
+        "linked_event_id": data.linked_event_id,
+        "linked_event_name": event_name,
+        "source_sr_id": data.source_sr_id,
+        "notes": data.notes,
+        "lines": lines,
+        "total_input_cost": round(total_input_cost, 2),
+        "total_output_value": 0,
+        "created_by": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "posted_at": None,
+        "posted_by": None
+    }
+    
+    await db.production_batches.insert_one(batch)
+    del batch["_id"]
+    return batch
+
+@production_router.put("/batches/{batch_id}/status")
+async def update_production_batch_status(
+    batch_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update production batch status (including posting)"""
+    new_status = data.get("status")
+    if new_status not in ["PLANNED", "IN_PROGRESS", "POSTED", "VOIDED"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    batch = await db.production_batches.find_one(
+        {"batch_id": batch_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not batch:
+        raise HTTPException(status_code=404, detail="Production batch not found")
+    
+    if batch["status"] == "POSTED":
+        raise HTTPException(status_code=400, detail="Cannot modify a posted batch")
+    
+    now = datetime.now(timezone.utc)
+    update_data = {"status": new_status, "updated_at": now.isoformat()}
+    
+    # If posting, process inventory
+    if new_status == "POSTED":
+        shortages = []
+        
+        # 1. Validate sufficient RAW inventory
+        for line in batch.get("lines", []):
+            for input_item in line.get("computed_inputs", []):
+                if input_item.get("item_type") == "RAW":
+                    inv_item = await db.ingredients.find_one(
+                        {"ingredient_id": input_item.get("inventory_item_id"), "company_id": user.company_id},
+                        {"_id": 0}
+                    )
+                    current_stock = inv_item.get("stock_quantity", 0) if inv_item else 0
+                    required = input_item.get("required_qty", 0)
+                    
+                    if current_stock < required:
+                        shortages.append({
+                            "item_name": input_item.get("item_name"),
+                            "required": required,
+                            "available": current_stock,
+                            "shortage": round(required - current_stock, 2)
+                        })
+        
+        if shortages:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": "Insufficient inventory", "shortages": shortages}
+            )
+        
+        # 2. Deduct RAW inventory and create PREPARED outputs
+        total_output_value = 0
+        
+        for line in batch.get("lines", []):
+            # Deduct inputs
+            for input_item in line.get("computed_inputs", []):
+                if input_item.get("item_type") == "RAW" and input_item.get("inventory_item_id"):
+                    await db.ingredients.update_one(
+                        {"ingredient_id": input_item["inventory_item_id"], "company_id": user.company_id},
+                        {"$inc": {"stock_quantity": -input_item.get("required_qty", 0)}}
+                    )
+                    
+                    # Audit log
+                    await db.audit_logs.insert_one({
+                        "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+                        "company_id": user.company_id,
+                        "user_id": user.user_id,
+                        "action_type": "production_deduction",
+                        "entity_type": "ingredient",
+                        "entity_id": input_item["inventory_item_id"],
+                        "changes": {
+                            "batch_id": batch_id,
+                            "quantity_deducted": input_item.get("required_qty", 0),
+                            "item_name": input_item.get("item_name")
+                        },
+                        "timestamp": now.isoformat()
+                    })
+            
+            # Create/increment PREPARED outputs if produces_stock
+            if line.get("produces_stock", False):
+                recipe_id = line.get("recipe_id")
+                output_qty = line.get("actual_output_qty") or line.get("target_output_qty", 0)
+                output_unit = line.get("output_unit", "batch")
+                
+                # Check if PREPARED inventory exists for this recipe
+                existing = await db.ingredients.find_one(
+                    {"linked_recipe_id": recipe_id, "company_id": user.company_id, "item_type": "PREPARED"},
+                    {"_id": 0}
+                )
+                
+                if existing:
+                    # Increment stock
+                    await db.ingredients.update_one(
+                        {"ingredient_id": existing["ingredient_id"]},
+                        {"$inc": {"stock_quantity": output_qty}}
+                    )
+                else:
+                    # Create new PREPARED inventory item
+                    recipe = await db.recipes.find_one({"recipe_id": recipe_id}, {"_id": 0})
+                    ing_id = f"ing_{uuid.uuid4().hex[:12]}"
+                    
+                    new_prepared = {
+                        "ingredient_id": ing_id,
+                        "company_id": user.company_id,
+                        "name": f"{line.get('recipe_name')} (Prepared)",
+                        "category": "Prepared",
+                        "inventory_type": "food",
+                        "item_type": "PREPARED",
+                        "linked_recipe_id": recipe_id,
+                        "unit": output_unit,
+                        "cost_per_unit": recipe.get("cost_per_yield", 0) if recipe else 0,
+                        "stock_quantity": output_qty,
+                        "min_stock_level": 0,
+                        "par_level": 0,
+                        "yield_waste_percent": 0,
+                        "allergens": recipe.get("allergens", []) if recipe else [],
+                        "storage_location": "cold",
+                        "reorder_threshold": 0,
+                        "preferred_supplier_id": None,
+                        "alternate_supplier_ids": [],
+                        "pack_size": 1,
+                        "pack_unit": output_unit,
+                        "average_cost": recipe.get("cost_per_yield", 0) if recipe else 0,
+                        "price_history": [],
+                        "created_at": now.isoformat(),
+                        "updated_at": now.isoformat()
+                    }
+                    await db.ingredients.insert_one(new_prepared)
+                
+                # Calculate output value
+                recipe = await db.recipes.find_one({"recipe_id": recipe_id}, {"_id": 0})
+                if recipe:
+                    total_output_value += output_qty * recipe.get("cost_per_yield", 0)
+                
+                # Audit log
+                await db.audit_logs.insert_one({
+                    "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+                    "company_id": user.company_id,
+                    "user_id": user.user_id,
+                    "action_type": "production_output",
+                    "entity_type": "recipe",
+                    "entity_id": recipe_id,
+                    "changes": {
+                        "batch_id": batch_id,
+                        "quantity_produced": output_qty,
+                        "recipe_name": line.get("recipe_name")
+                    },
+                    "timestamp": now.isoformat()
+                })
+        
+        update_data["posted_at"] = now.isoformat()
+        update_data["posted_by"] = user.user_id
+        update_data["total_output_value"] = round(total_output_value, 2)
+    
+    await db.production_batches.update_one(
+        {"batch_id": batch_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": f"Batch status updated to {new_status}", "batch_id": batch_id}
+
+@production_router.put("/batches/{batch_id}/lines/{line_id}")
+async def update_production_line(
+    batch_id: str,
+    line_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a production line (e.g., actual output qty)"""
+    batch = await db.production_batches.find_one(
+        {"batch_id": batch_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not batch:
+        raise HTTPException(status_code=404, detail="Production batch not found")
+    
+    if batch["status"] == "POSTED":
+        raise HTTPException(status_code=400, detail="Cannot modify a posted batch")
+    
+    # Update the specific line
+    lines = batch.get("lines", [])
+    for i, line in enumerate(lines):
+        if line["line_id"] == line_id:
+            if "actual_output_qty" in data:
+                lines[i]["actual_output_qty"] = data["actual_output_qty"]
+            break
+    
+    await db.production_batches.update_one(
+        {"batch_id": batch_id},
+        {"$set": {"lines": lines, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Line updated", "line_id": line_id}
+
+@production_router.delete("/batches/{batch_id}")
+async def delete_production_batch(batch_id: str, user: User = Depends(get_current_user)):
+    """Delete a production batch (only if PLANNED or VOIDED)"""
+    batch = await db.production_batches.find_one(
+        {"batch_id": batch_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not batch:
+        raise HTTPException(status_code=404, detail="Production batch not found")
+    
+    if batch["status"] in ["IN_PROGRESS", "POSTED"]:
+        raise HTTPException(status_code=400, detail="Cannot delete batch in this status")
+    
+    await db.production_batches.delete_one({"batch_id": batch_id})
+    return {"message": "Batch deleted", "batch_id": batch_id}
+
+@production_router.get("/recipes-for-production")
+async def get_recipes_for_production(
+    only_stock_producing: bool = False,
+    user: User = Depends(get_current_user)
+):
+    """Get recipes available for production batches"""
+    query = {"company_id": user.company_id}
+    
+    recipes = await db.recipes.find(query, {"_id": 0}).to_list(500)
+    
+    result = []
+    for r in recipes:
+        recipe_type = r.get("recipe_type", "final_dish")
+        produces_stock = recipe_type in ["base", "component"] or r.get("produces_stock", False)
+        
+        if only_stock_producing and not produces_stock:
+            continue
+        
+        result.append({
+            "recipe_id": r.get("recipe_id"),
+            "name": r.get("name"),
+            "recipe_type": recipe_type,
+            "produces_stock": produces_stock,
+            "yield_quantity": r.get("yield_quantity", 1),
+            "yield_unit": r.get("yield_unit", "batch"),
+            "cost_per_yield": r.get("cost_per_yield", 0)
+        })
+    
+    return result
+
 # ============== BUSINESS CLARITY ROUTES ==============
 
 # Stripe API Key
