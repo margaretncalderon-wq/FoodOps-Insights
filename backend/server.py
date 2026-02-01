@@ -6215,6 +6215,14 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, user: User = D
             "timestamp": now.isoformat()
         })
     
+    # AUTOMATION: When proposal is Accepted, move event to "Committed" stage
+    if new_status == "Accepted" and old_status != "Accepted":
+        await db.events.update_one(
+            {"event_id": proposal["event_id"], "company_id": user.company_id},
+            {"$set": {"stage": "Committed", "updated_at": now.isoformat()}}
+        )
+        logger.info(f"Event {proposal['event_id']} auto-moved to 'Committed' stage after proposal acceptance")
+    
     return await get_event_proposal(proposal["event_id"], user)
 
 @proposals_router.put("/{proposal_id}/financials")
