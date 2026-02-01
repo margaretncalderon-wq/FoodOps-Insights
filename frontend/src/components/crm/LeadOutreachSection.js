@@ -127,7 +127,7 @@ export default function LeadOutreachSection() {
       
       const res = await axios.post(`${API}/api/crm/outreach`, payload, { withCredentials: true });
       
-      if (form.owner_id && res.data.lead_id) {
+      if (form.owner_id && form.owner_id !== "unassigned" && res.data.lead_id) {
         await axios.put(`${API}/api/crm/assign/lead/${res.data.lead_id}?owner_id=${form.owner_id}`, {}, { withCredentials: true });
       }
       
