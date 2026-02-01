@@ -336,12 +336,12 @@ export default function ProductionSection() {
             {/* Link to Event (optional) */}
             <div>
               <Label>{language === "es" ? "Vincular a Evento (opcional)" : "Link to Event (optional)"}</Label>
-              <Select value={newBatch.linked_event_id} onValueChange={(v) => setNewBatch(prev => ({ ...prev, linked_event_id: v }))}>
+              <Select value={newBatch.linked_event_id || "none"} onValueChange={(v) => setNewBatch(prev => ({ ...prev, linked_event_id: v === "none" ? "" : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder={language === "es" ? "Seleccionar evento..." : "Select event..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">({language === "es" ? "Ninguno" : "None"})</SelectItem>
+                  <SelectItem value="none">({language === "es" ? "Ninguno" : "None"})</SelectItem>
                   {events.map(e => (
                     <SelectItem key={e.event_id} value={e.event_id}>{e.name}</SelectItem>
                   ))}
