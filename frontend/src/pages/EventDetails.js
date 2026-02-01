@@ -64,12 +64,6 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", due_date: "" });
-  
-  // Production batch dialog state
-  const [productionDialogOpen, setProductionDialogOpen] = useState(false);
-  const [suggestedProduction, setSuggestedProduction] = useState(null);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [creatingBatch, setCreatingBatch] = useState(false);
 
   useEffect(() => {
     fetchEvent();
