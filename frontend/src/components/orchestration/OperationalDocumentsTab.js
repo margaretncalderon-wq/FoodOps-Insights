@@ -75,16 +75,19 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
     { 
       type: "kitchen_sheet", 
       label: isEs ? "Hoja de Cocina" : "Kitchen Sheet", 
-      description: isEs ? "Lista de preparación para cocina sin precios" : "Kitchen prep list without prices",
+      description: isEs ? "Recetas y preparación para cocina" : "Recipes and prep for kitchen",
       icon: ChefHat,
       color: "text-orange-500"
     },
     { 
       type: "packing_list", 
       label: isEs ? "Lista de Montaje" : "Packing List", 
-      description: isEs ? "Lista de equipos y materiales para transporte" : "Equipment and materials for transport",
+      description: isEs ? "Equipos, servicio, decoración - NO comida" : "Equipment, service, decor - NO food",
       icon: Package,
-      color: "text-purple-500"
+      color: "text-purple-500",
+      categories: isEs 
+        ? ["Equipos & Montaje", "Servicio", "Bebidas & Bar", "Decoración", "Seguridad"]
+        : ["Equipment & Setup", "Service", "Beverages & Bar", "Decor", "Safety"]
     },
     { 
       type: "menu", 
