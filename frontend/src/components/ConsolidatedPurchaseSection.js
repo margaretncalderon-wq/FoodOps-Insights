@@ -261,6 +261,58 @@ export default function ConsolidatedPurchaseSection() {
     setCreatingPO(null);
   };
 
+  // Open Production Batch dialog with suggestions from SR
+  const handleOpenProductionDialog = async () => {
+    if (!purchaseData?.events?.length) return;
+    
+    setLoadingSuggestions(true);
+    setProductionDialogOpen(true);
+    
+    try {
+      const eventIds = purchaseData.events.map(e => e.event_id);
+      const res = await axios.post(`${API}/api/production/suggest-from-events`, {
+        event_ids: eventIds
+      }, { withCredentials: true });
+      
+      setSuggestedProduction(res.data);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error loading suggestions");
+    }
+    setLoadingSuggestions(false);
+  };
+
+  // Create Production Batch from suggestions
+  const handleCreateProductionBatch = async () => {
+    if (!suggestedProduction?.suggested_lines?.length) return;
+    
+    setCreatingBatch(true);
+    try {
+      const eventIds = purchaseData?.events?.map(e => e.event_id) || [];
+      
+      await axios.post(`${API}/api/production/batches`, {
+        linked_event_id: eventIds[0] || null,
+        notes: language === "es" 
+          ? `Creado desde SR para: ${suggestedProduction.events?.map(e => e.name).join(", ")}`
+          : `Created from SR for: ${suggestedProduction.events?.map(e => e.name).join(", ")}`,
+        lines: suggestedProduction.suggested_lines.map(line => ({
+          recipe_id: line.recipe_id,
+          target_output_qty: Math.ceil(line.qty_needed),
+          output_unit: line.yield_unit
+        }))
+      }, { withCredentials: true });
+      
+      toast.success(language === "es" ? "¡Lote de producción creado!" : "Production batch created!");
+      setProductionDialogOpen(false);
+      setSuggestedProduction(null);
+      
+      // Navigate to Production page
+      navigate("/food-ops/production");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error creating batch");
+    }
+    setCreatingBatch(false);
+  };
+
   // Mark events as procurement complete
   const handleMarkComplete = async () => {
     if (!purchaseData?.events?.length) return;
