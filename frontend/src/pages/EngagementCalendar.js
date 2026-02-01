@@ -72,14 +72,51 @@ export default function EngagementCalendar({ embedded = false }) {
     return matchesStatus && matchesType;
   });
 
-  // Get events for a specific date
+  // Get events for a specific date (including multi-day events)
   const getEventsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     return filteredEvents.filter(event => {
       if (!event.event_date) return false;
-      const eventDate = event.event_date.split('T')[0];
-      return eventDate === dateStr;
+      const eventStartDate = event.event_date.split('T')[0];
+      const eventEndDate = event.end_date ? event.end_date.split('T')[0] : eventStartDate;
+      
+      // Check if the date falls within the event range
+      return dateStr >= eventStartDate && dateStr <= eventEndDate;
+    }).sort((a, b) => {
+      // Sort by start_time if available
+      if (a.start_time && b.start_time) {
+        return a.start_time.localeCompare(b.start_time);
+      }
+      if (a.start_time) return -1;
+      if (b.start_time) return 1;
+      return 0;
     });
+  };
+
+  // Check if event is multi-day
+  const isMultiDayEvent = (event) => {
+    if (!event.event_date || !event.end_date) return false;
+    const startDate = event.event_date.split('T')[0];
+    const endDate = event.end_date.split('T')[0];
+    return startDate !== endDate;
+  };
+
+  // Get event position in multi-day span (start, middle, end)
+  const getMultiDayPosition = (event, date) => {
+    if (!isMultiDayEvent(event)) return null;
+    const dateStr = date.toISOString().split('T')[0];
+    const startDate = event.event_date.split('T')[0];
+    const endDate = event.end_date.split('T')[0];
+    
+    if (dateStr === startDate) return "start";
+    if (dateStr === endDate) return "end";
+    return "middle";
+  };
+
+  // Format time based on user preference (will use 24h as default)
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "";
+    return timeStr;
   };
 
   // Navigation
