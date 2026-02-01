@@ -1231,6 +1231,28 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               </p>
             </CardHeader>
             <CardContent>
+              {/* Existing Invoices */}
+              {existingInvoices.length > 0 && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h4 className="font-medium text-amber-800 mb-2 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    {language === "es" ? "Facturas Existentes" : "Existing Invoices"} ({existingInvoices.length})
+                  </h4>
+                  <div className="space-y-1">
+                    {existingInvoices.map(inv => (
+                      <div key={inv.invoice_id} className="flex items-center justify-between text-sm">
+                        <span>{inv.invoice_number} - {inv.invoice_type === "deposit" ? (language === "es" ? "Depósito" : "Deposit") : inv.invoice_type === "final" ? (language === "es" ? "Final" : "Final") : (language === "es" ? "Total" : "Full")}</span>
+                        <span className="font-mono">${(inv.total || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 border-t border-amber-300 flex justify-between font-medium">
+                      <span>{language === "es" ? "Total Facturado" : "Total Invoiced"}</span>
+                      <span className="font-mono">${getTotalInvoiced().toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Proposal/Contract */}
                 <Button
@@ -1260,49 +1282,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 <Button
                   variant="outline"
                   className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary hover:bg-green-50 border-green-200"
-                  onClick={handleCreateInvoice}
-                  disabled={!proposal?.items?.length || !event?.client_id}
+                  onClick={handleOpenInvoiceDialog}
+                  disabled={!proposal?.items?.length || !event?.client_id || !getInvoiceEligibility().canInvoice}
                   data-testid="create-invoice-btn"
                 >
                   <DollarSign className="w-8 h-8 text-green-600" />
                   <span className="font-medium text-green-700">{language === "es" ? "Crear Factura" : "Create Invoice"}</span>
                   <span className="text-xs text-green-600">{language === "es" ? "Business Clarity" : "Business Clarity"}</span>
-                </Button>
-
-                {/* Kitchen Sheet */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
-                  onClick={() => { setPreviewDocType("kitchen_sheet"); setPreviewOpen(true); }}
-                  disabled={!proposal?.items?.length}
-                >
-                  <Utensils className="w-8 h-8 text-orange-500" />
-                  <span className="font-medium">{language === "es" ? "Hoja de Cocina" : "Kitchen Sheet"}</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Sin precios" : "No prices"}</span>
-                </Button>
-
-                {/* Mise en Place */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
-                  onClick={() => { setPreviewDocType("mise_en_place"); setPreviewOpen(true); }}
-                  disabled={!proposal?.items?.length}
-                >
-                  <Utensils className="w-8 h-8 text-amber-500" />
-                  <span className="font-medium">Mise en Place</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Sin precios" : "No prices"}</span>
-                </Button>
-
-                {/* Packing List */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
-                  onClick={() => { setPreviewDocType("packing_list"); setPreviewOpen(true); }}
-                  disabled={!proposal?.items?.length}
-                >
-                  <Package className="w-8 h-8 text-purple-500" />
-                  <span className="font-medium">{language === "es" ? "Lista de Montaje" : "Packing List"}</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Sin precios" : "No prices"}</span>
                 </Button>
 
                 {/* Menu */}
@@ -1317,6 +1303,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <span className="text-xs text-muted-foreground">{language === "es" ? "Solo nombres" : "Names only"}</span>
                 </Button>
               </div>
+
+              {/* Note about operational documents */}
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                {language === "es" 
+                  ? "Documentos operativos (Hoja de Cocina, Lista de Montaje) disponibles en Event Orchestration para eventos confirmados"
+                  : "Operational documents (Kitchen Sheet, Packing List) available in Event Orchestration for confirmed events"}
+              </p>
               
               {!proposal?.items?.length && (
                 <p className="text-sm text-muted-foreground text-center mt-4">
