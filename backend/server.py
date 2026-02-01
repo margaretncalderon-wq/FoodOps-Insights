@@ -210,6 +210,12 @@ class Client(BaseModel):
     payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
     created_at: datetime
     updated_at: datetime
+    # CRM Enhancement fields (additive)
+    owner_id: Optional[str] = None
+    next_follow_up_date: Optional[str] = None
+    follow_up_type: Optional[str] = None  # Call, Email, Meeting, CheckIn
+    last_event_date: Optional[str] = None
+    lifetime_value: float = 0.0
 
 # Lead Form Model (Configurable forms)
 class LeadFormFieldConfig(BaseModel):
