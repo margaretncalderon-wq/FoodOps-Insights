@@ -429,34 +429,36 @@ export default function EngagementCalendar({ embedded = false }) {
         </div>
       </div>
 
-      {/* Status Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-sm">
-        <span className="font-medium">{isEs ? "Estado:" : "Status:"}</span>
-        {Object.entries(STATUS_COLORS).filter(([key]) => key !== "default").map(([status, colors]) => (
-          <div key={status} className="flex items-center gap-1">
-            <div className={`w-3 h-3 rounded ${colors.dot}`} />
-            <span>{status}</span>
-          </div>
-        ))}
+      {/* Status Legend - Compact */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {ENGAGEMENT_STAGES.slice(0, -1).map(status => {
+          const colors = STATUS_COLORS[status];
+          return (
+            <div key={status} className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
+              <span>{status}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Calendar Grid */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           {/* Month View */}
           {viewMode === "month" && (
             <div>
               {/* Day Headers */}
-              <div className="grid grid-cols-7 mb-2">
+              <div className="grid grid-cols-7 mb-1">
                 {dayNames.map(day => (
-                  <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+                  <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1">
                     {day}
                   </div>
                 ))}
               </div>
 
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-1">
+              {/* Calendar Days - Compact */}
+              <div className="grid grid-cols-7 gap-px bg-muted/50 rounded-lg overflow-hidden">
                 {generateMonthDays().map((dayInfo, index) => {
                   const dayEvents = getEventsForDate(dayInfo.date);
                   const isCurrentDay = isToday(dayInfo.date);
@@ -464,17 +466,17 @@ export default function EngagementCalendar({ embedded = false }) {
                   return (
                     <div
                       key={index}
-                      className={`min-h-[100px] p-1 border rounded-lg transition-colors ${
-                        dayInfo.isCurrentMonth ? "bg-background" : "bg-muted/30"
-                      } ${isCurrentDay ? "ring-2 ring-primary" : ""}`}
+                      className={`min-h-[72px] p-1 transition-colors ${
+                        dayInfo.isCurrentMonth ? "bg-background" : "bg-muted/20"
+                      } ${isCurrentDay ? "ring-1 ring-inset ring-primary" : ""}`}
                     >
-                      <div className={`text-sm font-medium mb-1 ${
-                        isCurrentDay ? "text-primary" : dayInfo.isCurrentMonth ? "" : "text-muted-foreground"
+                      <div className={`text-xs font-medium mb-0.5 ${
+                        isCurrentDay ? "text-primary font-bold" : dayInfo.isCurrentMonth ? "text-foreground" : "text-muted-foreground"
                       }`}>
                         {dayInfo.date.getDate()}
                       </div>
-                      <div className="space-y-1">
-                        {dayEvents.slice(0, 3).map(event => {
+                      <div className="space-y-0.5">
+                        {dayEvents.slice(0, 2).map(event => {
                           const colors = getStatusColor(event.stage);
                           const multiDayPos = getMultiDayPosition(event, dayInfo.date);
                           const isMultiDay = isMultiDayEvent(event);
@@ -483,27 +485,22 @@ export default function EngagementCalendar({ embedded = false }) {
                             <div
                               key={`${event.event_id}-${dayInfo.date.toISOString()}`}
                               onClick={() => openEventDetail(event)}
-                              className={`text-xs p-1 cursor-pointer truncate ${colors.bg} ${colors.text} border hover:opacity-80 transition-opacity ${
+                              className={`text-xs px-1 py-0.5 cursor-pointer truncate ${colors.bg} ${colors.text} hover:opacity-80 transition-opacity ${
                                 isMultiDay 
                                   ? multiDayPos === "start" 
-                                    ? "rounded-l border-r-0" 
+                                    ? "rounded-l" 
                                     : multiDayPos === "end" 
-                                      ? "rounded-r border-l-0" 
-                                      : "rounded-none border-l-0 border-r-0"
+                                      ? "rounded-r" 
+                                      : ""
                                   : "rounded"
-                              } ${colors.border}`}
+                              }`}
                               title={`${event.name} - ${normalizeStage(event.stage)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
                             >
                               {multiDayPos !== "middle" && multiDayPos !== "end" && (
-                                <>
-                                  {event.start_time && (
-                                    <span className="font-semibold mr-1">{formatTime(event.start_time)}</span>
-                                  )}
-                                  {event.name}
-                                </>
+                                <span className="truncate">{event.name}</span>
                               )}
                               {(multiDayPos === "middle" || multiDayPos === "end") && (
-                                <span className="opacity-60">↔ {event.name}</span>
+                                <span className="opacity-60 truncate">↔</span>
                               )}
                             </div>
                           );
