@@ -511,6 +511,10 @@ Auto-generated from Event Order:
   - Fields: invoice_number, invoice_date, invoice_url
 
 ## Upcoming Tasks
+- [ ] Integrations P1: Gmail, WhatsApp Business, Google Calendar
+
+## Recent Fixes (Feb 1, 2026)
+- [x] **Pipeline View Legacy Stage Bug**: Fixed events with legacy stages (Won, Lead, Proposal) not appearing in CRM pipeline. Removed duplicate `LEGACY_STAGE_MAP` and `normalize_stage()` definitions in server.py that were overriding the correct mapping at the top of the file.
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
