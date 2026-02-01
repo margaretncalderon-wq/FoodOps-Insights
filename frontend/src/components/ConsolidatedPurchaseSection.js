@@ -117,17 +117,16 @@ export default function ConsolidatedPurchaseSection() {
         return;
       }
       
-      await axios.post(`${API}/api/events/create-po-from-purchase-list`, null, {
-        withCredentials: true,
-        params: { supplier_id: supplierId === "no_supplier" ? "" : supplierId },
-        data: itemsToOrder.map(i => ({
+      await axios.post(`${API}/api/events/create-po-from-purchase-list`, {
+        supplier_id: supplierId === "no_supplier" ? null : supplierId,
+        items: itemsToOrder.map(i => ({
           inventory_item_id: i.inventory_item_id,
           item_name: i.item_name,
-          to_purchase: i.to_purchase,
+          to_purchase: parseFloat(i.to_purchase) || 0,
           unit: i.unit,
-          unit_cost: i.unit_cost
+          unit_cost: parseFloat(i.unit_cost) || 0
         }))
-      });
+      }, { withCredentials: true });
       
       toast.success(t("poCreated"));
     } catch (error) {
