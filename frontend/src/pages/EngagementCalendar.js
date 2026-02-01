@@ -50,6 +50,7 @@ export default function EngagementCalendar({ embedded = false }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [timeFormat, setTimeFormat] = useState("24h"); // 24h or 12h
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -61,9 +62,21 @@ export default function EngagementCalendar({ embedded = false }) {
     setLoading(false);
   }, []);
 
+  const fetchCompanySettings = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/settings/company`, { withCredentials: true });
+      if (res.data.time_format) {
+        setTimeFormat(res.data.time_format);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+    fetchCompanySettings();
+  }, [fetchEvents, fetchCompanySettings]);
 
   // Filter events
   const filteredEvents = events.filter(event => {
