@@ -121,7 +121,8 @@ export default function LeadOutreachSection() {
       const payload = {
         ...form,
         lead_type: "outreach",
-        source: "Outreach"
+        source: "Outreach",
+        owner_id: form.owner_id === "unassigned" ? null : form.owner_id
       };
       
       const res = await axios.post(`${API}/api/crm/outreach`, payload, { withCredentials: true });
