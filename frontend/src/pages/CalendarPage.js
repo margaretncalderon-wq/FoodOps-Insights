@@ -20,7 +20,7 @@ import { es, enUS } from "date-fns/locale";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export default function CalendarPage() {
+export default function CalendarPage({ embedded = false }) {
   const { t, language } = useLanguage();
   const [events, setEvents] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date());
