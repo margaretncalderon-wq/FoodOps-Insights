@@ -9010,6 +9010,163 @@ async def delete_production_batch(batch_id: str, user: User = Depends(get_curren
     await db.production_batches.delete_one({"batch_id": batch_id})
     return {"message": "Batch deleted", "batch_id": batch_id}
 
+@production_router.post("/mise-en-place")
+async def generate_mise_en_place(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Generate Mise en Place checklist from active production batches.
+    
+    Mise en Place includes:
+    - Ingredients to prepare (cut, weigh, portion, marinate)
+    - Production base (sauces, broths, dressings)
+    - Portioning
+    - Partial production items
+    
+    Categories:
+    1. Ingredientes Preparados - vegetables, proteins, herbs
+    2. Producción Base - sauces, broths, dressings, creams
+    3. Porcionado - proteins per serving, measured garnishes
+    4. Producción Parcial - doughs, fillings, 70-80% preparations
+    """
+    batch_ids = data.get("batch_ids", [])
+    
+    if not batch_ids:
+        raise HTTPException(status_code=400, detail="No batch IDs provided")
+    
+    # Get all specified batches
+    batches = await db.production_batches.find(
+        {"batch_id": {"$in": batch_ids}, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    if not batches:
+        raise HTTPException(status_code=404, detail="No batches found")
+    
+    # Group by event
+    events_data = {}
+    
+    for batch in batches:
+        event_id = batch.get("linked_event_id") or "no_event"
+        
+        if event_id not in events_data:
+            # Get event details if linked
+            event = None
+            if event_id != "no_event":
+                event = await db.events.find_one(
+                    {"event_id": event_id, "company_id": user.company_id},
+                    {"_id": 0, "event_id": 1, "name": 1, "event_date": 1, "guest_count": 1, "num_guests": 1}
+                )
+            
+            events_data[event_id] = {
+                "event_id": event_id,
+                "event_name": event.get("name", "Sin Evento") if event else "Producción General",
+                "event_date": event.get("event_date") if event else None,
+                "guest_count": event.get("guest_count") or event.get("num_guests", 0) if event else 0,
+                "items": []
+            }
+        
+        # Process each line in the batch
+        for line in batch.get("lines", []):
+            recipe_id = line.get("recipe_id")
+            recipe_name = line.get("recipe_name", "")
+            target_qty = line.get("target_output_qty", 0)
+            output_unit = line.get("output_unit", "batch")
+            
+            # Get recipe details with BOM
+            recipe = await db.recipes.find_one(
+                {"recipe_id": recipe_id, "company_id": user.company_id},
+                {"_id": 0}
+            )
+            
+            if not recipe:
+                continue
+            
+            # Get all ingredients from recipe BOM
+            for ingredient in recipe.get("ingredients", []):
+                # Scale quantity based on target output
+                portions_per_yield = recipe.get("portions_per_yield", 1) or 1
+                scale = target_qty / portions_per_yield if portions_per_yield > 0 else 1
+                
+                item_name = ingredient.get("name", "")
+                item_qty = (ingredient.get("quantity", 0) or 0) * scale
+                item_unit = ingredient.get("unit", "")
+                prep_method = ingredient.get("prep_method", "")
+                
+                # Categorize based on item type or prep method
+                category = categorize_mise_en_place_item(item_name, prep_method, ingredient)
+                
+                events_data[event_id]["items"].append({
+                    "name": item_name,
+                    "quantity": round(item_qty, 2),
+                    "unit": item_unit,
+                    "recipe_name": recipe_name,
+                    "prep_method": prep_method,
+                    "category": category,
+                    "notes": ingredient.get("notes", "")
+                })
+    
+    # Organize items by category for each event
+    result_events = []
+    total_items = 0
+    total_recipes = set()
+    
+    for event_id, evt_data in events_data.items():
+        # Group items by category
+        categories_map = {}
+        for item in evt_data["items"]:
+            cat = item["category"]
+            if cat not in categories_map:
+                categories_map[cat] = []
+            categories_map[cat].append(item)
+            total_items += 1
+            if item.get("recipe_name"):
+                total_recipes.add(item["recipe_name"])
+        
+        # Convert to list format
+        categories_list = [
+            {"name": cat_name, "items": items}
+            for cat_name, items in categories_map.items()
+        ]
+        
+        result_events.append({
+            "event_id": evt_data["event_id"],
+            "event_name": evt_data["event_name"],
+            "event_date": evt_data["event_date"],
+            "guest_count": evt_data["guest_count"],
+            "categories": categories_list
+        })
+    
+    return {
+        "events": result_events,
+        "total_items": total_items,
+        "total_recipes": len(total_recipes),
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+def categorize_mise_en_place_item(name: str, prep_method: str, ingredient: dict) -> str:
+    """Categorize an item for Mise en Place based on its characteristics"""
+    name_lower = name.lower()
+    prep_lower = (prep_method or "").lower()
+    
+    # Producción Base - sauces, broths, dressings
+    base_keywords = ["salsa", "sauce", "caldo", "broth", "aderezo", "dressing", "crema", "cream", "marinado", "marinade"]
+    if any(kw in name_lower for kw in base_keywords):
+        return "🍲 Producción Base"
+    
+    # Porcionado - proteins, measured garnishes
+    if "porcion" in prep_lower or "portion" in prep_lower or "racion" in prep_lower:
+        return "⚖️ Porcionado"
+    
+    # Producción Parcial - doughs, fillings
+    partial_keywords = ["masa", "dough", "relleno", "filling", "mezcla", "mix", "base"]
+    if any(kw in name_lower for kw in partial_keywords):
+        return "🥣 Producción Parcial"
+    
+    # Ingredientes Preparados - vegetables, proteins, herbs (default)
+    return "🥬 Ingredientes Preparados"
+
 @production_router.get("/recipes-for-production")
 async def get_recipes_for_production(
     only_stock_producing: bool = False,
