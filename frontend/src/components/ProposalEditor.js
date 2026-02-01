@@ -134,8 +134,18 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchFinancials(),
       fetchClient(),
       fetchGeneratedDocs(),
+      fetchEventInvoices(),
     ]).finally(() => setLoading(false));
   }, [eventId]);
+
+  const fetchEventInvoices = async () => {
+    try {
+      const response = await axios.get(`${API}/business-clarity/invoices?event_id=${eventId}`, { withCredentials: true });
+      setExistingInvoices(response.data || []);
+    } catch (error) {
+      console.error("Failed to fetch invoices:", error);
+    }
+  };
 
   const fetchClient = async () => {
     if (event?.client_id) {
