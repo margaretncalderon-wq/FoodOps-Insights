@@ -2433,6 +2433,71 @@ Mantel Blanco, , 10, 3`}
                             </div>
                           </div>
                           
+                          {/* Section Titles (Only for Proposal template) */}
+                          {template.template_type === "Proposal" && (
+                            <div className="border-t pt-4">
+                              <Label className="text-xs mb-3 block font-medium">
+                                {language === "es" ? "Títulos de Secciones en Documentos" : "Document Section Titles"}
+                              </Label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Sección Menú (EN)" : "Menu Section (EN)"}</Label>
+                                  <Input 
+                                    className="text-sm"
+                                    placeholder="Custom Menu"
+                                    value={template.food_section_title_en || "Custom Menu"}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, food_section_title_en: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Sección Menú (ES)" : "Menu Section (ES)"}</Label>
+                                  <Input 
+                                    className="text-sm"
+                                    placeholder="Menú Personalizado"
+                                    value={template.food_section_title_es || "Menú Personalizado"}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, food_section_title_es: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Sección Servicios (EN)" : "Services Section (EN)"}</Label>
+                                  <Input 
+                                    className="text-sm"
+                                    placeholder="Services"
+                                    value={template.service_section_title_en || "Services"}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, service_section_title_en: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Sección Servicios (ES)" : "Services Section (ES)"}</Label>
+                                  <Input 
+                                    className="text-sm"
+                                    placeholder="Servicios"
+                                    value={template.service_section_title_es || "Servicios"}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, service_section_title_es: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Sección Alquileres (EN)" : "Rentals Section (EN)"}</Label>
+                                  <Input 
+                                    className="text-sm"
+                                    placeholder="Rentals & Equipment"
+                                    value={template.rental_section_title_en || "Rentals & Equipment"}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, rental_section_title_en: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Sección Alquileres (ES)" : "Rentals Section (ES)"}</Label>
+                                  <Input 
+                                    className="text-sm"
+                                    placeholder="Alquileres y Equipos"
+                                    value={template.rental_section_title_es || "Alquileres y Equipos"}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, rental_section_title_es: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Custom Fields */}
                           {featureFlags?.is_custom_fields_enabled && (
                             <div className="border-t pt-4">
