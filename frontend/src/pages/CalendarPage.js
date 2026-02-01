@@ -305,6 +305,15 @@ export default function CalendarPage({ embedded = false }) {
           </CardContent>
         </Card>
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <Layout>
+      {content}
     </Layout>
   );
 }
