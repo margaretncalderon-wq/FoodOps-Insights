@@ -577,10 +577,130 @@ export default function ConsolidatedPurchaseSection() {
                   ))}
                 </div>
               </div>
+
+              {/* Mark Complete Button */}
+              <div className="mt-4 pt-4 border-t">
+                <Button 
+                  onClick={handleMarkComplete}
+                  disabled={markingComplete}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  {markingComplete ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {language === "es" ? "Procesando..." : "Processing..."}
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="w-4 h-4 mr-2" />
+                      {language === "es" ? "Marcar Compras Completadas" : "Mark Procurement Complete"}
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  {language === "es" 
+                    ? "Esto moverá los eventos al tab 'Procesados' para evitar órdenes duplicadas"
+                    : "This will move events to 'Processed' tab to avoid duplicate orders"}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
       )}
+      </TabsContent>
+
+      {/* PROCESSED TAB */}
+      <TabsContent value="processed" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              {language === "es" ? "Eventos con Compras Completadas" : "Events with Completed Procurement"}
+            </CardTitle>
+            <CardDescription>
+              {language === "es" 
+                ? "Eventos que ya tienen POs y requisiciones de inventario procesadas"
+                : "Events that already have POs and inventory requisitions processed"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {processedEvents.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Archive className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{language === "es" ? "No hay eventos procesados aún" : "No processed events yet"}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {processedEvents.map(event => (
+                  <div 
+                    key={event.event_id}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-green-50/50"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <p className="font-medium">{event.name}</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {event.guest_count || 0} {language === "es" ? "personas" : "guests"}
+                        </span>
+                        {event.procurement_completed_at && (
+                          <span className="text-xs text-green-600">
+                            {language === "es" ? "Completado:" : "Completed:"} {new Date(event.procurement_completed_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Procurement Summary */}
+                      {event.procurement_history && (
+                        <div className="flex gap-4 mt-2 text-xs">
+                          {event.procurement_history.stock_requisition?.length > 0 && (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
+                              SR: {event.procurement_history.stock_requisition.length} items
+                            </Badge>
+                          )}
+                          {event.procurement_history.purchase_list?.length > 0 && (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700">
+                              PL: {event.procurement_history.purchase_list.length} items • ${event.procurement_history.total_cost?.toFixed(0)}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setViewingHistory(event)}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        {language === "es" ? "Ver" : "View"}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleReopenEvent(event.event_id)}
+                        className="text-amber-600 hover:text-amber-700"
+                      >
+                        <ArchiveRestore className="w-4 h-4 mr-1" />
+                        {language === "es" ? "Reabrir" : "Reopen"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+      </Tabs>
 
       {/* Process SR Confirmation Dialog */}
       <Dialog open={srDialogOpen} onOpenChange={setSrDialogOpen}>
