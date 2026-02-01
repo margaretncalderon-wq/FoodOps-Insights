@@ -505,15 +505,35 @@ export default function EngagementCalendar({ embedded = false }) {
                       <div className="space-y-2">
                         {dayEvents.map(event => {
                           const colors = getStatusColor(event.stage);
+                          const isMultiDay = isMultiDayEvent(event);
+                          const multiDayPos = getMultiDayPosition(event, date);
+                          
                           return (
                             <div
-                              key={event.event_id}
+                              key={`${event.event_id}-${date.toISOString()}`}
                               onClick={() => openEventDetail(event)}
                               className={`p-2 rounded cursor-pointer ${colors.bg} ${colors.border} ${colors.text} border hover:opacity-80 transition-opacity`}
                             >
-                              <div className="font-medium text-sm truncate">{event.name}</div>
+                              {event.start_time && (
+                                <div className="text-xs font-semibold mb-1 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formatTime(event.start_time)}
+                                  {event.end_time && ` - ${formatTime(event.end_time)}`}
+                                </div>
+                              )}
+                              <div className="font-medium text-sm truncate">
+                                {isMultiDay && multiDayPos !== "start" && <span className="opacity-60">↔ </span>}
+                                {event.name}
+                              </div>
                               <div className="text-xs opacity-75">{event.client_name}</div>
-                              <Badge className={`mt-1 text-xs ${colors.bg} ${colors.text}`}>{event.stage}</Badge>
+                              <div className="flex items-center gap-1 mt-1">
+                                <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{event.stage}</Badge>
+                                {isMultiDay && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {isEs ? "Multi-día" : "Multi-day"}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
