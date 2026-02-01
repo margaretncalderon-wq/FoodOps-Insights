@@ -253,7 +253,8 @@ export default function PurchaseOrdersSection() {
           params: {
             create_expense: receiveForm.create_expense,
             invoice_number: receiveForm.invoice_number || null,
-            invoice_date: receiveForm.invoice_date || null
+            invoice_date: receiveForm.invoice_date || null,
+            invoice_url: receiveForm.invoice_url || null
           }
         }
       );
