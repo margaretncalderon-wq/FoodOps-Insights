@@ -556,6 +556,67 @@ export default function ConsolidatedPurchaseSection() {
           </Card>
         </div>
       )}
+
+      {/* Process SR Confirmation Dialog */}
+      <Dialog open={srDialogOpen} onOpenChange={setSrDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackageMinus className="w-5 h-5 text-emerald-600" />
+              {language === "es" ? "Procesar Stock Requisition" : "Process Stock Requisition"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "es" 
+                ? "Esta acción deducirá los siguientes items del inventario. Esta operación no se puede deshacer."
+                : "This action will deduct the following items from inventory. This operation cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-64 overflow-y-auto border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === "es" ? "Item" : "Item"}</TableHead>
+                  <TableHead className="text-right">{language === "es" ? "Cantidad" : "Quantity"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {purchaseData?.stock_requisition?.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{item.item_name}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      -{(item.in_stock || 0).toFixed(2)} {item.unit}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSrDialogOpen(false)} disabled={processingSR}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleProcessSR} 
+              disabled={processingSR}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {processingSR ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {language === "es" ? "Procesando..." : "Processing..."}
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  {language === "es" ? "Confirmar y Deducir" : "Confirm & Deduct"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
