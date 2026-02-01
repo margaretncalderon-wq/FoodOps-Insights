@@ -1014,6 +1014,8 @@ function PurchasesSection() {
   };
 
   const itemsBySupplier = purchaseData?.items_by_supplier || {};
+  const stockRequisition = purchaseData?.stock_requisition || purchaseData?.available || [];
+  const purchaseList = purchaseData?.purchase_list || purchaseData?.short || [];
 
   if (loading && !selectedEvent) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
@@ -1036,7 +1038,80 @@ function PurchasesSection() {
         </CardContent>
       </Card>
 
-      {/* Purchase List */}
+      {/* Stock Analysis */}
+      {selectedEvent && !loading && (
+        <div className="grid md:grid-cols-2 gap-4">
+          {/* Stock Requisition (SR) - Items in Stock */}
+          <Card className="border-emerald-200 bg-emerald-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                <span>{language === "es" ? "Requisición de Inventario (SR)" : "Stock Requisition (SR)"}</span>
+                <Badge variant="secondary" className="ml-auto">{stockRequisition.length}</Badge>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {language === "es" ? "Items disponibles en inventario actual" : "Items available from current inventory"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {stockRequisition.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {stockRequisition.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border">
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <div className="text-right">
+                        <span className="text-sm font-mono">{item.quantity_needed?.toFixed(1)} {item.unit}</span>
+                        <span className="text-xs text-emerald-600 ml-2">✓ En stock</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {language === "es" ? "No hay items en stock" : "No items in stock"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Purchase List (PL) - Items to Buy */}
+          <Card className="border-amber-200 bg-amber-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-amber-600" />
+                <span>{language === "es" ? "Lista de Compras (PL)" : "Purchase List (PL)"}</span>
+                <Badge variant="secondary" className="ml-auto">{purchaseList.length}</Badge>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {language === "es" ? "Items que necesitan ser comprados" : "Items that need to be purchased"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {purchaseList.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {purchaseList.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border">
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <div className="text-right">
+                        <span className="text-sm font-mono text-amber-700">{item.shortage?.toFixed(1)} {item.unit}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (${((item.shortage || 0) * (item.cost_per_unit || 0)).toFixed(2)})
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-emerald-600 text-center py-4">
+                  {language === "es" ? "✓ Todo cubierto con inventario" : "✓ All covered by inventory"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Detailed Purchase List by Supplier */}
       {selectedEvent && (
         <>
           {loading ? (
