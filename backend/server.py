@@ -1355,6 +1355,18 @@ class ConsolidatedPurchaseList(BaseModel):
     total_cost: float
     generated_at: datetime
 
+class CreatePOFromPurchaseListItem(BaseModel):
+    inventory_item_id: Optional[str] = None
+    item_name: str
+    to_purchase: float
+    unit: str = "unit"
+    unit_cost: float = 0
+
+class CreatePOFromPurchaseListRequest(BaseModel):
+    supplier_id: Optional[str] = None
+    items: List[CreatePOFromPurchaseListItem]
+    needed_by_date: Optional[datetime] = None
+
 # ============== EVENT EXTENSION MODELS ==============
 
 class EventExtendedUpdate(BaseModel):
