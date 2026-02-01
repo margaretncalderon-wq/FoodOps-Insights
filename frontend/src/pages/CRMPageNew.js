@@ -115,7 +115,7 @@ function CommsLogView() {
   );
 }
 
-export default function CRMPage() {
+export default function CRMPage({ embedded = false }) {
   const { language } = useLanguage();
   const isEs = language === "es";
   const [stats, setStats] = useState({});
@@ -131,90 +131,102 @@ export default function CRMPage() {
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
+  // Determine base path based on embedded mode
+  const basePath = embedded ? "/client-engagement/crm" : "/crm";
+
   const sections = [
     { 
-      path: "/crm/outreach", 
+      path: `${basePath}/outreach`, 
       label: "Lead Outreach", 
       icon: UserPlus,
       badge: stats.outreach_leads
     },
     { 
-      path: "/crm/inbound", 
+      path: `${basePath}/inbound`, 
       label: isEs ? "Leads Inbound" : "Inbound Leads", 
       icon: Inbox,
       badge: stats.inbound_leads
     },
     { 
-      path: "/crm/follow-ups", 
+      path: `${basePath}/follow-ups`, 
       label: isEs ? "Seguimientos" : "Follow-ups", 
       icon: Clock,
       badge: stats.follow_ups_due,
       badgeColor: stats.follow_ups_due > 0 ? "bg-red-500" : ""
     },
     { 
-      path: "/crm/comms", 
+      path: `${basePath}/comms`, 
       label: isEs ? "Comunicaciones" : "Comms Log", 
       icon: MessageSquare
     },
     { 
-      path: "/crm/owners", 
+      path: `${basePath}/owners`, 
       label: isEs ? "Responsables" : "Owner Assignment", 
       icon: UserCircle
     },
     { 
-      path: "/crm/clients", 
+      path: `${basePath}/clients`, 
       label: isEs ? "Clientes" : "Clients", 
       icon: Users,
       badge: stats.active_clients
     }
   ];
 
+  const content = (
+    <div className={`flex ${embedded ? "h-[calc(100vh-16rem)]" : "h-[calc(100vh-4rem)]"}`}>
+      {/* Sidebar */}
+      <div className="w-64 border-r bg-muted/30 p-4 space-y-2">
+        <h2 className="font-bold text-lg mb-4 px-2">CRM</h2>
+        {sections.map((section) => (
+          <NavLink
+            key={section.path}
+            to={section.path}
+            className={({ isActive }) =>
+              `flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                isActive 
+                  ? "bg-primary text-primary-foreground" 
+                  : "hover:bg-muted"
+              }`
+            }
+          >
+            <div className="flex items-center gap-2">
+              <section.icon className="w-4 h-4" />
+              <span>{section.label}</span>
+            </div>
+            {section.badge !== undefined && section.badge > 0 && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${section.badgeColor || "bg-muted-foreground/20"}`}>
+                {section.badge}
+              </span>
+            )}
+          </NavLink>
+        ))}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-6">
+        <Suspense fallback={<div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>}>
+          <Routes>
+            <Route path="/" element={<Navigate to={`${basePath}/outreach`} replace />} />
+            <Route path="outreach" element={<LeadOutreachSection />} />
+            <Route path="inbound" element={<LeadInboundSection />} />
+            <Route path="follow-ups" element={<FollowUpsSection />} />
+            <Route path="comms" element={<CommsLogView />} />
+            <Route path="owners" element={<OwnerAssignmentSection />} />
+            <Route path="clients" element={<ClientsSection />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </div>
+  );
+
+  // If embedded, don't wrap in Layout
+  if (embedded) {
+    return content;
+  }
+
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar */}
-        <div className="w-64 border-r bg-muted/30 p-4 space-y-2">
-          <h2 className="font-bold text-lg mb-4 px-2">CRM</h2>
-          {sections.map((section) => (
-            <NavLink
-              key={section.path}
-              to={section.path}
-              className={({ isActive }) =>
-                `flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "hover:bg-muted"
-                }`
-              }
-            >
-              <div className="flex items-center gap-2">
-                <section.icon className="w-4 h-4" />
-                <span>{section.label}</span>
-              </div>
-              {section.badge !== undefined && section.badge > 0 && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${section.badgeColor || "bg-muted-foreground/20"}`}>
-                  {section.badge}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto p-6">
-          <Suspense fallback={<div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/crm/outreach" replace />} />
-              <Route path="outreach" element={<LeadOutreachSection />} />
-              <Route path="inbound" element={<LeadInboundSection />} />
-              <Route path="follow-ups" element={<FollowUpsSection />} />
-              <Route path="comms" element={<CommsLogView />} />
-              <Route path="owners" element={<OwnerAssignmentSection />} />
-              <Route path="clients" element={<ClientsSection />} />
-            </Routes>
-          </Suspense>
-        </div>
-      </div>
+      {content}
     </Layout>
   );
 }
