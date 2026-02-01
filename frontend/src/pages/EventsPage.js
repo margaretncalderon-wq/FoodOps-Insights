@@ -815,7 +815,7 @@ export default function EventsPage({ embedded = false }) {
                             </div>
                           )}
                           <div className="mt-3 flex gap-1">
-                            {PIPELINE_STAGES.filter(s => s !== stage).slice(0, 3).map((targetStage) => (
+                            {ENGAGEMENT_STAGES.filter(s => s !== stage).slice(0, 3).map((targetStage) => (
                               <Button
                                 key={targetStage}
                                 variant="ghost"
