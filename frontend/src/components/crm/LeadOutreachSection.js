@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { 
   Plus, Search, Phone, Mail, Building2, RefreshCw, User, 
   MoreHorizontal, CheckCircle, Eye, Clock, CalendarPlus,
-  ArrowRight, UserCheck, Filter
+  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 
@@ -26,6 +26,11 @@ const OUTREACH_STATUSES = [
   { value: "Contacted", labelEn: "Contacted", labelEs: "Contactado", color: "bg-yellow-100 text-yellow-700" },
   { value: "NoResponse", labelEn: "No Response", labelEs: "Sin Respuesta", color: "bg-gray-100 text-gray-700" },
   { value: "Engaged", labelEn: "Engaged", labelEs: "Interesado", color: "bg-green-100 text-green-700" }
+];
+
+const CLIENT_TYPES = [
+  { value: "Individual", labelEn: "Direct", labelEs: "Directo" },
+  { value: "Company", labelEn: "Corporate", labelEs: "Corporativo" }
 ];
 
 export default function LeadOutreachSection() {
@@ -46,9 +51,14 @@ export default function LeadOutreachSection() {
     lead_name: "",
     email: "",
     phone: "",
+    whatsapp: "",
     company_name: "",
+    client_type: "Individual",
+    rnc: "",
+    address: "",
     message: "",
-    owner_id: ""
+    owner_id: "",
+    event_type: "corporate"
   });
   const [followUpForm, setFollowUpForm] = useState({
     next_follow_up_date: "",
@@ -67,7 +77,6 @@ export default function LeadOutreachSection() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      // Get unique owners from existing data
       const ownerIds = new Set();
       leads.forEach(l => l.owner_id && ownerIds.add(l.owner_id));
       setUsers(Array.from(ownerIds).map(id => ({ user_id: id, name: id.replace("user_", "User ") })));
@@ -79,22 +88,37 @@ export default function LeadOutreachSection() {
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => { fetchUsers(); }, [leads, fetchUsers]);
 
+  const resetForm = () => {
+    setForm({
+      lead_name: "",
+      email: "",
+      phone: "",
+      whatsapp: "",
+      company_name: "",
+      client_type: "Individual",
+      rnc: "",
+      address: "",
+      message: "",
+      owner_id: "",
+      event_type: "corporate"
+    });
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!form.lead_name || !form.email) {
+      toast.error(isEs ? "Nombre y email son requeridos" : "Name and email are required");
+      return;
+    }
     try {
       const payload = {
         ...form,
-        event_type: "other",
-        lead_type: "outreach"
+        lead_type: "outreach",
+        source: "Outreach"
       };
-      // Handle owner assignment during creation
-      if (form.owner_id) {
-        payload.owner_id = form.owner_id;
-      }
       
       const res = await axios.post(`${API}/api/crm/outreach`, payload, { withCredentials: true });
       
-      // If owner was assigned, update it
       if (form.owner_id && res.data.lead_id) {
         await axios.put(`${API}/api/crm/assign/lead/${res.data.lead_id}?owner_id=${form.owner_id}`, {}, { withCredentials: true });
       }
@@ -102,9 +126,9 @@ export default function LeadOutreachSection() {
       toast.success(isEs ? "Lead de outreach creado" : "Outreach lead created");
       fetchLeads();
       setDialogOpen(false);
-      setForm({ lead_name: "", email: "", phone: "", company_name: "", message: "", owner_id: "" });
+      resetForm();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Error");
+      toast.error(err.response?.data?.detail || "Error al crear lead");
     }
   };
 
@@ -133,7 +157,7 @@ export default function LeadOutreachSection() {
       if (createEvent && clientRes.data.event_id) {
         navigate(`/events/${clientRes.data.event_id}`);
       } else if (clientRes.data.client_id) {
-        navigate(`/clients/${clientRes.data.client_id}`);
+        navigate(`/crm/clients`);
       }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error converting lead");
@@ -179,7 +203,12 @@ export default function LeadOutreachSection() {
     setConvertOpen(true);
   };
 
-  // Filter leads
+  const getWhatsAppLink = (number) => {
+    if (!number) return null;
+    const cleaned = number.replace(/\D/g, '');
+    return `https://wa.me/${cleaned}`;
+  };
+
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -205,7 +234,7 @@ export default function LeadOutreachSection() {
             {isEs ? "Contactos proactivos iniciados por el equipo" : "Proactive contacts initiated by the team"}
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-outreach-btn">
           <Plus className="w-4 h-4 mr-2" />
           {isEs ? "Nuevo Outreach" : "New Outreach"}
         </Button>
@@ -270,19 +299,18 @@ export default function LeadOutreachSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>{isEs ? "Teléfono" : "Phone"}</TableHead>
+                <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
                 <TableHead>{isEs ? "Empresa" : "Company"}</TableHead>
                 <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
                 <TableHead>{isEs ? "Seguimiento" : "Follow-up"}</TableHead>
-                <TableHead>{isEs ? "Owner" : "Owner"}</TableHead>
+                <TableHead>Owner</TableHead>
                 <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay leads de outreach" : "No outreach leads"}
                   </TableCell>
                 </TableRow>
@@ -291,25 +319,33 @@ export default function LeadOutreachSection() {
                   <TableRow key={lead.lead_id} className="cursor-pointer hover:bg-muted/50">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-muted-foreground" />
+                        {lead.client_type === "Company" ? (
+                          <Building2 className="w-4 h-4 text-blue-600" />
+                        ) : (
+                          <User className="w-4 h-4 text-purple-600" />
+                        )}
                         {lead.lead_name}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {lead.email && (
-                        <a href={`mailto:${lead.email}`} className="flex items-center gap-1 text-blue-600 hover:underline text-sm">
-                          <Mail className="w-3 h-3" />
-                          {lead.email}
-                        </a>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {lead.phone && (
-                        <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-sm">
-                          <Phone className="w-3 h-3" />
-                          {lead.phone}
-                        </a>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {lead.whatsapp && (
+                          <a href={getWhatsAppLink(lead.whatsapp)} target="_blank" rel="noopener noreferrer" 
+                             className="text-green-600 hover:text-green-700" title="WhatsApp">
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                        )}
+                        {lead.email && (
+                          <a href={`mailto:${lead.email}`} className="text-blue-600 hover:text-blue-700" title="Email">
+                            <Mail className="w-4 h-4" />
+                          </a>
+                        )}
+                        {lead.phone && (
+                          <a href={`tel:${lead.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {lead.company_name && (
@@ -382,21 +418,48 @@ export default function LeadOutreachSection() {
         </CardContent>
       </Card>
 
-      {/* Create Dialog */}
+      {/* Create Dialog - Enhanced with Client-compatible fields */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEs ? "Nuevo Lead de Outreach" : "New Outreach Lead"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4">
-            <div>
-              <Label>{isEs ? "Nombre" : "Name"} *</Label>
-              <Input
-                value={form.lead_name}
-                onChange={(e) => setForm({ ...form, lead_name: e.target.value })}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>{isEs ? "Nombre" : "Name"} *</Label>
+                <Input
+                  value={form.lead_name}
+                  onChange={(e) => setForm({ ...form, lead_name: e.target.value })}
+                  required
+                  data-testid="outreach-name-input"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Tipo" : "Type"}</Label>
+                <Select value={form.client_type} onValueChange={(v) => setForm({ ...form, client_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_TYPES.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {isEs ? type.labelEs : type.labelEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>RNC</Label>
+                <Input
+                  value={form.rnc}
+                  onChange={(e) => setForm({ ...form, rnc: e.target.value })}
+                  placeholder="000-00000-0"
+                />
+              </div>
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Email *</Label>
@@ -405,6 +468,7 @@ export default function LeadOutreachSection() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   required
+                  data-testid="outreach-email-input"
                 />
               </div>
               <div>
@@ -415,6 +479,16 @@ export default function LeadOutreachSection() {
                 />
               </div>
             </div>
+
+            <div>
+              <Label>WhatsApp</Label>
+              <Input
+                value={form.whatsapp}
+                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                placeholder="+1 809 555 1234"
+              />
+            </div>
+
             <div>
               <Label>{isEs ? "Empresa" : "Company"}</Label>
               <Input
@@ -422,6 +496,15 @@ export default function LeadOutreachSection() {
                 onChange={(e) => setForm({ ...form, company_name: e.target.value })}
               />
             </div>
+
+            <div>
+              <Label>{isEs ? "Dirección" : "Address"}</Label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+            </div>
+
             <div>
               <Label>{isEs ? "Asignar a" : "Assign to"}</Label>
               <Select value={form.owner_id} onValueChange={(v) => setForm({ ...form, owner_id: v })}>
@@ -436,6 +519,7 @@ export default function LeadOutreachSection() {
                 </SelectContent>
               </Select>
             </div>
+
             <div>
               <Label>{isEs ? "Notas" : "Notes"}</Label>
               <Textarea
@@ -444,27 +528,63 @@ export default function LeadOutreachSection() {
                 rows={3}
               />
             </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 {isEs ? "Cancelar" : "Cancel"}
               </Button>
-              <Button type="submit">{isEs ? "Crear" : "Create"}</Button>
+              <Button type="submit" data-testid="create-outreach-submit-btn">{isEs ? "Crear" : "Create"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog - Enhanced */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
+              {selectedLead?.client_type === "Company" ? (
+                <Building2 className="w-5 h-5 text-blue-600" />
+              ) : (
+                <User className="w-5 h-5 text-purple-600" />
+              )}
               {selectedLead?.lead_name}
               {selectedLead && getStatusBadge(selectedLead.outreach_status || "New")}
             </DialogTitle>
           </DialogHeader>
           {selectedLead && (
             <div className="space-y-4">
+              {/* Quick Contact Links */}
+              <div className="flex flex-wrap gap-2">
+                {selectedLead.whatsapp && (
+                  <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      WhatsApp
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </Button>
+                  </a>
+                )}
+                {selectedLead.email && (
+                  <a href={`mailto:${selectedLead.email}`}>
+                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </Button>
+                  </a>
+                )}
+                {selectedLead.phone && (
+                  <a href={`tel:${selectedLead.phone}`}>
+                    <Button variant="outline" size="sm">
+                      <Phone className="w-4 h-4 mr-2" />
+                      {isEs ? "Llamar" : "Call"}
+                    </Button>
+                  </a>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>
@@ -473,6 +593,14 @@ export default function LeadOutreachSection() {
                 <div>
                   <p className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</p>
                   <p className="font-medium">{selectedLead.phone || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">WhatsApp</p>
+                  <p className="font-medium">{selectedLead.whatsapp || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">RNC</p>
+                  <p className="font-medium font-mono">{selectedLead.rnc || "-"}</p>
                 </div>
               </div>
 
@@ -483,6 +611,13 @@ export default function LeadOutreachSection() {
                     <Building2 className="w-4 h-4" />
                     {selectedLead.company_name}
                   </p>
+                </div>
+              )}
+
+              {selectedLead.address && (
+                <div>
+                  <p className="text-sm text-muted-foreground">{isEs ? "Dirección" : "Address"}</p>
+                  <p className="font-medium">{selectedLead.address}</p>
                 </div>
               )}
 
@@ -534,7 +669,7 @@ export default function LeadOutreachSection() {
                 <p className="text-sm text-muted-foreground mb-3">
                   {isEs ? "Creado" : "Created"}: {new Date(selectedLead.created_at).toLocaleString()}
                 </p>
-                <Button className="w-full" onClick={() => openConvert(selectedLead)}>
+                <Button className="w-full" onClick={() => openConvert(selectedLead)} data-testid="convert-outreach-btn">
                   <ArrowRight className="w-4 h-4 mr-2" />
                   {isEs ? "Convertir a Cliente" : "Convert to Client"}
                 </Button>
@@ -556,10 +691,25 @@ export default function LeadOutreachSection() {
                 ? `¿Cómo deseas convertir a "${selectedLead?.lead_name}"?`
                 : `How would you like to convert "${selectedLead?.lead_name}"?`}
             </p>
+            {selectedLead && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <p className="font-medium mb-2">{isEs ? "Datos a transferir:" : "Data to transfer:"}</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• {isEs ? "Nombre" : "Name"}: {selectedLead.lead_name}</li>
+                  <li>• Email: {selectedLead.email}</li>
+                  {selectedLead.phone && <li>• {isEs ? "Teléfono" : "Phone"}: {selectedLead.phone}</li>}
+                  {selectedLead.whatsapp && <li>• WhatsApp: {selectedLead.whatsapp}</li>}
+                  {selectedLead.rnc && <li>• RNC: {selectedLead.rnc}</li>}
+                  {selectedLead.company_name && <li>• {isEs ? "Empresa" : "Company"}: {selectedLead.company_name}</li>}
+                  {selectedLead.address && <li>• {isEs ? "Dirección" : "Address"}: {selectedLead.address}</li>}
+                </ul>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <Card 
                 className="cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleConvert(true)}
+                data-testid="convert-with-event"
               >
                 <CardContent className="pt-6 text-center">
                   <CalendarPlus className="w-12 h-12 mx-auto mb-4 text-primary" />
@@ -574,6 +724,7 @@ export default function LeadOutreachSection() {
               <Card 
                 className="cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleConvert(false)}
+                data-testid="convert-client-only"
               >
                 <CardContent className="pt-6 text-center">
                   <UserCheck className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
