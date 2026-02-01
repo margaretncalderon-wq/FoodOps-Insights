@@ -8151,7 +8151,117 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
     items_by_supplier = {}
     stock_requisition = []  # Items covered by inventory
     purchase_list = []       # Items that need purchasing
+    production_needs = []    # PREPARED items that need to be produced
     total_cost = 0
+    
+    # Track sub-recipe (BASE/COMPONENT) needs separately
+    sub_recipe_needs = {}  # {recipe_id: {recipe_name, recipe_type, qty_needed, in_stock, to_produce, unit, cost}}
+    
+    # Re-process events to calculate sub-recipe needs
+    for event_id in data.event_ids:
+        event = await db.events.find_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if not event:
+            continue
+        
+        guest_count = event.get("guest_count", event.get("num_guests", 0)) or 0
+        
+        proposal = await db.proposals.find_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if not proposal:
+            continue
+        
+        order_items = await db.order_items.find(
+            {"proposal_id": proposal.get("proposal_id"), "event_id": event_id},
+            {"_id": 0}
+        ).to_list(500)
+        
+        for item in order_items:
+            if item.get("item_type") != "Food":
+                continue
+            
+            recipe_id = item.get("reference_id")
+            if not recipe_id:
+                continue
+            
+            recipe = await db.recipes.find_one(
+                {"recipe_id": recipe_id, "company_id": user.company_id},
+                {"_id": 0}
+            )
+            if not recipe:
+                continue
+            
+            # Calculate yields needed for this dish
+            item_qty = item.get("quantity", 1)
+            portions_needed = guest_count * item_qty
+            portions_per_yield = recipe.get("portions_per_yield", 1) or 1
+            yields_needed = portions_needed / portions_per_yield
+            
+            if data.include_buffer:
+                yields_needed *= 1.1
+            
+            # Track sub-recipe needs (BASE/COMPONENT)
+            for sub in recipe.get("sub_recipes", []):
+                sub_recipe_id = sub.get("child_recipe_id") or sub.get("recipe_id")
+                if not sub_recipe_id:
+                    continue
+                
+                sub_recipe = await db.recipes.find_one(
+                    {"recipe_id": sub_recipe_id, "company_id": user.company_id},
+                    {"_id": 0}
+                )
+                if not sub_recipe:
+                    continue
+                
+                sub_type = sub_recipe.get("recipe_type", "component")
+                # Only track BASE and COMPONENT recipes for production
+                if sub_type not in ["base", "component"]:
+                    continue
+                
+                sub_qty = sub.get("quantity_used", sub.get("quantity", 1))
+                sub_yields_needed = sub_qty * yields_needed
+                
+                if sub_recipe_id in sub_recipe_needs:
+                    sub_recipe_needs[sub_recipe_id]["qty_needed"] += sub_yields_needed
+                    if recipe.get("name") not in sub_recipe_needs[sub_recipe_id]["dishes_using"]:
+                        sub_recipe_needs[sub_recipe_id]["dishes_using"].append(recipe.get("name"))
+                else:
+                    # Check PREPARED inventory for this recipe
+                    prepared_item = await db.ingredients.find_one(
+                        {"linked_recipe_id": sub_recipe_id, "company_id": user.company_id, "item_type": "PREPARED"},
+                        {"_id": 0}
+                    )
+                    in_stock = prepared_item.get("stock_quantity", 0) if prepared_item else 0
+                    
+                    sub_recipe_needs[sub_recipe_id] = {
+                        "recipe_id": sub_recipe_id,
+                        "recipe_name": sub_recipe.get("name"),
+                        "recipe_type": sub_type,
+                        "qty_needed": sub_yields_needed,
+                        "in_stock": in_stock,
+                        "to_produce": 0,
+                        "unit": sub_recipe.get("yield_unit", "batch"),
+                        "cost_per_yield": sub_recipe.get("cost_per_yield", 0),
+                        "dishes_using": [recipe.get("name")],
+                        "prepared_item_id": prepared_item.get("ingredient_id") if prepared_item else None
+                    }
+    
+    # Calculate production needs
+    for recipe_id, needs in sub_recipe_needs.items():
+        needs["qty_needed"] = round(needs["qty_needed"], 2)
+        to_produce = max(0, needs["qty_needed"] - needs["in_stock"])
+        needs["to_produce"] = round(to_produce, 2)
+        needs["total_cost"] = round(to_produce * needs["cost_per_yield"], 2)
+        
+        if to_produce > 0:
+            production_needs.append(needs)
+    
+    # Sort production needs by quantity
+    production_needs.sort(key=lambda x: x["qty_needed"], reverse=True)
     
     for item_id, item in all_ingredients.items():
         to_purchase = max(0, item["total_required"] - item["in_stock"])
@@ -8200,12 +8310,17 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
                 "recipes_used": item.get("recipes_used", [])
             })
     
+    # Calculate production total cost
+    production_total_cost = sum(p["total_cost"] for p in production_needs)
+    
     return {
         "events": events_info,
         "items_by_supplier": items_by_supplier,
         "stock_requisition": stock_requisition,  # Items from inventory (SR)
         "purchase_list": purchase_list,          # Items to buy (PL)
+        "production_needs": production_needs,     # BASE/COMPONENT to produce (PN)
         "total_cost": round(total_cost, 2),
+        "production_total_cost": round(production_total_cost, 2),
         "generated_at": now.isoformat()
     }
 
