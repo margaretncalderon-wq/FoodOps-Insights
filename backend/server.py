@@ -9004,6 +9004,10 @@ async def update_run_of_show(event_id: str, data: RunOfShowCreate, user: User = 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Check if event is locked
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify run of show.")
+    
     now = datetime.now(timezone.utc)
     ros_data = data.dict()
     ros_data["company_id"] = user.company_id
@@ -9023,6 +9027,10 @@ async def apply_run_of_show_template(event_id: str, template_key: str, user: Use
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Check if event is locked
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot apply template.")
     
     if template_key not in RUN_OF_SHOW_TEMPLATES:
         raise HTTPException(status_code=400, detail="Invalid template")
