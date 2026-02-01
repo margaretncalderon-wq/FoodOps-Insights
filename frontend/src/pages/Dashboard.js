@@ -5,7 +5,11 @@ import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Users, Calendar, ChefHat, AlertTriangle, ArrowRight, TrendingUp } from "lucide-react";
+import { Badge } from "../components/ui/badge";
+import { 
+  Users, Calendar, ChefHat, AlertTriangle, ArrowRight, TrendingUp,
+  Clock, CheckCircle, UserPlus, Mail, Star, AlertCircle
+} from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
