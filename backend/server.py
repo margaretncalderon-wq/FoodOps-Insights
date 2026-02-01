@@ -528,6 +528,8 @@ class Recipe(BaseModel):
     name: str
     description: Optional[str] = None
     recipe_type: str = "final_dish"  # base, component, final_dish
+    produces_stock: bool = False  # Only valid for final_dish when prep-ahead
+    default_storage_unit: Optional[str] = None  # Required if produces_stock=true
     category: str
     yield_quantity: float
     yield_unit: str
