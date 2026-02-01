@@ -2028,7 +2028,7 @@ async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
         "budget": 0.0,
         "notes": lead.get("message"),
         "status": "planning",
-        "stage": "Lead",
+        "stage": "Inquiry Received",
         "expected_value": None,
         "next_followup_date": None,
         "next_step": None,
