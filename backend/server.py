@@ -116,13 +116,18 @@ class LeadCreate(BaseModel):
     email: str
     phone: Optional[str] = None
     company_name: Optional[str] = None
-    event_type: str
+    event_type: str = "other"
     event_date: Optional[str] = None  # Can be "TBD" or a date string
     estimated_guest_count: Optional[int] = None
     budget_range: Optional[str] = None
     message: Optional[str] = None
-    source: str = "Website"  # Website, Instagram, QR, Referral, Other
+    source: str = "Website"  # Website, Instagram, QR, Referral, Outreach, Other
     form_name: Optional[str] = None
+    # CRM Enhancement fields (additive)
+    lead_type: str = "inbound"  # inbound, outreach
+    outreach_status: Optional[str] = None  # New, Contacted, NoResponse, Engaged
+    next_follow_up_date: Optional[str] = None
+    follow_up_type: Optional[str] = None  # Call, Email, Meeting, CheckIn
 
 class Lead(BaseModel):
     lead_id: str
@@ -144,6 +149,12 @@ class Lead(BaseModel):
     converted_event_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    # CRM Enhancement fields (additive)
+    lead_type: str = "inbound"  # inbound, outreach
+    outreach_status: Optional[str] = None  # New, Contacted, NoResponse, Engaged
+    next_follow_up_date: Optional[str] = None
+    follow_up_type: Optional[str] = None  # Call, Email, Meeting, CheckIn
+    last_contact_date: Optional[str] = None
 
 # Contact Model (People linked to Clients)
 class ContactCreate(BaseModel):
