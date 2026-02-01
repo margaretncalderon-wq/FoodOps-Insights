@@ -653,11 +653,14 @@ export default function EngagementCalendar({ embedded = false }) {
           {selectedEvent && (
             <div className="space-y-4">
               {/* Status Badge */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={`${getStatusColor(selectedEvent.stage).bg} ${getStatusColor(selectedEvent.stage).text} border ${getStatusColor(selectedEvent.stage).border}`}>
                   {selectedEvent.stage}
                 </Badge>
                 <Badge variant="outline">{selectedEvent.event_type}</Badge>
+                {isMultiDayEvent(selectedEvent) && (
+                  <Badge variant="outline">{isEs ? "Multi-día" : "Multi-day"}</Badge>
+                )}
               </div>
 
               {/* Event Info */}
@@ -672,8 +675,22 @@ export default function EngagementCalendar({ embedded = false }) {
                     {selectedEvent.event_date 
                       ? new Date(selectedEvent.event_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')
                       : "TBD"}
+                    {selectedEvent.end_date && selectedEvent.end_date !== selectedEvent.event_date && (
+                      <> - {new Date(selectedEvent.end_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')}</>
+                    )}
                   </p>
                 </div>
+                {(selectedEvent.start_time || selectedEvent.end_time) && (
+                  <div>
+                    <p className="text-muted-foreground">{isEs ? "Hora" : "Time"}</p>
+                    <p className="font-medium flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      {selectedEvent.start_time && formatTime(selectedEvent.start_time)}
+                      {selectedEvent.start_time && selectedEvent.end_time && " - "}
+                      {selectedEvent.end_time && formatTime(selectedEvent.end_time)}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground">{isEs ? "Invitados" : "Guests"}</p>
                   <p className="font-medium flex items-center gap-1">
