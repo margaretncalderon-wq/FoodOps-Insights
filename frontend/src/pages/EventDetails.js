@@ -216,9 +216,9 @@ export default function EventDetails() {
       <div className="space-y-6" data-testid="event-details-page">
         {/* Back Button */}
         <div className="flex items-center justify-between">
-          <Link to="/events" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
+          <Link to="/client-engagement/proposals" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
-            {language === "es" ? "Volver a Eventos" : "Back to Events"}
+            {language === "es" ? "Volver a Propuestas" : "Back to Proposals"}
           </Link>
           <Button variant="outline" onClick={handleDuplicateEvent} className="gap-2">
             <Copy className="w-4 h-4" />
@@ -226,10 +226,10 @@ export default function EventDetails() {
           </Button>
         </div>
 
-        {/* Header */}
+        {/* Header with Engagement Stage Control */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="font-heading text-3xl font-bold text-foreground">{event?.name}</h1>
               <Badge className={statusColors[event?.status]}>{t(event?.status)}</Badge>
               {event?.is_booking && (
@@ -237,6 +237,41 @@ export default function EventDetails() {
               )}
             </div>
             <p className="text-muted-foreground capitalize">{event?.event_type}</p>
+          </div>
+          
+          {/* Engagement Stage Dropdown */}
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
+              {language === "es" ? "Etapa Comercial" : "Engagement Stage"}
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className={`gap-2 ${getCurrentStage().color}`} data-testid="stage-dropdown">
+                  {(() => {
+                    const StageIcon = getCurrentStage().icon;
+                    return <StageIcon className="w-4 h-4" />;
+                  })()}
+                  {getCurrentStage().label[language] || getCurrentStage().value}
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {ENGAGEMENT_STAGES.map((stage) => {
+                  const StageIcon = stage.icon;
+                  return (
+                    <DropdownMenuItem 
+                      key={stage.value}
+                      onClick={() => handleStageChange(stage.value)}
+                      className={event?.stage === stage.value ? "bg-muted" : ""}
+                    >
+                      <StageIcon className="w-4 h-4 mr-2" />
+                      {stage.label[language] || stage.value}
+                      {event?.stage === stage.value && <CheckCircle className="w-4 h-4 ml-auto text-green-600" />}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
