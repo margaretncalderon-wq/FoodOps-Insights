@@ -150,11 +150,17 @@ function AppRouter() {
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      
+      {/* Client Engagement Module - Contains CRM, Proposals & Agreements, Calendar */}
+      <Route path="/client-engagement/*" element={<ProtectedRoute><ClientEngagementPage /></ProtectedRoute>} />
+      
+      {/* Legacy routes redirect to Client Engagement */}
       <Route path="/crm/*" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
-      <Route path="/clients/:clientId" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
       <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
       <Route path="/events/:eventId" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+      
+      <Route path="/clients/:clientId" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
       <Route path="/recipes" element={<ProtectedRoute><RecipesPage /></ProtectedRoute>} />
       <Route path="/recipes/new" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/recipes/:recipeId" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
