@@ -3573,6 +3573,33 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
     
     return pipeline
 
+@events_router.get("/confirmed")
+async def get_confirmed_events(user: User = Depends(get_current_user)):
+    """Get only confirmed (Won/Closed) events for procurement and purchases"""
+    events = await db.events.find(
+        {"company_id": user.company_id, "stage": {"$in": ["Won", "Closed"]}},
+        {"_id": 0}
+    ).sort("event_date", -1).to_list(500)
+    
+    # Get all client IDs to fetch client info
+    client_ids = list(set(e.get("client_id") for e in events if e.get("client_id")))
+    clients_data = {}
+    if client_ids:
+        clients = await db.clients.find({"client_id": {"$in": client_ids}}, {"_id": 0, "client_id": 1, "display_name": 1}).to_list(len(client_ids))
+        clients_data = {c["client_id"]: c for c in clients}
+    
+    for e in events:
+        for field in ["event_date", "end_date", "created_at", "updated_at"]:
+            if e.get(field) and isinstance(e[field], str):
+                try:
+                    e[field] = datetime.fromisoformat(e[field])
+                except:
+                    e[field] = None
+        client_info = clients_data.get(e.get("client_id"), {})
+        e["client_name"] = client_info.get("display_name", "")
+    
+    return events
+
 @events_router.post("")
 async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
