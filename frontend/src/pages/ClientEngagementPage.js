@@ -56,8 +56,8 @@ export default function ClientEngagementPage() {
   const getActiveSection = () => {
     const path = location.pathname;
     if (path.includes("/client-engagement/proposals") || path.includes("/client-engagement/events")) return "proposals";
-    if (path.includes("/client-engagement/calendar")) return "calendar";
-    return "crm";
+    if (path.includes("/client-engagement/crm")) return "crm";
+    return "calendar"; // Default to calendar
   };
 
   const activeSection = getActiveSection();
