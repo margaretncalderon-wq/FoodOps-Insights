@@ -2549,7 +2549,7 @@ Mantel Blanco, , 10, 3`}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid sm:grid-cols-2 gap-6">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <Label>{t("language")}</Label>
                     <Select value={language} onValueChange={changeLanguage}>
@@ -2571,6 +2571,24 @@ Mantel Blanco, , 10, 3`}
                         {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {language === "es" ? "Formato de Hora" : "Time Format"}
+                    </Label>
+                    <Select value={formData.time_format || "24h"} onValueChange={(v) => setFormData({ ...formData, time_format: v })}>
+                      <SelectTrigger data-testid="time-format-select"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="24h">24h (14:00)</SelectItem>
+                        <SelectItem value="12h">12h (2:00 PM)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {language === "es" 
+                        ? "Afecta cómo se muestran las horas en calendarios y eventos" 
+                        : "Affects how times are displayed in calendars and events"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex justify-end">
