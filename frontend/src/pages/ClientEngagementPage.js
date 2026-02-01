@@ -109,16 +109,18 @@ export default function ClientEngagementPage() {
         </NavLink>
         
         {/* Module Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1">
-            <Puzzle className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold">Client Engagement</h2>
+        <div className="mb-6 pb-4 border-b">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Puzzle className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Client Engagement</h2>
+              <p className="text-xs text-muted-foreground">
+                {language === "es" ? "Intención → Acuerdo" : "Intent → Agreement"}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground pl-8">
-            {language === "es" 
-              ? "Donde la intención del cliente se define y acuerda" 
-              : "Where client intent becomes defined and agreed"}
-          </p>
         </div>
 
         {/* Navigation Sections */}
