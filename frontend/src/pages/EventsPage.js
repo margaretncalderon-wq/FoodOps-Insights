@@ -507,6 +507,30 @@ export default function EventsPage({ embedded = false }) {
                     </div>
                   ))}
 
+                  {/* Time Fields */}
+                  {!formData.event_date_tbd && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Hora Inicio" : "Start Time"}</Label>
+                        <Input
+                          type="time"
+                          value={formData.start_time}
+                          onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                          data-testid="event-start-time"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Hora Fin" : "End Time"}</Label>
+                        <Input
+                          type="time"
+                          value={formData.end_time}
+                          onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                          data-testid="event-end-time"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label>{t("venue")}</Label>
                     <Input
