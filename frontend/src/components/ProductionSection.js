@@ -46,6 +46,9 @@ export default function ProductionSection() {
   const [onlyStockProducing, setOnlyStockProducing] = useState(false);
   
   const [posting, setPosting] = useState(false);
+  const [miseEnPlaceDialogOpen, setMiseEnPlaceDialogOpen] = useState(false);
+  const [miseEnPlaceData, setMiseEnPlaceData] = useState(null);
+  const [generatingMep, setGeneratingMep] = useState(false);
 
   const fetchBatches = useCallback(async () => {
     try {
