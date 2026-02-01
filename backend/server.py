@@ -8863,6 +8863,10 @@ async def update_event_blueprint(event_id: str, data: EventBlueprintUpdate, user
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Check if event is locked (Closed stage)
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify blueprint.")
+    
     now = datetime.now(timezone.utc)
     blueprint_data = data.dict(exclude_unset=True)
     blueprint_data["event_id"] = event_id
