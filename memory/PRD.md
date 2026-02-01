@@ -532,6 +532,10 @@ Auto-generated from Event Order:
   - ProductionLine with computed BOM inputs
   - Posting logic: validates RAW inventory, deducts inputs, creates PREPARED outputs
   - Rules: BASE/COMPONENT always produce stock, DISH only when produces_stock=true
+- [x] **Production from SR**: Added "Create Production Batch from SR" button in Cost & Usage
+  - New endpoint `/api/production/suggest-from-events` analyzes event menus for BASE/COMPONENT recipes
+  - Dialog shows suggested production lines with quantities based on event guest counts
+  - Creates batch linked to selected events with auto-generated notes
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
