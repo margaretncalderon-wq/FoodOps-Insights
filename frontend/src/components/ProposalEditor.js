@@ -1006,28 +1006,75 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="divide-y divide-green-100">
+                <div className="space-y-2">
                   {generatedDocs.slice(0, 5).map((doc) => (
-                    <div key={doc.document_id} className="flex items-center justify-between py-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{doc.title}</span>
-                        <Badge variant="outline" className="text-xs">{doc.document_type}</Badge>
-                        {doc.status === "signed" && (
-                          <Badge className="bg-green-100 text-green-700 text-xs">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            {language === "es" ? "Firmado" : "Signed"}
-                          </Badge>
+                    <div key={doc.document_id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium text-sm">{doc.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">{doc.document_type}</Badge>
+                            {doc.status === "signed" && (
+                              <Badge className="bg-green-100 text-green-700 text-xs">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {language === "es" ? "Firmado" : "Signed"}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(doc.created_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {/* View Document */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(`/portal/${doc.document_id}`, '_blank')}
+                          title={language === "es" ? "Ver documento" : "View document"}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        {/* Copy Link */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/portal/${doc.document_id}`);
+                            toast.success(language === "es" ? "Enlace copiado" : "Link copied");
+                          }}
+                          title={language === "es" ? "Copiar enlace" : "Copy link"}
+                        >
+                          <Link2 className="w-4 h-4" />
+                        </Button>
+                        {/* Regenerate (only if not signed) */}
+                        {doc.status !== "signed" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${API}/documents/${doc.document_id}/regenerate`, {}, { withCredentials: true });
+                                toast.success(language === "es" ? "Documento regenerado" : "Document regenerated");
+                                fetchGeneratedDocs();
+                              } catch (error) {
+                                toast.error(error.response?.data?.detail || "Error regenerating");
+                              }
+                            }}
+                            title={language === "es" ? "Regenerar con cambios actuales" : "Regenerate with current changes"}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <History className="w-4 h-4" />
+                          </Button>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(doc.created_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
-                      </span>
                     </div>
                   ))}
                 </div>
                 {generatedDocs.length > 5 && (
-                  <p className="text-xs text-muted-foreground text-center mt-2">
+                  <p className="text-xs text-muted-foreground text-center mt-3">
                     +{generatedDocs.length - 5} {language === "es" ? "más" : "more"}
                   </p>
                 )}
