@@ -111,6 +111,115 @@ export default function ConsolidatedPurchaseSection() {
     setGenerating(false);
   };
 
+  // Process Stock Requisition - Deduct items from inventory
+  const handleProcessSR = async () => {
+    if (!purchaseData?.stock_requisition?.length) {
+      toast.error(language === "es" ? "No hay items para requisicionar" : "No items to requisition");
+      return;
+    }
+    
+    setProcessingSR(true);
+    try {
+      // Create inventory transactions to deduct stock
+      for (const item of purchaseData.stock_requisition) {
+        await axios.post(`${API}/api/inventory/transaction`, {
+          inventory_item_id: item.inventory_item_id,
+          transaction_type: "Event Usage",
+          quantity: -Math.abs(item.in_stock), // Negative to deduct
+          notes: `SR for events: ${purchaseData.events?.map(e => e.event_name).join(", ")}`
+        }, { withCredentials: true });
+      }
+      
+      toast.success(language === "es" ? "Stock requisición procesada - Inventario actualizado" : "Stock requisition processed - Inventory updated");
+      setSrDialogOpen(false);
+      
+      // Regenerate list to reflect new inventory
+      handleGenerate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error processing SR");
+    }
+    setProcessingSR(false);
+  };
+
+  // Print Stock Requisition
+  const handlePrintSR = () => {
+    if (!purchaseData?.stock_requisition?.length) {
+      toast.error(language === "es" ? "No hay items para imprimir" : "No items to print");
+      return;
+    }
+    
+    const printContent = `
+      <html>
+        <head>
+          <title>Stock Requisition</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { font-size: 18px; margin-bottom: 5px; }
+            h2 { font-size: 14px; color: #666; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background: #f5f5f5; font-weight: bold; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+            .total { margin-top: 20px; font-weight: bold; text-align: right; }
+            .footer { margin-top: 40px; border-top: 1px solid #ddd; padding-top: 20px; }
+            .signature { display: flex; justify-content: space-between; margin-top: 40px; }
+            .signature div { width: 200px; border-top: 1px solid #333; padding-top: 5px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1>STOCK REQUISITION (SR)</h1>
+              <h2>${language === "es" ? "Requisición de Inventario" : "Inventory Requisition"}</h2>
+            </div>
+            <div style="text-align: right;">
+              <p><strong>${language === "es" ? "Fecha" : "Date"}:</strong> ${new Date().toLocaleDateString()}</p>
+              <p><strong>${language === "es" ? "Eventos" : "Events"}:</strong> ${purchaseData.events?.map(e => e.event_name).join(", ")}</p>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>${language === "es" ? "Item" : "Item"}</th>
+                <th>${language === "es" ? "Cantidad" : "Quantity"}</th>
+                <th>${language === "es" ? "Unidad" : "Unit"}</th>
+                <th>${language === "es" ? "Recetas" : "Recipes"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${purchaseData.stock_requisition.map((item, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${item.item_name}</td>
+                  <td style="text-align: right;">${item.in_stock?.toFixed(2)}</td>
+                  <td>${item.unit}</td>
+                  <td>${item.recipes_used?.join(", ") || "-"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+          
+          <div class="total">
+            ${language === "es" ? "Total Items" : "Total Items"}: ${purchaseData.stock_requisition.length}
+          </div>
+          
+          <div class="signature">
+            <div>${language === "es" ? "Solicitado por" : "Requested by"}</div>
+            <div>${language === "es" ? "Entregado por" : "Issued by"}</div>
+            <div>${language === "es" ? "Recibido por" : "Received by"}</div>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   // Create PO from supplier items
   const handleCreatePO = async (supplierId, items) => {
     setCreatingPO(supplierId);
