@@ -450,6 +450,8 @@ class Ingredient(BaseModel):
     name: str
     category: str
     inventory_type: str = "food"
+    item_type: str = "RAW"  # RAW or PREPARED
+    linked_recipe_id: Optional[str] = None  # For PREPARED items
     unit: str
     cost_per_unit: float
     stock_quantity: float
