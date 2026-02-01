@@ -198,9 +198,10 @@ export default function EngagementCalendar({ embedded = false }) {
     setCurrentDate(new Date());
   };
 
-  // Get status color
+  // Get status color (handles both new and legacy stages)
   const getStatusColor = (stage) => {
-    return STATUS_COLORS[stage] || STATUS_COLORS.default;
+    const normalizedStage = normalizeStage(stage);
+    return STATUS_COLORS[normalizedStage] || STATUS_COLORS.default;
   };
 
   // Open event detail
