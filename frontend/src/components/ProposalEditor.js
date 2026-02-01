@@ -387,34 +387,152 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
-  // Create Invoice in Business Clarity
-  const handleCreateInvoice = async () => {
+  // Check if multi-day event
+  const isMultidayEvent = event?.end_date && event?.event_date !== event?.end_date;
+  
+  // Get event days for multi-day events
+  const getEventDays = () => {
+    if (!isMultidayEvent) return [];
+    const days = [];
+    const start = new Date(event.event_date);
+    const end = new Date(event.end_date);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(d.toISOString().split('T')[0]);
+    }
+    return days;
+  };
+  
+  // Get invoiced days
+  const getInvoicedDays = () => {
+    return existingInvoices
+      .filter(inv => inv.event_day)
+      .map(inv => inv.event_day);
+  };
+  
+  // Calculate total invoiced amount
+  const getTotalInvoiced = () => {
+    return existingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+  };
+  
+  // Check invoice eligibility
+  const getInvoiceEligibility = () => {
+    const total = financials?.total || 0;
+    const totalInvoiced = getTotalInvoiced();
+    const invoiceCount = existingInvoices.length;
+    
+    // Already fully invoiced
+    if (totalInvoiced >= total && invoiceCount > 0) {
+      return { canInvoice: false, reason: language === "es" ? "Evento ya facturado completamente" : "Event fully invoiced" };
+    }
+    
+    // Check for full invoice
+    const hasFullInvoice = existingInvoices.some(inv => inv.invoice_type === "full" || (!inv.invoice_type && inv.total >= total * 0.9));
+    if (hasFullInvoice) {
+      return { canInvoice: false, reason: language === "es" ? "Ya existe una factura por el total" : "Full invoice already exists" };
+    }
+    
+    // Check deposit/final invoices
+    const depositInvoices = existingInvoices.filter(inv => inv.invoice_type === "deposit");
+    const finalInvoices = existingInvoices.filter(inv => inv.invoice_type === "final");
+    
+    if (depositInvoices.length > 0 && finalInvoices.length > 0) {
+      return { canInvoice: false, reason: language === "es" ? "Ya existe depósito y factura final" : "Deposit and final invoice exist" };
+    }
+    
+    return { canInvoice: true, reason: null };
+  };
+
+  // Open invoice dialog
+  const handleOpenInvoiceDialog = () => {
     if (!proposal?.items?.length) {
       toast.error(language === "es" ? "No hay ítems para facturar" : "No items to invoice");
       return;
     }
     
+    const eligibility = getInvoiceEligibility();
+    if (!eligibility.canInvoice) {
+      toast.error(eligibility.reason);
+      return;
+    }
+    
+    // Set default invoice type based on existing invoices
+    if (existingInvoices.some(inv => inv.invoice_type === "deposit")) {
+      setInvoiceType("final");
+    } else {
+      setInvoiceType("full");
+    }
+    
+    setSelectedDays([]);
+    setInvoiceDialogOpen(true);
+  };
+
+  // Create Invoice in Business Clarity
+  const handleCreateInvoice = async () => {
     try {
-      // Calculate due date (30 days from now or based on client payment terms)
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
       
-      // Create invoice lines from proposal items
-      const lines = proposal.items.map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        discount_percent: 0
-      }));
+      let lines = [];
+      let invoiceTotal = financials?.total || 0;
+      let notes = "";
+      
+      if (invoiceType === "full") {
+        // Full invoice - all items
+        lines = proposal.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount_percent: 0
+        }));
+        notes = `${language === "es" ? "Factura total del evento" : "Full event invoice"}: ${event?.name}`;
+      } else if (invoiceType === "deposit") {
+        // 50% deposit
+        invoiceTotal = invoiceTotal * 0.5;
+        lines = [{
+          description: language === "es" ? `Depósito 50% - ${event?.name}` : `50% Deposit - ${event?.name}`,
+          quantity: 1,
+          unit_price: invoiceTotal,
+          discount_percent: 0
+        }];
+        notes = language === "es" ? "Depósito inicial del evento" : "Initial event deposit";
+      } else if (invoiceType === "final") {
+        // Final balance (50%)
+        const deposited = existingInvoices
+          .filter(inv => inv.invoice_type === "deposit")
+          .reduce((sum, inv) => sum + (inv.total || 0), 0);
+        invoiceTotal = (financials?.total || 0) - deposited;
+        lines = [{
+          description: language === "es" ? `Saldo final - ${event?.name}` : `Final Balance - ${event?.name}`,
+          quantity: 1,
+          unit_price: invoiceTotal,
+          discount_percent: 0
+        }];
+        notes = language === "es" ? "Saldo final del evento" : "Final event balance";
+      } else if (invoiceType === "day" && selectedDays.length > 0) {
+        // Invoice by day
+        const dayItems = proposal.items.filter(item => 
+          selectedDays.includes(item.event_date) || (!item.event_date && selectedDays.includes("main"))
+        );
+        lines = dayItems.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount_percent: 0
+        }));
+        const dayLabels = selectedDays.map(d => d === "main" ? (language === "es" ? "Principal" : "Main") : new Date(d).toLocaleDateString()).join(", ");
+        notes = `${language === "es" ? "Factura por día(s)" : "Invoice for day(s)"}: ${dayLabels}`;
+      }
       
       const invoiceData = {
         client_id: event?.client_id,
         event_id: eventId,
         due_date: dueDate.toISOString(),
         lines: lines,
-        discount_percent: financials?.discount_percent || 0,
+        discount_percent: invoiceType === "full" ? (financials?.discount_percent || 0) : 0,
         tax_rate: financials?.tax_rate || 0,
-        notes: `${language === "es" ? "Factura generada desde evento" : "Invoice generated from event"}: ${event?.name}`
+        notes: notes,
+        invoice_type: invoiceType,
+        event_day: invoiceType === "day" ? selectedDays.join(",") : null
       };
       
       const res = await axios.post(`${API}/business-clarity/invoices`, invoiceData, { withCredentials: true });
@@ -424,7 +542,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           : `Invoice ${res.data.invoice_number} created successfully`
       );
       
-      // Optionally open Business Clarity
+      setInvoiceDialogOpen(false);
+      fetchEventInvoices(); // Refresh invoices
+      
       if (window.confirm(language === "es" ? "¿Desea ver la factura en Business Clarity?" : "Would you like to view the invoice in Business Clarity?")) {
         window.open("/business-clarity?tab=invoices", "_blank");
       }
