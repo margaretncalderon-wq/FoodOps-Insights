@@ -122,24 +122,19 @@ export default function ClientEngagementPage() {
         </div>
 
         {/* Navigation Sections */}
-        <nav className="space-y-4 flex-1">
+        <nav className="space-y-5 flex-1">
           {navSections.map(section => (
             <div key={section.id} className="space-y-1">
-              {/* Section Header - Colored and Styled */}
-              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${section.bgColor} ${section.borderColor} ${
-                activeSection === section.id ? "ring-1 ring-offset-1 ring-offset-background" : ""
-              }`}>
-                <section.icon className={`w-5 h-5 ${section.color}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold ${section.color}`}>
-                    {section.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">{section.subtitle}</p>
-                </div>
+              {/* Section Header - Minimal */}
+              <div className="flex items-center gap-2 px-3 py-1.5">
+                <section.icon className={`w-4 h-4 ${activeSection === section.id ? "text-primary" : "text-muted-foreground"}`} />
+                <span className={`text-xs font-semibold uppercase tracking-wide ${activeSection === section.id ? "text-primary" : "text-muted-foreground"}`}>
+                  {section.title}
+                </span>
               </div>
               
               {/* Section Items */}
-              <div className="space-y-1 ml-3 pl-3 border-l-2 border-muted">
+              <div className="space-y-0.5">
                 {section.items.map(item => (
                   <NavLink
                     key={item.path}
@@ -148,8 +143,8 @@ export default function ClientEngagementPage() {
                     className={({ isActive }) =>
                       `flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${
                         isActive 
-                          ? "bg-primary text-primary-foreground" 
-                          : "hover:bg-muted"
+                          ? "bg-primary/10 text-primary font-medium" 
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
                       }`
                     }
                   >
@@ -158,7 +153,7 @@ export default function ClientEngagementPage() {
                       <span>{item.label}</span>
                     </div>
                     {item.badge !== undefined && item.badge > 0 && (
-                      <Badge className={`text-xs ${item.badgeColor || "bg-muted-foreground/20 text-foreground"}`}>
+                      <Badge variant="secondary" className={`text-xs ${item.badgeColor || ""}`}>
                         {item.badge}
                       </Badge>
                     )}
