@@ -162,6 +162,8 @@ class ContactCreate(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    role: Optional[str] = None  # Alias for role_title
     role_title: Optional[str] = None
     is_primary: bool = False
     is_billing_contact: bool = False
@@ -173,6 +175,8 @@ class Contact(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    role: Optional[str] = None
     role_title: Optional[str] = None
     is_primary: bool = False
     is_billing_contact: bool = False
