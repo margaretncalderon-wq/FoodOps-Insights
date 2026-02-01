@@ -4908,6 +4908,7 @@ async def client_sign_document(document_id: str, data: dict):
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
     
     total_clients = await db.clients.count_documents({"company_id": user.company_id})
     total_events = await db.events.count_documents({"company_id": user.company_id})
@@ -4930,6 +4931,58 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     
     recent_events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("event_date", 1).limit(5).to_list(5)
     
+    # NEW: Get tasks due today and overdue from events
+    tasks_due_today = []
+    tasks_overdue = []
+    events_with_tasks = await db.events.find(
+        {"company_id": user.company_id, "tasks": {"$exists": True, "$ne": []}},
+        {"_id": 0, "event_id": 1, "name": 1, "tasks": 1}
+    ).to_list(100)
+    
+    for event in events_with_tasks:
+        for task in event.get("tasks", []):
+            if task.get("status") == "completed":
+                continue
+            due_date = task.get("due_date", "")
+            if due_date:
+                due_str = due_date[:10] if isinstance(due_date, str) else due_date.strftime("%Y-%m-%d")
+                task_entry = {
+                    "task_id": task.get("task_id", ""),
+                    "title": task.get("title", ""),
+                    "due_date": due_str,
+                    "event_id": event.get("event_id"),
+                    "event_name": event.get("name"),
+                    "priority": task.get("priority", "medium"),
+                    "assignee": task.get("assignee")
+                }
+                if due_str == today:
+                    tasks_due_today.append(task_entry)
+                elif due_str < today:
+                    tasks_overdue.append(task_entry)
+    
+    # Sort by priority
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    tasks_due_today.sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+    tasks_overdue.sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+    
+    # NEW: Get new leads (inbound leads from last 7 days with status "New")
+    seven_days_ago = (now - timedelta(days=7)).isoformat()
+    new_leads = await db.leads.find(
+        {
+            "company_id": user.company_id,
+            "status": "New",
+            "lead_type": {"$in": ["inbound", None]},
+            "created_at": {"$gte": seven_days_ago}
+        },
+        {"_id": 0, "lead_id": 1, "lead_name": 1, "email": 1, "source": 1, "event_type": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    new_leads_count = await db.leads.count_documents({
+        "company_id": user.company_id,
+        "status": "New",
+        "lead_type": {"$in": ["inbound", None]}
+    })
+    
     return {
         "total_clients": total_clients,
         "total_events": total_events,
@@ -4937,7 +4990,13 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         "total_recipes": total_recipes,
         "low_stock_alerts": low_stock,
         "pipeline_stats": pipeline_stats,
-        "recent_events": recent_events
+        "recent_events": recent_events,
+        "tasks_due_today": tasks_due_today,
+        "tasks_overdue": tasks_overdue,
+        "tasks_due_count": len(tasks_due_today),
+        "tasks_overdue_count": len(tasks_overdue),
+        "new_leads": new_leads,
+        "new_leads_count": new_leads_count
     }
 
 @api_router.get("/")
