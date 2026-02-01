@@ -1116,7 +1116,7 @@ function PurchasesSection() {
         <>
           {loading ? (
             <div className="flex items-center justify-center h-32"><RefreshCw className="w-6 h-6 animate-spin" /></div>
-          ) : Object.keys(itemsBySupplier).length === 0 ? (
+          ) : Object.keys(itemsBySupplier).length === 0 && purchaseList.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -1124,8 +1124,9 @@ function PurchasesSection() {
                 <p className="text-sm mt-2">{language === "es" ? "Agrega artículos de tipo Food con recetas vinculadas" : "Add Food type items with linked recipes"}</p>
               </CardContent>
             </Card>
-          ) : (
+          ) : Object.keys(itemsBySupplier).length > 0 ? (
             <div className="space-y-4">
+              <h3 className="font-semibold text-lg">{language === "es" ? "Órdenes de Compra por Proveedor" : "Purchase Orders by Supplier"}</h3>
               {Object.entries(itemsBySupplier).map(([supplierId, supplierData]) => (
                 <Card key={supplierId}>
                   <CardHeader className="flex flex-row items-center justify-between">
