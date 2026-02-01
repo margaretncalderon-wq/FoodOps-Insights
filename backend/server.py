@@ -4542,21 +4542,62 @@ async def sign_document(document_id: str, data: dict, user: User = Depends(get_c
 
 @documents_router.post("/generate/{event_id}/{doc_type}")
 async def generate_document(event_id: str, doc_type: str, user: User = Depends(get_current_user)):
-    """Generate a document for an event with full content including discounts/taxes"""
+    """Generate a document for an event with full content including order items organized by day and type"""
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
     client = await db.clients.find_one({"client_id": event["client_id"]}, {"_id": 0})
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
     
-    # Get recipes for the event
+    # Get proposal and order items
+    proposal = await db.proposals.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    order_items = []
+    if proposal:
+        order_items = await db.order_items.find(
+            {"proposal_id": proposal["proposal_id"]},
+            {"_id": 0}
+        ).sort("sort_order", 1).to_list(500)
+    
+    # Get recipes for legacy support
     recipes = []
     for recipe_id in event.get("menu_items", []):
         recipe = await db.recipes.find_one({"recipe_id": recipe_id}, {"_id": 0})
         if recipe:
             recipes.append(recipe)
     
-    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+    # Get categories
+    categories = await db.item_categories.find(
+        {"company_id": user.company_id}, {"_id": 0}
+    ).to_list(100)
+    cat_map = {c["category_id"]: c["name"] for c in categories}
+    
+    # Organize items by day and type for multi-day events
+    items_by_day = {}
+    items_by_type = {"Food": [], "Service": [], "Rental": [], "Fee": [], "Other": []}
+    
+    for item in order_items:
+        item_type = item.get("item_type", "Other")
+        event_day = item.get("event_date") or "main"
+        
+        # Add category name
+        if item.get("category_id"):
+            item["category_name"] = cat_map.get(item["category_id"], "")
+        
+        # Group by type
+        if item_type in items_by_type:
+            items_by_type[item_type].append(item)
+        else:
+            items_by_type["Other"].append(item)
+        
+        # Group by day
+        if event_day not in items_by_day:
+            items_by_day[event_day] = []
+        items_by_day[event_day].append(item)
     
     now = datetime.now(timezone.utc)
     document_id = f"doc_{uuid.uuid4().hex[:12]}"
@@ -4568,27 +4609,36 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     if doc_type == "kitchen_sheet" and "show_prices" not in template_settings:
         template_settings["show_prices"] = False
     
-    # Calculate totals with taxes/discounts
-    subtotal = sum(r.get("cost_per_portion", 0) * event.get("guest_count", 1) for r in recipes)
-    discount_rate = template_settings.get("discount_percent", 0) / 100
-    tax_rate = company.get("default_tax_rate", 0) / 100 if company else 0
+    # Calculate totals from order items
+    subtotal = sum(item.get("quantity", 1) * item.get("unit_price", 0) for item in order_items)
     
-    discount_amount = subtotal * discount_rate
+    # Get discount/tax from proposal if available
+    discount_percent = proposal.get("discount_percent", 0) if proposal else 0
+    tax_percent = proposal.get("tax_percent", company.get("default_tax_rate", 0) if company else 0) if proposal else 0
+    
+    discount_amount = subtotal * (discount_percent / 100)
     taxable_amount = subtotal - discount_amount
-    tax_amount = taxable_amount * tax_rate
+    tax_amount = taxable_amount * (tax_percent / 100)
     total = taxable_amount + tax_amount
+    
+    # Check if multi-day event
+    is_multiday = event.get("end_date") and event.get("event_date") != event.get("end_date")
     
     content = {
         "event": event,
         "client": client,
         "company": company,
-        "recipes": recipes,
+        "recipes": recipes,  # Legacy
+        "order_items": order_items,  # New: all items
+        "items_by_type": items_by_type,  # Grouped by type
+        "items_by_day": items_by_day,  # Grouped by day
+        "is_multiday": is_multiday,
         "template_settings": template_settings,
         "financials": {
             "subtotal": subtotal,
-            "discount_percent": discount_rate * 100,
+            "discount_percent": discount_percent,
             "discount_amount": discount_amount,
-            "tax_percent": tax_rate * 100,
+            "tax_percent": tax_percent,
             "tax_amount": tax_amount,
             "total": total
         },
