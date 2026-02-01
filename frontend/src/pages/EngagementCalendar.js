@@ -257,9 +257,24 @@ export default function EngagementCalendar({ embedded = false }) {
     ? ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-  // Unique stages for filter
-  const uniqueStages = [...new Set(events.map(e => e.stage).filter(Boolean))];
+  // Use only the defined engagement stages for filters (not legacy)
+  const uniqueStages = ENGAGEMENT_STAGES;
   const uniqueTypes = [...new Set(events.map(e => e.event_type).filter(Boolean))];
+
+  // Map legacy stages to new stages for display
+  const mapLegacyStage = (stage) => {
+    const legacyMap = {
+      "Lead": "Inquiry Received",
+      "Contacted": "Context Captured",
+      "Proposal": "Scope Drafted",
+      "Negotiation": "Definition In Review",
+      "Won": "Committed",
+      "Approved": "Committed",
+      "Closed": "Committed",
+      "Lost": "Archived"
+    };
+    return legacyMap[stage] || stage;
+  };
 
   // Today check
   const isToday = (date) => {
