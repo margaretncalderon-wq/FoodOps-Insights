@@ -785,7 +785,7 @@ export default function EventsPage({ embedded = false }) {
               <p className="text-center text-muted-foreground py-12">
                 {language === "es" ? "Ir a la página de calendario para ver los eventos en formato calendario" : "Go to calendar page to view events in calendar format"}
                 <br />
-                <Link to="/calendar" className="text-primary hover:underline mt-2 inline-block">
+                <Link to={embedded ? "/client-engagement/calendar" : "/calendar"} className="text-primary hover:underline mt-2 inline-block">
                   {language === "es" ? "Abrir Calendario" : "Open Calendar"} →
                 </Link>
               </p>
@@ -793,6 +793,15 @@ export default function EventsPage({ embedded = false }) {
           </Card>
         )}
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <Layout>
+      {content}
     </Layout>
   );
 }
