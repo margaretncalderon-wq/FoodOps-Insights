@@ -535,6 +535,108 @@ export default function EventDetails() {
             </CardContent>
           </Card>
         )}
+
+        {/* Production Batch Dialog */}
+        <Dialog open={productionDialogOpen} onOpenChange={setProductionDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Factory className="w-5 h-5 text-purple-600" />
+                {language === "es" ? "Crear Lote de Producción" : "Create Production Batch"}
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {language === "es" 
+                ? "Recetas BASE/COMPONENT sugeridas para este evento"
+                : "Suggested BASE/COMPONENT recipes for this event"}
+            </p>
+
+            {loadingSuggestions ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+              </div>
+            ) : suggestedProduction?.suggested_lines?.length > 0 ? (
+              <div className="space-y-4">
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === "es" ? "Receta" : "Recipe"}</TableHead>
+                        <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
+                        <TableHead className="text-right">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {suggestedProduction.suggested_lines.map((line, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium flex items-center gap-2">
+                            <ChefHat className="w-4 h-4 text-muted-foreground" />
+                            {line.recipe_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {line.recipe_type?.toUpperCase()}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {Math.ceil(line.qty_needed)} {line.yield_unit}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm">
+                  <p className="font-medium text-purple-800 mb-1">
+                    {language === "es" ? "Esto creará:" : "This will create:"}
+                  </p>
+                  <ul className="text-purple-700 space-y-1 text-sm">
+                    <li>• {suggestedProduction.suggested_lines.length} {language === "es" ? "líneas de producción" : "production lines"}</li>
+                    <li>• {language === "es" ? "Estado inicial: PLANNED" : "Initial status: PLANNED"}</li>
+                    <li>• {language === "es" ? "Vinculado a:" : "Linked to:"} {event?.name}</li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setProductionDialogOpen(false)}>
+                    {language === "es" ? "Cancelar" : "Cancel"}
+                  </Button>
+                  <Button 
+                    onClick={handleCreateProductionBatch}
+                    disabled={creatingBatch}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {creatingBatch ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {language === "es" ? "Creando..." : "Creating..."}
+                      </>
+                    ) : (
+                      <>
+                        <Factory className="w-4 h-4 mr-2" />
+                        {language === "es" ? "Crear Lote" : "Create Batch"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <ChefHat className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>{language === "es" ? "No se encontraron recetas BASE/COMPONENT" : "No BASE/COMPONENT recipes found"}</p>
+                <p className="text-sm mt-2">
+                  {language === "es" 
+                    ? "Asegúrate de que el evento tenga items de tipo Food con recetas que usen sub-recetas"
+                    : "Make sure the event has Food items with recipes that use sub-recipes"}
+                </p>
+                <Button variant="outline" onClick={() => setProductionDialogOpen(false)} className="mt-4">
+                  {language === "es" ? "Cerrar" : "Close"}
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
