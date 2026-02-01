@@ -3985,11 +3985,32 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
         e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
     return events
 
+# Legacy stage mapping to new Engagement Stages
+LEGACY_STAGE_MAP = {
+    "Lead": "Inquiry Received",
+    "Contacted": "Context Captured",
+    "Proposal": "Scope Drafted",
+    "Negotiation": "Definition In Review",
+    "Won": "Committed",
+    "Approved": "Committed",
+    "Closed": "Committed",
+    "Lost": "Archived"
+}
+
+def normalize_stage(stage: str) -> str:
+    """Normalize legacy stages to new Engagement Stages"""
+    if stage in LEGACY_STAGE_MAP:
+        return LEGACY_STAGE_MAP[stage]
+    return stage or "Inquiry Received"
+
 @events_router.get("/pipeline")
 async def get_events_pipeline(user: User = Depends(get_current_user)):
     """Get events grouped by engagement stage"""
-    stages = ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review", "Committed", "Archived"]
-    pipeline = {}
+    new_stages = ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review", "Committed", "Archived"]
+    legacy_stages = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Approved", "Closed", "Lost"]
+    all_stages = new_stages + legacy_stages
+    
+    pipeline = {stage: [] for stage in new_stages}  # Initialize with new stages only
     
     # Get all clients for client info
     all_clients = await db.clients.find({"company_id": user.company_id}, {"_id": 0, "client_id": 1, "display_name": 1, "client_type": 1}).to_list(1000)
@@ -4006,18 +4027,19 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
         if eid:
             invoices_by_event[eid] = invoices_by_event.get(eid, 0) + (inv.get("balance_due") or 0)
     
-    for stage in stages:
-        events = await db.events.find({"company_id": user.company_id, "stage": stage}, {"_id": 0}).sort("created_at", -1).to_list(100)
-        for e in events:
-            for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
-                if e.get(field) and isinstance(e[field], str):
-                    try:
-                        e[field] = datetime.fromisoformat(e[field])
-                    except:
-                        e[field] = None
-            # Add client info
-            client_info = clients_data.get(e.get("client_id"), {})
-            e["client_info"] = {
+    # Get all events and normalize stages
+    events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    for e in events:
+        for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
+            if e.get(field) and isinstance(e[field], str):
+                try:
+                    e[field] = datetime.fromisoformat(e[field])
+                except:
+                    e[field] = None
+        # Add client info
+        client_info = clients_data.get(e.get("client_id"), {})
+        e["client_info"] = {
                 "display_name": client_info.get("display_name", ""),
                 "client_type": client_info.get("client_type", "Individual")
             }
