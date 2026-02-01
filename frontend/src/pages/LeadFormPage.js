@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle, Loader2, Calendar, Users, Mail, Phone, Building2, User, Globe } from "lucide-react";
+import { CheckCircle, Loader2, Calendar, Users, Mail, Phone, Building2, User, Globe, MessageCircle } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -27,6 +27,7 @@ const translations = {
     fullName: "Full Name",
     email: "Email",
     phone: "Phone",
+    whatsapp: "WhatsApp",
     company: "Company",
     eventType: "Event Type",
     eventDate: "Event Date",
@@ -38,6 +39,7 @@ const translations = {
     placeholderName: "Your full name",
     placeholderEmail: "your@email.com",
     placeholderPhone: "+1 (555) 000-0000",
+    placeholderWhatsapp: "+1 (809) 555-1234",
     placeholderCompany: "Company name (optional)",
     placeholderGuests: "Number of guests",
     placeholderMessage: "Tell us more about your event...",
@@ -62,6 +64,7 @@ const translations = {
     fullName: "Nombre Completo",
     email: "Correo Electrónico",
     phone: "Teléfono",
+    whatsapp: "WhatsApp",
     company: "Empresa",
     eventType: "Tipo de Evento",
     eventDate: "Fecha del Evento",
@@ -73,6 +76,7 @@ const translations = {
     placeholderName: "Tu nombre completo",
     placeholderEmail: "tu@correo.com",
     placeholderPhone: "+1 (809) 000-0000",
+    placeholderWhatsapp: "+1 (809) 555-1234",
     placeholderCompany: "Nombre de la empresa (opcional)",
     placeholderGuests: "Número de invitados",
     placeholderMessage: "Cuéntanos más sobre tu evento...",
