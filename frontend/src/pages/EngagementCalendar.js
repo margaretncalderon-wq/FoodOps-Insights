@@ -282,30 +282,25 @@ export default function EngagementCalendar({ embedded = false }) {
   }
 
   return (
-    <div className="space-y-4" data-testid="engagement-calendar">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {isEs ? "Calendario de Engagement" : "Engagement Calendar"}
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {isEs ? "Vista de todos los compromisos con clientes" : "View of all client commitments"}
-          </p>
-        </div>
+    <div className="space-y-3" data-testid="engagement-calendar">
+      {/* Header - Compact */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">
+          {isEs ? "Calendario" : "Calendar"}
+        </h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={goToToday}>
+          <Button variant="ghost" size="sm" onClick={goToToday}>
             {isEs ? "Hoy" : "Today"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => navigate(embedded ? "/client-engagement/proposals?new=true" : "/events?new=true")}>
             <Plus className="w-4 h-4 mr-1" />
-            {isEs ? "Nuevo Evento" : "New Event"}
+            {isEs ? "Nuevo" : "New"}
           </Button>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* Controls - Compact */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Navigation */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => {
