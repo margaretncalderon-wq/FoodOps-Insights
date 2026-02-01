@@ -346,6 +346,9 @@ function EventDetail() {
         <TabsContent value="review">
           <PostEventReviewTab eventId={eventId} eventStatus={event.stage} />
         </TabsContent>
+        <TabsContent value="binder">
+          <EventBinderTab eventId={eventId} />
+        </TabsContent>
       </Tabs>
     </div>
   );
