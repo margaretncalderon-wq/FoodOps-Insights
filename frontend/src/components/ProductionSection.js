@@ -754,6 +754,107 @@ export default function ProductionSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Mise en Place Dialog */}
+      <Dialog open={miseEnPlaceDialogOpen} onOpenChange={setMiseEnPlaceDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChefHat className="w-5 h-5 text-amber-600" />
+              Mise en Place
+            </DialogTitle>
+            <DialogDescription>
+              {language === "es" 
+                ? "Lista de preparación previa para cocina - Generado desde lotes activos"
+                : "Pre-preparation checklist for kitchen - Generated from active batches"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {miseEnPlaceData ? (
+            <div className="space-y-6">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-amber-50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-amber-700">{miseEnPlaceData.events?.length || 0}</p>
+                  <p className="text-sm text-amber-600">{language === "es" ? "Eventos" : "Events"}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-amber-700">{miseEnPlaceData.total_items || 0}</p>
+                  <p className="text-sm text-amber-600">{language === "es" ? "Items a preparar" : "Items to prep"}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-amber-700">{miseEnPlaceData.total_recipes || 0}</p>
+                  <p className="text-sm text-amber-600">{language === "es" ? "Recetas" : "Recipes"}</p>
+                </div>
+              </div>
+
+              {/* Events with their mise en place */}
+              {miseEnPlaceData.events?.map((evt, evtIdx) => (
+                <Card key={evtIdx}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      {evt.event_name}
+                      <Badge variant="outline">{evt.guest_count} {language === "es" ? "invitados" : "guests"}</Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      {evt.event_date ? new Date(evt.event_date).toLocaleDateString() : ''}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {evt.categories?.map((cat, catIdx) => (
+                      <div key={catIdx} className="mb-4">
+                        <h4 className="font-medium text-sm bg-muted px-2 py-1 rounded mb-2">{cat.name}</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-8">☐</TableHead>
+                              <TableHead>{language === "es" ? "Ítem" : "Item"}</TableHead>
+                              <TableHead className="text-right">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
+                              <TableHead>{language === "es" ? "Unidad" : "Unit"}</TableHead>
+                              <TableHead>{language === "es" ? "Receta" : "Recipe"}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {cat.items?.map((item, itemIdx) => (
+                              <TableRow key={itemIdx}>
+                                <TableCell>
+                                  <Checkbox />
+                                </TableCell>
+                                <TableCell className="font-medium">{item.name}</TableCell>
+                                <TableCell className="text-right font-mono">{item.quantity}</TableCell>
+                                <TableCell>{item.unit}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">{item.recipe_name || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <ChefHat className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>{language === "es" ? "No hay datos de Mise en Place" : "No Mise en Place data"}</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMiseEnPlaceDialogOpen(false)}>
+              {language === "es" ? "Cerrar" : "Close"}
+            </Button>
+            {miseEnPlaceData && (
+              <Button onClick={handlePrintMiseEnPlace} className="bg-amber-600 hover:bg-amber-700">
+                <FileText className="w-4 h-4 mr-2" />
+                {language === "es" ? "Imprimir" : "Print"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
