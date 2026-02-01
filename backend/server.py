@@ -7577,22 +7577,26 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
 
 @events_router.post("/create-po-from-purchase-list")
 async def create_po_from_purchase_list(
-    supplier_id: str,
-    items: List[Dict[str, Any]],
-    needed_by_date: Optional[datetime] = None,
+    data: CreatePOFromPurchaseListRequest,
     user: User = Depends(get_current_user)
 ):
     """
     Create a PO from a generated purchase list.
     items: [{inventory_item_id, item_name, to_purchase, unit, unit_cost}]
     """
-    # Get supplier
-    supplier = await db.suppliers.find_one(
-        {"supplier_id": supplier_id, "company_id": user.company_id},
-        {"_id": 0, "name": 1}
-    )
-    if not supplier:
-        raise HTTPException(status_code=404, detail="Supplier not found")
+    supplier_id = data.supplier_id
+    items = data.items
+    needed_by_date = data.needed_by_date
+    
+    # Handle case where no supplier is assigned
+    supplier_name = "No Supplier Assigned"
+    if supplier_id:
+        supplier = await db.suppliers.find_one(
+            {"supplier_id": supplier_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        if supplier:
+            supplier_name = supplier.get("name", "Unknown Supplier")
     
     now = datetime.now(timezone.utc)
     po_id = f"po_{uuid.uuid4().hex[:12]}"
@@ -7605,18 +7609,22 @@ async def create_po_from_purchase_list(
     lines = []
     subtotal = 0
     for item in items:
-        if item.get("to_purchase", 0) <= 0:
+        if item.to_purchase <= 0:
             continue
         
         line_id = f"poline_{uuid.uuid4().hex[:12]}"
-        line_total = item.get("to_purchase", 0) * item.get("unit_cost", 0)
+        # Ensure numeric values
+        qty = float(item.to_purchase) if item.to_purchase else 0
+        cost = float(item.unit_cost) if item.unit_cost else 0
+        line_total = qty * cost
+        
         lines.append({
             "line_id": line_id,
-            "inventory_item_id": item.get("inventory_item_id"),
-            "item_name": item.get("item_name"),
-            "qty_ordered": item.get("to_purchase", 0),
-            "purchase_unit": item.get("unit", "unit"),
-            "unit_cost": item.get("unit_cost", 0),
+            "inventory_item_id": item.inventory_item_id,
+            "item_name": item.item_name,
+            "qty_ordered": qty,
+            "purchase_unit": item.unit or "unit",
+            "unit_cost": cost,
             "line_total": round(line_total, 2),
             "qty_received": 0,
             "notes": None
@@ -7631,7 +7639,7 @@ async def create_po_from_purchase_list(
         "company_id": user.company_id,
         "po_number": po_number,
         "supplier_id": supplier_id,
-        "supplier_name": supplier.get("name"),
+        "supplier_name": supplier_name,
         "status": "Draft",
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
