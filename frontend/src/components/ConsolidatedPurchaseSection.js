@@ -11,12 +11,13 @@ import { Checkbox } from "./ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { ScrollArea } from "./ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 // Icons
 import { 
   ShoppingCart, Package, Truck, RefreshCw, FileText, Check,
   Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle,
-  Printer, PackageMinus, Loader2
+  Printer, PackageMinus, Loader2, Archive, Clock, Eye, ArchiveRestore
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -24,6 +25,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 export default function ConsolidatedPurchaseSection() {
   const { language } = useLanguage();
   const [events, setEvents] = useState([]);
+  const [processedEvents, setProcessedEvents] = useState([]);
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [purchaseData, setPurchaseData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,9 @@ export default function ConsolidatedPurchaseSection() {
   const [creatingPO, setCreatingPO] = useState(null);
   const [processingSR, setProcessingSR] = useState(false);
   const [srDialogOpen, setSrDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("pending");
+  const [markingComplete, setMarkingComplete] = useState(false);
+  const [viewingHistory, setViewingHistory] = useState(null);
   const printRef = useRef(null);
 
   const t = useCallback((key) => {
@@ -57,6 +62,8 @@ export default function ConsolidatedPurchaseSection() {
       compareStock: { en: "Compare with stock", es: "Comparar con inventario" },
       noItemsNeeded: { en: "No items needed to purchase", es: "No hay items que comprar" },
       poCreated: { en: "PO Created!", es: "¡OC Creada!" },
+      pending: { en: "Pending", es: "Pendientes" },
+      processed: { en: "Processed", es: "Procesados" },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   }, [language]);
@@ -64,10 +71,12 @@ export default function ConsolidatedPurchaseSection() {
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      // Only fetch confirmed (Won/Closed) events for cost & usage overview
       const res = await axios.get(`${API}/api/events/confirmed`, { withCredentials: true });
-      // Show all confirmed events (removed date filter - past events may still need purchase lists)
-      setEvents(res.data);
+      // Separate events by procurement_status
+      const pending = res.data.filter(e => e.procurement_status !== "completed");
+      const processed = res.data.filter(e => e.procurement_status === "completed");
+      setEvents(pending);
+      setProcessedEvents(processed);
     } catch (error) {
       toast.error("Error loading events");
     }
