@@ -169,53 +169,6 @@ export default function EventDetails() {
     toast.success(language === "es" ? "Enlace copiado" : "Link copied");
   };
 
-  // Open Production Batch dialog
-  const handleOpenProductionDialog = async () => {
-    setLoadingSuggestions(true);
-    setProductionDialogOpen(true);
-    
-    try {
-      const res = await axios.post(`${API}/production/suggest-from-events`, {
-        event_ids: [eventId]
-      }, { withCredentials: true });
-      
-      setSuggestedProduction(res.data);
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Error loading suggestions");
-    }
-    setLoadingSuggestions(false);
-  };
-
-  // Create Production Batch from suggestions
-  const handleCreateProductionBatch = async () => {
-    if (!suggestedProduction?.suggested_lines?.length) return;
-    
-    setCreatingBatch(true);
-    try {
-      await axios.post(`${API}/production/batches`, {
-        linked_event_id: eventId,
-        notes: language === "es" 
-          ? `Creado desde evento: ${event?.name}`
-          : `Created from event: ${event?.name}`,
-        lines: suggestedProduction.suggested_lines.map(line => ({
-          recipe_id: line.recipe_id,
-          target_output_qty: Math.ceil(line.qty_needed),
-          output_unit: line.yield_unit
-        }))
-      }, { withCredentials: true });
-      
-      toast.success(language === "es" ? "¡Lote de producción creado!" : "Production batch created!");
-      setProductionDialogOpen(false);
-      setSuggestedProduction(null);
-      
-      // Navigate to Production page
-      navigate("/food-ops/production");
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Error creating batch");
-    }
-    setCreatingBatch(false);
-  };
-
   // Get current stage info
   const getCurrentStage = () => {
     const stage = event?.stage || "Inquiry Received";
