@@ -480,31 +480,37 @@ Auto-generated from Event Order:
 - [ ] Multi-currency support
 
 ## Completed (February 1, 2026)
-- [x] **Client Engagement Module - COMPLETE**:
-  - Consolidated CRM, Events (Proposals & Agreements), and Calendar modules
-  - New sidebar-based navigation matching other modules
-  - Engagement Calendar as default view
+- [x] **System Pulse - NEW**:
+  - Complete refactor of Dashboard to system-state view
+  - Permanent Core: Active Events, Attention Required, Recent Decisions, System Alerts
+  - Time Window selector (Now, 7 Days, 30 Days, All)
+  - Quick Actions: New Event Opportunity, New Lead, Follow-ups, Communication
+  - No charts/KPIs - pure operational awareness
+- [x] **Client Engagement UI Refinement**:
+  - Sidebar headers now bold (Calendar, Proposals, CRM)
+  - Minimal style matching System Pulse
+  - Engagement Calendar made more compact
+- [x] **Event Orchestration Time Windows**:
+  - Added Time Window filter (Now, 7 Days, 30 Days, All)
+  - Added micro-signals: ⏱️ Upcoming, ⚠️ Pending, 🔄 Recent, 👥 Team
+  - Added subtle legend for micro-signals
+- [x] **Engagement Stages (OS-level)**:
+  - Replaced sales pipeline with: Inquiry Received → Context Captured → Scope Drafted → Definition In Review → Committed → Archived
+  - No more Won/Lost terminology
+  - Updated calendar, proposals, and all related views
 - [x] **Engagement Calendar Enhancements**:
-  - **Multi-day Events**: Events can now span multiple days (start_date to end_date)
-  - **Event Times**: Added start_time and end_time fields to events
-  - **Time Format Preference**: Users can choose 12h or 24h format in Settings > Preferences
-  - **Visual Improvements**: Multi-day events shown with "↔" indicator, sorted by start_time
-  - **Three View Modes**: Month, Week, Day views with time display
-  - **Status-based Coloring**: Events colored by pipeline stage (Lead, Contacted, Proposal, etc.)
-  - **Filters**: Filter by status and event type
-- [x] **Settings > Preferences Enhancement**:
-  - Added Time Format selector (24h/12h)
-  - Backend Company model updated with time_format field
-- [x] **CRM Module Enhancements**:
-  - Full CRUD for clients with RNC (tax ID), WhatsApp, credit fields
-  - Multiple contacts per client
-  - Lead-to-Client conversion workflow
-  - WhatsApp field in lead forms
-- [x] **Dashboard Additions**:
-  - "Tasks Due" widget
-  - "New Leads" widget
+  - Multi-day Events: Events can now span multiple days
+  - Event Times: Added start_time and end_time fields
+  - Time Format Preference: 12h/24h configurable in Settings > Preferences
+- [x] **Culinary Intelligence - Purchase List Enhancement**:
+  - Now generates TWO lists: Stock Requisition (SR) for items in inventory, Purchase List (PL) for items to buy
+  - Visual cards showing available vs needed items
+- [x] **Vendor Invoice Support**:
+  - Added invoice_url field when receiving POs
+  - Expenses auto-created link to Business Clarity > Accounts Payable
+  - Fields: invoice_number, invoice_date, invoice_url
 
-## Known Issues (User Verification Pending)
+## Upcoming Tasks
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
