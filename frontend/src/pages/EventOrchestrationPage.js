@@ -210,8 +210,40 @@ function EventDetail() {
 
   useEffect(() => { fetchEvent(); }, [fetchEvent]);
 
+  const handleCloseEvent = async () => {
+    if (!window.confirm(isEs 
+      ? "¿Estás seguro de cerrar este evento? Solo Post-Event Review quedará editable." 
+      : "Are you sure you want to close this event? Only Post-Event Review will remain editable.")) {
+      return;
+    }
+    try {
+      await axios.post(`${API}/api/orchestration/events/${eventId}/close`, {}, { withCredentials: true });
+      toast.success(isEs ? "Evento cerrado" : "Event closed");
+      fetchEvent();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al cerrar evento" : "Failed to close event"));
+    }
+  };
+
+  const handleReopenEvent = async () => {
+    if (!window.confirm(isEs 
+      ? "¿Estás seguro de reabrir este evento?" 
+      : "Are you sure you want to reopen this event?")) {
+      return;
+    }
+    try {
+      await axios.post(`${API}/api/orchestration/events/${eventId}/reopen`, {}, { withCredentials: true });
+      toast.success(isEs ? "Evento reabierto" : "Event reopened");
+      fetchEvent();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al reabrir evento" : "Failed to reopen event"));
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
   if (!event) return <div className="text-center py-12">{isEs ? "Evento no encontrado" : "Event not found"}</div>;
+
+  const isLocked = event.stage === "Closed";
 
   const tabs = [
     { value: "blueprint", label: isEs ? "Event Blueprint" : "Event Blueprint", icon: FileCheck },
@@ -222,10 +254,30 @@ function EventDetail() {
     { value: "production", label: isEs ? "Production Assets" : "Production Assets", icon: Package },
     { value: "calendar", label: isEs ? "Event Calendar" : "Event Calendar", icon: Calendar },
     { value: "review", label: isEs ? "Post-Event Review" : "Post-Event Review", icon: Star },
+    { value: "binder", label: "Event Binder", icon: FileText },
   ];
 
   return (
     <div className="space-y-6" data-testid="orchestration-event-detail">
+      {/* Locked Banner */}
+      {isLocked && (
+        <Card className="border-gray-300 bg-gray-100">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600 flex items-center gap-2">
+                <Lock className="w-4 h-4" />
+                {isEs 
+                  ? "Este evento está cerrado. Solo Post-Event Review y Event Binder están disponibles." 
+                  : "This event is closed. Only Post-Event Review and Event Binder are available."}
+              </p>
+              <Button variant="outline" size="sm" onClick={handleReopenEvent}>
+                {isEs ? "Reabrir Evento" : "Reopen Event"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -236,7 +288,10 @@ function EventDetail() {
             <ArrowLeft className="w-4 h-4" />
             {isEs ? "Volver a eventos" : "Back to events"}
           </button>
-          <h2 className="text-2xl font-bold">{event.name}</h2>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            {event.name}
+            {isLocked && <Badge variant="secondary"><Lock className="w-3 h-3 mr-1" />Closed</Badge>}
+          </h2>
           <div className="flex items-center gap-4 mt-1 text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
@@ -248,6 +303,12 @@ function EventDetail() {
             </span>
           </div>
         </div>
+        {!isLocked && (
+          <Button variant="outline" onClick={handleCloseEvent}>
+            <Lock className="w-4 h-4 mr-2" />
+            {isEs ? "Cerrar Evento" : "Close Event"}
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -262,22 +323,22 @@ function EventDetail() {
         </TabsList>
 
         <TabsContent value="blueprint">
-          <EventBlueprintTab eventId={eventId} event={event} onUpdate={fetchEvent} />
+          <EventBlueprintTab eventId={eventId} event={event} onUpdate={fetchEvent} isLocked={isLocked} />
         </TabsContent>
         <TabsContent value="experience">
-          <ExperienceDesignTab eventId={eventId} />
+          <ExperienceDesignTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
         <TabsContent value="operational">
-          <OperationalFlowTab eventId={eventId} />
+          <OperationalFlowTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
         <TabsContent value="runofshow">
-          <RunOfShowTab eventId={eventId} eventType={event.event_type} />
+          <RunOfShowTab eventId={eventId} eventType={event.event_type} isLocked={isLocked} />
         </TabsContent>
         <TabsContent value="team">
-          <TeamRolesTab eventId={eventId} />
+          <TeamRolesTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
         <TabsContent value="production">
-          <ProductionAssetsTab eventId={eventId} />
+          <ProductionAssetsTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
         <TabsContent value="calendar">
           <EventCalendarTab eventId={eventId} />
