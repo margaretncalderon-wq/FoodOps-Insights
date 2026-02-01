@@ -3,19 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
-import { Textarea } from "../ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { 
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
   Globe, Instagram, MessageSquare, UserPlus, Eye, ArrowRight,
-  Clock, Star, CalendarPlus, UserCheck
+  Clock, Star, CalendarPlus, UserCheck, Users, FileText,
+  MessageCircle, ExternalLink, DollarSign
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -108,20 +108,19 @@ export default function LeadInboundSection() {
   const handleConvert = async (createEvent = true) => {
     if (!selectedLead) return;
     try {
-      // Convert lead to client
       const clientRes = await axios.post(`${API}/api/leads/${selectedLead.lead_id}/convert`, {
         create_event: createEvent
       }, { withCredentials: true });
       
       toast.success(isEs ? "Lead convertido exitosamente" : "Lead converted successfully");
       setConvertOpen(false);
+      setDetailOpen(false);
       fetchLeads();
       
-      // Navigate to the new event if created
       if (createEvent && clientRes.data.event_id) {
         navigate(`/events/${clientRes.data.event_id}`);
       } else if (clientRes.data.client_id) {
-        navigate(`/clients/${clientRes.data.client_id}`);
+        navigate(`/crm/clients`);
       }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error converting lead");
@@ -157,13 +156,19 @@ export default function LeadInboundSection() {
     }
   };
 
+  const getWhatsAppLink = (number) => {
+    if (!number) return null;
+    const cleaned = number.replace(/\D/g, '');
+    return `https://wa.me/${cleaned}`;
+  };
+
   // Check if lead is new (created in last 24 hours)
   const isNewLead = (lead) => {
     if (!lead.created_at) return false;
     const created = new Date(lead.created_at);
     const now = new Date();
     const diff = now - created;
-    return diff < 24 * 60 * 60 * 1000; // 24 hours
+    return diff < 24 * 60 * 60 * 1000;
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
@@ -175,7 +180,7 @@ export default function LeadInboundSection() {
         <div>
           <h2 className="text-xl font-bold">{isEs ? "Leads Inbound" : "Inbound Leads"}</h2>
           <p className="text-muted-foreground text-sm">
-            {isEs ? "Contactos recibidos vía formularios, email y redes" : "Contacts received via forms, email and social"}
+            {isEs ? "Solicitudes recibidas vía formularios y redes" : "Requests received via forms and social"}
           </p>
         </div>
         <Button variant="outline" onClick={fetchLeads}>
@@ -186,7 +191,10 @@ export default function LeadInboundSection() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className={newLeads > 0 ? "border-blue-300 bg-blue-50" : ""}>
+        <Card 
+          className={`cursor-pointer ${newLeads > 0 ? "border-blue-300 bg-blue-50" : ""} ${statusFilter === "New" ? "ring-2 ring-primary" : ""}`}
+          onClick={() => setStatusFilter(statusFilter === "New" ? "all" : "New")}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
               <Star className={`w-5 h-5 ${newLeads > 0 ? "text-blue-600" : "text-muted-foreground"}`} />
@@ -195,7 +203,10 @@ export default function LeadInboundSection() {
             <div className="text-3xl font-bold">{newLeads}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer ${statusFilter === "Contacted" ? "ring-2 ring-primary" : ""}`}
+          onClick={() => setStatusFilter(statusFilter === "Contacted" ? "all" : "Contacted")}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
               <Phone className="w-5 h-5 text-yellow-600" />
@@ -204,7 +215,10 @@ export default function LeadInboundSection() {
             <div className="text-3xl font-bold">{contactedLeads}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer ${statusFilter === "Converted" ? "ring-2 ring-primary" : ""}`}
+          onClick={() => setStatusFilter(statusFilter === "Converted" ? "all" : "Converted")}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
               <UserCheck className="w-5 h-5 text-green-600" />
@@ -247,6 +261,11 @@ export default function LeadInboundSection() {
             ))}
           </SelectContent>
         </Select>
+        {statusFilter !== "all" && (
+          <Button variant="outline" onClick={() => setStatusFilter("all")} size="sm">
+            {isEs ? "Limpiar" : "Clear"}
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -257,10 +276,10 @@ export default function LeadInboundSection() {
               <TableRow>
                 <TableHead>{isEs ? "Fuente" : "Source"}</TableHead>
                 <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
                 <TableHead>{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
+                <TableHead>{isEs ? "Invitados" : "Guests"}</TableHead>
                 <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
-                <TableHead>{isEs ? "Seguimiento" : "Follow-up"}</TableHead>
                 <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
@@ -291,21 +310,40 @@ export default function LeadInboundSection() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{lead.email}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {lead.whatsapp && (
+                          <a href={getWhatsAppLink(lead.whatsapp)} target="_blank" rel="noopener noreferrer" 
+                             className="text-green-600 hover:text-green-700" title="WhatsApp">
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                        )}
+                        {lead.email && (
+                          <a href={`mailto:${lead.email}`} className="text-blue-600 hover:text-blue-700" title="Email">
+                            <Mail className="w-4 h-4" />
+                          </a>
+                        )}
+                        {lead.phone && (
+                          <a href={`tel:${lead.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{lead.event_type}</Badge>
                     </TableCell>
-                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
                     <TableCell>
-                      {lead.next_follow_up_date ? (
+                      {lead.estimated_guest_count ? (
                         <div className="flex items-center gap-1 text-sm">
-                          <Clock className="w-3 h-3" />
-                          {new Date(lead.next_follow_up_date).toLocaleDateString()}
+                          <Users className="w-3 h-3" />
+                          {lead.estimated_guest_count}
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
+                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => viewLead(lead)} title={isEs ? "Ver" : "View"}>
@@ -315,7 +353,13 @@ export default function LeadInboundSection() {
                           <CalendarPlus className="w-4 h-4" />
                         </Button>
                         {lead.status !== "Converted" && (
-                          <Button variant="ghost" size="icon" onClick={() => openConvert(lead)} title={isEs ? "Convertir" : "Convert"}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => openConvert(lead)} 
+                            title={isEs ? "Convertir" : "Convert"}
+                            data-testid={`convert-inbound-${lead.lead_id}`}
+                          >
                             <ArrowRight className="w-4 h-4 text-green-600" />
                           </Button>
                         )}
@@ -329,33 +373,80 @@ export default function LeadInboundSection() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog - Enhanced with Request Form Data */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedLead?.lead_name}
               {selectedLead && isNewLead(selectedLead) && (
                 <Badge className="bg-blue-500 text-white">NEW</Badge>
               )}
+              {selectedLead && getStatusBadge(selectedLead.status)}
             </DialogTitle>
           </DialogHeader>
           {selectedLead && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Fuente" : "Source"}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {getSourceIcon(selectedLead.source)}
-                    <span>{selectedLead.source}</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Estado" : "Status"}</p>
-                  <div className="mt-1">{getStatusBadge(selectedLead.status)}</div>
-                </div>
+              {/* Quick Contact Links */}
+              <div className="flex flex-wrap gap-2">
+                {selectedLead.whatsapp && (
+                  <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      WhatsApp
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </Button>
+                  </a>
+                )}
+                {selectedLead.email && (
+                  <a href={`mailto:${selectedLead.email}`}>
+                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </Button>
+                  </a>
+                )}
+                {selectedLead.phone && (
+                  <a href={`tel:${selectedLead.phone}`}>
+                    <Button variant="outline" size="sm">
+                      <Phone className="w-4 h-4 mr-2" />
+                      {isEs ? "Llamar" : "Call"}
+                    </Button>
+                  </a>
+                )}
               </div>
-              
+
+              {/* Source & Form Info */}
+              <Card className="bg-muted/50">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4" />
+                    <span className="font-medium text-sm">{isEs ? "Datos del Formulario" : "Form Data"}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">{isEs ? "Fuente" : "Source"}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {getSourceIcon(selectedLead.source)}
+                        <span className="font-medium">{selectedLead.source}</span>
+                      </div>
+                    </div>
+                    {selectedLead.form_name && (
+                      <div>
+                        <p className="text-muted-foreground">{isEs ? "Formulario" : "Form"}</p>
+                        <p className="font-medium">{selectedLead.form_name}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-muted-foreground">{isEs ? "Recibido" : "Received"}</p>
+                      <p className="font-medium">{new Date(selectedLead.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contact Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>
@@ -365,42 +456,69 @@ export default function LeadInboundSection() {
                   <p className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</p>
                   <p className="font-medium">{selectedLead.phone || "-"}</p>
                 </div>
+                {selectedLead.whatsapp && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">WhatsApp</p>
+                    <p className="font-medium">{selectedLead.whatsapp}</p>
+                  </div>
+                )}
+                {selectedLead.company_name && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{isEs ? "Empresa" : "Company"}</p>
+                    <p className="font-medium flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      {selectedLead.company_name}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {selectedLead.company_name && (
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Empresa" : "Company"}</p>
-                  <p className="font-medium flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    {selectedLead.company_name}
-                  </p>
-                </div>
-              )}
+              {/* Event Request Details */}
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-sm">{isEs ? "Solicitud de Evento" : "Event Request"}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{isEs ? "Tipo de Evento" : "Event Type"}</p>
+                      <p className="font-medium">{selectedLead.event_type}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{isEs ? "Fecha" : "Date"}</p>
+                      <p className="font-medium">{selectedLead.event_date || "TBD"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{isEs ? "Invitados" : "Guests"}</p>
+                      <p className="font-medium flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {selectedLead.estimated_guest_count || "-"}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedLead.budget_range && (
+                    <div className="mt-3">
+                      <p className="text-sm text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
+                      <p className="font-medium flex items-center gap-1">
+                        <DollarSign className="w-4 h-4" />
+                        {selectedLead.budget_range}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Tipo de Evento" : "Event Type"}</p>
-                  <p className="font-medium">{selectedLead.event_type}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Fecha Evento" : "Event Date"}</p>
-                  <p className="font-medium">{selectedLead.event_date || "TBD"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Invitados" : "Guests"}</p>
-                  <p className="font-medium">{selectedLead.estimated_guest_count || "-"}</p>
-                </div>
-              </div>
-
+              {/* Message */}
               {selectedLead.message && (
                 <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Mensaje" : "Message"}</p>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{selectedLead.message}</p>
+                  <p className="text-sm text-muted-foreground">{isEs ? "Mensaje del Cliente" : "Client Message"}</p>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">{selectedLead.message}</p>
                 </div>
               )}
 
               {/* Follow-up info */}
-              {selectedLead.next_follow_up_date && (
+              {selectedLead.next_follow_up_date ? (
                 <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                   <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
                     <Clock className="w-4 h-4" />
@@ -410,19 +528,46 @@ export default function LeadInboundSection() {
                     {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
                   </p>
                 </div>
+              ) : (
+                <Button variant="outline" className="w-full" onClick={() => { setDetailOpen(false); openFollowUp(selectedLead); }}>
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  {isEs ? "Programar Seguimiento" : "Schedule Follow-up"}
+                </Button>
               )}
 
-              <div className="pt-4 border-t flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  {isEs ? "Recibido" : "Received"}: {new Date(selectedLead.created_at).toLocaleString()}
-                </div>
-                {selectedLead.status !== "Converted" && (
-                  <Button onClick={() => { setDetailOpen(false); openConvert(selectedLead); }}>
+              {/* Convert Button */}
+              {selectedLead.status !== "Converted" && (
+                <div className="pt-4 border-t">
+                  <Button 
+                    className="w-full" 
+                    onClick={() => { setDetailOpen(false); openConvert(selectedLead); }}
+                    data-testid="convert-inbound-detail-btn"
+                  >
                     <ArrowRight className="w-4 h-4 mr-2" />
-                    {isEs ? "Convertir" : "Convert"}
+                    {isEs ? "Convertir a Cliente" : "Convert to Client"}
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Already Converted */}
+              {selectedLead.status === "Converted" && (
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-green-800 flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" />
+                    {isEs ? "Lead convertido" : "Lead converted"}
+                  </p>
+                  {selectedLead.converted_client_id && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => navigate(`/crm/clients`)}
+                    >
+                      {isEs ? "Ver Cliente" : "View Client"}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -440,24 +585,44 @@ export default function LeadInboundSection() {
                 ? `¿Cómo deseas convertir a "${selectedLead?.lead_name}"?`
                 : `How would you like to convert "${selectedLead?.lead_name}"?`}
             </p>
+            
+            {/* Preview of data to transfer */}
+            {selectedLead && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <p className="font-medium mb-2">{isEs ? "Datos del formulario a transferir:" : "Form data to transfer:"}</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• {isEs ? "Nombre" : "Name"}: {selectedLead.lead_name}</li>
+                  <li>• Email: {selectedLead.email}</li>
+                  {selectedLead.phone && <li>• {isEs ? "Teléfono" : "Phone"}: {selectedLead.phone}</li>}
+                  {selectedLead.whatsapp && <li>• WhatsApp: {selectedLead.whatsapp}</li>}
+                  {selectedLead.company_name && <li>• {isEs ? "Empresa" : "Company"}: {selectedLead.company_name}</li>}
+                  {selectedLead.event_type && <li>• {isEs ? "Tipo Evento" : "Event Type"}: {selectedLead.event_type}</li>}
+                  {selectedLead.event_date && <li>• {isEs ? "Fecha" : "Date"}: {selectedLead.event_date}</li>}
+                  {selectedLead.estimated_guest_count && <li>• {isEs ? "Invitados" : "Guests"}: {selectedLead.estimated_guest_count}</li>}
+                </ul>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <Card 
                 className="cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleConvert(true)}
+                data-testid="convert-inbound-with-event"
               >
                 <CardContent className="pt-6 text-center">
                   <CalendarPlus className="w-12 h-12 mx-auto mb-4 text-primary" />
                   <h3 className="font-semibold">{isEs ? "Crear Cliente + Evento" : "Create Client + Event"}</h3>
                   <p className="text-sm text-muted-foreground mt-2">
                     {isEs 
-                      ? "Crea el cliente y abre un nuevo evento"
-                      : "Create client and open a new event"}
+                      ? "Crea el cliente y abre un nuevo evento con los datos del formulario"
+                      : "Create client and open a new event with form data"}
                   </p>
                 </CardContent>
               </Card>
               <Card 
                 className="cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleConvert(false)}
+                data-testid="convert-inbound-client-only"
               >
                 <CardContent className="pt-6 text-center">
                   <UserCheck className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
