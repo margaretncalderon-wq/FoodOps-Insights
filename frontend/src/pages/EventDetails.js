@@ -343,16 +343,12 @@ export default function EventDetails() {
           </Card>
         </div>
 
-        {/* Tabs - Contract & Event Order is now the main tab */}
+        {/* Tabs - Simplified */}
         <Tabs defaultValue="order" className="space-y-6">
           <TabsList>
             <TabsTrigger value="order" className="gap-2" data-testid="tab-order">
               <ClipboardList className="w-4 h-4" />
               {language === "es" ? "Contrato y Orden" : "Contract & Order"}
-            </TabsTrigger>
-            <TabsTrigger value="docs" className="gap-2" data-testid="tab-docs">
-              <FileText className="w-4 h-4" />
-              {t("documents")} ({documents.length})
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-2" data-testid="tab-tasks">
               <ClipboardList className="w-4 h-4" />
@@ -361,10 +357,6 @@ export default function EventDetails() {
             <TabsTrigger value="payments" className="gap-2" data-testid="tab-payments">
               <Banknote className="w-4 h-4" />
               {language === "es" ? "Pagos" : "Payments"}
-            </TabsTrigger>
-            <TabsTrigger value="purchase" className="gap-2" data-testid="tab-purchase">
-              <ShoppingCart className="w-4 h-4" />
-              {language === "es" ? "Gestión de Compras" : "Procurement"}
             </TabsTrigger>
           </TabsList>
 
@@ -375,109 +367,6 @@ export default function EventDetails() {
               event={event}
               onDocumentGenerated={handleDocumentGenerated}
             />
-          </TabsContent>
-
-          {/* Documents Tab - Shows generated documents */}
-          <TabsContent value="docs">
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-heading text-lg">{t("documents")}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {language === "es" 
-                    ? "Documentos generados desde la Orden de Evento" 
-                    : "Documents generated from the Event Order"}
-                </p>
-              </CardHeader>
-              <CardContent>
-                {documents.length > 0 ? (
-                  <div className="divide-y">
-                    {documents.map((doc) => {
-                      const requiresSignature = doc.requires_signature;
-                      const isSigned = doc.status === "signed";
-                      
-                      return (
-                        <div
-                          key={doc.document_id}
-                          className="flex items-center gap-4 py-4 hover:bg-muted/30 -mx-4 px-4 transition-colors"
-                          data-testid={`doc-row-${doc.document_id}`}
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <Link
-                              to={`/documents/${doc.document_id}`}
-                              className="font-medium hover:text-primary truncate block"
-                            >
-                              {doc.title}
-                            </Link>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">
-                                {docTypeLabels[doc.document_type]?.[language] || doc.document_type}
-                              </Badge>
-                              {requiresSignature && !isSigned && (
-                                <span className="flex items-center gap-1 text-xs text-destructive">
-                                  <PenLine className="w-3 h-3" />
-                                  {t("notSigned")}
-                                </span>
-                              )}
-                              {isSigned && (
-                                <span className="flex items-center gap-1 text-xs text-success">
-                                  <CheckCircle className="w-3 h-3" />
-                                  {t("signed")}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyPortalLink(doc.document_id)}
-                              className="gap-1"
-                            >
-                              <Share2 className="w-4 h-4" />
-                              <span className="hidden sm:inline">Share</span>
-                            </Button>
-                            <Link to={`/portal/${doc.document_id}`} target="_blank">
-                              <Button variant="ghost" size="sm" className="gap-1">
-                                <Link2 className="w-4 h-4" />
-                                <span className="hidden sm:inline">Link</span>
-                              </Button>
-                            </Link>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/documents/${doc.document_id}`}>
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    {language === "es" ? "Ver" : "View"}
-                                  </Link>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>{t("noResults")}</p>
-                    <p className="text-sm mt-2">
-                      {language === "es"
-                        ? "Agrega ítems a la Orden de Evento y genera documentos"
-                        : "Add items to the Event Order and generate documents"}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Tasks Tab */}
