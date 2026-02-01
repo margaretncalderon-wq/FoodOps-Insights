@@ -232,14 +232,45 @@ export default function EngagementCalendar({ embedded = false }) {
           }}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <div className="min-w-[200px] text-center">
-            <h2 className="text-lg font-semibold">
-              {viewMode === "day" 
-                ? currentDate.toLocaleDateString(isEs ? 'es-ES' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-              }
-            </h2>
-          </div>
+          
+          {/* Month Dropdown */}
+          <Select 
+            value={currentDate.getMonth().toString()} 
+            onValueChange={(value) => {
+              const newDate = new Date(currentDate);
+              newDate.setMonth(parseInt(value));
+              setCurrentDate(newDate);
+            }}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {monthNames.map((month, index) => (
+                <SelectItem key={index} value={index.toString()}>{month}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Year Dropdown */}
+          <Select 
+            value={currentDate.getFullYear().toString()} 
+            onValueChange={(value) => {
+              const newDate = new Date(currentDate);
+              newDate.setFullYear(parseInt(value));
+              setCurrentDate(newDate);
+            }}
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button variant="outline" size="icon" onClick={() => {
             if (viewMode === "month") navigateMonth(1);
             else if (viewMode === "week") navigateWeek(1);
