@@ -505,9 +505,9 @@ export default function EngagementCalendar({ embedded = false }) {
                             </div>
                           );
                         })}
-                        {dayEvents.length > 3 && (
+                        {dayEvents.length > 2 && (
                           <div className="text-xs text-muted-foreground text-center">
-                            +{dayEvents.length - 3} {isEs ? "más" : "more"}
+                            +{dayEvents.length - 2}
                           </div>
                         )}
                       </div>
