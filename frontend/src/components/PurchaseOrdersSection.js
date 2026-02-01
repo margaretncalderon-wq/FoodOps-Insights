@@ -103,6 +103,7 @@ export default function PurchaseOrdersSection() {
       createExpense: { en: "Create Expense Record", es: "Crear Registro de Gasto" },
       invoiceNumber: { en: "Invoice #", es: "# Factura" },
       invoiceDate: { en: "Invoice Date", es: "Fecha Factura" },
+      invoiceUrl: { en: "Invoice Link/File", es: "Link/Archivo Factura" },
       receiveItems: { en: "Receive Items", es: "Recibir Artículos" },
       selectAll: { en: "Select All", es: "Seleccionar Todo" },
       draft: { en: "Draft", es: "Borrador" },
