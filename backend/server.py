@@ -9054,30 +9054,74 @@ async def apply_run_of_show_template(event_id: str, template_key: str, user: Use
 # --- Team & Roles ---
 @orchestration_router.get("/team/{event_id}")
 async def get_team_roles(event_id: str, user: User = Depends(get_current_user)):
-    """Get team and roles for an event"""
+    """Get team and roles for an event - synced from contract Service items"""
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
-    team = await db.event_team_roles.find_one({"event_id": event_id}, {"_id": 0})
+    # Get synced roles from order_items (Service type)
+    synced_roles = []
+    proposal = await db.proposals.find_one({"event_id": event_id, "company_id": user.company_id})
+    if proposal:
+        service_items = await db.order_items.find(
+            {"proposal_id": proposal["proposal_id"], "item_type": "Service"},
+            {"_id": 0}
+        ).to_list(100)
+        
+        for item in service_items:
+            synced_roles.append({
+                "role_id": f"synced_{item.get('item_id', '')}",
+                "role_name": item.get("description", "Service"),
+                "quantity": int(item.get("quantity", 1)),
+                "is_synced": True,  # Flag to indicate this is from contract
+                "is_billable": True,
+                "unit_price": item.get("unit_price", 0),
+                "total_price": item.get("total_price", 0),
+                "assignees": [],
+                "responsibilities": "",
+                "contact_info": "",
+                "capacity_notes": ""
+            })
     
-    return team or {
+    # Get additional operational roles (non-billable)
+    team = await db.event_team_roles.find_one({"event_id": event_id}, {"_id": 0})
+    operational_roles = []
+    if team:
+        operational_roles = [r for r in team.get("roles", []) if not r.get("is_synced", False)]
+    
+    return {
         "event_id": event_id,
-        "roles": [],
-        "coordinator_notes": None
+        "synced_roles": synced_roles,  # From contract (read-only quantities)
+        "operational_roles": operational_roles,  # Non-billable additions
+        "roles": synced_roles + operational_roles,  # Combined for backwards compatibility
+        "coordinator_notes": team.get("coordinator_notes") if team else None,
+        "is_locked": event.get("stage") == "Closed"
     }
 
 @orchestration_router.put("/team/{event_id}")
 async def update_team_roles(event_id: str, data: TeamRolesCreate, user: User = Depends(get_current_user)):
-    """Update team and roles for an event"""
+    """Update team and roles for an event - only operational roles and assignments"""
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Check if event is locked
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify team roles.")
+    
     now = datetime.now(timezone.utc)
-    team_data = data.dict()
-    team_data["company_id"] = user.company_id
-    team_data["updated_at"] = now.isoformat()
+    
+    # Filter out synced roles from the update (preserve them from contract)
+    incoming_roles = data.dict().get("roles", [])
+    operational_roles = [r for r in incoming_roles if not r.get("is_synced", False)]
+    
+    team_data = {
+        "event_id": event_id,
+        "roles": operational_roles,  # Only store non-synced roles
+        "coordinator_notes": data.coordinator_notes,
+        "company_id": user.company_id,
+        "updated_at": now.isoformat()
+    }
     
     await db.event_team_roles.update_one(
         {"event_id": event_id},
@@ -9085,7 +9129,230 @@ async def update_team_roles(event_id: str, data: TeamRolesCreate, user: User = D
         upsert=True
     )
     
-    return await db.event_team_roles.find_one({"event_id": event_id}, {"_id": 0})
+    # Return the full team data including synced roles
+    return await get_team_roles(event_id, user)
+
+@orchestration_router.put("/team/{event_id}/assignees")
+async def update_team_assignees(event_id: str, role_id: str, assignees: List[str], user: User = Depends(get_current_user)):
+    """Update assignees for a specific role (works for both synced and operational roles)"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify assignees.")
+    
+    # Store assignees separately to allow assignment to synced roles
+    now = datetime.now(timezone.utc)
+    await db.event_role_assignees.update_one(
+        {"event_id": event_id, "role_id": role_id},
+        {"$set": {"assignees": assignees, "updated_at": now.isoformat()}},
+        upsert=True
+    )
+    
+    return {"message": "Assignees updated"}
+
+# --- Event Binder (Single Source of Truth) ---
+@orchestration_router.get("/binder/{event_id}")
+async def get_event_binder(event_id: str, user: User = Depends(get_current_user)):
+    """Get complete Event Binder - aggregated read-only view of entire event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get client info
+    client = None
+    if event.get("client_id"):
+        client = await db.clients.find_one({"client_id": event["client_id"]}, {"_id": 0})
+    
+    # Get proposal and contract info
+    proposal = await db.proposals.find_one({"event_id": event_id}, {"_id": 0})
+    order_items = []
+    if proposal:
+        order_items = await db.order_items.find(
+            {"proposal_id": proposal["proposal_id"]},
+            {"_id": 0}
+        ).to_list(500)
+    
+    # Get all orchestration data
+    blueprint = await db.event_blueprints.find_one({"event_id": event_id}, {"_id": 0})
+    experience = await db.experience_designs.find_one({"event_id": event_id}, {"_id": 0})
+    operational = await db.operational_flows.find_one({"event_id": event_id}, {"_id": 0})
+    run_of_show = await db.run_of_show.find_one({"event_id": event_id}, {"_id": 0})
+    team = await get_team_roles(event_id, user)
+    production = await db.production_assets.find_one({"event_id": event_id}, {"_id": 0})
+    review = await db.post_event_reviews.find_one({"event_id": event_id}, {"_id": 0})
+    
+    # Get financial data from invoices and payments
+    invoices = await db.invoices.find({"event_id": event_id}, {"_id": 0}).to_list(100)
+    payments = await db.payments.find({"event_id": event_id}, {"_id": 0}).to_list(100)
+    
+    # Calculate financial summary
+    total_invoiced = sum(inv.get("total", 0) for inv in invoices)
+    total_paid = sum(pmt.get("amount", 0) for pmt in payments if pmt.get("status") == "applied")
+    total_cost = sum(item.get("total_cost", 0) or 0 for item in order_items)
+    
+    # Compile binder
+    binder = {
+        "event_id": event_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        
+        # Event Snapshot
+        "event_snapshot": {
+            "name": event.get("name"),
+            "event_type": event.get("event_type"),
+            "event_date": event.get("event_date"),
+            "venue": event.get("venue"),
+            "guest_count": event.get("guest_count"),
+            "stage": event.get("stage"),
+            "status": event.get("status")
+        },
+        
+        # Client Info
+        "client": {
+            "name": client.get("display_name") if client else None,
+            "email": client.get("email") if client else None,
+            "phone": client.get("phone") if client else None
+        } if client else None,
+        
+        # Commercial Summary
+        "commercial_summary": {
+            "proposal_status": proposal.get("status") if proposal else None,
+            "total_value": proposal.get("final_total") if proposal else 0,
+            "order_items_count": len(order_items),
+            "items_by_type": {
+                "Food": len([i for i in order_items if i.get("item_type") == "Food"]),
+                "Service": len([i for i in order_items if i.get("item_type") == "Service"]),
+                "Rental": len([i for i in order_items if i.get("item_type") == "Rental"]),
+                "Fee": len([i for i in order_items if i.get("item_type") == "Fee"])
+            }
+        },
+        
+        # Experience Design Elements
+        "experience_design": {
+            "color_palette": experience.get("color_palette", []) if experience else [],
+            "catering_setup": experience.get("catering_setup") if experience else None,
+            "zones_count": len(experience.get("layout_zones", [])) if experience else 0,
+            "moodboard_count": len(experience.get("moodboard_images", [])) if experience else 0
+        },
+        
+        # Blueprint
+        "blueprint": {
+            "objectives": blueprint.get("objectives") if blueprint else None,
+            "scope_definition": blueprint.get("scope_definition") if blueprint else None,
+            "critical_assumptions": blueprint.get("critical_assumptions") if blueprint else None,
+            "constraints": blueprint.get("constraints") if blueprint else None,
+            "success_criteria": blueprint.get("success_criteria") if blueprint else None
+        },
+        
+        # Operational Status
+        "operational_status": {
+            "overall_status": operational.get("overall_status") if operational else "planning",
+            "phases_count": len(operational.get("phases", [])) if operational else 0,
+            "risks_count": len(operational.get("risks", [])) if operational else 0,
+            "dependencies_count": len(operational.get("dependencies", [])) if operational else 0
+        },
+        
+        # Run of Show Summary
+        "run_of_show_summary": {
+            "template_name": run_of_show.get("template_name") if run_of_show else None,
+            "blocks_count": len(run_of_show.get("time_blocks", [])) if run_of_show else 0,
+            "has_contingency_notes": bool(run_of_show.get("contingency_notes")) if run_of_show else False
+        },
+        
+        # Team Summary
+        "team_summary": {
+            "total_roles": len(team.get("roles", [])),
+            "synced_roles": len(team.get("synced_roles", [])),
+            "operational_roles": len(team.get("operational_roles", [])),
+            "total_staff_required": sum(r.get("quantity", 1) for r in team.get("roles", []))
+        },
+        
+        # Production Status
+        "production_status": {
+            "preparation_status": production.get("preparation_status") if production else "not_started",
+            "assets_count": len(production.get("assets", [])) if production else 0,
+            "checklist_count": len(production.get("checklists", [])) if production else 0
+        },
+        
+        # Financial Reality
+        "financial_summary": {
+            "total_invoiced": total_invoiced,
+            "total_collected": total_paid,
+            "balance_due": total_invoiced - total_paid,
+            "total_cost": total_cost,
+            "estimated_profit": total_invoiced - total_cost,
+            "profit_margin": round((total_invoiced - total_cost) / total_invoiced * 100, 2) if total_invoiced > 0 else 0
+        },
+        
+        # Post-Event Learnings
+        "post_event": {
+            "rating": review.get("rating") if review else None,
+            "what_worked_count": len(review.get("what_worked", [])) if review else 0,
+            "what_failed_count": len(review.get("what_failed", [])) if review else 0,
+            "learnings_count": len(review.get("learnings", [])) if review else 0,
+            "is_locked": review.get("is_locked", False) if review else False
+        },
+        
+        # Binder notes (manual input)
+        "binder_notes": event.get("binder_notes", ""),
+        
+        # Lock status
+        "is_locked": event.get("stage") == "Closed"
+    }
+    
+    return binder
+
+@orchestration_router.put("/binder/{event_id}/notes")
+async def update_binder_notes(event_id: str, notes: str, user: User = Depends(get_current_user)):
+    """Update binder notes for an event"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {"binder_notes": notes, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Binder notes updated"}
+
+# --- Event Stage Management ---
+@orchestration_router.post("/events/{event_id}/close")
+async def close_event(event_id: str, user: User = Depends(get_current_user)):
+    """Close an event - locks all orchestration data except Post-Event Review"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if event.get("stage") not in ["Won"]:
+        raise HTTPException(status_code=400, detail="Only Won events can be closed")
+    
+    now = datetime.now(timezone.utc)
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {"stage": "Closed", "closed_at": now.isoformat(), "updated_at": now.isoformat()}}
+    )
+    
+    return {"message": "Event closed successfully"}
+
+@orchestration_router.post("/events/{event_id}/reopen")
+async def reopen_event(event_id: str, user: User = Depends(get_current_user)):
+    """Reopen a closed event (admin only)"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if event.get("stage") != "Closed":
+        raise HTTPException(status_code=400, detail="Event is not closed")
+    
+    now = datetime.now(timezone.utc)
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {"stage": "Won", "updated_at": now.isoformat()}, "$unset": {"closed_at": ""}}
+    )
+    
+    return {"message": "Event reopened successfully"}
 
 # --- Production Assets ---
 @orchestration_router.get("/production/{event_id}")
