@@ -4686,6 +4686,122 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     doc["updated_at"] = now
     return Document(**doc)
 
+@documents_router.post("/{document_id}/regenerate")
+async def regenerate_document(document_id: str, user: User = Depends(get_current_user)):
+    """Regenerate a document with current event/proposal data"""
+    # Get existing document
+    existing_doc = await db.documents.find_one(
+        {"document_id": document_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not existing_doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    event_id = existing_doc.get("event_id")
+    doc_type = existing_doc.get("document_type")
+    
+    if not event_id:
+        raise HTTPException(status_code=400, detail="Document has no linked event")
+    
+    # Get current event data
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    client = await db.clients.find_one({"client_id": event["client_id"]}, {"_id": 0})
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+    
+    # Get current proposal and order items
+    proposal = await db.proposals.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    order_items = []
+    if proposal:
+        order_items = await db.order_items.find(
+            {"proposal_id": proposal["proposal_id"]},
+            {"_id": 0}
+        ).sort("sort_order", 1).to_list(500)
+    
+    # Get categories
+    categories = await db.item_categories.find(
+        {"company_id": user.company_id}, {"_id": 0}
+    ).to_list(100)
+    cat_map = {c["category_id"]: c["name"] for c in categories}
+    
+    # Organize items by day and type
+    items_by_day = {}
+    items_by_type = {"Food": [], "Service": [], "Rental": [], "Fee": [], "Other": []}
+    
+    for item in order_items:
+        item_type = item.get("item_type", "Other")
+        event_day = item.get("event_date") or "main"
+        
+        if item.get("category_id"):
+            item["category_name"] = cat_map.get(item["category_id"], "")
+        
+        if item_type in items_by_type:
+            items_by_type[item_type].append(item)
+        else:
+            items_by_type["Other"].append(item)
+        
+        if event_day not in items_by_day:
+            items_by_day[event_day] = []
+        items_by_day[event_day].append(item)
+    
+    # Calculate totals from order items
+    subtotal = sum(item.get("quantity", 1) * item.get("unit_price", 0) for item in order_items)
+    
+    discount_percent = proposal.get("discount_percent", 0) if proposal else 0
+    tax_percent = proposal.get("tax_percent", company.get("default_tax_rate", 0) if company else 0) if proposal else 0
+    
+    discount_amount = subtotal * (discount_percent / 100)
+    taxable_amount = subtotal - discount_amount
+    tax_amount = taxable_amount * (tax_percent / 100)
+    total = taxable_amount + tax_amount
+    
+    is_multiday = event.get("end_date") and event.get("event_date") != event.get("end_date")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Build new content
+    new_content = {
+        "event": event,
+        "client": client,
+        "company": company,
+        "recipes": existing_doc.get("content", {}).get("recipes", []),  # Keep legacy recipes
+        "order_items": order_items,
+        "items_by_type": items_by_type,
+        "items_by_day": items_by_day,
+        "is_multiday": is_multiday,
+        "template_settings": existing_doc.get("content", {}).get("template_settings", {}),
+        "financials": {
+            "subtotal": subtotal,
+            "discount_percent": discount_percent,
+            "discount_amount": discount_amount,
+            "tax_percent": tax_percent,
+            "tax_amount": tax_amount,
+            "total": total
+        },
+        "generated_at": now.isoformat(),
+        "regenerated_at": now.isoformat(),
+        "previous_generated_at": existing_doc.get("content", {}).get("generated_at")
+    }
+    
+    # Update the document
+    await db.documents.update_one(
+        {"document_id": document_id},
+        {"$set": {
+            "content": new_content,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Return updated document
+    updated_doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
+    return updated_doc
+
 # ============== FINANCE ROUTES ==============
 
 @finance_router.get("/invoices")
