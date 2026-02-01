@@ -41,7 +41,26 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
-const PIPELINE_STAGES = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost", "Closed"];
+// Engagement Stages (OS-level progression)
+const ENGAGEMENT_STAGES = [
+  "Inquiry Received",    // Intention exists, nothing defined
+  "Context Captured",    // We understood what they want
+  "Scope Drafted",       // Proposal under construction
+  "Definition In Review", // Adjustments, changes, validations
+  "Committed",           // Approved, ready to orchestrate
+  "Archived"             // Not proceeding (no drama)
+];
+
+// Legacy mapping for backward compatibility
+const LEGACY_STAGE_MAP = {
+  "Lead": "Inquiry Received",
+  "Contacted": "Context Captured",
+  "Proposal": "Scope Drafted",
+  "Negotiation": "Definition In Review",
+  "Won": "Committed",
+  "Lost": "Archived",
+  "Closed": "Committed"
+};
 
 export default function EventsPage({ embedded = false }) {
   const { t, language } = useLanguage();
