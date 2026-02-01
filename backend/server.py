@@ -8128,12 +8128,15 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
         
         # Categorize into SR vs PL
         if item["in_stock"] > 0:
+            stock_qty = round(min(item["in_stock"], item["total_required"]), 2)
             stock_requisition.append({
                 "inventory_item_id": item_id,
                 "item_name": item["item_name"],
                 "unit": item["unit"],
-                "in_stock": round(min(item["in_stock"], item["total_required"]), 2),
+                "in_stock": stock_qty,
                 "total_required": item["total_required"],
+                "unit_cost": item["unit_cost"],
+                "total_cost": round(stock_qty * item["unit_cost"], 2),
                 "recipes_used": item.get("recipes_used", [])
             })
         
