@@ -8,7 +8,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { 
   Users, Calendar, ChefHat, AlertTriangle, ArrowRight, TrendingUp,
-  Clock, CheckCircle, UserPlus, Mail, Star, AlertCircle
+  Clock, CheckCircle, UserPlus, Mail, Star, AlertCircle, Activity
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
@@ -81,12 +81,12 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold text-foreground">
-              {t("dashboard")}
+              System Pulse
             </h1>
             <p className="text-muted-foreground mt-1">
               {language === "es"
-                ? "Resumen de tu negocio de eventos"
-                : "Overview of your event business"}
+                ? "Vista en tiempo real de lo activo, alineado y en movimiento"
+                : "A real-time view of what's active, aligned, and in motion"}
             </p>
           </div>
           <Link to="/events">

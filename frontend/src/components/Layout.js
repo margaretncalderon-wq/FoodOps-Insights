@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { path: "/dashboard", icon: LayoutDashboard, labelKey: "dashboard" },
+  { path: "/dashboard", icon: Activity, labelKey: "systemPulse" },
   { path: "/client-engagement", icon: Puzzle, label: "Client Engagement", labelEs: "Client Engagement" },
   { path: "/event-orchestration", icon: Music4, label: "Event Orchestration", labelEs: "Event Orchestration" },
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
