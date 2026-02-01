@@ -82,9 +82,9 @@ function EventsList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{isEs ? "Eventos" : "Events"}</h2>
+          <h2 className="text-2xl font-bold">{isEs ? "Eventos Confirmados" : "Confirmed Events"}</h2>
           <p className="text-muted-foreground">
-            {isEs ? "Selecciona un evento para orquestar" : "Select an event to orchestrate"}
+            {isEs ? "Solo eventos ganados (Won) aparecen aquí para ejecución" : "Only Won events appear here for execution"}
           </p>
         </div>
         <Button variant="outline" onClick={fetchEvents}>
@@ -92,6 +92,18 @@ function EventsList() {
           {isEs ? "Actualizar" : "Refresh"}
         </Button>
       </div>
+
+      {/* Info Banner */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="py-3">
+          <p className="text-sm text-blue-700 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            {isEs 
+              ? "Esta es la capa de ejecución. Los eventos en Lead, Proposal o Negotiation deben ser confirmados (Won) desde el módulo de Ventas para aparecer aquí." 
+              : "This is the execution layer. Events in Lead, Proposal or Negotiation must be confirmed (Won) from the Sales module to appear here."}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -108,23 +120,27 @@ function EventsList() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredEvents.map((event) => {
           const orchStatus = getOrchestrationStatus(event);
+          const isLocked = event.is_locked || event.stage === "Closed";
           return (
             <Card 
               key={event.event_id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className={`cursor-pointer hover:shadow-md transition-shadow ${isLocked ? "border-gray-400 bg-gray-50" : ""}`}
               onClick={() => navigate(`/event-orchestration/${event.event_id}`)}
               data-testid={`orchestration-event-${event.event_id}`}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-base line-clamp-1">{event.name}</CardTitle>
+                    <CardTitle className="text-base line-clamp-1 flex items-center gap-2">
+                      {event.name}
+                      {isLocked && <Badge variant="secondary" className="text-xs">Closed</Badge>}
+                    </CardTitle>
                     <CardDescription className="flex items-center gap-1 mt-1">
                       <Building2 className="w-3 h-3" />
                       {event.client_name || (isEs ? "Sin cliente" : "No client")}
                     </CardDescription>
                   </div>
-                  {getStatusBadge(event.stage || "Lead")}
+                  {getStatusBadge(event.stage || "Won")}
                 </div>
               </CardHeader>
               <CardContent>
@@ -159,7 +175,10 @@ function EventsList() {
         {filteredEvents.length === 0 && (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             <Music4 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{isEs ? "No hay eventos para mostrar" : "No events to display"}</p>
+            <p>{isEs ? "No hay eventos confirmados para mostrar" : "No confirmed events to display"}</p>
+            <p className="text-sm mt-2">
+              {isEs ? "Los eventos deben marcarse como 'Won' en el módulo de Ventas" : "Events must be marked as 'Won' in the Sales module"}
+            </p>
           </div>
         )}
       </div>
