@@ -275,18 +275,6 @@ export default function EventDetails() {
             {language === "es" ? "Volver a Propuestas" : "Back to Proposals"}
           </Link>
           <div className="flex items-center gap-2">
-            {/* Create Production Batch Button - Only show for committed events */}
-            {(event?.stage === "Committed" || event?.stage === "Won" || event?.stage === "Closed") && (
-              <Button 
-                variant="outline" 
-                onClick={handleOpenProductionDialog} 
-                className="gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
-                data-testid="create-production-batch-btn"
-              >
-                <Factory className="w-4 h-4" />
-                {language === "es" ? "Crear Lote Producción" : "Create Production Batch"}
-              </Button>
-            )}
             <Button variant="outline" onClick={handleDuplicateEvent} className="gap-2">
               <Copy className="w-4 h-4" />
               {t("duplicate")}
