@@ -1204,9 +1204,8 @@ export default function FoodOpsPage() {
     { path: "/food-ops/inventory", label: language === "es" ? "Inteligencia de Abastecimiento" : "Supply Intelligence", icon: Package },
     { path: "/food-ops/recipes", label: language === "es" ? "Arquitectura de Recetas" : "Recipe Architecture", icon: ChefHat },
     { path: "/food-ops/menus", label: language === "es" ? "Estrategia de Menús" : "Menu Strategy", icon: BookOpen },
-    { path: "/food-ops/purchases", label: language === "es" ? "Gestión de Compras" : "Procurement", icon: ShoppingCart },
+    { path: "/food-ops/consolidated", label: language === "es" ? "Costos y Consumo" : "Cost & Usage", icon: Layers },
     { path: "/food-ops/purchase-orders", label: language === "es" ? "Órdenes a Proveedores" : "Vendor Orders", icon: Truck },
-    { path: "/food-ops/consolidated", label: language === "es" ? "Resumen de Costos y Consumo" : "Cost & Usage Overview", icon: Layers },
   ];
 
   return (
@@ -1260,7 +1259,6 @@ export default function FoodOpsPage() {
           <Route path="inventory" element={<InventorySection />} />
           <Route path="recipes" element={<RecipesSection />} />
           <Route path="menus" element={<PlatedMenusSection />} />
-          <Route path="purchases" element={<PurchasesSection />} />
           <Route path="purchase-orders" element={<PurchaseOrdersSectionWrapper />} />
           <Route path="consolidated" element={<ConsolidatedPurchaseSectionWrapper />} />
         </Routes>
