@@ -49,6 +49,7 @@ const DEFAULT_FORM_FIELDS = [
   { field_name: "lead_name", label: "Full Name", label_es: "Nombre completo", enabled: true, required: true },
   { field_name: "email", label: "Email", label_es: "Email", enabled: true, required: true },
   { field_name: "phone", label: "Phone", label_es: "Teléfono", enabled: true, required: false },
+  { field_name: "whatsapp", label: "WhatsApp", label_es: "WhatsApp", enabled: true, required: false },
   { field_name: "company_name", label: "Company", label_es: "Empresa", enabled: true, required: false },
   { field_name: "event_type", label: "Event Type", label_es: "Tipo de Evento", enabled: true, required: true },
   { field_name: "event_date", label: "Event Date", label_es: "Fecha del Evento", enabled: true, required: false },
