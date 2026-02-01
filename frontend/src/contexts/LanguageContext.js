@@ -4,6 +4,7 @@ const translations = {
   en: {
     // Navigation
     dashboard: "Dashboard",
+    systemPulse: "System Pulse",
     crm: "CRM",
     clients: "Clients",
     events: "Events",
@@ -151,6 +152,7 @@ const translations = {
   es: {
     // Navigation
     dashboard: "Panel",
+    systemPulse: "System Pulse",
     crm: "CRM",
     clients: "Clientes",
     events: "Eventos",
