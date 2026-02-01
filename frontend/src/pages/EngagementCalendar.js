@@ -701,7 +701,7 @@ export default function EngagementCalendar({ embedded = false }) {
               {/* Status Badge */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={`${getStatusColor(selectedEvent.stage).bg} ${getStatusColor(selectedEvent.stage).text} border ${getStatusColor(selectedEvent.stage).border}`}>
-                  {selectedEvent.stage}
+                  {normalizeStage(selectedEvent.stage)}
                 </Badge>
                 <Badge variant="outline">{selectedEvent.event_type}</Badge>
                 {isMultiDayEvent(selectedEvent) && (
