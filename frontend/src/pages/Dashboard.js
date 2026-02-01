@@ -1,421 +1,554 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { 
-  Users, Calendar, ChefHat, AlertTriangle, ArrowRight, TrendingUp,
-  Clock, CheckCircle, UserPlus, Mail, Star, AlertCircle, Activity
+  Activity, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight,
+  FileCheck, Users, Zap, Bell, RefreshCw, ChefHat, MapPin, Building2,
+  GitBranch, Lock, Unlock
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export default function Dashboard() {
-  const { t, language } = useLanguage();
-  const [stats, setStats] = useState(null);
+// ==================== SYSTEM PULSE ====================
+export default function SystemPulse() {
+  const { language } = useLanguage();
+  const isEs = language === "es";
+  
   const [loading, setLoading] = useState(true);
+  const [timeWindow, setTimeWindow] = useState("all");
+  const [systemData, setSystemData] = useState({
+    activeEvents: [],
+    attentionRequired: [],
+    recentDecisions: [],
+    systemAlerts: []
+  });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchSystemData = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await axios.get(`${API}/dashboard/stats`, { withCredentials: true });
-      setStats(response.data);
+      const [eventsRes, statsRes] = await Promise.all([
+        axios.get(`${API}/orchestration/events`, { withCredentials: true }),
+        axios.get(`${API}/dashboard/stats`, { withCredentials: true })
+      ]);
+
+      const events = eventsRes.data || [];
+      const stats = statsRes.data || {};
+      
+      // Process Active Events (from Event Orchestration)
+      const now = new Date();
+      const activeEvents = events.map(event => {
+        const eventDate = event.event_date ? new Date(event.event_date) : null;
+        const daysUntil = eventDate ? Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24)) : null;
+        
+        // Determine status
+        let status = "on-track";
+        if (!event.has_blueprint || !event.has_run_of_show) status = "attention";
+        if (!event.has_team && daysUntil !== null && daysUntil <= 7) status = "blocked";
+        
+        return {
+          ...event,
+          daysUntil,
+          status
+        };
+      });
+
+      // Build Attention Required items
+      const attentionRequired = [];
+      
+      // Events without blueprint
+      events.filter(e => !e.has_blueprint).forEach(e => {
+        attentionRequired.push({
+          id: `blueprint-${e.event_id}`,
+          type: "dependency",
+          title: isEs ? "Blueprint pendiente" : "Blueprint pending",
+          description: e.name,
+          link: `/event-orchestration/${e.event_id}`,
+          priority: "high"
+        });
+      });
+
+      // Events without team assigned (within 14 days)
+      events.filter(e => {
+        if (e.has_team) return false;
+        const eventDate = e.event_date ? new Date(e.event_date) : null;
+        if (!eventDate) return false;
+        const daysUntil = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+        return daysUntil <= 14 && daysUntil >= 0;
+      }).forEach(e => {
+        attentionRequired.push({
+          id: `team-${e.event_id}`,
+          type: "blocker",
+          title: isEs ? "Equipo sin asignar" : "Team not assigned",
+          description: e.name,
+          link: `/event-orchestration/${e.event_id}`,
+          priority: "medium"
+        });
+      });
+
+      // Overdue tasks
+      (stats.tasks_overdue || []).forEach(task => {
+        attentionRequired.push({
+          id: `task-${task.task_id}`,
+          type: "approval",
+          title: isEs ? "Tarea vencida" : "Overdue task",
+          description: `${task.title} - ${task.event_name}`,
+          link: `/events/${task.event_id}`,
+          priority: "high"
+        });
+      });
+
+      // Build Recent Decisions (events recently moved to Committed/Won)
+      const recentDecisions = [];
+      
+      // Recently confirmed events (check updated_at within 48 hours)
+      events.filter(e => {
+        if (!e.updated_at) return false;
+        const updatedAt = new Date(e.updated_at);
+        const hoursSince = (now - updatedAt) / (1000 * 60 * 60);
+        return hoursSince <= 48;
+      }).forEach(e => {
+        recentDecisions.push({
+          id: `decision-${e.event_id}`,
+          type: "commitment",
+          title: isEs ? "Evento confirmado" : "Event confirmed",
+          description: e.name,
+          timestamp: e.updated_at,
+          link: `/event-orchestration/${e.event_id}`
+        });
+      });
+
+      // Build System Alerts (cross-module impacts)
+      const systemAlerts = [];
+      
+      // Low stock affecting events
+      if (stats.low_stock_alerts > 0) {
+        systemAlerts.push({
+          id: "inventory-impact",
+          type: "culinary",
+          title: isEs ? "Inventario bajo" : "Low inventory",
+          description: isEs 
+            ? `${stats.low_stock_alerts} items pueden afectar próximos eventos`
+            : `${stats.low_stock_alerts} items may impact upcoming events`,
+          link: "/food-ops/inventory"
+        });
+      }
+
+      setSystemData({
+        activeEvents,
+        attentionRequired,
+        recentDecisions,
+        systemAlerts
+      });
     } catch (error) {
-      console.error("Failed to fetch stats:", error);
+      console.error("Failed to fetch system data:", error);
     } finally {
       setLoading(false);
     }
+  }, [isEs]);
+
+  useEffect(() => {
+    fetchSystemData();
+  }, [fetchSystemData]);
+
+  // Time Window Filter
+  const filterByTimeWindow = (event) => {
+    if (timeWindow === "all") return true;
+    if (event.daysUntil === null) return timeWindow === "all";
+    
+    switch (timeWindow) {
+      case "now": return event.daysUntil >= -1 && event.daysUntil <= 1;
+      case "7days": return event.daysUntil >= 0 && event.daysUntil <= 7;
+      case "30days": return event.daysUntil >= 0 && event.daysUntil <= 30;
+      default: return true;
+    }
   };
 
-  const pipelineData = stats?.pipeline_stats
-    ? Object.entries(stats.pipeline_stats).map(([stage, count]) => ({
-        name: t(stage),
-        value: count,
-      }))
-    : [];
+  const filteredActiveEvents = systemData.activeEvents.filter(filterByTimeWindow);
 
-  const COLORS = ["#3A4D3F", "#E5DCC5", "#D4A017", "#4A7C8C", "#4A6C4C", "#B93632"];
-
-  const statCards = [
-    {
-      title: t("totalClients"),
-      value: stats?.total_clients || 0,
-      icon: Users,
-      color: "bg-primary/10 text-primary",
-      link: "/crm",
-    },
-    {
-      title: t("upcomingEvents"),
-      value: stats?.upcoming_events || 0,
-      icon: Calendar,
-      color: "bg-info/10 text-info",
-      link: "/events",
-    },
-    {
-      title: t("totalRecipes"),
-      value: stats?.total_recipes || 0,
-      icon: ChefHat,
-      color: "bg-success/10 text-success",
-      link: "/recipes",
-    },
-    {
-      title: t("lowStockAlerts"),
-      value: stats?.low_stock_alerts || 0,
-      icon: AlertTriangle,
-      color: "bg-warning/10 text-warning",
-      link: "/inventory",
-    },
+  // Time Window Options
+  const timeWindowOptions = [
+    { value: "now", label: isEs ? "Ahora" : "Now" },
+    { value: "7days", label: isEs ? "7 Días" : "Next 7 Days" },
+    { value: "30days", label: isEs ? "30 Días" : "Next 30 Days" },
+    { value: "all", label: isEs ? "Todos" : "All" }
   ];
+
+  // Status indicator styles
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case "on-track": return { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" };
+      case "attention": return { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" };
+      case "blocked": return { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700", dot: "bg-rose-500" };
+      default: return { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-700", dot: "bg-gray-500" };
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      "on-track": isEs ? "En curso" : "On Track",
+      "attention": isEs ? "Atención" : "Attention",
+      "blocked": isEs ? "Bloqueado" : "Blocked"
+    };
+    return labels[status] || status;
+  };
+
+  const getPriorityStyle = (priority) => {
+    switch (priority) {
+      case "high": return "border-l-rose-500";
+      case "medium": return "border-l-amber-500";
+      default: return "border-l-gray-300";
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-96">
+          <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <div className="space-y-8" data-testid="dashboard-page">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-3xl font-bold text-foreground">
-              System Pulse
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {language === "es"
-                ? "Vista en tiempo real de lo activo, alineado y en movimiento"
-                : "A real-time view of what's active, aligned, and in motion"}
-            </p>
+      <div className="space-y-8" data-testid="system-pulse-page">
+        {/* ==================== HEADER ==================== */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="font-heading text-2xl font-bold text-foreground">
+                System Pulse
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? "Vista en tiempo real del estado del sistema"
+                  : "Real-time view of system state"}
+              </p>
+            </div>
           </div>
-          <Link to="/events">
-            <Button className="rounded-full gap-2" data-testid="new-event-btn">
-              <Calendar className="w-4 h-4" />
-              {t("addEvent")}
-            </Button>
-          </Link>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {statCards.map((card, index) => {
-            const Icon = card.icon;
-            return (
-              <Link key={index} to={card.link}>
-                <Card
-                  className="hover:shadow-card transition-all duration-300 cursor-pointer group"
-                  data-testid={`stat-card-${index}`}
+          
+          {/* Time Window Selector */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{isEs ? "Ventana:" : "Time Window:"}</span>
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              {timeWindowOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setTimeWindow(option.value)}
+                  className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                    timeWindow === option.value 
+                      ? "bg-background shadow-sm font-medium" 
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`time-window-${option.value}`}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">{card.title}</p>
-                        <p className="text-3xl font-heading font-bold mt-2">
-                          {loading ? "..." : card.value}
-                        </p>
-                      </div>
-                      <div className={`w-12 h-12 rounded-xl ${card.color} flex items-center justify-center`}>
-                        <Icon className="w-6 h-6" strokeWidth={1.5} />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 mt-4 text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                      <span>{language === "es" ? "Ver detalles" : "View details"}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={fetchSystemData}
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              title={isEs ? "Actualizar" : "Refresh"}
+            >
+              <RefreshCw className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
-        {/* Charts Row */}
+        {/* ==================== PERMANENT CORE ==================== */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Pipeline Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading text-lg">{t("salesPipeline")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {pipelineData.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={pipelineData} layout="vertical">
-                      <XAxis type="number" />
-                      <YAxis type="category" dataKey="name" width={100} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#3A4D3F" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  {t("noResults")}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Events */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="font-heading text-lg">{t("recentEvents")}</CardTitle>
-              <Link to="/events" className="text-sm text-primary hover:underline">
-                {language === "es" ? "Ver todos" : "View all"}
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {stats?.recent_events?.length > 0 ? (
-                <div className="space-y-4">
-                  {stats.recent_events.map((event, index) => (
-                    <Link
-                      key={event.event_id}
-                      to={`/events/${event.event_id}`}
-                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors"
-                      data-testid={`recent-event-${index}`}
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-secondary-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{event.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
-                        </p>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          event.status === "confirmed"
-                            ? "bg-success/10 text-success"
-                            : event.status === "planning"
-                            ? "bg-info/10 text-info"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {t(event.status)}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
-                  <Calendar className="w-12 h-12 mb-4 opacity-50" />
-                  <p>{t("noResults")}</p>
-                  <Link to="/events" className="mt-4">
-                    <Button variant="outline" size="sm">
-                      {t("addEvent")}
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* NEW: Tasks Due & New Leads Row */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Tasks Due Today & Overdue */}
-          <Card data-testid="tasks-due-section">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                <CardTitle className="font-heading text-lg">
-                  {language === "es" ? "Tareas Pendientes" : "Tasks Due"}
-                </CardTitle>
-              </div>
-              <div className="flex gap-2">
-                {stats?.tasks_overdue_count > 0 && (
-                  <Badge variant="destructive" className="text-xs">
-                    {stats.tasks_overdue_count} {language === "es" ? "atrasadas" : "overdue"}
-                  </Badge>
-                )}
-                {stats?.tasks_due_count > 0 && (
+          
+          {/* -------------------- 1) ACTIVE EVENTS -------------------- */}
+          <Card className="lg:col-span-2" data-testid="active-events-section">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-lg">
+                    {isEs ? "Eventos Activos" : "Active Events"}
+                  </CardTitle>
                   <Badge variant="secondary" className="text-xs">
-                    {stats.tasks_due_count} {language === "es" ? "hoy" : "today"}
+                    {filteredActiveEvents.length}
                   </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {(stats?.tasks_overdue?.length > 0 || stats?.tasks_due_today?.length > 0) ? (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {/* Overdue tasks first */}
-                  {stats.tasks_overdue?.map((task, index) => (
-                    <Link
-                      key={`overdue-${task.task_id || index}`}
-                      to={`/events/${task.event_id}`}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
-                      data-testid={`task-overdue-${index}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-sm">{task.title}</p>
-                        <p className="text-xs text-red-600">
-                          {task.event_name} • {language === "es" ? "Venció" : "Due"}: {new Date(task.due_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className={`text-xs ${
-                        task.priority === "high" ? "border-red-500 text-red-600" :
-                        task.priority === "medium" ? "border-yellow-500 text-yellow-600" :
-                        "border-gray-400 text-gray-600"
-                      }`}>
-                        {task.priority === "high" ? (language === "es" ? "Alta" : "High") :
-                         task.priority === "medium" ? (language === "es" ? "Media" : "Medium") :
-                         (language === "es" ? "Baja" : "Low")}
-                      </Badge>
-                    </Link>
-                  ))}
-                  {/* Today's tasks */}
-                  {stats.tasks_due_today?.map((task, index) => (
-                    <Link
-                      key={`today-${task.task_id || index}`}
-                      to={`/events/${task.event_id}`}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 transition-colors"
-                      data-testid={`task-today-${index}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-yellow-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-sm">{task.title}</p>
-                        <p className="text-xs text-yellow-700">
-                          {task.event_name} • {language === "es" ? "Hoy" : "Today"}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className={`text-xs ${
-                        task.priority === "high" ? "border-red-500 text-red-600" :
-                        task.priority === "medium" ? "border-yellow-500 text-yellow-600" :
-                        "border-gray-400 text-gray-600"
-                      }`}>
-                        {task.priority === "high" ? (language === "es" ? "Alta" : "High") :
-                         task.priority === "medium" ? (language === "es" ? "Media" : "Medium") :
-                         (language === "es" ? "Baja" : "Low")}
-                      </Badge>
-                    </Link>
-                  ))}
                 </div>
-              ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-muted-foreground">
-                  <CheckCircle className="w-12 h-12 mb-4 opacity-50 text-green-500" />
-                  <p className="font-medium text-green-600">
-                    {language === "es" ? "¡Todo al día!" : "All caught up!"}
-                  </p>
-                  <p className="text-sm">
-                    {language === "es" ? "No hay tareas pendientes" : "No pending tasks"}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* New Leads */}
-          <Card data-testid="new-leads-section">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-blue-600" />
-                <CardTitle className="font-heading text-lg">
-                  {language === "es" ? "Nuevos Leads" : "New Leads"}
-                </CardTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                {stats?.new_leads_count > 0 && (
-                  <Badge className="bg-blue-100 text-blue-700 text-xs">
-                    {stats.new_leads_count} {language === "es" ? "nuevos" : "new"}
-                  </Badge>
-                )}
-                <Link to="/crm/inbound" className="text-sm text-primary hover:underline">
-                  {language === "es" ? "Ver todos" : "View all"}
+                <Link 
+                  to="/event-orchestration" 
+                  className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
+                >
+                  {isEs ? "Ver todos" : "View all"}
+                  <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs 
+                  ? "Eventos confirmados en ejecución o próximos"
+                  : "Confirmed events in execution or approaching"}
+              </p>
             </CardHeader>
             <CardContent>
-              {stats?.new_leads?.length > 0 ? (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {stats.new_leads.map((lead, index) => (
+              {filteredActiveEvents.length > 0 ? (
+                <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {filteredActiveEvents.slice(0, 6).map((event) => {
+                    const statusStyle = getStatusStyle(event.status);
+                    return (
+                      <Link
+                        key={event.event_id}
+                        to={`/event-orchestration/${event.event_id}`}
+                        className={`block p-4 rounded-lg border ${statusStyle.border} ${statusStyle.bg} hover:shadow-sm transition-all`}
+                        data-testid={`active-event-${event.event_id}`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-medium text-sm line-clamp-1">{event.name}</h4>
+                          <div className={`w-2 h-2 rounded-full ${statusStyle.dot} flex-shrink-0 mt-1.5`} />
+                        </div>
+                        <div className="space-y-1.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-3 h-3" />
+                            <span className="truncate">{event.client_name || "-"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3" />
+                            <span>
+                              {event.event_date 
+                                ? new Date(event.event_date).toLocaleDateString(isEs ? "es-ES" : "en-US")
+                                : "TBD"}
+                            </span>
+                            {event.daysUntil !== null && event.daysUntil >= 0 && (
+                              <Badge variant="outline" className="text-xs ml-auto px-1.5 py-0">
+                                {event.daysUntil === 0 
+                                  ? (isEs ? "Hoy" : "Today")
+                                  : `${event.daysUntil}d`}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-current/10">
+                          <span className={`text-xs font-medium ${statusStyle.text}`}>
+                            {getStatusLabel(event.status)}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {event.has_blueprint && <CheckCircle className="w-3 h-3 text-emerald-500" />}
+                            {event.has_run_of_show && <Clock className="w-3 h-3 text-emerald-500" />}
+                            {event.has_team && <Users className="w-3 h-3 text-emerald-500" />}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">
+                    {isEs 
+                      ? "No hay eventos activos en esta ventana"
+                      : "No active events in this time window"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* -------------------- 2) ATTENTION REQUIRED -------------------- */}
+          <Card data-testid="attention-required-section">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                <CardTitle className="text-lg">
+                  {isEs ? "Requiere Atención" : "Attention Required"}
+                </CardTitle>
+                {systemData.attentionRequired.length > 0 && (
+                  <Badge className="bg-amber-100 text-amber-700 text-xs">
+                    {systemData.attentionRequired.length}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs 
+                  ? "Decisiones o acciones pendientes"
+                  : "Pending decisions or actions"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {systemData.attentionRequired.length > 0 ? (
+                <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                  {systemData.attentionRequired.map((item) => (
                     <Link
-                      key={lead.lead_id}
-                      to="/crm/inbound"
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors border border-muted"
-                      data-testid={`new-lead-${index}`}
+                      key={item.id}
+                      to={item.link}
+                      className={`block p-3 rounded-lg border-l-4 ${getPriorityStyle(item.priority)} bg-muted/30 hover:bg-muted/50 transition-colors`}
+                      data-testid={`attention-${item.id}`}
                     >
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <Star className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium truncate text-sm">{lead.lead_name}</p>
-                          <Badge className="bg-blue-500 text-white text-xs">NEW</Badge>
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">
+                          {item.type === "blocker" && <Lock className="w-4 h-4 text-rose-500" />}
+                          {item.type === "dependency" && <GitBranch className="w-4 h-4 text-amber-500" />}
+                          {item.type === "approval" && <FileCheck className="w-4 h-4 text-blue-500" />}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="w-3 h-3" />
-                          <span className="truncate">{lead.email}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{item.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="text-xs mb-1">
-                          {lead.source}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground">
-                          {lead.event_type}
-                        </p>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </Link>
                   ))}
                 </div>
               ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-muted-foreground">
-                  <UserPlus className="w-12 h-12 mb-4 opacity-50" />
-                  <p>{language === "es" ? "No hay leads nuevos" : "No new leads"}</p>
-                  <Link to="/crm/inbound" className="mt-4">
-                    <Button variant="outline" size="sm">
-                      {language === "es" ? "Ver todos los leads" : "View all leads"}
-                    </Button>
-                  </Link>
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="w-10 h-10 mx-auto mb-3 opacity-30 text-emerald-500" />
+                  <p className="text-sm font-medium text-emerald-600">
+                    {isEs ? "Todo en orden" : "All clear"}
+                  </p>
+                  <p className="text-xs">
+                    {isEs ? "Sin items pendientes" : "No pending items"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* -------------------- 3) RECENT DECISIONS -------------------- */}
+          <Card data-testid="recent-decisions-section">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg">
+                  {isEs ? "Decisiones Recientes" : "Recent Decisions"}
+                </CardTitle>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs 
+                  ? "Confirmadas en las últimas 48 horas"
+                  : "Confirmed within the last 48 hours"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {systemData.recentDecisions.length > 0 ? (
+                <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                  {systemData.recentDecisions.map((decision) => (
+                    <Link
+                      key={decision.id}
+                      to={decision.link}
+                      className="block p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      data-testid={`decision-${decision.id}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{decision.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{decision.description}</p>
+                          {decision.timestamp && (
+                            <p className="text-xs text-muted-foreground/70 mt-1">
+                              {new Date(decision.timestamp).toLocaleString(isEs ? "es-ES" : "en-US", {
+                                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">
+                    {isEs 
+                      ? "Sin decisiones recientes"
+                      : "No recent decisions"}
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">
-              {language === "es" ? "Acciones Rápidas" : "Quick Actions"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Link to="/crm">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <Users className="w-5 h-5" />
-                  <span className="text-sm">{t("addClient")}</span>
-                </Button>
-              </Link>
-              <Link to="/events">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <Calendar className="w-5 h-5" />
-                  <span className="text-sm">{t("addEvent")}</span>
-                </Button>
-              </Link>
-              <Link to="/recipes/new">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <ChefHat className="w-5 h-5" />
-                  <span className="text-sm">{t("addRecipe")}</span>
-                </Button>
-              </Link>
-              <Link to="/inventory">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  <span className="text-sm">{t("inventory")}</span>
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        {/* -------------------- 4) SYSTEM ALERTS -------------------- */}
+        {systemData.systemAlerts.length > 0 && (
+          <Card className="border-dashed" data-testid="system-alerts-section">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-violet-600" />
+                <CardTitle className="text-lg">
+                  {isEs ? "Alertas del Sistema" : "System Alerts"}
+                </CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {isEs ? "Impacto cruzado" : "Cross-module"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs 
+                  ? "Cambios en un módulo que afectan otros"
+                  : "Changes in one module affecting others"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-3">
+                {systemData.systemAlerts.map((alert) => (
+                  <Link
+                    key={alert.id}
+                    to={alert.link}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors"
+                    data-testid={`alert-${alert.id}`}
+                  >
+                    {alert.type === "culinary" && <ChefHat className="w-4 h-4 text-violet-600" />}
+                    {alert.type === "venue" && <MapPin className="w-4 h-4 text-violet-600" />}
+                    {alert.type === "client" && <Building2 className="w-4 h-4 text-violet-600" />}
+                    <div>
+                      <p className="text-sm font-medium text-violet-900">{alert.title}</p>
+                      <p className="text-xs text-violet-600">{alert.description}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-violet-400" />
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ==================== QUICK NAVIGATION ==================== */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">
+          <Link 
+            to="/client-engagement" 
+            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <Users className="w-5 h-5 text-muted-foreground" />
+            <span className="text-sm font-medium">Client Engagement</span>
+          </Link>
+          <Link 
+            to="/event-orchestration" 
+            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <Calendar className="w-5 h-5 text-muted-foreground" />
+            <span className="text-sm font-medium">Event Orchestration</span>
+          </Link>
+          <Link 
+            to="/food-ops" 
+            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <ChefHat className="w-5 h-5 text-muted-foreground" />
+            <span className="text-sm font-medium">Culinary Intelligence</span>
+          </Link>
+          <Link 
+            to="/business-clarity" 
+            className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <Activity className="w-5 h-5 text-muted-foreground" />
+            <span className="text-sm font-medium">Business Clarity</span>
+          </Link>
+        </div>
       </div>
     </Layout>
   );
