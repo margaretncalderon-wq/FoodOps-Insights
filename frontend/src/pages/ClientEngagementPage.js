@@ -127,10 +127,10 @@ export default function ClientEngagementPage() {
         <nav className="space-y-5 flex-1">
           {navSections.map(section => (
             <div key={section.id} className="space-y-1">
-              {/* Section Header - Minimal */}
+              {/* Section Header - Bold */}
               <div className="flex items-center gap-2 px-3 py-1.5">
                 <section.icon className={`w-4 h-4 ${activeSection === section.id ? "text-primary" : "text-muted-foreground"}`} />
-                <span className={`text-xs font-semibold uppercase tracking-wide ${activeSection === section.id ? "text-primary" : "text-muted-foreground"}`}>
+                <span className={`text-sm font-bold ${activeSection === section.id ? "text-primary" : "text-foreground"}`}>
                   {section.title}
                 </span>
               </div>
