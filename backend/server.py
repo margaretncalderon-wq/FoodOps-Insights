@@ -2486,24 +2486,26 @@ async def get_by_owner(owner_id: str, user: User = Depends(get_current_user)):
 # --- Clients with Event History ---
 @crm_router.get("/clients-with-events")
 async def get_clients_with_events(user: User = Depends(get_current_user)):
-    """Get clients with their event history (read-only)"""
+    """Get clients with their event history, contacts and credit info"""
     clients = await db.clients.find(
         {"company_id": user.company_id, "status": "Active"},
         {"_id": 0}
     ).sort("updated_at", -1).to_list(500)
     
-    # Enrich with event data
+    # Enrich with event data, contacts, and credit calculations
     for client in clients:
+        # Get events with more detail
         events = await db.events.find(
             {"client_id": client["client_id"], "company_id": user.company_id},
-            {"_id": 0, "event_id": 1, "name": 1, "event_date": 1, "stage": 1}
+            {"_id": 0, "event_id": 1, "name": 1, "event_date": 1, "stage": 1, "status": 1, "ordered_by": 1, "contact_person": 1, "event_type": 1}
         ).sort("event_date", -1).to_list(50)
         
         client["events"] = events
         client["events_count"] = len(events)
         
-        # Calculate lifetime value from proposals
+        # Calculate lifetime value and credit used from proposals/invoices
         total_value = 0
+        credit_used = 0
         for event in events:
             proposal = await db.proposals.find_one(
                 {"event_id": event["event_id"]},
@@ -2511,12 +2513,35 @@ async def get_clients_with_events(user: User = Depends(get_current_user)):
             )
             if proposal:
                 total_value += proposal.get("final_total", 0) or 0
+            
+            # Check unpaid invoices for credit used
+            if client.get("has_credit"):
+                invoice = await db.invoices.find_one(
+                    {"event_id": event["event_id"], "status": {"$ne": "paid"}},
+                    {"_id": 0, "total": 1}
+                )
+                if invoice:
+                    credit_used += invoice.get("total", 0) or 0
         
         client["lifetime_value"] = total_value
+        client["credit_used"] = credit_used
+        
+        # Calculate credit percentage
+        if client.get("has_credit") and client.get("credit_limit", 0) > 0:
+            client["credit_percentage"] = round((credit_used / client["credit_limit"]) * 100, 1)
+        else:
+            client["credit_percentage"] = 0
         
         # Get last event date
         if events:
             client["last_event_date"] = events[0].get("event_date")
+        
+        # Get contacts for this client (especially important for companies)
+        contacts = await db.contacts.find(
+            {"client_id": client["client_id"], "company_id": user.company_id},
+            {"_id": 0}
+        ).to_list(50)
+        client["contacts"] = contacts
     
     return clients
 
