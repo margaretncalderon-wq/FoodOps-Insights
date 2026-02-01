@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { 
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
-  DollarSign, Eye, TrendingUp, Edit, Plus, Trash2, UserPlus
+  Eye, TrendingUp, Edit, Trash2, UserPlus
 } from "lucide-react";
 import CommsLogSection from "./CommsLogSection";
 
@@ -54,7 +54,10 @@ export default function ClientsSection() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchClients(); }, [fetchClients]);
+  useEffect(() => { 
+    fetchClients(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredClients = clients.filter(client => 
     client.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,7 +105,6 @@ export default function ClientsSection() {
       toast.success(isEs ? "Cliente actualizado" : "Client updated");
       setEditOpen(false);
       fetchClients();
-      // Update selectedClient if detail view is open
       if (detailOpen) {
         setSelectedClient({ ...selectedClient, ...editForm });
       }
@@ -143,93 +145,10 @@ export default function ClientsSection() {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount || 0);
   };
 
-  // Calculate totals
   const totalLifetimeValue = clients.reduce((sum, c) => sum + (c.lifetime_value || 0), 0);
   const totalEvents = clients.reduce((sum, c) => sum + (c.events_count || 0), 0);
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
-
-  // Reusable form component
-  const ClientForm = ({ isCreate = false }) => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <Label>{isEs ? "Nombre" : "Name"} *</Label>
-          <Input
-            value={editForm.display_name}
-            onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
-            placeholder={isEs ? "Nombre del cliente" : "Client name"}
-            data-testid="client-name-input"
-          />
-        </div>
-        <div>
-          <Label>{isEs ? "Tipo" : "Type"}</Label>
-          <Select value={editForm.client_type} onValueChange={(v) => setEditForm({ ...editForm, client_type: v })}>
-            <SelectTrigger data-testid="client-type-select">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Individual">{isEs ? "Individual" : "Individual"}</SelectItem>
-              <SelectItem value="Company">{isEs ? "Empresa" : "Company"}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>{isEs ? "Fuente" : "Source"}</Label>
-          <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
-            <SelectTrigger data-testid="client-source-select">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CLIENT_SOURCES.map(src => (
-                <SelectItem key={src} value={src}>{src}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Email</Label>
-          <Input
-            type="email"
-            value={editForm.email}
-            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-            placeholder="email@example.com"
-            data-testid="client-email-input"
-          />
-        </div>
-        <div>
-          <Label>{isEs ? "Teléfono" : "Phone"}</Label>
-          <Input
-            value={editForm.phone}
-            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-            placeholder="+52 555 123 4567"
-            data-testid="client-phone-input"
-          />
-        </div>
-      </div>
-      <div>
-        <Label>{isEs ? "Dirección" : "Address"}</Label>
-        <Input
-          value={editForm.address}
-          onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-          placeholder={isEs ? "Calle, Ciudad, Estado" : "Street, City, State"}
-          data-testid="client-address-input"
-        />
-      </div>
-      <div>
-        <Label>{isEs ? "Notas" : "Notes"}</Label>
-        <Textarea
-          value={editForm.notes}
-          onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-          rows={3}
-          placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
-          data-testid="client-notes-input"
-        />
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-6" data-testid="clients-section">
@@ -397,7 +316,6 @@ export default function ClientsSection() {
           </DialogHeader>
           {selectedClient && (
             <div className="space-y-6">
-              {/* Client Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>
@@ -417,7 +335,6 @@ export default function ClientsSection() {
                 </div>
               </div>
 
-              {/* Notes */}
               {selectedClient.notes && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">{isEs ? "Notas" : "Notes"}</p>
@@ -425,7 +342,6 @@ export default function ClientsSection() {
                 </div>
               )}
 
-              {/* Stats */}
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="pt-4 text-center">
@@ -451,7 +367,6 @@ export default function ClientsSection() {
                 </Card>
               </div>
 
-              {/* Event History (Read-Only) */}
               {selectedClient.events && selectedClient.events.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -491,7 +406,6 @@ export default function ClientsSection() {
                 </div>
               )}
 
-              {/* Comms Log */}
               <div className="border-t pt-4">
                 <CommsLogSection 
                   entityType="client" 
@@ -510,7 +424,84 @@ export default function ClientsSection() {
           <DialogHeader>
             <DialogTitle>{isEs ? "Editar Cliente" : "Edit Client"}</DialogTitle>
           </DialogHeader>
-          <ClientForm />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>{isEs ? "Nombre" : "Name"} *</Label>
+                <Input
+                  value={editForm.display_name}
+                  onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+                  placeholder={isEs ? "Nombre del cliente" : "Client name"}
+                  data-testid="client-name-input"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Tipo" : "Type"}</Label>
+                <Select value={editForm.client_type} onValueChange={(v) => setEditForm({ ...editForm, client_type: v })}>
+                  <SelectTrigger data-testid="client-type-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Individual">{isEs ? "Individual" : "Individual"}</SelectItem>
+                    <SelectItem value="Company">{isEs ? "Empresa" : "Company"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{isEs ? "Fuente" : "Source"}</Label>
+                <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
+                  <SelectTrigger data-testid="client-source-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_SOURCES.map(src => (
+                      <SelectItem key={src} value={src}>{src}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                  data-testid="client-email-input"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="+52 555 123 4567"
+                  data-testid="client-phone-input"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>{isEs ? "Dirección" : "Address"}</Label>
+              <Input
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                placeholder={isEs ? "Calle, Ciudad, Estado" : "Street, City, State"}
+                data-testid="client-address-input"
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Notas" : "Notes"}</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                rows={3}
+                placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
+                data-testid="client-notes-input"
+              />
+            </div>
+          </div>
           <DialogFooter className="flex justify-between">
             <Button 
               variant="destructive" 
@@ -539,7 +530,80 @@ export default function ClientsSection() {
           <DialogHeader>
             <DialogTitle>{isEs ? "Nuevo Cliente" : "New Client"}</DialogTitle>
           </DialogHeader>
-          <ClientForm isCreate />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>{isEs ? "Nombre" : "Name"} *</Label>
+                <Input
+                  value={editForm.display_name}
+                  onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+                  placeholder={isEs ? "Nombre del cliente" : "Client name"}
+                  data-testid="create-client-name-input"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Tipo" : "Type"}</Label>
+                <Select value={editForm.client_type} onValueChange={(v) => setEditForm({ ...editForm, client_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Individual">{isEs ? "Individual" : "Individual"}</SelectItem>
+                    <SelectItem value="Company">{isEs ? "Empresa" : "Company"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{isEs ? "Fuente" : "Source"}</Label>
+                <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_SOURCES.map(src => (
+                      <SelectItem key={src} value={src}>{src}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="+52 555 123 4567"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>{isEs ? "Dirección" : "Address"}</Label>
+              <Input
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                placeholder={isEs ? "Calle, Ciudad, Estado" : "Street, City, State"}
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Notas" : "Notes"}</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                rows={3}
+                placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
+              />
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               {isEs ? "Cancelar" : "Cancel"}
