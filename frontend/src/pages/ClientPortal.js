@@ -215,10 +215,10 @@ export default function ClientPortal() {
           if (items.length === 0) return null;
           
           const Icon = TYPE_ICONS[type] || Package;
-          const displayName = TYPE_DISPLAY[type]?.[lang] || type;
+          const displayName = getSectionTitle(type);
           
           return (
-            <div key={type} className={type === "Food" ? "pt-4" : ""}>
+            <div key={type}>
               {/* Special styling for Food/Menu section */}
               {type === "Food" ? (
                 <div className="bg-gradient-to-r from-primary/5 to-transparent p-4 rounded-lg mb-4">
@@ -228,7 +228,7 @@ export default function ClientPortal() {
                     </div>
                     <div>
                       <h3 className="font-heading text-lg font-semibold">
-                        {isEs ? "Menú Personalizado" : "Custom Menu"}
+                        {displayName}
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         {isEs ? `Para ${event.guest_count || 0} invitados` : `For ${event.guest_count || 0} guests`}
