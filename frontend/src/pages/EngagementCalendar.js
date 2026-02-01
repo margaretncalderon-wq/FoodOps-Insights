@@ -278,21 +278,6 @@ export default function EngagementCalendar({ embedded = false }) {
   const uniqueStages = ENGAGEMENT_STAGES;
   const uniqueTypes = [...new Set(events.map(e => e.event_type).filter(Boolean))];
 
-  // Map legacy stages to new stages for display
-  const mapLegacyStage = (stage) => {
-    const legacyMap = {
-      "Lead": "Inquiry Received",
-      "Contacted": "Context Captured",
-      "Proposal": "Scope Drafted",
-      "Negotiation": "Definition In Review",
-      "Won": "Committed",
-      "Approved": "Committed",
-      "Closed": "Committed",
-      "Lost": "Archived"
-    };
-    return legacyMap[stage] || stage;
-  };
-
   // Today check
   const isToday = (date) => {
     const today = new Date();
