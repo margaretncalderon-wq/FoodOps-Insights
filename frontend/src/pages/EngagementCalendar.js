@@ -565,21 +565,53 @@ export default function EngagementCalendar({ embedded = false }) {
                     ) : (
                       dayEvents.map(event => {
                         const colors = getStatusColor(event.stage);
+                        const isMultiDay = isMultiDayEvent(event);
+                        const multiDayPos = getMultiDayPosition(event, currentDate);
+                        
                         return (
                           <div
-                            key={event.event_id}
+                            key={`${event.event_id}-${currentDate.toISOString()}`}
                             onClick={() => openEventDetail(event)}
                             className={`p-4 rounded-lg cursor-pointer ${colors.bg} ${colors.border} border hover:opacity-90 transition-opacity`}
                           >
                             <div className="flex items-start justify-between">
                               <div>
-                                <h3 className={`font-semibold text-lg ${colors.text}`}>{event.name}</h3>
+                                <h3 className={`font-semibold text-lg ${colors.text}`}>
+                                  {isMultiDay && multiDayPos !== "start" && <span className="opacity-60">↔ </span>}
+                                  {event.name}
+                                </h3>
                                 <p className="text-sm text-muted-foreground">{event.client_name}</p>
                               </div>
-                              <Badge className={`${colors.bg} ${colors.text} border ${colors.border}`}>
-                                {event.stage}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge className={`${colors.bg} ${colors.text} border ${colors.border}`}>
+                                  {event.stage}
+                                </Badge>
+                                {isMultiDay && (
+                                  <Badge variant="outline">
+                                    {isEs ? "Multi-día" : "Multi-day"}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                            
+                            {/* Time display */}
+                            {(event.start_time || event.end_time) && (
+                              <div className="mt-2 flex items-center gap-2 text-sm font-medium">
+                                <Clock className="w-4 h-4" />
+                                {event.start_time && formatTime(event.start_time)}
+                                {event.start_time && event.end_time && " - "}
+                                {event.end_time && formatTime(event.end_time)}
+                              </div>
+                            )}
+                            
+                            {/* Multi-day date range */}
+                            {isMultiDay && (
+                              <div className="mt-2 text-sm text-muted-foreground">
+                                <CalendarIcon className="w-4 h-4 inline mr-1" />
+                                {new Date(event.event_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')} - {new Date(event.end_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')}
+                              </div>
+                            )}
+                            
                             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-muted-foreground" />
