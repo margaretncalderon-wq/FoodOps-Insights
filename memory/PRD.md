@@ -536,6 +536,19 @@ Auto-generated from Event Order:
   - New endpoint `/api/production/suggest-from-events` analyzes event menus for BASE/COMPONENT recipes
   - Dialog shows suggested production lines with quantities based on event guest counts
   - Creates batch linked to selected events with auto-generated notes
+- [x] **Production Needs (PN) Feature** (Feb 1, 2026):
+  - New "Production Needs (PN)" card in Cost & Usage section (purple card)
+  - Calculates BASE/COMPONENT sub-recipes needed for selected events
+  - Compares required quantities against existing PREPARED inventory
+  - Shows: recipe name, type (BASE/COMPONENT), stock, to_produce qty, total cost
+  - "Create Batch" button opens dialog to create Production Batch from PN items
+  - Backend: `generate_consolidated_purchase_list` now returns `production_needs` array
+- [x] **Create Production Batch from Event Detail** (Feb 1, 2026):
+  - New "Create Production Batch" button on Event Detail page header
+  - Only visible for events in Committed/Won/Closed stages
+  - Opens dialog with suggested BASE/COMPONENT recipes for that event
+  - Creates Production Batch linked to the event
+  - Fixed `/api/production/suggest-from-events` to properly query `order_items` collection
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
@@ -550,4 +563,3 @@ Auto-generated from Event Order:
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
 - [ ] Finalize Role-Based Access Control (RBAC) logic in backend
-- [ ] Production: Add "Create Production Batch" action on Event detail page
