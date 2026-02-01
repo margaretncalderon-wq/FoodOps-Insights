@@ -126,9 +126,19 @@ export default function EngagementCalendar({ embedded = false }) {
     return "middle";
   };
 
-  // Format time based on user preference (will use 24h as default)
+  // Format time based on user preference (24h or 12h)
   const formatTime = (timeStr) => {
     if (!timeStr) return "";
+    
+    if (timeFormat === "12h") {
+      // Convert HH:MM to 12h format
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${minutes} ${ampm}`;
+    }
+    
     return timeStr;
   };
 
