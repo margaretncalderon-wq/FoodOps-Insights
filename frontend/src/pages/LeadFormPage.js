@@ -432,6 +432,21 @@ export default function LeadFormPage() {
               </div>
             )}
 
+            {isFieldEnabled("whatsapp") && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-green-600" />
+                  {t.whatsapp} {isFieldRequired("whatsapp") && <span className="text-red-500">*</span>}
+                </Label>
+                <Input
+                  value={formData.whatsapp}
+                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                  required={isFieldRequired("whatsapp")}
+                  placeholder={t.placeholderWhatsapp}
+                />
+              </div>
+            )}
+
             {isFieldEnabled("company_name") && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
