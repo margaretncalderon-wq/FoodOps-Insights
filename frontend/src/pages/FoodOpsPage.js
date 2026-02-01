@@ -1162,7 +1162,7 @@ function PurchasesSection() {
                 </Card>
               ))}
             </div>
-          )}
+          ) : null}
 
           {/* Saved Lists */}
           {savedLists.length > 0 && (
