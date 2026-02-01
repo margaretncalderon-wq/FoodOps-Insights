@@ -62,13 +62,16 @@ export default function ClientEngagementPage() {
 
   const activeSection = getActiveSection();
 
-  // Navigation items organized by section
+  // Navigation items organized by section with colors
   const navSections = [
     {
       id: "calendar",
       title: language === "es" ? "Calendario de Engagement" : "Engagement Calendar",
       subtitle: language === "es" ? "Vista de Compromisos" : "Commitments Overview",
       icon: CalendarDays,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      borderColor: "border-l-4 border-blue-500",
       items: [
         { path: "/client-engagement/calendar", label: language === "es" ? "Ver Calendario" : "View Calendar", icon: CalendarDays },
       ]
@@ -78,6 +81,9 @@ export default function ClientEngagementPage() {
       title: language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements",
       subtitle: language === "es" ? "Ventas & Contratos" : "Sales & Contracts",
       icon: FileText,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
+      borderColor: "border-l-4 border-emerald-500",
       items: [
         { path: "/client-engagement/proposals", label: language === "es" ? "Ver Propuestas" : "View Proposals", icon: FileText },
       ]
@@ -87,6 +93,9 @@ export default function ClientEngagementPage() {
       title: "CRM",
       subtitle: language === "es" ? "Gestión de Relaciones" : "Relationship Management",
       icon: Users,
+      color: "text-violet-600",
+      bgColor: "bg-violet-50 dark:bg-violet-950/30",
+      borderColor: "border-l-4 border-violet-500",
       items: [
         { path: "/client-engagement/crm/outreach", label: "Lead Outreach", icon: UserPlus, badge: stats.outreach_leads },
         { path: "/client-engagement/crm/inbound", label: language === "es" ? "Leads Inbound" : "Inbound Leads", icon: Inbox, badge: stats.inbound_leads },
