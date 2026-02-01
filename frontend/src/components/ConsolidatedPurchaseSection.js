@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -17,13 +18,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { 
   ShoppingCart, Package, Truck, RefreshCw, FileText, Check,
   Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle,
-  Printer, PackageMinus, Loader2, Archive, Clock, Eye, ArchiveRestore
+  Printer, PackageMinus, Loader2, Archive, Clock, Eye, ArchiveRestore,
+  Factory, ChefHat
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function ConsolidatedPurchaseSection() {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [processedEvents, setProcessedEvents] = useState([]);
   const [selectedEvents, setSelectedEvents] = useState([]);
@@ -36,6 +39,10 @@ export default function ConsolidatedPurchaseSection() {
   const [activeTab, setActiveTab] = useState("pending");
   const [markingComplete, setMarkingComplete] = useState(false);
   const [viewingHistory, setViewingHistory] = useState(null);
+  const [productionDialogOpen, setProductionDialogOpen] = useState(false);
+  const [suggestedProduction, setSuggestedProduction] = useState(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [creatingBatch, setCreatingBatch] = useState(false);
   const printRef = useRef(null);
 
   const t = useCallback((key) => {
