@@ -630,7 +630,7 @@ export default function EngagementCalendar({ embedded = false }) {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge className={`${colors.bg} ${colors.text} border ${colors.border}`}>
-                                  {event.stage}
+                                  {normalizeStage(event.stage)}
                                 </Badge>
                                 {isMultiDay && (
                                   <Badge variant="outline">
