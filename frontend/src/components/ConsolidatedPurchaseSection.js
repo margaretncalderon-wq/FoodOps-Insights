@@ -254,6 +254,51 @@ export default function ConsolidatedPurchaseSection() {
     setCreatingPO(null);
   };
 
+  // Mark events as procurement complete
+  const handleMarkComplete = async () => {
+    if (!purchaseData?.events?.length) return;
+    
+    setMarkingComplete(true);
+    try {
+      const eventIds = purchaseData.events.map(e => e.event_id);
+      
+      // Save procurement history for each event
+      await axios.post(`${API}/api/events/mark-procurement-complete`, {
+        event_ids: eventIds,
+        procurement_data: {
+          stock_requisition: purchaseData.stock_requisition,
+          purchase_list: purchaseData.purchase_list,
+          total_cost: purchaseData.total_cost,
+          completed_at: new Date().toISOString()
+        }
+      }, { withCredentials: true });
+      
+      toast.success(language === "es" 
+        ? `${eventIds.length} evento(s) marcado(s) como completado(s)` 
+        : `${eventIds.length} event(s) marked as complete`
+      );
+      
+      // Clear selection and refresh
+      setPurchaseData(null);
+      setSelectedEvents([]);
+      fetchEvents();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error marking complete");
+    }
+    setMarkingComplete(false);
+  };
+
+  // Reopen event for procurement
+  const handleReopenEvent = async (eventId) => {
+    try {
+      await axios.post(`${API}/api/events/${eventId}/reopen-procurement`, {}, { withCredentials: true });
+      toast.success(language === "es" ? "Evento reabierto para compras" : "Event reopened for procurement");
+      fetchEvents();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error reopening event");
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
   return (
