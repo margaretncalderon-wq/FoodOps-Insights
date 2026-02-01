@@ -1762,6 +1762,153 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Creation Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-600" />
+              {language === "es" ? "Crear Factura" : "Create Invoice"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Invoice Type Selection */}
+            <div>
+              <Label className="mb-2 block">{language === "es" ? "Tipo de Factura" : "Invoice Type"}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Full Invoice */}
+                <Button
+                  variant={invoiceType === "full" ? "default" : "outline"}
+                  className="h-auto py-3 flex flex-col"
+                  onClick={() => setInvoiceType("full")}
+                  disabled={existingInvoices.some(inv => inv.invoice_type === "deposit")}
+                >
+                  <span className="font-medium">{language === "es" ? "Total" : "Full"}</span>
+                  <span className="text-xs opacity-80">${(financials?.total || 0).toFixed(2)}</span>
+                </Button>
+                
+                {/* Deposit (50%) */}
+                <Button
+                  variant={invoiceType === "deposit" ? "default" : "outline"}
+                  className="h-auto py-3 flex flex-col"
+                  onClick={() => setInvoiceType("deposit")}
+                  disabled={existingInvoices.some(inv => inv.invoice_type === "deposit" || inv.invoice_type === "full")}
+                >
+                  <span className="font-medium">{language === "es" ? "Depósito 50%" : "50% Deposit"}</span>
+                  <span className="text-xs opacity-80">${((financials?.total || 0) * 0.5).toFixed(2)}</span>
+                </Button>
+                
+                {/* Final Balance */}
+                {existingInvoices.some(inv => inv.invoice_type === "deposit") && (
+                  <Button
+                    variant={invoiceType === "final" ? "default" : "outline"}
+                    className="h-auto py-3 flex flex-col col-span-2"
+                    onClick={() => setInvoiceType("final")}
+                    disabled={existingInvoices.some(inv => inv.invoice_type === "final")}
+                  >
+                    <span className="font-medium">{language === "es" ? "Saldo Final" : "Final Balance"}</span>
+                    <span className="text-xs opacity-80">
+                      ${((financials?.total || 0) - getTotalInvoiced()).toFixed(2)}
+                    </span>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Multi-day event options */}
+            {isMultidayEvent && (
+              <div>
+                <Label className="mb-2 block">{language === "es" ? "Facturar por Día" : "Invoice by Day"}</Label>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={invoiceType === "day"}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setInvoiceType("day");
+                      } else {
+                        setInvoiceType("full");
+                        setSelectedDays([]);
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">{language === "es" ? "Facturar días específicos" : "Invoice specific days"}</span>
+                </div>
+                
+                {invoiceType === "day" && (
+                  <div className="border rounded-lg p-3 space-y-2 bg-muted/50">
+                    {getEventDays().map(day => {
+                      const isInvoiced = getInvoicedDays().includes(day);
+                      const dayLabel = new Date(day).toLocaleDateString(language === "es" ? "es-ES" : "en-US", { 
+                        weekday: "short", month: "short", day: "numeric" 
+                      });
+                      return (
+                        <label key={day} className={`flex items-center gap-2 ${isInvoiced ? 'opacity-50' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedDays.includes(day)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDays([...selectedDays, day]);
+                              } else {
+                                setSelectedDays(selectedDays.filter(d => d !== day));
+                              }
+                            }}
+                            disabled={isInvoiced}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">{dayLabel}</span>
+                          {isInvoiced && (
+                            <Badge variant="secondary" className="text-xs">
+                              {language === "es" ? "Ya facturado" : "Already invoiced"}
+                            </Badge>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-green-800">
+                  {language === "es" ? "Monto a Facturar" : "Amount to Invoice"}
+                </span>
+                <span className="text-xl font-bold text-green-700 font-mono">
+                  ${invoiceType === "full" 
+                    ? (financials?.total || 0).toFixed(2)
+                    : invoiceType === "deposit"
+                    ? ((financials?.total || 0) * 0.5).toFixed(2)
+                    : invoiceType === "final"
+                    ? ((financials?.total || 0) - getTotalInvoiced()).toFixed(2)
+                    : "0.00"
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleCreateInvoice}
+              className="bg-green-600 hover:bg-green-700"
+              disabled={invoiceType === "day" && selectedDays.length === 0}
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              {language === "es" ? "Crear Factura" : "Create Invoice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
