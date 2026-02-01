@@ -39,6 +39,7 @@ function EventsList() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [timeWindow, setTimeWindow] = useState("all"); // now, 7days, 30days, all
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -52,19 +53,82 @@ function EventsList() {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  const filteredEvents = events.filter(e =>
-    e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Time Window Filter Logic
+  const filterByTimeWindow = (event) => {
+    if (timeWindow === "all") return true;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = event.event_date ? new Date(event.event_date) : null;
+    
+    if (!eventDate) return timeWindow === "all"; // Events without date only show in "All"
+    
+    eventDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+    
+    switch (timeWindow) {
+      case "now":
+        // Events occurring today or with active execution
+        return diffDays === 0 || (diffDays >= -1 && diffDays <= 1);
+      case "7days":
+        // Events within next 7 days
+        return diffDays >= 0 && diffDays <= 7;
+      case "30days":
+        // Events within next 30 days
+        return diffDays >= 0 && diffDays <= 30;
+      default:
+        return true;
+    }
+  };
+
+  // Get micro-signals for event cards
+  const getMicroSignals = (event) => {
+    const signals = [];
+    const today = new Date();
+    const eventDate = event.event_date ? new Date(event.event_date) : null;
+    
+    if (eventDate) {
+      const diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+      // Upcoming milestone (event within 7 days)
+      if (diffDays >= 0 && diffDays <= 7) {
+        signals.push({ icon: "⏱️", label: isEs ? "Próximo" : "Soon", type: "upcoming" });
+      }
+    }
+    
+    // Pending dependency (no blueprint or no run of show)
+    if (!event.has_blueprint || !event.has_run_of_show) {
+      signals.push({ icon: "⚠️", label: isEs ? "Pendiente" : "Pending", type: "dependency" });
+    }
+    
+    // Team not fully assigned
+    if (!event.has_team) {
+      signals.push({ icon: "👥", label: isEs ? "Equipo" : "Team", type: "team" });
+    }
+    
+    // Recent change (updated within last 24 hours)
+    if (event.updated_at) {
+      const updatedAt = new Date(event.updated_at);
+      const hoursSinceUpdate = (today - updatedAt) / (1000 * 60 * 60);
+      if (hoursSinceUpdate <= 24) {
+        signals.push({ icon: "🔄", label: isEs ? "Reciente" : "Recent", type: "change" });
+      }
+    }
+    
+    return signals;
+  };
+
+  const filteredEvents = events
+    .filter(filterByTimeWindow)
+    .filter(e =>
+      e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      e.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const getStatusBadge = (status) => {
     const styles = {
-      Lead: "bg-blue-100 text-blue-700",
-      Contacted: "bg-cyan-100 text-cyan-700",
-      Proposal: "bg-yellow-100 text-yellow-700",
-      Negotiation: "bg-orange-100 text-orange-700",
-      Won: "bg-green-100 text-green-700",
-      Lost: "bg-red-100 text-red-700"
+      "Committed": "bg-emerald-100 text-emerald-700",
+      "Won": "bg-emerald-100 text-emerald-700",
+      "Closed": "bg-purple-100 text-purple-700"
     };
     return <Badge className={styles[status] || "bg-gray-100 text-gray-700"}>{status}</Badge>;
   };
@@ -75,6 +139,14 @@ function EventsList() {
     if (complete < 3) return { label: isEs ? "En progreso" : "In progress", color: "text-yellow-600" };
     return { label: isEs ? "Configurado" : "Configured", color: "text-green-600" };
   };
+
+  // Time Window options
+  const timeWindowOptions = [
+    { value: "now", label: isEs ? "Ahora" : "Now" },
+    { value: "7days", label: isEs ? "7 Días" : "Next 7 Days" },
+    { value: "30days", label: isEs ? "30 Días" : "Next 30 Days" },
+    { value: "all", label: isEs ? "Todos" : "All" }
+  ];
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
