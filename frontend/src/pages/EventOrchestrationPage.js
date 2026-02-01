@@ -374,6 +374,7 @@ function EventDetail() {
     { value: "runofshow", label: isEs ? "Run of Show" : "Run of Show", icon: Clock },
     { value: "team", label: isEs ? "Team & Roles" : "Team & Roles", icon: Users },
     { value: "production", label: isEs ? "Production Assets" : "Production Assets", icon: Package },
+    { value: "documents", label: isEs ? "Documentos" : "Documents", icon: FileText },
     { value: "calendar", label: isEs ? "Event Calendar" : "Event Calendar", icon: Calendar },
     { value: "review", label: isEs ? "Post-Event Review" : "Post-Event Review", icon: Star },
     { value: "binder", label: "Event Binder", icon: FileText },
