@@ -14,7 +14,7 @@ import { ScrollArea } from "./ui/scroll-area";
 // Icons
 import { 
   ShoppingCart, Package, Truck, RefreshCw, FileText, Check,
-  Calendar, Users, ArrowRight, AlertTriangle, Download
+  Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
