@@ -8958,6 +8958,10 @@ async def update_operational_flow(event_id: str, data: OperationalFlowCreate, us
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Check if event is locked
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify operational flow.")
+    
     now = datetime.now(timezone.utc)
     flow_data = data.dict()
     flow_data["company_id"] = user.company_id
