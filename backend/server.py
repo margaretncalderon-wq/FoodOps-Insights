@@ -4040,12 +4040,20 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
         # Add client info
         client_info = clients_data.get(e.get("client_id"), {})
         e["client_info"] = {
-                "display_name": client_info.get("display_name", ""),
-                "client_type": client_info.get("client_type", "Individual")
-            }
-            # Add pending balance from invoices
-            e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
-        pipeline[stage] = events
+            "display_name": client_info.get("display_name", ""),
+            "client_type": client_info.get("client_type", "Individual")
+        }
+        # Add pending balance from invoices
+        e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
+        
+        # Normalize stage and add to correct pipeline bucket
+        original_stage = e.get("stage", "Inquiry Received")
+        normalized_stage = normalize_stage(original_stage)
+        e["stage"] = normalized_stage  # Update event stage for frontend
+        e["original_stage"] = original_stage  # Keep original for reference
+        
+        if normalized_stage in pipeline:
+            pipeline[normalized_stage].append(e)
     
     return pipeline
 
