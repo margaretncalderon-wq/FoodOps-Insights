@@ -4031,7 +4031,7 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
 async def get_confirmed_events(user: User = Depends(get_current_user)):
     """Get only confirmed (Won/Closed) events for procurement and purchases"""
     events = await db.events.find(
-        {"company_id": user.company_id, "stage": {"$in": ["Won", "Closed"]}},
+        {"company_id": user.company_id, "stage": {"$in": ["Committed", "Won", "Closed"]}},
         {"_id": 0}
     ).sort("event_date", -1).to_list(500)
     
@@ -9351,7 +9351,7 @@ async def get_orchestration_events(user: User = Depends(get_current_user)):
     """Get only confirmed (Won) events for orchestration view - Execution Layer"""
     # REFACTOR: Only show events with stage "Won" or "Closed" for execution
     events = await db.events.find(
-        {"company_id": user.company_id, "stage": {"$in": ["Won", "Closed"]}},
+        {"company_id": user.company_id, "stage": {"$in": ["Committed", "Won", "Closed"]}},
         {"_id": 0}
     ).sort("event_date", -1).to_list(500)
     
