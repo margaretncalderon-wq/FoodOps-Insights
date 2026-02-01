@@ -996,11 +996,50 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
         {/* Documents Tab */}
         <TabsContent value="generate" className="space-y-4">
+          {/* Generated Documents History */}
+          {generatedDocs.length > 0 && (
+            <Card className="border-green-200 bg-green-50/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-4 h-4 text-green-600" />
+                  {language === "es" ? "Documentos Generados" : "Generated Documents"} ({generatedDocs.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-green-100">
+                  {generatedDocs.slice(0, 5).map((doc) => (
+                    <div key={doc.document_id} className="flex items-center justify-between py-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{doc.title}</span>
+                        <Badge variant="outline" className="text-xs">{doc.document_type}</Badge>
+                        {doc.status === "signed" && (
+                          <Badge className="bg-green-100 text-green-700 text-xs">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            {language === "es" ? "Firmado" : "Signed"}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(doc.created_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {generatedDocs.length > 5 && (
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    +{generatedDocs.length - 5} {language === "es" ? "más" : "more"}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                {language === "es" ? "Vista Previa de Documentos" : "Document Preview"}
+                {language === "es" ? "Generar Nuevo Documento" : "Generate New Document"}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {language === "es" 
