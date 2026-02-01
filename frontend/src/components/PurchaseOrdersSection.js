@@ -713,7 +713,7 @@ export default function PurchaseOrdersSection() {
               </div>
               
               {receiveForm.create_expense && (
-                <div className="grid grid-cols-2 gap-4 pl-6">
+                <div className="grid grid-cols-3 gap-4 pl-6">
                   <div>
                     <Label>{t("invoiceNumber")}</Label>
                     <Input 
@@ -728,6 +728,14 @@ export default function PurchaseOrdersSection() {
                       type="date"
                       value={receiveForm.invoice_date}
                       onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_date: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>{t("invoiceUrl")}</Label>
+                    <Input 
+                      value={receiveForm.invoice_url}
+                      onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_url: e.target.value }))}
+                      placeholder="https://... or file path"
                     />
                   </div>
                 </div>
