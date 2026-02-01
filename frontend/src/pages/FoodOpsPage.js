@@ -1205,6 +1205,7 @@ export default function FoodOpsPage() {
     { path: "/food-ops/inventory", label: language === "es" ? "Inteligencia de Abastecimiento" : "Supply Intelligence", icon: Package },
     { path: "/food-ops/recipes", label: language === "es" ? "Arquitectura de Recetas" : "Recipe Architecture", icon: ChefHat },
     { path: "/food-ops/menus", label: language === "es" ? "Estrategia de Menús" : "Menu Strategy", icon: BookOpen },
+    { path: "/food-ops/production", label: language === "es" ? "Producción" : "Production", icon: Factory },
     { path: "/food-ops/consolidated", label: language === "es" ? "Costos y Consumo" : "Cost & Usage", icon: Layers },
     { path: "/food-ops/purchase-orders", label: language === "es" ? "Órdenes a Proveedores" : "Vendor Orders", icon: Truck },
   ];
