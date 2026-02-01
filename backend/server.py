@@ -4619,6 +4619,22 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     template = await db.templates.find_one({"company_id": user.company_id, "type": doc_type}, {"_id": 0})
     template_settings = template.get("settings", {}) if template else {}
     
+    # Get document template for section titles
+    doc_template = await db.document_templates.find_one(
+        {"company_id": user.company_id, "template_type": "Proposal", "is_active": True},
+        {"_id": 0}
+    )
+    
+    # Section titles from template or defaults
+    section_titles = {
+        "food_en": doc_template.get("food_section_title_en", "Custom Menu") if doc_template else "Custom Menu",
+        "food_es": doc_template.get("food_section_title_es", "Menú Personalizado") if doc_template else "Menú Personalizado",
+        "service_en": doc_template.get("service_section_title_en", "Services") if doc_template else "Services",
+        "service_es": doc_template.get("service_section_title_es", "Servicios") if doc_template else "Servicios",
+        "rental_en": doc_template.get("rental_section_title_en", "Rentals & Equipment") if doc_template else "Rentals & Equipment",
+        "rental_es": doc_template.get("rental_section_title_es", "Alquileres y Equipos") if doc_template else "Alquileres y Equipos",
+    }
+    
     if doc_type == "kitchen_sheet" and "show_prices" not in template_settings:
         template_settings["show_prices"] = False
     
