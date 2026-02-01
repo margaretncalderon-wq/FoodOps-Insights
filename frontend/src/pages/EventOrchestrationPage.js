@@ -215,6 +215,7 @@ function EventsList() {
         {filteredEvents.map((event) => {
           const orchStatus = getOrchestrationStatus(event);
           const isLocked = event.is_locked || event.stage === "Closed";
+          const microSignals = getMicroSignals(event);
           return (
             <Card 
               key={event.event_id} 
@@ -227,14 +228,14 @@ function EventsList() {
                   <div className="flex-1">
                     <CardTitle className="text-base line-clamp-1 flex items-center gap-2">
                       {event.name}
-                      {isLocked && <Badge variant="secondary" className="text-xs">Closed</Badge>}
+                      {isLocked && <Lock className="w-3.5 h-3.5 text-muted-foreground" />}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-1 mt-1">
                       <Building2 className="w-3 h-3" />
                       {event.client_name || (isEs ? "Sin cliente" : "No client")}
                     </CardDescription>
                   </div>
-                  {getStatusBadge(event.stage || "Won")}
+                  {getStatusBadge(event.stage || "Committed")}
                 </div>
               </CardHeader>
               <CardContent>
@@ -245,22 +246,40 @@ function EventsList() {
                       ? new Date(event.event_date).toLocaleDateString()
                       : (isEs ? "Fecha por definir" : "Date TBD")}
                   </div>
-                  {event.venue_name && (
+                  {event.venue && (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <MapPin className="w-4 h-4" />
-                      {event.venue_name}
+                      <span className="truncate">{event.venue}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Users className="w-4 h-4" />
                     {event.guest_count || "?"} {isEs ? "invitados" : "guests"}
                   </div>
+                  
+                  {/* Orchestration Status */}
                   <div className="flex items-center gap-2 pt-2 border-t">
                     {event.has_blueprint && <CheckCircle className="w-4 h-4 text-green-500" />}
                     {event.has_run_of_show && <Clock className="w-4 h-4 text-green-500" />}
                     {event.has_team && <Users className="w-4 h-4 text-green-500" />}
                     <span className={`text-xs ${orchStatus.color}`}>{orchStatus.label}</span>
                   </div>
+                  
+                  {/* Micro-Signals */}
+                  {microSignals.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {microSignals.map((signal, idx) => (
+                        <span 
+                          key={idx} 
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded"
+                          title={signal.label}
+                        >
+                          <span className="text-xs">{signal.icon}</span>
+                          <span className="hidden sm:inline">{signal.label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -269,9 +288,11 @@ function EventsList() {
         {filteredEvents.length === 0 && (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             <Music4 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{isEs ? "No hay eventos confirmados para mostrar" : "No confirmed events to display"}</p>
+            <p>{isEs ? "No hay eventos para mostrar en esta ventana" : "No events to display in this time window"}</p>
             <p className="text-sm mt-2">
-              {isEs ? "Los eventos deben marcarse como 'Won' en el módulo de Ventas" : "Events must be marked as 'Won' in the Sales module"}
+              {timeWindow !== "all" 
+                ? (isEs ? "Intenta cambiar el filtro de tiempo o ver 'Todos'" : "Try changing the time filter or view 'All'")
+                : (isEs ? "Los eventos deben marcarse como 'Committed' en Client Engagement" : "Events must be marked as 'Committed' in Client Engagement")}
             </p>
           </div>
         )}
