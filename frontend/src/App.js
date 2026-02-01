@@ -149,8 +149,8 @@ function AppRouter() {
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
-      <Route path="/crm/:clientId" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
+      <Route path="/crm/*" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
+      <Route path="/clients/:clientId" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
       <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
       <Route path="/events/:eventId" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
