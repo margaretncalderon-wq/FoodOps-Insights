@@ -36,10 +36,21 @@ import { toast } from "sonner";
 import { 
   ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
   Plus, FileText, CheckCircle, PenLine, Share2, Link2, 
-  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart, Banknote
+  MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart, Banknote,
+  ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Engagement Stages with icons and colors
+const ENGAGEMENT_STAGES = [
+  { value: "Inquiry Received", label: { en: "Inquiry Received", es: "Consulta Recibida" }, icon: Inbox, color: "bg-slate-100 text-slate-700" },
+  { value: "Context Captured", label: { en: "Context Captured", es: "Contexto Capturado" }, icon: MessageSquare, color: "bg-blue-100 text-blue-700" },
+  { value: "Scope Drafted", label: { en: "Scope Drafted", es: "Alcance Definido" }, icon: FileEdit, color: "bg-amber-100 text-amber-700" },
+  { value: "Definition In Review", label: { en: "Definition In Review", es: "Definición en Revisión" }, icon: Eye, color: "bg-purple-100 text-purple-700" },
+  { value: "Committed", label: { en: "Committed", es: "Comprometido" }, icon: Handshake, color: "bg-green-100 text-green-700" },
+  { value: "Archived", label: { en: "Archived", es: "Archivado" }, icon: Archive, color: "bg-gray-100 text-gray-500" },
+];
 
 export default function EventDetails() {
   const { eventId } = useParams();
