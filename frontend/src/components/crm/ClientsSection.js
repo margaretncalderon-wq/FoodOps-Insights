@@ -9,18 +9,29 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
+import { Switch } from "../ui/switch";
+import { Progress } from "../ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { 
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
-  Eye, TrendingUp, Edit, Trash2, UserPlus
+  Eye, TrendingUp, Edit, Trash2, UserPlus, CreditCard, Plus,
+  MessageCircle, ExternalLink, Users, FileText
 } from "lucide-react";
 import CommsLogSection from "./CommsLogSection";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const CLIENT_SOURCES = ["Website", "Instagram", "QR", "Referral", "Direct", "Other"];
+const PAYMENT_TERMS = [
+  { value: "immediate", label: "Inmediato" },
+  { value: "net_7", label: "Net 7" },
+  { value: "net_15", label: "Net 15" },
+  { value: "net_30", label: "Net 30" },
+  { value: "custom", label: "Personalizado" }
+];
 
 export default function ClientsSection() {
   const { language } = useLanguage();
@@ -28,20 +39,36 @@ export default function ClientsSection() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
   const [editForm, setEditForm] = useState({
     display_name: "",
     email: "",
     phone: "",
+    whatsapp: "",
     address: "",
+    rnc: "",
     client_type: "Individual",
     source: "Direct",
     notes: "",
-    tags: []
+    tags: [],
+    has_credit: false,
+    credit_limit: 0,
+    payment_terms: "immediate"
+  });
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    role: "",
+    is_primary: false
   });
 
   const fetchClients = useCallback(async () => {
@@ -59,10 +86,21 @@ export default function ClientsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredClients = clients.filter(client => 
-    client.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Stats by type
+  const corporateClients = clients.filter(c => c.client_type === "Company");
+  const individualClients = clients.filter(c => c.client_type === "Individual");
+  const totalLifetimeValue = clients.reduce((sum, c) => sum + (c.lifetime_value || 0), 0);
+  const totalEvents = clients.reduce((sum, c) => sum + (c.events_count || 0), 0);
+
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.rnc?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === "all" || 
+      (filterType === "corporate" && client.client_type === "Company") ||
+      (filterType === "individual" && client.client_type === "Individual");
+    return matchesSearch && matchesType;
+  });
 
   const viewClient = (client) => {
     setSelectedClient(client);
@@ -76,11 +114,16 @@ export default function ClientsSection() {
       display_name: client.display_name || "",
       email: client.email || "",
       phone: client.phone || "",
+      whatsapp: client.whatsapp || "",
       address: client.address || "",
+      rnc: client.rnc || "",
       client_type: client.client_type || "Individual",
       source: client.source || "Direct",
       notes: client.notes || "",
-      tags: client.tags || []
+      tags: client.tags || [],
+      has_credit: client.has_credit || false,
+      credit_limit: client.credit_limit || 0,
+      payment_terms: client.payment_terms || "immediate"
     });
     setEditOpen(true);
   };
@@ -90,11 +133,16 @@ export default function ClientsSection() {
       display_name: "",
       email: "",
       phone: "",
+      whatsapp: "",
       address: "",
+      rnc: "",
       client_type: "Individual",
       source: "Direct",
       notes: "",
-      tags: []
+      tags: [],
+      has_credit: false,
+      credit_limit: 0,
+      payment_terms: "immediate"
     });
     setCreateOpen(true);
   };
@@ -141,12 +189,78 @@ export default function ClientsSection() {
     }
   };
 
+  // Contact management
+  const openAddContact = () => {
+    setEditingContact(null);
+    setContactForm({ name: "", email: "", phone: "", whatsapp: "", role: "", is_primary: false });
+    setContactDialogOpen(true);
+  };
+
+  const openEditContact = (contact) => {
+    setEditingContact(contact);
+    setContactForm({
+      name: contact.name || "",
+      email: contact.email || "",
+      phone: contact.phone || "",
+      whatsapp: contact.whatsapp || "",
+      role: contact.role || "",
+      is_primary: contact.is_primary || false
+    });
+    setContactDialogOpen(true);
+  };
+
+  const handleSaveContact = async () => {
+    if (!contactForm.name) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+    try {
+      const payload = { ...contactForm, client_id: selectedClient.client_id };
+      if (editingContact) {
+        await axios.put(`${API}/api/contacts/${editingContact.contact_id}`, payload, { withCredentials: true });
+        toast.success(isEs ? "Contacto actualizado" : "Contact updated");
+      } else {
+        await axios.post(`${API}/api/contacts`, payload, { withCredentials: true });
+        toast.success(isEs ? "Contacto agregado" : "Contact added");
+      }
+      setContactDialogOpen(false);
+      fetchClients();
+      // Refresh selected client
+      const updatedClients = await axios.get(`${API}/api/crm/clients-with-events`, { withCredentials: true });
+      const updatedClient = updatedClients.data.find(c => c.client_id === selectedClient.client_id);
+      if (updatedClient) setSelectedClient(updatedClient);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    try {
+      await axios.delete(`${API}/api/contacts/${contactId}`, { withCredentials: true });
+      toast.success(isEs ? "Contacto eliminado" : "Contact deleted");
+      fetchClients();
+      const updatedClients = await axios.get(`${API}/api/crm/clients-with-events`, { withCredentials: true });
+      const updatedClient = updatedClients.data.find(c => c.client_id === selectedClient.client_id);
+      if (updatedClient) setSelectedClient(updatedClient);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount || 0);
   };
 
-  const totalLifetimeValue = clients.reduce((sum, c) => sum + (c.lifetime_value || 0), 0);
-  const totalEvents = clients.reduce((sum, c) => sum + (c.events_count || 0), 0);
+  const getWhatsAppLink = (number) => {
+    if (!number) return null;
+    const cleaned = number.replace(/\D/g, '');
+    return `https://wa.me/${cleaned}`;
+  };
+
+  const getMailtoLink = (email) => {
+    if (!email) return null;
+    return `mailto:${email}`;
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
@@ -172,36 +286,35 @@ export default function ClientsSection() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder={isEs ? "Buscar clientes..." : "Search clients..."}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9"
-          data-testid="client-search-input"
-        />
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats by Type */}
+      <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
-              <User className="w-5 h-5 text-muted-foreground" />
+              <Users className="w-5 h-5 text-muted-foreground" />
               <span className="text-sm">{isEs ? "Total Clientes" : "Total Clients"}</span>
             </div>
             <div className="text-3xl font-bold">{clients.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setFilterType(filterType === "corporate" ? "all" : "corporate")}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
-              <Calendar className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm">{isEs ? "Total Eventos" : "Total Events"}</span>
+              <Building2 className="w-5 h-5 text-blue-600" />
+              <span className="text-sm">{isEs ? "Corporativos" : "Corporate"}</span>
             </div>
-            <div className="text-3xl font-bold">{totalEvents}</div>
+            <div className="text-3xl font-bold text-blue-600">{corporateClients.length}</div>
+            {filterType === "corporate" && <Badge className="mt-1 bg-blue-100 text-blue-700">Filtrado</Badge>}
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setFilterType(filterType === "individual" ? "all" : "individual")}>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-1">
+              <User className="w-5 h-5 text-purple-600" />
+              <span className="text-sm">{isEs ? "Directos" : "Direct"}</span>
+            </div>
+            <div className="text-3xl font-bold text-purple-600">{individualClients.length}</div>
+            {filterType === "individual" && <Badge className="mt-1 bg-purple-100 text-purple-700">Filtrado</Badge>}
           </CardContent>
         </Card>
         <Card>
@@ -215,6 +328,25 @@ export default function ClientsSection() {
         </Card>
       </div>
 
+      {/* Search & Filter */}
+      <div className="flex gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder={isEs ? "Buscar por nombre, email o RNC..." : "Search by name, email or RNC..."}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            data-testid="client-search-input"
+          />
+        </div>
+        {filterType !== "all" && (
+          <Button variant="outline" onClick={() => setFilterType("all")} size="sm">
+            {isEs ? "Limpiar filtro" : "Clear filter"}
+          </Button>
+        )}
+      </div>
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -222,10 +354,10 @@ export default function ClientsSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>{isEs ? "Cliente" : "Client"}</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>{isEs ? "Teléfono" : "Phone"}</TableHead>
+                <TableHead>RNC</TableHead>
+                <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
+                <TableHead>{isEs ? "Crédito" : "Credit"}</TableHead>
                 <TableHead>{isEs ? "Eventos" : "Events"}</TableHead>
-                <TableHead>{isEs ? "Último Evento" : "Last Event"}</TableHead>
                 <TableHead>{isEs ? "Valor Lifetime" : "Lifetime Value"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
@@ -243,36 +375,59 @@ export default function ClientsSection() {
                     <TableCell onClick={() => viewClient(client)}>
                       <div className="flex items-center gap-2">
                         {client.client_type === "Company" ? (
-                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          <Building2 className="w-4 h-4 text-blue-600" />
                         ) : (
-                          <User className="w-4 h-4 text-muted-foreground" />
+                          <User className="w-4 h-4 text-purple-600" />
                         )}
-                        <span className="font-medium">{client.display_name}</span>
+                        <div>
+                          <span className="font-medium">{client.display_name}</span>
+                          {client.contacts?.length > 0 && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              ({client.contacts.length} {isEs ? "contactos" : "contacts"})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell onClick={() => viewClient(client)}>
-                      {client.email && (
-                        <span className="flex items-center gap-1 text-sm">
-                          <Mail className="w-3 h-3" />
-                          {client.email}
-                        </span>
-                      )}
+                      <span className="text-sm font-mono">{client.rnc || "-"}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {client.whatsapp && (
+                          <a href={getWhatsAppLink(client.whatsapp)} target="_blank" rel="noopener noreferrer" 
+                             className="text-green-600 hover:text-green-700" title="WhatsApp">
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                        )}
+                        {client.email && (
+                          <a href={getMailtoLink(client.email)} className="text-blue-600 hover:text-blue-700" title="Email">
+                            <Mail className="w-4 h-4" />
+                          </a>
+                        )}
+                        {client.phone && (
+                          <a href={`tel:${client.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell onClick={() => viewClient(client)}>
-                      {client.phone && (
-                        <span className="flex items-center gap-1 text-sm">
-                          <Phone className="w-3 h-3" />
-                          {client.phone}
-                        </span>
+                      {client.has_credit ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <CreditCard className="w-3 h-3 text-green-600" />
+                            <span className="text-xs">{formatCurrency(client.credit_limit)}</span>
+                          </div>
+                          <Progress value={client.credit_percentage || 0} className="h-1" />
+                          <span className="text-xs text-muted-foreground">{client.credit_percentage || 0}% {isEs ? "usado" : "used"}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell onClick={() => viewClient(client)}>
                       <Badge variant="outline">{client.events_count || 0}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground" onClick={() => viewClient(client)}>
-                      {client.last_event_date 
-                        ? new Date(client.last_event_date).toLocaleDateString()
-                        : "-"}
                     </TableCell>
                     <TableCell className="font-medium text-green-600" onClick={() => viewClient(client)}>
                       {formatCurrency(client.lifetime_value)}
@@ -297,16 +452,19 @@ export default function ClientsSection() {
 
       {/* Detail Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {selectedClient?.client_type === "Company" ? (
-                  <Building2 className="w-5 h-5" />
+                  <Building2 className="w-5 h-5 text-blue-600" />
                 ) : (
-                  <User className="w-5 h-5" />
+                  <User className="w-5 h-5 text-purple-600" />
                 )}
                 {selectedClient?.display_name}
+                {selectedClient?.rnc && (
+                  <Badge variant="outline" className="font-mono text-xs">RNC: {selectedClient.rnc}</Badge>
+                )}
               </div>
               <Button variant="outline" size="sm" onClick={() => openEdit(selectedClient)} data-testid="edit-client-detail-btn">
                 <Edit className="w-4 h-4 mr-2" />
@@ -315,74 +473,258 @@ export default function ClientsSection() {
             </DialogTitle>
           </DialogHeader>
           {selectedClient && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{selectedClient.email || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</p>
-                  <p className="font-medium">{selectedClient.phone || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Dirección" : "Address"}</p>
-                  <p className="font-medium">{selectedClient.address || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Fuente" : "Source"}</p>
-                  <Badge variant="outline">{selectedClient.source}</Badge>
-                </div>
-              </div>
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="info">{isEs ? "Información" : "Info"}</TabsTrigger>
+                <TabsTrigger value="contacts">{isEs ? "Contactos" : "Contacts"}</TabsTrigger>
+                <TabsTrigger value="events">{isEs ? "Eventos" : "Events"}</TabsTrigger>
+                <TabsTrigger value="comms">{isEs ? "Comunicaciones" : "Comms"}</TabsTrigger>
+              </TabsList>
 
-              {selectedClient.notes && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">{isEs ? "Notas" : "Notes"}</p>
-                  <p className="text-sm bg-muted p-3 rounded-lg">{selectedClient.notes}</p>
+              {/* Info Tab */}
+              <TabsContent value="info" className="space-y-6">
+                {/* Contact Links */}
+                <div className="flex flex-wrap gap-3">
+                  {selectedClient.whatsapp && (
+                    <a href={getWhatsAppLink(selectedClient.whatsapp)} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        WhatsApp
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedClient.email && (
+                    <a href={getMailtoLink(selectedClient.email)}>
+                      <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedClient.phone && (
+                    <a href={`tel:${selectedClient.phone}`}>
+                      <Button variant="outline" size="sm">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {isEs ? "Llamar" : "Call"}
+                      </Button>
+                    </a>
+                  )}
                 </div>
-              )}
 
-              <div className="grid grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="pt-4 text-center">
-                    <div className="text-2xl font-bold">{selectedClient.events_count || 0}</div>
-                    <p className="text-sm text-muted-foreground">{isEs ? "Eventos" : "Events"}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">{formatCurrency(selectedClient.lifetime_value)}</div>
-                    <p className="text-sm text-muted-foreground">{isEs ? "Valor Total" : "Total Value"}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4 text-center">
-                    <div className="text-lg font-medium">
-                      {selectedClient.last_event_date 
-                        ? new Date(selectedClient.last_event_date).toLocaleDateString()
-                        : "-"}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{isEs ? "Último Evento" : "Last Event"}</p>
-                  </CardContent>
-                </Card>
-              </div>
+                {/* Client Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedClient.email || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</p>
+                    <p className="font-medium">{selectedClient.phone || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">WhatsApp</p>
+                    <p className="font-medium">{selectedClient.whatsapp || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">RNC</p>
+                    <p className="font-medium font-mono">{selectedClient.rnc || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{isEs ? "Dirección" : "Address"}</p>
+                    <p className="font-medium">{selectedClient.address || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{isEs ? "Fuente" : "Source"}</p>
+                    <Badge variant="outline">{selectedClient.source}</Badge>
+                  </div>
+                </div>
 
-              {selectedClient.events && selectedClient.events.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    {isEs ? "Historial de Eventos" : "Event History"}
-                  </h4>
+                {/* Credit Info */}
+                {selectedClient.has_credit && (
+                  <Card className="bg-green-50 border-green-200">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CreditCard className="w-5 h-5 text-green-600" />
+                        <span className="font-semibold text-green-800">{isEs ? "Información de Crédito" : "Credit Info"}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-green-700">{isEs ? "Límite" : "Limit"}</p>
+                          <p className="text-xl font-bold text-green-800">{formatCurrency(selectedClient.credit_limit)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-green-700">{isEs ? "Utilizado" : "Used"}</p>
+                          <p className="text-xl font-bold text-green-800">{formatCurrency(selectedClient.credit_used || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-green-700">{isEs ? "Disponible" : "Available"}</p>
+                          <p className="text-xl font-bold text-green-800">
+                            {formatCurrency((selectedClient.credit_limit || 0) - (selectedClient.credit_used || 0))}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>{isEs ? "Uso de crédito" : "Credit usage"}</span>
+                          <span className={selectedClient.credit_percentage > 80 ? "text-red-600 font-medium" : ""}>
+                            {selectedClient.credit_percentage || 0}%
+                          </span>
+                        </div>
+                        <Progress 
+                          value={selectedClient.credit_percentage || 0} 
+                          className={`h-2 ${selectedClient.credit_percentage > 80 ? "[&>div]:bg-red-500" : ""}`}
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-sm text-green-700">{isEs ? "Términos de pago" : "Payment Terms"}</p>
+                        <Badge className="bg-green-200 text-green-800">
+                          {PAYMENT_TERMS.find(t => t.value === selectedClient.payment_terms)?.label || selectedClient.payment_terms}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Notes */}
+                {selectedClient.notes && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">{isEs ? "Notas" : "Notes"}</p>
+                    <p className="text-sm bg-muted p-3 rounded-lg">{selectedClient.notes}</p>
+                  </div>
+                )}
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <div className="text-2xl font-bold">{selectedClient.events_count || 0}</div>
+                      <p className="text-sm text-muted-foreground">{isEs ? "Eventos" : "Events"}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <div className="text-2xl font-bold text-green-600">{formatCurrency(selectedClient.lifetime_value)}</div>
+                      <p className="text-sm text-muted-foreground">{isEs ? "Valor Total" : "Total Value"}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <div className="text-lg font-medium">
+                        {selectedClient.last_event_date 
+                          ? new Date(selectedClient.last_event_date).toLocaleDateString()
+                          : "-"}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{isEs ? "Último Evento" : "Last Event"}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Contacts Tab */}
+              <TabsContent value="contacts" className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">{isEs ? "Contactos" : "Contacts"}</h4>
+                  <Button size="sm" onClick={openAddContact}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {isEs ? "Agregar Contacto" : "Add Contact"}
+                  </Button>
+                </div>
+                {selectedClient.contacts?.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedClient.contacts.map((contact) => (
+                      <Card key={contact.contact_id}>
+                        <CardContent className="py-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                <User className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{contact.name}</p>
+                                  {contact.is_primary && (
+                                    <Badge className="text-xs bg-blue-100 text-blue-700">{isEs ? "Principal" : "Primary"}</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">{contact.role || "-"}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {contact.whatsapp && (
+                                <a href={getWhatsAppLink(contact.whatsapp)} target="_blank" rel="noopener noreferrer">
+                                  <Button variant="ghost" size="icon" className="text-green-600">
+                                    <MessageCircle className="w-4 h-4" />
+                                  </Button>
+                                </a>
+                              )}
+                              {contact.email && (
+                                <a href={getMailtoLink(contact.email)}>
+                                  <Button variant="ghost" size="icon" className="text-blue-600">
+                                    <Mail className="w-4 h-4" />
+                                  </Button>
+                                </a>
+                              )}
+                              {contact.phone && (
+                                <a href={`tel:${contact.phone}`}>
+                                  <Button variant="ghost" size="icon">
+                                    <Phone className="w-4 h-4" />
+                                  </Button>
+                                </a>
+                              )}
+                              <Button variant="ghost" size="icon" onClick={() => openEditContact(contact)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-600" onClick={() => handleDeleteContact(contact.contact_id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>{isEs ? "No hay contactos" : "No contacts"}</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={openAddContact}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      {isEs ? "Agregar primer contacto" : "Add first contact"}
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Events Tab */}
+              <TabsContent value="events" className="space-y-4">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {isEs ? "Historial de Eventos" : "Event History"}
+                </h4>
+                {selectedClient.events?.length > 0 ? (
                   <div className="space-y-2">
                     {selectedClient.events.map((event) => (
                       <Card key={event.event_id}>
                         <CardContent className="py-3">
                           <div className="flex items-center justify-between">
-                            <div>
+                            <div className="flex-1">
                               <p className="font-medium">{event.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
-                              </p>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>
+                                  {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                                </span>
+                                {event.event_type && (
+                                  <Badge variant="outline" className="text-xs">{event.event_type}</Badge>
+                                )}
+                                {(event.ordered_by || event.contact_person) && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    {event.ordered_by || event.contact_person}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge className={
@@ -403,24 +745,30 @@ export default function ClientsSection() {
                       </Card>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>{isEs ? "No hay eventos" : "No events"}</p>
+                  </div>
+                )}
+              </TabsContent>
 
-              <div className="border-t pt-4">
+              {/* Comms Tab */}
+              <TabsContent value="comms">
                 <CommsLogSection 
                   entityType="client" 
                   entityId={selectedClient.client_id}
                   entityName={selectedClient.display_name}
                 />
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEs ? "Editar Cliente" : "Edit Client"}</DialogTitle>
           </DialogHeader>
@@ -431,34 +779,28 @@ export default function ClientsSection() {
                 <Input
                   value={editForm.display_name}
                   onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
-                  placeholder={isEs ? "Nombre del cliente" : "Client name"}
                   data-testid="client-name-input"
                 />
               </div>
               <div>
                 <Label>{isEs ? "Tipo" : "Type"}</Label>
                 <Select value={editForm.client_type} onValueChange={(v) => setEditForm({ ...editForm, client_type: v })}>
-                  <SelectTrigger data-testid="client-type-select">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Individual">{isEs ? "Individual" : "Individual"}</SelectItem>
-                    <SelectItem value="Company">{isEs ? "Empresa" : "Company"}</SelectItem>
+                    <SelectItem value="Individual">{isEs ? "Directo" : "Direct"}</SelectItem>
+                    <SelectItem value="Company">{isEs ? "Corporativo" : "Corporate"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>{isEs ? "Fuente" : "Source"}</Label>
-                <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
-                  <SelectTrigger data-testid="client-source-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLIENT_SOURCES.map(src => (
-                      <SelectItem key={src} value={src}>{src}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>RNC</Label>
+                <Input
+                  value={editForm.rnc}
+                  onChange={(e) => setEditForm({ ...editForm, rnc: e.target.value })}
+                  placeholder="000-00000-0"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -468,8 +810,6 @@ export default function ClientsSection() {
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  placeholder="email@example.com"
-                  data-testid="client-email-input"
                 />
               </div>
               <div>
@@ -477,38 +817,88 @@ export default function ClientsSection() {
                 <Input
                   value={editForm.phone}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  placeholder="+52 555 123 4567"
-                  data-testid="client-phone-input"
                 />
               </div>
+            </div>
+            <div>
+              <Label>WhatsApp</Label>
+              <Input
+                value={editForm.whatsapp}
+                onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })}
+                placeholder="+1 809 555 1234"
+              />
             </div>
             <div>
               <Label>{isEs ? "Dirección" : "Address"}</Label>
               <Input
                 value={editForm.address}
                 onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                placeholder={isEs ? "Calle, Ciudad, Estado" : "Street, City, State"}
-                data-testid="client-address-input"
               />
             </div>
+            <div>
+              <Label>{isEs ? "Fuente" : "Source"}</Label>
+              <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CLIENT_SOURCES.map(src => (
+                    <SelectItem key={src} value={src}>{src}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Credit Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  <Label className="font-medium">{isEs ? "Crédito" : "Credit"}</Label>
+                </div>
+                <Switch
+                  checked={editForm.has_credit}
+                  onCheckedChange={(v) => setEditForm({ ...editForm, has_credit: v })}
+                />
+              </div>
+              {editForm.has_credit && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{isEs ? "Límite de Crédito" : "Credit Limit"}</Label>
+                    <Input
+                      type="number"
+                      value={editForm.credit_limit}
+                      onChange={(e) => setEditForm({ ...editForm, credit_limit: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <Label>{isEs ? "Términos de Pago" : "Payment Terms"}</Label>
+                    <Select value={editForm.payment_terms} onValueChange={(v) => setEditForm({ ...editForm, payment_terms: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_TERMS.map(term => (
+                          <SelectItem key={term.value} value={term.value}>{term.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <Label>{isEs ? "Notas" : "Notes"}</Label>
               <Textarea
                 value={editForm.notes}
                 onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                 rows={3}
-                placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
-                data-testid="client-notes-input"
               />
             </div>
           </div>
           <DialogFooter className="flex justify-between">
-            <Button 
-              variant="destructive" 
-              size="sm"
-              onClick={() => setDeleteConfirmOpen(true)}
-              data-testid="delete-client-btn"
-            >
+            <Button variant="destructive" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
               <Trash2 className="w-4 h-4 mr-2" />
               {isEs ? "Eliminar" : "Delete"}
             </Button>
@@ -526,7 +916,7 @@ export default function ClientsSection() {
 
       {/* Create Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEs ? "Nuevo Cliente" : "New Client"}</DialogTitle>
           </DialogHeader>
@@ -537,8 +927,6 @@ export default function ClientsSection() {
                 <Input
                   value={editForm.display_name}
                   onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
-                  placeholder={isEs ? "Nombre del cliente" : "Client name"}
-                  data-testid="create-client-name-input"
                 />
               </div>
               <div>
@@ -548,23 +936,18 @@ export default function ClientsSection() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Individual">{isEs ? "Individual" : "Individual"}</SelectItem>
-                    <SelectItem value="Company">{isEs ? "Empresa" : "Company"}</SelectItem>
+                    <SelectItem value="Individual">{isEs ? "Directo" : "Direct"}</SelectItem>
+                    <SelectItem value="Company">{isEs ? "Corporativo" : "Corporate"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>{isEs ? "Fuente" : "Source"}</Label>
-                <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLIENT_SOURCES.map(src => (
-                      <SelectItem key={src} value={src}>{src}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>RNC</Label>
+                <Input
+                  value={editForm.rnc}
+                  onChange={(e) => setEditForm({ ...editForm, rnc: e.target.value })}
+                  placeholder="000-00000-0"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -574,7 +957,6 @@ export default function ClientsSection() {
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  placeholder="email@example.com"
                 />
               </div>
               <div>
@@ -582,25 +964,83 @@ export default function ClientsSection() {
                 <Input
                   value={editForm.phone}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  placeholder="+52 555 123 4567"
                 />
               </div>
+            </div>
+            <div>
+              <Label>WhatsApp</Label>
+              <Input
+                value={editForm.whatsapp}
+                onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })}
+                placeholder="+1 809 555 1234"
+              />
             </div>
             <div>
               <Label>{isEs ? "Dirección" : "Address"}</Label>
               <Input
                 value={editForm.address}
                 onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                placeholder={isEs ? "Calle, Ciudad, Estado" : "Street, City, State"}
               />
             </div>
+            <div>
+              <Label>{isEs ? "Fuente" : "Source"}</Label>
+              <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CLIENT_SOURCES.map(src => (
+                    <SelectItem key={src} value={src}>{src}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Credit Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  <Label className="font-medium">{isEs ? "Crédito" : "Credit"}</Label>
+                </div>
+                <Switch
+                  checked={editForm.has_credit}
+                  onCheckedChange={(v) => setEditForm({ ...editForm, has_credit: v })}
+                />
+              </div>
+              {editForm.has_credit && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{isEs ? "Límite de Crédito" : "Credit Limit"}</Label>
+                    <Input
+                      type="number"
+                      value={editForm.credit_limit}
+                      onChange={(e) => setEditForm({ ...editForm, credit_limit: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <Label>{isEs ? "Términos de Pago" : "Payment Terms"}</Label>
+                    <Select value={editForm.payment_terms} onValueChange={(v) => setEditForm({ ...editForm, payment_terms: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_TERMS.map(term => (
+                          <SelectItem key={term.value} value={term.value}>{term.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <Label>{isEs ? "Notas" : "Notes"}</Label>
               <Textarea
                 value={editForm.notes}
                 onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                 rows={3}
-                placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
               />
             </div>
           </div>
@@ -610,6 +1050,74 @@ export default function ClientsSection() {
             </Button>
             <Button onClick={handleCreate} data-testid="create-client-submit-btn">
               {isEs ? "Crear" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Dialog */}
+      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingContact ? (isEs ? "Editar Contacto" : "Edit Contact") : (isEs ? "Nuevo Contacto" : "New Contact")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isEs ? "Nombre" : "Name"} *</Label>
+              <Input
+                value={contactForm.name}
+                onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Cargo/Rol" : "Role"}</Label>
+              <Input
+                value={contactForm.role}
+                onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })}
+                placeholder={isEs ? "Ej: Gerente de Compras" : "E.g.: Purchasing Manager"}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                <Input
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>WhatsApp</Label>
+              <Input
+                value={contactForm.whatsapp}
+                onChange={(e) => setContactForm({ ...contactForm, whatsapp: e.target.value })}
+                placeholder="+1 809 555 1234"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={contactForm.is_primary}
+                onCheckedChange={(v) => setContactForm({ ...contactForm, is_primary: v })}
+              />
+              <Label>{isEs ? "Contacto principal" : "Primary contact"}</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveContact}>
+              {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -630,7 +1138,7 @@ export default function ClientsSection() {
             <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button variant="destructive" onClick={handleDelete} data-testid="confirm-delete-client-btn">
+            <Button variant="destructive" onClick={handleDelete}>
               {isEs ? "Eliminar" : "Delete"}
             </Button>
           </DialogFooter>
