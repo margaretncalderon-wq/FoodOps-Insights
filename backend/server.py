@@ -8871,18 +8871,24 @@ async def suggest_production_from_events(
         event_id = event.get("event_id")
         guest_count = event.get("guest_count") or event.get("num_guests") or 100
         
-        # Get proposal items for this event
+        # Get proposal for this event
         proposal = await db.proposals.find_one(
             {"event_id": event_id, "company_id": user.company_id},
-            {"_id": 0, "items": 1}
+            {"_id": 0, "proposal_id": 1}
         )
         
         if not proposal:
             continue
         
+        # Get order items (Food items) for this proposal
+        order_items = await db.order_items.find(
+            {"proposal_id": proposal.get("proposal_id"), "item_type": "Food"},
+            {"_id": 0}
+        ).to_list(500)
+        
         # Look for food items with recipes
-        for item in proposal.get("items", []):
-            recipe_id = item.get("recipe_id")
+        for item in order_items:
+            recipe_id = item.get("reference_id")  # Order items use reference_id for recipe link
             if not recipe_id:
                 continue
             
@@ -8898,13 +8904,13 @@ async def suggest_production_from_events(
             # Calculate portions needed
             qty = item.get("quantity", 1)
             portions_needed = qty * guest_count
-            recipe_yield = recipe.get("yield_quantity", 1)
-            batches_needed = portions_needed / recipe_yield if recipe_yield > 0 else 1
+            portions_per_yield = recipe.get("portions_per_yield", 1) or 1
+            batches_needed = portions_needed / portions_per_yield if portions_per_yield > 0 else 1
             
             # Add sub-recipes (BASE/COMPONENT) to requirements
             for sub in recipe.get("sub_recipes", []):
-                sub_recipe_id = sub.get("recipe_id")
-                sub_qty = sub.get("quantity", 1) * batches_needed
+                sub_recipe_id = sub.get("child_recipe_id") or sub.get("recipe_id")
+                sub_qty = sub.get("quantity_used", sub.get("quantity", 1)) * batches_needed
                 
                 sub_recipe = await db.recipes.find_one(
                     {"recipe_id": sub_recipe_id, "company_id": user.company_id},
