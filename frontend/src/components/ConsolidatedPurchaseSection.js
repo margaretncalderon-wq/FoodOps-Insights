@@ -59,7 +59,8 @@ export default function ConsolidatedPurchaseSection() {
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/events`, { withCredentials: true });
+      // Only fetch confirmed (Won/Closed) events for cost & usage overview
+      const res = await axios.get(`${API}/api/events/confirmed`, { withCredentials: true });
       // Filter to upcoming events with guest count
       const upcomingEvents = res.data.filter(e => {
         const eventDate = e.event_date ? new Date(e.event_date) : null;
