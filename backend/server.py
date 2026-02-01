@@ -9399,6 +9399,10 @@ async def update_production_assets(event_id: str, data: ProductionAssetsCreate, 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Check if event is locked
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify production assets.")
+    
     now = datetime.now(timezone.utc)
     production_data = data.dict()
     production_data["company_id"] = user.company_id
