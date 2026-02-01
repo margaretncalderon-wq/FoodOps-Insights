@@ -9,7 +9,7 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import Dashboard from "./pages/Dashboard";
-import CRMPage from "./pages/CRMPage";
+import CRMPage from "./pages/CRMPageNew";
 import ClientDetails from "./pages/ClientDetails";
 import EventsPage from "./pages/EventsPage";
 import EventDetails from "./pages/EventDetails";
