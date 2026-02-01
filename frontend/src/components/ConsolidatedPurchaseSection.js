@@ -574,6 +574,83 @@ export default function ConsolidatedPurchaseSection() {
             </Card>
           </div>
 
+          {/* Production Needs (PN) - BASE/COMPONENT recipes to produce */}
+          {(purchaseData.production_needs?.length || 0) > 0 && (
+            <Card className="border-purple-200 bg-purple-50/30">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Factory className="w-5 h-5 text-purple-600" />
+                    <span>{language === "es" ? "Necesidades de Producción (PN)" : "Production Needs (PN)"}</span>
+                    <Badge variant="secondary" className="bg-purple-100">
+                      {purchaseData.production_needs?.length || 0}
+                    </Badge>
+                  </CardTitle>
+                  <Button 
+                    size="sm" 
+                    onClick={handleOpenProductionDialog}
+                    className="h-8 bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Factory className="w-4 h-4 mr-1" />
+                    {language === "es" ? "Crear Lote" : "Create Batch"}
+                  </Button>
+                </div>
+                <CardDescription>
+                  {language === "es" 
+                    ? "Recetas BASE/COMPONENT que necesitan ser producidas" 
+                    : "BASE/COMPONENT recipes that need to be produced"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {purchaseData.production_needs.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                      <div className="flex items-center gap-2">
+                        <ChefHat className="w-4 h-4 text-purple-500" />
+                        <div>
+                          <span className="font-medium">{item.recipe_name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="text-xs py-0">
+                              {item.recipe_type?.toUpperCase()}
+                            </Badge>
+                            <span>
+                              {language === "es" ? "Usado en:" : "Used in:"} {item.dishes_using?.slice(0, 2).join(", ")}
+                              {item.dishes_using?.length > 2 && ` +${item.dishes_using.length - 2}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2">
+                          {item.in_stock > 0 && (
+                            <span className="text-xs text-emerald-600">
+                              {language === "es" ? "Stock:" : "Stock:"} {item.in_stock.toFixed(1)}
+                            </span>
+                          )}
+                          <span className="font-mono text-purple-700 font-bold">
+                            {item.to_produce.toFixed(1)} {item.unit}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          ${item.total_cost?.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* PN Total Cost */}
+                <div className="mt-3 pt-3 border-t border-purple-200 flex justify-between items-center">
+                  <span className="text-sm font-medium text-purple-700">
+                    {language === "es" ? "Costo Total Producción:" : "Total Production Cost:"}
+                  </span>
+                  <span className="text-lg font-bold text-purple-700">
+                    ${(purchaseData.production_total_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Summary Card with Create PO buttons */}
           <Card>
             <CardHeader>
