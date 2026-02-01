@@ -65,6 +65,24 @@ export default function ClientEngagementPage() {
   // Navigation items organized by section
   const navSections = [
     {
+      id: "calendar",
+      title: language === "es" ? "Calendario de Engagement" : "Engagement Calendar",
+      subtitle: language === "es" ? "Vista de Compromisos" : "Commitments Overview",
+      icon: CalendarDays,
+      items: [
+        { path: "/client-engagement/calendar", label: language === "es" ? "Ver Calendario" : "View Calendar", icon: CalendarDays },
+      ]
+    },
+    {
+      id: "proposals",
+      title: language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements",
+      subtitle: language === "es" ? "Ventas & Contratos" : "Sales & Contracts",
+      icon: FileText,
+      items: [
+        { path: "/client-engagement/proposals", label: language === "es" ? "Ver Propuestas" : "View Proposals", icon: FileText },
+      ]
+    },
+    {
       id: "crm",
       title: "CRM",
       subtitle: language === "es" ? "Gestión de Relaciones" : "Relationship Management",
@@ -78,24 +96,6 @@ export default function ClientEngagementPage() {
         { path: "/client-engagement/crm/clients", label: language === "es" ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
       ]
     },
-    {
-      id: "proposals",
-      title: language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements",
-      subtitle: language === "es" ? "Ventas & Contratos" : "Sales & Contracts",
-      icon: FileText,
-      items: [
-        { path: "/client-engagement/proposals", label: language === "es" ? "Ver Propuestas" : "View Proposals", icon: FileText },
-      ]
-    },
-    {
-      id: "calendar",
-      title: language === "es" ? "Calendario de Engagement" : "Engagement Calendar",
-      subtitle: language === "es" ? "Compromisos con Clientes" : "Client Commitments",
-      icon: CalendarDays,
-      items: [
-        { path: "/client-engagement/calendar", label: language === "es" ? "Ver Calendario" : "View Calendar", icon: CalendarDays },
-      ]
-    }
   ];
 
   return (
