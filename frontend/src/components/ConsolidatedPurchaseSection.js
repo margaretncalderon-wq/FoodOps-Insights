@@ -331,13 +331,36 @@ export default function ConsolidatedPurchaseSection() {
             {/* Stock Requisition (SR) - Items in Stock */}
             <Card className="border-emerald-200 bg-emerald-50/30">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span>{language === "es" ? "Requisición de Inventario (SR)" : "Stock Requisition (SR)"}</span>
-                  <Badge variant="secondary" className="ml-auto">
-                    {purchaseData.stock_requisition?.length || 0}
-                  </Badge>
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span>{language === "es" ? "Requisición de Inventario (SR)" : "Stock Requisition (SR)"}</span>
+                    <Badge variant="secondary">
+                      {purchaseData.stock_requisition?.length || 0}
+                    </Badge>
+                  </CardTitle>
+                  {(purchaseData.stock_requisition?.length || 0) > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handlePrintSR}
+                        className="h-8"
+                      >
+                        <Printer className="w-4 h-4 mr-1" />
+                        {language === "es" ? "Imprimir" : "Print"}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={() => setSrDialogOpen(true)}
+                        className="h-8 bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <PackageMinus className="w-4 h-4 mr-1" />
+                        {language === "es" ? "Procesar SR" : "Process SR"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
                 <CardDescription>
                   {language === "es" ? "Items disponibles en inventario actual" : "Items available from current inventory"}
                 </CardDescription>
