@@ -382,7 +382,7 @@ export default function ConsolidatedPurchaseSection() {
                       </span>
                       <span className="text-lg font-bold text-emerald-700">
                         ${purchaseData.stock_requisition.reduce((sum, item) => 
-                          sum + ((item.in_stock || item.quantity_needed || 0) * (item.unit_cost || item.cost_per_unit || 0)), 0
+                          sum + (item.total_cost || ((item.in_stock || 0) * (item.unit_cost || 0))), 0
                         ).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
