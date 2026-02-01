@@ -70,7 +70,8 @@ export default function PurchaseOrdersSection() {
     lines: [],
     create_expense: true,
     invoice_number: "",
-    invoice_date: ""
+    invoice_date: "",
+    invoice_url: ""
   });
 
   const t = useCallback((key) => {
