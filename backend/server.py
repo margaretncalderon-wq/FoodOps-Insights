@@ -1326,6 +1326,48 @@ class InventoryPriceHistory(BaseModel):
     source: str  # Manual, PO, Invoice
     notes: Optional[str] = None
 
+# ============== PRODUCTION MODELS ==============
+
+class ProductionLineCreate(BaseModel):
+    recipe_id: str
+    target_output_qty: float
+    output_unit: str
+
+class ProductionLine(BaseModel):
+    line_id: str
+    recipe_id: str
+    recipe_name: str
+    recipe_type: str  # base, component, final_dish
+    produces_stock: bool
+    target_output_qty: float
+    output_unit: str
+    computed_inputs: List[Dict[str, Any]] = []  # Expanded BOM
+    actual_output_qty: Optional[float] = None
+
+class ProductionBatchCreate(BaseModel):
+    linked_event_id: Optional[str] = None
+    source_sr_id: Optional[str] = None
+    notes: Optional[str] = None
+    lines: List[ProductionLineCreate] = []
+
+class ProductionBatch(BaseModel):
+    batch_id: str
+    company_id: str
+    batch_number: str
+    status: str = "PLANNED"  # PLANNED, IN_PROGRESS, POSTED, VOIDED
+    linked_event_id: Optional[str] = None
+    linked_event_name: Optional[str] = None
+    source_sr_id: Optional[str] = None
+    notes: Optional[str] = None
+    lines: List[ProductionLine] = []
+    total_input_cost: float = 0.0
+    total_output_value: float = 0.0
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+    posted_at: Optional[datetime] = None
+    posted_by: Optional[str] = None
+
 # ============== PURCHASE ORDER MODELS (Full PO System) ==============
 
 class PurchaseOrderLineModel(BaseModel):
