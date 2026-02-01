@@ -519,7 +519,7 @@ export default function LeadOutreachSection() {
                   <SelectValue placeholder={isEs ? "Seleccionar owner" : "Select owner"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                  <SelectItem value="unassigned">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
                   {users.map(user => (
                     <SelectItem key={user.user_id} value={user.user_id}>{user.name}</SelectItem>
                   ))}
