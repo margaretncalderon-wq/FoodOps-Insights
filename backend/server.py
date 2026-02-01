@@ -123,6 +123,11 @@ class LeadCreate(BaseModel):
     message: Optional[str] = None
     source: str = "Website"  # Website, Instagram, QR, Referral, Outreach, Other
     form_name: Optional[str] = None
+    # Additional client-compatible fields for easier conversion
+    whatsapp: Optional[str] = None
+    address: Optional[str] = None
+    rnc: Optional[str] = None
+    client_type: str = "Individual"  # Individual, Company
     # CRM Enhancement fields (additive)
     lead_type: str = "inbound"  # inbound, outreach
     outreach_status: Optional[str] = None  # New, Contacted, NoResponse, Engaged
@@ -135,6 +140,10 @@ class Lead(BaseModel):
     lead_name: str
     email: str
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    address: Optional[str] = None
+    rnc: Optional[str] = None
+    client_type: str = "Individual"  # Individual, Company
     company_name: Optional[str] = None
     event_type: str
     event_date: Optional[str] = None
