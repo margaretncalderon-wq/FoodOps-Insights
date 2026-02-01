@@ -4011,24 +4011,6 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
         e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
     return events
 
-# Legacy stage mapping to new Engagement Stages
-LEGACY_STAGE_MAP = {
-    "Lead": "Inquiry Received",
-    "Contacted": "Context Captured",
-    "Proposal": "Scope Drafted",
-    "Negotiation": "Definition In Review",
-    "Won": "Committed",
-    "Approved": "Committed",
-    "Closed": "Committed",
-    "Lost": "Archived"
-}
-
-def normalize_stage(stage: str) -> str:
-    """Normalize legacy stages to new Engagement Stages"""
-    if stage in LEGACY_STAGE_MAP:
-        return LEGACY_STAGE_MAP[stage]
-    return stage or "Inquiry Received"
-
 @events_router.get("/pipeline")
 async def get_events_pipeline(user: User = Depends(get_current_user)):
     """Get events grouped by engagement stage"""
