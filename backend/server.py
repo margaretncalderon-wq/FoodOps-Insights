@@ -2747,6 +2747,7 @@ async def submit_lead_form(form_id: str, data: dict):
         "lead_name": data.get("lead_name", data.get("name", "")),
         "email": data.get("email", ""),
         "phone": data.get("phone"),
+        "whatsapp": data.get("whatsapp"),
         "company_name": data.get("company_name"),
         "event_type": data.get("event_type", form.get("default_event_type", "other")),
         "event_date": data.get("event_date"),
@@ -2756,6 +2757,7 @@ async def submit_lead_form(form_id: str, data: dict):
         "source": form.get("default_source", "Website"),
         "form_name": form["form_name"],
         "status": "New",
+        "lead_type": "inbound",
         "owner_id": form.get("assign_owner_id"),
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
