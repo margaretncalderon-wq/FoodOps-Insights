@@ -148,6 +148,16 @@ export default function EventDetails() {
     }
   };
 
+  const handleStageChange = async (newStage) => {
+    try {
+      await axios.put(`${API}/events/${eventId}`, { stage: newStage }, { withCredentials: true });
+      toast.success(language === "es" ? `Etapa cambiada a ${newStage}` : `Stage changed to ${newStage}`);
+      fetchEvent();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al cambiar etapa" : "Failed to change stage");
+    }
+  };
+
   const handleDocumentGenerated = (doc) => {
     setDocuments([...documents, doc]);
   };
@@ -156,6 +166,12 @@ export default function EventDetails() {
     const url = `${window.location.origin}/portal/${documentId}`;
     navigator.clipboard.writeText(url);
     toast.success(language === "es" ? "Enlace copiado" : "Link copied");
+  };
+
+  // Get current stage info
+  const getCurrentStage = () => {
+    const stage = event?.stage || "Inquiry Received";
+    return ENGAGEMENT_STAGES.find(s => s.value === stage) || ENGAGEMENT_STAGES[0];
   };
 
   const statusColors = {
