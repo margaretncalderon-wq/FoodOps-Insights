@@ -24,7 +24,8 @@ import {
   Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, 
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
-  Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle
+  Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
+  Factory
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
