@@ -263,21 +263,22 @@ export default function EventsPage({ embedded = false }) {
     return `${days} ${language === "es" ? "días" : "days"}`;
   };
 
-  return (
-    <Layout>
-      <div className="space-y-6" data-testid="events-page">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-3xl font-bold text-foreground">{t("events")}</h1>
-            <p className="text-muted-foreground mt-1">
-              {language === "es" ? "Gestiona tus eventos y reservas" : "Manage your events and bookings"}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* View Mode Toggle */}
-            <div className="flex items-center border rounded-lg p-1 bg-muted/30">
-              <Button
+  const content = (
+    <div className="space-y-6" data-testid="events-page">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-bold text-foreground">
+            {embedded ? (language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements") : t("events")}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {language === "es" ? "Gestiona tus eventos y reservas" : "Manage your events and bookings"}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center border rounded-lg p-1 bg-muted/30">
+            <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => { setViewMode("list"); setSearchParams({ view: "list" }); }}
