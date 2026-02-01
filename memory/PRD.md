@@ -524,6 +524,14 @@ Auto-generated from Event Order:
   - Eliminated "Documents" tab (documents visible in Generate section within Contract & Order)
   - Eliminated "Procurement" tab (already available in Culinary Intelligence)
   - EventDetails now has only 3 tabs: Contract & Order, Tasks, Payments
+- [x] **Cost & Usage Tabs**: Added Pending/Processed tabs to prevent duplicate orders. Events marked "complete" move to Processed with full SR/PL history.
+- [x] **Sidebar Cleanup**: Removed "Procurement" from Culinary Intelligence (redundant with Cost & Usage)
+- [x] **Production Module**: New module under Culinary Intelligence for converting recipes to prepared stock:
+  - Data models: InventoryItem (item_type: RAW/PREPARED, linked_recipe_id), Recipe (produces_stock, default_storage_unit)
+  - ProductionBatch model with status flow: PLANNED → IN_PROGRESS → POSTED → VOIDED
+  - ProductionLine with computed BOM inputs
+  - Posting logic: validates RAW inventory, deducts inputs, creates PREPARED outputs
+  - Rules: BASE/COMPONENT always produce stock, DISH only when produces_stock=true
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
@@ -538,4 +546,5 @@ Auto-generated from Event Order:
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
 - [ ] Finalize Role-Based Access Control (RBAC) logic in backend
-
+- [ ] Production: Add "Create Production Batch" action on Event detail page
+- [ ] Production: Option to prefill from Stock Requisition (SR)
