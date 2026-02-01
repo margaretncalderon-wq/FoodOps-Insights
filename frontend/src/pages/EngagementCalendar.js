@@ -492,7 +492,7 @@ export default function EngagementCalendar({ embedded = false }) {
                                       : "rounded-none border-l-0 border-r-0"
                                   : "rounded"
                               } ${colors.border}`}
-                              title={`${event.name} - ${event.stage}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
+                              title={`${event.name} - ${normalizeStage(event.stage)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
                             >
                               {multiDayPos !== "middle" && multiDayPos !== "end" && (
                                 <>
