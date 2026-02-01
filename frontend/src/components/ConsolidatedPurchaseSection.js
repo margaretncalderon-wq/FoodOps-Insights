@@ -303,61 +303,76 @@ export default function ConsolidatedPurchaseSection() {
 
   return (
     <div className="space-y-6" data-testid="consolidated-purchase-section">
-      {/* Event Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            {t("selectEvents")}
-          </CardTitle>
-          <CardDescription>
-            {selectedEvents.length} {t("eventsSelected")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>{t("noEvents")}</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-2 mb-4">
-                <Button variant="outline" size="sm" onClick={() => setSelectedEvents(events.map(e => e.event_id))}>
-                  {t("selectAll")}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setSelectedEvents([])}>
-                  {t("clearAll")}
-                </Button>
-              </div>
-              
-              <ScrollArea className="h-64">
-                <div className="space-y-2">
-                  {events.map(event => (
-                    <div 
-                      key={event.event_id}
-                      className={`flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedEvents.includes(event.event_id) 
-                          ? "bg-primary/10 border-primary" 
-                          : "hover:bg-muted/50"
-                      }`}
-                      onClick={() => toggleEvent(event.event_id)}
-                    >
-                      <Checkbox checked={selectedEvents.includes(event.event_id)} />
-                      <div className="flex-1">
-                        <p className="font-medium">{event.name}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {event.guest_count || event.num_guests || 0} {language === "es" ? "personas" : "guests"}
-                          </span>
+      {/* Tabs for Pending vs Processed */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="pending" className="gap-2">
+            <Clock className="w-4 h-4" />
+            {t("pending")} ({events.length})
+          </TabsTrigger>
+          <TabsTrigger value="processed" className="gap-2">
+            <CheckCircle className="w-4 h-4" />
+            {t("processed")} ({processedEvents.length})
+          </TabsTrigger>
+        </TabsList>
+
+        {/* PENDING TAB */}
+        <TabsContent value="pending" className="space-y-6">
+          {/* Event Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                {t("selectEvents")}
+              </CardTitle>
+              <CardDescription>
+                {selectedEvents.length} {t("eventsSelected")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {events.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500 opacity-70" />
+                  <p>{language === "es" ? "¡Todos los eventos han sido procesados!" : "All events have been processed!"}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-4">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedEvents(events.map(e => e.event_id))}>
+                      {t("selectAll")}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedEvents([])}>
+                      {t("clearAll")}
+                    </Button>
+                  </div>
+                  
+                  <ScrollArea className="h-64">
+                    <div className="space-y-2">
+                      {events.map(event => (
+                        <div 
+                          key={event.event_id}
+                          className={`flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedEvents.includes(event.event_id) 
+                              ? "bg-primary/10 border-primary" 
+                              : "hover:bg-muted/50"
+                          }`}
+                          onClick={() => toggleEvent(event.event_id)}
+                        >
+                          <Checkbox checked={selectedEvents.includes(event.event_id)} />
+                          <div className="flex-1">
+                            <p className="font-medium">{event.name}</p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {event.guest_count || event.num_guests || 0} {language === "es" ? "personas" : "guests"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
                   ))}
                 </div>
               </ScrollArea>
