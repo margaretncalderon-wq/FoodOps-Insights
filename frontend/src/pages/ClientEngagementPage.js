@@ -177,8 +177,16 @@ export default function ClientEngagementPage() {
       <div className="flex-1 overflow-auto p-6">
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
-            {/* Default redirect */}
-            <Route index element={<Navigate to="crm/outreach" replace />} />
+            {/* Default redirect to Calendar */}
+            <Route index element={<Navigate to="calendar" replace />} />
+            
+            {/* Engagement Calendar - Primary View */}
+            <Route path="calendar/*" element={<CalendarPageContent />} />
+            <Route path="calendar" element={<CalendarPageContent />} />
+            
+            {/* Proposals & Agreements (Events) */}
+            <Route path="proposals/*" element={<EventsPageContent />} />
+            <Route path="proposals" element={<EventsPageContent />} />
             
             {/* CRM Routes */}
             <Route path="crm" element={<Navigate to="crm/outreach" replace />} />
@@ -189,16 +197,8 @@ export default function ClientEngagementPage() {
             <Route path="crm/owners" element={<OwnerAssignmentSection />} />
             <Route path="crm/clients" element={<ClientsSection />} />
             
-            {/* Proposals & Agreements (Events) */}
-            <Route path="proposals/*" element={<EventsPageContent />} />
-            <Route path="proposals" element={<EventsPageContent />} />
-            
-            {/* Engagement Calendar */}
-            <Route path="calendar/*" element={<CalendarPageContent />} />
-            <Route path="calendar" element={<CalendarPageContent />} />
-            
             {/* Fallback */}
-            <Route path="*" element={<Navigate to="crm/outreach" replace />} />
+            <Route path="*" element={<Navigate to="calendar" replace />} />
           </Routes>
         </Suspense>
       </div>
