@@ -1291,25 +1291,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <span className="font-medium text-green-700">{language === "es" ? "Crear Factura" : "Create Invoice"}</span>
                   <span className="text-xs text-green-600">{language === "es" ? "Business Clarity" : "Business Clarity"}</span>
                 </Button>
-
-                {/* Menu */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
-                  onClick={() => { setPreviewDocType("menu"); setPreviewOpen(true); }}
-                  disabled={!proposal?.items?.length}
-                >
-                  <FileText className="w-8 h-8 text-teal-500" />
-                  <span className="font-medium">{language === "es" ? "Menú" : "Menu"}</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Solo nombres" : "Names only"}</span>
-                </Button>
               </div>
 
               {/* Note about operational documents */}
               <p className="text-xs text-muted-foreground mt-4 text-center">
                 {language === "es" 
-                  ? "Documentos operativos (Hoja de Cocina, Lista de Montaje) disponibles en Event Orchestration para eventos confirmados"
-                  : "Operational documents (Kitchen Sheet, Packing List) available in Event Orchestration for confirmed events"}
+                  ? "Documentos operativos (Hoja de Cocina, Lista de Montaje, Menú) disponibles en Event Orchestration"
+                  : "Operational documents (Kitchen Sheet, Packing List, Menu) available in Event Orchestration"}
               </p>
               
               {!proposal?.items?.length && (
