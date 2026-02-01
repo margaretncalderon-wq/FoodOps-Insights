@@ -324,7 +324,9 @@ class EventCreate(BaseModel):
     event_type: str
     event_date: Optional[datetime] = None
     event_date_tbd: bool = False
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None  # For multi-day events
+    start_time: Optional[str] = None  # e.g., "14:00"
+    end_time: Optional[str] = None  # e.g., "22:00"
     is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int = 0
@@ -347,7 +349,9 @@ class Event(BaseModel):
     event_type: str
     event_date: Optional[datetime] = None
     event_date_tbd: bool = False
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None  # For multi-day events
+    start_time: Optional[str] = None  # e.g., "14:00"
+    end_time: Optional[str] = None  # e.g., "22:00"
     is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int
