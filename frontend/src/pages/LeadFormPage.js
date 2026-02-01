@@ -109,6 +109,7 @@ export default function LeadFormPage() {
     lead_name: "",
     email: "",
     phone: "",
+    whatsapp: "",
     company_name: "",
     event_type: "",
     event_date: "",
