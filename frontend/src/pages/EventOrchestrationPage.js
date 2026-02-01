@@ -463,6 +463,9 @@ function EventDetail() {
         <TabsContent value="production">
           <ProductionAssetsTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
+        <TabsContent value="documents">
+          <OperationalDocumentsTab eventId={eventId} isLocked={isLocked} language={isEs ? "es" : "en"} />
+        </TabsContent>
         <TabsContent value="calendar">
           <EventCalendarTab eventId={eventId} />
         </TabsContent>
