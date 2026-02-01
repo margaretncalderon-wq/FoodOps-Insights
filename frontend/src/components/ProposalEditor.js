@@ -222,6 +222,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  const fetchGeneratedDocs = async () => {
+    try {
+      const response = await axios.get(`${API}/documents?event_id=${eventId}`, { withCredentials: true });
+      setGeneratedDocs(response.data || []);
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
+    }
+  };
+
   const fetchAuditLogs = async () => {
     try {
       const response = await axios.get(`${API}/audit/event/${eventId}`, { withCredentials: true });
