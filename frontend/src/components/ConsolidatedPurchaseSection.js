@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
@@ -10,11 +10,13 @@ import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { ScrollArea } from "./ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 
 // Icons
 import { 
   ShoppingCart, Package, Truck, RefreshCw, FileText, Check,
-  Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle
+  Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle,
+  Printer, PackageMinus, Loader2
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -27,6 +29,9 @@ export default function ConsolidatedPurchaseSection() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [creatingPO, setCreatingPO] = useState(null);
+  const [processingSR, setProcessingSR] = useState(false);
+  const [srDialogOpen, setSrDialogOpen] = useState(false);
+  const printRef = useRef(null);
 
   const t = useCallback((key) => {
     const translations = {
