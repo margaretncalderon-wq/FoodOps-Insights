@@ -8908,6 +8908,10 @@ async def update_experience_design(event_id: str, data: ExperienceDesignCreate, 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Check if event is locked
+    if event.get("stage") == "Closed":
+        raise HTTPException(status_code=400, detail="Event is closed. Cannot modify experience design.")
+    
     now = datetime.now(timezone.utc)
     design_data = data.dict()
     design_data["company_id"] = user.company_id
