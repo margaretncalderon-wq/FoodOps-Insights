@@ -28,6 +28,7 @@ import ProductionAssetsTab from "../components/orchestration/ProductionAssetsTab
 import EventCalendarTab from "../components/orchestration/EventCalendarTab";
 import PostEventReviewTab from "../components/orchestration/PostEventReviewTab";
 import EventBinderTab from "../components/orchestration/EventBinderTab";
+import OperationalDocumentsTab from "../components/orchestration/OperationalDocumentsTab";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
