@@ -335,7 +335,7 @@ class EventCreate(BaseModel):
     notes: Optional[str] = None
     status: str = "planning"
     # CRM Pipeline fields
-    stage: str = "Lead"  # Lead, Contacted, Proposal, Negotiation, Won, Lost
+    stage: str = "Inquiry Received"  # Inquiry Received, Context Captured, Scope Drafted, Definition In Review, Committed, Archived
     expected_value: Optional[float] = None
     next_followup_date: Optional[datetime] = None
     next_step: Optional[str] = None
@@ -360,7 +360,7 @@ class Event(BaseModel):
     notes: Optional[str] = None
     status: str
     # CRM Pipeline fields
-    stage: str = "Lead"
+    stage: str = "Inquiry Received"
     expected_value: Optional[float] = None
     next_followup_date: Optional[datetime] = None
     next_step: Optional[str] = None
