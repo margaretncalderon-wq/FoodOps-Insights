@@ -1137,13 +1137,13 @@ export default function FoodOpsPage() {
     <div className="flex h-[calc(100vh-4rem)]" data-testid="food-ops-page">
       {/* Sidebar Navigation */}
       <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
-        {/* Back to Dashboard */}
+        {/* Back to System Pulse */}
         <NavLink 
           to="/dashboard" 
           className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowUpDown className="w-4 h-4 rotate-90" />
-          {language === "es" ? "← Volver al Dashboard" : "← Back to Dashboard"}
+          {language === "es" ? "← Volver a System Pulse" : "← Back to System Pulse"}
         </NavLink>
         
         <div className="mb-6">
