@@ -762,6 +762,92 @@ export default function ConsolidatedPurchaseSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View Procurement History Dialog */}
+      <Dialog open={!!viewingHistory} onOpenChange={() => setViewingHistory(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              {language === "es" ? "Historial de Compras" : "Procurement History"}: {viewingHistory?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {viewingHistory?.procurement_completed_at && (
+                <span>
+                  {language === "es" ? "Completado el" : "Completed on"} {new Date(viewingHistory.procurement_completed_at).toLocaleDateString()}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {/* Stock Requisition Summary */}
+            {viewingHistory?.procurement_history?.stock_requisition?.length > 0 && (
+              <div>
+                <h4 className="font-medium text-emerald-700 mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Stock Requisition (SR)
+                </h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Costo" : "Cost"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewingHistory.procurement_history.stock_requisition.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{item.item_name}</TableCell>
+                        <TableCell className="text-right">{item.in_stock?.toFixed(1)} {item.unit}</TableCell>
+                        <TableCell className="text-right">${item.total_cost?.toFixed(2) || "0.00"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            
+            {/* Purchase List Summary */}
+            {viewingHistory?.procurement_history?.purchase_list?.length > 0 && (
+              <div>
+                <h4 className="font-medium text-amber-700 mb-2 flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  Purchase List (PL)
+                </h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Costo" : "Cost"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewingHistory.procurement_history.purchase_list.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{item.item_name}</TableCell>
+                        <TableCell className="text-right">{item.to_purchase?.toFixed(1)} {item.unit}</TableCell>
+                        <TableCell className="text-right">${item.total_cost?.toFixed(2) || "0.00"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="text-right mt-2 font-bold">
+                  Total: ${viewingHistory.procurement_history.total_cost?.toFixed(2)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingHistory(null)}>
+              {language === "es" ? "Cerrar" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
