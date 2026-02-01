@@ -4251,8 +4251,10 @@ async def check_event_stock(event_id: str, user: User = Depends(get_current_user
     return {
         "event_id": event_id,
         "guest_count": guest_count,
-        "available": available,
-        "short": short,
+        "stock_requisition": available,  # Items we have in stock
+        "purchase_list": short,           # Items we need to buy
+        "available": available,           # Legacy support
+        "short": short,                   # Legacy support
         "total_ingredients": len(required_ingredients)
     }
 
