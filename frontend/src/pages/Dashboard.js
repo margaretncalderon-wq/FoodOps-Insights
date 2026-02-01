@@ -574,7 +574,6 @@ export default function SystemPulse() {
             </Link>
           </div>
         </div>
-        </div>
       </div>
     </Layout>
   );
