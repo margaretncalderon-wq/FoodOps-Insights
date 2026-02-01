@@ -1220,7 +1220,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             </div>
           )}
 
-          {/* Recipes Section (for food items) */}
+          {/* Recipes Section (for food items) - Only show DISH/final_dish recipes for sales */}
           {featureFlags?.is_food_ops_enabled && recipes.length > 0 && (
             <div className="mb-4">
               <Label className="mb-2 block text-sm">
@@ -1234,11 +1234,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <SelectValue placeholder={language === "es" ? "Seleccionar receta..." : "Select recipe..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {recipes.map(recipe => (
-                    <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
-                      {recipe.name} - ${(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)} {language === "es" ? "costo" : "cost"}
-                    </SelectItem>
-                  ))}
+                  {recipes
+                    .filter(recipe => recipe.recipe_type === "final_dish" || recipe.recipe_type === "dish")
+                    .map(recipe => (
+                      <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
+                        {recipe.name} - ${(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)} {language === "es" ? "costo" : "cost"}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
