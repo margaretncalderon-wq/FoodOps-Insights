@@ -624,6 +624,17 @@ export default function EventsPage() {
                           <Copy className="w-4 h-4 mr-2" />
                           {t("duplicate")}
                         </DropdownMenuItem>
+                        {(event.stage === "Won" || event.stage === "Closed") && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                              <Link to={`/event-orchestration/${event.event_id}`} className="flex items-center">
+                                <Music4 className="w-4 h-4 mr-2" />
+                                {language === "es" ? "Event Orchestration" : "Event Orchestration"}
+                              </Link>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleDelete(event.event_id)} className="text-destructive">
                           <Trash2 className="w-4 h-4 mr-2" />
