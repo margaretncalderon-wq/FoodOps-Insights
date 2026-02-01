@@ -95,9 +95,25 @@ export default function EngagementCalendar({ embedded = false }) {
     fetchCompanySettings();
   }, [fetchEvents, fetchCompanySettings]);
 
-  // Filter events
+  // Legacy stage mapping
+  const legacyStageMap = {
+    "Lead": "Inquiry Received",
+    "Contacted": "Context Captured",
+    "Proposal": "Scope Drafted",
+    "Negotiation": "Definition In Review",
+    "Won": "Committed",
+    "Approved": "Committed",
+    "Closed": "Committed",
+    "Lost": "Archived"
+  };
+
+  // Normalize stage (map legacy to new)
+  const normalizeStage = (stage) => legacyStageMap[stage] || stage;
+
+  // Filter events (with legacy stage mapping)
   const filteredEvents = events.filter(event => {
-    const matchesStatus = statusFilter === "all" || event.stage === statusFilter;
+    const eventStage = normalizeStage(event.stage);
+    const matchesStatus = statusFilter === "all" || eventStage === statusFilter;
     const matchesType = typeFilter === "all" || event.event_type === typeFilter;
     return matchesStatus && matchesType;
   });
