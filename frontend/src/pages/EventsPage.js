@@ -604,7 +604,7 @@ export default function EventsPage({ embedded = false }) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {PIPELINE_STAGES.map((stage) => (
+                          {ENGAGEMENT_STAGES.map((stage) => (
                             <SelectItem key={stage} value={stage}>{stage}</SelectItem>
                           ))}
                         </SelectContent>
