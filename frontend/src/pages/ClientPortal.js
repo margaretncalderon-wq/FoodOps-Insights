@@ -126,7 +126,7 @@ export default function ClientPortal() {
 
   // Detect language from company or default to Spanish
   const lang = company.default_language || "es";
-  const isEs = lang === "es";
+  const isEs = lang === "es" || lang === "ES";
 
   const docTypeLabels = {
     quote: isEs ? "Propuesta" : "Proposal",
