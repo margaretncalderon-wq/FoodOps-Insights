@@ -520,6 +520,10 @@ Auto-generated from Event Order:
   - Simplified ProposalEditor tabs (removed redundant nested structure)
   - Added stage normalization to individual event endpoint
 - [x] **Proposal → Event Stage Automation**: When a proposal status changes to "Accepted", the event automatically moves to "Committed" stage. Visual confirmation message added.
+- [x] **Removed Redundant Tabs**: 
+  - Eliminated "Documents" tab (documents visible in Generate section within Contract & Order)
+  - Eliminated "Procurement" tab (already available in Culinary Intelligence)
+  - EventDetails now has only 3 tabs: Contract & Order, Tasks, Payments
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
