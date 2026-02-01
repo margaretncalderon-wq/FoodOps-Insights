@@ -7748,6 +7748,7 @@ async def receive_purchase_order(
             "supplier_id": po.get("supplier_id"),
             "supplier_name": po.get("supplier_name"),
             "po_id": po_id,
+            "po_number": po.get("po_number"),
             "invoice_number": invoice_number,
             "invoice_date": invoice_date.isoformat() if invoice_date else now.isoformat(),
             "invoice_url": invoice_url,
@@ -7757,9 +7758,12 @@ async def receive_purchase_order(
             "subtotal": round(expense_total, 2),
             "tax_amount": 0,
             "total": round(expense_total, 2),
+            "amount": round(expense_total, 2),  # For compatibility
             "paid_amount": 0,
             "notes": f"Auto-created from PO {po.get('po_number')}",
+            "description": f"PO {po.get('po_number')} - {po.get('supplier_name', 'Supplier')}",
             "status": "Pending",
+            "payment_status": "Pending",  # For Business Clarity compatibility
             "created_at": now.isoformat(),
             "updated_at": now.isoformat()
         })
