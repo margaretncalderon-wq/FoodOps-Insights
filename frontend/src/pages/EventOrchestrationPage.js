@@ -153,17 +153,38 @@ function EventsList() {
   return (
     <div className="space-y-6" data-testid="orchestration-events-list">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">{isEs ? "Eventos Confirmados" : "Confirmed Events"}</h2>
           <p className="text-muted-foreground">
-            {isEs ? "Solo eventos ganados (Won) aparecen aquí para ejecución" : "Only Won events appear here for execution"}
+            {isEs ? "Solo eventos comprometidos aparecen aquí para ejecución" : "Only committed events appear here for execution"}
           </p>
         </div>
-        <Button variant="outline" onClick={fetchEvents}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {isEs ? "Actualizar" : "Refresh"}
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* Time Window Filter */}
+          <div className="flex items-center gap-2 text-sm" data-testid="time-window-filter">
+            <span className="text-muted-foreground">{isEs ? "Ventana:" : "Time Window:"}</span>
+            <div className="flex items-center gap-1">
+              {timeWindowOptions.map((option, idx) => (
+                <button
+                  key={option.value}
+                  onClick={() => setTimeWindow(option.value)}
+                  className={`px-2.5 py-1 rounded-md transition-colors text-sm ${
+                    timeWindow === option.value 
+                      ? "bg-primary text-primary-foreground font-medium" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                  data-testid={`time-window-${option.value}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchEvents}>
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Info Banner */}
@@ -172,8 +193,8 @@ function EventsList() {
           <p className="text-sm text-blue-700 flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
             {isEs 
-              ? "Esta es la capa de ejecución. Los eventos en Lead, Proposal o Negotiation deben ser confirmados (Won) desde el módulo de Ventas para aparecer aquí." 
-              : "This is the execution layer. Events in Lead, Proposal or Negotiation must be confirmed (Won) from the Sales module to appear here."}
+              ? "Esta es la capa de ejecución. Los eventos deben estar Committed desde Client Engagement para aparecer aquí." 
+              : "This is the execution layer. Events must be Committed from Client Engagement to appear here."}
           </p>
         </CardContent>
       </Card>
