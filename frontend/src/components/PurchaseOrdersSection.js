@@ -227,7 +227,8 @@ export default function PurchaseOrdersSection() {
       })),
       create_expense: true,
       invoice_number: "",
-      invoice_date: new Date().toISOString().split("T")[0]
+      invoice_date: new Date().toISOString().split("T")[0],
+      invoice_url: ""
     });
     setReceiveDialogOpen(true);
   };
