@@ -756,23 +756,6 @@ export default function ConsolidatedPurchaseSection() {
                 </p>
               </div>
 
-              {/* Mise en Place Button */}
-              <div className="mt-4 pt-4 border-t">
-                <Button 
-                  variant="outline"
-                  onClick={() => handleGenerateMiseEnPlace()}
-                  className="w-full gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
-                >
-                  <ChefHat className="w-4 h-4" />
-                  {language === "es" ? "Generar Mise en Place" : "Generate Mise en Place"}
-                </Button>
-                <p className="text-xs text-muted-foreground text-center mt-1">
-                  {language === "es" 
-                    ? "Lista de preparación previa para cocina"
-                    : "Pre-preparation checklist for kitchen"}
-                </p>
-              </div>
-
               {/* Mark Complete Button */}
               <div className="mt-4 pt-4 border-t">
                 <Button 
