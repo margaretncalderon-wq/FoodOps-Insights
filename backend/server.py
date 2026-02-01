@@ -217,6 +217,28 @@ class Client(BaseModel):
     last_event_date: Optional[str] = None
     lifetime_value: float = 0.0
 
+# CRM Communication Log Model (additive)
+class CommLogCreate(BaseModel):
+    entity_type: str  # lead, client
+    entity_id: str  # lead_id or client_id
+    comm_type: str  # call, email, meeting, note
+    subject: Optional[str] = None
+    content: str
+    direction: str = "outbound"  # inbound, outbound
+
+class CommLog(BaseModel):
+    log_id: str
+    company_id: str
+    entity_type: str
+    entity_id: str
+    comm_type: str
+    subject: Optional[str] = None
+    content: str
+    direction: str
+    owner_id: Optional[str] = None
+    owner_name: Optional[str] = None
+    created_at: datetime
+
 # Lead Form Model (Configurable forms)
 class LeadFormFieldConfig(BaseModel):
     field_name: str
