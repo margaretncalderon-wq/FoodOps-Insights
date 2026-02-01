@@ -551,4 +551,3 @@ Auto-generated from Event Order:
 - [ ] Multi-currency support
 - [ ] Finalize Role-Based Access Control (RBAC) logic in backend
 - [ ] Production: Add "Create Production Batch" action on Event detail page
-- [ ] Production: Option to prefill from Stock Requisition (SR)
