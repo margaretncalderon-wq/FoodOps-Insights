@@ -20,7 +20,7 @@ const ClientsSection = lazy(() => import("../components/crm/ClientsSection"));
 
 // Lazy load other pages
 const EventsPageContent = lazy(() => import("./EventsPage").then(mod => ({ default: (props) => <mod.default embedded={true} {...props} /> })));
-const CalendarPageContent = lazy(() => import("./CalendarPage").then(mod => ({ default: (props) => <mod.default embedded={true} {...props} /> })));
+const EngagementCalendar = lazy(() => import("./EngagementCalendar").then(mod => ({ default: (props) => <mod.default embedded={true} {...props} /> })));
 
 // Comms Log View wrapper for standalone view
 function CommsLogView() {
