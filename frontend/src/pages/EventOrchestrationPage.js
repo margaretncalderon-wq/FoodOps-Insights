@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import {
   Music4, ArrowLeft, Calendar, Users, Clock, Package,
   Palette, GitBranch, FileCheck, Star, Search, RefreshCw,
-  CheckCircle, AlertCircle, MapPin, Building2
+  CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock
 } from "lucide-react";
 
 // Tab Components
@@ -27,6 +27,7 @@ import TeamRolesTab from "../components/orchestration/TeamRolesTab";
 import ProductionAssetsTab from "../components/orchestration/ProductionAssetsTab";
 import EventCalendarTab from "../components/orchestration/EventCalendarTab";
 import PostEventReviewTab from "../components/orchestration/PostEventReviewTab";
+import EventBinderTab from "../components/orchestration/EventBinderTab";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
