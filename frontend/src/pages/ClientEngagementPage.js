@@ -62,28 +62,20 @@ export default function ClientEngagementPage() {
 
   const activeSection = getActiveSection();
 
-  // Navigation items organized by section with colors
+  // Navigation items organized by section (minimal style)
   const navSections = [
     {
       id: "calendar",
-      title: language === "es" ? "Calendario de Engagement" : "Engagement Calendar",
-      subtitle: language === "es" ? "Vista de Compromisos" : "Commitments Overview",
+      title: language === "es" ? "Calendario" : "Calendar",
       icon: CalendarDays,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
-      borderColor: "border-l-4 border-blue-500",
       items: [
         { path: "/client-engagement/calendar", label: language === "es" ? "Ver Calendario" : "View Calendar", icon: CalendarDays },
       ]
     },
     {
       id: "proposals",
-      title: language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements",
-      subtitle: language === "es" ? "Ventas & Contratos" : "Sales & Contracts",
+      title: language === "es" ? "Propuestas" : "Proposals",
       icon: FileText,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
-      borderColor: "border-l-4 border-emerald-500",
       items: [
         { path: "/client-engagement/proposals", label: language === "es" ? "Ver Propuestas" : "View Proposals", icon: FileText },
       ]
@@ -91,17 +83,13 @@ export default function ClientEngagementPage() {
     {
       id: "crm",
       title: "CRM",
-      subtitle: language === "es" ? "Gestión de Relaciones" : "Relationship Management",
       icon: Users,
-      color: "text-violet-600",
-      bgColor: "bg-violet-50 dark:bg-violet-950/30",
-      borderColor: "border-l-4 border-violet-500",
       items: [
         { path: "/client-engagement/crm/outreach", label: "Lead Outreach", icon: UserPlus, badge: stats.outreach_leads },
         { path: "/client-engagement/crm/inbound", label: language === "es" ? "Leads Inbound" : "Inbound Leads", icon: Inbox, badge: stats.inbound_leads },
-        { path: "/client-engagement/crm/follow-ups", label: language === "es" ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due, badgeColor: stats.follow_ups_due > 0 ? "bg-red-500 text-white" : "" },
+        { path: "/client-engagement/crm/follow-ups", label: language === "es" ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due, badgeColor: stats.follow_ups_due > 0 ? "bg-amber-100 text-amber-700" : "" },
         { path: "/client-engagement/crm/comms", label: language === "es" ? "Comunicaciones" : "Comms Log", icon: MessageSquare },
-        { path: "/client-engagement/crm/owners", label: language === "es" ? "Responsables" : "Owner Assignment", icon: UserCircle },
+        { path: "/client-engagement/crm/owners", label: language === "es" ? "Responsables" : "Owners", icon: UserCircle },
         { path: "/client-engagement/crm/clients", label: language === "es" ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
       ]
     },
