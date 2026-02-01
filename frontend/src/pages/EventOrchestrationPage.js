@@ -210,6 +210,14 @@ function EventsList() {
         />
       </div>
 
+      {/* Subtle Legend for Micro-Signals */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground/70">
+        <span className="flex items-center gap-1"><span>⏱️</span> {isEs ? "Próximo" : "Upcoming"}</span>
+        <span className="flex items-center gap-1"><span>⚠️</span> {isEs ? "Pendiente" : "Pending"}</span>
+        <span className="flex items-center gap-1"><span>🔄</span> {isEs ? "Reciente" : "Recent"}</span>
+        <span className="flex items-center gap-1"><span>👥</span> {isEs ? "Equipo" : "Team"}</span>
+      </div>
+
       {/* Events Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredEvents.map((event) => {
