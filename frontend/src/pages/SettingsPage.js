@@ -93,6 +93,7 @@ export default function SettingsPage() {
     secondary_color: "#E5DCC5",
     default_language: "en",
     currency: "USD",
+    time_format: "24h",
   });
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
@@ -182,6 +183,7 @@ export default function SettingsPage() {
         secondary_color: response.data.secondary_color,
         default_language: response.data.default_language,
         currency: response.data.currency,
+        time_format: response.data.time_format || "24h",
       });
     } catch (error) {
       console.error("Failed to fetch company:", error);
