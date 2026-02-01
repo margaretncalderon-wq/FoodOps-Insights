@@ -511,6 +511,8 @@ Auto-generated from Event Order:
   - Fields: invoice_number, invoice_date, invoice_url
 
 ## Upcoming Tasks
+
+## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
