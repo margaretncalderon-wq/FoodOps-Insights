@@ -212,13 +212,88 @@ export default function ConsolidatedPurchaseSection() {
       {/* Generated Purchase List */}
       {purchaseData && (
         <div className="space-y-4">
+          {/* Stock Requisition vs Purchase List Cards */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Stock Requisition (SR) - Items in Stock */}
+            <Card className="border-emerald-200 bg-emerald-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  <span>{language === "es" ? "Requisición de Inventario (SR)" : "Stock Requisition (SR)"}</span>
+                  <Badge variant="secondary" className="ml-auto">
+                    {purchaseData.stock_requisition?.length || 0}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {language === "es" ? "Items disponibles en inventario actual" : "Items available from current inventory"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(purchaseData.stock_requisition?.length || 0) > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {purchaseData.stock_requisition.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                        <span className="font-medium">{item.item_name || item.name}</span>
+                        <div className="text-right">
+                          <span className="font-mono">{(item.in_stock || item.quantity_needed || 0).toFixed(1)} {item.unit}</span>
+                          <span className="text-xs text-emerald-600 ml-2">✓</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {language === "es" ? "No hay items cubiertos por inventario" : "No items covered by inventory"}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Purchase List (PL) - Items to Buy */}
+            <Card className="border-amber-200 bg-amber-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5 text-amber-600" />
+                  <span>{language === "es" ? "Lista de Compras (PL)" : "Purchase List (PL)"}</span>
+                  <Badge variant="secondary" className="ml-auto">
+                    {purchaseData.purchase_list?.length || 0}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {language === "es" ? "Items que necesitan ser comprados" : "Items that need to be purchased"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(purchaseData.purchase_list?.length || 0) > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {purchaseData.purchase_list.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                        <span className="font-medium">{item.item_name || item.name}</span>
+                        <div className="text-right">
+                          <span className="font-mono text-amber-700">{(item.to_purchase || item.shortage || 0).toFixed(1)} {item.unit}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            (${((item.to_purchase || item.shortage || 0) * (item.unit_cost || item.cost_per_unit || 0)).toFixed(2)})
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-emerald-600 text-center py-4">
+                    {language === "es" ? "✓ Todo cubierto con inventario" : "✓ All covered by inventory"}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5" />
-                  {language === "es" ? "Lista de Compras Generada" : "Generated Purchase List"}
+                  {language === "es" ? "Detalle por Proveedor" : "Detail by Supplier"}
                 </span>
                 <Badge variant="outline" className="text-lg px-4 py-1">
                   {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
