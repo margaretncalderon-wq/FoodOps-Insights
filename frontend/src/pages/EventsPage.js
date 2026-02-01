@@ -265,21 +265,37 @@ export default function EventsPage({ embedded = false }) {
   };
 
   const stageColors = {
-    Lead: "bg-blue-100 text-blue-800 border-blue-200",
-    Contacted: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    Proposal: "bg-purple-100 text-purple-800 border-purple-200",
+    "Inquiry Received": "bg-slate-100 text-slate-800 border-slate-200",
+    "Context Captured": "bg-blue-100 text-blue-800 border-blue-200",
+    "Scope Drafted": "bg-amber-100 text-amber-800 border-amber-200",
+    "Definition In Review": "bg-orange-100 text-orange-800 border-orange-200",
+    "Committed": "bg-emerald-100 text-emerald-800 border-emerald-200",
+    "Archived": "bg-gray-100 text-gray-500 border-gray-200",
+    // Legacy support
+    Lead: "bg-slate-100 text-slate-800 border-slate-200",
+    Contacted: "bg-blue-100 text-blue-800 border-blue-200",
+    Proposal: "bg-amber-100 text-amber-800 border-amber-200",
     Negotiation: "bg-orange-100 text-orange-800 border-orange-200",
-    Won: "bg-green-100 text-green-800 border-green-200",
-    Lost: "bg-red-100 text-red-800 border-red-200",
+    Won: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    Lost: "bg-gray-100 text-gray-500 border-gray-200",
+    Closed: "bg-purple-100 text-purple-800 border-purple-200",
   };
 
   const stageHeaderColors = {
-    Lead: "bg-blue-500",
-    Contacted: "bg-yellow-500",
-    Proposal: "bg-purple-500",
+    "Inquiry Received": "bg-slate-500",
+    "Context Captured": "bg-blue-500",
+    "Scope Drafted": "bg-amber-500",
+    "Definition In Review": "bg-orange-500",
+    "Committed": "bg-emerald-500",
+    "Archived": "bg-gray-400",
+    // Legacy support
+    Lead: "bg-slate-500",
+    Contacted: "bg-blue-500",
+    Proposal: "bg-amber-500",
     Negotiation: "bg-orange-500",
-    Won: "bg-green-500",
-    Lost: "bg-red-500",
+    Won: "bg-emerald-500",
+    Lost: "bg-gray-400",
+    Closed: "bg-purple-500",
   };
 
   const getDuration = (event) => {
