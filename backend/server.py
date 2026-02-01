@@ -7625,6 +7625,7 @@ async def receive_purchase_order(
     create_expense: bool = True,
     invoice_number: Optional[str] = None,
     invoice_date: Optional[datetime] = None,
+    invoice_url: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """
