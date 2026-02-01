@@ -99,6 +99,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
   
+  // Invoice dialog state
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [existingInvoices, setExistingInvoices] = useState([]);
+  const [invoiceType, setInvoiceType] = useState("full"); // full, deposit, final, day
+  const [selectedDays, setSelectedDays] = useState([]);
+  
   // Check if event is locked (Closed)
   const isLocked = event?.operational_status === "Closed";
   
