@@ -4157,8 +4157,9 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
                 event[field] = None
     if "documents" not in event:
         event["documents"] = []
-    if "stage" not in event:
-        event["stage"] = "Inquiry Received"
+    # Normalize stage (map legacy to new)
+    original_stage = event.get("stage", "Inquiry Received")
+    event["stage"] = normalize_stage(original_stage)
     
     # Get client info
     client = await db.clients.find_one({"client_id": event.get("client_id")}, {"_id": 0, "display_name": 1, "client_type": 1})
