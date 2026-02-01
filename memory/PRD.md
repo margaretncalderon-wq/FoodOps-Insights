@@ -23,12 +23,43 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
 - JWT-based email/password authentication (WORKING ✅)
 - Google OAuth via Emergent-managed auth (WORKING ✅)
 
-### 2. CRM Module (Refactored)
-- **Leads**: Inbound inquiries from embeddable forms, separate from clients
-- **Clients**: Qualified clients with display_name, client_type (Company/Individual)
-- **Contacts**: Associated contacts per client
-- **Events Pipeline**: Sales funnel with stages (Lead, Contacted, Proposal, Won, Closed, Lost)
-- **Lead Form Builder**: Configurable public forms with multilingual support (EN/ES)
+### 2. CRM Module (REFINED - Feb 1, 2026) ✅
+Reorganized into 6 simplified sections for relationship management:
+
+**1. Lead Outreach**
+- Proactive contacts initiated by the team
+- Outreach status: New → Contacted → NoResponse → Engaged
+- Source = "Outreach"
+
+**2. Lead Inbound**  
+- Contacts from forms, email, social
+- Source visibility (Website, Instagram, QR, Referral, Email)
+- Existing inquiry forms continue working
+
+**3. Follow-ups**
+- Unified view of pending follow-ups across leads and clients
+- Types: Call, Email, Meeting, Check-in
+- Status: Overdue, Today, Upcoming
+
+**4. Comms Log**
+- Centralized communication history per contact
+- Types: Call, Email, Meeting, Note
+- Direction: Inbound/Outbound
+
+**5. Owner Assignment**
+- Assign responsibility for each relationship
+- Filter by owner
+- Unassigned leads/clients highlighted
+
+**6. Clients**
+- Contacts with completed events
+- Event history (read-only)
+- Lifetime value calculation
+
+**Key Rules:**
+- CRM manages relationships, Events manages opportunities
+- No proposals/contracts created in CRM (they live in Events)
+- Single source of truth for contacts
 
 ### 3. Events Module (SALES/COMMERCIAL LAYER)
 The commercial lifecycle of an event. Answers: "Should we take this event, under what conditions?"
