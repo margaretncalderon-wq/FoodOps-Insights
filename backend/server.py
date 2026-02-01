@@ -3987,8 +3987,8 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
 
 @events_router.get("/pipeline")
 async def get_events_pipeline(user: User = Depends(get_current_user)):
-    """Get events grouped by pipeline stage"""
-    stages = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost"]
+    """Get events grouped by engagement stage"""
+    stages = ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review", "Committed", "Archived"]
     pipeline = {}
     
     # Get all clients for client info
