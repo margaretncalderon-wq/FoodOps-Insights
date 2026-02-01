@@ -1,167 +1,207 @@
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
-import { Layout } from "../components/Layout";
+import { useState, useEffect, useCallback, Suspense, lazy } from "react";
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Users, FileText, CalendarDays, ChevronRight } from "lucide-react";
+import axios from "axios";
 
-// Import existing modules as components
-import CRMPageNew from "./CRMPageNew";
-import EventsPage from "./EventsPage";
-import CalendarPage from "./CalendarPage";
+// UI Components
+import { Badge } from "../components/ui/badge";
+import { RefreshCw, Users, FileText, CalendarDays, ArrowUpDown, 
+  UserPlus, Inbox, Clock, MessageSquare, UserCircle, Puzzle } from "lucide-react";
 
-const SECTIONS = [
-  { 
-    id: "crm", 
-    path: "crm",
-    icon: Users, 
-    labelEn: "CRM", 
-    labelEs: "CRM",
-    descEn: "Relationship Management",
-    descEs: "Gestión de Relaciones"
-  },
-  { 
-    id: "proposals", 
-    path: "proposals",
-    icon: FileText, 
-    labelEn: "Proposals & Agreements", 
-    labelEs: "Propuestas & Acuerdos",
-    descEn: "Sales & Contracts",
-    descEs: "Ventas & Contratos"
-  },
-  { 
-    id: "calendar", 
-    path: "calendar",
-    icon: CalendarDays, 
-    labelEn: "Engagement Calendar", 
-    labelEs: "Calendario de Engagement",
-    descEn: "Client Commitments",
-    descEs: "Compromisos con Clientes"
-  },
-];
+const API = process.env.REACT_APP_BACKEND_URL;
 
-// Wrapper to remove Layout from embedded pages
-const EmbeddedCRM = () => {
-  return <CRMPageNew embedded={true} />;
-};
+// Lazy load CRM sections
+const LeadOutreachSection = lazy(() => import("../components/crm/LeadOutreachSection"));
+const LeadInboundSection = lazy(() => import("../components/crm/LeadInboundSection"));
+const FollowUpsSection = lazy(() => import("../components/crm/FollowUpsSection"));
+const CommsLogSection = lazy(() => import("../components/crm/CommsLogSection"));
+const OwnerAssignmentSection = lazy(() => import("../components/crm/OwnerAssignmentSection"));
+const ClientsSection = lazy(() => import("../components/crm/ClientsSection"));
 
-const EmbeddedProposals = () => {
-  return <EventsPage embedded={true} />;
-};
+// Lazy load other pages
+const EventsPageContent = lazy(() => import("./EventsPage").then(mod => ({ default: (props) => <mod.default embedded={true} {...props} /> })));
+const CalendarPageContent = lazy(() => import("./CalendarPage").then(mod => ({ default: (props) => <mod.default embedded={true} {...props} /> })));
 
-const EmbeddedCalendar = () => {
-  return <CalendarPage embedded={true} />;
-};
+// Comms Log View wrapper for standalone view
+function CommsLogView() {
+  return <CommsLogSection standalone={true} />;
+}
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-64">
+    <RefreshCw className="w-8 h-8 animate-spin" />
+  </div>
+);
 
 export default function ClientEngagementPage() {
   const { language } = useLanguage();
-  const isEs = language === "es";
   const location = useLocation();
-  const navigate = useNavigate();
-  
-  // Determine active section from path
+  const [stats, setStats] = useState({});
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/stats`, { withCredentials: true });
+      setStats(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => { 
+    fetchStats(); 
+  }, [fetchStats]);
+
+  // Determine active section based on current path
   const getActiveSection = () => {
     const path = location.pathname;
     if (path.includes("/client-engagement/proposals") || path.includes("/client-engagement/events")) return "proposals";
     if (path.includes("/client-engagement/calendar")) return "calendar";
-    if (path.includes("/client-engagement/crm")) return "crm";
-    return "crm"; // default
+    return "crm";
   };
-  
+
   const activeSection = getActiveSection();
 
-  const handleSectionChange = (sectionId) => {
-    const section = SECTIONS.find(s => s.id === sectionId);
-    if (section) {
-      navigate(`/client-engagement/${section.path}`);
+  // Navigation items organized by section
+  const navSections = [
+    {
+      id: "crm",
+      title: "CRM",
+      subtitle: language === "es" ? "Gestión de Relaciones" : "Relationship Management",
+      icon: Users,
+      items: [
+        { path: "/client-engagement/crm/outreach", label: "Lead Outreach", icon: UserPlus, badge: stats.outreach_leads },
+        { path: "/client-engagement/crm/inbound", label: language === "es" ? "Leads Inbound" : "Inbound Leads", icon: Inbox, badge: stats.inbound_leads },
+        { path: "/client-engagement/crm/follow-ups", label: language === "es" ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due, badgeColor: stats.follow_ups_due > 0 ? "bg-red-500 text-white" : "" },
+        { path: "/client-engagement/crm/comms", label: language === "es" ? "Comunicaciones" : "Comms Log", icon: MessageSquare },
+        { path: "/client-engagement/crm/owners", label: language === "es" ? "Responsables" : "Owner Assignment", icon: UserCircle },
+        { path: "/client-engagement/crm/clients", label: language === "es" ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
+      ]
+    },
+    {
+      id: "proposals",
+      title: language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements",
+      subtitle: language === "es" ? "Ventas & Contratos" : "Sales & Contracts",
+      icon: FileText,
+      items: [
+        { path: "/client-engagement/proposals", label: language === "es" ? "Ver Propuestas" : "View Proposals", icon: FileText },
+      ]
+    },
+    {
+      id: "calendar",
+      title: language === "es" ? "Calendario de Engagement" : "Engagement Calendar",
+      subtitle: language === "es" ? "Compromisos con Clientes" : "Client Commitments",
+      icon: CalendarDays,
+      items: [
+        { path: "/client-engagement/calendar", label: language === "es" ? "Ver Calendario" : "View Calendar", icon: CalendarDays },
+      ]
     }
-  };
-
-  // Check if we're on a detail page (like /client-engagement/proposals/event_xxx)
-  const isDetailPage = location.pathname.split('/').length > 4;
-
-  // Check if path needs redirect to default section
-  const needsRedirect = location.pathname === "/client-engagement" || location.pathname === "/client-engagement/";
+  ];
 
   return (
-    <Layout>
-      <div className="space-y-6" data-testid="client-engagement-page">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <span>{isEs ? "Módulo" : "Module"}</span>
-              <ChevronRight className="w-4 h-4" />
-              <span className="text-foreground font-medium">Client Engagement</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold font-heading">
-              🧩 Client Engagement
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {isEs 
-                ? "Donde la intención del cliente se define, acuerda y prepara para ejecución"
-                : "Where client intent becomes defined, agreed upon, and ready for execution"}
-            </p>
+    <div className="flex h-[calc(100vh-4rem)]" data-testid="client-engagement-page">
+      {/* Sidebar Navigation */}
+      <div className="w-64 border-r bg-muted/30 p-4 flex flex-col overflow-y-auto">
+        {/* Back to Dashboard */}
+        <NavLink 
+          to="/dashboard" 
+          className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowUpDown className="w-4 h-4 rotate-90" />
+          {language === "es" ? "← Volver al Dashboard" : "← Back to Dashboard"}
+        </NavLink>
+        
+        {/* Module Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Puzzle className="w-6 h-6 text-primary" />
+            <h2 className="text-xl font-bold">Client Engagement</h2>
           </div>
+          <p className="text-xs text-muted-foreground pl-8">
+            {language === "es" 
+              ? "Donde la intención del cliente se define y acuerda" 
+              : "Where client intent becomes defined and agreed"}
+          </p>
         </div>
 
-        {/* Section Navigation Tabs - Always visible except on deep detail pages */}
-        <div className="border-b">
-          <Tabs value={activeSection} onValueChange={handleSectionChange}>
-            <TabsList className="bg-transparent h-auto p-0 gap-0">
-              {SECTIONS.map((section) => {
-                const Icon = section.icon;
-                const isActive = activeSection === section.id;
-                return (
-                  <TabsTrigger
-                    key={section.id}
-                    value={section.id}
-                    className={`
-                      relative px-6 py-4 rounded-none border-b-2 transition-all
-                      ${isActive 
-                        ? "border-primary text-primary bg-primary/5" 
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                      }
-                    `}
-                    data-testid={`engagement-tab-${section.id}`}
+        {/* Navigation Sections */}
+        <nav className="space-y-6 flex-1">
+          {navSections.map(section => (
+            <div key={section.id}>
+              {/* Section Header */}
+              <div className={`flex items-center gap-2 px-3 py-2 mb-1 rounded-md ${
+                activeSection === section.id ? "bg-primary/10" : ""
+              }`}>
+                <section.icon className={`w-4 h-4 ${activeSection === section.id ? "text-primary" : "text-muted-foreground"}`} />
+                <div>
+                  <p className={`text-sm font-semibold ${activeSection === section.id ? "text-primary" : ""}`}>
+                    {section.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{section.subtitle}</p>
+                </div>
+              </div>
+              
+              {/* Section Items */}
+              <div className="space-y-1 ml-2">
+                {section.items.map(item => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === "/client-engagement/proposals" || item.path === "/client-engagement/calendar"}
+                    className={({ isActive }) =>
+                      `flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${
+                        isActive 
+                          ? "bg-primary text-primary-foreground" 
+                          : "hover:bg-muted"
+                      }`
+                    }
                   >
                     <div className="flex items-center gap-2">
-                      <Icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
-                      <div className="text-left">
-                        <div className="font-medium">
-                          {isEs ? section.labelEs : section.labelEn}
-                        </div>
-                        <div className="text-xs text-muted-foreground hidden md:block">
-                          {isEs ? section.descEs : section.descEn}
-                        </div>
-                      </div>
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.label}</span>
                     </div>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {/* Content Area - Routes */}
-        <div className="min-h-[60vh]">
-          <Routes>
-            {/* CRM Routes */}
-            <Route path="crm/*" element={<EmbeddedCRM />} />
-            
-            {/* Proposals & Agreements (Events) Routes */}
-            <Route path="proposals/*" element={<EmbeddedProposals />} />
-            <Route path="proposals" element={<EmbeddedProposals />} />
-            
-            {/* Engagement Calendar Routes */}
-            <Route path="calendar/*" element={<EmbeddedCalendar />} />
-            <Route path="calendar" element={<EmbeddedCalendar />} />
-            
-            {/* Default redirect to CRM */}
-            <Route path="" element={<EmbeddedCRM />} />
-            <Route path="*" element={<EmbeddedCRM />} />
-          </Routes>
-        </div>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <Badge className={`text-xs ${item.badgeColor || "bg-muted-foreground/20 text-foreground"}`}>
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
       </div>
-    </Layout>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-6">
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            {/* Default redirect */}
+            <Route index element={<Navigate to="crm/outreach" replace />} />
+            
+            {/* CRM Routes */}
+            <Route path="crm" element={<Navigate to="crm/outreach" replace />} />
+            <Route path="crm/outreach" element={<LeadOutreachSection />} />
+            <Route path="crm/inbound" element={<LeadInboundSection />} />
+            <Route path="crm/follow-ups" element={<FollowUpsSection />} />
+            <Route path="crm/comms" element={<CommsLogView />} />
+            <Route path="crm/owners" element={<OwnerAssignmentSection />} />
+            <Route path="crm/clients" element={<ClientsSection />} />
+            
+            {/* Proposals & Agreements (Events) */}
+            <Route path="proposals/*" element={<EventsPageContent />} />
+            <Route path="proposals" element={<EventsPageContent />} />
+            
+            {/* Engagement Calendar */}
+            <Route path="calendar/*" element={<CalendarPageContent />} />
+            <Route path="calendar" element={<CalendarPageContent />} />
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="crm/outreach" replace />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </div>
   );
 }
