@@ -1,0 +1,88 @@
+{
+  "summary": "Event Time Fields (start_time/end_time), Multi-day Events, and Time Format Settings testing complete. Backend: 11/11 tests passed after fixing time_format update bug. Frontend: All features verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "event_time_fields": {
+      "status": "PASS",
+      "details": "Start Time and End Time fields present in event creation/edit form. Fields use HTML5 time input type. Data persists correctly to backend."
+    },
+    "multiday_events": {
+      "status": "PASS",
+      "details": "Multi-day Booking toggle works. Events with is_booking=true and end_date display correctly in calendar with '↔' indicator showing continuation across days. Duration shown in event cards (e.g., '3 days', '5 days')."
+    },
+    "calendar_time_display": {
+      "status": "PASS",
+      "details": "Calendar displays event times. Time format respects company settings (12h shows '2:00 PM', 24h shows '14:00'). Events sorted by start_time."
+    },
+    "time_format_settings": {
+      "status": "PASS",
+      "details": "Settings > Preferences tab shows Time Format selector with options '24h (14:00)' and '12h (2:00 PM)'. Helper text explains 'Affects how times are displayed in calendars and events'. Save button persists changes."
+    },
+    "time_format_api": {
+      "status": "PASS",
+      "details": "GET /api/settings/company returns time_format field. PUT /api/settings/company accepts time_format updates (fixed bug: time_format was missing from allowed_fields)."
+    },
+    "test_event_verification": {
+      "status": "PASS",
+      "details": "Test event 'Evento de Prueba con Horario' found with date range 1/15/2025 - 1/17/2025, start_time 14:00, end_time 22:00. Multi-day display working correctly."
+    }
+  },
+  "bug_fixed": {
+    "description": "time_format field was not being saved in PUT /api/settings/company endpoint",
+    "file": "/app/backend/server.py",
+    "line": 4862,
+    "fix": "Added 'time_format' to allowed_fields list in update_company_settings function"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_event_time_multiday.py",
+    "/app/test_reports/pytest/pytest_event_time_multiday.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_event_time_multiday.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (All features verified working)"
+  },
+  "test_credentials": {
+    "email": "margaret.n.calderon@gmail.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created TEST_ prefixed events during backend testing (cleaned up after tests)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Event time fields (start_time/end_time) and multi-day events fully implemented. Time format setting (12h/24h) in Settings > Preferences affects calendar display. Test event 'Evento de Prueba con Horario' exists with date 15-17 Jan 2025, time 14:00-22:00.",
+  "features_verified": {
+    "event_form_time_fields": {
+      "data_testid": ["event-start-time", "event-end-time"],
+      "location": "/client-engagement/proposals > Add Event dialog",
+      "features": ["HTML5 time input", "Optional fields", "Persists to backend"]
+    },
+    "multiday_booking": {
+      "toggle_label": "Multi-day Booking",
+      "description": "Event spanning multiple days",
+      "features": ["Start Date and End Date pickers", "Duration calculation", "Calendar span display with ↔ indicator"]
+    },
+    "calendar_display": {
+      "location": "/client-engagement/calendar",
+      "features": ["Time display respects time_format setting", "Multi-day events span across days", "Events sorted by start_time", "Month/Week/Day views"]
+    },
+    "time_format_setting": {
+      "location": "/settings > Preferences tab",
+      "data_testid": "time-format-select",
+      "options": ["24h (14:00)", "12h (2:00 PM)"],
+      "api_field": "time_format in /api/settings/company"
+    }
+  }
+}
