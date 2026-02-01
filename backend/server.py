@@ -8244,6 +8244,51 @@ async def create_po_from_purchase_list(
     del po["_id"]
     return po
 
+@events_router.post("/mark-procurement-complete")
+async def mark_procurement_complete(data: dict, user: User = Depends(get_current_user)):
+    """Mark events as procurement complete and save history"""
+    event_ids = data.get("event_ids", [])
+    procurement_data = data.get("procurement_data", {})
+    now = datetime.now(timezone.utc)
+    
+    if not event_ids:
+        raise HTTPException(status_code=400, detail="No events provided")
+    
+    # Update each event
+    for event_id in event_ids:
+        await db.events.update_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"$set": {
+                "procurement_status": "completed",
+                "procurement_completed_at": now.isoformat(),
+                "procurement_history": procurement_data,
+                "updated_at": now.isoformat()
+            }}
+        )
+    
+    return {"message": f"{len(event_ids)} events marked as procurement complete", "event_ids": event_ids}
+
+@events_router.post("/{event_id}/reopen-procurement")
+async def reopen_event_procurement(event_id: str, user: User = Depends(get_current_user)):
+    """Reopen an event for procurement (move back to pending)"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    await db.events.update_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"$set": {
+            "procurement_status": "pending",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        },
+        "$unset": {
+            "procurement_completed_at": "",
+            "procurement_history": ""
+        }}
+    )
+    
+    return {"message": "Event reopened for procurement", "event_id": event_id}
+
 # ============== BUSINESS CLARITY ROUTES ==============
 
 # Stripe API Key
