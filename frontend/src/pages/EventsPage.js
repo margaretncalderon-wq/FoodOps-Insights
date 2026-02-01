@@ -692,7 +692,7 @@ export default function EventsPage({ embedded = false }) {
                           <Copy className="w-4 h-4 mr-2" />
                           {t("duplicate")}
                         </DropdownMenuItem>
-                        {(event.stage === "Won" || event.stage === "Closed") && (
+                        {(event.stage === "Committed" || event.stage === "Won" || event.stage === "Closed") && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
