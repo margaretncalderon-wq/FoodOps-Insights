@@ -166,34 +166,37 @@ export default function CalendarPage({ embedded = false }) {
     );
   };
 
-  return (
-    <Layout>
-      <div className="space-y-6" data-testid="calendar-page">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-3xl font-bold text-foreground">
-              {language === "es" ? "Calendario de Eventos" : "Events Calendar"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {language === "es" ? "Vista mensual de todos tus eventos" : "Monthly view of all your events"}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/events">
-              <Button variant="outline" className="gap-2">
-                <List className="w-4 h-4" />
-                {language === "es" ? "Ver Lista" : "List View"}
-              </Button>
-            </Link>
-            <Link to="/events?new=true">
-              <Button className="rounded-full gap-2" data-testid="new-event-btn">
-                <Plus className="w-4 h-4" />
-                {t("addEvent")}
-              </Button>
-            </Link>
-          </div>
+  const content = (
+    <div className="space-y-6" data-testid="calendar-page">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-bold text-foreground">
+            {embedded 
+              ? (language === "es" ? "Calendario de Engagement" : "Engagement Calendar")
+              : (language === "es" ? "Calendario de Eventos" : "Events Calendar")}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {embedded
+              ? (language === "es" ? "Compromisos y fechas clave con clientes" : "Client commitments and key dates")
+              : (language === "es" ? "Vista mensual de todos tus eventos" : "Monthly view of all your events")}
+          </p>
         </div>
+        <div className="flex items-center gap-3">
+          <Link to={embedded ? "/client-engagement/proposals" : "/events"}>
+            <Button variant="outline" className="gap-2">
+              <List className="w-4 h-4" />
+              {language === "es" ? "Ver Lista" : "List View"}
+            </Button>
+          </Link>
+          <Link to={embedded ? "/client-engagement/proposals?new=true" : "/events?new=true"}>
+            <Button className="rounded-full gap-2" data-testid="new-event-btn">
+              <Plus className="w-4 h-4" />
+              {t("addEvent")}
+            </Button>
+          </Link>
+        </div>
+      </div>
 
         {/* Calendar Navigation */}
         <Card>
