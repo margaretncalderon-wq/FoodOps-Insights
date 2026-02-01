@@ -1183,6 +1183,13 @@ class DocumentTemplateCreate(BaseModel):
     header_text_es: Optional[str] = None
     footer_text_en: Optional[str] = None
     footer_text_es: Optional[str] = None
+    # Section titles customization
+    food_section_title_en: Optional[str] = "Custom Menu"
+    food_section_title_es: Optional[str] = "Menú Personalizado"
+    service_section_title_en: Optional[str] = "Services"
+    service_section_title_es: Optional[str] = "Servicios"
+    rental_section_title_en: Optional[str] = "Rentals & Equipment"
+    rental_section_title_es: Optional[str] = "Alquileres y Equipos"
 
 class DocumentTemplate(BaseModel):
     template_id: str
@@ -1195,6 +1202,12 @@ class DocumentTemplate(BaseModel):
     header_text_es: Optional[str] = None
     footer_text_en: Optional[str] = None
     footer_text_es: Optional[str] = None
+    food_section_title_en: Optional[str] = "Custom Menu"
+    food_section_title_es: Optional[str] = "Menú Personalizado"
+    service_section_title_en: Optional[str] = "Services"
+    service_section_title_es: Optional[str] = "Servicios"
+    rental_section_title_en: Optional[str] = "Rentals & Equipment"
+    rental_section_title_es: Optional[str] = "Alquileres y Equipos"
     created_at: datetime
     updated_at: datetime
 
