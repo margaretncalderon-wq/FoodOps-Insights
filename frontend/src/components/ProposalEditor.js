@@ -1358,14 +1358,46 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </div>
               )}
 
-              {/* Event Date */}
+              {/* Event Date - For multi-day events */}
               <div>
-                <Label>{language === "es" ? "Fecha" : "Date"}</Label>
-                <Input
-                  type="date"
-                  value={newItem.event_date}
-                  onChange={(e) => setNewItem({ ...newItem, event_date: e.target.value })}
-                />
+                <Label>{language === "es" ? "Día del Evento" : "Event Day"}</Label>
+                {event?.end_date && event?.event_date !== event?.end_date ? (
+                  <Select 
+                    value={newItem.event_date || "main"} 
+                    onValueChange={(v) => setNewItem({ ...newItem, event_date: v === "main" ? "" : v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "es" ? "Seleccionar día..." : "Select day..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="main">{language === "es" ? "Todos los días" : "All days"}</SelectItem>
+                      {(() => {
+                        // Generate dates between event_date and end_date
+                        const dates = [];
+                        const start = new Date(event.event_date);
+                        const end = new Date(event.end_date);
+                        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                          const dateStr = d.toISOString().split('T')[0];
+                          const displayDate = d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", month: "short", day: "numeric" });
+                          dates.push({ value: dateStr, label: displayDate });
+                        }
+                        return dates.map(d => (
+                          <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                        ));
+                      })()}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    type="date"
+                    value={newItem.event_date}
+                    onChange={(e) => setNewItem({ ...newItem, event_date: e.target.value })}
+                    placeholder={language === "es" ? "Opcional" : "Optional"}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === "es" ? "Para eventos de varios días" : "For multi-day events"}
+                </p>
               </div>
 
               {/* Internal Notes */}
