@@ -24,25 +24,14 @@ const ENGAGEMENT_STAGES = [
   "Archived"             // Not proceeding (no drama)
 ];
 
-// Status colors for events
+// Status colors for events (only new engagement stages)
 const STATUS_COLORS = {
-  // Engagement Stages (new OS-level)
   "Inquiry Received": { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-700", dot: "bg-slate-500" },
   "Context Captured": { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-700", dot: "bg-blue-500" },
   "Scope Drafted": { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500" },
   "Definition In Review": { bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", dot: "bg-orange-500" },
   "Committed": { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500" },
   "Archived": { bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-500", dot: "bg-gray-400" },
-  // Legacy stages (for backward compatibility)
-  "Lead": { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-700", dot: "bg-slate-500" },
-  "Contacted": { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-700", dot: "bg-blue-500" },
-  "Proposal": { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500" },
-  "Negotiation": { bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", dot: "bg-orange-500" },
-  "Won": { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500" },
-  "Approved": { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500" },
-  "Closed": { bg: "bg-purple-100", border: "border-purple-300", text: "text-purple-700", dot: "bg-purple-500" },
-  "Lost": { bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-500", dot: "bg-gray-400" },
-  // Default
   "default": { bg: "bg-gray-100", border: "border-gray-200", text: "text-gray-700", dot: "bg-gray-400" }
 };
 
