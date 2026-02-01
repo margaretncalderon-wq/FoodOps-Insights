@@ -446,13 +446,13 @@ export default function ConsolidatedPurchaseSection() {
             </Card>
           </div>
 
-          {/* Summary */}
+          {/* Summary Card with Create PO buttons */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5" />
-                  {language === "es" ? "Detalle por Proveedor" : "Detail by Supplier"}
+                  {language === "es" ? "Resumen de Compras" : "Purchase Summary"}
                 </span>
                 <Badge variant="outline" className="text-lg px-4 py-1">
                   {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
@@ -463,37 +463,23 @@ export default function ConsolidatedPurchaseSection() {
                 {" "}{Object.keys(purchaseData.items_by_supplier || {}).length} {language === "es" ? "proveedores" : "suppliers"}
               </CardDescription>
             </CardHeader>
-          </Card>
-
-          {/* Items by Supplier */}
-          {Object.keys(purchaseData.items_by_supplier || {}).length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <Check className="w-12 h-12 mx-auto mb-2 text-green-500" />
-                <p>{t("noItemsNeeded")}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            Object.entries(purchaseData.items_by_supplier).map(([supplierId, items]) => {
-              const supplierTotal = items.reduce((sum, i) => sum + i.total_cost, 0);
-              const itemsNeedPurchase = items.filter(i => i.to_purchase > 0);
-              
-              return (
-                <Card key={supplierId}>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Truck className="w-5 h-5 text-blue-500" />
-                      <div>
-                        <CardTitle className="text-base">
-                          {items[0]?.supplier_name || t("noSupplier")}
-                        </CardTitle>
-                        <CardDescription>
-                          {items.length} items • ${supplierTotal.toFixed(2)}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    {itemsNeedPurchase.length > 0 && supplierId !== "no_supplier" && (
+            <CardContent>
+              {/* Create PO buttons by supplier */}
+              {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
+                items.some(i => i.to_purchase > 0) && id !== "no_supplier"
+              ).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {language === "es" ? "Crear órdenes de compra:" : "Create purchase orders:"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
+                      items.some(i => i.to_purchase > 0) && id !== "no_supplier"
+                    ).map(([supplierId, items]) => (
                       <Button 
+                        key={supplierId}
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleCreatePO(supplierId, items)}
                         disabled={creatingPO === supplierId}
                       >
@@ -502,77 +488,25 @@ export default function ConsolidatedPurchaseSection() {
                         ) : (
                           <FileText className="w-4 h-4 mr-2" />
                         )}
-                        {t("createPO")}
+                        {items[0]?.supplier_name || "Unknown"} (${items.filter(i => i.to_purchase > 0).reduce((s, i) => s + i.total_cost, 0).toFixed(0)})
                       </Button>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{language === "es" ? "Artículo" : "Item"}</TableHead>
-                          <TableHead className="text-right">{t("totalRequired")}</TableHead>
-                          <TableHead className="text-right">{t("inStock")}</TableHead>
-                          <TableHead className="text-right">{t("toPurchase")}</TableHead>
-                          <TableHead className="text-right">{t("cost")}</TableHead>
-                          <TableHead>{t("recipes")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item, idx) => (
-                          <TableRow key={idx} className={item.to_purchase <= 0 ? "opacity-50" : ""}>
-                            <TableCell className="font-medium">{item.item_name}</TableCell>
-                            <TableCell className="text-right">{item.total_required.toFixed(2)} {item.unit}</TableCell>
-                            <TableCell className="text-right">{item.in_stock.toFixed(2)} {item.unit}</TableCell>
-                            <TableCell className="text-right">
-                              {item.to_purchase > 0 ? (
-                                <span className="text-red-600 font-semibold">{item.to_purchase.toFixed(2)}</span>
-                              ) : (
-                                <span className="text-green-600">✓ OK</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              ${item.total_cost.toFixed(2)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {item.recipes_used?.slice(0, 3).map((recipe, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
-                                    {recipe}
-                                  </Badge>
-                                ))}
-                                {item.recipes_used?.length > 3 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{item.recipes_used.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-
-          {/* Events included */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">{language === "es" ? "Eventos Incluidos" : "Events Included"}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {purchaseData.events?.map((event, idx) => (
-                  <Badge key={idx} variant="secondary" className="flex items-center gap-2">
-                    {event.event_name}
-                    <span className="text-muted-foreground">
-                      ({event.guest_count} {language === "es" ? "pers." : "guests"})
-                    </span>
-                  </Badge>
-                ))}
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Events included */}
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-xs text-muted-foreground mb-2">
+                  {language === "es" ? "Eventos incluidos:" : "Events included:"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {purchaseData.events?.map((event, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">
+                      {event.event_name} ({event.guest_count} {language === "es" ? "pers." : "guests"})
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
