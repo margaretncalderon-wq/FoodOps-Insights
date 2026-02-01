@@ -85,8 +85,15 @@ export default function LeadOutreachSection() {
     }
   }, [leads]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
-  useEffect(() => { fetchUsers(); }, [leads, fetchUsers]);
+  useEffect(() => { 
+    fetchLeads(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  useEffect(() => { 
+    fetchUsers(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads]);
 
   const resetForm = () => {
     setForm({
