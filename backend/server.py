@@ -2155,12 +2155,361 @@ async def get_crm_stats(user: User = Depends(get_current_user)):
     total_leads = await db.leads.count_documents({"company_id": user.company_id})
     new_leads = await db.leads.count_documents({"company_id": user.company_id, "status": "New"})
     
+    # CRM Enhancement stats
+    outreach_leads = await db.leads.count_documents({"company_id": user.company_id, "lead_type": "outreach"})
+    inbound_leads = await db.leads.count_documents({"company_id": user.company_id, "lead_type": {"$ne": "outreach"}})
+    
+    # Follow-ups due
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    follow_ups_due = await db.leads.count_documents({
+        "company_id": user.company_id,
+        "next_follow_up_date": {"$lte": today},
+        "status": {"$nin": ["Converted", "Discarded"]}
+    })
+    client_follow_ups_due = await db.clients.count_documents({
+        "company_id": user.company_id,
+        "next_follow_up_date": {"$lte": today}
+    })
+    
     return {
         "total_clients": total_clients,
         "active_clients": active_clients,
         "total_leads": total_leads,
-        "new_leads": new_leads
+        "new_leads": new_leads,
+        "outreach_leads": outreach_leads,
+        "inbound_leads": inbound_leads,
+        "follow_ups_due": follow_ups_due + client_follow_ups_due
     }
+
+# ============== CRM ENHANCED VIEWS (ADDITIVE) ==============
+
+@crm_router.get("/outreach")
+async def get_outreach_leads(user: User = Depends(get_current_user)):
+    """Get outreach leads - proactively contacted by the team"""
+    leads = await db.leads.find(
+        {"company_id": user.company_id, "lead_type": "outreach"},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    
+    for lead in leads:
+        for field in ["created_at", "updated_at"]:
+            if lead.get(field) and isinstance(lead[field], str):
+                lead[field] = datetime.fromisoformat(lead[field])
+    
+    return leads
+
+@crm_router.post("/outreach")
+async def create_outreach_lead(data: LeadCreate, user: User = Depends(get_current_user)):
+    """Create a new outreach lead"""
+    now = datetime.now(timezone.utc)
+    lead_id = f"lead_{uuid.uuid4().hex[:12]}"
+    
+    lead_data = data.model_dump()
+    lead_data.update({
+        "lead_id": lead_id,
+        "company_id": user.company_id,
+        "lead_type": "outreach",
+        "source": "Outreach",
+        "status": "New",
+        "outreach_status": "New",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    })
+    
+    await db.leads.insert_one(lead_data)
+    del lead_data["_id"]
+    return lead_data
+
+@crm_router.put("/outreach/{lead_id}/status")
+async def update_outreach_status(lead_id: str, outreach_status: str, user: User = Depends(get_current_user)):
+    """Update outreach status for a lead"""
+    valid_statuses = ["New", "Contacted", "NoResponse", "Engaged"]
+    if outreach_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    now = datetime.now(timezone.utc)
+    result = await db.leads.update_one(
+        {"lead_id": lead_id, "company_id": user.company_id},
+        {"$set": {
+            "outreach_status": outreach_status,
+            "last_contact_date": now.isoformat() if outreach_status in ["Contacted", "Engaged"] else None,
+            "updated_at": now.isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return {"message": "Status updated"}
+
+@crm_router.get("/inbound")
+async def get_inbound_leads(user: User = Depends(get_current_user)):
+    """Get inbound leads - contacts from forms, email, social"""
+    leads = await db.leads.find(
+        {"company_id": user.company_id, "lead_type": {"$ne": "outreach"}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    
+    for lead in leads:
+        for field in ["created_at", "updated_at"]:
+            if lead.get(field) and isinstance(lead[field], str):
+                lead[field] = datetime.fromisoformat(lead[field])
+    
+    return leads
+
+@crm_router.get("/follow-ups")
+async def get_follow_ups(user: User = Depends(get_current_user)):
+    """Get unified follow-up view across leads and clients"""
+    # Get leads with follow-ups
+    lead_follow_ups = await db.leads.find(
+        {
+            "company_id": user.company_id,
+            "next_follow_up_date": {"$ne": None},
+            "status": {"$nin": ["Converted", "Discarded"]}
+        },
+        {"_id": 0}
+    ).sort("next_follow_up_date", 1).to_list(200)
+    
+    # Get clients with follow-ups
+    client_follow_ups = await db.clients.find(
+        {
+            "company_id": user.company_id,
+            "next_follow_up_date": {"$ne": None}
+        },
+        {"_id": 0}
+    ).sort("next_follow_up_date", 1).to_list(200)
+    
+    # Combine and normalize
+    follow_ups = []
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    for lead in lead_follow_ups:
+        follow_ups.append({
+            "entity_type": "lead",
+            "entity_id": lead["lead_id"],
+            "name": lead.get("lead_name"),
+            "email": lead.get("email"),
+            "phone": lead.get("phone"),
+            "follow_up_date": lead.get("next_follow_up_date"),
+            "follow_up_type": lead.get("follow_up_type", "Call"),
+            "owner_id": lead.get("owner_id"),
+            "status": "overdue" if lead.get("next_follow_up_date", "") < today else "pending",
+            "source": lead.get("source"),
+            "lead_status": lead.get("status")
+        })
+    
+    for client in client_follow_ups:
+        follow_ups.append({
+            "entity_type": "client",
+            "entity_id": client["client_id"],
+            "name": client.get("display_name"),
+            "email": client.get("email"),
+            "phone": client.get("phone"),
+            "follow_up_date": client.get("next_follow_up_date"),
+            "follow_up_type": client.get("follow_up_type", "CheckIn"),
+            "owner_id": client.get("owner_id"),
+            "status": "overdue" if client.get("next_follow_up_date", "") < today else "pending",
+            "source": "Client",
+            "client_status": client.get("status")
+        })
+    
+    # Sort by date
+    follow_ups.sort(key=lambda x: x.get("follow_up_date", "9999-12-31"))
+    
+    return follow_ups
+
+@crm_router.put("/follow-ups/{entity_type}/{entity_id}")
+async def update_follow_up(
+    entity_type: str, 
+    entity_id: str, 
+    next_follow_up_date: Optional[str] = None,
+    follow_up_type: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Update follow-up for a lead or client"""
+    now = datetime.now(timezone.utc)
+    
+    update_data = {"updated_at": now.isoformat()}
+    if next_follow_up_date is not None:
+        update_data["next_follow_up_date"] = next_follow_up_date if next_follow_up_date else None
+    if follow_up_type is not None:
+        update_data["follow_up_type"] = follow_up_type if follow_up_type else None
+    
+    if entity_type == "lead":
+        result = await db.leads.update_one(
+            {"lead_id": entity_id, "company_id": user.company_id},
+            {"$set": update_data}
+        )
+    elif entity_type == "client":
+        result = await db.clients.update_one(
+            {"client_id": entity_id, "company_id": user.company_id},
+            {"$set": update_data}
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid entity type")
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} not found")
+    
+    return {"message": "Follow-up updated"}
+
+@crm_router.post("/follow-ups/{entity_type}/{entity_id}/complete")
+async def complete_follow_up(entity_type: str, entity_id: str, user: User = Depends(get_current_user)):
+    """Mark a follow-up as completed"""
+    now = datetime.now(timezone.utc)
+    
+    update_data = {
+        "next_follow_up_date": None,
+        "follow_up_type": None,
+        "last_contact_date": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    if entity_type == "lead":
+        result = await db.leads.update_one(
+            {"lead_id": entity_id, "company_id": user.company_id},
+            {"$set": update_data}
+        )
+    elif entity_type == "client":
+        result = await db.clients.update_one(
+            {"client_id": entity_id, "company_id": user.company_id},
+            {"$set": update_data}
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid entity type")
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} not found")
+    
+    return {"message": "Follow-up completed"}
+
+# --- Communication Log ---
+@crm_router.get("/comms/{entity_type}/{entity_id}")
+async def get_comm_logs(entity_type: str, entity_id: str, user: User = Depends(get_current_user)):
+    """Get communication logs for a lead or client"""
+    logs = await db.comm_logs.find(
+        {"company_id": user.company_id, "entity_type": entity_type, "entity_id": entity_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    
+    return logs
+
+@crm_router.post("/comms")
+async def create_comm_log(data: CommLogCreate, user: User = Depends(get_current_user)):
+    """Create a communication log entry"""
+    now = datetime.now(timezone.utc)
+    log_id = f"comm_{uuid.uuid4().hex[:12]}"
+    
+    # Get owner name
+    owner_name = None
+    if user.user_id:
+        user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "name": 1})
+        owner_name = user_doc.get("name") if user_doc else None
+    
+    log_data = {
+        "log_id": log_id,
+        "company_id": user.company_id,
+        "entity_type": data.entity_type,
+        "entity_id": data.entity_id,
+        "comm_type": data.comm_type,
+        "subject": data.subject,
+        "content": data.content,
+        "direction": data.direction,
+        "owner_id": user.user_id,
+        "owner_name": owner_name,
+        "created_at": now.isoformat()
+    }
+    
+    await db.comm_logs.insert_one(log_data)
+    del log_data["_id"]
+    
+    # Update last contact date
+    if data.entity_type == "lead":
+        await db.leads.update_one(
+            {"lead_id": data.entity_id, "company_id": user.company_id},
+            {"$set": {"last_contact_date": now.isoformat(), "updated_at": now.isoformat()}}
+        )
+    elif data.entity_type == "client":
+        await db.clients.update_one(
+            {"client_id": data.entity_id, "company_id": user.company_id},
+            {"$set": {"last_contact_date": now.isoformat(), "updated_at": now.isoformat()}}
+        )
+    
+    return log_data
+
+# --- Owner Assignment ---
+@crm_router.put("/assign/{entity_type}/{entity_id}")
+async def assign_owner(entity_type: str, entity_id: str, owner_id: str, user: User = Depends(get_current_user)):
+    """Assign an owner to a lead or client"""
+    now = datetime.now(timezone.utc)
+    
+    if entity_type == "lead":
+        result = await db.leads.update_one(
+            {"lead_id": entity_id, "company_id": user.company_id},
+            {"$set": {"owner_id": owner_id, "updated_at": now.isoformat()}}
+        )
+    elif entity_type == "client":
+        result = await db.clients.update_one(
+            {"client_id": entity_id, "company_id": user.company_id},
+            {"$set": {"owner_id": owner_id, "updated_at": now.isoformat()}}
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid entity type")
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} not found")
+    
+    return {"message": "Owner assigned"}
+
+@crm_router.get("/by-owner/{owner_id}")
+async def get_by_owner(owner_id: str, user: User = Depends(get_current_user)):
+    """Get all leads and clients assigned to a specific owner"""
+    leads = await db.leads.find(
+        {"company_id": user.company_id, "owner_id": owner_id},
+        {"_id": 0}
+    ).to_list(500)
+    
+    clients = await db.clients.find(
+        {"company_id": user.company_id, "owner_id": owner_id},
+        {"_id": 0}
+    ).to_list(500)
+    
+    return {"leads": leads, "clients": clients}
+
+# --- Clients with Event History ---
+@crm_router.get("/clients-with-events")
+async def get_clients_with_events(user: User = Depends(get_current_user)):
+    """Get clients with their event history (read-only)"""
+    clients = await db.clients.find(
+        {"company_id": user.company_id, "status": "Active"},
+        {"_id": 0}
+    ).sort("updated_at", -1).to_list(500)
+    
+    # Enrich with event data
+    for client in clients:
+        events = await db.events.find(
+            {"client_id": client["client_id"], "company_id": user.company_id},
+            {"_id": 0, "event_id": 1, "name": 1, "event_date": 1, "stage": 1}
+        ).sort("event_date", -1).to_list(50)
+        
+        client["events"] = events
+        client["events_count"] = len(events)
+        
+        # Calculate lifetime value from proposals
+        total_value = 0
+        for event in events:
+            proposal = await db.proposals.find_one(
+                {"event_id": event["event_id"]},
+                {"_id": 0, "final_total": 1}
+            )
+            if proposal:
+                total_value += proposal.get("final_total", 0) or 0
+        
+        client["lifetime_value"] = total_value
+        
+        # Get last event date
+        if events:
+            client["last_event_date"] = events[0].get("event_date")
+    
+    return clients
 
 # ----- CONTACTS ROUTES -----
 @contacts_router.get("")
