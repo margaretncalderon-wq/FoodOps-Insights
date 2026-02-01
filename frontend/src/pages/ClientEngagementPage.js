@@ -68,14 +68,9 @@ export default function ClientEngagementPage() {
     return "crm"; // default
   };
   
-  const [activeSection, setActiveSection] = useState(getActiveSection());
-
-  useEffect(() => {
-    setActiveSection(getActiveSection());
-  }, [location.pathname]);
+  const activeSection = getActiveSection();
 
   const handleSectionChange = (sectionId) => {
-    setActiveSection(sectionId);
     const section = SECTIONS.find(s => s.id === sectionId);
     if (section) {
       navigate(`/client-engagement/${section.path}`);
