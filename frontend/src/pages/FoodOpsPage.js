@@ -953,7 +953,8 @@ function PurchasesSection() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/events`, { withCredentials: true });
+      // Only fetch confirmed (Won/Closed) events for procurement
+      const res = await axios.get(`${API}/api/events/confirmed`, { withCredentials: true });
       setEvents(res.data);
     } catch (error) {
       toast.error("Error loading events");
