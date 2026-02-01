@@ -106,6 +106,7 @@ class Company(BaseModel):
     default_language: str = "en"
     currency: str = "USD"
     default_tax_rate: float = 0.0
+    time_format: str = "24h"  # "12h" or "24h"
     created_at: datetime
 
 # ============== NEW CRM MODELS ==============
