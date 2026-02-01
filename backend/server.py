@@ -7748,6 +7748,7 @@ async def receive_purchase_order(
             "po_id": po_id,
             "invoice_number": invoice_number,
             "invoice_date": invoice_date.isoformat() if invoice_date else now.isoformat(),
+            "invoice_url": invoice_url,
             "due_date": None,
             "payment_method": po.get("payment_method", "Transfer"),
             "lines": expense_lines,
