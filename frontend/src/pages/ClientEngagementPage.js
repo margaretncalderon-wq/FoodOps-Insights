@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
