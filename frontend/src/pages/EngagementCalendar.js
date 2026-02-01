@@ -573,7 +573,7 @@ export default function EngagementCalendar({ embedded = false }) {
                               </div>
                               <div className="text-xs opacity-75">{event.client_name}</div>
                               <div className="flex items-center gap-1 mt-1">
-                                <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{event.stage}</Badge>
+                                <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{normalizeStage(event.stage)}</Badge>
                                 {isMultiDay && (
                                   <Badge variant="outline" className="text-xs">
                                     {isEs ? "Multi-día" : "Multi-day"}
