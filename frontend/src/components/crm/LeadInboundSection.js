@@ -64,7 +64,10 @@ export default function LeadInboundSection() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => { 
+    fetchLeads(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter leads
   const filteredLeads = leads.filter(lead => {
