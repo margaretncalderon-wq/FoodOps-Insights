@@ -139,8 +139,8 @@ export default function ClientPortal() {
     menu: isEs ? "Menú" : "Menu"
   };
 
-  // Determine display order: Services/Rentals first, Food (Menu) last
-  const typeOrder = ["Service", "Rental", "Fee", "Other", "Food"];
+  // Determine display order: Food (Menu) first, then Services/Rentals
+  const typeOrder = ["Food", "Service", "Rental", "Fee", "Other"];
 
   // Helper to render items table
   const renderItemsTable = (items, showPrices = true) => {
