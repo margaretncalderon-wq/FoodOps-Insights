@@ -41,7 +41,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
-const PIPELINE_STAGES = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost"];
+const PIPELINE_STAGES = ["Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost", "Closed"];
 
 export default function EventsPage() {
   const { t, language } = useLanguage();
