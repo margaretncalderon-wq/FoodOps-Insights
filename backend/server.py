@@ -8729,6 +8729,107 @@ async def get_recipes_for_production(
     
     return result
 
+@production_router.post("/suggest-from-events")
+async def suggest_production_from_events(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Suggest production lines based on event recipes.
+    Analyzes menus/recipes used in selected events and returns
+    BASE/COMPONENT recipes that should be produced.
+    """
+    event_ids = data.get("event_ids", [])
+    if not event_ids:
+        return {"suggested_lines": [], "events": []}
+    
+    # Get events
+    events = await db.events.find(
+        {"event_id": {"$in": event_ids}, "company_id": user.company_id},
+        {"_id": 0, "event_id": 1, "name": 1, "guest_count": 1, "num_guests": 1}
+    ).to_list(100)
+    
+    # Collect all recipes needed
+    recipe_requirements = {}  # recipe_id -> {qty_needed, events_using}
+    
+    for event in events:
+        event_id = event.get("event_id")
+        guest_count = event.get("guest_count") or event.get("num_guests") or 100
+        
+        # Get proposal items for this event
+        proposal = await db.proposals.find_one(
+            {"event_id": event_id, "company_id": user.company_id},
+            {"_id": 0, "items": 1}
+        )
+        
+        if not proposal:
+            continue
+        
+        # Look for food items with recipes
+        for item in proposal.get("items", []):
+            recipe_id = item.get("recipe_id")
+            if not recipe_id:
+                continue
+            
+            # Get the recipe and its sub-recipes
+            recipe = await db.recipes.find_one(
+                {"recipe_id": recipe_id, "company_id": user.company_id},
+                {"_id": 0}
+            )
+            
+            if not recipe:
+                continue
+            
+            # Calculate portions needed
+            qty = item.get("quantity", 1)
+            portions_needed = qty * guest_count
+            recipe_yield = recipe.get("yield_quantity", 1)
+            batches_needed = portions_needed / recipe_yield if recipe_yield > 0 else 1
+            
+            # Add sub-recipes (BASE/COMPONENT) to requirements
+            for sub in recipe.get("sub_recipes", []):
+                sub_recipe_id = sub.get("recipe_id")
+                sub_qty = sub.get("quantity", 1) * batches_needed
+                
+                sub_recipe = await db.recipes.find_one(
+                    {"recipe_id": sub_recipe_id, "company_id": user.company_id},
+                    {"_id": 0}
+                )
+                
+                if not sub_recipe:
+                    continue
+                
+                sub_type = sub_recipe.get("recipe_type", "component")
+                if sub_type not in ["base", "component"]:
+                    continue
+                
+                if sub_recipe_id not in recipe_requirements:
+                    recipe_requirements[sub_recipe_id] = {
+                        "recipe_id": sub_recipe_id,
+                        "recipe_name": sub_recipe.get("name"),
+                        "recipe_type": sub_type,
+                        "yield_unit": sub_recipe.get("yield_unit", "batch"),
+                        "cost_per_yield": sub_recipe.get("cost_per_yield", 0),
+                        "qty_needed": 0,
+                        "events_using": []
+                    }
+                
+                recipe_requirements[sub_recipe_id]["qty_needed"] += sub_qty
+                if event.get("name") not in recipe_requirements[sub_recipe_id]["events_using"]:
+                    recipe_requirements[sub_recipe_id]["events_using"].append(event.get("name"))
+    
+    # Convert to list and sort by qty needed
+    suggested_lines = sorted(
+        recipe_requirements.values(),
+        key=lambda x: x["qty_needed"],
+        reverse=True
+    )
+    
+    return {
+        "suggested_lines": suggested_lines,
+        "events": [{"event_id": e["event_id"], "name": e["name"]} for e in events]
+    }
+
 # ============== BUSINESS CLARITY ROUTES ==============
 
 # Stripe API Key
