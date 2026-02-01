@@ -1239,11 +1239,26 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     <DollarSign className="w-4 h-4" />
                     {language === "es" ? "Facturas Existentes" : "Existing Invoices"} ({existingInvoices.length})
                   </h4>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {existingInvoices.map(inv => (
-                      <div key={inv.invoice_id} className="flex items-center justify-between text-sm">
-                        <span>{inv.invoice_number} - {inv.invoice_type === "deposit" ? (language === "es" ? "Depósito" : "Deposit") : inv.invoice_type === "final" ? (language === "es" ? "Final" : "Final") : (language === "es" ? "Total" : "Full")}</span>
-                        <span className="font-mono">${(inv.total || 0).toFixed(2)}</span>
+                      <div key={inv.invoice_id} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-amber-100">
+                        <div>
+                          <span className="font-medium">{inv.invoice_number}</span>
+                          <span className="text-muted-foreground ml-2">
+                            {inv.invoice_type === "deposit" ? (language === "es" ? "Depósito" : "Deposit") : inv.invoice_type === "final" ? (language === "es" ? "Final" : "Final") : (language === "es" ? "Total" : "Full")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono">${(inv.total || 0).toFixed(2)}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(`/business-clarity?tab=invoices&edit=${inv.invoice_id}`, '_blank')}
+                            title={language === "es" ? "Editar factura" : "Edit invoice"}
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     <div className="pt-2 border-t border-amber-300 flex justify-between font-medium">
