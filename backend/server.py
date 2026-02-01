@@ -3974,7 +3974,7 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
         if "documents" not in e:
             e["documents"] = []
         if "stage" not in e:
-            e["stage"] = "Lead"
+            e["stage"] = "Inquiry Received"
         # Add client info to event
         client_info = clients_data.get(e.get("client_id"), {})
         e["client_info"] = {
