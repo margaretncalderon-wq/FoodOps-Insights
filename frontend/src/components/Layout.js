@@ -26,13 +26,12 @@ import {
   UtensilsCrossed,
   Briefcase,
   Music4,
+  Puzzle,
 } from "lucide-react";
 
 const navItems = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "dashboard" },
-  { path: "/crm", icon: Users, labelKey: "crm" },
-  { path: "/events", icon: Calendar, labelKey: "events" },
-  { path: "/calendar", icon: CalendarDays, labelKey: "calendar" },
+  { path: "/client-engagement", icon: Puzzle, label: "Client Engagement", labelEs: "Client Engagement" },
   { path: "/event-orchestration", icon: Music4, label: "Event Orchestration", labelEs: "Event Orchestration" },
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
   { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
