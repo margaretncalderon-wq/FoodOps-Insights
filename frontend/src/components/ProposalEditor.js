@@ -84,6 +84,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [featureFlags, setFeatureFlags] = useState(null);
   const [financials, setFinancials] = useState(null);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [generatedDocs, setGeneratedDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
@@ -126,6 +127,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchFeatureFlags(),
       fetchFinancials(),
       fetchClient(),
+      fetchGeneratedDocs(),
     ]).finally(() => setLoading(false));
   }, [eventId]);
 
