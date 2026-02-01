@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import {
-  LayoutDashboard,
+  Activity,
   Users,
   Calendar,
   CalendarDays,
