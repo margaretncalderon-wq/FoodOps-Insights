@@ -415,7 +415,7 @@ export default function DocumentPreview({
                   {/* Categories */}
                   {Object.entries(categoryGroups).map(([categoryKey, items]) => (
                     <div key={categoryKey} className="category-section mb-4">
-                      <h4 className="section-title text-sm font-semibold text-primary border-b pb-2 mb-3">
+                      <h4 className="section-title text-sm font-semibold border-b pb-2 mb-3" style={{ color: template?.primary_color || '#3A4D3F' }}>
                         {getCategoryName(categoryKey)}
                       </h4>
                       
