@@ -171,22 +171,35 @@ export default function DocumentPreview({
     const grouped = {};
     
     items.forEach(item => {
-      // Group key: date (if multi-day) + category
+      // Group key: date (if multi-day)
       let dateKey = "all";
       if (config.groupByDate && item.event_date) {
         dateKey = item.event_date;
       }
       
-      let categoryKey = item.category_id || item.item_type || "other";
+      // Use section_title if present, otherwise use category/item_type
+      let sectionKey = item.section_title || item.category_id || item.item_type || "other";
       
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
       }
-      if (!grouped[dateKey][categoryKey]) {
-        grouped[dateKey][categoryKey] = [];
+      if (!grouped[dateKey][sectionKey]) {
+        grouped[dateKey][sectionKey] = {
+          items: [],
+          section_title: item.section_title,
+          section_time: item.section_time,
+          event_date: item.event_date
+        };
       }
       
-      grouped[dateKey][categoryKey].push(item);
+      grouped[dateKey][sectionKey].items.push(item);
+      // Update section info if this item has more specific info
+      if (item.section_title) {
+        grouped[dateKey][sectionKey].section_title = item.section_title;
+      }
+      if (item.section_time) {
+        grouped[dateKey][sectionKey].section_time = item.section_time;
+      }
     });
     
     return grouped;
