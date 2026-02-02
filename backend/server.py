@@ -14207,8 +14207,14 @@ async def get_view_as_status(admin: User = Depends(get_super_admin)):
 async def get_platform_stats(admin: User = Depends(get_super_admin)):
     """Get platform-wide statistics"""
     # Count organizations by status
+    # Treat organizations without status field as "active" (legacy data)
     total_orgs = await db.companies.count_documents({})
-    active_orgs = await db.companies.count_documents({"status": "active"})
+    active_orgs = await db.companies.count_documents({
+        "$or": [
+            {"status": "active"},
+            {"status": {"$exists": False}}
+        ]
+    })
     suspended_orgs = await db.companies.count_documents({"status": "suspended"})
     
     # Count subscriptions by plan
