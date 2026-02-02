@@ -590,6 +590,18 @@ Auto-generated from Event Order:
 - [x] **Procurement Cost Calculation Fix**:
   - Corrected `portions_needed` calculation that was generating inflated quantities
   - Enhanced Procurement Summary to show margin analysis (Quoted vs Expected Spend)
+- [x] **Packing List → Delivery Notes Integration** - COMPLETE (Feb 2, 2026):
+  - "Crear Conduce" button in PackingListEditor creates Delivery Note with all packing list items
+  - Automatic inventory deduction on checkout (qty_out)
+  - Items return to inventory on check-in (qty_returned)
+  - Lost items tracked with replacement_cost calculation
+  - Added `replacement_cost` field to IngredientCreate and Ingredient models
+- [x] **Check-in/Check-out E2E Flow** - VERIFIED (Feb 2, 2026):
+  - Full workflow tested: Packing List → Create Delivery Note → Checkout (inventory deducted) → Check-in (inventory restored)
+  - Loss tracking: qty_lost = qty_out - qty_returned
+  - Loss cost calculation: loss_cost = qty_lost × replacement_cost
+  - Status flow: pending → returned (all items returned) | partial (some items lost)
+  - UI displays Total Losses dashboard, individual item losses, and enables check-in dialog
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
