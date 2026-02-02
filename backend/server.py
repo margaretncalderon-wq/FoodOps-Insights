@@ -13785,6 +13785,270 @@ async def update_payment_method(data: dict, user: User = Depends(get_current_use
         "integration_point": "Stripe.paymentMethods.create() -> Stripe.paymentMethods.attach() -> Stripe.customers.update()"
     }
 
+# ---- Stripe Subscription Checkout ----
+
+class SubscriptionCheckoutRequest(BaseModel):
+    plan_id: str
+    billing_cycle: str = "monthly"  # monthly or yearly
+    origin_url: str
+
+STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', 'sk_test_emergent')
+
+@org_router.post("/billing/checkout")
+async def create_subscription_checkout(
+    request: Request,
+    data: SubscriptionCheckoutRequest,
+    user: User = Depends(get_current_user)
+):
+    """Create Stripe checkout session for plan upgrade/subscription"""
+    if not await check_permission(user, "manage_billing"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    # Get plan details from server-side (never trust frontend for pricing)
+    plan = await db.plans.find_one({"plan_id": data.plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    # Get price based on billing cycle
+    if data.billing_cycle == "yearly":
+        amount = float(plan["price_yearly"])
+        description = f"{plan['display_name_es']} - Anual"
+    else:
+        amount = float(plan["price_monthly"])
+        description = f"{plan['display_name_es']} - Mensual"
+    
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Free plans don't require payment")
+    
+    # Build URLs from provided origin
+    success_url = f"{data.origin_url}/settings?tab=billing&checkout=success&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{data.origin_url}/settings?tab=billing&checkout=canceled"
+    
+    # Create webhook URL
+    host_url = str(request.base_url).rstrip('/')
+    webhook_url = f"{host_url}/api/org/webhook/stripe"
+    
+    # Initialize Stripe checkout
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+    
+    # Create checkout session
+    metadata = {
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "plan_id": data.plan_id,
+        "billing_cycle": data.billing_cycle,
+        "type": "subscription_upgrade"
+    }
+    
+    checkout_request = CheckoutSessionRequest(
+        amount=amount,
+        currency=plan.get("currency", "USD").lower(),
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=metadata
+    )
+    
+    session = await stripe_checkout.create_checkout_session(checkout_request)
+    
+    # Create payment transaction record BEFORE redirect
+    now = datetime.now(timezone.utc)
+    transaction = {
+        "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+        "session_id": session.session_id,
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "amount": amount,
+        "currency": plan.get("currency", "USD"),
+        "plan_id": data.plan_id,
+        "billing_cycle": data.billing_cycle,
+        "description": description,
+        "payment_status": "initiated",
+        "metadata": metadata,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.subscription_transactions.insert_one(transaction)
+    
+    return {
+        "checkout_url": session.url,
+        "session_id": session.session_id
+    }
+
+@org_router.get("/billing/checkout/status/{session_id}")
+async def get_subscription_checkout_status(session_id: str, user: User = Depends(get_current_user)):
+    """Get Stripe checkout status and process subscription if successful"""
+    
+    # Get transaction record
+    transaction = await db.subscription_transactions.find_one(
+        {"session_id": session_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # If already processed, return status
+    if transaction["payment_status"] in ["paid", "completed"]:
+        return {
+            "status": "complete",
+            "payment_status": transaction["payment_status"],
+            "message": "Subscription already activated"
+        }
+    
+    # Check with Stripe
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+    
+    try:
+        status = await stripe_checkout.get_checkout_status(session_id)
+    except Exception as e:
+        logger.error(f"Error checking Stripe status: {e}")
+        return {
+            "status": "error",
+            "payment_status": transaction["payment_status"],
+            "message": "Error checking payment status"
+        }
+    
+    now = datetime.now(timezone.utc)
+    
+    # Process based on status
+    if status.payment_status == "paid":
+        # Double-check to prevent duplicate processing
+        fresh_txn = await db.subscription_transactions.find_one({"session_id": session_id})
+        if fresh_txn and fresh_txn.get("payment_status") in ["paid", "completed"]:
+            return {
+                "status": "complete",
+                "payment_status": "paid",
+                "message": "Subscription already activated"
+            }
+        
+        # Update transaction status
+        await db.subscription_transactions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "payment_status": "paid",
+                "stripe_payment_status": status.payment_status,
+                "amount_total": status.amount_total,
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        # Activate the subscription
+        plan_id = transaction["plan_id"]
+        billing_cycle = transaction["billing_cycle"]
+        
+        # Calculate period end
+        if billing_cycle == "yearly":
+            period_end = now + timedelta(days=365)
+        else:
+            period_end = now + timedelta(days=30)
+        
+        # Update or create subscription
+        await db.subscriptions.update_one(
+            {"company_id": user.company_id},
+            {"$set": {
+                "plan_id": plan_id,
+                "status": "active",
+                "billing_cycle": billing_cycle,
+                "current_period_start": now.isoformat(),
+                "current_period_end": period_end.isoformat(),
+                "cancel_at_period_end": False,
+                "canceled_at": None,
+                "trial_ends_at": None,
+                "last_payment_date": now.isoformat(),
+                "updated_at": now.isoformat()
+            }},
+            upsert=True
+        )
+        
+        # Update company plan
+        await db.companies.update_one(
+            {"company_id": user.company_id},
+            {"$set": {"plan_id": plan_id}}
+        )
+        
+        return {
+            "status": "complete",
+            "payment_status": "paid",
+            "message": "Subscription activated successfully",
+            "plan_id": plan_id
+        }
+    
+    elif status.status == "expired":
+        await db.subscription_transactions.update_one(
+            {"session_id": session_id},
+            {"$set": {"payment_status": "expired", "updated_at": now.isoformat()}}
+        )
+        return {
+            "status": "expired",
+            "payment_status": "expired",
+            "message": "Checkout session expired"
+        }
+    
+    else:
+        return {
+            "status": status.status,
+            "payment_status": status.payment_status,
+            "message": "Payment processing"
+        }
+
+@org_router.post("/webhook/stripe")
+async def handle_subscription_webhook(request: Request):
+    """Handle Stripe webhook events for subscriptions"""
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    
+    if not signature:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
+    
+    try:
+        stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        
+        # Process webhook event
+        event_type = webhook_response.event_type
+        session_id = webhook_response.session_id
+        metadata = webhook_response.metadata
+        
+        if event_type == "checkout.session.completed":
+            # Update transaction
+            await db.subscription_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": {
+                    "payment_status": "paid",
+                    "webhook_event_id": webhook_response.event_id,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            # Activate subscription if not already done
+            if metadata.get("type") == "subscription_upgrade":
+                company_id = metadata.get("company_id")
+                plan_id = metadata.get("plan_id")
+                billing_cycle = metadata.get("billing_cycle", "monthly")
+                
+                now = datetime.now(timezone.utc)
+                period_end = now + timedelta(days=365 if billing_cycle == "yearly" else 30)
+                
+                await db.subscriptions.update_one(
+                    {"company_id": company_id},
+                    {"$set": {
+                        "plan_id": plan_id,
+                        "status": "active",
+                        "billing_cycle": billing_cycle,
+                        "current_period_start": now.isoformat(),
+                        "current_period_end": period_end.isoformat(),
+                        "cancel_at_period_end": False,
+                        "updated_at": now.isoformat()
+                    }},
+                    upsert=True
+                )
+        
+        return {"received": True}
+    
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 # ---- Role Check Endpoint ----
 
 @org_router.get("/permissions")
