@@ -672,6 +672,16 @@ Auto-generated from Event Order:
     - `fixed_cost_categories`: category_id, name, description, active
     - `fixed_cost_budgets`: budget_id, category_id, period, budget_amount, start_date
 
+- [x] **Overhead → Fixed Cost Category Integration** - COMPLETE (Feb 2, 2026):
+  - Added `fixed_cost_category_id` field to expenses and supplier_payables
+  - Enhanced Accounts Payable assignment dialog with 3 options:
+    - Event (affects event margin)
+    - Fixed Cost Category (included in Budget vs Actual)
+    - Cost Center (general overhead classification)
+  - Updated `/api/business-clarity/payables/{id}/assign` endpoint
+  - Expenses assigned to Fixed Cost Categories now appear in Budget vs Actual analysis
+  - Refactored `PayablesSection` into separate component at `/components/business-clarity/`
+
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
