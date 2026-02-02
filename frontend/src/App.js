@@ -167,6 +167,7 @@ function AppRouter() {
       <Route path="/recipes/:recipeId" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
       <Route path="/food-ops/*" element={<ProtectedRoute><FoodOpsPage /></ProtectedRoute>} />
+      <Route path="/ops-supplies/*" element={<ProtectedRoute><OperationsSuppliesPage /></ProtectedRoute>} />
       <Route path="/business-clarity/*" element={<ProtectedRoute><BusinessClarityPage /></ProtectedRoute>} />
       <Route path="/event-orchestration/*" element={<ProtectedRoute><EventOrchestrationPage /></ProtectedRoute>} />
       <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentPreview /></ProtectedRoute>} />
