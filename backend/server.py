@@ -7983,6 +7983,7 @@ async def bulk_upload_products_by_supplier(data: BulkProductUpload, user: User =
                 "stock_quantity": float(product.get("stock_quantity", 0) or 0),
                 "reserved_quantity": 0,
                 "par_level": float(product.get("par_level", 0) or 0),
+                "min_stock_level": float(product.get("par_level", 0) or 0),
                 "pack_size": float(product.get("pack_size", 1) or 1),
                 "preferred_supplier_id": data.supplier_id,
                 "created_at": now.isoformat(),
