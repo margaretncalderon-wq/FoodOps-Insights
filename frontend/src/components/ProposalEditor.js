@@ -778,6 +778,66 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         </div>
       )}
 
+      {/* Credit Warnings */}
+      {proposal?.credit_warnings?.length > 0 && (
+        <div className="space-y-2" data-testid="credit-warnings">
+          {proposal.credit_warnings.map((warning, idx) => (
+            <div 
+              key={idx}
+              className={`rounded-lg p-4 flex items-center gap-3 ${
+                warning.severity === "high" 
+                  ? "bg-red-50 border border-red-200" 
+                  : "bg-amber-50 border border-amber-200"
+              }`}
+            >
+              <AlertTriangle className={`w-5 h-5 ${warning.severity === "high" ? "text-red-600" : "text-amber-600"}`} />
+              <div className="flex-1">
+                <p className={`font-medium ${warning.severity === "high" ? "text-red-700" : "text-amber-700"}`}>
+                  {language === "es" ? warning.message : warning.message_en}
+                </p>
+                {proposal.client_credit && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {language === "es" 
+                      ? `Crédito disponible: $${proposal.client_credit.available_credit.toLocaleString()} de $${proposal.client_credit.credit_limit.toLocaleString()}`
+                      : `Available credit: $${proposal.client_credit.available_credit.toLocaleString()} of $${proposal.client_credit.credit_limit.toLocaleString()}`}
+                  </p>
+                )}
+              </div>
+              {proposal.client_credit && (
+                <div className="text-right">
+                  <p className="text-sm font-medium">
+                    {proposal.client_credit.credit_percentage}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "es" ? "utilizado" : "used"}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Client Credit Context (shown only when has credit but no warnings) */}
+      {proposal?.client_credit && proposal?.credit_warnings?.length === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3" data-testid="credit-context">
+          <CreditCard className="w-5 h-5 text-blue-600" />
+          <div className="flex-1">
+            <p className="font-medium text-blue-700">
+              {language === "es" ? "Cliente con Línea de Crédito" : "Client with Credit Line"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {language === "es" 
+                ? `Usando $${proposal.client_credit.credit_used.toLocaleString()} de $${proposal.client_credit.credit_limit.toLocaleString()} (${proposal.client_credit.credit_percentage}%)`
+                : `Using $${proposal.client_credit.credit_used.toLocaleString()} of $${proposal.client_credit.credit_limit.toLocaleString()} (${proposal.client_credit.credit_percentage}%)`}
+            </p>
+          </div>
+          <Badge className="bg-blue-600">
+            ${proposal.client_credit.available_credit.toLocaleString()} {language === "es" ? "disponible" : "available"}
+          </Badge>
+        </div>
+      )}
+
       {/* Compact Header - Proposal Status */}
       <div className="flex items-center justify-between py-3 border-b">
         <div className="flex items-center gap-3">
