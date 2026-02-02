@@ -14629,7 +14629,8 @@ async def create_platform_lead(data: PlatformLeadCreate, admin: User = Depends(g
         "updated_at": now.isoformat()
     }
     await db.platform_leads.insert_one(lead)
-    del lead["_id"] if "_id" in lead else None
+    if "_id" in lead:
+        del lead["_id"]
     return lead
 
 @super_admin_router.get("/crm/leads/{lead_id}")
