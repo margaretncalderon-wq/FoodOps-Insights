@@ -1994,6 +1994,177 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={editInvoiceOpen} onOpenChange={setEditInvoiceOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              {language === "es" ? "Editar Factura" : "Edit Invoice"}: {editingInvoice?.invoice_number}
+            </DialogTitle>
+          </DialogHeader>
+
+          {editingInvoice && (
+            <div className="space-y-4">
+              {/* Invoice Type & Due Date */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{language === "es" ? "Tipo de Factura" : "Invoice Type"}</Label>
+                  <Select 
+                    value={editingInvoice.invoice_type || "full"} 
+                    onValueChange={(v) => setEditingInvoice({...editingInvoice, invoice_type: v})}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">{language === "es" ? "Total" : "Full"}</SelectItem>
+                      <SelectItem value="deposit">{language === "es" ? "Depósito" : "Deposit"}</SelectItem>
+                      <SelectItem value="final">{language === "es" ? "Final" : "Final"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{language === "es" ? "Fecha de Vencimiento" : "Due Date"}</Label>
+                  <Input
+                    type="date"
+                    value={editingInvoice.due_date ? editingInvoice.due_date.split("T")[0] : ""}
+                    onChange={(e) => setEditingInvoice({...editingInvoice, due_date: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              {/* Invoice Lines */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>{language === "es" ? "Líneas de Factura" : "Invoice Lines"}</Label>
+                  <Button variant="outline" size="sm" onClick={addInvoiceLine}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    {language === "es" ? "Agregar Línea" : "Add Line"}
+                  </Button>
+                </div>
+                <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+                  {(editingInvoice.lines || []).map((line, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded border">
+                      <Input
+                        placeholder={language === "es" ? "Descripción" : "Description"}
+                        value={line.description || ""}
+                        onChange={(e) => updateInvoiceLine(idx, "description", e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={language === "es" ? "Cant." : "Qty"}
+                        value={line.quantity || ""}
+                        onChange={(e) => updateInvoiceLine(idx, "quantity", parseFloat(e.target.value) || 0)}
+                        className="w-20"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={language === "es" ? "Precio" : "Price"}
+                        value={line.unit_price || ""}
+                        onChange={(e) => updateInvoiceLine(idx, "unit_price", parseFloat(e.target.value) || 0)}
+                        className="w-28"
+                      />
+                      <span className="text-sm font-medium w-24 text-right">
+                        ${((line.quantity || 0) * (line.unit_price || 0)).toFixed(2)}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => removeInvoiceLine(idx)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
+                  {(editingInvoice.lines || []).length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">
+                      {language === "es" ? "Sin líneas. Agrega una línea." : "No lines. Add a line."}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Discount & Tax */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{language === "es" ? "Descuento %" : "Discount %"}</Label>
+                  <Input
+                    type="number"
+                    value={editingInvoice.discount_percent || ""}
+                    onChange={(e) => setEditingInvoice({...editingInvoice, discount_percent: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+                <div>
+                  <Label>{language === "es" ? "IVA %" : "Tax %"}</Label>
+                  <Input
+                    type="number"
+                    value={editingInvoice.tax_rate || ""}
+                    onChange={(e) => setEditingInvoice({...editingInvoice, tax_rate: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>{language === "es" ? "Notas" : "Notes"}</Label>
+                <Textarea
+                  value={editingInvoice.notes || ""}
+                  onChange={(e) => setEditingInvoice({...editingInvoice, notes: e.target.value})}
+                  placeholder={language === "es" ? "Notas adicionales..." : "Additional notes..."}
+                />
+              </div>
+
+              {/* Totals Preview */}
+              <Card className="bg-slate-50">
+                <CardContent className="pt-4">
+                  <div className="space-y-1 text-sm">
+                    {(() => {
+                      const subtotal = (editingInvoice.lines || []).reduce(
+                        (sum, line) => sum + (line.quantity || 0) * (line.unit_price || 0), 0
+                      );
+                      const discountAmount = subtotal * ((editingInvoice.discount_percent || 0) / 100);
+                      const taxableAmount = subtotal - discountAmount;
+                      const taxAmount = taxableAmount * ((editingInvoice.tax_rate || 0) / 100);
+                      const total = taxableAmount + taxAmount;
+                      return (
+                        <>
+                          <div className="flex justify-between">
+                            <span>{language === "es" ? "Subtotal:" : "Subtotal:"}</span>
+                            <span>${subtotal.toFixed(2)}</span>
+                          </div>
+                          {editingInvoice.discount_percent > 0 && (
+                            <div className="flex justify-between text-red-600">
+                              <span>{language === "es" ? "Descuento:" : "Discount:"} ({editingInvoice.discount_percent}%)</span>
+                              <span>-${discountAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {editingInvoice.tax_rate > 0 && (
+                            <div className="flex justify-between">
+                              <span>{language === "es" ? "IVA:" : "Tax:"} ({editingInvoice.tax_rate}%)</span>
+                              <span>${taxAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-lg border-t pt-1">
+                            <span>Total:</span>
+                            <span>${total.toFixed(2)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditInvoiceOpen(false)}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveInvoice}>
+              <CheckCircle className="w-4 h-4 mr-2" />
+              {language === "es" ? "Guardar Cambios" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
