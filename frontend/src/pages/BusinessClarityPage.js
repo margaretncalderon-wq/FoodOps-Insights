@@ -35,6 +35,8 @@ function DashboardSection() {
   const isEs = language === "es";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showProfitSignals, setShowProfitSignals] = useState(true);
+  const [targetMargin, setTargetMargin] = useState(30); // Default 30%
 
   const fetchData = useCallback(async () => {
     try {
@@ -52,15 +54,33 @@ function DashboardSection() {
 
   const agingData = data?.aging_buckets || {};
   const totalAging = Object.values(agingData).reduce((a, b) => a + b, 0);
+  
+  // Profit Signals calculations (read-only from existing data)
+  const profitSignals = data?.profit_signals || {};
+  const negativeMarginEvents = profitSignals.negative_margin_count || 0;
+  const belowTargetEvents = profitSignals.below_target_count || 0;
+  const unassignedCosts = profitSignals.unassigned_costs || 0;
+  const cashGap = (profitSignals.paid_to_suppliers || 0) - (profitSignals.collected_from_clients || 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{isEs ? "Panel Ejecutivo" : "Executive Dashboard"}</h2>
-        <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4 mr-2" />{isEs ? "Actualizar" : "Refresh"}</Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant={showProfitSignals ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setShowProfitSignals(!showProfitSignals)}
+            className="gap-2"
+          >
+            <Flame className="w-4 h-4" />
+            {isEs ? "Señales de Rentabilidad" : "Profit Signals"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4 mr-2" />{isEs ? "Actualizar" : "Refresh"}</Button>
+        </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Row 1: Financial Position */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 dark:from-green-950 dark:to-green-900 dark:border-green-800">
           <CardContent className="pt-6">
@@ -111,6 +131,132 @@ function DashboardSection() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Profit Signals - Row 2 (Togglable) */}
+      {showProfitSignals && (
+        <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Flame className="w-4 h-4 text-amber-600" />
+                {isEs ? "🔥 Señales de Rentabilidad" : "🔥 Profit Signals"}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>{isEs 
+                        ? "Indicadores de decisión: ¿Dónde hay fuga de margen? ¿Qué requiere atención inmediata?" 
+                        : "Decision indicators: Where is margin leaking? What needs immediate attention?"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">{isEs ? "Margen objetivo:" : "Target margin:"}</span>
+                <Select value={targetMargin.toString()} onValueChange={(v) => setTargetMargin(parseInt(v))}>
+                  <SelectTrigger className="w-20 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[20, 25, 30, 35, 40, 45, 50].map(v => (
+                      <SelectItem key={v} value={v.toString()}>{v}%</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <CardDescription>
+              {isEs ? "¿Dónde necesitas mirar ahora mismo?" : "Where do you need to look right now?"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Negative Margin Events */}
+              <div className={`p-4 rounded-lg border ${negativeMarginEvents > 0 ? "bg-red-50 border-red-200 dark:bg-red-950/50" : "bg-white border-gray-200 dark:bg-gray-900"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertCircle className={`w-4 h-4 ${negativeMarginEvents > 0 ? "text-red-600" : "text-muted-foreground"}`} />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isEs ? "Eventos con Margen Negativo" : "Negative Margin Events"}
+                  </span>
+                </div>
+                <p className={`text-2xl font-bold ${negativeMarginEvents > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                  {negativeMarginEvents}
+                </p>
+                {negativeMarginEvents > 0 && (
+                  <p className="text-xs text-red-600 mt-1">{isEs ? "🔴 Requiere atención" : "🔴 Needs attention"}</p>
+                )}
+              </div>
+
+              {/* Below Target Margin */}
+              <div className={`p-4 rounded-lg border ${belowTargetEvents > 0 ? "bg-amber-50 border-amber-200 dark:bg-amber-950/50" : "bg-white border-gray-200 dark:bg-gray-900"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Target className={`w-4 h-4 ${belowTargetEvents > 0 ? "text-amber-600" : "text-muted-foreground"}`} />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isEs ? `Bajo Margen Objetivo (<${targetMargin}%)` : `Below Target (<${targetMargin}%)`}
+                  </span>
+                </div>
+                <p className={`text-2xl font-bold ${belowTargetEvents > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                  {belowTargetEvents}
+                </p>
+                {belowTargetEvents > 0 && (
+                  <p className="text-xs text-amber-600 mt-1">{isEs ? "⚠️ Revisar pricing" : "⚠️ Review pricing"}</p>
+                )}
+              </div>
+
+              {/* Unassigned Costs */}
+              <div className={`p-4 rounded-lg border ${unassignedCosts > 0 ? "bg-purple-50 border-purple-200 dark:bg-purple-950/50" : "bg-white border-gray-200 dark:bg-gray-900"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <CircleDollarSign className={`w-4 h-4 ${unassignedCosts > 0 ? "text-purple-600" : "text-muted-foreground"}`} />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isEs ? "Costos Sin Asignar" : "Unassigned Costs"}
+                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-3 h-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="font-medium mb-1">{isEs ? "Fuga de Margen" : "Margin Leakage"}</p>
+                        <p className="text-xs">{isEs 
+                          ? "Costos no asignados a eventos distorsionan la rentabilidad real. Márgenes 'altos' pueden ser falsos." 
+                          : "Costs not assigned to events distort real profitability. 'High' margins may be fake."}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <p className={`text-2xl font-bold ${unassignedCosts > 0 ? "text-purple-600" : "text-muted-foreground"}`}>
+                  {formatCurrency(unassignedCosts)}
+                </p>
+                {unassignedCosts > 0 && (
+                  <p className="text-xs text-purple-600 mt-1">{isEs ? "💸 Erosiona margen global" : "💸 Erodes global margin"}</p>
+                )}
+              </div>
+
+              {/* Cash Gap */}
+              <div className={`p-4 rounded-lg border ${Math.abs(cashGap) > 1000 ? "bg-blue-50 border-blue-200 dark:bg-blue-950/50" : "bg-white border-gray-200 dark:bg-gray-900"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet className={`w-4 h-4 ${cashGap < 0 ? "text-red-600" : cashGap > 0 ? "text-green-600" : "text-muted-foreground"}`} />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isEs ? "Brecha Pagado vs Cobrado" : "Paid vs Collected Gap"}
+                  </span>
+                </div>
+                <p className={`text-2xl font-bold ${cashGap < 0 ? "text-red-600" : cashGap > 0 ? "text-green-600" : "text-muted-foreground"}`}>
+                  {formatCurrency(Math.abs(cashGap))}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {cashGap < 0 
+                    ? (isEs ? "📉 Pagaste más de lo cobrado" : "📉 Paid more than collected")
+                    : cashGap > 0 
+                      ? (isEs ? "📈 Cobraste más de lo pagado" : "📈 Collected more than paid")
+                      : (isEs ? "⚖️ Equilibrado" : "⚖️ Balanced")}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Aging Analysis */}
       <Card>
