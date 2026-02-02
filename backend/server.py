@@ -91,7 +91,8 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     company_id: Optional[str] = None
-    role: str = "admin"
+    role: str = "admin"  # Legacy role at company level
+    active_org_id: Optional[str] = None  # Current active organization
     created_at: datetime
 
 class TokenResponse(BaseModel):
