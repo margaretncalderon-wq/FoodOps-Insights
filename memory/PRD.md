@@ -701,6 +701,22 @@ Auto-generated from Event Order:
     - Real-time totals preview
   - Backend endpoint `/api/finance/invoices/{id}` updated to support more fields
   - Automatic balance_due recalculation when total changes
+
+- [x] **PDF/CSV Export for Reports** - COMPLETE (Feb 2, 2026):
+  - Added CSV and PDF export buttons to Executive Reports section
+  - Exports work for all 4 report types:
+    - Snapshot: Financial summary with operational profit and cash position
+    - By Client: Client revenue breakdown
+    - By Supplier: Supplier spend analysis
+    - By Event: Event profitability with health badges
+  - PDF features:
+    - Professional formatting with colored headers
+    - Health status color-coding in event reports
+    - Page numbering
+    - Automatic date stamping
+  - CSV features:
+    - Clean data export for spreadsheet analysis
+    - Properly formatted with quoted fields
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
