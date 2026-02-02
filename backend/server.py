@@ -13700,13 +13700,43 @@ async def accept_invitation(token: str, user: User = Depends(get_current_user)):
 @org_router.get("/billing")
 async def get_billing_info(user: User = Depends(get_current_user)):
     """Get billing information (stub)"""
-    if not await check_permission(user, "manage_billing"):
+    # Allow owner/admin or legacy users without membership
+    can_access = await check_permission(user, "manage_billing")
+    if not can_access:
+        # Check if legacy user (has company_id but no membership)
+        membership = await get_user_membership(user.user_id, user.company_id)
+        if membership is None:
+            can_access = True  # Legacy users get full access
+    
+    if not can_access:
         raise HTTPException(status_code=403, detail="Permission denied")
     
     subscription = await db.subscriptions.find_one({"company_id": user.company_id}, {"_id": 0})
-    plan = None
-    if subscription:
-        plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+    
+    # If no subscription, create a default Starter plan subscription
+    if not subscription:
+        now = datetime.now(timezone.utc)
+        subscription = {
+            "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+            "company_id": user.company_id,
+            "plan_id": "plan_starter",
+            "status": "active",
+            "billing_cycle": "monthly",
+            "current_period_start": now.isoformat(),
+            "current_period_end": (now + timedelta(days=30)).isoformat(),
+            "cancel_at_period_end": False,
+            "canceled_at": None,
+            "trial_ends_at": None,
+            "stripe_subscription_id": None,
+            "stripe_customer_id": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.subscriptions.insert_one(subscription)
+        if "_id" in subscription:
+            del subscription["_id"]
+    
+    plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
     
     company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
     
