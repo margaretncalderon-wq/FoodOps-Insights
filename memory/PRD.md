@@ -550,6 +550,46 @@ Auto-generated from Event Order:
   - Creates Production Batch linked to the event
   - Fixed `/api/production/suggest-from-events` to properly query `order_items` collection
 
+## Completed (February 2, 2026)
+- [x] **Operations Supplies Module** - NEW:
+  - Separated non-food inventory (equipment, disposables, event_supply) from Culinary Intelligence
+  - New sidebar navigation at `/ops-supplies` with sub-sections:
+    - Inventory: List/Add/Edit equipment and supplies
+    - Purchasing: Track purchases
+    - Delivery Notes (Conduces): Check-in/check-out system for event items
+    - Maintenance: Placeholder for equipment maintenance tracking
+  - Value tracking: Total Value, Reserved Value, Low Stock alerts
+  - Primary/Secondary supplier assignment per item
+  - Replacement cost field for equipment
+  - Upload by Supplier feature (Manual & CSV)
+- [x] **Delivery Notes (Conduces) System** - COMPLETE:
+  - Check-out items for events (qty_out)
+  - Check-in returns (qty_returned)
+  - Track lost/damaged items (qty_lost)
+  - Equipment returns (must return), Disposables (no return expected)
+  - Calculate loss value from replacement_cost × qty_lost
+  - Status: pending → returned
+  - Backend: GET/POST `/api/delivery-notes`, PUT `/api/delivery-notes/{id}/check-in`
+- [x] **Packing List Editor in Event Orchestration** - COMPLETE:
+  - New component `PackingListEditor.js` fully integrated
+  - Added to Documents tab in Event Orchestration as "Packing List / Setup"
+  - Features:
+    - Add Items from Operations Supplies inventory
+    - Filter by category/search
+    - Edit quantity and notes per item
+    - Group by type: Equipment (with "Must return" badge), Disposables ("No return")
+    - Calculate total replacement cost
+    - Save packing list to event (persists)
+    - Create Delivery Note directly from packing list
+    - View existing Delivery Note with status
+  - Backend: GET/PUT `/api/events/{event_id}/packing-list`
+- [x] **Bugfix: Operations Supplies Add Item** - SelectItem value error:
+  - Fixed `<SelectItem value="">` causing "must have a value prop that is not an empty string" error
+  - Changed to `<SelectItem value="none">` with proper handling
+- [x] **Procurement Cost Calculation Fix**:
+  - Corrected `portions_needed` calculation that was generating inflated quantities
+  - Enhanced Procurement Summary to show margin analysis (Quoted vs Expected Spend)
+
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
