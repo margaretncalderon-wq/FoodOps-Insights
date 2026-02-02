@@ -13015,7 +13015,8 @@ async def get_or_create_usage_meter(company_id: str) -> dict:
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.usage_meters.insert_one(meter)
-        del meter["_id"] if "_id" in meter else None
+        if "_id" in meter:
+            del meter["_id"]
     return meter
 
 async def increment_usage(company_id: str, metric: str, amount: int = 1):
