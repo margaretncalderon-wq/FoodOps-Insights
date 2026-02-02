@@ -40,13 +40,13 @@ function DashboardSection() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/business-clarity/dashboard`, { withCredentials: true });
+      const res = await axios.get(`${API}/api/business-clarity/dashboard?target_margin=${targetMargin}`, { withCredentials: true });
       setData(res.data);
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  }, []);
+  }, [targetMargin]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
