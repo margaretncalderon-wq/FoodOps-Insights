@@ -432,8 +432,13 @@ export default function DocumentPreview({
                         /* Table Style */
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-primary text-primary-foreground">
-                              {config.showQuantity && (
+                            <tr style={{ backgroundColor: template?.primary_color || '#3A4D3F', color: 'white' }}>
+                              {/* Checkbox column for PackingList/KitchenSheet */}
+                              {template?.show_checkboxes !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
+                                <th className="px-2 py-2 w-10">✓</th>
+                              )}
+                              {/* Quantity - respect template setting */}
+                              {config.showQuantity && template?.show_quantities !== false && (
                                 <th className="px-3 py-2 text-left w-20">
                                   {language === "es" ? "Cant." : "Qty"}
                                 </th>
@@ -441,6 +446,12 @@ export default function DocumentPreview({
                               <th className="px-3 py-2 text-left">
                                 {language === "es" ? "Ítem" : "Item"}
                               </th>
+                              {/* Notes column - controlled by template */}
+                              {template?.show_notes_column !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
+                                <th className="px-3 py-2 text-left w-32">
+                                  {language === "es" ? "Notas" : "Notes"}
+                                </th>
+                              )}
                               {config.showPrices && (
                                 <>
                                   <th className="px-3 py-2 text-right w-24">
@@ -456,17 +467,29 @@ export default function DocumentPreview({
                           <tbody>
                             {items.map((item, idx) => (
                               <tr key={idx} className="border-b border-muted/50 hover:bg-muted/20">
-                                {config.showQuantity && (
+                                {/* Checkbox cell */}
+                                {template?.show_checkboxes !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
+                                  <td className="px-2 py-2 text-center">
+                                    <span className="checkbox inline-block w-4 h-4 border border-gray-400 rounded-sm"></span>
+                                  </td>
+                                )}
+                                {config.showQuantity && template?.show_quantities !== false && (
                                   <td className="px-3 py-2">{item.quantity}</td>
                                 )}
                                 <td className="px-3 py-2">
                                   <span className="font-medium">{item.description}</span>
-                                  {item.internal_notes && config.showNotes && (
+                                  {item.internal_notes && config.showNotes && !template?.show_notes_column && (
                                     <p className="text-xs text-muted-foreground mt-1 italic">
                                       📝 {item.internal_notes}
                                     </p>
                                   )}
                                 </td>
+                                {/* Notes column */}
+                                {template?.show_notes_column !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
+                                  <td className="px-3 py-2 text-sm text-muted-foreground">
+                                    {item.internal_notes || ""}
+                                  </td>
+                                )}
                                 {config.showPrices && (
                                   <>
                                     <td className="px-3 py-2 text-right font-mono">
