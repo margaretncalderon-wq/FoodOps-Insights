@@ -1325,11 +1325,23 @@ function CheckInOutSection() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleCheckIn(note)}>
-                            {note.status === "returned" 
-                              ? (language === "es" ? "Ver" : "View")
-                              : (language === "es" ? "Check-in" : "Check-in")}
-                          </Button>
+                          <div className="flex gap-1">
+                            {note.status === "pending" && (
+                              <>
+                                <Button variant="ghost" size="sm" onClick={() => handleEditNote(note)} title={language === "es" ? "Editar" : "Edit"}>
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleCancelNote(note)} title={language === "es" ? "Cancelar" : "Cancel"}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => handleCheckIn(note)}>
+                              {note.status === "returned" 
+                                ? (language === "es" ? "Ver" : "View")
+                                : (language === "es" ? "Check-in" : "Check-in")}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
