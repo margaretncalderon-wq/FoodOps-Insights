@@ -1253,6 +1253,118 @@ function CheckInOutSection() {
     setCheckInDialogOpen(true);
   };
 
+  // Print Delivery Note
+  const handlePrintDeliveryNote = (note) => {
+    const eventName = getEventName(note.event_id);
+    const printWindow = window.open('', '_blank');
+    
+    const equipmentItems = note.items?.filter(i => i.inventory_type === "equipment") || [];
+    const disposableItems = note.items?.filter(i => i.inventory_type !== "equipment") || [];
+    
+    const itemRows = note.items?.map(item => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.inventory_type === "equipment" ? "↩️ Equipo" : "🚫 Desechable"}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold;">${item.qty_out} ${item.unit || "unit"}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;"></td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;"></td>
+      </tr>
+    `).join('') || '';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Conduce ${note.note_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .header p { margin: 5px 0; color: #666; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+          .info-box { background: #f5f5f5; padding: 15px; border-radius: 8px; }
+          .info-box label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
+          .info-box span { font-size: 16px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #333; color: white; padding: 12px; text-align: left; }
+          .summary { margin-top: 30px; padding: 15px; background: #f9f9f9; border-radius: 8px; }
+          .signatures { margin-top: 50px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+          .signature-box { border-top: 1px solid #333; padding-top: 10px; text-align: center; }
+          .signature-box p { margin: 5px 0; font-size: 12px; color: #666; }
+          .notes { margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📋 CONDUCE DE ENTREGA</h1>
+          <p><strong>${note.note_number}</strong></p>
+        </div>
+        
+        <div class="info-grid">
+          <div class="info-box">
+            <label>Evento</label>
+            <span>${eventName}</span>
+          </div>
+          <div class="info-box">
+            <label>Fecha de Salida</label>
+            <span>${note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : new Date().toLocaleDateString()}</span>
+          </div>
+          <div class="info-box">
+            <label>Equipo (Debe Regresar)</label>
+            <span>${equipmentItems.length} items</span>
+          </div>
+          <div class="info-box">
+            <label>Desechables (No Regresan)</label>
+            <span>${disposableItems.length} items</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align: center;">Tipo</th>
+              <th style="text-align: center;">Cantidad Salida</th>
+              <th style="text-align: center;">Cantidad Devuelta</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <strong>Resumen:</strong> ${note.items?.length || 0} items total | 
+          ${equipmentItems.length} equipos (deben regresar) | 
+          ${disposableItems.length} desechables
+        </div>
+
+        ${note.notes ? `<div class="notes"><strong>Notas:</strong> ${note.notes}</div>` : ''}
+
+        <div class="signatures">
+          <div class="signature-box">
+            <p><strong>Entregado por:</strong></p>
+            <p>Nombre: _______________________</p>
+            <p>Firma: _______________________</p>
+            <p>Fecha: _______________________</p>
+          </div>
+          <div class="signature-box">
+            <p><strong>Recibido por:</strong></p>
+            <p>Nombre: _______________________</p>
+            <p>Firma: _______________________</p>
+            <p>Fecha: _______________________</p>
+          </div>
+        </div>
+
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleSaveCheckIn = async () => {
     if (!viewingNote) return;
 
