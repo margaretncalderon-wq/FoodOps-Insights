@@ -11587,6 +11587,66 @@ async def update_production_assets(event_id: str, data: ProductionAssetsCreate, 
     
     return await db.production_assets.find_one({"event_id": event_id}, {"_id": 0})
 
+# --- Packing List Management ---
+class PackingListItem(BaseModel):
+    inventory_item_id: Optional[str] = None
+    name: str
+    inventory_type: str = "equipment"
+    category: str = "other"
+    quantity: int = 1
+    unit: str = "unit"
+    replacement_cost: float = 0
+    notes: str = ""
+
+class PackingListUpdate(BaseModel):
+    items: List[dict]
+
+@events_router.get("/{event_id}/packing-list")
+async def get_event_packing_list(event_id: str, user: User = Depends(get_current_user)):
+    """Get packing list items for an event"""
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get packing list from event or production assets
+    packing_list = event.get("packing_list", [])
+    
+    if not packing_list:
+        # Try production assets
+        production = await db.production_assets.find_one(
+            {"event_id": event_id},
+            {"_id": 0, "packing_list": 1}
+        )
+        packing_list = production.get("packing_list", []) if production else []
+    
+    return packing_list
+
+@events_router.put("/{event_id}/packing-list")
+async def update_event_packing_list(event_id: str, data: PackingListUpdate, user: User = Depends(get_current_user)):
+    """Update packing list items for an event"""
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Save to event document
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {
+            "packing_list": data.items,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {"message": "Packing list updated", "items_count": len(data.items)}
+
 # --- Event Calendar ---
 @orchestration_router.get("/calendar")
 async def get_events_calendar(
