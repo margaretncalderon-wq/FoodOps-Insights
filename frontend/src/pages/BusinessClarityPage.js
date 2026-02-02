@@ -17,6 +17,10 @@ import { Textarea } from "../components/ui/textarea";
 
 // Refactored Components
 import { PayablesSection } from "../components/business-clarity/PayablesSection";
+import { InvoicesSection } from "../components/business-clarity/InvoicesSection";
+import { PaymentsSection } from "../components/business-clarity/PaymentsSection";
+import { StatementsSection } from "../components/business-clarity/StatementsSection";
+import { ReceivablesSection } from "../components/business-clarity/ReceivablesSection";
 
 // Icons
 import {
