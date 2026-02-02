@@ -5362,6 +5362,14 @@ async def get_company_settings(user: User = Depends(get_current_user)):
         company["created_at"] = datetime.fromisoformat(company["created_at"])
     if "default_tax_rate" not in company:
         company["default_tax_rate"] = 0.0
+    # Default proposal item types if not set
+    if "proposal_item_types" not in company or not company["proposal_item_types"]:
+        company["proposal_item_types"] = [
+            {"type_key": "Food", "label_en": "Food & Beverages", "label_es": "Alimentos y Bebidas", "color": "#22c55e", "icon": "Utensils", "is_active": True, "sort_order": 0},
+            {"type_key": "Service", "label_en": "Services & Staff", "label_es": "Servicios y Personal", "color": "#3b82f6", "icon": "Users", "is_active": True, "sort_order": 1},
+            {"type_key": "Rental", "label_en": "Rentals & Equipment", "label_es": "Alquileres y Equipos", "color": "#f59e0b", "icon": "Armchair", "is_active": True, "sort_order": 2},
+            {"type_key": "Fee", "label_en": "Fees & Charges", "label_es": "Cargos y Tarifas", "color": "#8b5cf6", "icon": "DollarSign", "is_active": True, "sort_order": 3},
+        ]
     return Company(**company)
 
 @settings_router.put("/company")
