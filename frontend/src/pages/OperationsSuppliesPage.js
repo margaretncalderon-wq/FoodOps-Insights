@@ -391,7 +391,7 @@ function InventorySection() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("all")}</SelectItem>
-                {CATEGORIES.map(cat => (
+                {categories.map(cat => (
                   <SelectItem key={cat.value} value={cat.value}>
                     {language === "es" ? cat.labelEs : cat.label}
                   </SelectItem>
@@ -563,7 +563,7 @@ function InventorySection() {
               <Select value={itemForm.category} onValueChange={(v) => setItemForm({...itemForm, category: v})}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(cat => (
+                  {categories.map(cat => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {language === "es" ? cat.labelEs : cat.label}
                     </SelectItem>
