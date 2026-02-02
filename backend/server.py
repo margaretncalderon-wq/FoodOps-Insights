@@ -148,7 +148,226 @@ class Company(BaseModel):
     time_format: str = "24h"  # "12h" or "24h"
     # Multi-tenant customizable proposal item types
     proposal_item_types: List[ProposalItemType] = []
+    # SaaS Organization fields
+    timezone: str = "America/Santo_Domingo"
+    status: str = "active"  # active, suspended, canceled
+    billing_email: Optional[str] = None
+    onboarding_completed: bool = False
     created_at: datetime
+
+# ============== SAAS MULTI-TENANT MODELS ==============
+
+class PlanLimits(BaseModel):
+    """Limits for a subscription plan"""
+    events_per_month: int = 10
+    active_users: int = 3
+    supplier_invoices_per_month: int = 50
+    storage_mb: int = 500
+    proposals_per_month: int = 20
+
+class PlanFeatures(BaseModel):
+    """Feature flags for a subscription plan"""
+    business_clarity: bool = True
+    culinary_intelligence: bool = False
+    advanced_reports: bool = False
+    api_access: bool = False
+    white_label: bool = False
+    priority_support: bool = False
+
+class Plan(BaseModel):
+    """Subscription plan definition"""
+    plan_id: str
+    name: str
+    display_name_en: str
+    display_name_es: str
+    description_en: str
+    description_es: str
+    price_monthly: float
+    price_yearly: float
+    currency: str = "USD"
+    limits: PlanLimits = PlanLimits()
+    features: PlanFeatures = PlanFeatures()
+    is_active: bool = True
+    sort_order: int = 0
+    highlight: bool = False  # For "Most Popular" badge
+
+class Subscription(BaseModel):
+    """Organization subscription to a plan"""
+    subscription_id: str
+    company_id: str  # orgId
+    plan_id: str
+    status: str = "trialing"  # trialing, active, past_due, canceled, paused
+    billing_cycle: str = "monthly"  # monthly, yearly
+    current_period_start: datetime
+    current_period_end: datetime
+    cancel_at_period_end: bool = False
+    canceled_at: Optional[datetime] = None
+    trial_ends_at: Optional[datetime] = None
+    # Stripe stub fields (for future integration)
+    stripe_subscription_id: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class UsageMeter(BaseModel):
+    """Monthly usage tracking per organization"""
+    meter_id: str
+    company_id: str  # orgId
+    period: str  # "2026-02" format (year-month)
+    metrics: Dict[str, int] = {
+        "events_created": 0,
+        "active_users": 0,
+        "supplier_invoices": 0,
+        "proposals_created": 0,
+        "storage_mb": 0
+    }
+    updated_at: datetime
+
+class Membership(BaseModel):
+    """User membership in an organization with role"""
+    membership_id: str
+    company_id: str  # orgId
+    user_id: str
+    role: str = "viewer"  # owner, admin, ops, finance, viewer
+    status: str = "active"  # active, suspended, removed
+    invited_by: Optional[str] = None
+    joined_at: datetime
+    updated_at: datetime
+
+class Invitation(BaseModel):
+    """Team invitation to an organization"""
+    invitation_id: str
+    company_id: str  # orgId
+    email: str
+    role: str = "ops"  # owner, admin, ops, finance, viewer
+    token: str
+    invited_by: str
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+    status: str = "pending"  # pending, accepted, expired, revoked
+    created_at: datetime
+
+class InvitationCreate(BaseModel):
+    email: EmailStr
+    role: str = "ops"
+
+class OrganizationCreate(BaseModel):
+    """Create new organization during onboarding"""
+    name: str
+    currency: str = "USD"
+    timezone: str = "America/Santo_Domingo"
+    billing_email: Optional[str] = None
+
+# Role permissions mapping
+ROLE_PERMISSIONS = {
+    "owner": {
+        "manage_billing": True,
+        "manage_plans": True,
+        "manage_members": True,
+        "manage_settings": True,
+        "manage_events": True,
+        "manage_inventory": True,
+        "view_business_clarity": True,
+        "manage_business_clarity": True,
+        "view_all": True
+    },
+    "admin": {
+        "manage_billing": True,
+        "manage_plans": True,
+        "manage_members": True,
+        "manage_settings": True,
+        "manage_events": True,
+        "manage_inventory": True,
+        "view_business_clarity": True,
+        "manage_business_clarity": True,
+        "view_all": True
+    },
+    "ops": {
+        "manage_billing": False,
+        "manage_plans": False,
+        "manage_members": False,
+        "manage_settings": False,
+        "manage_events": True,
+        "manage_inventory": True,
+        "view_business_clarity": False,
+        "manage_business_clarity": False,
+        "view_all": True
+    },
+    "finance": {
+        "manage_billing": False,
+        "manage_plans": False,
+        "manage_members": False,
+        "manage_settings": False,
+        "manage_events": False,
+        "manage_inventory": False,
+        "view_business_clarity": True,
+        "manage_business_clarity": True,
+        "view_all": True
+    },
+    "viewer": {
+        "manage_billing": False,
+        "manage_plans": False,
+        "manage_members": False,
+        "manage_settings": False,
+        "manage_events": False,
+        "manage_inventory": False,
+        "view_business_clarity": False,
+        "manage_business_clarity": False,
+        "view_all": True
+    }
+}
+
+# Default plans
+DEFAULT_PLANS = [
+    {
+        "plan_id": "plan_starter",
+        "name": "starter",
+        "display_name_en": "Starter",
+        "display_name_es": "Inicial",
+        "description_en": "Perfect for small catering businesses just getting started",
+        "description_es": "Perfecto para pequeños negocios de catering que están comenzando",
+        "price_monthly": 0,
+        "price_yearly": 0,
+        "currency": "USD",
+        "limits": {"events_per_month": 5, "active_users": 2, "supplier_invoices_per_month": 20, "storage_mb": 200, "proposals_per_month": 10},
+        "features": {"business_clarity": True, "culinary_intelligence": False, "advanced_reports": False, "api_access": False, "white_label": False, "priority_support": False},
+        "is_active": True,
+        "sort_order": 0,
+        "highlight": False
+    },
+    {
+        "plan_id": "plan_professional",
+        "name": "professional",
+        "display_name_en": "Professional",
+        "display_name_es": "Profesional",
+        "description_en": "For growing catering companies with more events and team members",
+        "description_es": "Para empresas de catering en crecimiento con más eventos y equipo",
+        "price_monthly": 49,
+        "price_yearly": 490,
+        "currency": "USD",
+        "limits": {"events_per_month": 30, "active_users": 10, "supplier_invoices_per_month": 200, "storage_mb": 2000, "proposals_per_month": 50},
+        "features": {"business_clarity": True, "culinary_intelligence": True, "advanced_reports": True, "api_access": False, "white_label": False, "priority_support": False},
+        "is_active": True,
+        "sort_order": 1,
+        "highlight": True
+    },
+    {
+        "plan_id": "plan_enterprise",
+        "name": "enterprise",
+        "display_name_en": "Enterprise",
+        "display_name_es": "Empresarial",
+        "description_en": "For large operations with unlimited needs and dedicated support",
+        "description_es": "Para operaciones grandes con necesidades ilimitadas y soporte dedicado",
+        "price_monthly": 149,
+        "price_yearly": 1490,
+        "currency": "USD",
+        "limits": {"events_per_month": 999, "active_users": 999, "supplier_invoices_per_month": 999, "storage_mb": 10000, "proposals_per_month": 999},
+        "features": {"business_clarity": True, "culinary_intelligence": True, "advanced_reports": True, "api_access": True, "white_label": True, "priority_support": True},
+        "is_active": True,
+        "sort_order": 2,
+        "highlight": False
+    }
+]
 
 # ============== NEW CRM MODELS ==============
 
