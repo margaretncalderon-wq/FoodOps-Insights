@@ -768,7 +768,7 @@ export default function ConsolidatedPurchaseSection() {
                       <div className="text-right">
                         {event.quoted_total > 0 && (
                           <Badge variant="outline" className="text-xs">
-                            {language === "es" ? "Food Cotizado:" : "Food Quoted:"} ${event.quoted_total.toLocaleString()}
+                            {language === "es" ? "Inventariable:" : "Inventory Items:"} ${event.quoted_total.toLocaleString()}
                           </Badge>
                         )}
                       </div>
@@ -814,16 +814,16 @@ export default function ConsolidatedPurchaseSection() {
                           ? "text-emerald-800" 
                           : "text-amber-800"
                       }`}>
-                        {language === "es" ? "Comparación: Food Cotizado vs Costo Real" : "Comparison: Food Quoted vs Actual Cost"}
+                        {language === "es" ? "Comparación: Cotizado vs Costo Real" : "Comparison: Quoted vs Actual Cost"}
                       </p>
                       <p className="text-xs text-muted-foreground mb-2">
                         {language === "es" 
-                          ? "Solo items Food con recetas (inventariables)" 
-                          : "Only Food items with recipes (inventoriable)"}
+                          ? "Food, Bebidas, Desechables (todo lo inventariable)" 
+                          : "Food, Beverages, Disposables (all inventory items)"}
                       </p>
                       <div className="mt-2 space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">{language === "es" ? "Food Cotizado:" : "Food Quoted:"}</span>
+                          <span className="text-muted-foreground">{language === "es" ? "Cotizado (Inventariable):" : "Quoted (Inventory Items):"}</span>
                           <span className="font-mono font-medium">${purchaseData.total_quoted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
                         <div className="flex justify-between">
