@@ -602,6 +602,12 @@ Auto-generated from Event Order:
   - Loss cost calculation: loss_cost = qty_lost × replacement_cost
   - Status flow: pending → returned (all items returned) | partial (some items lost)
   - UI displays Total Losses dashboard, individual item losses, and enables check-in dialog
+- [x] **Edit Delivery Notes** - COMPLETE (Feb 2, 2026):
+  - Edit items before check-in (add/remove items, change quantities, add notes)
+  - Automatic inventory adjustment when editing (restores/deducts based on changes)
+  - Only pending notes can be edited
+  - Cancel/Delete delivery note option (returns all items to inventory)
+  - Backend: PUT /api/delivery-notes/{id}, DELETE /api/delivery-notes/{id}
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
