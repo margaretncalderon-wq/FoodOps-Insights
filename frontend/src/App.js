@@ -149,6 +149,7 @@ function AppRouter() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/portal/:documentId" element={<ClientPortal />} />
       <Route path="/forms/:formId" element={<LeadFormPage />} />
+      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
