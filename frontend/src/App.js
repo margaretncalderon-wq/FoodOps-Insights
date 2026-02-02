@@ -25,6 +25,7 @@ import LeadFormPage from "./pages/LeadFormPage";
 import BusinessClarityPage from "./pages/BusinessClarityPage";
 import EventOrchestrationPage from "./pages/EventOrchestrationPage";
 import ClientEngagementPage from "./pages/ClientEngagementPage";
+import OperationsSuppliesPage from "./pages/OperationsSuppliesPage";
 
 import "./App.css";
 
