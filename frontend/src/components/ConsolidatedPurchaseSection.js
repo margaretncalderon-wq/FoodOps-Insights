@@ -507,14 +507,7 @@ export default function ConsolidatedPurchaseSection() {
                         <Printer className="w-4 h-4 mr-1" />
                         {language === "es" ? "Imprimir" : "Print"}
                       </Button>
-                      <Button 
-                        size="sm" 
-                        onClick={() => setSrDialogOpen(true)}
-                        className="h-8 bg-emerald-600 hover:bg-emerald-700"
-                      >
-                        <PackageMinus className="w-4 h-4 mr-1" />
-                        {language === "es" ? "Procesar SR" : "Process SR"}
-                      </Button>
+                      {/* Process SR button moved to bottom of card */}
                     </div>
                   )}
                 </div>
