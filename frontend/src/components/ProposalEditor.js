@@ -124,6 +124,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     reference_id: "",
     internal_notes: "",
     event_date: "",
+    section_title: "",
+    section_time: "",
   });
 
   // Fetch all data on mount
