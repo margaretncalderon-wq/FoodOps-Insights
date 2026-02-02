@@ -127,7 +127,7 @@ export default function ConsolidatedPurchaseSection() {
     setGenerating(false);
   };
 
-  // Process Stock Requisition - Deduct items from inventory
+  // Process Stock Requisition - Reserve items in inventory (NOT deduct)
   const handleProcessSR = async () => {
     if (!purchaseData?.stock_requisition?.length) {
       toast.error(language === "es" ? "No hay items para asignar" : "No items to allocate");
@@ -136,19 +136,30 @@ export default function ConsolidatedPurchaseSection() {
     
     setProcessingSR(true);
     try {
-      // Mark SR as confirmed/allocated - does NOT deduct inventory
-      // Inventory will be deducted during production posting
-      // This just confirms the allocation for planning purposes
+      // Reserve inventory items for these events
+      // This increases reserved_quantity but does NOT decrease stock_quantity
+      // Actual deduction happens during production posting
+      const eventIds = purchaseData.events?.map(e => e.event_id) || [];
+      const eventNames = purchaseData.events?.map(e => e.event_name).join(", ") || "";
+      
+      await axios.post(`${API}/api/inventory/reserve-for-events`, {
+        event_ids: eventIds,
+        items: purchaseData.stock_requisition.map(item => ({
+          inventory_item_id: item.inventory_item_id,
+          quantity: item.in_stock || item.total_required || 0,
+          notes: `Reserved for: ${eventNames}`
+        }))
+      }, { withCredentials: true });
       
       toast.success(language === "es" 
-        ? "Asignación confirmada - El inventario se deducirá durante producción" 
-        : "Allocation confirmed - Inventory will be deducted during production");
+        ? "Inventario reservado - Se deducirá durante producción" 
+        : "Inventory reserved - Will be deducted during production");
       setSrDialogOpen(false);
       
       // Mark events as having SR processed
       setSrProcessed(true);
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Error confirming allocation");
+      toast.error(error.response?.data?.detail || "Error reserving inventory");
     }
     setProcessingSR(false);
   };
