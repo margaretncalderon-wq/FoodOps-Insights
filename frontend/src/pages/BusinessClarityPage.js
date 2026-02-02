@@ -139,7 +139,7 @@ function DashboardSection() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <Flame className="w-4 h-4 text-amber-600" />
-                {isEs ? "🔥 Señales de Rentabilidad" : "🔥 Profit Signals"}
+                {isEs ? "Señales de Rentabilidad" : "Profit Signals"}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger>
