@@ -1024,12 +1024,26 @@ function ReportsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h2 className="text-lg font-semibold">{isEs ? "Reportes Ejecutivos" : "Executive Reports"}</h2>
-        <div className="flex gap-1">
-          {reports.map(({ key, label, icon: Icon }) => (
-            <Button key={key} variant={activeReport === key ? "default" : "ghost"} size="sm" onClick={() => setActiveReport(key)} className="gap-2"><Icon className="w-4 h-4" />{label}</Button>
-          ))}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="text-lg font-semibold">{isEs ? "Reportes Ejecutivos" : "Executive Reports"}</h2>
+          <div className="flex gap-1">
+            {reports.map(({ key, label, icon: Icon }) => (
+              <Button key={key} variant={activeReport === key ? "default" : "ghost"} size="sm" onClick={() => setActiveReport(key)} className="gap-2"><Icon className="w-4 h-4" />{label}</Button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Export Buttons */}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV} disabled={!reportData} className="gap-2">
+            <Download className="w-4 h-4" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToPDF} disabled={!reportData} className="gap-2">
+            <FileText className="w-4 h-4" />
+            PDF
+          </Button>
         </div>
       </div>
 
