@@ -592,38 +592,165 @@ function InventorySection() {
               <Label>{t("parLevel")}</Label>
               <Input type="number" value={itemForm.par_level} onChange={(e) => setItemForm({...itemForm, par_level: parseFloat(e.target.value) || 0})} />
             </div>
-            {/* Replacement Cost - only for equipment */}
-            {itemForm.inventory_type === "equipment" && (
-              <div className="col-span-2">
-                <Label className="flex items-center gap-2">
-                  {language === "es" ? "Costo de Reposición" : "Replacement Cost"}
-                  <Badge variant="outline" className="text-xs">{language === "es" ? "Si se pierde/rompe" : "If lost/broken"}</Badge>
-                </Label>
-                <Input 
-                  type="number" 
-                  step="0.01" 
-                  value={itemForm.replacement_cost || ""} 
-                  onChange={(e) => setItemForm({...itemForm, replacement_cost: parseFloat(e.target.value) || 0})} 
-                  placeholder={language === "es" ? "Ej: $150.00" : "E.g., $150.00"}
-                />
-              </div>
-            )}
+            
+            {/* Cost Center */}
             <div className="col-span-2">
-              <Label>{t("supplier")}</Label>
-              <Select value={itemForm.preferred_supplier_id || "none"} onValueChange={(v) => setItemForm({...itemForm, preferred_supplier_id: v === "none" ? "" : v})}>
-                <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar proveedor" : "Select supplier"} /></SelectTrigger>
+              <Label>{t("costCenter")}</Label>
+              <Select value={itemForm.cost_center || "operations"} onValueChange={(v) => setItemForm({...itemForm, cost_center: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
-                  {suppliers.map(s => (
-                    <SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>
+                  {COST_CENTERS.map(cc => (
+                    <SelectItem key={cc.value} value={cc.value}>
+                      {language === "es" ? cc.labelEs : cc.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Equipment-specific fields */}
+            {itemForm.inventory_type === "equipment" && (
+              <>
+                <div className="col-span-2">
+                  <Label className="flex items-center gap-2">
+                    {language === "es" ? "Costo de Reposición" : "Replacement Cost"}
+                    <Badge variant="outline" className="text-xs">{language === "es" ? "Si se pierde/rompe" : "If lost/broken"}</Badge>
+                  </Label>
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    value={itemForm.replacement_cost || ""} 
+                    onChange={(e) => setItemForm({...itemForm, replacement_cost: parseFloat(e.target.value) || 0})} 
+                    placeholder={language === "es" ? "Ej: $150.00" : "E.g., $150.00"}
+                  />
+                </div>
+                
+                {/* Depreciation fields */}
+                <div className="col-span-2 border-t pt-3 mt-2">
+                  <Label className="text-sm font-medium mb-2 block">
+                    {language === "es" ? "📊 Depreciación (Activo Fijo)" : "📊 Depreciation (Fixed Asset)"}
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">{t("purchaseDate")}</Label>
+                      <Input 
+                        type="date" 
+                        value={itemForm.purchase_date || ""} 
+                        onChange={(e) => setItemForm({...itemForm, purchase_date: e.target.value})} 
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{t("usefulLife")}</Label>
+                      <Input 
+                        type="number" 
+                        value={itemForm.useful_life_years || 5} 
+                        onChange={(e) => setItemForm({...itemForm, useful_life_years: parseInt(e.target.value) || 5})} 
+                        min={1}
+                        max={30}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{t("depreciation")}</Label>
+                      <Input 
+                        type="number" 
+                        value={itemForm.depreciation_rate || 20} 
+                        onChange={(e) => setItemForm({...itemForm, depreciation_rate: parseFloat(e.target.value) || 20})} 
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemDialogOpen(false)}>{t("cancel")}</Button>
             <Button onClick={handleSaveItem}>{t("save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Categories Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="w-5 h-5" />
+              {language === "es" ? "Configuración de Categorías" : "Categories Settings"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "es" ? "Administra las categorías de inventario operativo" : "Manage operations inventory categories"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Add new category */}
+            <div className="p-3 border rounded-lg bg-muted/30">
+              <Label className="text-sm font-medium mb-2 block">{language === "es" ? "Agregar Nueva Categoría" : "Add New Category"}</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Input 
+                  placeholder="ID (ej: audio)" 
+                  value={newCategory.value}
+                  onChange={(e) => setNewCategory({...newCategory, value: e.target.value.toLowerCase().replace(/\s/g, "_")})}
+                />
+                <Input 
+                  placeholder="English name" 
+                  value={newCategory.label}
+                  onChange={(e) => setNewCategory({...newCategory, label: e.target.value})}
+                />
+                <Input 
+                  placeholder="Nombre español" 
+                  value={newCategory.labelEs}
+                  onChange={(e) => setNewCategory({...newCategory, labelEs: e.target.value})}
+                />
+              </div>
+              <Button size="sm" className="mt-2" onClick={handleAddCategory}>
+                <Plus className="w-4 h-4 mr-1" />
+                {language === "es" ? "Agregar" : "Add"}
+              </Button>
+            </div>
+
+            {/* Categories list */}
+            <div className="border rounded-lg max-h-64 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>English</TableHead>
+                    <TableHead>Español</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categories.map(cat => (
+                    <TableRow key={cat.value}>
+                      <TableCell className="font-mono text-xs">{cat.value}</TableCell>
+                      <TableCell>{cat.label}</TableCell>
+                      <TableCell>{cat.labelEs}</TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleRemoveCategory(cat.value)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={handleSaveCategories}>
+              <Save className="w-4 h-4 mr-2" />
+              {t("save")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -634,15 +761,15 @@ function InventorySection() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="w-5 h-5" />
-              {t("priceHistory")} - {priceHistoryDialog?.name}
+              {language === "es" ? "Historial de Costo" : "Cost History"} - {priceHistoryDialog?.name}
             </DialogTitle>
             <DialogDescription>
-              {language === "es" ? "Historial de cambios de precio por proveedor" : "Price change history by supplier"}
+              {language === "es" ? "Historial de cambios de costo del activo" : "Asset cost change history"}
             </DialogDescription>
           </DialogHeader>
           {priceHistory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {language === "es" ? "No hay historial de precios" : "No price history available"}
+              {language === "es" ? "No hay historial de costos" : "No cost history available"}
             </div>
           ) : (
             <div className="max-h-64 overflow-y-auto border rounded-lg">
@@ -650,9 +777,9 @@ function InventorySection() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{language === "es" ? "Fecha" : "Date"}</TableHead>
-                    <TableHead>{language === "es" ? "Proveedor" : "Supplier"}</TableHead>
-                    <TableHead className="text-right">{language === "es" ? "Precio Anterior" : "Old Price"}</TableHead>
-                    <TableHead className="text-right">{language === "es" ? "Nuevo Precio" : "New Price"}</TableHead>
+                    <TableHead>{language === "es" ? "Motivo" : "Reason"}</TableHead>
+                    <TableHead className="text-right">{language === "es" ? "Costo Anterior" : "Old Cost"}</TableHead>
+                    <TableHead className="text-right">{language === "es" ? "Nuevo Costo" : "New Cost"}</TableHead>
                     <TableHead className="text-right">{language === "es" ? "Cambio" : "Change"}</TableHead>
                   </TableRow>
                 </TableHeader>
