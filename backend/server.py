@@ -93,6 +93,8 @@ class User(BaseModel):
     company_id: Optional[str] = None
     role: str = "admin"  # Legacy role at company level
     active_org_id: Optional[str] = None  # Current active organization
+    is_super_admin: bool = False  # Platform-level super admin flag
+    view_as_org_id: Optional[str] = None  # For read-only view-as mode
     created_at: datetime
 
 class TokenResponse(BaseModel):
