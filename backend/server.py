@@ -5568,6 +5568,49 @@ async def delete_item_category(category_id: str, user: User = Depends(get_curren
         raise HTTPException(status_code=404, detail="Category not found")
     return {"message": "Category deleted"}
 
+# ============== OPERATIONS SUPPLIES CATEGORIES ==============
+
+@settings_router.get("/ops-categories")
+async def get_ops_categories(user: User = Depends(get_current_user)):
+    """Get operations supplies categories for company"""
+    result = await db.company_settings.find_one({
+        "company_id": user.company_id,
+        "setting_type": "ops_categories"
+    })
+    if not result:
+        return {"categories": None}  # Use defaults
+    
+    return {"categories": result.get("categories", [])}
+
+class OpsCategoriesUpdate(BaseModel):
+    categories: List[dict]  # [{value, label, labelEs}]
+
+@settings_router.post("/ops-categories")
+async def save_ops_categories(data: OpsCategoriesUpdate, user: User = Depends(get_current_user)):
+    """Save operations supplies categories for company"""
+    now = datetime.now(timezone.utc)
+    
+    await db.company_settings.update_one(
+        {
+            "company_id": user.company_id,
+            "setting_type": "ops_categories"
+        },
+        {
+            "$set": {
+                "categories": data.categories,
+                "updated_at": now.isoformat()
+            },
+            "$setOnInsert": {
+                "company_id": user.company_id,
+                "setting_type": "ops_categories",
+                "created_at": now.isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    return {"message": "Categories saved", "count": len(data.categories)}
+
 # ============== PICKLIST ITEMS ROUTES ==============
 
 @settings_router.get("/picklist")
