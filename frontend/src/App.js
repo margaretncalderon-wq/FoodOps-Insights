@@ -187,7 +187,7 @@ function AppRouter() {
       {/* Super Admin Portal - Hidden from normal navigation */}
       <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
         <Route index element={<SuperAdminOverview />} />
-        <Route path="crm" element={<CRMPage />} />
+        <Route path="crm" element={<SuperAdminCRMPage />} />
         <Route path="bi" element={<BIPage />} />
         <Route path="organizations" element={<OrganizationsListPage />} />
         <Route path="organizations/:id" element={<OrganizationDetailPage />} />
