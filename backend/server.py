@@ -13801,6 +13801,480 @@ async def get_my_permissions(user: User = Depends(get_current_user)):
 # Include org_router after all endpoints are defined
 api_router.include_router(org_router)
 
+# ============== SUPER ADMIN PORTAL ==============
+
+async def get_super_admin(user: User = Depends(get_current_user)) -> User:
+    """Dependency that verifies user is a super admin"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=404, detail="Not found")
+    return user
+
+async def log_super_admin_action(admin_user_id: str, action: str, target_org_id: str = None, details: dict = None):
+    """Log super admin actions for audit"""
+    await db.super_admin_audit.insert_one({
+        "audit_id": f"sa_audit_{uuid.uuid4().hex[:12]}",
+        "admin_user_id": admin_user_id,
+        "action": action,
+        "target_org_id": target_org_id,
+        "details": details or {},
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+# ---- Super Admin: Organizations List ----
+
+@super_admin_router.get("/organizations")
+async def list_all_organizations(
+    search: str = None,
+    status: str = None,
+    plan: str = None,
+    page: int = 1,
+    limit: int = 50,
+    admin: User = Depends(get_super_admin)
+):
+    """List all organizations with filters (Super Admin only)"""
+    query = {}
+    
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+    if status:
+        query["status"] = status
+    
+    # Get organizations
+    orgs = await db.companies.find(query, {"_id": 0}).skip((page - 1) * limit).limit(limit).to_list(limit)
+    total = await db.companies.count_documents(query)
+    
+    # Enrich with subscription and usage data
+    enriched_orgs = []
+    current_period = await get_current_period()
+    
+    for org in orgs:
+        # Get subscription
+        subscription = await db.subscriptions.find_one(
+            {"company_id": org["company_id"]},
+            {"_id": 0}
+        )
+        
+        # Get plan
+        plan_data = None
+        if subscription:
+            plan_data = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+            if plan and plan_data and plan_data["plan_id"] != plan:
+                continue  # Filter by plan
+        
+        # Get usage
+        usage = await db.usage_meters.find_one(
+            {"company_id": org["company_id"], "period": current_period},
+            {"_id": 0}
+        )
+        
+        # Count members
+        members_count = await db.memberships.count_documents({
+            "company_id": org["company_id"],
+            "status": "active"
+        })
+        
+        enriched_orgs.append({
+            "organization": org,
+            "subscription": subscription,
+            "plan": plan_data,
+            "usage": usage.get("metrics", {}) if usage else {},
+            "members_count": members_count,
+            "limits": plan_data.get("limits", {}) if plan_data else {}
+        })
+    
+    return {
+        "organizations": enriched_orgs,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total + limit - 1) // limit
+    }
+
+@super_admin_router.get("/organizations/{company_id}")
+async def get_organization_detail(company_id: str, admin: User = Depends(get_super_admin)):
+    """Get detailed organization info (Super Admin only)"""
+    org = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one({"company_id": company_id}, {"_id": 0})
+    
+    # Get plan
+    plan_data = None
+    if subscription:
+        plan_data = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+    
+    # Get usage for current and last 3 months
+    current_period = await get_current_period()
+    usage_history = await db.usage_meters.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("period", -1).limit(4).to_list(4)
+    
+    # Get members count
+    members_count = await db.memberships.count_documents({
+        "company_id": company_id,
+        "status": "active"
+    })
+    
+    # Get events count
+    events_count = await db.events.count_documents({"company_id": company_id})
+    
+    # Get internal notes
+    internal_notes = await db.org_internal_notes.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    return {
+        "organization": org,
+        "subscription": subscription,
+        "plan": plan_data,
+        "usage_history": usage_history,
+        "current_usage": usage_history[0] if usage_history else None,
+        "members_count": members_count,
+        "events_count": events_count,
+        "internal_notes": internal_notes.get("notes", "") if internal_notes else ""
+    }
+
+@super_admin_router.put("/organizations/{company_id}/notes")
+async def update_org_internal_notes(company_id: str, data: dict, admin: User = Depends(get_super_admin)):
+    """Update internal support notes for an organization"""
+    await db.org_internal_notes.update_one(
+        {"company_id": company_id},
+        {"$set": {"notes": data.get("notes", ""), "updated_by": admin.user_id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    await log_super_admin_action(admin.user_id, "update_notes", company_id)
+    return {"success": True}
+
+@super_admin_router.put("/organizations/{company_id}/suspend")
+async def suspend_organization(company_id: str, data: dict = None, admin: User = Depends(get_super_admin)):
+    """Suspend an organization (Super Admin only)"""
+    org = await db.companies.find_one({"company_id": company_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    reason = data.get("reason", "No reason provided") if data else "No reason provided"
+    
+    await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {"status": "suspended", "suspended_at": datetime.now(timezone.utc).isoformat(), "suspension_reason": reason}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "suspend_org", company_id, {"reason": reason})
+    
+    return {"success": True, "status": "suspended"}
+
+@super_admin_router.put("/organizations/{company_id}/reactivate")
+async def reactivate_organization(company_id: str, admin: User = Depends(get_super_admin)):
+    """Reactivate a suspended organization (Super Admin only)"""
+    org = await db.companies.find_one({"company_id": company_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {"status": "active"}, "$unset": {"suspended_at": "", "suspension_reason": ""}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "reactivate_org", company_id)
+    
+    return {"success": True, "status": "active"}
+
+@super_admin_router.put("/organizations/{company_id}/subscription/override")
+async def override_subscription_status(company_id: str, data: dict, admin: User = Depends(get_super_admin)):
+    """Override subscription status (DANGER ZONE - for testing only)"""
+    new_status = data.get("status")
+    if new_status not in ["trialing", "active", "past_due", "canceled", "paused"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    await db.subscriptions.update_one(
+        {"company_id": company_id},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "override_subscription", company_id, {"new_status": new_status})
+    
+    return {"success": True, "status": new_status}
+
+@super_admin_router.post("/organizations/{company_id}/reset-usage")
+async def reset_usage_meter(company_id: str, admin: User = Depends(get_super_admin)):
+    """Reset usage meter for current period (Super Admin only)"""
+    current_period = await get_current_period()
+    
+    await db.usage_meters.update_one(
+        {"company_id": company_id, "period": current_period},
+        {"$set": {
+            "metrics": {
+                "events_created": 0,
+                "active_users": 0,
+                "supplier_invoices": 0,
+                "proposals_created": 0,
+                "storage_mb": 0
+            },
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    await log_super_admin_action(admin.user_id, "reset_usage", company_id, {"period": current_period})
+    
+    return {"success": True, "period": current_period}
+
+# ---- Super Admin: Organization Members ----
+
+@super_admin_router.get("/organizations/{company_id}/members")
+async def get_org_members(company_id: str, admin: User = Depends(get_super_admin)):
+    """Get all members of an organization (Super Admin only)"""
+    memberships = await db.memberships.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(200)
+    
+    members = []
+    for mem in memberships:
+        user_data = await db.users.find_one({"user_id": mem["user_id"]}, {"_id": 0})
+        if user_data:
+            # Get last activity (simplified - last login would be better)
+            members.append({
+                "membership_id": mem["membership_id"],
+                "user_id": mem["user_id"],
+                "email": user_data.get("email"),
+                "name": user_data.get("name"),
+                "picture": user_data.get("picture"),
+                "role": mem["role"],
+                "status": mem["status"],
+                "joined_at": mem["joined_at"],
+                "last_active": user_data.get("last_login")
+            })
+    
+    return members
+
+@super_admin_router.put("/organizations/{company_id}/members/{membership_id}/role")
+async def update_member_role_admin(company_id: str, membership_id: str, role: str, admin: User = Depends(get_super_admin)):
+    """Update member role (Super Admin only)"""
+    if role not in ["owner", "admin", "ops", "finance", "viewer"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    membership = await db.memberships.find_one({"membership_id": membership_id, "company_id": company_id})
+    if not membership:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    
+    await db.memberships.update_one(
+        {"membership_id": membership_id},
+        {"$set": {"role": role, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "change_member_role", company_id, {"membership_id": membership_id, "new_role": role})
+    
+    return {"success": True}
+
+@super_admin_router.delete("/organizations/{company_id}/members/{membership_id}")
+async def remove_member_admin(company_id: str, membership_id: str, admin: User = Depends(get_super_admin)):
+    """Remove member from organization (Super Admin only)"""
+    membership = await db.memberships.find_one({"membership_id": membership_id, "company_id": company_id})
+    if not membership:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    
+    await db.memberships.update_one(
+        {"membership_id": membership_id},
+        {"$set": {"status": "removed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "remove_member", company_id, {"membership_id": membership_id})
+    
+    return {"success": True}
+
+# ---- Super Admin: Audit Log ----
+
+@super_admin_router.get("/organizations/{company_id}/audit")
+async def get_org_audit_log(company_id: str, limit: int = 20, admin: User = Depends(get_super_admin)):
+    """Get audit log for an organization (Super Admin only)"""
+    # Get super admin actions on this org
+    admin_actions = await db.super_admin_audit.find(
+        {"target_org_id": company_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    # Get org-level audit (invitations, plan changes, etc.)
+    # This is a simplified version - in production you'd have a proper audit collection
+    
+    audit_entries = []
+    
+    # Recent invitations
+    invitations = await db.invitations.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    for inv in invitations:
+        audit_entries.append({
+            "type": "invitation",
+            "action": f"Invited {inv['email']} as {inv['role']}",
+            "timestamp": inv["created_at"],
+            "status": inv["status"]
+        })
+    
+    # Subscription changes (from admin actions)
+    for action in admin_actions:
+        audit_entries.append({
+            "type": "admin_action",
+            "action": action["action"],
+            "details": action.get("details", {}),
+            "timestamp": action["timestamp"],
+            "admin_id": action["admin_user_id"]
+        })
+    
+    # Sort by timestamp
+    audit_entries.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    
+    return audit_entries[:limit]
+
+@super_admin_router.get("/audit")
+async def get_global_audit_log(limit: int = 50, admin: User = Depends(get_super_admin)):
+    """Get global super admin audit log"""
+    audit_log = await db.super_admin_audit.find(
+        {},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    # Enrich with admin user names
+    enriched = []
+    for entry in audit_log:
+        admin_user = await db.users.find_one({"user_id": entry["admin_user_id"]}, {"_id": 0, "name": 1, "email": 1})
+        org = await db.companies.find_one({"company_id": entry.get("target_org_id")}, {"_id": 0, "name": 1}) if entry.get("target_org_id") else None
+        
+        enriched.append({
+            **entry,
+            "admin_name": admin_user.get("name") if admin_user else "Unknown",
+            "admin_email": admin_user.get("email") if admin_user else "Unknown",
+            "org_name": org.get("name") if org else None
+        })
+    
+    return enriched
+
+# ---- Super Admin: View As Mode ----
+
+@super_admin_router.post("/view-as/{company_id}")
+async def start_view_as_mode(company_id: str, admin: User = Depends(get_super_admin)):
+    """Start read-only view-as mode for an organization"""
+    org = await db.companies.find_one({"company_id": company_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Update user's view_as_org_id
+    await db.users.update_one(
+        {"user_id": admin.user_id},
+        {"$set": {"view_as_org_id": company_id}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "start_view_as", company_id)
+    
+    return {"success": True, "view_as_org_id": company_id, "org_name": org.get("name")}
+
+@super_admin_router.post("/exit-view-as")
+async def exit_view_as_mode(admin: User = Depends(get_super_admin)):
+    """Exit read-only view-as mode"""
+    if admin.view_as_org_id:
+        await log_super_admin_action(admin.user_id, "exit_view_as", admin.view_as_org_id)
+    
+    await db.users.update_one(
+        {"user_id": admin.user_id},
+        {"$unset": {"view_as_org_id": ""}}
+    )
+    
+    return {"success": True}
+
+@super_admin_router.get("/view-as/status")
+async def get_view_as_status(admin: User = Depends(get_super_admin)):
+    """Get current view-as status"""
+    if not admin.view_as_org_id:
+        return {"active": False}
+    
+    org = await db.companies.find_one({"company_id": admin.view_as_org_id}, {"_id": 0, "name": 1})
+    return {
+        "active": True,
+        "org_id": admin.view_as_org_id,
+        "org_name": org.get("name") if org else "Unknown"
+    }
+
+# ---- Super Admin: Stats Dashboard ----
+
+@super_admin_router.get("/stats")
+async def get_platform_stats(admin: User = Depends(get_super_admin)):
+    """Get platform-wide statistics"""
+    # Count organizations by status
+    total_orgs = await db.companies.count_documents({})
+    active_orgs = await db.companies.count_documents({"status": "active"})
+    suspended_orgs = await db.companies.count_documents({"status": "suspended"})
+    
+    # Count subscriptions by plan
+    plan_counts = {}
+    plans = await db.plans.find({}, {"_id": 0, "plan_id": 1, "name": 1}).to_list(10)
+    for plan in plans:
+        count = await db.subscriptions.count_documents({"plan_id": plan["plan_id"]})
+        plan_counts[plan["name"]] = count
+    
+    # Count total users
+    total_users = await db.users.count_documents({})
+    
+    # Count events this month
+    current_period = await get_current_period()
+    events_this_month = 0
+    usage_meters = await db.usage_meters.find({"period": current_period}, {"_id": 0, "metrics": 1}).to_list(1000)
+    for meter in usage_meters:
+        events_this_month += meter.get("metrics", {}).get("events_created", 0)
+    
+    return {
+        "organizations": {
+            "total": total_orgs,
+            "active": active_orgs,
+            "suspended": suspended_orgs
+        },
+        "subscriptions_by_plan": plan_counts,
+        "total_users": total_users,
+        "events_this_month": events_this_month
+    }
+
+# ---- Super Admin: Make User Super Admin (bootstrap) ----
+
+@super_admin_router.post("/grant-super-admin/{user_email}")
+async def grant_super_admin(user_email: str, admin: User = Depends(get_super_admin)):
+    """Grant super admin privileges to a user (requires existing super admin)"""
+    user = await db.users.find_one({"email": user_email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one(
+        {"email": user_email},
+        {"$set": {"is_super_admin": True}}
+    )
+    
+    await log_super_admin_action(admin.user_id, "grant_super_admin", None, {"target_email": user_email})
+    
+    return {"success": True, "email": user_email}
+
+# Bootstrap route - only works if no super admins exist
+@super_admin_router.post("/bootstrap")
+async def bootstrap_super_admin(user: User = Depends(get_current_user)):
+    """Bootstrap first super admin (only works if no super admins exist)"""
+    existing_super_admin = await db.users.find_one({"is_super_admin": True})
+    if existing_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin already exists")
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"is_super_admin": True}}
+    )
+    
+    return {"success": True, "message": "You are now a super admin"}
+
+# Include super_admin_router
+api_router.include_router(super_admin_router)
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
