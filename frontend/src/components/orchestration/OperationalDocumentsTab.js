@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { FileText, Utensils, Package, Eye, Download, Printer, RefreshCw, ChefHat } from "lucide-react";
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import PackingListEditor from "./PackingListEditor";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
