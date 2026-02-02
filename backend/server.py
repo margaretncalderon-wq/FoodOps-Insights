@@ -10809,6 +10809,70 @@ async def get_accounts_payable(user: User = Depends(get_current_user)):
         }
     }
 
+# Assign payable to event or cost center
+class PayableAssignment(BaseModel):
+    event_id: Optional[str] = None
+    cost_center: Optional[str] = None
+
+@business_clarity_router.put("/payables/{payable_id}/assign")
+async def assign_payable(payable_id: str, data: PayableAssignment, user: User = Depends(get_current_user)):
+    """Assign a payable/expense to an event or cost center"""
+    now = datetime.now(timezone.utc)
+    
+    # Handle "none" values from frontend
+    event_id = data.event_id if data.event_id and data.event_id != "none" else None
+    cost_center = data.cost_center if data.cost_center and data.cost_center != "none" else None
+    
+    # Try to find in expenses first
+    expense = await db.expenses.find_one({
+        "expense_id": payable_id,
+        "company_id": user.company_id
+    })
+    
+    if expense:
+        update_data = {"updated_at": now.isoformat()}
+        if event_id:
+            update_data["event_id"] = event_id
+            update_data["cost_center"] = None
+        elif cost_center:
+            update_data["cost_center"] = cost_center
+            update_data["event_id"] = None
+        else:
+            update_data["event_id"] = None
+            update_data["cost_center"] = None
+            
+        await db.expenses.update_one(
+            {"expense_id": payable_id},
+            {"$set": update_data}
+        )
+        return {"message": "Expense assigned successfully", "type": "expense"}
+    
+    # Try in supplier_payables
+    payable = await db.supplier_payables.find_one({
+        "payable_id": payable_id,
+        "company_id": user.company_id
+    })
+    
+    if payable:
+        update_data = {"updated_at": now.isoformat()}
+        if event_id:
+            update_data["event_id"] = event_id
+            update_data["cost_center"] = None
+        elif cost_center:
+            update_data["cost_center"] = cost_center
+            update_data["event_id"] = None
+        else:
+            update_data["event_id"] = None
+            update_data["cost_center"] = None
+            
+        await db.supplier_payables.update_one(
+            {"payable_id": payable_id},
+            {"$set": update_data}
+        )
+        return {"message": "Payable assigned successfully", "type": "payable"}
+    
+    raise HTTPException(status_code=404, detail="Payable not found")
+
 # ============== CLIENT CREDIT MANAGEMENT ==============
 
 @business_clarity_router.put("/clients/{client_id}/credit")
