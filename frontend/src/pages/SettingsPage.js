@@ -803,6 +803,14 @@ export default function SettingsPage() {
         <Tabs defaultValue="branding" className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
+            <TabsTrigger value="billing" className="gap-2">
+              <DollarSign className="w-4 h-4" />
+              {language === "es" ? "Facturación" : "Billing"}
+            </TabsTrigger>
+            <TabsTrigger value="team" className="gap-2">
+              <Users className="w-4 h-4" />
+              {language === "es" ? "Equipo" : "Team"}
+            </TabsTrigger>
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               {language === "es" ? "Usuarios" : "Users"}
@@ -847,6 +855,16 @@ export default function SettingsPage() {
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
           </TabsList>
+
+          {/* Billing Tab */}
+          <TabsContent value="billing">
+            <BillingSection />
+          </TabsContent>
+
+          {/* Team Tab */}
+          <TabsContent value="team">
+            <TeamSection />
+          </TabsContent>
 
           {/* Users Tab */}
           <TabsContent value="users">
