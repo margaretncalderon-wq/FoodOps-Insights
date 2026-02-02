@@ -39,6 +39,20 @@ JWT_EXPIRATION_HOURS = 24 * 7
 # Create the main app
 app = FastAPI(title="EEP Evoque Events Platform API")
 
+# Health check endpoint for Kubernetes - MUST be at root level, not under /api
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes liveness/readiness probes"""
+    try:
+        # Quick DB ping to verify connection
+        await client.admin.command('ping')
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected", "error": str(e)}
+        )
+
 # Create routers
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
