@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { 
   Package, Plus, Edit, Trash2, Search, AlertTriangle, ShoppingCart,
   Truck, ClipboardList, History, Upload, DollarSign, TrendingUp, TrendingDown,
-  Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save
+  Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
