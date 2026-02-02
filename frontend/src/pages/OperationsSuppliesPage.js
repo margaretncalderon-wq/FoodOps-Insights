@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
-import Layout from "../components/Layout";
+import { Layout } from "../components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
