@@ -274,11 +274,6 @@ function InventorySection() {
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  const getSupplierName = (supplierId) => {
-    const supplier = suppliers.find(s => s.supplier_id === supplierId);
-    return supplier?.name || "-";
-  };
-
   // Calculate stats
   const totalValue = items.reduce((sum, item) => sum + ((item.stock_quantity || 0) * (item.cost_per_unit || 0)), 0);
   const lowStockItems = items.filter(item => (item.stock_quantity || 0) <= (item.par_level || 0));
