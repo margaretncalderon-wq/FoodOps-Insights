@@ -51,7 +51,7 @@ import {
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
-  Edit, Clock, Calculator, Link2, RefreshCw
+  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
