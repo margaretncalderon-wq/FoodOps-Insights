@@ -676,57 +676,52 @@ export default function ConsolidatedPurchaseSection() {
             </Card>
           )}
 
-          {/* Summary Card with Create PO buttons */}
+          {/* Procurement Summary Card */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5" />
-                  {language === "es" ? "Resumen de Compras" : "Purchase Summary"}
-                </span>
-                <Badge variant="outline" className="text-lg px-4 py-1">
-                  {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
-                </Badge>
-              </CardTitle>
-              <CardDescription>
-                {purchaseData.events?.length} {language === "es" ? "eventos" : "events"} • 
-                {" "}{Object.keys(purchaseData.items_by_supplier || {}).length} {language === "es" ? "proveedores" : "suppliers"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Create PO buttons by supplier */}
-              {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
-                items.some(i => i.to_purchase > 0) && id !== "no_supplier"
-              ).length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {language === "es" ? "Crear órdenes de compra:" : "Create purchase orders:"}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+                  <span>{language === "es" ? "Resumen de Procurement" : "Procurement Summary"}</span>
+                  <Badge variant="outline" className="ml-2 text-sm px-3 py-0.5">
+                    {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
+                  </Badge>
+                </CardTitle>
+                {/* Create PO buttons - styled similar to Process SR */}
+                {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
+                  items.some(i => i.to_purchase > 0) && id !== "no_supplier"
+                ).length > 0 && (
+                  <div className="flex items-center gap-2">
                     {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
                       items.some(i => i.to_purchase > 0) && id !== "no_supplier"
                     ).map(([supplierId, items]) => (
                       <Button 
                         key={supplierId}
-                        variant="outline"
                         size="sm"
                         onClick={() => handleCreatePO(supplierId, items)}
                         disabled={creatingPO === supplierId}
+                        className="h-8 bg-amber-600 hover:bg-amber-700"
                       >
                         {creatingPO === supplierId ? (
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
                         ) : (
-                          <FileText className="w-4 h-4 mr-2" />
+                          <FileText className="w-4 h-4 mr-1" />
                         )}
                         {items[0]?.supplier_name || "Unknown"} (${items.filter(i => i.to_purchase > 0).reduce((s, i) => s + i.total_cost, 0).toFixed(0)})
                       </Button>
                     ))}
                   </div>
-                </div>
-              )}
-              
+                )}
+              </div>
+              <CardDescription>
+                {language === "es" 
+                  ? "Consolidación de compras y resumen de proveedores para los eventos seleccionados"
+                  : "Consolidated purchasing and supplier overview for selected events"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               {/* Events included */}
-              <div className="mt-4 pt-4 border-t">
+              <div className="mb-4">
                 <p className="text-xs text-muted-foreground mb-2">
                   {language === "es" ? "Eventos incluidos:" : "Events included:"}
                 </p>
@@ -740,7 +735,7 @@ export default function ConsolidatedPurchaseSection() {
               </div>
 
               {/* Mark Complete Button */}
-              <div className="mt-4 pt-4 border-t">
+              <div className="pt-4 border-t">
                 <Button 
                   onClick={handleMarkComplete}
                   disabled={markingComplete}
@@ -754,14 +749,14 @@ export default function ConsolidatedPurchaseSection() {
                   ) : (
                     <>
                       <Archive className="w-4 h-4 mr-2" />
-                      {language === "es" ? "Marcar Compras Completadas" : "Mark Procurement Complete"}
+                      {language === "es" ? "Marcar Procurement Completado" : "Mark Procurement Complete"}
                     </>
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center mt-2">
                   {language === "es" 
-                    ? "Esto moverá los eventos al tab 'Procesados' para evitar órdenes duplicadas"
-                    : "This will move events to 'Processed' tab to avoid duplicate orders"}
+                    ? "Esto confirma que todas las órdenes de compra para estos eventos han sido enviadas a Vendor Orders como borradores. El inventario se actualizará cuando se reciban los productos y durante la producción."
+                    : "This confirms that all purchase orders for these events have been sent to Vendor Orders as drafts. Inventory will be updated when goods are received and during production."}
                 </p>
               </div>
             </CardContent>
