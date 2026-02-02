@@ -5080,8 +5080,25 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
 @finance_router.put("/invoices/{invoice_id}")
 async def update_invoice(invoice_id: str, data: dict, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    update_data = {k: v for k, v in data.items() if k in ["status", "notes", "due_date"]}
+    
+    # Allow editing these fields
+    allowed_fields = [
+        "status", "notes", "due_date", "invoice_type", "subtotal", 
+        "tax_rate", "tax_amount", "discount_percent", "discount_amount", 
+        "total", "lines", "terms", "payment_terms"
+    ]
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
     update_data["updated_at"] = now.isoformat()
+    
+    # Recalculate balance_due if total changed
+    if "total" in update_data:
+        invoice = await db.invoices.find_one(
+            {"invoice_id": invoice_id, "company_id": user.company_id},
+            {"_id": 0, "amount_paid": 1}
+        )
+        if invoice:
+            amount_paid = invoice.get("amount_paid", 0)
+            update_data["balance_due"] = update_data["total"] - amount_paid
     
     result = await db.invoices.update_one(
         {"invoice_id": invoice_id, "company_id": user.company_id},
