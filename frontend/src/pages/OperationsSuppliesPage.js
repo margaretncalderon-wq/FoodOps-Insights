@@ -1573,6 +1573,173 @@ function CheckInOutSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Delivery Note Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              {language === "es" ? "Editar Conduce" : "Edit Delivery Note"}
+              {editingNote && <Badge variant="outline" className="ml-2">{editingNote.note_number}</Badge>}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "es" 
+                ? "Modifica los items antes de realizar el check-in. El inventario se ajustará automáticamente." 
+                : "Modify items before check-in. Inventory will be adjusted automatically."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingNote && (
+            <div className="space-y-4 flex-1 overflow-y-auto">
+              {/* Event info */}
+              <div className="flex gap-4 text-sm p-3 bg-muted/50 rounded-lg">
+                <div><strong>{language === "es" ? "Evento:" : "Event:"}</strong> {getEventName(editingNote.event_id)}</div>
+                <div><strong>{language === "es" ? "Salida:" : "Check-out:"}</strong> {editingNote.checkout_date ? new Date(editingNote.checkout_date).toLocaleDateString() : "-"}</div>
+              </div>
+
+              {/* Current Items */}
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  {language === "es" ? "Items en el Conduce" : "Items in Delivery Note"}
+                  <Badge variant="secondary">{editingNote.items?.length || 0}</Badge>
+                </h4>
+                
+                {editingNote.items?.length > 0 ? (
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === "es" ? "Item" : "Item"}</TableHead>
+                          <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
+                          <TableHead className="text-center">{language === "es" ? "Cantidad" : "Quantity"}</TableHead>
+                          <TableHead>{language === "es" ? "Notas" : "Notes"}</TableHead>
+                          <TableHead className="text-right">{language === "es" ? "Costo Reposición" : "Replace Cost"}</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {editingNote.items.map((item, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell>
+                              <Badge variant={item.inventory_type === "equipment" ? "default" : "secondary"}>
+                                {item.inventory_type === "equipment" ? "↩️" : "🚫"} {item.inventory_type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Input
+                                type="number"
+                                value={item.qty_out || 0}
+                                onChange={(e) => updateEditingItem(idx, "qty_out", parseInt(e.target.value) || 0)}
+                                className="w-20 h-8 text-center"
+                                min={1}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={item.notes || ""}
+                                onChange={(e) => updateEditingItem(idx, "notes", e.target.value)}
+                                placeholder={language === "es" ? "Notas..." : "Notes..."}
+                                className="h-8"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              ${(item.replacement_cost || 0).toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => removeItemFromEditingNote(idx)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>{language === "es" ? "No hay items en el conduce" : "No items in delivery note"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Add Items Section */}
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  {language === "es" ? "Agregar Items" : "Add Items"}
+                </h4>
+                <div className="border rounded-lg max-h-48 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === "es" ? "Item Disponible" : "Available Item"}</TableHead>
+                        <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
+                        <TableHead className="text-center">{language === "es" ? "Stock" : "Stock"}</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {availableInventory
+                        .filter(inv => !editingNote.items?.find(i => i.inventory_item_id === inv.ingredient_id))
+                        .map(inv => (
+                          <TableRow key={inv.ingredient_id}>
+                            <TableCell className="font-medium">{inv.name}</TableCell>
+                            <TableCell>
+                              <Badge variant={inv.inventory_type === "equipment" ? "default" : "secondary"}>
+                                {inv.inventory_type === "equipment" ? "↩️" : "🚫"} {inv.inventory_type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">{inv.stock_quantity} {inv.unit}</TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => addItemToEditingNote(inv)}
+                                disabled={inv.stock_quantity <= 0}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                {language === "es" ? "Agregar" : "Add"}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>{language === "es" ? "Notas del Conduce" : "Delivery Note Notes"}</Label>
+                <Input
+                  value={editingNote.notes || ""}
+                  onChange={(e) => setEditingNote({ ...editingNote, notes: e.target.value })}
+                  placeholder={language === "es" ? "Notas adicionales..." : "Additional notes..."}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setEditDialogOpen(false); setEditingNote(null); }}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveEditedNote} disabled={!editingNote?.items?.length}>
+              <Save className="w-4 h-4 mr-2" />
+              {language === "es" ? "Guardar Cambios" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
