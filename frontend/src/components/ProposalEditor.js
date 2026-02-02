@@ -1571,7 +1571,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   </SelectTrigger>
                   <SelectContent>
                     {ITEM_TYPES.map(itype => (
-                      <SelectItem key={itype} value={itype}>{itype}</SelectItem>
+                      <SelectItem key={itype} value={itype}>{getItemTypeLabel(itype)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
