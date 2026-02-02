@@ -2498,6 +2498,152 @@ Mantel Blanco, , 10, 3`}
                             </div>
                           )}
                           
+                          {/* Invoice-specific settings */}
+                          {template.template_type === "Invoice" && (
+                            <div className="border-t pt-4">
+                              <Label className="text-xs mb-3 block font-medium">
+                                {language === "es" ? "Configuración de Factura" : "Invoice Settings"}
+                              </Label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Términos y Condiciones (EN)" : "Terms & Conditions (EN)"}</Label>
+                                  <Textarea 
+                                    rows={3}
+                                    className="text-sm"
+                                    placeholder="Payment is due within 30 days..."
+                                    value={template.terms_and_conditions_en || ""}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, terms_and_conditions_en: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Términos y Condiciones (ES)" : "Terms & Conditions (ES)"}</Label>
+                                  <Textarea 
+                                    rows={3}
+                                    className="text-sm"
+                                    placeholder="El pago es debido dentro de 30 días..."
+                                    value={template.terms_and_conditions_es || ""}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, terms_and_conditions_es: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Instrucciones de Pago (EN)" : "Payment Instructions (EN)"}</Label>
+                                  <Textarea 
+                                    rows={2}
+                                    className="text-sm"
+                                    placeholder="Please make payment to..."
+                                    value={template.payment_instructions_en || ""}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, payment_instructions_en: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">{language === "es" ? "Instrucciones de Pago (ES)" : "Payment Instructions (ES)"}</Label>
+                                  <Textarea 
+                                    rows={2}
+                                    className="text-sm"
+                                    placeholder="Por favor realice el pago a..."
+                                    value={template.payment_instructions_es || ""}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, payment_instructions_es: e.target.value })}
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <Label className="text-xs">{language === "es" ? "Datos Bancarios" : "Bank Details"}</Label>
+                                  <Textarea 
+                                    rows={3}
+                                    className="text-sm"
+                                    placeholder={language === "es" ? "Banco: XXX\nCuenta: XXX\nCLABE: XXX" : "Bank: XXX\nAccount: XXX\nRouting: XXX"}
+                                    value={template.bank_details || ""}
+                                    onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, bank_details: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-4 mt-4">
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.show_logo !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, show_logo: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Mostrar Logo" : "Show Logo"}</Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.show_company_address !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, show_company_address: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Mostrar Dirección" : "Show Address"}</Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.show_tax_id !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, show_tax_id: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Mostrar RFC/Tax ID" : "Show Tax ID"}</Label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Packing List / Kitchen Sheet specific settings */}
+                          {(template.template_type === "PackingList" || template.template_type === "KitchenSheet") && (
+                            <div className="border-t pt-4">
+                              <Label className="text-xs mb-3 block font-medium">
+                                {language === "es" ? "Opciones de Visualización" : "Display Options"}
+                              </Label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.show_quantities !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, show_quantities: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Mostrar Cantidades" : "Show Quantities"}</Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.show_checkboxes !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, show_checkboxes: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Mostrar Checkboxes" : "Show Checkboxes"}</Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.show_notes_column !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, show_notes_column: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Columna de Notas" : "Notes Column"}</Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={template.group_by_category !== false}
+                                    onCheckedChange={(v) => handleUpdateTemplate(template.template_id, { ...template, group_by_category: v })}
+                                  />
+                                  <Label className="text-xs">{language === "es" ? "Agrupar por Categoría" : "Group by Category"}</Label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Color customization for all templates */}
+                          <div className="border-t pt-4">
+                            <Label className="text-xs mb-3 block font-medium">
+                              {language === "es" ? "Color Principal del Documento" : "Document Primary Color"}
+                            </Label>
+                            <div className="flex items-center gap-3">
+                              <Input 
+                                type="color"
+                                className="w-12 h-10 p-1 cursor-pointer"
+                                value={template.primary_color || "#3A4D3F"}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, primary_color: e.target.value })}
+                              />
+                              <Input 
+                                className="w-28 text-sm font-mono"
+                                value={template.primary_color || "#3A4D3F"}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, primary_color: e.target.value })}
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {language === "es" ? "Usado en encabezados y acentos" : "Used for headers and accents"}
+                              </span>
+                            </div>
+                          </div>
+                          
                           {/* Custom Fields */}
                           {featureFlags?.is_custom_fields_enabled && (
                             <div className="border-t pt-4">
