@@ -1,0 +1,186 @@
+import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
+import axios from "axios";
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Download, RefreshCw, AlertTriangle } from "lucide-react";
+
+const API = process.env.REACT_APP_BACKEND_URL;
+const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export function StatementsSection() {
+  const { language } = useLanguage();
+  const isEs = language === "es";
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState("");
+  const [statement, setStatement] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+
+  const fetchClients = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/clients`, { withCredentials: true });
+      setClients(res.data);
+    } catch (err) { console.error(err); }
+    setLoading(false);
+  }, []);
+
+  const fetchStatement = async (clientId) => {
+    if (!clientId) return;
+    try {
+      const res = await axios.get(`${API}/api/business-clarity/clients/${clientId}/financial`, { withCredentials: true });
+      setStatement(res.data);
+    } catch (err) {
+      toast.error(isEs ? "Error al cargar" : "Failed to load");
+    }
+  };
+
+  useEffect(() => { fetchClients(); }, [fetchClients]);
+  useEffect(() => { if (selectedClient) fetchStatement(selectedClient); }, [selectedClient]);
+
+  const handleDownloadPDF = async () => {
+    if (!statement) return;
+    setDownloading(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
+      
+      const doc = new jsPDF();
+      const client = statement.client;
+      
+      doc.setFontSize(18);
+      doc.text("Estado de Cuenta / Account Statement", 14, 20);
+      doc.setFontSize(12);
+      doc.text(`Cliente: ${client?.display_name || "N/A"}`, 14, 30);
+      doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 36);
+      
+      doc.setFontSize(10);
+      doc.text(`Total Facturado: ${formatCurrency(statement.summary?.total_invoiced)}`, 14, 48);
+      doc.text(`Total Pagado: ${formatCurrency(statement.summary?.total_paid)}`, 14, 54);
+      doc.text(`Saldo Actual: ${formatCurrency(statement.summary?.current_balance)}`, 14, 60);
+      
+      if (statement.activity?.length > 0) {
+        doc.autoTable({
+          startY: 70,
+          head: [["Fecha", "Tipo", "Descripción", "Débito", "Crédito", "Saldo"]],
+          body: statement.activity.map(item => [
+            item.date ? new Date(item.date).toLocaleDateString() : "-",
+            item.type === "invoice" ? "Factura" : "Pago",
+            item.description,
+            item.debit > 0 ? formatCurrency(item.debit) : "-",
+            item.credit > 0 ? formatCurrency(item.credit) : "-",
+            formatCurrency(item.balance)
+          ]),
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [59, 130, 246] }
+        });
+      }
+      
+      doc.save(`estado_cuenta_${client?.display_name?.replace(/\s+/g, "_") || "cliente"}.pdf`);
+      toast.success(isEs ? "PDF descargado" : "PDF downloaded");
+    } catch (err) {
+      console.error(err);
+      toast.error(isEs ? "Error al generar PDF" : "Failed to generate PDF");
+    }
+    setDownloading(false);
+  };
+
+  const handleDownloadCSV = () => {
+    if (!statement?.activity?.length) return;
+    const headers = ["Fecha", "Tipo", "Descripcion", "Debito", "Credito", "Saldo"];
+    const rows = statement.activity.map(item => [
+      item.date ? new Date(item.date).toLocaleDateString() : "",
+      item.type === "invoice" ? "Factura" : "Pago",
+      item.description,
+      item.debit || 0,
+      item.credit || 0,
+      item.balance
+    ]);
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `estado_cuenta_${statement.client?.display_name?.replace(/\s+/g, "_") || "cliente"}.csv`;
+    a.click();
+    toast.success(isEs ? "CSV descargado" : "CSV downloaded");
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{isEs ? "Estados de Cuenta" : "Account Statements"}</h2>
+        <div className="flex items-center gap-2">
+          <Select value={selectedClient} onValueChange={setSelectedClient}>
+            <SelectTrigger className="w-64"><SelectValue placeholder={isEs ? "Seleccionar cliente" : "Select client"} /></SelectTrigger>
+            <SelectContent>{clients.map(c => <SelectItem key={c.client_id} value={c.client_id}>{c.display_name}</SelectItem>)}</SelectContent>
+          </Select>
+          {statement && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleDownloadCSV} className="gap-2"><Download className="w-4 h-4" />CSV</Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={downloading} className="gap-2"><Download className="w-4 h-4" />PDF</Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {statement ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Total Facturado" : "Total Invoiced"}</p><p className="text-xl font-bold">{formatCurrency(statement.summary?.total_invoiced)}</p></CardContent></Card>
+            <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Total Pagado" : "Total Paid"}</p><p className="text-xl font-bold text-green-600">{formatCurrency(statement.summary?.total_paid)}</p></CardContent></Card>
+            <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Saldo Actual" : "Current Balance"}</p><p className={`text-xl font-bold ${statement.summary?.current_balance > 0 ? "text-red-600" : "text-green-600"}`}>{formatCurrency(statement.summary?.current_balance)}</p></CardContent></Card>
+            <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Términos" : "Terms"}</p><p className="text-lg font-medium">{statement.client?.payment_terms || "Immediate"}</p></CardContent></Card>
+          </div>
+
+          {statement.warnings?.length > 0 && (
+            <Card className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-400"><AlertTriangle className="w-4 h-4" /><span className="font-medium">{isEs ? "Alertas" : "Warnings"}</span></div>
+                <ul className="mt-2 space-y-1">{statement.warnings.map((w, i) => <li key={i} className="text-sm text-red-600 dark:text-red-400">• {w}</li>)}</ul>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{isEs ? "Movimientos" : "Activity"}</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
+                    <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
+                    <TableHead>{isEs ? "Descripción" : "Description"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Débito" : "Debit"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Crédito" : "Credit"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(statement.activity || []).map((item, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{item.date ? new Date(item.date).toLocaleDateString() : "-"}</TableCell>
+                      <TableCell><Badge variant={item.type === "invoice" ? "default" : "secondary"}>{item.type === "invoice" ? (isEs ? "Factura" : "Invoice") : (isEs ? "Pago" : "Payment")}</Badge></TableCell>
+                      <TableCell>{item.description}</TableCell>
+                      <TableCell className="text-right">{item.debit > 0 ? formatCurrency(item.debit) : "-"}</TableCell>
+                      <TableCell className="text-right text-green-600">{item.credit > 0 ? formatCurrency(item.credit) : "-"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(item.balance)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">{isEs ? "Seleccione un cliente" : "Select a client"}</CardContent></Card>
+      )}
+    </div>
+  );
+}
