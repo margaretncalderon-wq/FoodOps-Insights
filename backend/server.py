@@ -5366,7 +5366,7 @@ async def get_company_settings(user: User = Depends(get_current_user)):
 
 @settings_router.put("/company")
 async def update_company_settings(data: dict, user: User = Depends(get_current_user)):
-    allowed_fields = ["name", "logo_url", "primary_color", "secondary_color", "default_language", "currency", "default_tax_rate", "time_format"]
+    allowed_fields = ["name", "logo_url", "primary_color", "secondary_color", "default_language", "currency", "default_tax_rate", "time_format", "proposal_item_types"]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
     
     result = await db.companies.update_one({"company_id": user.company_id}, {"$set": update_data})
