@@ -43,6 +43,7 @@ export default function ConsolidatedPurchaseSection() {
   const [suggestedProduction, setSuggestedProduction] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [creatingBatch, setCreatingBatch] = useState(false);
+  const [createdPOs, setCreatedPOs] = useState({}); // Track created POs by supplier ID
   const printRef = useRef(null);
 
   const t = useCallback((key) => {
