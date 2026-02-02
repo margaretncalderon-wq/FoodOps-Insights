@@ -9916,6 +9916,59 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user))
         else:
             aging["current"] += balance
     
+    # ============== PROFIT SIGNALS (Decision Indicators) ==============
+    # Get event profitability data
+    events = await db.events.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "event_id": 1, "total_quoted": 1, "total_cost": 1}
+    ).to_list(1000)
+    
+    # Calculate margin for each event
+    negative_margin_count = 0
+    below_target_count = 0  # Below 30% margin
+    target_margin = 30  # Default target
+    
+    for event in events:
+        revenue = event.get("total_quoted", 0)
+        costs = event.get("total_cost", 0)
+        if revenue > 0:
+            margin = ((revenue - costs) / revenue) * 100
+            if margin < 0:
+                negative_margin_count += 1
+            elif margin < target_margin:
+                below_target_count += 1
+    
+    # Unassigned costs (payables without event_id)
+    all_payables = await db.supplier_payables.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    unassigned_costs = sum(
+        p.get("balance_due", p.get("amount", 0)) 
+        for p in all_payables 
+        if not p.get("event_id") and p.get("status") != "paid"
+    )
+    
+    # Cash gap: paid to suppliers vs collected from clients
+    total_paid_to_suppliers = sum(
+        p.get("amount", 0) - p.get("balance_due", p.get("amount", 0))
+        for p in all_payables
+    )
+    
+    paid_payments = await db.payments.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "amount": 1}
+    ).to_list(1000)
+    total_collected = sum(p.get("amount", 0) for p in paid_payments)
+    
+    profit_signals = {
+        "negative_margin_count": negative_margin_count,
+        "below_target_count": below_target_count,
+        "unassigned_costs": round(unassigned_costs, 2),
+        "paid_to_suppliers": round(total_paid_to_suppliers, 2),
+        "collected_from_clients": round(total_collected, 2)
+    }
+    
     return {
         "total_receivables": round(total_receivables, 2),
         "total_overdue": round(total_overdue, 2),
@@ -9923,7 +9976,8 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user))
         "aging_buckets": {k: round(v, 2) for k, v in aging.items()},
         "recent_payments": recent_payments,
         "invoices_count": len(invoices),
-        "open_invoices_count": len([i for i in invoices if i.get("status") != "paid"])
+        "open_invoices_count": len([i for i in invoices if i.get("status") != "paid"]),
+        "profit_signals": profit_signals
     }
 
 # ============== INVOICE MANAGEMENT ==============
