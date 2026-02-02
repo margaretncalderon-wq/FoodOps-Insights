@@ -11185,7 +11185,8 @@ async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User =
     }
     
     await db.fixed_cost_categories.insert_one(category)
-    del category["_id"] if "_id" in category else None
+    if "_id" in category:
+        del category["_id"]
     return category
 
 @business_clarity_router.put("/fixed-costs/categories/{category_id}")
