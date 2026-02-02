@@ -511,7 +511,10 @@ Auto-generated from Event Order:
   - Fields: invoice_number, invoice_date, invoice_url
 
 ## Upcoming Tasks
-- [ ] Integrations P1: Gmail, WhatsApp Business, Google Calendar
+- [ ] **P0: Connect Packing List to Delivery Notes workflow** - Allow finalized Packing List to pre-populate a new Delivery Note
+- [ ] **P1: Full Check-in/Check-out E2E Test** - Create note, check-out, return, verify loss calculation
+- [ ] **P2: Integrations**: Gmail, WhatsApp Business, Google Calendar
+- [ ] **P3: Implement handleEditInvoice** in ProposalEditor.js for existing Edit button
 
 ## Recent Fixes (Feb 1, 2026)
 - [x] **Pipeline View Legacy Stage Bug**: Fixed events with legacy stages (Won, Lead, Proposal) not appearing in CRM pipeline. Removed duplicate `LEGACY_STAGE_MAP` and `normalize_stage()` definitions in server.py.
