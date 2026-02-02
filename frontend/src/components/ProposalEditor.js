@@ -100,6 +100,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
   
+  // Customizable item types from company settings
+  const [itemTypes, setItemTypes] = useState([]);
+  const ITEM_TYPES = itemTypes.length > 0 
+    ? itemTypes.filter(t => t.is_active !== false).map(t => t.type_key)
+    : ITEM_TYPES_DEFAULT;
+  
   // Invoice dialog state
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [existingInvoices, setExistingInvoices] = useState([]);
