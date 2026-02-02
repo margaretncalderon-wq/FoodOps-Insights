@@ -352,9 +352,9 @@ function InventorySection() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
-                <Upload className="w-4 h-4 mr-2" />
-                {t("uploadBySupplier")}
+              <Button variant="outline" onClick={() => setSettingsDialogOpen(true)}>
+                <Archive className="w-4 h-4 mr-2" />
+                {t("settings")}
               </Button>
               <Button onClick={() => { setEditingItem(null); resetForm(); setItemDialogOpen(true); }}>
                 <Plus className="w-4 h-4 mr-2" />
