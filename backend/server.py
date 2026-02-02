@@ -12976,7 +12976,6 @@ api_router.include_router(business_clarity_router)
 api_router.include_router(orchestration_router)
 api_router.include_router(production_router)
 api_router.include_router(delivery_notes_router)
-api_router.include_router(org_router)
 
 # ============== ORGANIZATION & SAAS ENDPOINTS ==============
 
