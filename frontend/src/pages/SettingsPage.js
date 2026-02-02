@@ -2495,6 +2495,65 @@ Mantel Blanco, , 10, 3`}
                                   />
                                 </div>
                               </div>
+                              
+                              {/* Terms & Conditions for Proposal */}
+                              <div className="mt-4 pt-4 border-t">
+                                <Label className="text-xs mb-3 block font-medium">
+                                  {language === "es" ? "Términos y Condiciones de Propuesta" : "Proposal Terms & Conditions"}
+                                </Label>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-xs">{language === "es" ? "Términos (EN)" : "Terms (EN)"}</Label>
+                                    <Textarea 
+                                      rows={3}
+                                      className="text-sm"
+                                      placeholder="50% deposit required to confirm booking..."
+                                      value={template.terms_and_conditions_en || ""}
+                                      onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, terms_and_conditions_en: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">{language === "es" ? "Términos (ES)" : "Terms (ES)"}</Label>
+                                    <Textarea 
+                                      rows={3}
+                                      className="text-sm"
+                                      placeholder="Se requiere 50% de depósito para confirmar reserva..."
+                                      value={template.terms_and_conditions_es || ""}
+                                      onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, terms_and_conditions_es: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">{language === "es" ? "Instrucciones de Pago (EN)" : "Payment Instructions (EN)"}</Label>
+                                    <Textarea 
+                                      rows={2}
+                                      className="text-sm"
+                                      placeholder="Please make payment to..."
+                                      value={template.payment_instructions_en || ""}
+                                      onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, payment_instructions_en: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">{language === "es" ? "Instrucciones de Pago (ES)" : "Payment Instructions (ES)"}</Label>
+                                    <Textarea 
+                                      rows={2}
+                                      className="text-sm"
+                                      placeholder="Por favor realice el pago a..."
+                                      value={template.payment_instructions_es || ""}
+                                      onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, payment_instructions_es: e.target.value })}
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <Label className="text-xs">{language === "es" ? "Datos Bancarios" : "Bank Details"}</Label>
+                                    <Textarea 
+                                      rows={3}
+                                      className="text-sm"
+                                      placeholder={language === "es" ? "Banco: XXX\nCuenta: XXX\nCLABE: XXX" : "Bank: XXX\nAccount: XXX\nRouting: XXX"}
+                                      value={template.bank_details || ""}
+                                      onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, bank_details: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           )}
                           
