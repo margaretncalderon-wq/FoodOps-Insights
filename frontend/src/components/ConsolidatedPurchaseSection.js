@@ -540,6 +540,35 @@ export default function ConsolidatedPurchaseSection() {
                         ).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
+                    
+                    {/* Confirm Allocation Button - at bottom like PL */}
+                    <div className="mt-3 pt-3 border-t border-emerald-200">
+                      <Button 
+                        size="sm"
+                        onClick={() => setSrDialogOpen(true)}
+                        disabled={srProcessed}
+                        className={`w-full h-9 ${srProcessed 
+                          ? "bg-green-600 hover:bg-green-600 cursor-not-allowed" 
+                          : "bg-emerald-600 hover:bg-emerald-700"}`}
+                      >
+                        {srProcessed ? (
+                          <>
+                            <Check className="w-4 h-4 mr-2" />
+                            {language === "es" ? "Asignación Confirmada ✓" : "Allocation Confirmed ✓"}
+                          </>
+                        ) : (
+                          <>
+                            <PackageMinus className="w-4 h-4 mr-2" />
+                            {language === "es" ? "Confirmar Asignación" : "Confirm Allocation"}
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        {language === "es" 
+                          ? "Confirma la asignación del inventario. Se deducirá durante producción." 
+                          : "Confirms inventory allocation. Will be deducted during production."}
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
