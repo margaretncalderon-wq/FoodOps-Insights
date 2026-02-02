@@ -504,7 +504,7 @@ export default function DocumentPreview({
                             </tr>
                           </thead>
                           <tbody>
-                            {items.map((item, idx) => (
+                            {(Array.isArray(items) ? items : []).map((item, idx) => (
                               <tr key={idx} className="border-b border-muted/50 hover:bg-muted/20">
                                 {/* Checkbox cell */}
                                 {template?.show_checkboxes !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
@@ -545,7 +545,8 @@ export default function DocumentPreview({
                         </table>
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               ))}
             </div>
