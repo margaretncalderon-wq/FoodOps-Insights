@@ -1092,6 +1092,118 @@ function CheckInOutSection() {
     return <Badge variant="outline">{language === "es" ? "Pendiente" : "Pending"}</Badge>;
   };
 
+  // Open edit dialog for a delivery note
+  const handleEditNote = async (note) => {
+    if (note.status !== "pending") {
+      toast.error(language === "es" ? "Solo se pueden editar conduces pendientes" : "Can only edit pending notes");
+      return;
+    }
+    
+    // Get available inventory
+    try {
+      const res = await axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true });
+      const opsItems = (res.data || []).filter(i => 
+        ["equipment", "disposable", "event_supply"].includes(i.inventory_type)
+      );
+      setAvailableInventory(opsItems);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+    }
+    
+    setEditingNote({
+      ...note,
+      items: note.items.map(item => ({ ...item }))
+    });
+    setEditDialogOpen(true);
+  };
+
+  // Update an item in the editing note
+  const updateEditingItem = (index, field, value) => {
+    if (!editingNote) return;
+    const updatedItems = [...editingNote.items];
+    updatedItems[index][field] = value;
+    setEditingNote({ ...editingNote, items: updatedItems });
+  };
+
+  // Add item to editing note
+  const addItemToEditingNote = (invItem) => {
+    if (!editingNote) return;
+    
+    // Check if already added
+    if (editingNote.items.find(i => i.inventory_item_id === invItem.ingredient_id)) {
+      toast.error(language === "es" ? "Item ya agregado" : "Item already added");
+      return;
+    }
+    
+    const newItem = {
+      inventory_item_id: invItem.ingredient_id,
+      name: invItem.name,
+      inventory_type: invItem.inventory_type,
+      category: invItem.category,
+      qty_out: 1,
+      qty_returned: 0,
+      qty_lost: 0,
+      loss_cost: 0,
+      replacement_cost: invItem.replacement_cost || 0,
+      unit: invItem.unit,
+      notes: "",
+      status: "pending"
+    };
+    
+    setEditingNote({
+      ...editingNote,
+      items: [...editingNote.items, newItem]
+    });
+  };
+
+  // Remove item from editing note
+  const removeItemFromEditingNote = (index) => {
+    if (!editingNote) return;
+    const updatedItems = editingNote.items.filter((_, i) => i !== index);
+    setEditingNote({ ...editingNote, items: updatedItems });
+  };
+
+  // Save edited delivery note
+  const handleSaveEditedNote = async () => {
+    if (!editingNote) return;
+    
+    try {
+      await axios.put(`${API}/api/delivery-notes/${editingNote.note_id}`, {
+        items: editingNote.items,
+        notes: editingNote.notes
+      }, { withCredentials: true });
+      
+      toast.success(language === "es" ? "Conduce actualizado" : "Delivery note updated");
+      setEditDialogOpen(false);
+      setEditingNote(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error updating note");
+    }
+  };
+
+  // Cancel/Delete a delivery note
+  const handleCancelNote = async (note) => {
+    if (note.status !== "pending") {
+      toast.error(language === "es" ? "Solo se pueden cancelar conduces pendientes" : "Can only cancel pending notes");
+      return;
+    }
+    
+    if (!window.confirm(language === "es" 
+      ? "¿Seguro que quieres cancelar este conduce? Los items regresarán al inventario." 
+      : "Are you sure you want to cancel this delivery note? Items will return to inventory.")) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`${API}/api/delivery-notes/${note.note_id}`, { withCredentials: true });
+      toast.success(language === "es" ? "Conduce cancelado" : "Delivery note cancelled");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error cancelling note");
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-pulse">Loading...</div></div>;
   }
