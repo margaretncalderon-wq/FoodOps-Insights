@@ -446,6 +446,11 @@ class IngredientCreate(BaseModel):
     pack_size: float = 1.0
     pack_unit: str = "unit"  # case, bag, box, gallon
     replacement_cost: float = 0.0  # For equipment - cost to replace if lost/damaged
+    # Operations Supplies specific fields
+    cost_center: str = "operations"  # operations, kitchen, service, logistics, admin
+    purchase_date: Optional[str] = None  # For depreciation tracking
+    useful_life_years: int = 5  # Expected lifespan for depreciation
+    depreciation_rate: float = 20.0  # Annual depreciation percentage
 
 class Ingredient(BaseModel):
     ingredient_id: str
@@ -471,6 +476,11 @@ class Ingredient(BaseModel):
     average_cost: float = 0.0
     price_history: List[Dict[str, Any]] = []
     replacement_cost: float = 0.0  # For equipment - cost to replace if lost/damaged
+    # Operations Supplies specific fields
+    cost_center: str = "operations"
+    purchase_date: Optional[str] = None
+    useful_life_years: int = 5
+    depreciation_rate: float = 20.0
     created_at: datetime
     updated_at: datetime
 
