@@ -765,11 +765,13 @@ export default function ConsolidatedPurchaseSection() {
                           )}
                         </div>
                       </div>
-                      {event.quoted_total > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          {language === "es" ? "Cotizado:" : "Quoted:"} ${event.quoted_total.toLocaleString()}
-                        </Badge>
-                      )}
+                      <div className="text-right">
+                        {event.quoted_total > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            {language === "es" ? "Food Cotizado:" : "Food Quoted:"} ${event.quoted_total.toLocaleString()}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -812,11 +814,16 @@ export default function ConsolidatedPurchaseSection() {
                           ? "text-emerald-800" 
                           : "text-amber-800"
                       }`}>
-                        {language === "es" ? "Comparación Cotizado vs Gasto" : "Quote vs Spend Comparison"}
+                        {language === "es" ? "Comparación: Food Cotizado vs Costo Real" : "Comparison: Food Quoted vs Actual Cost"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {language === "es" 
+                          ? "Solo items Food con recetas (inventariables)" 
+                          : "Only Food items with recipes (inventoriable)"}
                       </p>
                       <div className="mt-2 space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">{language === "es" ? "Total Cotizado:" : "Total Quoted:"}</span>
+                          <span className="text-muted-foreground">{language === "es" ? "Food Cotizado:" : "Food Quoted:"}</span>
                           <span className="font-mono font-medium">${purchaseData.total_quoted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
                         <div className="flex justify-between">
