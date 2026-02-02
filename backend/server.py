@@ -11918,6 +11918,130 @@ async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: 
         "total_loss_cost": total_loss_cost
     }
 
+# Edit Delivery Note (before check-in)
+class DeliveryNoteUpdate(BaseModel):
+    items: List[dict] = []  # Updated items list
+    notes: Optional[str] = None
+
+@delivery_notes_router.put("/{note_id}")
+async def update_delivery_note(note_id: str, data: DeliveryNoteUpdate, user: User = Depends(get_current_user)):
+    """Update a delivery note - only allowed for pending notes"""
+    note = await db.delivery_notes.find_one({
+        "note_id": note_id,
+        "company_id": user.company_id
+    })
+    
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    
+    if note.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Cannot edit a delivery note that has been checked-in")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate inventory adjustments
+    old_items = {item["inventory_item_id"]: item for item in note.get("items", [])}
+    new_items = {item["inventory_item_id"]: item for item in data.items}
+    
+    # Restore inventory for removed/reduced items
+    for item_id, old_item in old_items.items():
+        old_qty = old_item.get("qty_out", 0)
+        new_qty = new_items.get(item_id, {}).get("qty_out", 0)
+        
+        if new_qty < old_qty:
+            # Return difference to inventory
+            diff = old_qty - new_qty
+            await db.ingredients.update_one(
+                {"ingredient_id": item_id},
+                {"$inc": {"stock_quantity": diff}}
+            )
+    
+    # Deduct inventory for added/increased items
+    for item_id, new_item in new_items.items():
+        new_qty = new_item.get("qty_out", 0)
+        old_qty = old_items.get(item_id, {}).get("qty_out", 0)
+        
+        if new_qty > old_qty:
+            # Deduct difference from inventory
+            diff = new_qty - old_qty
+            await db.ingredients.update_one(
+                {"ingredient_id": item_id},
+                {"$inc": {"stock_quantity": -diff}}
+            )
+    
+    # Prepare items with required fields
+    updated_items = []
+    for item in data.items:
+        updated_items.append({
+            "inventory_item_id": item.get("inventory_item_id"),
+            "name": item.get("name"),
+            "inventory_type": item.get("inventory_type", "equipment"),
+            "category": item.get("category", ""),
+            "qty_out": item.get("qty_out", 0),
+            "qty_returned": 0,
+            "qty_lost": 0,
+            "loss_cost": 0,
+            "replacement_cost": item.get("replacement_cost", 0),
+            "unit": item.get("unit", "unit"),
+            "notes": item.get("notes", ""),
+            "status": "pending"
+        })
+    
+    # Count equipment and disposables
+    equipment_count = sum(1 for i in updated_items if i.get("inventory_type") == "equipment")
+    disposable_count = sum(1 for i in updated_items if i.get("inventory_type") in ["disposable", "event_supply"])
+    
+    update_data = {
+        "items": updated_items,
+        "equipment_count": equipment_count,
+        "disposable_count": disposable_count,
+        "updated_at": now.isoformat()
+    }
+    
+    if data.notes is not None:
+        update_data["notes"] = data.notes
+    
+    await db.delivery_notes.update_one(
+        {"note_id": note_id},
+        {"$set": update_data}
+    )
+    
+    return {
+        "message": "Delivery note updated",
+        "note_id": note_id,
+        "items_count": len(updated_items)
+    }
+
+# Delete/Cancel Delivery Note
+@delivery_notes_router.delete("/{note_id}")
+async def delete_delivery_note(note_id: str, user: User = Depends(get_current_user)):
+    """Cancel/delete a delivery note - only allowed for pending notes"""
+    note = await db.delivery_notes.find_one({
+        "note_id": note_id,
+        "company_id": user.company_id
+    })
+    
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    
+    if note.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Cannot delete a delivery note that has been checked-in")
+    
+    # Restore all items to inventory
+    for item in note.get("items", []):
+        item_id = item.get("inventory_item_id")
+        qty_out = item.get("qty_out", 0)
+        if item_id and qty_out > 0:
+            await db.ingredients.update_one(
+                {"ingredient_id": item_id},
+                {"$inc": {"stock_quantity": qty_out}}
+            )
+    
+    # Delete the note
+    await db.delivery_notes.delete_one({"note_id": note_id})
+    
+    return {"message": "Delivery note cancelled", "note_id": note_id}
+
 # Endpoint to get packing list supplies for an event
 @events_router.get("/{event_id}/packing-list-supplies")
 async def get_event_packing_list_supplies(event_id: str, user: User = Depends(get_current_user)):
