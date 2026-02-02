@@ -202,10 +202,15 @@ export function BillingSection() {
     }
   };
 
-  if (loading) {
+  if (loading || checkingPayment) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-8 h-8 animate-spin" />
+        {checkingPayment && (
+          <p className="text-muted-foreground">
+            {isEs ? "Verificando pago..." : "Verifying payment..."}
+          </p>
+        )}
       </div>
     );
   }
