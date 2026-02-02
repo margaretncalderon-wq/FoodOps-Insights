@@ -740,6 +740,12 @@ Auto-generated from Event Order:
       - Group by Category
   - Backend model updated with all new fields
   - Templates saved per company, applied to document generation
+  - **Templates Applied to DocumentPreview** - COMPLETE (Feb 2, 2026):
+    - Primary color used for headers, borders, table headers
+    - Logo/Address/Tax ID visibility controlled by template settings
+    - Checkboxes and Notes column displayed for PackingList/KitchenSheet
+    - Terms & Conditions, Payment Instructions, Bank Details shown in Invoice/Proposal
+    - Print CSS uses template colors for professional output
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
