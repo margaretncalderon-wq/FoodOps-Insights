@@ -527,10 +527,10 @@ function InventorySection() {
             )}
             <div className="col-span-2">
               <Label>{t("supplier")}</Label>
-              <Select value={itemForm.preferred_supplier_id} onValueChange={(v) => setItemForm({...itemForm, preferred_supplier_id: v})}>
+              <Select value={itemForm.preferred_supplier_id || "none"} onValueChange={(v) => setItemForm({...itemForm, preferred_supplier_id: v === "none" ? "" : v})}>
                 <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar proveedor" : "Select supplier"} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
+                  <SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
                   {suppliers.map(s => (
                     <SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>
                   ))}
