@@ -10790,6 +10790,7 @@ async def get_accounts_payable(user: User = Depends(get_current_user)):
             "event_id": pay.get("event_id"),
             "event_name": event_name,
             "cost_center": pay.get("cost_center"),
+            "fixed_cost_category_id": pay.get("fixed_cost_category_id"),
             "description": pay.get("description"),
             "amount": pay.get("amount", 0),
             "paid_amount": pay.get("paid_amount", 0),
