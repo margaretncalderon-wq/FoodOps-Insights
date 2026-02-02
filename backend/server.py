@@ -1016,13 +1016,19 @@ class InventoryItem(BaseModel):
     unit: str
     pack_size: float = 1.0
     pack_unit: Optional[str] = None
-    current_stock: float = 0.0
+    current_stock: float = 0.0  # On Hand - physical stock
+    reserved_quantity: float = 0.0  # Reserved for events (logical allocation)
     par_level: float = 0.0
     preferred_supplier_id: Optional[str] = None
     cost_per_unit: float = 0.0
     status: str = "Active"
     created_at: datetime
     updated_at: datetime
+    
+    @property
+    def available_quantity(self) -> float:
+        """Available = On Hand - Reserved"""
+        return max(0, self.current_stock - self.reserved_quantity)
 
 class InventoryTransactionCreate(BaseModel):
     inventory_item_id: str
