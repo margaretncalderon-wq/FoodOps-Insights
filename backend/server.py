@@ -4581,6 +4581,13 @@ async def get_confirmed_events(user: User = Depends(get_current_user)):
 
 @events_router.post("")
 async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
+    # Check usage limit
+    limit_check = await check_usage_limit(user.company_id, "events_created")
+    if not limit_check.get("allowed", True) == False:
+        pass  # Allow if no limit info
+    elif not limit_check["allowed"]:
+        raise HTTPException(status_code=403, detail=limit_check.get("message", "Límite de eventos alcanzado"))
+    
     now = datetime.now(timezone.utc)
     event_id = f"event_{uuid.uuid4().hex[:12]}"
     
@@ -4599,6 +4606,9 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
         "updated_at": now.isoformat()
     }
     await db.events.insert_one(event_doc)
+    
+    # Increment usage
+    await increment_usage(user.company_id, "events_created")
     
     await db.clients.update_one({"client_id": data.client_id}, {"$inc": {"events_count": 1}})
     
