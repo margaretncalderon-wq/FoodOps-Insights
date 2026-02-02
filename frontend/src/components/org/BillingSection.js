@@ -22,6 +22,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 export function BillingSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [loading, setLoading] = useState(true);
   const [billingData, setBillingData] = useState(null);
@@ -29,13 +30,12 @@ export function BillingSection() {
   const [plans, setPlans] = useState([]);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState("monthly");
+  const [checkingPayment, setCheckingPayment] = useState(false);
 
-  useEffect(() => {
-    fetchBillingData();
-  }, []);
-
-  const fetchBillingData = async () => {
+  const fetchBillingData = useCallback(async () => {
     try {
       const [billingRes, usageRes, plansRes] = await Promise.all([
         axios.get(`${API}/api/org/billing`, { withCredentials: true }),
@@ -52,19 +52,110 @@ export function BillingSection() {
       }
     }
     setLoading(false);
-  };
+  }, []);
+
+  // Poll payment status
+  const pollPaymentStatus = useCallback(async (sessionId, attempts = 0) => {
+    const maxAttempts = 10;
+    const pollInterval = 2000;
+
+    if (attempts >= maxAttempts) {
+      setCheckingPayment(false);
+      toast.error(isEs ? "Tiempo agotado verificando el pago" : "Payment verification timed out");
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `${API}/api/org/billing/checkout/status/${sessionId}`,
+        { withCredentials: true }
+      );
+
+      if (response.data.payment_status === "paid" || response.data.status === "complete") {
+        setCheckingPayment(false);
+        setSuccessDialogOpen(true);
+        fetchBillingData();
+        // Clean URL
+        searchParams.delete("checkout");
+        searchParams.delete("session_id");
+        setSearchParams(searchParams);
+        return;
+      } else if (response.data.status === "expired") {
+        setCheckingPayment(false);
+        toast.error(isEs ? "La sesión de pago expiró" : "Payment session expired");
+        searchParams.delete("checkout");
+        searchParams.delete("session_id");
+        setSearchParams(searchParams);
+        return;
+      }
+
+      // Continue polling
+      setTimeout(() => pollPaymentStatus(sessionId, attempts + 1), pollInterval);
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      setTimeout(() => pollPaymentStatus(sessionId, attempts + 1), pollInterval);
+    }
+  }, [isEs, fetchBillingData, searchParams, setSearchParams]);
+
+  // Check for return from Stripe
+  useEffect(() => {
+    const checkoutStatus = searchParams.get("checkout");
+    const sessionId = searchParams.get("session_id");
+
+    if (checkoutStatus === "success" && sessionId) {
+      setCheckingPayment(true);
+      pollPaymentStatus(sessionId);
+    } else if (checkoutStatus === "canceled") {
+      toast.info(isEs ? "Pago cancelado" : "Payment canceled");
+      searchParams.delete("checkout");
+      setSearchParams(searchParams);
+    }
+  }, [searchParams, setSearchParams, pollPaymentStatus, isEs]);
+
+  useEffect(() => {
+    fetchBillingData();
+  }, [fetchBillingData]);
 
   const handleUpgrade = async (planId) => {
+    const selectedPlan = plans.find(p => p.plan_id === planId);
+    const price = selectedBillingCycle === "yearly" ? selectedPlan?.price_yearly : selectedPlan?.price_monthly;
+    
+    // If free plan, upgrade directly without payment
+    if (!price || price <= 0) {
+      setActionLoading(true);
+      try {
+        await axios.post(`${API}/api/org/subscription/upgrade/${planId}`, {}, { withCredentials: true });
+        toast.success(isEs ? "Plan actualizado" : "Plan upgraded");
+        setUpgradeDialogOpen(false);
+        fetchBillingData();
+      } catch (err) {
+        toast.error(err.response?.data?.detail || "Error upgrading plan");
+      }
+      setActionLoading(false);
+      return;
+    }
+
+    // Paid plan - use Stripe checkout
     setActionLoading(true);
     try {
-      await axios.post(`${API}/api/org/subscription/upgrade/${planId}`, {}, { withCredentials: true });
-      toast.success(isEs ? "Plan actualizado" : "Plan upgraded");
-      setUpgradeDialogOpen(false);
-      fetchBillingData();
+      const response = await axios.post(
+        `${API}/api/org/billing/checkout`,
+        {
+          plan_id: planId,
+          billing_cycle: selectedBillingCycle,
+          origin_url: window.location.origin
+        },
+        { withCredentials: true }
+      );
+
+      // Redirect to Stripe checkout
+      if (response.data.checkout_url) {
+        window.location.href = response.data.checkout_url;
+      }
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Error upgrading plan");
+      toast.error(err.response?.data?.detail || (isEs ? "Error al iniciar el pago" : "Error initiating payment"));
+      setActionLoading(false);
     }
-    setActionLoading(false);
   };
 
   const handleCancel = async () => {
