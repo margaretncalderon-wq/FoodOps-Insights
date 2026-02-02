@@ -508,6 +508,22 @@ function InventorySection() {
               <Label>{t("parLevel")}</Label>
               <Input type="number" value={itemForm.par_level} onChange={(e) => setItemForm({...itemForm, par_level: parseFloat(e.target.value) || 0})} />
             </div>
+            {/* Replacement Cost - only for equipment */}
+            {itemForm.inventory_type === "equipment" && (
+              <div className="col-span-2">
+                <Label className="flex items-center gap-2">
+                  {language === "es" ? "Costo de Reposición" : "Replacement Cost"}
+                  <Badge variant="outline" className="text-xs">{language === "es" ? "Si se pierde/rompe" : "If lost/broken"}</Badge>
+                </Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  value={itemForm.replacement_cost || ""} 
+                  onChange={(e) => setItemForm({...itemForm, replacement_cost: parseFloat(e.target.value) || 0})} 
+                  placeholder={language === "es" ? "Ej: $150.00" : "E.g., $150.00"}
+                />
+              </div>
+            )}
             <div className="col-span-2">
               <Label>{t("supplier")}</Label>
               <Select value={itemForm.preferred_supplier_id} onValueChange={(v) => setItemForm({...itemForm, preferred_supplier_id: v})}>
