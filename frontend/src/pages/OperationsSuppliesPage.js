@@ -54,7 +54,7 @@ function InventorySection() {
   const [itemForm, setItemForm] = useState({
     name: "", category: "other", inventory_type: "equipment", unit: "unit",
     cost_per_unit: 0, stock_quantity: 0, reserved_quantity: 0, par_level: 0, 
-    pack_size: 1, preferred_supplier_id: ""
+    pack_size: 1, preferred_supplier_id: "", replacement_cost: 0
   });
   const [priceHistoryDialog, setPriceHistoryDialog] = useState(null);
   const [priceHistory, setPriceHistory] = useState([]);
