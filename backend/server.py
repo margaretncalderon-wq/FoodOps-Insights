@@ -11699,6 +11699,180 @@ async def lock_post_event_review(event_id: str, user: User = Depends(get_current
     
     return {"message": "Review locked successfully"}
 
+# ============== DELIVERY NOTES ENDPOINTS ==============
+
+class DeliveryNoteCreate(BaseModel):
+    event_id: str
+    items: List[dict]  # [{inventory_item_id, name, inventory_type, qty_out, replacement_cost, unit}]
+    notes: Optional[str] = None
+
+class DeliveryNoteCheckIn(BaseModel):
+    items: List[dict]  # [{inventory_item_id, qty_returned, notes}]
+
+@delivery_notes_router.get("")
+async def get_delivery_notes(user: User = Depends(get_current_user)):
+    """Get all delivery notes for the company"""
+    notes = await db.delivery_notes.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return notes
+
+@delivery_notes_router.post("")
+async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(get_current_user)):
+    """Create a new delivery note (conduce) for an event"""
+    now = datetime.now(timezone.utc)
+    
+    # Generate note number
+    count = await db.delivery_notes.count_documents({"company_id": user.company_id})
+    note_number = f"DN-{count + 1:04d}"
+    
+    note_id = f"dn_{uuid.uuid4().hex[:12]}"
+    
+    # Process items
+    processed_items = []
+    for item in data.items:
+        processed_items.append({
+            "inventory_item_id": item.get("inventory_item_id"),
+            "name": item.get("name"),
+            "inventory_type": item.get("inventory_type", "equipment"),
+            "qty_out": item.get("qty_out", 0),
+            "qty_returned": 0,
+            "qty_lost": 0,
+            "replacement_cost": item.get("replacement_cost", 0) if item.get("inventory_type") == "equipment" else 0,
+            "loss_cost": 0,
+            "unit": item.get("unit", "unit"),
+            "status": "pending"
+        })
+    
+    delivery_note = {
+        "note_id": note_id,
+        "note_number": note_number,
+        "company_id": user.company_id,
+        "event_id": data.event_id,
+        "items": processed_items,
+        "status": "pending",
+        "checkout_date": now.isoformat(),
+        "checkin_date": None,
+        "total_loss_cost": 0,
+        "notes": data.notes,
+        "created_by": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.delivery_notes.insert_one(delivery_note)
+    
+    # Deduct from inventory (check-out)
+    for item in processed_items:
+        if item["inventory_item_id"]:
+            await db.ingredients.update_one(
+                {"ingredient_id": item["inventory_item_id"]},
+                {"$inc": {"stock_quantity": -item["qty_out"]}}
+            )
+    
+    return {"note_id": note_id, "note_number": note_number, "message": "Delivery note created"}
+
+@delivery_notes_router.get("/{note_id}")
+async def get_delivery_note(note_id: str, user: User = Depends(get_current_user)):
+    """Get a specific delivery note"""
+    note = await db.delivery_notes.find_one(
+        {"note_id": note_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    return note
+
+@delivery_notes_router.put("/{note_id}/check-in")
+async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: User = Depends(get_current_user)):
+    """Record check-in (return) of items from a delivery note"""
+    note = await db.delivery_notes.find_one(
+        {"note_id": note_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    
+    now = datetime.now(timezone.utc)
+    total_loss_cost = 0
+    all_returned = True
+    
+    updated_items = []
+    for incoming_item in data.items:
+        item_id = incoming_item.get("inventory_item_id")
+        
+        # Find matching item in note
+        for note_item in note["items"]:
+            if note_item.get("inventory_item_id") == item_id or note_item.get("name") == incoming_item.get("name"):
+                # Only equipment requires return
+                if note_item["inventory_type"] == "equipment":
+                    qty_returned = incoming_item.get("qty_returned", 0)
+                    qty_out = note_item["qty_out"]
+                    qty_lost = max(0, qty_out - qty_returned)
+                    loss_cost = qty_lost * note_item.get("replacement_cost", 0)
+                    
+                    note_item["qty_returned"] = qty_returned
+                    note_item["qty_lost"] = qty_lost
+                    note_item["loss_cost"] = loss_cost
+                    note_item["status"] = "returned" if qty_lost == 0 else "partial"
+                    
+                    total_loss_cost += loss_cost
+                    
+                    if qty_lost > 0:
+                        all_returned = False
+                    
+                    # Return items to inventory
+                    if item_id and qty_returned > 0:
+                        await db.ingredients.update_one(
+                            {"ingredient_id": item_id},
+                            {"$inc": {"stock_quantity": qty_returned}}
+                        )
+                else:
+                    # Disposables don't return
+                    note_item["status"] = "consumed"
+                
+                break
+        
+        updated_items.append(note_item)
+    
+    # Update note status
+    status = "returned" if all_returned else "partial"
+    
+    await db.delivery_notes.update_one(
+        {"note_id": note_id},
+        {"$set": {
+            "items": note["items"],
+            "status": status,
+            "checkin_date": now.isoformat(),
+            "total_loss_cost": total_loss_cost,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {
+        "message": "Check-in recorded",
+        "status": status,
+        "total_loss_cost": total_loss_cost
+    }
+
+# Endpoint to get packing list supplies for an event
+@events_router.get("/{event_id}/packing-list-supplies")
+async def get_event_packing_list_supplies(event_id: str, user: User = Depends(get_current_user)):
+    """Get operations supplies items from the packing list for an event"""
+    # Get supplies type inventory items that might be in packing list
+    supplies = await db.ingredients.find(
+        {
+            "company_id": user.company_id,
+            "inventory_type": {"$in": ["equipment", "disposable", "event_supply"]}
+        },
+        {"_id": 0}
+    ).to_list(500)
+    
+    # TODO: In the future, this should come from actual packing list data
+    # For now, return available supplies that could be added to the event
+    return supplies
+
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
