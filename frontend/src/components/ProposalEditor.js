@@ -65,7 +65,7 @@ const CATEGORY_ICONS = {
   package: Package,
 };
 
-const ITEM_TYPES = ["Food", "Service", "Rental", "Fee"];
+const ITEM_TYPES_DEFAULT = ["Food", "Service", "Rental", "Fee"];
 
 const STATUS_COLORS = {
   Draft: "bg-muted text-muted-foreground",
