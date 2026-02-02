@@ -124,6 +124,16 @@ def normalize_stage(stage: str) -> str:
     return "Inquiry Received"
 
 # Company Model
+class ProposalItemType(BaseModel):
+    """Customizable item type for proposals (multi-tenant flexibility)"""
+    type_key: str  # Internal key: food, service, rental, fee, custom_1, etc.
+    label_en: str  # Display name in English
+    label_es: str  # Display name in Spanish
+    color: str = "#6b7280"  # Hex color for UI
+    icon: str = "Package"  # Lucide icon name
+    is_active: bool = True
+    sort_order: int = 0
+
 class Company(BaseModel):
     company_id: str
     name: str
@@ -134,6 +144,8 @@ class Company(BaseModel):
     currency: str = "USD"
     default_tax_rate: float = 0.0
     time_format: str = "24h"  # "12h" or "24h"
+    # Multi-tenant customizable proposal item types
+    proposal_item_types: List[ProposalItemType] = []
     created_at: datetime
 
 # ============== NEW CRM MODELS ==============
