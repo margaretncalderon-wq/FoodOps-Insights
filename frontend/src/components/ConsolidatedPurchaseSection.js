@@ -599,6 +599,49 @@ export default function ConsolidatedPurchaseSection() {
                         ).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
+                    
+                    {/* Create PO buttons by supplier - inside Purchase List card */}
+                    {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
+                      items.some(i => i.to_purchase > 0) && id !== "no_supplier"
+                    ).length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-amber-200">
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {language === "es" ? "Crear órdenes de compra:" : "Create purchase orders:"}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
+                            items.some(i => i.to_purchase > 0) && id !== "no_supplier"
+                          ).map(([supplierId, items]) => (
+                            <Button 
+                              key={supplierId}
+                              size="sm"
+                              onClick={() => handleCreatePO(supplierId, items)}
+                              disabled={creatingPO === supplierId || createdPOs[supplierId]}
+                              className={`h-8 ${createdPOs[supplierId] 
+                                ? "bg-green-600 hover:bg-green-600 cursor-not-allowed" 
+                                : "bg-amber-600 hover:bg-amber-700"}`}
+                            >
+                              {creatingPO === supplierId ? (
+                                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                              ) : createdPOs[supplierId] ? (
+                                <Check className="w-4 h-4 mr-1" />
+                              ) : (
+                                <FileText className="w-4 h-4 mr-1" />
+                              )}
+                              {createdPOs[supplierId] 
+                                ? `${items[0]?.supplier_name || "Unknown"} ✓` 
+                                : `${items[0]?.supplier_name || "Unknown"} ($${items.filter(i => i.to_purchase > 0).reduce((s, i) => s + i.total_cost, 0).toFixed(0)})`
+                              }
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {language === "es" 
+                            ? "Las órdenes se enviarán a Vendor Orders como borradores" 
+                            : "Orders will be sent to Vendor Orders as drafts"}
+                        </p>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-emerald-600 text-center py-4">
