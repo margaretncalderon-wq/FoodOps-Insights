@@ -163,7 +163,8 @@ function InventorySection() {
       reserved_quantity: item.reserved_quantity || 0,
       par_level: item.par_level || 0,
       pack_size: item.pack_size || 1,
-      preferred_supplier_id: item.preferred_supplier_id || ""
+      preferred_supplier_id: item.preferred_supplier_id || "",
+      replacement_cost: item.replacement_cost || 0
     });
     setItemDialogOpen(true);
   };
@@ -182,7 +183,7 @@ function InventorySection() {
     setItemForm({
       name: "", category: "other", inventory_type: "equipment", unit: "unit",
       cost_per_unit: 0, stock_quantity: 0, reserved_quantity: 0, par_level: 0, 
-      pack_size: 1, preferred_supplier_id: ""
+      pack_size: 1, preferred_supplier_id: "", replacement_cost: 0
     });
   };
 
