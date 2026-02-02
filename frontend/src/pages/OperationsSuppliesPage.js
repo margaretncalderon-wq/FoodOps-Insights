@@ -950,6 +950,506 @@ function PurchasingSection() {
   );
 }
 
+// ==================== CHECK-IN/CHECK-OUT SECTION (CONDUCES) ====================
+function CheckInOutSection() {
+  const { language } = useLanguage();
+  const [deliveryNotes, setDeliveryNotes] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState("");
+  const [packingListItems, setPackingListItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [viewingNote, setViewingNote] = useState(null);
+  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [notesRes, eventsRes] = await Promise.all([
+        axios.get(`${API}/api/delivery-notes`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/events/confirmed`, { withCredentials: true }).catch(() => ({ data: [] }))
+      ]);
+      setDeliveryNotes(notesRes.data || []);
+      setEvents(eventsRes.data || []);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+    setLoading(false);
+  };
+
+  const handleEventSelect = async (eventId) => {
+    setSelectedEvent(eventId);
+    if (!eventId) {
+      setPackingListItems([]);
+      return;
+    }
+    
+    try {
+      // Get packing list items for this event (from ops supplies inventory)
+      const res = await axios.get(`${API}/api/events/${eventId}/packing-list-supplies`, { withCredentials: true }).catch(() => ({ data: [] }));
+      setPackingListItems(res.data || []);
+      // Pre-select all items
+      setSelectedItems(res.data?.map(item => ({
+        ...item,
+        qty_out: item.quantity || 1,
+        qty_returned: 0,
+        status: "pending"
+      })) || []);
+    } catch (error) {
+      setPackingListItems([]);
+    }
+  };
+
+  const handleCreateDeliveryNote = async () => {
+    if (!selectedEvent || selectedItems.length === 0) {
+      toast.error(language === "es" ? "Selecciona un evento e items" : "Select an event and items");
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/api/delivery-notes`, {
+        event_id: selectedEvent,
+        items: selectedItems.map(item => ({
+          inventory_item_id: item.inventory_item_id || item.ingredient_id,
+          name: item.name,
+          inventory_type: item.inventory_type,
+          qty_out: item.qty_out,
+          qty_returned: 0,
+          replacement_cost: item.replacement_cost || 0,
+          unit: item.unit
+        }))
+      }, { withCredentials: true });
+
+      toast.success(language === "es" ? "Conduce creado" : "Delivery note created");
+      setCreateDialogOpen(false);
+      setSelectedEvent("");
+      setSelectedItems([]);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error creating delivery note");
+    }
+  };
+
+  const handleCheckIn = async (note) => {
+    setViewingNote(note);
+    setCheckInDialogOpen(true);
+  };
+
+  const handleSaveCheckIn = async () => {
+    if (!viewingNote) return;
+
+    try {
+      await axios.put(`${API}/api/delivery-notes/${viewingNote.note_id}/check-in`, {
+        items: viewingNote.items
+      }, { withCredentials: true });
+
+      toast.success(language === "es" ? "Check-in guardado" : "Check-in saved");
+      setCheckInDialogOpen(false);
+      setViewingNote(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error saving check-in");
+    }
+  };
+
+  const updateCheckInItem = (index, field, value) => {
+    if (!viewingNote) return;
+    const updatedItems = [...viewingNote.items];
+    updatedItems[index][field] = value;
+    
+    // Calculate loss if equipment
+    if (updatedItems[index].inventory_type === "equipment") {
+      const qtyOut = updatedItems[index].qty_out || 0;
+      const qtyReturned = updatedItems[index].qty_returned || 0;
+      const lost = Math.max(0, qtyOut - qtyReturned);
+      updatedItems[index].qty_lost = lost;
+      updatedItems[index].loss_cost = lost * (updatedItems[index].replacement_cost || 0);
+    }
+    
+    setViewingNote({ ...viewingNote, items: updatedItems });
+  };
+
+  const getEventName = (eventId) => {
+    const event = events.find(e => e.event_id === eventId);
+    return event?.name || eventId;
+  };
+
+  const getStatusBadge = (note) => {
+    if (note.status === "returned") {
+      return <Badge className="bg-green-600">{language === "es" ? "Devuelto" : "Returned"}</Badge>;
+    }
+    if (note.status === "partial") {
+      return <Badge variant="secondary" className="bg-amber-100 text-amber-800">{language === "es" ? "Parcial" : "Partial"}</Badge>;
+    }
+    return <Badge variant="outline">{language === "es" ? "Pendiente" : "Pending"}</Badge>;
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-pulse">Loading...</div></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Conduces Activos" : "Active Notes"}</p>
+                <p className="text-2xl font-bold">{deliveryNotes.filter(n => n.status !== "returned").length}</p>
+              </div>
+              <Truck className="w-8 h-8 text-blue-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Pendiente Devolución" : "Pending Return"}</p>
+                <p className="text-2xl font-bold text-amber-600">
+                  {deliveryNotes.filter(n => n.status === "pending").length}
+                </p>
+              </div>
+              <Clock className="w-8 h-8 text-amber-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Pérdidas Acumuladas" : "Total Losses"}</p>
+                <p className="text-2xl font-bold text-red-600">
+                  ${deliveryNotes.reduce((sum, n) => sum + (n.total_loss_cost || 0), 0).toFixed(2)}
+                </p>
+              </div>
+              <AlertTriangle className="w-8 h-8 text-red-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                {language === "es" ? "Conduces de Evento" : "Event Delivery Notes"}
+              </CardTitle>
+              <CardDescription>
+                {language === "es" 
+                  ? "Control de salida y devolución de equipos y suministros" 
+                  : "Track equipment and supplies check-out and return"}
+              </CardDescription>
+            </div>
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === "es" ? "Nuevo Conduce" : "New Delivery Note"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {deliveryNotes.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{language === "es" ? "No hay conduces" : "No delivery notes"}</p>
+              <p className="text-sm">{language === "es" ? "Crea uno desde un evento con packing list" : "Create one from an event with packing list"}</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === "es" ? "# Conduce" : "Note #"}</TableHead>
+                    <TableHead>{language === "es" ? "Evento" : "Event"}</TableHead>
+                    <TableHead>{language === "es" ? "Fecha Salida" : "Check-out Date"}</TableHead>
+                    <TableHead className="text-center">{language === "es" ? "Items" : "Items"}</TableHead>
+                    <TableHead className="text-center">{language === "es" ? "Equipo" : "Equipment"}</TableHead>
+                    <TableHead className="text-center">{language === "es" ? "Desechables" : "Disposables"}</TableHead>
+                    <TableHead>{language === "es" ? "Estado" : "Status"}</TableHead>
+                    <TableHead className="text-right">{language === "es" ? "Pérdida" : "Loss"}</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {deliveryNotes.map(note => {
+                    const equipmentItems = note.items?.filter(i => i.inventory_type === "equipment") || [];
+                    const disposableItems = note.items?.filter(i => i.inventory_type === "disposable" || i.inventory_type === "event_supply") || [];
+                    
+                    return (
+                      <TableRow key={note.note_id}>
+                        <TableCell className="font-mono">{note.note_number || note.note_id?.slice(-8)}</TableCell>
+                        <TableCell className="font-medium">{getEventName(note.event_id)}</TableCell>
+                        <TableCell>{note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : "-"}</TableCell>
+                        <TableCell className="text-center">{note.items?.length || 0}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="bg-blue-50">
+                            {equipmentItems.length} <span className="text-xs ml-1">↩️</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="bg-gray-50">
+                            {disposableItems.length} <span className="text-xs ml-1">🚫</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(note)}</TableCell>
+                        <TableCell className="text-right">
+                          {note.total_loss_cost > 0 ? (
+                            <span className="text-red-600 font-mono">${note.total_loss_cost.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" onClick={() => handleCheckIn(note)}>
+                            {note.status === "returned" 
+                              ? (language === "es" ? "Ver" : "View")
+                              : (language === "es" ? "Check-in" : "Check-in")}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Delivery Note Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              {language === "es" ? "Nuevo Conduce" : "New Delivery Note"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "es" 
+                ? "Selecciona un evento para cargar items del packing list" 
+                : "Select an event to load items from packing list"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>{language === "es" ? "Evento" : "Event"}</Label>
+              <Select value={selectedEvent} onValueChange={handleEventSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "es" ? "Seleccionar evento" : "Select event"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map(e => (
+                    <SelectItem key={e.event_id} value={e.event_id}>
+                      {e.name} - {e.event_date ? new Date(e.event_date).toLocaleDateString() : "TBD"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedItems.length > 0 && (
+              <div className="border rounded-lg max-h-64 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === "es" ? "Item" : "Item"}</TableHead>
+                      <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
+                      <TableHead className="text-center">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Costo Rep." : "Rep. Cost"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedItems.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={item.inventory_type === "equipment" ? "default" : "secondary"}>
+                            {item.inventory_type === "equipment" 
+                              ? (language === "es" ? "Equipo ↩️" : "Equipment ↩️")
+                              : (language === "es" ? "Desechable 🚫" : "Disposable 🚫")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Input
+                            type="number"
+                            value={item.qty_out}
+                            onChange={(e) => {
+                              const updated = [...selectedItems];
+                              updated[idx].qty_out = parseInt(e.target.value) || 0;
+                              setSelectedItems(updated);
+                            }}
+                            className="w-20 h-8 text-center"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {item.inventory_type === "equipment" 
+                            ? `$${(item.replacement_cost || 0).toFixed(2)}`
+                            : <span className="text-muted-foreground">N/A</span>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {selectedEvent && selectedItems.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>{language === "es" ? "No hay items de suministros en el packing list" : "No supply items in packing list"}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateDeliveryNote} disabled={!selectedEvent || selectedItems.length === 0}>
+              <Truck className="w-4 h-4 mr-2" />
+              {language === "es" ? "Crear Conduce" : "Create Note"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Check-in Dialog */}
+      <Dialog open={checkInDialogOpen} onOpenChange={setCheckInDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              {language === "es" ? "Check-in de Conduce" : "Delivery Note Check-in"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "es" 
+                ? "Registra la devolución de equipos. Los desechables no requieren devolución." 
+                : "Record equipment returns. Disposables don't require return."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewingNote && (
+            <div className="space-y-4">
+              <div className="flex gap-4 text-sm">
+                <div><strong>{language === "es" ? "Evento:" : "Event:"}</strong> {getEventName(viewingNote.event_id)}</div>
+                <div><strong>{language === "es" ? "Salida:" : "Check-out:"}</strong> {viewingNote.checkout_date ? new Date(viewingNote.checkout_date).toLocaleDateString() : "-"}</div>
+              </div>
+
+              <div className="border rounded-lg max-h-80 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === "es" ? "Item" : "Item"}</TableHead>
+                      <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
+                      <TableHead className="text-center">{language === "es" ? "Salió" : "Out"}</TableHead>
+                      <TableHead className="text-center">{language === "es" ? "Devuelto" : "Returned"}</TableHead>
+                      <TableHead className="text-center">{language === "es" ? "Perdido" : "Lost"}</TableHead>
+                      <TableHead className="text-right">{language === "es" ? "Costo Pérdida" : "Loss Cost"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewingNote.items?.map((item, idx) => {
+                      const isEquipment = item.inventory_type === "equipment";
+                      const qtyLost = Math.max(0, (item.qty_out || 0) - (item.qty_returned || 0));
+                      const lossCost = isEquipment ? qtyLost * (item.replacement_cost || 0) : 0;
+                      
+                      return (
+                        <TableRow key={idx} className={!isEquipment ? "bg-gray-50" : ""}>
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell>
+                            <Badge variant={isEquipment ? "default" : "secondary"}>
+                              {isEquipment 
+                                ? (language === "es" ? "Equipo ↩️" : "Equipment ↩️")
+                                : (language === "es" ? "Desechable 🚫" : "Disposable 🚫")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-mono">{item.qty_out}</TableCell>
+                          <TableCell className="text-center">
+                            {isEquipment ? (
+                              <Input
+                                type="number"
+                                value={item.qty_returned || 0}
+                                onChange={(e) => updateCheckInItem(idx, "qty_returned", parseInt(e.target.value) || 0)}
+                                className="w-20 h-8 text-center mx-auto"
+                                max={item.qty_out}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isEquipment ? (
+                              <span className={qtyLost > 0 ? "text-red-600 font-bold" : "text-green-600"}>
+                                {qtyLost}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {isEquipment ? (
+                              lossCost > 0 ? (
+                                <span className="text-red-600">${lossCost.toFixed(2)}</span>
+                              ) : (
+                                <span className="text-green-600">$0.00</span>
+                              )
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Summary */}
+              <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                <span className="font-medium">{language === "es" ? "Total Pérdida:" : "Total Loss:"}</span>
+                <span className={`text-xl font-bold ${
+                  viewingNote.items?.reduce((sum, i) => {
+                    if (i.inventory_type !== "equipment") return sum;
+                    const lost = Math.max(0, (i.qty_out || 0) - (i.qty_returned || 0));
+                    return sum + lost * (i.replacement_cost || 0);
+                  }, 0) > 0 ? "text-red-600" : "text-green-600"
+                }`}>
+                  ${viewingNote.items?.reduce((sum, i) => {
+                    if (i.inventory_type !== "equipment") return sum;
+                    const lost = Math.max(0, (i.qty_out || 0) - (i.qty_returned || 0));
+                    return sum + lost * (i.replacement_cost || 0);
+                  }, 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckInDialogOpen(false)}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveCheckIn} className="bg-green-600 hover:bg-green-700">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              {language === "es" ? "Guardar Check-in" : "Save Check-in"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ==================== MAIN PAGE ====================
 export default function OperationsSuppliesPage() {
   const { language } = useLanguage();
