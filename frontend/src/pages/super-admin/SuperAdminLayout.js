@@ -80,6 +80,8 @@ export default function SuperAdminLayout() {
 
   const navItems = [
     { path: "/super-admin", label: "Overview", icon: BarChart3, end: true },
+    { path: "/super-admin/crm", label: "CRM", icon: Users },
+    { path: "/super-admin/bi", label: "Business Intelligence", icon: CreditCard },
     { path: "/super-admin/organizations", label: "Organizations", icon: Building2 },
     { path: "/super-admin/audit", label: "Audit Log", icon: Activity },
   ];
