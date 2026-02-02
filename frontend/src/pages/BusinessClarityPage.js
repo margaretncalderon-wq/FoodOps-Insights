@@ -15,6 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
 
+// Refactored Components
+import { PayablesSection } from "../components/business-clarity/PayablesSection";
+
 // Icons
 import {
   DollarSign, CreditCard, FileText, Users, TrendingUp, TrendingDown,
