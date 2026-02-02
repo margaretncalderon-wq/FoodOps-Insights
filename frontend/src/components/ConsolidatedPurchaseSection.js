@@ -235,6 +235,12 @@ export default function ConsolidatedPurchaseSection() {
 
   // Create PO from supplier items
   const handleCreatePO = async (supplierId, items) => {
+    // Check if PO already created for this supplier
+    if (createdPOs[supplierId]) {
+      toast.error(language === "es" ? "La orden para este proveedor ya fue creada" : "Order for this supplier already created");
+      return;
+    }
+    
     setCreatingPO(supplierId);
     try {
       const itemsToOrder = items.filter(i => i.to_purchase > 0);
@@ -255,7 +261,9 @@ export default function ConsolidatedPurchaseSection() {
         }))
       }, { withCredentials: true });
       
-      toast.success(t("poCreated"));
+      // Mark this supplier's PO as created
+      setCreatedPOs(prev => ({ ...prev, [supplierId]: true }));
+      toast.success(language === "es" ? "¡Orden enviada a Vendor Orders!" : "Order sent to Vendor Orders!");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Error creating PO");
     }
