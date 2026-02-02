@@ -776,6 +776,30 @@ Auto-generated from Event Order:
   - All functionality preserved, build compiles successfully
   - Improved code maintainability and readability
 
+- [x] **P1: Customizable Proposal Item Types (Multi-tenant)** - COMPLETE (Feb 2, 2026):
+  - Added `ProposalItemType` model to backend with type_key, label_en, label_es, color, icon, is_active, sort_order
+  - Extended Company model with `proposal_item_types` array
+  - Updated GET/PUT `/api/settings/company` to handle item types with defaults (Food, Service, Rental, Fee)
+  - Added UI in Settings > Templates tab for managing item types:
+    - Edit labels in EN/ES
+    - Change colors with color picker
+    - Toggle active/inactive
+    - Add custom types
+    - Cannot delete standard types (Food, Service, Rental, Fee)
+  - ProposalEditor now uses dynamic item types with translated labels
+  - Tested and verified working
+
+- [x] **P2: Client Credit Warnings** - COMPLETE (Feb 2, 2026):
+  - Extended `get_event_proposal` endpoint to calculate client credit usage
+  - Returns `client_credit` object with: credit_limit, credit_used, projected_with_proposal, credit_percentage, available_credit
+  - Returns `credit_warnings` array with severity levels:
+    - HIGH: When proposal would exceed credit limit
+    - MEDIUM: When client using ≥80% of credit line
+  - Added credit warning banners in ProposalEditor UI
+  - Shows red banner for exceeded credit, amber for 80%+ usage
+  - Shows blue info banner for clients with credit lines showing available amounts
+  - Tested and verified working
+
 ## Future/Backlog
 - [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
