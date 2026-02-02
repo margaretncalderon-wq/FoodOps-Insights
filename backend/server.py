@@ -445,6 +445,7 @@ class IngredientCreate(BaseModel):
     alternate_supplier_ids: List[str] = []
     pack_size: float = 1.0
     pack_unit: str = "unit"  # case, bag, box, gallon
+    replacement_cost: float = 0.0  # For equipment - cost to replace if lost/damaged
 
 class Ingredient(BaseModel):
     ingredient_id: str
@@ -469,6 +470,7 @@ class Ingredient(BaseModel):
     pack_unit: str = "unit"
     average_cost: float = 0.0
     price_history: List[Dict[str, Any]] = []
+    replacement_cost: float = 0.0  # For equipment - cost to replace if lost/damaged
     created_at: datetime
     updated_at: datetime
 
