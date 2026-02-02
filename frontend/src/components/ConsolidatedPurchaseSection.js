@@ -128,29 +128,25 @@ export default function ConsolidatedPurchaseSection() {
   // Process Stock Requisition - Deduct items from inventory
   const handleProcessSR = async () => {
     if (!purchaseData?.stock_requisition?.length) {
-      toast.error(language === "es" ? "No hay items para requisicionar" : "No items to requisition");
+      toast.error(language === "es" ? "No hay items para asignar" : "No items to allocate");
       return;
     }
     
     setProcessingSR(true);
     try {
-      // Create inventory transactions to deduct stock
-      for (const item of purchaseData.stock_requisition) {
-        await axios.post(`${API}/api/inventory/transaction`, {
-          inventory_item_id: item.inventory_item_id,
-          transaction_type: "Event Usage",
-          quantity: -Math.abs(item.in_stock), // Negative to deduct
-          notes: `SR for events: ${purchaseData.events?.map(e => e.event_name).join(", ")}`
-        }, { withCredentials: true });
-      }
+      // Mark SR as confirmed/allocated - does NOT deduct inventory
+      // Inventory will be deducted during production posting
+      // This just confirms the allocation for planning purposes
       
-      toast.success(language === "es" ? "Stock requisición procesada - Inventario actualizado" : "Stock requisition processed - Inventory updated");
+      toast.success(language === "es" 
+        ? "Asignación confirmada - El inventario se deducirá durante producción" 
+        : "Allocation confirmed - Inventory will be deducted during production");
       setSrDialogOpen(false);
       
-      // Regenerate list to reflect new inventory
-      handleGenerate();
+      // Mark events as having SR processed
+      setSrProcessed(true);
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Error processing SR");
+      toast.error(error.response?.data?.detail || "Error confirming allocation");
     }
     setProcessingSR(false);
   };
