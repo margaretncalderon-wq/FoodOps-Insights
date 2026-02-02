@@ -20,8 +20,10 @@ import {
   DollarSign, CreditCard, FileText, Users, TrendingUp, TrendingDown,
   AlertTriangle, Clock, CheckCircle, Plus, Download, RefreshCw, 
   Wallet, PieChart, Calendar, Banknote, UserCircle, Landmark, 
-  FileBarChart, BarChart3, Building2, ArrowLeft
+  FileBarChart, BarChart3, Building2, ArrowLeft, Flame, Target,
+  CircleDollarSign, AlertCircle, HelpCircle, Info
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
