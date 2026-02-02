@@ -8986,7 +8986,7 @@ async def update_production_batch_status(
     if new_status == "POSTED":
         shortages = []
         
-        # 1. Validate sufficient RAW inventory
+        # 1. Validate sufficient RAW inventory (check Available, not just On Hand)
         for line in batch.get("lines", []):
             for input_item in line.get("computed_inputs", []):
                 if input_item.get("item_type") == "RAW":
@@ -8994,15 +8994,21 @@ async def update_production_batch_status(
                         {"ingredient_id": input_item.get("inventory_item_id"), "company_id": user.company_id},
                         {"_id": 0}
                     )
-                    current_stock = inv_item.get("stock_quantity", 0) if inv_item else 0
+                    on_hand = inv_item.get("stock_quantity", 0) if inv_item else 0
+                    reserved = inv_item.get("reserved_quantity", 0) if inv_item else 0
+                    available = on_hand - reserved
                     required = input_item.get("required_qty", 0)
                     
-                    if current_stock < required:
+                    # Production can use from reserved inventory
+                    # Check if enough total stock (on_hand) exists
+                    if on_hand < required:
                         shortages.append({
                             "item_name": input_item.get("item_name"),
                             "required": required,
-                            "available": current_stock,
-                            "shortage": round(required - current_stock, 2)
+                            "on_hand": on_hand,
+                            "reserved": reserved,
+                            "available": available,
+                            "shortage": round(required - on_hand, 2)
                         })
         
         if shortages:
@@ -9011,17 +9017,48 @@ async def update_production_batch_status(
                 detail={"message": "Insufficient inventory", "shortages": shortages}
             )
         
-        # 2. Deduct RAW inventory and create PREPARED outputs
+        # 2. Deduct RAW inventory (On Hand) and reduce Reserved
         total_output_value = 0
         
         for line in batch.get("lines", []):
-            # Deduct inputs
+            # Deduct inputs from On Hand AND reduce Reserved
             for input_item in line.get("computed_inputs", []):
                 if input_item.get("item_type") == "RAW" and input_item.get("inventory_item_id"):
+                    required_qty = input_item.get("required_qty", 0)
+                    
+                    # Get current reserved for this item
+                    inv_item = await db.ingredients.find_one(
+                        {"ingredient_id": input_item["inventory_item_id"], "company_id": user.company_id},
+                        {"_id": 0}
+                    )
+                    current_reserved = inv_item.get("reserved_quantity", 0) if inv_item else 0
+                    
+                    # Calculate how much of this consumption was reserved
+                    # Consume from reserved first, then from unreserved
+                    consume_from_reserved = min(required_qty, current_reserved)
+                    
+                    # Update inventory: deduct from On Hand, reduce Reserved
                     await db.ingredients.update_one(
                         {"ingredient_id": input_item["inventory_item_id"], "company_id": user.company_id},
-                        {"$inc": {"stock_quantity": -input_item.get("required_qty", 0)}}
+                        {
+                            "$inc": {
+                                "stock_quantity": -required_qty,  # Deduct from On Hand
+                                "reserved_quantity": -consume_from_reserved  # Reduce Reserved
+                            }
+                        }
                     )
+                    
+                    # Mark related reservations as consumed
+                    event_id = batch.get("linked_event_id")
+                    if event_id and consume_from_reserved > 0:
+                        await db.inventory_reservations.update_many(
+                            {
+                                "inventory_item_id": input_item["inventory_item_id"],
+                                "event_ids": event_id,
+                                "status": "active"
+                            },
+                            {"$set": {"status": "consumed", "consumed_at": now.isoformat()}}
+                        )
                     
                     # Audit log
                     await db.audit_logs.insert_one({
@@ -9033,7 +9070,8 @@ async def update_production_batch_status(
                         "entity_id": input_item["inventory_item_id"],
                         "changes": {
                             "batch_id": batch_id,
-                            "quantity_deducted": input_item.get("required_qty", 0),
+                            "quantity_deducted": required_qty,
+                            "from_reserved": consume_from_reserved,
                             "item_name": input_item.get("item_name")
                         },
                         "timestamp": now.isoformat()
