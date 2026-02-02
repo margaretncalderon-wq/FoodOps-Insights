@@ -1207,11 +1207,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                       {Object.entries(financials.by_item_type).map(([itype, data]) => (
                         <div key={itype} className="flex items-center justify-between p-3">
                           <div className="flex items-center gap-3">
-                            {itype === "Food" && <Utensils className="w-4 h-4 text-green-500" />}
-                            {itype === "Service" && <Users className="w-4 h-4 text-blue-500" />}
-                            {itype === "Rental" && <Armchair className="w-4 h-4 text-amber-500" />}
-                            {itype === "Fee" && <DollarSign className="w-4 h-4 text-purple-500" />}
-                            <span className="font-medium">{itype}</span>
+                            {itype === "Food" && <Utensils className="w-4 h-4" style={{ color: getItemTypeColor(itype) }} />}
+                            {itype === "Service" && <Users className="w-4 h-4" style={{ color: getItemTypeColor(itype) }} />}
+                            {itype === "Rental" && <Armchair className="w-4 h-4" style={{ color: getItemTypeColor(itype) }} />}
+                            {itype === "Fee" && <DollarSign className="w-4 h-4" style={{ color: getItemTypeColor(itype) }} />}
+                            {!["Food", "Service", "Rental", "Fee"].includes(itype) && <Package className="w-4 h-4" style={{ color: getItemTypeColor(itype) }} />}
+                            <span className="font-medium">{getItemTypeLabel(itype)}</span>
                             <span className="text-sm text-muted-foreground">({data.count} items)</span>
                           </div>
                           <div className="flex items-center gap-6 text-sm">
