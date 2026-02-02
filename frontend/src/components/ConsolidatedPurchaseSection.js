@@ -1003,12 +1003,12 @@ export default function ConsolidatedPurchaseSection() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PackageMinus className="w-5 h-5 text-emerald-600" />
-              {language === "es" ? "Procesar Stock Requisition" : "Process Stock Requisition"}
+              {language === "es" ? "Confirmar Asignación de Inventario" : "Confirm Inventory Allocation"}
             </DialogTitle>
             <DialogDescription>
               {language === "es" 
-                ? "Esta acción deducirá los siguientes items del inventario. Esta operación no se puede deshacer."
-                : "This action will deduct the following items from inventory. This operation cannot be undone."}
+                ? "Esta acción confirma la asignación del inventario disponible para estos eventos. El inventario se deducirá durante el proceso de producción."
+                : "This action confirms the allocation of available inventory for these events. Inventory will be deducted during production."}
             </DialogDescription>
           </DialogHeader>
           
@@ -1017,15 +1017,15 @@ export default function ConsolidatedPurchaseSection() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{language === "es" ? "Item" : "Item"}</TableHead>
-                  <TableHead className="text-right">{language === "es" ? "Cantidad" : "Quantity"}</TableHead>
+                  <TableHead className="text-right">{language === "es" ? "Cantidad Asignada" : "Allocated Qty"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {purchaseData?.stock_requisition?.map((item, idx) => (
                   <TableRow key={idx}>
                     <TableCell>{item.item_name}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      -{(item.in_stock || 0).toFixed(2)} {item.unit}
+                    <TableCell className="text-right font-mono text-emerald-700">
+                      {(item.in_stock || 0).toFixed(2)} {item.unit}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1050,7 +1050,7 @@ export default function ConsolidatedPurchaseSection() {
               ) : (
                 <>
                   <Check className="w-4 h-4 mr-2" />
-                  {language === "es" ? "Confirmar y Deducir" : "Confirm & Deduct"}
+                  {language === "es" ? "Confirmar Asignación" : "Confirm Allocation"}
                 </>
               )}
             </Button>
