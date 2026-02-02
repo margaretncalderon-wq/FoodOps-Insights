@@ -3168,6 +3168,161 @@ async def get_inventory_transactions(
             t["created_at"] = datetime.fromisoformat(t["created_at"])
     return transactions
 
+@inventory_router.post("/reserve")
+async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
+    """
+    Reserve inventory for Stock Requisition (SR).
+    This DOES NOT deduct inventory - it only marks quantities as reserved.
+    
+    Inventory Math:
+    - On Hand (current_stock): Unchanged
+    - Reserved (reserved_quantity): Increases
+    - Available: On Hand - Reserved (recalculated)
+    
+    Only Production can deduct from On Hand.
+    """
+    items = data.get("items", [])
+    event_ids = data.get("event_ids", [])
+    
+    if not items:
+        raise HTTPException(status_code=400, detail="No items to reserve")
+    
+    now = datetime.now(timezone.utc)
+    reservations = []
+    event_names = ", ".join([e.get("event_name", e.get("event_id", "")) for e in data.get("events", [])])
+    
+    for item in items:
+        item_id = item.get("inventory_item_id") or item.get("ingredient_id")
+        qty_to_reserve = item.get("qty_needed", item.get("quantity", 0))
+        
+        if not item_id or qty_to_reserve <= 0:
+            continue
+        
+        # Get current inventory item
+        inv_item = await db.ingredients.find_one(
+            {"ingredient_id": item_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        
+        if not inv_item:
+            continue
+        
+        current_stock = inv_item.get("stock_quantity", 0)
+        current_reserved = inv_item.get("reserved_quantity", 0)
+        available = current_stock - current_reserved
+        
+        # Update reserved quantity (add to existing reserved)
+        new_reserved = current_reserved + qty_to_reserve
+        
+        await db.ingredients.update_one(
+            {"ingredient_id": item_id, "company_id": user.company_id},
+            {"$set": {
+                "reserved_quantity": new_reserved,
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        # Create reservation record (not a deduction transaction)
+        reservation_id = f"res_{uuid.uuid4().hex[:12]}"
+        reservation_doc = {
+            "reservation_id": reservation_id,
+            "company_id": user.company_id,
+            "inventory_item_id": item_id,
+            "item_name": item.get("name", inv_item.get("name", "")),
+            "event_ids": event_ids,
+            "event_names": event_names,
+            "quantity_reserved": qty_to_reserve,
+            "previous_reserved": current_reserved,
+            "new_reserved": new_reserved,
+            "on_hand": current_stock,
+            "available_after": current_stock - new_reserved,
+            "status": "active",  # active, consumed, released
+            "created_at": now.isoformat(),
+            "created_by": user.user_id
+        }
+        await db.inventory_reservations.insert_one(reservation_doc)
+        
+        reservations.append({
+            "item_id": item_id,
+            "item_name": item.get("name", inv_item.get("name", "")),
+            "quantity_reserved": qty_to_reserve,
+            "on_hand": current_stock,
+            "total_reserved": new_reserved,
+            "available": current_stock - new_reserved
+        })
+    
+    return {
+        "message": "Inventory reserved successfully",
+        "reservations": reservations,
+        "event_ids": event_ids,
+        "reserved_at": now.isoformat()
+    }
+
+@inventory_router.post("/release-reservation")
+async def release_inventory_reservation(data: dict, user: User = Depends(get_current_user)):
+    """
+    Release reserved inventory (cancel reservation).
+    Use when an event is cancelled or SR is voided.
+    """
+    reservation_ids = data.get("reservation_ids", [])
+    item_ids = data.get("item_ids", [])
+    event_ids = data.get("event_ids", [])
+    
+    now = datetime.now(timezone.utc)
+    released = []
+    
+    # Find reservations to release
+    query = {"company_id": user.company_id, "status": "active"}
+    if reservation_ids:
+        query["reservation_id"] = {"$in": reservation_ids}
+    elif event_ids:
+        query["event_ids"] = {"$in": event_ids}
+    elif item_ids:
+        query["inventory_item_id"] = {"$in": item_ids}
+    else:
+        raise HTTPException(status_code=400, detail="No reservations specified")
+    
+    reservations = await db.inventory_reservations.find(query, {"_id": 0}).to_list(500)
+    
+    for res in reservations:
+        item_id = res.get("inventory_item_id")
+        qty_to_release = res.get("quantity_reserved", 0)
+        
+        # Update inventory reserved quantity
+        await db.ingredients.update_one(
+            {"ingredient_id": item_id, "company_id": user.company_id},
+            {"$inc": {"reserved_quantity": -qty_to_release}}
+        )
+        
+        # Mark reservation as released
+        await db.inventory_reservations.update_one(
+            {"reservation_id": res["reservation_id"]},
+            {"$set": {"status": "released", "released_at": now.isoformat()}}
+        )
+        
+        released.append(res["reservation_id"])
+    
+    return {"message": f"Released {len(released)} reservations", "released_ids": released}
+
+@inventory_router.get("/reservations")
+async def get_inventory_reservations(
+    event_id: Optional[str] = None,
+    item_id: Optional[str] = None,
+    status: Optional[str] = "active",
+    user: User = Depends(get_current_user)
+):
+    """Get inventory reservations"""
+    query = {"company_id": user.company_id}
+    if event_id:
+        query["event_ids"] = event_id
+    if item_id:
+        query["inventory_item_id"] = item_id
+    if status:
+        query["status"] = status
+    
+    reservations = await db.inventory_reservations.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return reservations
+
 @inventory_router.post("/transactions")
 async def create_inventory_transaction(data: InventoryTransactionCreate, user: User = Depends(get_current_user)):
     """Create an inventory transaction and update stock"""
