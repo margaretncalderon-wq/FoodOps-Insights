@@ -8448,8 +8448,10 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
                 continue
             
             # Calculate portions needed
-            item_qty = item.get("quantity", 1)
-            portions_needed = guest_count * item_qty
+            # item.quantity already represents TOTAL portions/units ordered (not per-person)
+            # Example: qty=150 means 150 portions total, qty=1500 means 1500 portions total
+            item_qty = item.get("quantity", 1) or 1
+            portions_needed = item_qty  # Direct use - quantity IS the total
             
             # Get yield info
             portions_per_yield = recipe.get("portions_per_yield", 1) or 1
