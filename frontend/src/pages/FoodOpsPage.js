@@ -30,17 +30,17 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Culinary Intelligence inventory types (food-related only)
 const INVENTORY_TYPES = [
   { value: "food", label: "Food", labelEs: "Alimentos" },
   { value: "packaging", label: "Packaging", labelEs: "Empaque" },
-  { value: "disposable", label: "Disposable", labelEs: "Desechables" },
-  { value: "equipment", label: "Equipment", labelEs: "Equipo" },
-  { value: "event_supply", label: "Event Supply", labelEs: "Suministros" },
 ];
+
+// Note: Equipment, Disposables, and Event Supplies have been moved to Operations Supplies module
 
 const CATEGORIES = [
   "protein", "dairy", "produce", "dry_goods", "beverage", "spices", 
-  "frozen", "bakery", "packaging", "cleaning", "equipment"
+  "frozen", "bakery", "packaging", "cleaning"
 ];
 
 // ==================== INVENTORY SECTION ====================
