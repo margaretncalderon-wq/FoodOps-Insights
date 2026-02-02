@@ -35,6 +35,7 @@ export default function ConsolidatedPurchaseSection() {
   const [generating, setGenerating] = useState(false);
   const [creatingPO, setCreatingPO] = useState(null);
   const [processingSR, setProcessingSR] = useState(false);
+  const [srProcessed, setSrProcessed] = useState(false); // Track if SR allocation confirmed
   const [srDialogOpen, setSrDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("pending");
   const [markingComplete, setMarkingComplete] = useState(false);
