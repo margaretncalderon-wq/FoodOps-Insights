@@ -1459,7 +1459,7 @@ export default function OperationsSuppliesPage() {
   const tabs = [
     { id: "inventory", path: "/ops-supplies/inventory", label: language === "es" ? "Inventario" : "Inventory", icon: Package },
     { id: "purchasing", path: "/ops-supplies/purchasing", label: language === "es" ? "Compras" : "Purchasing", icon: ShoppingCart },
-    { id: "checkin", path: "/ops-supplies/checkin", label: "Check-in/out", icon: ClipboardList, disabled: true, badge: "v2" },
+    { id: "checkin", path: "/ops-supplies/checkin", label: language === "es" ? "Conduces" : "Delivery Notes", icon: Truck },
     { id: "maintenance", path: "/ops-supplies/maintenance", label: language === "es" ? "Mantenimiento" : "Maintenance", icon: Archive, disabled: true, badge: "v2" },
   ];
 
