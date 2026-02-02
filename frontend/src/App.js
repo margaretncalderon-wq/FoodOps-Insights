@@ -27,6 +27,13 @@ import EventOrchestrationPage from "./pages/EventOrchestrationPage";
 import ClientEngagementPage from "./pages/ClientEngagementPage";
 import OperationsSuppliesPage from "./pages/OperationsSuppliesPage";
 import OnboardingPage from "./pages/onboarding/OnboardingPage";
+import {
+  SuperAdminLayout,
+  SuperAdminOverview,
+  OrganizationsListPage,
+  OrganizationDetailPage,
+  GlobalAuditPage
+} from "./pages/super-admin";
 
 import "./App.css";
 
