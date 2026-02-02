@@ -114,128 +114,151 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
 
   return (
     <div className="space-y-6" data-testid="operational-documents-tab">
-      <div>
-        <h3 className="text-lg font-semibold mb-1">
-          {isEs ? "Documentos Operativos" : "Operational Documents"}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          {isEs 
-            ? "Genera y gestiona documentos para la ejecución del evento"
-            : "Generate and manage documents for event execution"}
-        </p>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="packing" className="flex items-center gap-2">
+            <ClipboardList className="w-4 h-4" />
+            {isEs ? "Packing List / Montaje" : "Packing List / Setup"}
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            {isEs ? "Documentos Generados" : "Generated Documents"}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Document Cards */}
-      <div className="grid md:grid-cols-3 gap-4">
-        {documentTypes.map(({ type, label, description, icon: Icon, color }) => {
-          const existingDoc = getExistingDoc(type);
-          const isGenerating = generating === type;
+        {/* Packing List Editor Tab */}
+        <TabsContent value="packing">
+          <PackingListEditor eventId={eventId} language={language} />
+        </TabsContent>
 
-          return (
-            <Card key={type} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${color}`} />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{label}</CardTitle>
-                    <CardDescription className="text-xs">{description}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {existingDoc ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <Badge variant="outline" className="text-xs">
-                        {isEs ? "Generado" : "Generated"}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(existingDoc.updated_at || existingDoc.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => setPreviewDoc(existingDoc)}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        {isEs ? "Ver" : "View"}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handlePrint(existingDoc)}
-                      >
-                        <Printer className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleRegenerateDocument(existingDoc.document_id)}
-                        title={isEs ? "Actualizar con cambios" : "Update with changes"}
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button 
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => handleGenerateDocument(type)}
-                    disabled={isGenerating || isLocked}
-                  >
-                    {isGenerating ? (
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="w-4 h-4 mr-2" />
-                    )}
-                    {isEs ? "Generar" : "Generate"}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* All Generated Documents List */}
-      {documents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {isEs ? "Historial de Documentos" : "Document History"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {documents.map(doc => (
-                <div key={doc.document_id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">{doc.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(doc.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{doc.document_type}</Badge>
-                    <Button variant="ghost" size="sm" onClick={() => setPreviewDoc(doc)}>
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+        {/* Generated Documents Tab */}
+        <TabsContent value="documents">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-1">
+                {isEs ? "Documentos Operativos" : "Operational Documents"}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? "Genera y gestiona documentos para la ejecución del evento"
+                  : "Generate and manage documents for event execution"}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            {/* Document Cards */}
+            <div className="grid md:grid-cols-3 gap-4">
+              {documentTypes.map(({ type, label, description, icon: Icon, color }) => {
+                const existingDoc = getExistingDoc(type);
+                const isGenerating = generating === type;
+
+                return (
+                  <Card key={type} className="relative">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center`}>
+                          <Icon className={`w-5 h-5 ${color}`} />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base">{label}</CardTitle>
+                          <CardDescription className="text-xs">{description}</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {existingDoc ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <Badge variant="outline" className="text-xs">
+                              {isEs ? "Generado" : "Generated"}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(existingDoc.updated_at || existingDoc.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => setPreviewDoc(existingDoc)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              {isEs ? "Ver" : "View"}
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handlePrint(existingDoc)}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleRegenerateDocument(existingDoc.document_id)}
+                              title={isEs ? "Actualizar con cambios" : "Update with changes"}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button 
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => handleGenerateDocument(type)}
+                          disabled={isGenerating || isLocked}
+                        >
+                          {isGenerating ? (
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <FileText className="w-4 h-4 mr-2" />
+                          )}
+                          {isEs ? "Generar" : "Generate"}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* All Generated Documents List */}
+            {documents.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    {isEs ? "Historial de Documentos" : "Document History"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="divide-y">
+                    {documents.map(doc => (
+                      <div key={doc.document_id} className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-sm">{doc.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(doc.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{doc.document_type}</Badge>
+                          <Button variant="ghost" size="sm" onClick={() => setPreviewDoc(doc)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Preview Dialog */}
       <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
