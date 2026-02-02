@@ -95,8 +95,11 @@ function InventorySection() {
       save: language === "es" ? "Guardar" : "Save",
       cancel: language === "es" ? "Cancelar" : "Cancel",
       lowStock: language === "es" ? "Stock Bajo" : "Low Stock",
-      uploadBySupplier: language === "es" ? "Subir por Proveedor" : "Upload by Supplier",
-      priceHistory: language === "es" ? "Historial de Precios" : "Price History",
+      costCenter: language === "es" ? "Centro de Costo" : "Cost Center",
+      purchaseDate: language === "es" ? "Fecha de Compra" : "Purchase Date",
+      usefulLife: language === "es" ? "Vida Útil (años)" : "Useful Life (years)",
+      depreciation: language === "es" ? "Depreciación %" : "Depreciation %",
+      settings: language === "es" ? "Configuración" : "Settings",
     };
     return translations[key] || key;
   }, [language]);
@@ -108,16 +111,19 @@ function InventorySection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [itemsRes, suppliersRes] = await Promise.all([
+      const [itemsRes, categoriesRes] = await Promise.all([
         axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
-        axios.get(`${API}/api/suppliers`, { withCredentials: true })
+        axios.get(`${API}/api/settings/ops-categories`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
       // Filter only ops supply types
       const opsItems = (itemsRes.data || []).filter(item => 
         ["equipment", "disposable", "event_supply"].includes(item.inventory_type)
       );
       setItems(opsItems);
-      setSuppliers(suppliersRes.data || []);
+      // Use saved categories or defaults
+      if (categoriesRes.data?.categories) {
+        setCategories(categoriesRes.data.categories);
+      }
     } catch (error) {
       toast.error("Error loading data");
     }
@@ -134,9 +140,12 @@ function InventorySection() {
         allergens: [],
         storage_location: "dry",
         reorder_threshold: 0,
-        alternate_supplier_ids: [],
         pack_unit: itemForm.unit || "unit",
-        replacement_cost: itemForm.replacement_cost || 0  // For equipment
+        replacement_cost: itemForm.replacement_cost || 0,
+        cost_center: itemForm.cost_center || "operations",
+        purchase_date: itemForm.purchase_date || null,
+        useful_life_years: itemForm.useful_life_years || 5,
+        depreciation_rate: itemForm.depreciation_rate || 20
       };
       
       if (editingItem) {
