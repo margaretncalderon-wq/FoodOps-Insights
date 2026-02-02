@@ -642,6 +642,36 @@ Auto-generated from Event Order:
     - Decision Guide with actionable recommendations
     - Row highlighting by health status
 
+- [x] **Fixed Costs & Budget Management** - COMPLETE (Feb 2, 2026):
+  - **Fixed Cost Categories**:
+    - CRUD for overhead cost categories (Rent, Utilities, Payroll, etc.)
+    - Active/Inactive status toggle
+    - Description field for context
+  - **Budgets**:
+    - Set budgets per category with period (Monthly, Quarterly, Yearly)
+    - Start date configuration
+    - Notes field for budget context
+    - Upsert logic: updates existing budget for same category+period
+  - **Budget vs Actual Analysis**:
+    - Period filters (Monthly, Quarterly, Yearly)
+    - Year and Month selectors
+    - Table showing: Category, Budgeted, Actual, Variance, %, Status
+    - Status badges: OK, Warning (>90% used), Over Budget, No Budget
+    - Row highlighting for over budget and warning states
+    - Summary row with totals
+  - **Executive Insights**:
+    - Fixed Costs (Period): Total actual spend
+    - Avg per Event: Fixed costs divided by event count
+    - Break-even per Event: Minimum revenue needed per event
+    - Total Variance: Under/over budget indicator
+  - **Backend Endpoints**:
+    - GET/POST/PUT/DELETE `/api/business-clarity/fixed-costs/categories`
+    - GET/POST/DELETE `/api/business-clarity/fixed-costs/budgets`
+    - GET `/api/business-clarity/fixed-costs/analysis` - Budget vs actual report
+  - **Database Collections**:
+    - `fixed_cost_categories`: category_id, name, description, active
+    - `fixed_cost_budgets`: budget_id, category_id, period, budget_amount, start_date
+
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
