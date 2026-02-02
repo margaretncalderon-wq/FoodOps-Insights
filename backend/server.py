@@ -11141,6 +11141,362 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
         }
     }
 
+# ============== FIXED COSTS & BUDGET ==============
+
+# Fixed Cost Category Model
+class FixedCostCategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    active: bool = True
+
+# Budget Model
+class BudgetCreate(BaseModel):
+    category_id: str
+    period: str  # MONTHLY, QUARTERLY, YEARLY
+    budget_amount: float
+    start_date: str  # ISO date string
+    end_date: Optional[str] = None
+    notes: Optional[str] = ""
+
+# --- Fixed Cost Categories ---
+@business_clarity_router.get("/fixed-costs/categories")
+async def get_fixed_cost_categories(user: User = Depends(get_current_user)):
+    """Get all fixed cost categories"""
+    categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    return categories
+
+@business_clarity_router.post("/fixed-costs/categories")
+async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
+    """Create a new fixed cost category"""
+    now = datetime.now(timezone.utc)
+    category_id = f"fcc_{uuid.uuid4().hex[:12]}"
+    
+    category = {
+        "category_id": category_id,
+        "company_id": user.company_id,
+        "name": data.name,
+        "description": data.description,
+        "active": data.active,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.fixed_cost_categories.insert_one(category)
+    del category["_id"] if "_id" in category else None
+    return category
+
+@business_clarity_router.put("/fixed-costs/categories/{category_id}")
+async def update_fixed_cost_category(category_id: str, data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
+    """Update a fixed cost category"""
+    now = datetime.now(timezone.utc)
+    
+    result = await db.fixed_cost_categories.update_one(
+        {"category_id": category_id, "company_id": user.company_id},
+        {"$set": {
+            "name": data.name,
+            "description": data.description,
+            "active": data.active,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category updated"}
+
+@business_clarity_router.delete("/fixed-costs/categories/{category_id}")
+async def delete_fixed_cost_category(category_id: str, user: User = Depends(get_current_user)):
+    """Delete a fixed cost category"""
+    result = await db.fixed_cost_categories.delete_one(
+        {"category_id": category_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category deleted"}
+
+# --- Budgets ---
+@business_clarity_router.get("/fixed-costs/budgets")
+async def get_budgets(user: User = Depends(get_current_user), period: str = None, year: int = None):
+    """Get all budgets, optionally filtered by period and year"""
+    query = {"company_id": user.company_id}
+    if period:
+        query["period"] = period
+    
+    budgets = await db.fixed_cost_budgets.find(query, {"_id": 0}).to_list(500)
+    
+    # Enrich with category names
+    categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "category_id": 1, "name": 1}
+    ).to_list(100)
+    cat_map = {c["category_id"]: c["name"] for c in categories}
+    
+    for b in budgets:
+        b["category_name"] = cat_map.get(b.get("category_id"), "Unknown")
+    
+    return budgets
+
+@business_clarity_router.post("/fixed-costs/budgets")
+async def create_budget(data: BudgetCreate, user: User = Depends(get_current_user)):
+    """Create or update a budget for a category and period"""
+    now = datetime.now(timezone.utc)
+    budget_id = f"bud_{uuid.uuid4().hex[:12]}"
+    
+    # Check if budget already exists for this category and period
+    existing = await db.fixed_cost_budgets.find_one({
+        "company_id": user.company_id,
+        "category_id": data.category_id,
+        "period": data.period,
+        "start_date": data.start_date
+    })
+    
+    if existing:
+        # Update existing
+        await db.fixed_cost_budgets.update_one(
+            {"budget_id": existing["budget_id"]},
+            {"$set": {
+                "budget_amount": data.budget_amount,
+                "end_date": data.end_date,
+                "notes": data.notes,
+                "updated_at": now.isoformat()
+            }}
+        )
+        return {"message": "Budget updated", "budget_id": existing["budget_id"]}
+    
+    budget = {
+        "budget_id": budget_id,
+        "company_id": user.company_id,
+        "category_id": data.category_id,
+        "period": data.period,
+        "budget_amount": data.budget_amount,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.fixed_cost_budgets.insert_one(budget)
+    return {"message": "Budget created", "budget_id": budget_id}
+
+@business_clarity_router.delete("/fixed-costs/budgets/{budget_id}")
+async def delete_budget(budget_id: str, user: User = Depends(get_current_user)):
+    """Delete a budget"""
+    result = await db.fixed_cost_budgets.delete_one(
+        {"budget_id": budget_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Budget not found")
+    return {"message": "Budget deleted"}
+
+# --- Budget vs Actual Analysis ---
+@business_clarity_router.get("/fixed-costs/analysis")
+async def get_budget_analysis(user: User = Depends(get_current_user), period: str = "MONTHLY", year: int = None, month: int = None):
+    """Get budget vs actual analysis for fixed costs"""
+    now = datetime.now(timezone.utc)
+    
+    # Default to current year/month
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+    
+    # Get all categories
+    categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id, "active": True},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Get budgets for the period
+    budgets = await db.fixed_cost_budgets.find(
+        {"company_id": user.company_id, "period": period},
+        {"_id": 0}
+    ).to_list(500)
+    budget_map = {b["category_id"]: b for b in budgets}
+    
+    # Calculate date range based on period
+    if period == "MONTHLY":
+        start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        else:
+            end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    elif period == "QUARTERLY":
+        quarter = (month - 1) // 3
+        start_month = quarter * 3 + 1
+        start_date = datetime(year, start_month, 1, tzinfo=timezone.utc)
+        end_month = start_month + 3
+        if end_month > 12:
+            end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        else:
+            end_date = datetime(year, end_month, 1, tzinfo=timezone.utc)
+    else:  # YEARLY
+        start_date = datetime(year, 1, 1, tzinfo=timezone.utc)
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    
+    # Get actual expenses (overhead costs with cost_center)
+    expenses = await db.expenses.find({
+        "company_id": user.company_id,
+        "$or": [
+            {"cost_center": {"$exists": True, "$ne": None}},
+            {"fixed_cost_category_id": {"$exists": True, "$ne": None}}
+        ]
+    }, {"_id": 0}).to_list(1000)
+    
+    # Also check supplier payables with cost_center
+    payables = await db.supplier_payables.find({
+        "company_id": user.company_id,
+        "$or": [
+            {"cost_center": {"$exists": True, "$ne": None}},
+            {"fixed_cost_category_id": {"$exists": True, "$ne": None}}
+        ]
+    }, {"_id": 0}).to_list(1000)
+    
+    # Aggregate actual spend per category
+    actual_by_category = {}
+    
+    for exp in expenses:
+        cat_id = exp.get("fixed_cost_category_id") or exp.get("cost_center")
+        if not cat_id:
+            continue
+        
+        # Check if expense falls within the date range
+        exp_date_str = exp.get("expense_date") or exp.get("created_at")
+        if exp_date_str:
+            try:
+                if isinstance(exp_date_str, str):
+                    exp_date = datetime.fromisoformat(exp_date_str.replace("Z", "+00:00"))
+                else:
+                    exp_date = exp_date_str
+                if not (start_date <= exp_date < end_date):
+                    continue
+            except:
+                pass
+        
+        amount = exp.get("amount", 0)
+        if cat_id not in actual_by_category:
+            actual_by_category[cat_id] = 0
+        actual_by_category[cat_id] += amount
+    
+    for pay in payables:
+        cat_id = pay.get("fixed_cost_category_id") or pay.get("cost_center")
+        if not cat_id:
+            continue
+        
+        pay_date_str = pay.get("created_at")
+        if pay_date_str:
+            try:
+                if isinstance(pay_date_str, str):
+                    pay_date = datetime.fromisoformat(pay_date_str.replace("Z", "+00:00"))
+                else:
+                    pay_date = pay_date_str
+                if not (start_date <= pay_date < end_date):
+                    continue
+            except:
+                pass
+        
+        amount = pay.get("amount", 0)
+        if cat_id not in actual_by_category:
+            actual_by_category[cat_id] = 0
+        actual_by_category[cat_id] += amount
+    
+    # Build analysis results
+    results = []
+    total_budgeted = 0
+    total_actual = 0
+    
+    for cat in categories:
+        cat_id = cat["category_id"]
+        budget = budget_map.get(cat_id, {})
+        budgeted = budget.get("budget_amount", 0)
+        actual = actual_by_category.get(cat_id, 0)
+        
+        # Also check by cost_center name match
+        if actual == 0:
+            # Try matching by category name to cost_center
+            cat_name_lower = cat["name"].lower()
+            for cc_key, cc_amount in actual_by_category.items():
+                if cc_key and cc_key.lower() == cat_name_lower:
+                    actual = cc_amount
+                    break
+        
+        variance = budgeted - actual
+        variance_pct = ((variance / budgeted) * 100) if budgeted > 0 else 0
+        
+        # Determine status
+        if budgeted == 0:
+            status = "NO_BUDGET"
+        elif actual > budgeted:
+            status = "OVER_BUDGET"
+        elif actual > budgeted * 0.9:
+            status = "WARNING"
+        else:
+            status = "OK"
+        
+        total_budgeted += budgeted
+        total_actual += actual
+        
+        results.append({
+            "category_id": cat_id,
+            "category_name": cat["name"],
+            "description": cat.get("description", ""),
+            "budgeted": round(budgeted, 2),
+            "actual": round(actual, 2),
+            "variance": round(variance, 2),
+            "variance_percent": round(variance_pct, 1),
+            "status": status
+        })
+    
+    # Sort by status priority (over budget first)
+    status_order = {"OVER_BUDGET": 0, "WARNING": 1, "NO_BUDGET": 2, "OK": 3}
+    results.sort(key=lambda x: (status_order.get(x["status"], 4), -x["actual"]))
+    
+    # Get event count for period
+    events = await db.events.find({
+        "company_id": user.company_id,
+        "stage": {"$in": ["Committed", "Won", "Closed"]}
+    }, {"_id": 0, "event_id": 1}).to_list(500)
+    event_count = len(events) or 1
+    
+    # Calculate executive insights
+    avg_fixed_per_event = total_actual / event_count if event_count > 0 else 0
+    
+    # Get total revenue for break-even calculation
+    invoices = await db.invoices.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "total": 1}
+    ).to_list(1000)
+    total_revenue = sum(inv.get("total", 0) for inv in invoices)
+    
+    break_even_per_event = (total_actual / event_count) if event_count > 0 else 0
+    
+    return {
+        "period": period,
+        "year": year,
+        "month": month,
+        "date_range": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
+        "categories": results,
+        "summary": {
+            "total_budgeted": round(total_budgeted, 2),
+            "total_actual": round(total_actual, 2),
+            "total_variance": round(total_budgeted - total_actual, 2),
+            "variance_percent": round(((total_budgeted - total_actual) / total_budgeted * 100) if total_budgeted > 0 else 0, 1),
+            "overall_status": "OVER_BUDGET" if total_actual > total_budgeted else "WARNING" if total_actual > total_budgeted * 0.9 else "OK"
+        },
+        "insights": {
+            "total_fixed_costs": round(total_actual, 2),
+            "avg_fixed_per_event": round(avg_fixed_per_event, 2),
+            "events_in_period": event_count,
+            "break_even_revenue_per_event": round(break_even_per_event, 2)
+        }
+    }
+
 # ============== EVENT ORCHESTRATION ROUTES ==============
 
 @orchestration_router.get("/events")
