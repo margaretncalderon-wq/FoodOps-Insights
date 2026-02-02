@@ -962,6 +962,9 @@ function CheckInOutSection() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [viewingNote, setViewingNote] = useState(null);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
+  const [availableInventory, setAvailableInventory] = useState([]);
 
   useEffect(() => {
     fetchData();
