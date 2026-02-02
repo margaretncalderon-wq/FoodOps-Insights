@@ -417,7 +417,7 @@ function InventorySection() {
                   <TableHead className="text-right">{t("reserved")}</TableHead>
                   <TableHead className="text-right">{t("available")}</TableHead>
                   <TableHead className="text-right">{t("cost")}</TableHead>
-                  <TableHead>{t("supplier")}</TableHead>
+                  <TableHead>{t("costCenter")}</TableHead>
                   <TableHead className="text-right">{language === "es" ? "Acciones" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -435,6 +435,7 @@ function InventorySection() {
                     const available = onHand - reserved;
                     const isLowStock = onHand <= (item.par_level || 0);
                     const hasReserved = reserved > 0;
+                    const depreciation = calculateDepreciation(item);
                     
                     return (
                       <TableRow key={item.ingredient_id} className={isLowStock ? "bg-red-50" : ""}>
@@ -451,7 +452,7 @@ function InventorySection() {
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-muted-foreground">
-                            {CATEGORIES.find(c => c.value === item.category)?.[language === "es" ? "labelEs" : "label"] || item.category}
+                            {categories.find(c => c.value === item.category)?.[language === "es" ? "labelEs" : "label"] || item.category}
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-mono">{onHand} {item.unit}</TableCell>
@@ -470,17 +471,19 @@ function InventorySection() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-auto p-0 font-mono hover:underline"
-                            onClick={() => handleViewPriceHistory(item)}
-                          >
-                            ${(item.cost_per_unit || 0).toFixed(2)}
-                          </Button>
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono">${(item.cost_per_unit || 0).toFixed(2)}</span>
+                            {depreciation && (
+                              <span className="text-xs text-muted-foreground" title={`${language === "es" ? "Valor actual" : "Current value"}: $${depreciation.currentValue.toFixed(2)}`}>
+                                {language === "es" ? "Dep:" : "Dep:"} ${depreciation.accumulatedDepreciation.toFixed(0)}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{getSupplierName(item.preferred_supplier_id)}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {getCostCenterLabel(item.cost_center || "operations")}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
