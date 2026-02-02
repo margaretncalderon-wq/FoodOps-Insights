@@ -12968,6 +12968,793 @@ api_router.include_router(production_router)
 api_router.include_router(delivery_notes_router)
 api_router.include_router(org_router)
 
+# ============== ORGANIZATION & SAAS ENDPOINTS ==============
+
+async def get_user_membership(user_id: str, company_id: str) -> Optional[dict]:
+    """Get user's membership in an organization"""
+    return await db.memberships.find_one(
+        {"user_id": user_id, "company_id": company_id, "status": "active"},
+        {"_id": 0}
+    )
+
+async def check_permission(user: User, permission: str) -> bool:
+    """Check if user has a specific permission in their active org"""
+    if not user.company_id:
+        return False
+    membership = await get_user_membership(user.user_id, user.company_id)
+    if not membership:
+        # Legacy users without membership get owner permissions
+        return True
+    role = membership.get("role", "viewer")
+    return ROLE_PERMISSIONS.get(role, {}).get(permission, False)
+
+async def get_current_period() -> str:
+    """Get current period string (YYYY-MM)"""
+    now = datetime.now(timezone.utc)
+    return f"{now.year}-{now.month:02d}"
+
+async def get_or_create_usage_meter(company_id: str) -> dict:
+    """Get or create usage meter for current period"""
+    period = await get_current_period()
+    meter = await db.usage_meters.find_one(
+        {"company_id": company_id, "period": period},
+        {"_id": 0}
+    )
+    if not meter:
+        meter = {
+            "meter_id": f"meter_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "period": period,
+            "metrics": {
+                "events_created": 0,
+                "active_users": 0,
+                "supplier_invoices": 0,
+                "proposals_created": 0,
+                "storage_mb": 0
+            },
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.usage_meters.insert_one(meter)
+        del meter["_id"] if "_id" in meter else None
+    return meter
+
+async def increment_usage(company_id: str, metric: str, amount: int = 1):
+    """Increment a usage metric"""
+    period = await get_current_period()
+    await db.usage_meters.update_one(
+        {"company_id": company_id, "period": period},
+        {
+            "$inc": {f"metrics.{metric}": amount},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        },
+        upsert=True
+    )
+
+async def check_usage_limit(company_id: str, metric: str) -> dict:
+    """Check if organization is within usage limits"""
+    # Get subscription and plan
+    subscription = await db.subscriptions.find_one(
+        {"company_id": company_id, "status": {"$in": ["active", "trialing"]}},
+        {"_id": 0}
+    )
+    if not subscription:
+        return {"allowed": True, "warning": False, "message": None}
+    
+    plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+    if not plan:
+        return {"allowed": True, "warning": False, "message": None}
+    
+    # Get current usage
+    meter = await get_or_create_usage_meter(company_id)
+    current_usage = meter.get("metrics", {}).get(metric, 0)
+    
+    # Map metric to limit field
+    limit_map = {
+        "events_created": "events_per_month",
+        "active_users": "active_users",
+        "supplier_invoices": "supplier_invoices_per_month",
+        "proposals_created": "proposals_per_month",
+        "storage_mb": "storage_mb"
+    }
+    
+    limit_field = limit_map.get(metric)
+    if not limit_field:
+        return {"allowed": True, "warning": False, "message": None}
+    
+    limit = plan.get("limits", {}).get(limit_field, 999)
+    percentage = (current_usage / limit * 100) if limit > 0 else 0
+    
+    if current_usage >= limit:
+        return {
+            "allowed": False,
+            "warning": True,
+            "percentage": percentage,
+            "current": current_usage,
+            "limit": limit,
+            "message": f"Has alcanzado el límite de {limit} para {metric}. Actualiza tu plan para continuar."
+        }
+    elif percentage >= 80:
+        return {
+            "allowed": True,
+            "warning": True,
+            "percentage": percentage,
+            "current": current_usage,
+            "limit": limit,
+            "message": f"Estás usando {percentage:.0f}% de tu límite de {metric}."
+        }
+    
+    return {"allowed": True, "warning": False, "percentage": percentage, "current": current_usage, "limit": limit}
+
+async def ensure_default_plans():
+    """Ensure default plans exist in database"""
+    for plan_data in DEFAULT_PLANS:
+        existing = await db.plans.find_one({"plan_id": plan_data["plan_id"]})
+        if not existing:
+            await db.plans.insert_one(plan_data)
+
+# Initialize plans on startup
+@app.on_event("startup")
+async def startup_init_plans():
+    await ensure_default_plans()
+
+# ---- Plans Endpoints ----
+
+@org_router.get("/plans")
+async def get_plans():
+    """Get all available subscription plans"""
+    plans = await db.plans.find({"is_active": True}, {"_id": 0}).sort("sort_order", 1).to_list(20)
+    return plans
+
+@org_router.get("/plans/{plan_id}")
+async def get_plan(plan_id: str):
+    """Get a specific plan"""
+    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return plan
+
+# ---- Organization Endpoints ----
+
+@org_router.get("/current")
+async def get_current_organization(user: User = Depends(get_current_user)):
+    """Get current user's active organization with subscription details"""
+    if not user.company_id:
+        raise HTTPException(status_code=404, detail="No organization found")
+    
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    # Get plan if subscription exists
+    plan = None
+    if subscription:
+        plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+    
+    # Get usage
+    usage = await get_or_create_usage_meter(user.company_id)
+    
+    # Get membership
+    membership = await get_user_membership(user.user_id, user.company_id)
+    
+    return {
+        "organization": company,
+        "subscription": subscription,
+        "plan": plan,
+        "usage": usage,
+        "membership": membership,
+        "role": membership.get("role", "owner") if membership else "owner"
+    }
+
+@org_router.get("/my-organizations")
+async def get_my_organizations(user: User = Depends(get_current_user)):
+    """Get all organizations the user belongs to"""
+    memberships = await db.memberships.find(
+        {"user_id": user.user_id, "status": "active"},
+        {"_id": 0}
+    ).to_list(50)
+    
+    orgs = []
+    for membership in memberships:
+        company = await db.companies.find_one(
+            {"company_id": membership["company_id"]},
+            {"_id": 0}
+        )
+        if company:
+            orgs.append({
+                "organization": company,
+                "role": membership["role"],
+                "is_active": company["company_id"] == user.company_id
+            })
+    
+    # If user has company_id but no membership (legacy), add it
+    if user.company_id and not any(o["organization"]["company_id"] == user.company_id for o in orgs):
+        company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+        if company:
+            orgs.append({
+                "organization": company,
+                "role": "owner",
+                "is_active": True
+            })
+    
+    return orgs
+
+@org_router.post("/switch/{company_id}")
+async def switch_organization(company_id: str, user: User = Depends(get_current_user)):
+    """Switch user's active organization"""
+    # Check user has access to this org
+    membership = await get_user_membership(user.user_id, company_id)
+    
+    # Also check if it's the user's legacy company
+    user_data = await db.users.find_one({"user_id": user.user_id})
+    is_legacy_company = user_data and user_data.get("company_id") == company_id
+    
+    if not membership and not is_legacy_company:
+        raise HTTPException(status_code=403, detail="No access to this organization")
+    
+    # Update user's active org
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"company_id": company_id, "active_org_id": company_id}}
+    )
+    
+    return {"success": True, "company_id": company_id}
+
+@org_router.post("/create")
+async def create_organization(data: OrganizationCreate, user: User = Depends(get_current_user)):
+    """Create a new organization (onboarding step 1)"""
+    now = datetime.now(timezone.utc)
+    company_id = f"company_{uuid.uuid4().hex[:12]}"
+    
+    company = {
+        "company_id": company_id,
+        "name": data.name,
+        "currency": data.currency,
+        "timezone": data.timezone,
+        "billing_email": data.billing_email or user.email,
+        "status": "active",
+        "onboarding_completed": False,
+        "primary_color": "#3A4D3F",
+        "secondary_color": "#E5DCC5",
+        "default_language": "es",
+        "default_tax_rate": 0.0,
+        "time_format": "24h",
+        "proposal_item_types": [],
+        "created_at": now.isoformat()
+    }
+    
+    await db.companies.insert_one(company)
+    
+    # Create owner membership
+    membership = {
+        "membership_id": f"mem_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "user_id": user.user_id,
+        "role": "owner",
+        "status": "active",
+        "invited_by": None,
+        "joined_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.memberships.insert_one(membership)
+    
+    # Update user's company
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"company_id": company_id, "active_org_id": company_id}}
+    )
+    
+    del company["_id"]
+    return company
+
+@org_router.put("/update")
+async def update_organization(data: dict, user: User = Depends(get_current_user)):
+    """Update organization settings"""
+    if not await check_permission(user, "manage_settings"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    allowed_fields = ["name", "currency", "timezone", "billing_email", "logo_url", 
+                      "primary_color", "secondary_color", "default_language", "time_format"]
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    await db.companies.update_one(
+        {"company_id": user.company_id},
+        {"$set": update_data}
+    )
+    
+    return await get_current_organization(user)
+
+@org_router.post("/complete-onboarding")
+async def complete_onboarding(user: User = Depends(get_current_user)):
+    """Mark onboarding as complete"""
+    await db.companies.update_one(
+        {"company_id": user.company_id},
+        {"$set": {"onboarding_completed": True}}
+    )
+    return {"success": True}
+
+# ---- Subscription Endpoints ----
+
+@org_router.post("/subscribe/{plan_id}")
+async def subscribe_to_plan(plan_id: str, billing_cycle: str = "monthly", user: User = Depends(get_current_user)):
+    """Subscribe organization to a plan (onboarding step 2-3)"""
+    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate period end
+    if billing_cycle == "yearly":
+        period_end = now + timedelta(days=365)
+    else:
+        period_end = now + timedelta(days=30)
+    
+    # For free/starter plan or trial
+    is_trial = plan["price_monthly"] == 0
+    trial_end = now + timedelta(days=14) if not is_trial else None
+    
+    subscription = {
+        "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "plan_id": plan_id,
+        "status": "trialing" if trial_end else "active",
+        "billing_cycle": billing_cycle,
+        "current_period_start": now.isoformat(),
+        "current_period_end": period_end.isoformat(),
+        "cancel_at_period_end": False,
+        "canceled_at": None,
+        "trial_ends_at": trial_end.isoformat() if trial_end else None,
+        "stripe_subscription_id": None,
+        "stripe_customer_id": None,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    # Remove existing subscription
+    await db.subscriptions.delete_many({"company_id": user.company_id})
+    
+    await db.subscriptions.insert_one(subscription)
+    del subscription["_id"]
+    
+    return subscription
+
+@org_router.get("/subscription")
+async def get_subscription(user: User = Depends(get_current_user)):
+    """Get current subscription details"""
+    subscription = await db.subscriptions.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not subscription:
+        return None
+    
+    plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+    usage = await get_or_create_usage_meter(user.company_id)
+    
+    return {
+        "subscription": subscription,
+        "plan": plan,
+        "usage": usage
+    }
+
+@org_router.post("/subscription/cancel")
+async def cancel_subscription(user: User = Depends(get_current_user)):
+    """Cancel subscription at period end"""
+    if not await check_permission(user, "manage_billing"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    now = datetime.now(timezone.utc)
+    await db.subscriptions.update_one(
+        {"company_id": user.company_id},
+        {"$set": {
+            "cancel_at_period_end": True,
+            "canceled_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "Subscription will be canceled at period end"}
+
+@org_router.post("/subscription/reactivate")
+async def reactivate_subscription(user: User = Depends(get_current_user)):
+    """Reactivate a canceled subscription"""
+    if not await check_permission(user, "manage_billing"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    await db.subscriptions.update_one(
+        {"company_id": user.company_id},
+        {"$set": {
+            "cancel_at_period_end": False,
+            "canceled_at": None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True}
+
+@org_router.post("/subscription/upgrade/{plan_id}")
+async def upgrade_subscription(plan_id: str, user: User = Depends(get_current_user)):
+    """Upgrade/downgrade subscription to a different plan"""
+    if not await check_permission(user, "manage_billing"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get current subscription
+    current_sub = await db.subscriptions.find_one({"company_id": user.company_id})
+    billing_cycle = current_sub.get("billing_cycle", "monthly") if current_sub else "monthly"
+    
+    # Calculate new period
+    if billing_cycle == "yearly":
+        period_end = now + timedelta(days=365)
+    else:
+        period_end = now + timedelta(days=30)
+    
+    await db.subscriptions.update_one(
+        {"company_id": user.company_id},
+        {"$set": {
+            "plan_id": plan_id,
+            "status": "active",
+            "current_period_start": now.isoformat(),
+            "current_period_end": period_end.isoformat(),
+            "cancel_at_period_end": False,
+            "canceled_at": None,
+            "trial_ends_at": None,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {"success": True, "plan": plan}
+
+# ---- Usage Endpoints ----
+
+@org_router.get("/usage")
+async def get_usage(user: User = Depends(get_current_user)):
+    """Get current usage metrics and limits"""
+    usage = await get_or_create_usage_meter(user.company_id)
+    
+    # Get plan limits
+    subscription = await db.subscriptions.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    limits = {}
+    warnings = []
+    
+    if subscription:
+        plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+        if plan:
+            limits = plan.get("limits", {})
+            
+            # Check each metric for warnings
+            metrics_to_check = [
+                ("events_created", "events_per_month", "eventos"),
+                ("active_users", "active_users", "usuarios"),
+                ("supplier_invoices", "supplier_invoices_per_month", "facturas de proveedores"),
+                ("proposals_created", "proposals_per_month", "propuestas")
+            ]
+            
+            for metric, limit_field, label in metrics_to_check:
+                current = usage.get("metrics", {}).get(metric, 0)
+                limit = limits.get(limit_field, 999)
+                if limit > 0:
+                    percentage = (current / limit * 100)
+                    if percentage >= 80:
+                        warnings.append({
+                            "metric": metric,
+                            "label": label,
+                            "current": current,
+                            "limit": limit,
+                            "percentage": round(percentage, 1),
+                            "exceeded": current >= limit
+                        })
+    
+    return {
+        "period": usage.get("period"),
+        "metrics": usage.get("metrics", {}),
+        "limits": limits,
+        "warnings": warnings
+    }
+
+@org_router.get("/usage/check/{metric}")
+async def check_usage_for_action(metric: str, user: User = Depends(get_current_user)):
+    """Check if a specific action is allowed based on usage limits"""
+    result = await check_usage_limit(user.company_id, metric)
+    return result
+
+# ---- Team/Membership Endpoints ----
+
+@org_router.get("/members")
+async def get_members(user: User = Depends(get_current_user)):
+    """Get all members of the organization"""
+    memberships = await db.memberships.find(
+        {"company_id": user.company_id, "status": "active"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Enrich with user data
+    members = []
+    for mem in memberships:
+        user_data = await db.users.find_one({"user_id": mem["user_id"]}, {"_id": 0})
+        if user_data:
+            members.append({
+                "membership_id": mem["membership_id"],
+                "user_id": mem["user_id"],
+                "email": user_data.get("email"),
+                "name": user_data.get("name"),
+                "picture": user_data.get("picture"),
+                "role": mem["role"],
+                "joined_at": mem["joined_at"],
+                "is_current_user": mem["user_id"] == user.user_id
+            })
+    
+    return members
+
+@org_router.put("/members/{membership_id}/role")
+async def update_member_role(membership_id: str, role: str, user: User = Depends(get_current_user)):
+    """Update a member's role"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    if role not in ROLE_PERMISSIONS:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    membership = await db.memberships.find_one({"membership_id": membership_id})
+    if not membership or membership["company_id"] != user.company_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Prevent changing own role if owner
+    if membership["user_id"] == user.user_id and membership["role"] == "owner":
+        raise HTTPException(status_code=400, detail="Cannot change owner's role")
+    
+    await db.memberships.update_one(
+        {"membership_id": membership_id},
+        {"$set": {"role": role, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True}
+
+@org_router.delete("/members/{membership_id}")
+async def remove_member(membership_id: str, user: User = Depends(get_current_user)):
+    """Remove a member from the organization"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    membership = await db.memberships.find_one({"membership_id": membership_id})
+    if not membership or membership["company_id"] != user.company_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    if membership["role"] == "owner":
+        raise HTTPException(status_code=400, detail="Cannot remove owner")
+    
+    await db.memberships.update_one(
+        {"membership_id": membership_id},
+        {"$set": {"status": "removed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True}
+
+# ---- Invitation Endpoints ----
+
+@org_router.get("/invitations")
+async def get_invitations(user: User = Depends(get_current_user)):
+    """Get pending invitations for the organization"""
+    invitations = await db.invitations.find(
+        {"company_id": user.company_id, "status": "pending"},
+        {"_id": 0}
+    ).to_list(100)
+    return invitations
+
+@org_router.post("/invitations")
+async def create_invitation(data: InvitationCreate, user: User = Depends(get_current_user)):
+    """Create a new team invitation (onboarding step 4)"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    # Check usage limit for users
+    limit_check = await check_usage_limit(user.company_id, "active_users")
+    if not limit_check["allowed"]:
+        raise HTTPException(status_code=403, detail=limit_check["message"])
+    
+    # Check if email already invited or member
+    existing_invite = await db.invitations.find_one({
+        "company_id": user.company_id,
+        "email": data.email,
+        "status": "pending"
+    })
+    if existing_invite:
+        raise HTTPException(status_code=400, detail="User already invited")
+    
+    existing_user = await db.users.find_one({"email": data.email})
+    if existing_user:
+        existing_membership = await db.memberships.find_one({
+            "company_id": user.company_id,
+            "user_id": existing_user["user_id"],
+            "status": "active"
+        })
+        if existing_membership:
+            raise HTTPException(status_code=400, detail="User already a member")
+    
+    now = datetime.now(timezone.utc)
+    invitation = {
+        "invitation_id": f"inv_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "email": data.email,
+        "role": data.role,
+        "token": uuid.uuid4().hex,
+        "invited_by": user.user_id,
+        "expires_at": (now + timedelta(days=7)).isoformat(),
+        "accepted_at": None,
+        "status": "pending",
+        "created_at": now.isoformat()
+    }
+    
+    await db.invitations.insert_one(invitation)
+    del invitation["_id"]
+    
+    return invitation
+
+@org_router.post("/invitations/{invitation_id}/resend")
+async def resend_invitation(invitation_id: str, user: User = Depends(get_current_user)):
+    """Resend an invitation (extend expiry)"""
+    invitation = await db.invitations.find_one({"invitation_id": invitation_id})
+    if not invitation or invitation["company_id"] != user.company_id:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    now = datetime.now(timezone.utc)
+    await db.invitations.update_one(
+        {"invitation_id": invitation_id},
+        {"$set": {
+            "token": uuid.uuid4().hex,
+            "expires_at": (now + timedelta(days=7)).isoformat(),
+            "status": "pending"
+        }}
+    )
+    
+    return {"success": True}
+
+@org_router.delete("/invitations/{invitation_id}")
+async def revoke_invitation(invitation_id: str, user: User = Depends(get_current_user)):
+    """Revoke a pending invitation"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    await db.invitations.update_one(
+        {"invitation_id": invitation_id, "company_id": user.company_id},
+        {"$set": {"status": "revoked"}}
+    )
+    
+    return {"success": True}
+
+@org_router.post("/invitations/accept/{token}")
+async def accept_invitation(token: str, user: User = Depends(get_current_user)):
+    """Accept an invitation to join an organization"""
+    invitation = await db.invitations.find_one({
+        "token": token,
+        "email": user.email,
+        "status": "pending"
+    })
+    
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invalid or expired invitation")
+    
+    # Check expiry
+    expires_at = datetime.fromisoformat(invitation["expires_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) > expires_at:
+        await db.invitations.update_one(
+            {"invitation_id": invitation["invitation_id"]},
+            {"$set": {"status": "expired"}}
+        )
+        raise HTTPException(status_code=400, detail="Invitation has expired")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create membership
+    membership = {
+        "membership_id": f"mem_{uuid.uuid4().hex[:12]}",
+        "company_id": invitation["company_id"],
+        "user_id": user.user_id,
+        "role": invitation["role"],
+        "status": "active",
+        "invited_by": invitation["invited_by"],
+        "joined_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.memberships.insert_one(membership)
+    
+    # Update invitation
+    await db.invitations.update_one(
+        {"invitation_id": invitation["invitation_id"]},
+        {"$set": {"status": "accepted", "accepted_at": now.isoformat()}}
+    )
+    
+    # Increment active users
+    await increment_usage(invitation["company_id"], "active_users")
+    
+    return {"success": True, "company_id": invitation["company_id"]}
+
+# ---- Billing Stub Endpoints ----
+
+@org_router.get("/billing")
+async def get_billing_info(user: User = Depends(get_current_user)):
+    """Get billing information (stub)"""
+    if not await check_permission(user, "manage_billing"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    subscription = await db.subscriptions.find_one({"company_id": user.company_id}, {"_id": 0})
+    plan = None
+    if subscription:
+        plan = await db.plans.find_one({"plan_id": subscription["plan_id"]}, {"_id": 0})
+    
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+    
+    # Stub billing invoices (would come from Stripe in real implementation)
+    billing_invoices = [
+        {
+            "invoice_id": "inv_stub_001",
+            "date": "2026-01-01",
+            "amount": plan["price_monthly"] if plan else 0,
+            "status": "paid",
+            "description": f"Suscripción {plan['display_name_es'] if plan else 'Starter'} - Enero 2026"
+        }
+    ] if plan and plan["price_monthly"] > 0 else []
+    
+    return {
+        "subscription": subscription,
+        "plan": plan,
+        "billing_email": company.get("billing_email") if company else None,
+        "payment_method": {
+            "type": "card",
+            "last4": "4242",
+            "brand": "visa",
+            "exp_month": 12,
+            "exp_year": 2028
+        } if plan and plan["price_monthly"] > 0 else None,
+        "invoices": billing_invoices,
+        "next_invoice_date": subscription.get("current_period_end") if subscription else None
+    }
+
+@org_router.post("/billing/payment-method")
+async def update_payment_method(data: dict, user: User = Depends(get_current_user)):
+    """Update payment method (stub - would integrate with Stripe)"""
+    if not await check_permission(user, "manage_billing"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    # In real implementation, this would:
+    # 1. Create Stripe PaymentMethod
+    # 2. Attach to Customer
+    # 3. Set as default
+    
+    return {
+        "success": True,
+        "message": "Payment method updated (stub)",
+        "integration_point": "Stripe.paymentMethods.create() -> Stripe.paymentMethods.attach() -> Stripe.customers.update()"
+    }
+
+# ---- Role Check Endpoint ----
+
+@org_router.get("/permissions")
+async def get_my_permissions(user: User = Depends(get_current_user)):
+    """Get current user's permissions in active organization"""
+    membership = await get_user_membership(user.user_id, user.company_id)
+    role = membership.get("role", "owner") if membership else "owner"
+    
+    return {
+        "role": role,
+        "permissions": ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["viewer"])
+    }
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
