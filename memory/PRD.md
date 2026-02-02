@@ -619,6 +619,28 @@ Auto-generated from Event Order:
     - Add/remove categories from Settings dialog
     - Bilingual support (English/Spanish)
     - Saves to company settings via API
+- [x] **Business Clarity Decision-Focused Upgrade** - COMPLETE (Feb 2, 2026):
+  - **Executive Dashboard - Profit Signals**:
+    - Negative Margin Events count
+    - Below Target Margin events (configurable threshold 20-50%)
+    - Unassigned Costs total (with margin leakage tooltip)
+    - Paid vs Collected Gap (cash flow indicator)
+  - **Accounts Payable - Impact Context**:
+    - Event/Overhead assignment column
+    - "Affects Event Margin" vs "Affects Global Margin" labels
+    - Unassigned (Overhead) card with purple highlight
+    - Margin Leakage warning alert
+  - **Reports Snapshot - Clarity Sections**:
+    - Operational Profit (Accrued): Invoiced, Assigned Costs, Gross Profit, Margin
+    - Cash Position (Realized): Collected, Paid, Net Cash Flow
+    - Clarity note about unassigned expenses
+  - **Reports By Event - Decision Map**:
+    - Health Badges: ✅ Healthy, ⚠️ Risk, 🔴 Loss
+    - Configurable target margin threshold
+    - Toggle for Collected/Paid columns
+    - Summary badges (count by health status)
+    - Decision Guide with actionable recommendations
+    - Row highlighting by health status
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
