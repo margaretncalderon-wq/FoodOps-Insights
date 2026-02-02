@@ -48,8 +48,8 @@ export default function ConsolidatedPurchaseSection() {
   const t = useCallback((key) => {
     const translations = {
       title: { en: "Consolidated Purchases", es: "Compras Consolidadas" },
-      selectEvents: { en: "Select Events to Generate Purchase List", es: "Selecciona Eventos para Generar Lista" },
-      generate: { en: "Generate Purchase List", es: "Generar Lista de Compras" },
+      selectEvents: { en: "Select Events to Generate Prep Plan", es: "Selecciona Eventos para Generar Plan de Preparación" },
+      generate: { en: "Generate Prep Plan", es: "Generar Plan de Preparación" },
       noEvents: { en: "No upcoming events", es: "No hay eventos próximos" },
       event: { en: "Event", es: "Evento" },
       date: { en: "Date", es: "Fecha" },
