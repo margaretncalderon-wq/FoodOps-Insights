@@ -553,12 +553,40 @@ export default function DocumentPreview({
                     <strong>{language === "es" ? "Términos de Pago:" : "Payment Terms:"}</strong> {proposal.payment_terms}
                   </p>
                 )}
+                {/* Template Terms & Conditions */}
+                {template?.terms_and_conditions_en && (
+                  <p className="whitespace-pre-wrap text-muted-foreground mb-3">
+                    {language === "es" ? template.terms_and_conditions_es || template.terms_and_conditions_en : template.terms_and_conditions_en}
+                  </p>
+                )}
                 {/* Template Footer/Terms */}
                 {template?.footer_text_en && (
                   <p className="whitespace-pre-wrap text-muted-foreground">
                     {language === "es" ? template.footer_text_es || template.footer_text_en : template.footer_text_en}
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Payment Instructions (Invoice specific) */}
+            {(selectedDocType === "invoice" || selectedDocType === "proposal") && template?.payment_instructions_en && (
+              <div className="payment-info p-4 rounded-lg mt-4 text-sm" style={{ borderLeftColor: template?.primary_color || '#3A4D3F', borderLeftWidth: '4px', borderLeftStyle: 'solid', backgroundColor: '#e8f5e9' }}>
+                <h4 className="font-semibold mb-2">
+                  {language === "es" ? "Instrucciones de Pago" : "Payment Instructions"}
+                </h4>
+                <p className="whitespace-pre-wrap">
+                  {language === "es" ? template.payment_instructions_es || template.payment_instructions_en : template.payment_instructions_en}
+                </p>
+              </div>
+            )}
+
+            {/* Bank Details (Invoice specific) */}
+            {(selectedDocType === "invoice" || selectedDocType === "proposal") && template?.bank_details && (
+              <div className="bank-details bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mt-4 text-sm">
+                <h4 className="font-semibold mb-2">
+                  {language === "es" ? "Datos Bancarios" : "Bank Details"}
+                </h4>
+                <pre className="whitespace-pre-wrap font-mono text-xs">{template.bank_details}</pre>
               </div>
             )}
 
