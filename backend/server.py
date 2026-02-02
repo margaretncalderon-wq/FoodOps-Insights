@@ -6211,6 +6211,26 @@ async def update_document_template(template_id: str, data: DocumentTemplateCreat
         "header_text_es": data.header_text_es,
         "footer_text_en": data.footer_text_en,
         "footer_text_es": data.footer_text_es,
+        "food_section_title_en": data.food_section_title_en,
+        "food_section_title_es": data.food_section_title_es,
+        "service_section_title_en": data.service_section_title_en,
+        "service_section_title_es": data.service_section_title_es,
+        "rental_section_title_en": data.rental_section_title_en,
+        "rental_section_title_es": data.rental_section_title_es,
+        # New fields
+        "terms_and_conditions_en": data.terms_and_conditions_en,
+        "terms_and_conditions_es": data.terms_and_conditions_es,
+        "payment_instructions_en": data.payment_instructions_en,
+        "payment_instructions_es": data.payment_instructions_es,
+        "bank_details": data.bank_details,
+        "primary_color": data.primary_color,
+        "show_logo": data.show_logo,
+        "show_company_address": data.show_company_address,
+        "show_tax_id": data.show_tax_id,
+        "show_quantities": data.show_quantities,
+        "show_notes_column": data.show_notes_column,
+        "show_checkboxes": data.show_checkboxes,
+        "group_by_category": data.group_by_category,
         "updated_at": now.isoformat()
     }
     
