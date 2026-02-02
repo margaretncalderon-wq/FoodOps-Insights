@@ -32,7 +32,9 @@ import {
   SuperAdminOverview,
   OrganizationsListPage,
   OrganizationDetailPage,
-  GlobalAuditPage
+  GlobalAuditPage,
+  CRMPage,
+  BIPage
 } from "./pages/super-admin";
 
 import "./App.css";
