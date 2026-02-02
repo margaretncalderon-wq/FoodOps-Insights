@@ -683,6 +683,24 @@ Auto-generated from Event Order:
   - Refactored `PayablesSection` into separate component at `/components/business-clarity/`
 
 ## Known Issues (User Verification Pending)
+
+- [x] **P1: Check-in/Check-out Flow UI Test** - VERIFIED (Feb 2, 2026):
+  - Full UI flow tested: Delivery Notes → Check-in dialog → Loss calculation
+  - Equipment quantities, returned amounts, and loss costs display correctly
+  - Status badges (Pending, Partial, Returned) working
+  - Total losses aggregated correctly
+
+- [x] **P3: Invoice Editing in ProposalEditor** - COMPLETE (Feb 2, 2026):
+  - Added `handleEditInvoice`, `handleSaveInvoice` functions
+  - New edit modal with full invoice editing capabilities:
+    - Edit invoice type (Full, Deposit, Final)
+    - Edit due date
+    - Add/edit/remove invoice lines (description, quantity, price)
+    - Discount % and Tax % fields
+    - Notes field
+    - Real-time totals preview
+  - Backend endpoint `/api/finance/invoices/{id}` updated to support more fields
+  - Automatic balance_due recalculation when total changes
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
