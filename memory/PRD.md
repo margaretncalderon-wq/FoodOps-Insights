@@ -608,6 +608,17 @@ Auto-generated from Event Order:
   - Only pending notes can be edited
   - Cancel/Delete delivery note option (returns all items to inventory)
   - Backend: PUT /api/delivery-notes/{id}, DELETE /api/delivery-notes/{id}
+- [x] **Operations Supplies Enhancements** - COMPLETE (Feb 2, 2026):
+  - **Print Delivery Notes**: Professional print layout for event managers/drivers with signature fields
+  - **Removed Supplier**: Operations supplies are in-house assets, not tied to suppliers
+  - **Cost Center**: Added cost center tracking (Operations, Kitchen, Service, Logistics, Admin)
+  - **Depreciation Tracking**: For equipment as fixed assets
+    - Purchase date, useful life (years), depreciation rate %
+    - Auto-calculates accumulated depreciation and current value
+  - **Categories from Settings**: Dynamic category management
+    - Add/remove categories from Settings dialog
+    - Bilingual support (English/Spanish)
+    - Saves to company settings via API
 
 ## Known Issues (User Verification Pending)
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
