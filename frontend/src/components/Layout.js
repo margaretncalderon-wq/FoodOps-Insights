@@ -28,6 +28,7 @@ import {
   Music4,
   Puzzle,
 } from "lucide-react";
+import { OrgSwitcher } from "./org";
 
 const navItems = [
   { path: "/dashboard", icon: Activity, labelKey: "systemPulse" },
