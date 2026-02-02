@@ -67,6 +67,7 @@ business_clarity_router = APIRouter(prefix="/business-clarity", tags=["Business 
 orchestration_router = APIRouter(prefix="/orchestration", tags=["Event Orchestration"])
 production_router = APIRouter(prefix="/production", tags=["Production"])
 delivery_notes_router = APIRouter(prefix="/delivery-notes", tags=["Delivery Notes"])
+org_router = APIRouter(prefix="/org", tags=["Organization & SaaS"])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
