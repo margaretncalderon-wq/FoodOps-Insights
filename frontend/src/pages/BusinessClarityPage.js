@@ -810,19 +810,77 @@ function AccountsPayableSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
   const [data, setData] = useState(null);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedPayable, setSelectedPayable] = useState(null);
+  const [assignmentType, setAssignmentType] = useState("event"); // "event" or "cost_center"
+  const [selectedEvent, setSelectedEvent] = useState("");
+  const [selectedCostCenter, setSelectedCostCenter] = useState("");
 
-  useEffect(() => {
-    axios.get(`${API}/api/business-clarity/accounts-payable`, { withCredentials: true })
-      .then(res => setData(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const COST_CENTERS = [
+    { value: "operations", label: "Operations", labelEs: "Operaciones" },
+    { value: "kitchen", label: "Kitchen", labelEs: "Cocina" },
+    { value: "service", label: "Service", labelEs: "Servicio" },
+    { value: "logistics", label: "Logistics", labelEs: "Logística" },
+    { value: "admin", label: "Administration", labelEs: "Administración" },
+    { value: "marketing", label: "Marketing", labelEs: "Marketing" },
+    { value: "other", label: "Other", labelEs: "Otros" },
+  ];
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [payablesRes, eventsRes] = await Promise.all([
+        axios.get(`${API}/api/business-clarity/accounts-payable`, { withCredentials: true }),
+        axios.get(`${API}/api/events`, { withCredentials: true })
+      ]);
+      setData(payablesRes.data);
+      setEvents(eventsRes.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleAssignCost = (payable) => {
+    setSelectedPayable(payable);
+    setAssignmentType(payable.event_id ? "event" : "cost_center");
+    setSelectedEvent(payable.event_id || "");
+    setSelectedCostCenter(payable.cost_center || "");
+    setAssignDialogOpen(true);
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!selectedPayable) return;
+    
+    try {
+      const updateData = {
+        event_id: assignmentType === "event" ? selectedEvent : null,
+        cost_center: assignmentType === "cost_center" ? selectedCostCenter : null
+      };
+      
+      await axios.put(
+        `${API}/api/business-clarity/payables/${selectedPayable.payable_id}/assign`,
+        updateData,
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? "Costo asignado correctamente" : "Cost assigned successfully");
+      setAssignDialogOpen(false);
+      setSelectedPayable(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error assigning cost");
+    }
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
   // Calculate unassigned costs
-  const unassignedRecords = (data?.records || []).filter(r => !r.event_id);
+  const unassignedRecords = (data?.records || []).filter(r => !r.event_id && !r.cost_center);
   const unassignedTotal = unassignedRecords.reduce((sum, r) => sum + (r.balance_due || 0), 0);
 
   return (
@@ -864,6 +922,9 @@ function AccountsPayableSection() {
               </TooltipProvider>
             </div>
             <p className={`text-xl font-bold ${unassignedTotal > 0 ? "text-purple-600" : "text-muted-foreground"}`}>{formatCurrency(unassignedTotal)}</p>
+            {unassignedTotal > 0 && (
+              <p className="text-xs text-purple-500 mt-1">{unassignedRecords.length} {isEs ? "registros" : "records"}</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -877,14 +938,14 @@ function AccountsPayableSection() {
                 <TableHead>{isEs ? "Descripción" : "Description"}</TableHead>
                 <TableHead>
                   <div className="flex items-center gap-1">
-                    {isEs ? "Evento / Impacto" : "Event / Impact"}
+                    {isEs ? "Asignación" : "Assignment"}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
                         <TooltipContent className="max-w-xs">
                           <p>{isEs 
-                            ? "Muestra qué margen se ve afectado: evento específico o global" 
-                            : "Shows which margin is affected: specific event or global"}</p>
+                            ? "Asigna a un evento para afectar su margen, o a un centro de costo para clasificar el overhead" 
+                            : "Assign to an event to affect its margin, or to a cost center to classify the overhead"}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -892,31 +953,43 @@ function AccountsPayableSection() {
                 </TableHead>
                 <TableHead className="text-right">{isEs ? "Monto" : "Amount"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead>
-                <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(data?.records || []).map((rec) => {
-                const isOverhead = !rec.event_id;
+                const isUnassigned = !rec.event_id && !rec.cost_center;
+                const hasCostCenter = rec.cost_center && !rec.event_id;
                 return (
-                  <TableRow key={rec.payable_id} className={isOverhead ? "bg-purple-50/30" : ""}>
+                  <TableRow key={rec.payable_id} className={isUnassigned ? "bg-purple-50/30" : ""}>
                     <TableCell>{rec.supplier_name || "-"}</TableCell>
                     <TableCell>{rec.description || "-"}</TableCell>
                     <TableCell>
-                      {isOverhead ? (
+                      {rec.event_id ? (
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
-                            {isEs ? "Overhead" : "Overhead"}
+                          <Badge variant="default" className="text-xs">
+                            {rec.event_name}
                           </Badge>
-                          <span className="text-xs text-purple-600">
-                            {isEs ? "→ Margen Global" : "→ Global Margin"}
+                          <span className="text-xs text-muted-foreground">
+                            {isEs ? "→ Margen Evento" : "→ Event Margin"}
+                          </span>
+                        </div>
+                      ) : hasCostCenter ? (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                            {COST_CENTERS.find(c => c.value === rec.cost_center)?.[isEs ? "labelEs" : "label"] || rec.cost_center}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {isEs ? "→ Overhead" : "→ Overhead"}
                           </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{rec.event_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {isEs ? "→ Margen Evento" : "→ Event Margin"}
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
+                            {isEs ? "Sin Asignar" : "Unassigned"}
+                          </Badge>
+                          <span className="text-xs text-purple-600">
+                            {isEs ? "⚠️ Fuga de margen" : "⚠️ Margin leakage"}
                           </span>
                         </div>
                       )}
@@ -924,9 +997,19 @@ function AccountsPayableSection() {
                     <TableCell className="text-right">{formatCurrency(rec.amount)}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(rec.balance_due)}</TableCell>
                     <TableCell>
-                      <Badge variant={rec.status === "paid" ? "default" : "outline"}>
-                        {rec.status === "paid" ? (isEs ? "Pagado" : "Paid") : (isEs ? "Pendiente" : "Pending")}
-                      </Badge>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleAssignCost(rec)}
+                          title={isEs ? "Asignar costo" : "Assign cost"}
+                        >
+                          <FileText className="w-4 h-4" />
+                        </Button>
+                        <Badge variant={rec.status === "paid" ? "default" : "outline"}>
+                          {rec.status === "paid" ? (isEs ? "Pagado" : "Paid") : (isEs ? "Pendiente" : "Pending")}
+                        </Badge>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -953,14 +1036,119 @@ function AccountsPayableSection() {
                 <p className="font-medium text-purple-800">{isEs ? "Fuga de Margen Detectada" : "Margin Leakage Detected"}</p>
                 <p className="text-sm text-purple-600 mt-1">
                   {isEs 
-                    ? `Hay ${formatCurrency(unassignedTotal)} en costos no asignados a eventos. Estos costos erosionan silenciosamente el margen global y pueden hacer que eventos pequeños parezcan más rentables de lo que realmente son.`
-                    : `There's ${formatCurrency(unassignedTotal)} in costs not assigned to events. These costs silently erode global margin and may make small events appear more profitable than they really are.`}
+                    ? `Hay ${formatCurrency(unassignedTotal)} en costos no asignados. Asigna cada costo a un evento (afecta su margen) o a un centro de costo (overhead clasificado).`
+                    : `There's ${formatCurrency(unassignedTotal)} in unassigned costs. Assign each cost to an event (affects its margin) or to a cost center (classified overhead).`}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Assign Cost Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Asignar Costo" : "Assign Cost"}</DialogTitle>
+            <DialogDescription>
+              {selectedPayable && (
+                <span className="font-medium">{selectedPayable.supplier_name}: {formatCurrency(selectedPayable.amount)}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Assignment Type Toggle */}
+            <div className="flex gap-2">
+              <Button 
+                variant={assignmentType === "event" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setAssignmentType("event")}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                {isEs ? "Evento" : "Event"}
+              </Button>
+              <Button 
+                variant={assignmentType === "cost_center" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setAssignmentType("cost_center")}
+              >
+                <Building2 className="w-4 h-4 mr-2" />
+                {isEs ? "Centro de Costo" : "Cost Center"}
+              </Button>
+            </div>
+
+            {/* Event Selection */}
+            {assignmentType === "event" && (
+              <div>
+                <Label>{isEs ? "Seleccionar Evento" : "Select Event"}</Label>
+                <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isEs ? "Selecciona un evento..." : "Select an event..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin evento (quitar asignación)" : "No event (remove assignment)"}</SelectItem>
+                    {events.map(e => (
+                      <SelectItem key={e.event_id} value={e.event_id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Este costo afectará el margen del evento seleccionado" : "This cost will affect the selected event's margin"}
+                </p>
+              </div>
+            )}
+
+            {/* Cost Center Selection */}
+            {assignmentType === "cost_center" && (
+              <div>
+                <Label>{isEs ? "Seleccionar Centro de Costo" : "Select Cost Center"}</Label>
+                <Select value={selectedCostCenter} onValueChange={setSelectedCostCenter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isEs ? "Selecciona un centro de costo..." : "Select a cost center..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                    {COST_CENTERS.map(cc => (
+                      <SelectItem key={cc.value} value={cc.value}>
+                        {isEs ? cc.labelEs : cc.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Este costo se clasificará como overhead del centro seleccionado" : "This cost will be classified as overhead for the selected center"}
+                </p>
+              </div>
+            )}
+
+            {/* Impact Explanation */}
+            <Card className="bg-slate-50">
+              <CardContent className="pt-3 pb-3">
+                <p className="text-xs text-muted-foreground">
+                  {assignmentType === "event" 
+                    ? (isEs 
+                        ? "📊 Impacto: El costo se incluirá en el cálculo de rentabilidad del evento." 
+                        : "📊 Impact: Cost will be included in event profitability calculation.")
+                    : (isEs 
+                        ? "📊 Impacto: El costo se clasifica como overhead, visible en reportes globales pero no en eventos." 
+                        : "📊 Impact: Cost is classified as overhead, visible in global reports but not in events.")
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveAssignment}>
+              {isEs ? "Guardar Asignación" : "Save Assignment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
