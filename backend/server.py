@@ -7887,6 +7887,228 @@ async def add_inventory_price_history(item_id: str, data: InventoryPriceHistoryC
     
     return history_entry
 
+# ============== BULK UPLOAD BY SUPPLIER ==============
+
+class BulkProductUpload(BaseModel):
+    supplier_id: str
+    products: List[dict]  # [{name, category, inventory_type, unit, cost_per_unit, stock_quantity}]
+
+@inventory_router.post("/bulk-upload-by-supplier")
+async def bulk_upload_products_by_supplier(data: BulkProductUpload, user: User = Depends(get_current_user)):
+    """
+    Upload multiple products for a specific supplier.
+    Creates new items or updates existing ones (matched by name + supplier).
+    Also records price history for each item.
+    """
+    supplier = await db.suppliers.find_one(
+        {"supplier_id": data.supplier_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    now = datetime.now(timezone.utc)
+    created = 0
+    updated = 0
+    price_changes = 0
+    
+    for product in data.products:
+        name = product.get("name", "").strip()
+        if not name:
+            continue
+        
+        # Check if item exists with this name and supplier
+        existing = await db.ingredients.find_one(
+            {
+                "company_id": user.company_id,
+                "name": {"$regex": f"^{name}$", "$options": "i"},
+                "preferred_supplier_id": data.supplier_id
+            },
+            {"_id": 0}
+        )
+        
+        new_cost = float(product.get("cost_per_unit", 0) or 0)
+        
+        if existing:
+            # Update existing item
+            old_cost = existing.get("cost_per_unit", 0)
+            
+            update_data = {
+                "category": product.get("category") or existing.get("category"),
+                "inventory_type": product.get("inventory_type") or existing.get("inventory_type"),
+                "unit": product.get("unit") or existing.get("unit"),
+                "cost_per_unit": new_cost,
+                "updated_at": now.isoformat()
+            }
+            
+            # Add stock if provided
+            if product.get("stock_quantity"):
+                update_data["stock_quantity"] = existing.get("stock_quantity", 0) + float(product.get("stock_quantity", 0))
+            
+            await db.ingredients.update_one(
+                {"ingredient_id": existing["ingredient_id"]},
+                {"$set": update_data}
+            )
+            
+            # Record price change if different
+            if new_cost > 0 and abs(new_cost - old_cost) > 0.001:
+                history_id = f"pricehist_{uuid.uuid4().hex[:12]}"
+                await db.inventory_price_history.insert_one({
+                    "history_id": history_id,
+                    "inventory_item_id": existing["ingredient_id"],
+                    "company_id": user.company_id,
+                    "supplier_id": data.supplier_id,
+                    "supplier_name": supplier.get("name"),
+                    "old_price": old_cost,
+                    "new_price": new_cost,
+                    "effective_date": now.isoformat(),
+                    "source": "bulk_upload",
+                    "notes": f"Updated from supplier upload"
+                })
+                price_changes += 1
+            
+            updated += 1
+        else:
+            # Create new item
+            ingredient_id = f"ing_{uuid.uuid4().hex[:12]}"
+            new_item = {
+                "ingredient_id": ingredient_id,
+                "company_id": user.company_id,
+                "name": name,
+                "category": product.get("category", "other"),
+                "inventory_type": product.get("inventory_type", "food"),
+                "unit": product.get("unit", "unit"),
+                "cost_per_unit": new_cost,
+                "stock_quantity": float(product.get("stock_quantity", 0) or 0),
+                "reserved_quantity": 0,
+                "par_level": float(product.get("par_level", 0) or 0),
+                "pack_size": float(product.get("pack_size", 1) or 1),
+                "preferred_supplier_id": data.supplier_id,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat()
+            }
+            await db.ingredients.insert_one(new_item)
+            
+            # Record initial price
+            if new_cost > 0:
+                history_id = f"pricehist_{uuid.uuid4().hex[:12]}"
+                await db.inventory_price_history.insert_one({
+                    "history_id": history_id,
+                    "inventory_item_id": ingredient_id,
+                    "company_id": user.company_id,
+                    "supplier_id": data.supplier_id,
+                    "supplier_name": supplier.get("name"),
+                    "old_price": 0,
+                    "new_price": new_cost,
+                    "effective_date": now.isoformat(),
+                    "source": "bulk_upload",
+                    "notes": f"Initial price from supplier upload"
+                })
+            
+            created += 1
+    
+    return {
+        "success": True,
+        "created": created,
+        "updated": updated,
+        "price_changes": price_changes,
+        "supplier_name": supplier.get("name")
+    }
+
+# Endpoint to update price from invoice
+class InvoicePriceUpdate(BaseModel):
+    supplier_id: str
+    items: List[dict]  # [{inventory_item_id or name, new_price, quantity_received}]
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+
+@inventory_router.post("/update-prices-from-invoice")
+async def update_prices_from_invoice(data: InvoicePriceUpdate, user: User = Depends(get_current_user)):
+    """
+    Update inventory prices based on a received invoice.
+    Records price history for audit trail.
+    """
+    supplier = await db.suppliers.find_one(
+        {"supplier_id": data.supplier_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    now = datetime.now(timezone.utc)
+    updated = 0
+    price_changes = []
+    
+    for item in data.items:
+        item_id = item.get("inventory_item_id")
+        item_name = item.get("name")
+        new_price = float(item.get("new_price", 0) or 0)
+        
+        if not new_price:
+            continue
+        
+        # Find item by ID or name
+        query = {"company_id": user.company_id}
+        if item_id:
+            query["ingredient_id"] = item_id
+        elif item_name:
+            query["name"] = {"$regex": f"^{item_name}$", "$options": "i"}
+        else:
+            continue
+        
+        existing = await db.ingredients.find_one(query, {"_id": 0})
+        if not existing:
+            continue
+        
+        old_price = existing.get("cost_per_unit", 0)
+        
+        # Update price
+        await db.ingredients.update_one(
+            {"ingredient_id": existing["ingredient_id"]},
+            {"$set": {
+                "cost_per_unit": new_price,
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        # Record price history
+        history_id = f"pricehist_{uuid.uuid4().hex[:12]}"
+        history_entry = {
+            "history_id": history_id,
+            "inventory_item_id": existing["ingredient_id"],
+            "company_id": user.company_id,
+            "supplier_id": data.supplier_id,
+            "supplier_name": supplier.get("name"),
+            "old_price": old_price,
+            "new_price": new_price,
+            "effective_date": now.isoformat(),
+            "source": "invoice",
+            "invoice_number": data.invoice_number,
+            "invoice_date": data.invoice_date,
+            "notes": f"Price updated from invoice {data.invoice_number or ''}"
+        }
+        await db.inventory_price_history.insert_one(history_entry)
+        
+        change_pct = ((new_price - old_price) / old_price * 100) if old_price > 0 else 0
+        price_changes.append({
+            "item_name": existing["name"],
+            "old_price": old_price,
+            "new_price": new_price,
+            "change_percent": round(change_pct, 1)
+        })
+        
+        updated += 1
+    
+    return {
+        "success": True,
+        "updated": updated,
+        "price_changes": price_changes,
+        "supplier_name": supplier.get("name"),
+        "invoice_number": data.invoice_number
+    }
+
 # ============== INVENTORY VALUE BY TYPE ==============
 
 @inventory_router.get("/value-summary")
