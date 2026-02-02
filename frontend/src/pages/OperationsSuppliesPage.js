@@ -111,11 +111,24 @@ function InventorySection() {
 
   const handleSaveItem = async () => {
     try {
+      // Prepare data with all required fields
+      const saveData = {
+        ...itemForm,
+        min_stock_level: itemForm.par_level || 0,
+        yield_waste_percent: 0,
+        allergens: [],
+        storage_location: "dry",
+        reorder_threshold: 0,
+        alternate_supplier_ids: [],
+        pack_unit: itemForm.unit || "unit",
+        replacement_cost: itemForm.replacement_cost || 0  // For equipment
+      };
+      
       if (editingItem) {
-        await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, itemForm, { withCredentials: true });
+        await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, saveData, { withCredentials: true });
         toast.success(language === "es" ? "Item actualizado" : "Item updated");
       } else {
-        await axios.post(`${API}/api/inventory/ingredients`, itemForm, { withCredentials: true });
+        await axios.post(`${API}/api/inventory/ingredients`, saveData, { withCredentials: true });
         toast.success(language === "es" ? "Item creado" : "Item created");
       }
       setItemDialogOpen(false);
