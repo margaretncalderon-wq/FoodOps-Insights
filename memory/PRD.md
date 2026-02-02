@@ -831,10 +831,49 @@ Auto-generated from Event Order:
   - **Usage Enforcement:**
     - Soft warning at 80% usage
     - Hard block on create actions (events, invitations) when limit exceeded
-  - **Stripe Integration:** STUBBED with clear extension points
   - Tested and verified: 15/15 backend tests, 100% frontend success
 
+- [x] **Super Admin Portal** - COMPLETE (Feb 2, 2026):
+  - **Access Control:** `/super-admin` route restricted to users with `is_super_admin=true`
+  - **Backend Endpoints (`/api/super-admin/*`):**
+    - GET /stats - Platform-wide statistics (orgs, users, events)
+    - GET /organizations - List all organizations with filters
+    - GET /organizations/{id} - Organization detail
+    - PUT /organizations/{id}/suspend - Suspend organization
+    - PUT /organizations/{id}/reactivate - Reactivate organization
+    - POST /bootstrap - Grant first super admin (one-time)
+    - POST /grant-super-admin/{email} - Grant super admin to user
+  - **Frontend Pages:**
+    - `/pages/super-admin/SuperAdminOverview.js` - Platform dashboard
+    - `/pages/super-admin/OrganizationsListPage.js` - All organizations
+    - `/pages/super-admin/OrganizationDetailPage.js` - Org details
+  - **Bug Fix:** Organizations without `status` field now counted as "active" (legacy data support)
+  - Tested and verified working
+
+- [x] **Stripe Billing Integration** - COMPLETE (Feb 2, 2026):
+  - **REAL Stripe integration** (not mocked) using `emergentintegrations.payments.stripe.checkout`
+  - **Backend Endpoints:**
+    - POST /api/org/billing/checkout - Create Stripe checkout session
+    - GET /api/org/billing/checkout/status/{session_id} - Check payment status
+    - POST /api/org/webhook/stripe - Handle Stripe webhook events
+  - **Checkout Flow:**
+    1. User clicks "Pay & Upgrade" on billing page
+    2. Backend creates Stripe session with plan pricing
+    3. User redirected to checkout.stripe.com
+    4. After payment, redirected to settings with session_id
+    5. Frontend polls status endpoint
+    6. On success, subscription activated and dialog shown
+  - **Frontend Updates:**
+    - Monthly/Yearly toggle with "Save 17%" badge
+    - Plan cards with "Pay & Upgrade" buttons
+    - Success dialog on payment completion
+    - URL param handling for checkout return
+  - **Collections:** `subscription_transactions` for payment tracking
+  - **Test Key:** sk_test_emergent (real Stripe test mode)
+  - Tested and verified: All checkout, status, and webhook endpoints working
+
 ## Future/Backlog
+- [ ] Implement "View as Org" mode for super admin support
 - [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
 - [ ] Implement actual automation execution (cron jobs for reminders, alerts)
