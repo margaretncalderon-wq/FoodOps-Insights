@@ -140,14 +140,13 @@ export default function ConsolidatedPurchaseSection() {
       // This increases reserved_quantity but does NOT decrease stock_quantity
       // Actual deduction happens during production posting
       const eventIds = purchaseData.events?.map(e => e.event_id) || [];
-      const eventNames = purchaseData.events?.map(e => e.event_name).join(", ") || "";
       
-      await axios.post(`${API}/api/inventory/reserve-for-events`, {
+      await axios.post(`${API}/api/inventory/reserve`, {
         event_ids: eventIds,
+        events: purchaseData.events,
         items: purchaseData.stock_requisition.map(item => ({
           inventory_item_id: item.inventory_item_id,
-          quantity: item.in_stock || item.total_required || 0,
-          notes: `Reserved for: ${eventNames}`
+          qty_needed: item.in_stock || item.total_required || 0,
         }))
       }, { withCredentials: true });
       
