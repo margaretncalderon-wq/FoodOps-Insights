@@ -10755,6 +10755,7 @@ async def get_accounts_payable(user: User = Depends(get_current_user)):
             "supplier_name": supplier_name,
             "event_id": exp.get("event_id"),
             "event_name": event_name,
+            "cost_center": exp.get("cost_center"),
             "description": exp.get("description", exp.get("vendor_name")),
             "amount": amount,
             "paid_amount": 0 if status != "Paid" else amount,
