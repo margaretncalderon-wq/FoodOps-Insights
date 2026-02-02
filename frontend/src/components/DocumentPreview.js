@@ -212,32 +212,37 @@ export default function DocumentPreview({
   const handlePrint = () => {
     const printContent = printRef.current;
     const printWindow = window.open('', '_blank');
+    // Use template primary color or fallback to default
+    const primaryColor = template?.primary_color || '#3A4D3F';
     printWindow.document.write(`
       <html>
         <head>
           <title>${config.name[language]} - ${event?.name || 'Document'}</title>
           <style>
             body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
-            .header { border-bottom: 2px solid #3A4D3F; padding-bottom: 20px; margin-bottom: 20px; }
-            .company-name { font-size: 24px; font-weight: bold; color: #3A4D3F; }
+            .header { border-bottom: 2px solid ${primaryColor}; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: ${primaryColor}; }
             .event-name { font-size: 20px; font-weight: 600; margin-top: 10px; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
             .info-item { display: flex; gap: 8px; }
             .info-label { font-weight: 600; color: #666; }
             .section { margin: 20px 0; }
-            .section-title { font-size: 16px; font-weight: 600; color: #3A4D3F; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
+            .section-title { font-size: 16px; font-weight: 600; color: ${primaryColor}; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
             .date-group { margin: 15px 0; padding: 10px; background: #f9f9f9; border-radius: 4px; }
-            .date-title { font-weight: 600; color: #3A4D3F; margin-bottom: 10px; }
+            .date-title { font-weight: 600; color: ${primaryColor}; margin-bottom: 10px; }
             table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            th { background: #3A4D3F; color: white; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: ${primaryColor}; color: white; padding: 8px; text-align: left; font-size: 12px; }
             td { padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; }
             .text-right { text-align: right; }
             .subtotals { margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 4px; }
-            .total-row { font-size: 18px; font-weight: bold; border-top: 2px solid #3A4D3F; padding-top: 10px; margin-top: 10px; }
+            .total-row { font-size: 18px; font-weight: bold; border-top: 2px solid ${primaryColor}; padding-top: 10px; margin-top: 10px; }
             .notes { margin-top: 20px; padding: 15px; background: #fffde7; border-left: 4px solid #ffc107; }
             .terms { margin-top: 20px; padding: 15px; background: #f5f5f5; font-size: 12px; }
+            .payment-info { margin-top: 15px; padding: 15px; background: #e8f5e9; border-left: 4px solid ${primaryColor}; font-size: 12px; }
+            .bank-details { margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 4px; font-size: 12px; font-family: monospace; white-space: pre-wrap; }
             .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 15px; }
             .menu-item { font-size: 14px; padding: 5px 0; border-bottom: 1px dotted #ddd; }
+            .checkbox { width: 14px; height: 14px; border: 1px solid #999; display: inline-block; margin-right: 8px; }
             @media print { body { padding: 0; } }
           </style>
         </head>
