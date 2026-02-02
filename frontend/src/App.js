@@ -182,6 +182,14 @@ function AppRouter() {
       <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentPreview /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       
+      {/* Super Admin Portal - Hidden from normal navigation */}
+      <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
+        <Route index element={<SuperAdminOverview />} />
+        <Route path="organizations" element={<OrganizationsListPage />} />
+        <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+        <Route path="audit" element={<GlobalAuditPage />} />
+      </Route>
+      
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
