@@ -8355,6 +8355,7 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
     now = datetime.now(timezone.utc)
     events_info = []
     all_ingredients = {}  # {inventory_item_id: ScaledIngredient}
+    total_quoted = 0  # Sum of all event quoted totals
     
     for event_id in data.event_ids:
         # Get event
@@ -8366,18 +8367,26 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
             continue
         
         guest_count = event.get("guest_count", event.get("num_guests", 0)) or 0
-        events_info.append({
-            "event_id": event_id,
-            "event_name": event.get("name"),
-            "guest_count": guest_count,
-            "date": event.get("event_date")
-        })
         
-        # Get event's menu/proposal items
+        # Get proposal to get quoted total
         proposal = await db.proposals.find_one(
             {"event_id": event_id, "company_id": user.company_id},
             {"_id": 0}
         )
+        
+        quoted_total = 0
+        if proposal:
+            quoted_total = proposal.get("total_amount", 0) or proposal.get("total", 0) or 0
+            total_quoted += quoted_total
+        
+        events_info.append({
+            "event_id": event_id,
+            "event_name": event.get("name"),
+            "guest_count": guest_count,
+            "date": event.get("event_date"),
+            "time": event.get("event_time") or event.get("start_time"),
+            "quoted_total": round(quoted_total, 2)
+        })
         
         if not proposal:
             continue
