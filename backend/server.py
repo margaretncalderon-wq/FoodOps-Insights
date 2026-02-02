@@ -1209,6 +1209,22 @@ class DocumentTemplateCreate(BaseModel):
     service_section_title_es: Optional[str] = "Servicios"
     rental_section_title_en: Optional[str] = "Rentals & Equipment"
     rental_section_title_es: Optional[str] = "Alquileres y Equipos"
+    # Invoice specific
+    terms_and_conditions_en: Optional[str] = None
+    terms_and_conditions_es: Optional[str] = None
+    payment_instructions_en: Optional[str] = None
+    payment_instructions_es: Optional[str] = None
+    bank_details: Optional[str] = None
+    # Document styling
+    primary_color: Optional[str] = "#3A4D3F"
+    show_logo: bool = True
+    show_company_address: bool = True
+    show_tax_id: bool = True
+    # Packing List / Kitchen Sheet specific
+    show_quantities: bool = True
+    show_notes_column: bool = True
+    show_checkboxes: bool = True
+    group_by_category: bool = True
 
 class DocumentTemplate(BaseModel):
     template_id: str
