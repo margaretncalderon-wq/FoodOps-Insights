@@ -2807,6 +2807,153 @@ Mantel Blanco, , 10, 3`}
                 </div>
               </CardContent>
             </Card>
+
+            {/* Proposal Item Types - Multi-tenant Customization */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  {language === "es" ? "Tipos de Items en Propuestas" : "Proposal Item Types"}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {language === "es" 
+                    ? "Personaliza las categorías de items disponibles al crear propuestas. Cada tenant puede tener sus propios tipos."
+                    : "Customize the item categories available when creating proposals. Each tenant can have their own types."}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Current Item Types */}
+                <div className="space-y-2">
+                  {(company?.proposal_item_types || []).map((itemType, idx) => (
+                    <div key={itemType.type_key} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                      <div 
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: `${itemType.color}20`, color: itemType.color }}
+                      >
+                        {itemType.icon === "Utensils" && <Utensils className="w-4 h-4" />}
+                        {itemType.icon === "Users" && <Users className="w-4 h-4" />}
+                        {itemType.icon === "Armchair" && <Package className="w-4 h-4" />}
+                        {itemType.icon === "DollarSign" && <DollarSign className="w-4 h-4" />}
+                        {itemType.icon === "Package" && <Package className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 grid grid-cols-3 gap-2">
+                        <Input 
+                          className="text-sm"
+                          value={itemType.label_en}
+                          onChange={(e) => {
+                            const updated = [...(company?.proposal_item_types || [])];
+                            updated[idx] = { ...updated[idx], label_en: e.target.value };
+                            setCompany({ ...company, proposal_item_types: updated });
+                          }}
+                          placeholder="Label (EN)"
+                        />
+                        <Input 
+                          className="text-sm"
+                          value={itemType.label_es}
+                          onChange={(e) => {
+                            const updated = [...(company?.proposal_item_types || [])];
+                            updated[idx] = { ...updated[idx], label_es: e.target.value };
+                            setCompany({ ...company, proposal_item_types: updated });
+                          }}
+                          placeholder="Label (ES)"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            type="color"
+                            className="w-10 h-8 p-1 cursor-pointer"
+                            value={itemType.color}
+                            onChange={(e) => {
+                              const updated = [...(company?.proposal_item_types || [])];
+                              updated[idx] = { ...updated[idx], color: e.target.value };
+                              setCompany({ ...company, proposal_item_types: updated });
+                            }}
+                          />
+                          <Switch 
+                            checked={itemType.is_active !== false}
+                            onCheckedChange={(v) => {
+                              const updated = [...(company?.proposal_item_types || [])];
+                              updated[idx] = { ...updated[idx], is_active: v };
+                              setCompany({ ...company, proposal_item_types: updated });
+                            }}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {itemType.is_active !== false ? (language === "es" ? "Activo" : "Active") : (language === "es" ? "Inactivo" : "Inactive")}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs font-mono">{itemType.type_key}</Badge>
+                      {!["Food", "Service", "Rental", "Fee"].includes(itemType.type_key) && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => {
+                            const updated = (company?.proposal_item_types || []).filter((_, i) => i !== idx);
+                            setCompany({ ...company, proposal_item_types: updated });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add New Item Type */}
+                <div className="flex items-center gap-2 p-3 border-2 border-dashed rounded-lg">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      const newType = {
+                        type_key: `custom_${Date.now()}`,
+                        label_en: "New Type",
+                        label_es: "Nuevo Tipo",
+                        color: "#6b7280",
+                        icon: "Package",
+                        is_active: true,
+                        sort_order: (company?.proposal_item_types || []).length
+                      };
+                      setCompany({ 
+                        ...company, 
+                        proposal_item_types: [...(company?.proposal_item_types || []), newType] 
+                      });
+                    }}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {language === "es" ? "Agregar Tipo" : "Add Type"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {language === "es" 
+                      ? "Los tipos estándar (Food, Service, Rental, Fee) no se pueden eliminar" 
+                      : "Standard types (Food, Service, Rental, Fee) cannot be deleted"}
+                  </span>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-4 border-t">
+                  <Button 
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        await axios.put(`${API}/settings/company`, {
+                          proposal_item_types: company?.proposal_item_types || []
+                        }, { withCredentials: true });
+                        toast.success(language === "es" ? "Tipos de items guardados" : "Item types saved");
+                      } catch (err) {
+                        toast.error(err.response?.data?.detail || "Error saving");
+                      }
+                      setSaving(false);
+                    }}
+                    disabled={saving}
+                  >
+                    {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    {language === "es" ? "Guardar Tipos de Items" : "Save Item Types"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Preferences Tab */}
