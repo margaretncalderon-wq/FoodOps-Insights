@@ -732,7 +732,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   ITEM_TYPES.forEach(itype => {
     itemsByType[itype] = {
       items: proposal?.items?.filter(i => i.item_type === itype) || [],
-      color: itype === "Food" ? "#22c55e" : itype === "Service" ? "#3b82f6" : itype === "Rental" ? "#f59e0b" : "#8b5cf6"
+      color: getItemTypeColor(itype),
+      label: getItemTypeLabel(itype)
     };
   });
 
