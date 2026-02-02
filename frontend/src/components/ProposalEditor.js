@@ -1675,6 +1675,34 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   rows={2}
                 />
               </div>
+
+              {/* Section Title & Time - for grouping items in proposal */}
+              <div className="col-span-2 border-t pt-4 mt-2">
+                <p className="text-xs text-muted-foreground mb-3">
+                  {language === "es" 
+                    ? "Opcional: Agrupa este ítem bajo un título personalizado en la propuesta"
+                    : "Optional: Group this item under a custom title in the proposal"}
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{language === "es" ? "Título de Sección" : "Section Title"}</Label>
+                    <Input
+                      value={newItem.section_title}
+                      onChange={(e) => setNewItem({ ...newItem, section_title: e.target.value })}
+                      placeholder={language === "es" ? "Ej: Cóctel de Bienvenida" : "E.g: Welcome Cocktail"}
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === "es" ? "Hora de Servicio" : "Service Time"}</Label>
+                    <Input
+                      type="time"
+                      value={newItem.section_time}
+                      onChange={(e) => setNewItem({ ...newItem, section_time: e.target.value })}
+                      placeholder="18:30"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
