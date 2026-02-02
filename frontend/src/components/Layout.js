@@ -69,6 +69,10 @@ export const Layout = ({ children }) => {
               <p className="text-xs text-white/60">Events Platform</p>
             </div>
           </Link>
+          {/* Organization Switcher */}
+          <div className="mt-4">
+            <OrgSwitcher />
+          </div>
         </div>
 
         {/* Navigation */}
