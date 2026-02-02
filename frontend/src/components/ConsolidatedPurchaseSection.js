@@ -112,6 +112,7 @@ export default function ConsolidatedPurchaseSection() {
     
     setGenerating(true);
     setCreatedPOs({}); // Reset created POs when regenerating
+    setSrProcessed(false); // Reset SR processed state
     try {
       const res = await axios.post(`${API}/api/events/generate-purchase-list`, {
         event_ids: selectedEvents,
