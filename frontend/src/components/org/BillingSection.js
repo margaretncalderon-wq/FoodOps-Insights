@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
@@ -6,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import { Label } from "../ui/label";
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from "../ui/dialog";
 import { 
   CreditCard, Crown, Zap, Rocket, Calendar, AlertTriangle, Check, 
-  ExternalLink, Loader2, TrendingUp, Users, FileText, Package
+  ExternalLink, Loader2, TrendingUp, Users, FileText, Package, CheckCircle2
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
