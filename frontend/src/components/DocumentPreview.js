@@ -413,9 +413,9 @@ export default function DocumentPreview({
               )}
             </div>
 
-            {/* Items by Date and Category */}
+            {/* Items by Date and Section */}
             <div className="items-section">
-              {Object.entries(groupedItems).map(([dateKey, categoryGroups]) => (
+              {Object.entries(groupedItems).map(([dateKey, sectionGroups]) => (
                 <div key={dateKey} className="date-group mb-6">
                   {/* Date Header (if multi-day) */}
                   {dateKey !== "all" && config.groupByDate && (
@@ -425,17 +425,43 @@ export default function DocumentPreview({
                     </div>
                   )}
                   
-                  {/* Categories */}
-                  {Object.entries(categoryGroups).map(([categoryKey, items]) => (
-                    <div key={categoryKey} className="category-section mb-4">
-                      <h4 className="section-title text-sm font-semibold border-b pb-2 mb-3" style={{ color: template?.primary_color || '#3A4D3F' }}>
-                        {getCategoryName(categoryKey)}
-                      </h4>
+                  {/* Sections */}
+                  {Object.entries(sectionGroups).map(([sectionKey, sectionData]) => {
+                    const items = sectionData.items || sectionData;
+                    const sectionTitle = sectionData.section_title;
+                    const sectionTime = sectionData.section_time;
+                    const sectionDate = sectionData.event_date;
+                    
+                    return (
+                    <div key={sectionKey} className="category-section mb-4">
+                      {/* Section Title with Date and Time */}
+                      <div className="section-title border-b pb-2 mb-3" style={{ borderColor: template?.primary_color || '#3A4D3F' }}>
+                        <h4 className="text-sm font-semibold" style={{ color: template?.primary_color || '#3A4D3F' }}>
+                          {sectionTitle || getCategoryName(sectionKey)}
+                        </h4>
+                        {/* Show date and time if available */}
+                        {(sectionDate || sectionTime) && (
+                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                            {sectionDate && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(sectionDate).toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+                              </span>
+                            )}
+                            {sectionTime && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {sectionTime}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       
                       {/* Menu Style (only names) */}
                       {config.showOnlyNames ? (
                         <div className="space-y-1 pl-4">
-                          {items.map((item, idx) => (
+                          {(Array.isArray(items) ? items : []).map((item, idx) => (
                             <p key={idx} className="menu-item text-sm py-1 border-b border-dotted border-muted">
                               {item.description}
                             </p>
