@@ -735,9 +735,6 @@ export default function ConsolidatedPurchaseSection() {
               <CardTitle className="text-base flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5" />
                 <span>{language === "es" ? "Resumen de Procurement" : "Procurement Summary"}</span>
-                <Badge variant="outline" className="ml-2 text-sm px-3 py-0.5">
-                  {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
-                </Badge>
               </CardTitle>
               <CardDescription>
                 {language === "es" 
@@ -746,19 +743,108 @@ export default function ConsolidatedPurchaseSection() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Events included */}
+              {/* Events included with more details */}
               <div className="mb-4">
                 <p className="text-xs text-muted-foreground mb-2">
                   {language === "es" ? "Eventos incluidos:" : "Events included:"}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {purchaseData.events?.map((event, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {event.event_name} ({event.guest_count} {language === "es" ? "pers." : "guests"})
-                    </Badge>
+                    <div key={idx} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-sm">
+                      <div>
+                        <span className="font-medium">{event.event_name}</span>
+                        <span className="text-muted-foreground ml-2">({event.guest_count} {language === "es" ? "pers." : "guests"})</span>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                          <Calendar className="w-3 h-3" />
+                          {event.date ? new Date(event.date).toLocaleDateString() : "TBD"}
+                          {event.time && (
+                            <>
+                              <Clock className="w-3 h-3 ml-2" />
+                              {event.time}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {event.quoted_total > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === "es" ? "Cotizado:" : "Quoted:"} ${event.quoted_total.toLocaleString()}
+                        </Badge>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
+
+              {/* Cost Summary */}
+              <div className="mb-4 p-3 bg-muted/30 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{language === "es" ? "Stock Requisition (SR):" : "Stock Requisition (SR):"}</span>
+                  <span className="font-mono">${(purchaseData.sr_total_cost || purchaseData.stock_requisition?.reduce((sum, item) => sum + (item.total_cost || 0), 0) || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{language === "es" ? "Lista de Compras (PL):" : "Purchase List (PL):"}</span>
+                  <span className="font-mono">${(purchaseData.total_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t pt-2">
+                  <span>{language === "es" ? "Total Procurement:" : "Total Procurement:"}</span>
+                  <span className="font-mono text-lg">
+                    ${(purchaseData.grand_total || (purchaseData.sr_total_cost || 0) + (purchaseData.total_cost || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quote vs Actual Comparison Alert */}
+              {purchaseData.total_quoted > 0 && (
+                <div className={`mb-4 p-3 rounded-lg border ${
+                  (purchaseData.grand_total || 0) <= purchaseData.total_quoted 
+                    ? "bg-emerald-50 border-emerald-200" 
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className={`w-4 h-4 mt-0.5 ${
+                      (purchaseData.grand_total || 0) <= purchaseData.total_quoted 
+                        ? "text-emerald-600" 
+                        : "text-amber-600"
+                    }`} />
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${
+                        (purchaseData.grand_total || 0) <= purchaseData.total_quoted 
+                          ? "text-emerald-800" 
+                          : "text-amber-800"
+                      }`}>
+                        {language === "es" ? "Comparación Cotizado vs Gasto" : "Quote vs Spend Comparison"}
+                      </p>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">{language === "es" ? "Total Cotizado:" : "Total Quoted:"}</span>
+                          <span className="font-mono font-medium">${purchaseData.total_quoted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">{language === "es" ? "Gasto Esperado:" : "Expected Spend:"}</span>
+                          <span className="font-mono font-medium">${(purchaseData.grand_total || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1 mt-1">
+                          <span className="font-medium">
+                            {(purchaseData.grand_total || 0) <= purchaseData.total_quoted 
+                              ? (language === "es" ? "Margen Estimado:" : "Estimated Margin:") 
+                              : (language === "es" ? "Sobrecosto:" : "Overspend:")}
+                          </span>
+                          <span className={`font-mono font-bold ${
+                            (purchaseData.grand_total || 0) <= purchaseData.total_quoted 
+                              ? "text-emerald-700" 
+                              : "text-red-600"
+                          }`}>
+                            {(purchaseData.grand_total || 0) <= purchaseData.total_quoted ? "+" : "-"}
+                            ${Math.abs(purchaseData.total_quoted - (purchaseData.grand_total || 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            {" "}
+                            ({(((purchaseData.total_quoted - (purchaseData.grand_total || 0)) / purchaseData.total_quoted) * 100).toFixed(1)}%)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Mark Complete Button */}
               <div className="pt-4 border-t">
