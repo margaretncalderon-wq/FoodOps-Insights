@@ -534,6 +534,32 @@ export function BillingSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent className="text-center">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-green-100 p-4">
+                <CheckCircle2 className="w-12 h-12 text-green-600" />
+              </div>
+            </div>
+            <DialogTitle className="text-xl">
+              {isEs ? "¡Pago Completado!" : "Payment Successful!"}
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              {isEs 
+                ? "Tu suscripción ha sido activada exitosamente. Ya puedes disfrutar de todas las funcionalidades de tu nuevo plan."
+                : "Your subscription has been activated successfully. You can now enjoy all the features of your new plan."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="justify-center">
+            <Button onClick={() => setSuccessDialogOpen(false)}>
+              {isEs ? "Continuar" : "Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
