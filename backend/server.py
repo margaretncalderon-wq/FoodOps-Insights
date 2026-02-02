@@ -6711,6 +6711,55 @@ async def get_event_proposal(event_id: str, user: User = Depends(get_current_use
     financials = await calculate_proposal_financials(proposal["proposal_id"], user.company_id)
     proposal.update(financials)
     
+    # Get event to check client credit
+    event = await db.events.find_one({"event_id": event_id}, {"_id": 0})
+    credit_warnings = []
+    
+    if event and event.get("client_id"):
+        client = await db.clients.find_one({"client_id": event["client_id"]}, {"_id": 0})
+        if client and client.get("has_credit") and client.get("credit_limit", 0) > 0:
+            credit_limit = client["credit_limit"]
+            # Calculate credit used from unpaid invoices
+            unpaid_invoices = await db.invoices.find({
+                "client_id": event["client_id"],
+                "company_id": user.company_id,
+                "status": {"$in": ["pending", "partial", "overdue"]}
+            }, {"_id": 0}).to_list(500)
+            
+            credit_used = sum(inv.get("total", 0) - inv.get("paid_amount", 0) for inv in unpaid_invoices)
+            proposal_total = proposal.get("total", 0)
+            projected_credit = credit_used + proposal_total
+            credit_percentage = (projected_credit / credit_limit) * 100 if credit_limit > 0 else 0
+            
+            # Add credit context to proposal
+            proposal["client_credit"] = {
+                "has_credit": True,
+                "credit_limit": credit_limit,
+                "credit_used": credit_used,
+                "projected_with_proposal": projected_credit,
+                "credit_percentage": round(credit_percentage, 1),
+                "available_credit": max(0, credit_limit - credit_used)
+            }
+            
+            # Generate warnings
+            if projected_credit > credit_limit:
+                over_amount = projected_credit - credit_limit
+                credit_warnings.append({
+                    "type": "credit_exceeded",
+                    "severity": "high",
+                    "message": f"⚠️ Esta propuesta excedería el límite de crédito del cliente por ${over_amount:,.2f}",
+                    "message_en": f"⚠️ This proposal would exceed client credit limit by ${over_amount:,.2f}"
+                })
+            elif credit_percentage >= 80:
+                credit_warnings.append({
+                    "type": "credit_warning",
+                    "severity": "medium",
+                    "message": f"⚡ El cliente está usando {credit_percentage:.0f}% de su línea de crédito (${credit_used:,.2f} de ${credit_limit:,.2f})",
+                    "message_en": f"⚡ Client is using {credit_percentage:.0f}% of their credit line (${credit_used:,.2f} of ${credit_limit:,.2f})"
+                })
+    
+    proposal["credit_warnings"] = credit_warnings
+    
     return proposal
 
 @proposals_router.put("/{proposal_id}")
