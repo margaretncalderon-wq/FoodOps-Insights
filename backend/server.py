@@ -66,6 +66,7 @@ allergens_router = APIRouter(prefix="/allergens", tags=["Allergens"])
 business_clarity_router = APIRouter(prefix="/business-clarity", tags=["Business Clarity"])
 orchestration_router = APIRouter(prefix="/orchestration", tags=["Event Orchestration"])
 production_router = APIRouter(prefix="/production", tags=["Production"])
+delivery_notes_router = APIRouter(prefix="/delivery-notes", tags=["Delivery Notes"])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
