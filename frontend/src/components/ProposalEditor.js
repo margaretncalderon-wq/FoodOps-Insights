@@ -559,6 +559,83 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  // Handle edit invoice - open modal with invoice data
+  const handleEditInvoice = (invoice) => {
+    setEditingInvoice({
+      ...invoice,
+      lines: invoice.lines || [],
+      tax_rate: invoice.tax_rate || 0,
+      discount_percent: invoice.discount_percent || 0
+    });
+    setEditInvoiceOpen(true);
+  };
+
+  // Save edited invoice
+  const handleSaveInvoice = async () => {
+    if (!editingInvoice) return;
+    
+    try {
+      // Calculate totals
+      const subtotal = (editingInvoice.lines || []).reduce(
+        (sum, line) => sum + (line.quantity || 0) * (line.unit_price || 0), 0
+      );
+      const discountAmount = subtotal * ((editingInvoice.discount_percent || 0) / 100);
+      const taxableAmount = subtotal - discountAmount;
+      const taxAmount = taxableAmount * ((editingInvoice.tax_rate || 0) / 100);
+      const total = taxableAmount + taxAmount;
+      
+      const updateData = {
+        lines: editingInvoice.lines,
+        subtotal: subtotal,
+        discount_percent: editingInvoice.discount_percent || 0,
+        discount_amount: discountAmount,
+        tax_rate: editingInvoice.tax_rate || 0,
+        tax_amount: taxAmount,
+        total: total,
+        notes: editingInvoice.notes,
+        due_date: editingInvoice.due_date,
+        invoice_type: editingInvoice.invoice_type
+      };
+      
+      await axios.put(
+        `${API}/finance/invoices/${editingInvoice.invoice_id}`,
+        updateData,
+        { withCredentials: true }
+      );
+      
+      toast.success(language === "es" ? "Factura actualizada" : "Invoice updated");
+      setEditInvoiceOpen(false);
+      setEditingInvoice(null);
+      fetchEventInvoices();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error updating invoice");
+    }
+  };
+
+  // Update line in editing invoice
+  const updateInvoiceLine = (index, field, value) => {
+    if (!editingInvoice) return;
+    const updatedLines = [...editingInvoice.lines];
+    updatedLines[index] = { ...updatedLines[index], [field]: value };
+    setEditingInvoice({ ...editingInvoice, lines: updatedLines });
+  };
+
+  // Add new line to editing invoice
+  const addInvoiceLine = () => {
+    if (!editingInvoice) return;
+    setEditingInvoice({
+      ...editingInvoice,
+      lines: [...editingInvoice.lines, { description: "", quantity: 1, unit_price: 0 }]
+    });
+  };
+
+  // Remove line from editing invoice
+  const removeInvoiceLine = (index) => {
+    if (!editingInvoice) return;
+    const updatedLines = editingInvoice.lines.filter((_, i) => i !== index);
+    setEditingInvoice({ ...editingInvoice, lines: updatedLines });
+  };
+
   const handlePicklistSelect = (picklistItem) => {
     // Use pre-calculated cost from API (comes from recipe, inventory, or manual)
     let internal_cost = picklistItem.calculated_cost || picklistItem.internal_cost || null;
