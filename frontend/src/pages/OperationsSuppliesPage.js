@@ -571,7 +571,7 @@ function InventorySection() {
 
       {/* Upload by Supplier Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5" />
@@ -579,46 +579,255 @@ function InventorySection() {
             </DialogTitle>
             <DialogDescription>
               {language === "es" 
-                ? "Selecciona un proveedor y sube un archivo CSV con sus productos" 
-                : "Select a supplier and upload a CSV file with their products"}
+                ? "Agrega productos manualmente o sube un archivo CSV" 
+                : "Add products manually or upload a CSV file"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{t("supplier")}</Label>
-              <Select value={selectedSupplierForUpload} onValueChange={setSelectedSupplierForUpload}>
-                <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar proveedor" : "Select supplier"} /></SelectTrigger>
-                <SelectContent>
-                  {suppliers.map(s => (
-                    <SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="border-2 border-dashed rounded-lg p-8 text-center">
-              <Upload className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mb-2">
-                {language === "es" ? "Arrastra un archivo CSV aquí o" : "Drag a CSV file here or"}
-              </p>
-              <Button variant="outline" size="sm">
-                {language === "es" ? "Seleccionar archivo" : "Select file"}
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                {language === "es" 
-                  ? "Formato: nombre, tipo, categoría, unidad, costo, cantidad" 
-                  : "Format: name, type, category, unit, cost, quantity"}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>{t("cancel")}</Button>
-            <Button disabled={!selectedSupplierForUpload}>
-              <Upload className="w-4 h-4 mr-2" />
-              {language === "es" ? "Subir" : "Upload"}
-            </Button>
-          </DialogFooter>
+          <SupplierProductUpload 
+            suppliers={suppliers} 
+            language={language}
+            onSuccess={() => {
+              setUploadDialogOpen(false);
+              fetchData();
+            }}
+            onCancel={() => setUploadDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// Supplier Product Upload Component
+function SupplierProductUpload({ suppliers, language, onSuccess, onCancel }) {
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [mode, setMode] = useState("manual"); // "manual" or "csv"
+  const [products, setProducts] = useState([{ name: "", category: "other", inventory_type: "equipment", unit: "unit", cost_per_unit: 0, stock_quantity: 0 }]);
+  const [uploading, setUploading] = useState(false);
+  const [csvData, setCsvData] = useState(null);
+
+  const addProduct = () => {
+    setProducts([...products, { name: "", category: "other", inventory_type: "equipment", unit: "unit", cost_per_unit: 0, stock_quantity: 0 }]);
+  };
+
+  const removeProduct = (index) => {
+    setProducts(products.filter((_, i) => i !== index));
+  };
+
+  const updateProduct = (index, field, value) => {
+    const updated = [...products];
+    updated[index][field] = value;
+    setProducts(updated);
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      // Skip header if present
+      const dataLines = lines[0].toLowerCase().includes('name') ? lines.slice(1) : lines;
+      
+      const parsed = dataLines.map(line => {
+        const cols = line.split(',').map(c => c.trim());
+        return {
+          name: cols[0] || "",
+          inventory_type: cols[1] || "equipment",
+          category: cols[2] || "other",
+          unit: cols[3] || "unit",
+          cost_per_unit: parseFloat(cols[4]) || 0,
+          stock_quantity: parseFloat(cols[5]) || 0
+        };
+      }).filter(p => p.name);
+
+      setCsvData(parsed);
+      setProducts(parsed.length > 0 ? parsed : products);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedSupplier) {
+      toast.error(language === "es" ? "Selecciona un proveedor" : "Select a supplier");
+      return;
+    }
+
+    const validProducts = products.filter(p => p.name?.trim());
+    if (validProducts.length === 0) {
+      toast.error(language === "es" ? "Agrega al menos un producto" : "Add at least one product");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const res = await axios.post(`${API}/api/inventory/bulk-upload-by-supplier`, {
+        supplier_id: selectedSupplier,
+        products: validProducts
+      }, { withCredentials: true });
+
+      toast.success(
+        language === "es" 
+          ? `${res.data.created} creados, ${res.data.updated} actualizados, ${res.data.price_changes} cambios de precio`
+          : `${res.data.created} created, ${res.data.updated} updated, ${res.data.price_changes} price changes`
+      );
+      onSuccess();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error uploading products");
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>{language === "es" ? "Proveedor" : "Supplier"}</Label>
+        <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+          <SelectTrigger>
+            <SelectValue placeholder={language === "es" ? "Seleccionar proveedor" : "Select supplier"} />
+          </SelectTrigger>
+          <SelectContent>
+            {suppliers.map(s => (
+              <SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Mode Toggle */}
+      <div className="flex gap-2">
+        <Button 
+          variant={mode === "manual" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setMode("manual")}
+        >
+          {language === "es" ? "Manual" : "Manual"}
+        </Button>
+        <Button 
+          variant={mode === "csv" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setMode("csv")}
+        >
+          CSV
+        </Button>
+      </div>
+
+      {mode === "csv" ? (
+        <div className="border-2 border-dashed rounded-lg p-6 text-center">
+          <Upload className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFileUpload}
+            className="hidden"
+            id="csv-upload"
+          />
+          <label htmlFor="csv-upload">
+            <Button variant="outline" size="sm" asChild>
+              <span>{language === "es" ? "Seleccionar CSV" : "Select CSV"}</span>
+            </Button>
+          </label>
+          <p className="text-xs text-muted-foreground mt-2">
+            {language === "es" 
+              ? "Columnas: nombre, tipo, categoría, unidad, costo, cantidad" 
+              : "Columns: name, type, category, unit, cost, quantity"}
+          </p>
+          {csvData && (
+            <Badge variant="secondary" className="mt-2">
+              {csvData.length} {language === "es" ? "productos cargados" : "products loaded"}
+            </Badge>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {products.map((product, index) => (
+            <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-lg bg-muted/30">
+              <div className="col-span-3">
+                <Input 
+                  placeholder={language === "es" ? "Nombre" : "Name"}
+                  value={product.name}
+                  onChange={(e) => updateProduct(index, "name", e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="col-span-2">
+                <Select 
+                  value={product.inventory_type} 
+                  onValueChange={(v) => updateProduct(index, "inventory_type", v)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OPS_SUPPLY_TYPES.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{language === "es" ? t.labelEs : t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Input 
+                  placeholder={language === "es" ? "Unidad" : "Unit"}
+                  value={product.unit}
+                  onChange={(e) => updateProduct(index, "unit", e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="col-span-2">
+                <Input 
+                  type="number"
+                  step="0.01"
+                  placeholder={language === "es" ? "Costo" : "Cost"}
+                  value={product.cost_per_unit || ""}
+                  onChange={(e) => updateProduct(index, "cost_per_unit", parseFloat(e.target.value) || 0)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="col-span-2">
+                <Input 
+                  type="number"
+                  placeholder={language === "es" ? "Cant." : "Qty"}
+                  value={product.stock_quantity || ""}
+                  onChange={(e) => updateProduct(index, "stock_quantity", parseFloat(e.target.value) || 0)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="col-span-1">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => removeProduct(index)}
+                  disabled={products.length === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={addProduct} className="w-full">
+            <Plus className="w-4 h-4 mr-2" />
+            {language === "es" ? "Agregar Producto" : "Add Product"}
+          </Button>
+        </div>
+      )}
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>{language === "es" ? "Cancelar" : "Cancel"}</Button>
+        <Button onClick={handleSubmit} disabled={uploading || !selectedSupplier}>
+          {uploading ? (
+            <span className="animate-pulse">{language === "es" ? "Subiendo..." : "Uploading..."}</span>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              {language === "es" ? "Subir Productos" : "Upload Products"}
+            </>
+          )}
+        </Button>
+      </DialogFooter>
     </div>
   );
 }
