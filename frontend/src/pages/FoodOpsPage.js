@@ -123,7 +123,11 @@ function InventorySection() {
         axios.get(`${API}/api/suppliers`, { withCredentials: true }),
         axios.get(`${API}/api/inventory/transactions`, { withCredentials: true })
       ]);
-      setItems(itemsRes.data);
+      // Filter only culinary inventory types (food and packaging)
+      const culinaryItems = (itemsRes.data || []).filter(item => 
+        ["food", "packaging"].includes(item.inventory_type)
+      );
+      setItems(culinaryItems);
       setSuppliers(suppliersRes.data);
       setTransactions(transactionsRes.data);
     } catch (error) {
