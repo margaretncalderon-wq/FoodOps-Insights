@@ -58,6 +58,7 @@ function InventorySection() {
   const { language } = useLanguage();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [suppliers] = useState([]); // Empty - ops supplies don't use suppliers
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
