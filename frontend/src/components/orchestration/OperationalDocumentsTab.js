@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { FileText, Utensils, Package, Eye, Download, Printer, RefreshCw, ChefHat } from "lucide-react";
+import { FileText, Utensils, Package, Eye, Download, Printer, RefreshCw, ChefHat, ClipboardList } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [activeTab, setActiveTab] = useState("packing");
 
   useEffect(() => {
     fetchDocuments();
