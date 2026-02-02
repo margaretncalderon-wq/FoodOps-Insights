@@ -746,6 +746,17 @@ Auto-generated from Event Order:
     - Checkboxes and Notes column displayed for PackingList/KitchenSheet
     - Terms & Conditions, Payment Instructions, Bank Details shown in Invoice/Proposal
     - Print CSS uses template colors for professional output
+
+- [x] **Section Titles and Time for Proposal Items** - COMPLETE (Feb 2, 2026):
+  - Added `section_title` and `section_time` fields to order items
+  - New fields in Add Item modal: "Section Title" and "Service Time"
+  - Items with same section_title are grouped together in document preview
+  - Section header shows custom title with date and time
+  - Backend models updated (OrderItemCreate, OrderItemUpdate)
+  - Proposal template now supports Terms & Conditions with:
+    - Terms (EN/ES)
+    - Payment Instructions (EN/ES)
+    - Bank Details
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
