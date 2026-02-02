@@ -972,6 +972,8 @@ function ReportsSection() {
   const [activeReport, setActiveReport] = useState("snapshot");
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [targetMargin, setTargetMargin] = useState(30);
+  const [showCollectedPaid, setShowCollectedPaid] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -982,6 +984,18 @@ function ReportsSection() {
       .finally(() => setLoading(false));
   }, [activeReport]);
 
+  // Health badge logic for events
+  const getHealthBadge = (event) => {
+    const margin = event.margin_percent || 0;
+    if (margin < 0) {
+      return <Badge className="bg-red-600 text-white gap-1"><AlertCircle className="w-3 h-3" />{isEs ? "Pérdida" : "Loss"}</Badge>;
+    }
+    if (margin < targetMargin) {
+      return <Badge variant="secondary" className="bg-amber-100 text-amber-800 gap-1"><AlertTriangle className="w-3 h-3" />{isEs ? "Riesgo" : "Risk"}</Badge>;
+    }
+    return <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="w-3 h-3" />{isEs ? "Saludable" : "Healthy"}</Badge>;
+  };
+
   const reports = [
     { key: "snapshot", label: isEs ? "Resumen" : "Snapshot", icon: PieChart },
     { key: "clients", label: isEs ? "Por Cliente" : "By Client", icon: Users },
@@ -991,8 +1005,8 @@ function ReportsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold">{isEs ? "Reportes" : "Reports"}</h2>
+      <div className="flex items-center gap-4 flex-wrap">
+        <h2 className="text-lg font-semibold">{isEs ? "Reportes Ejecutivos" : "Executive Reports"}</h2>
         <div className="flex gap-1">
           {reports.map(({ key, label, icon: Icon }) => (
             <Button key={key} variant={activeReport === key ? "default" : "ghost"} size="sm" onClick={() => setActiveReport(key)} className="gap-2"><Icon className="w-4 h-4" />{label}</Button>
@@ -1002,22 +1016,268 @@ function ReportsSection() {
 
       {loading ? <Card><CardContent className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto" /></CardContent></Card> : (
         <>
+          {/* SNAPSHOT REPORT - Enhanced */}
           {activeReport === "snapshot" && reportData && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Facturado" : "Invoiced"}</p><p className="text-xl font-bold">{formatCurrency(reportData.revenue?.total_invoiced)}</p></CardContent></Card>
-              <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Cobrado" : "Collected"}</p><p className="text-xl font-bold text-green-600">{formatCurrency(reportData.revenue?.total_collected)}</p></CardContent></Card>
-              <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Gastos" : "Expenses"}</p><p className="text-xl font-bold text-red-600">{formatCurrency(reportData.expenses?.total)}</p></CardContent></Card>
-              <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Utilidad" : "Profit"}</p><p className="text-xl font-bold text-blue-600">{formatCurrency(reportData.profit?.gross)}</p><p className="text-xs text-muted-foreground">{reportData.profit?.margin}%</p></CardContent></Card>
+            <div className="space-y-4">
+              {/* Operational Profit Section */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    {isEs ? "Utilidad Operativa (Devengado)" : "Operational Profit (Accrued)"}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {isEs ? "Ingresos facturados menos costos asignados" : "Invoiced revenue minus assigned costs"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Facturado" : "Invoiced"}</p>
+                      <p className="text-xl font-bold">{formatCurrency(reportData.revenue?.total_invoiced)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Costos Asignados" : "Assigned Costs"}</p>
+                      <p className="text-xl font-bold text-red-600">{formatCurrency(reportData.expenses?.assigned || reportData.expenses?.total)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Utilidad Bruta" : "Gross Profit"}</p>
+                      <p className="text-xl font-bold text-blue-600">{formatCurrency(reportData.profit?.gross)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Margen" : "Margin"}</p>
+                      <p className="text-xl font-bold">{reportData.profit?.margin || 0}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Cash Position Section */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Wallet className="w-4 h-4" />
+                    {isEs ? "Posición de Caja (Realizado)" : "Cash Position (Realized)"}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {isEs ? "Dinero realmente cobrado vs pagado" : "Money actually collected vs paid"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                      <p className="text-xs text-green-600">{isEs ? "Cobrado de Clientes" : "Collected from Clients"}</p>
+                      <p className="text-xl font-bold text-green-700">{formatCurrency(reportData.revenue?.total_collected)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-100">
+                      <p className="text-xs text-red-600">{isEs ? "Pagado a Proveedores" : "Paid to Suppliers"}</p>
+                      <p className="text-xl font-bold text-red-700">{formatCurrency(reportData.expenses?.paid || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                      <p className="text-xs text-blue-600">{isEs ? "Flujo Neto de Caja" : "Net Cash Flow"}</p>
+                      <p className="text-xl font-bold text-blue-700">
+                        {formatCurrency((reportData.revenue?.total_collected || 0) - (reportData.expenses?.paid || 0))}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Clarity Note */}
+              <Card className="bg-amber-50/50 border-amber-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-amber-600 mt-0.5" />
+                    <p className="text-sm text-amber-800">
+                      {isEs 
+                        ? "La utilidad refleja costos asignados a eventos. Los gastos no asignados (overhead) pueden distorsionar los márgenes mostrados. Revisa 'Costos Sin Asignar' en el panel ejecutivo."
+                        : "Profit reflects costs assigned to events. Unassigned expenses (overhead) may distort displayed margins. Check 'Unassigned Costs' in the executive dashboard."}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
+
+          {/* BY CLIENT REPORT */}
           {activeReport === "clients" && reportData && (
-            <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>{isEs ? "Cliente" : "Client"}</TableHead><TableHead className="text-right">{isEs ? "Facturado" : "Invoiced"}</TableHead><TableHead className="text-right">{isEs ? "Cobrado" : "Collected"}</TableHead><TableHead className="text-right">{isEs ? "Pendiente" : "Outstanding"}</TableHead></TableRow></TableHeader><TableBody>{(reportData.records || []).map(r => <TableRow key={r.client_id}><TableCell>{r.client_name}</TableCell><TableCell className="text-right">{formatCurrency(r.total_invoiced)}</TableCell><TableCell className="text-right text-green-600">{formatCurrency(r.total_paid)}</TableCell><TableCell className="text-right">{formatCurrency(r.total_outstanding)}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isEs ? "Cliente" : "Client"}</TableHead>
+                      <TableHead className="text-right">{isEs ? "Facturado" : "Invoiced"}</TableHead>
+                      <TableHead className="text-right">{isEs ? "Cobrado" : "Collected"}</TableHead>
+                      <TableHead className="text-right">{isEs ? "Pendiente" : "Outstanding"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(reportData.records || []).map(r => (
+                      <TableRow key={r.client_id}>
+                        <TableCell>{r.client_name}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(r.total_invoiced)}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency(r.total_paid)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(r.total_outstanding)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
+
+          {/* BY SUPPLIER REPORT */}
           {activeReport === "suppliers" && reportData && (
-            <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>{isEs ? "Proveedor" : "Supplier"}</TableHead><TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead><TableHead className="text-right">{isEs ? "Pagado" : "Paid"}</TableHead><TableHead className="text-right">{isEs ? "Pendiente" : "Pending"}</TableHead></TableRow></TableHeader><TableBody>{(reportData.records || []).map((r,i) => <TableRow key={i}><TableCell>{r.supplier_name}</TableCell><TableCell className="text-right">{formatCurrency(r.total_amount)}</TableCell><TableCell className="text-right text-green-600">{formatCurrency(r.paid_amount)}</TableCell><TableCell className="text-right text-orange-600">{formatCurrency(r.pending_amount)}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isEs ? "Proveedor" : "Supplier"}</TableHead>
+                      <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
+                      <TableHead className="text-right">{isEs ? "Pagado" : "Paid"}</TableHead>
+                      <TableHead className="text-right">{isEs ? "Pendiente" : "Pending"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(reportData.records || []).map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{r.supplier_name}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(r.total_amount)}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency(r.paid_amount)}</TableCell>
+                        <TableCell className="text-right text-orange-600">{formatCurrency(r.pending_amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
+
+          {/* BY EVENT REPORT - Enhanced with Health Badges */}
           {activeReport === "events" && reportData && (
-            <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>{isEs ? "Evento" : "Event"}</TableHead><TableHead className="text-right">{isEs ? "Ingresos" : "Revenue"}</TableHead><TableHead className="text-right">{isEs ? "Costos" : "Costs"}</TableHead><TableHead className="text-right">{isEs ? "Utilidad" : "Profit"}</TableHead><TableHead className="text-right">{isEs ? "Margen" : "Margin"}</TableHead></TableRow></TableHeader><TableBody>{(reportData.records || []).map(r => <TableRow key={r.event_id}><TableCell>{r.event_name}</TableCell><TableCell className="text-right">{formatCurrency(r.revenue)}</TableCell><TableCell className="text-right text-red-600">{formatCurrency(r.costs)}</TableCell><TableCell className={`text-right font-medium ${r.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatCurrency(r.profit)}</TableCell><TableCell className="text-right">{r.margin_percent}%</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+            <div className="space-y-4">
+              {/* Controls */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{isEs ? "Margen objetivo:" : "Target margin:"}</span>
+                  <Select value={targetMargin.toString()} onValueChange={(v) => setTargetMargin(parseInt(v))}>
+                    <SelectTrigger className="w-20 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[20, 25, 30, 35, 40, 45, 50].map(v => (
+                        <SelectItem key={v} value={v.toString()}>{v}%</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  variant={showCollectedPaid ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setShowCollectedPaid(!showCollectedPaid)}
+                >
+                  {isEs ? "Mostrar Cobrado/Pagado" : "Show Collected/Paid"}
+                </Button>
+              </div>
+
+              {/* Summary Badges */}
+              <div className="flex gap-4 flex-wrap">
+                {(() => {
+                  const records = reportData.records || [];
+                  const healthy = records.filter(r => (r.margin_percent || 0) >= targetMargin).length;
+                  const risk = records.filter(r => (r.margin_percent || 0) >= 0 && (r.margin_percent || 0) < targetMargin).length;
+                  const loss = records.filter(r => (r.margin_percent || 0) < 0).length;
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 text-green-800">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm font-medium">{healthy} {isEs ? "Saludables" : "Healthy"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 text-amber-800">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-sm font-medium">{risk} {isEs ? "En Riesgo" : "At Risk"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-100 text-red-800">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm font-medium">{loss} {isEs ? "Con Pérdida" : "With Loss"}</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Events Table */}
+              <Card>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isEs ? "Evento" : "Event"}</TableHead>
+                        <TableHead>{isEs ? "Estado" : "Health"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Ingresos" : "Revenue"}</TableHead>
+                        {showCollectedPaid && <TableHead className="text-right">{isEs ? "Cobrado" : "Collected"}</TableHead>}
+                        <TableHead className="text-right">{isEs ? "Costos" : "Costs"}</TableHead>
+                        {showCollectedPaid && <TableHead className="text-right">{isEs ? "Pagado" : "Paid"}</TableHead>}
+                        <TableHead className="text-right">{isEs ? "Utilidad" : "Profit"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Margen" : "Margin"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(reportData.records || []).map(r => (
+                        <TableRow key={r.event_id} className={r.margin_percent < 0 ? "bg-red-50/50" : r.margin_percent < targetMargin ? "bg-amber-50/30" : ""}>
+                          <TableCell className="font-medium">{r.event_name}</TableCell>
+                          <TableCell>{getHealthBadge(r)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(r.revenue)}</TableCell>
+                          {showCollectedPaid && <TableCell className="text-right text-green-600">{formatCurrency(r.collected || 0)}</TableCell>}
+                          <TableCell className="text-right text-red-600">{formatCurrency(r.costs)}</TableCell>
+                          {showCollectedPaid && <TableCell className="text-right text-orange-600">{formatCurrency(r.paid_costs || 0)}</TableCell>}
+                          <TableCell className={`text-right font-medium ${r.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(r.profit)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className={`font-medium ${r.margin_percent < 0 ? "text-red-600" : r.margin_percent < targetMargin ? "text-amber-600" : "text-green-600"}`}>
+                              {r.margin_percent}%
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Decision Guide */}
+              <Card className="bg-slate-50 border-slate-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm mb-2">{isEs ? "📊 Guía de Decisión" : "📊 Decision Guide"}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-green-700">{isEs ? "Saludable" : "Healthy"}</p>
+                        <p className="text-muted-foreground text-xs">{isEs ? "Replicar: pricing y ejecución funcionan" : "Replicate: pricing and execution work"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-amber-700">{isEs ? "Riesgo" : "Risk"}</p>
+                        <p className="text-muted-foreground text-xs">{isEs ? "Revisar: ¿problema de precio o ejecución?" : "Review: pricing or execution issue?"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-red-700">{isEs ? "Pérdida" : "Loss"}</p>
+                        <p className="text-muted-foreground text-xs">{isEs ? "Investigar: ¿evitar o corregir urgente?" : "Investigate: avoid or urgent fix?"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </>
       )}
