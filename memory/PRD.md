@@ -843,8 +843,23 @@ Auto-generated from Event Order:
     - PUT /organizations/{id}/reactivate - Reactivate organization
     - POST /bootstrap - Grant first super admin (one-time)
     - POST /grant-super-admin/{email} - Grant super admin to user
+  - **CRM Module (NEW):**
+    - GET/POST /crm/leads - Platform leads management
+    - GET/PUT/DELETE /crm/leads/{id} - Individual lead operations
+    - POST /crm/leads/{id}/log - Communication logs
+    - GET /crm/follow-ups - Pending follow-ups
+    - Tabs: Todos, Inbound, Outreach
+    - Pipeline visualization by status
+  - **Business Intelligence Module (NEW):**
+    - GET /bi/overview - MRR, ARR, paying customers, churn
+    - GET /bi/payments - Subscription transactions
+    - GET /bi/supplier-invoices - Cross-org invoice data
+    - GET /bi/abc-analysis - Customer value classification
+    - GET /bi/revenue-trend - 6-month revenue chart
   - **Frontend Pages:**
     - `/pages/super-admin/SuperAdminOverview.js` - Platform dashboard
+    - `/pages/super-admin/CRMPage.js` - Sales CRM (NEW)
+    - `/pages/super-admin/BIPage.js` - Business Intelligence (NEW)
     - `/pages/super-admin/OrganizationsListPage.js` - All organizations
     - `/pages/super-admin/OrganizationDetailPage.js` - Org details
   - **Bug Fix:** Organizations without `status` field now counted as "active" (legacy data support)
