@@ -910,9 +910,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                         {itype === "Service" && <Users className="w-4 h-4" style={{ color: typeData.color }} />}
                         {itype === "Rental" && <Armchair className="w-4 h-4" style={{ color: typeData.color }} />}
                         {itype === "Fee" && <DollarSign className="w-4 h-4" style={{ color: typeData.color }} />}
+                        {!["Food", "Service", "Rental", "Fee"].includes(itype) && <Package className="w-4 h-4" style={{ color: typeData.color }} />}
                       </div>
                       <div>
-                        <CardTitle className="text-base font-medium">{itype}</CardTitle>
+                        <CardTitle className="text-base font-medium">{typeData.label || itype}</CardTitle>
                         <p className="text-xs text-muted-foreground">
                           {typeData.items.length} {language === "es" ? "ítems" : "items"}
                         </p>
