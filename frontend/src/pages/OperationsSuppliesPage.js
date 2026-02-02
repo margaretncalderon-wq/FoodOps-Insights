@@ -187,8 +187,11 @@ function InventorySection() {
       reserved_quantity: item.reserved_quantity || 0,
       par_level: item.par_level || 0,
       pack_size: item.pack_size || 1,
-      preferred_supplier_id: item.preferred_supplier_id || "",
-      replacement_cost: item.replacement_cost || 0
+      replacement_cost: item.replacement_cost || 0,
+      cost_center: item.cost_center || "operations",
+      purchase_date: item.purchase_date || "",
+      useful_life_years: item.useful_life_years || 5,
+      depreciation_rate: item.depreciation_rate || 20
     });
     setItemDialogOpen(true);
   };
@@ -207,8 +210,61 @@ function InventorySection() {
     setItemForm({
       name: "", category: "other", inventory_type: "equipment", unit: "unit",
       cost_per_unit: 0, stock_quantity: 0, reserved_quantity: 0, par_level: 0, 
-      pack_size: 1, preferred_supplier_id: "", replacement_cost: 0
+      pack_size: 1, replacement_cost: 0, cost_center: "operations",
+      purchase_date: "", useful_life_years: 5, depreciation_rate: 20
     });
+  };
+
+  // Save categories to settings
+  const handleSaveCategories = async () => {
+    try {
+      await axios.post(`${API}/api/settings/ops-categories`, { categories }, { withCredentials: true });
+      toast.success(language === "es" ? "Categorías guardadas" : "Categories saved");
+      setSettingsDialogOpen(false);
+    } catch (error) {
+      toast.error("Error saving categories");
+    }
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategory.value || !newCategory.label) {
+      toast.error(language === "es" ? "Completa los campos" : "Fill in all fields");
+      return;
+    }
+    // Check if already exists
+    if (categories.find(c => c.value === newCategory.value)) {
+      toast.error(language === "es" ? "La categoría ya existe" : "Category already exists");
+      return;
+    }
+    setCategories([...categories, { ...newCategory }]);
+    setNewCategory({ value: "", label: "", labelEs: "" });
+  };
+
+  const handleRemoveCategory = (value) => {
+    // Don't remove if items are using it
+    if (items.some(i => i.category === value)) {
+      toast.error(language === "es" ? "Hay items usando esta categoría" : "Items are using this category");
+      return;
+    }
+    setCategories(categories.filter(c => c.value !== value));
+  };
+
+  // Calculate depreciation for an item
+  const calculateDepreciation = (item) => {
+    if (!item.purchase_date || item.inventory_type !== "equipment") return null;
+    const purchaseDate = new Date(item.purchase_date);
+    const now = new Date();
+    const yearsOwned = (now - purchaseDate) / (365.25 * 24 * 60 * 60 * 1000);
+    const totalCost = (item.cost_per_unit || 0) * (item.stock_quantity || 0);
+    const annualDepreciation = totalCost * ((item.depreciation_rate || 20) / 100);
+    const accumulatedDepreciation = Math.min(annualDepreciation * yearsOwned, totalCost);
+    const currentValue = Math.max(0, totalCost - accumulatedDepreciation);
+    return { totalCost, accumulatedDepreciation, currentValue, yearsOwned };
+  };
+
+  const getCostCenterLabel = (value) => {
+    const cc = COST_CENTERS.find(c => c.value === value);
+    return cc ? (language === "es" ? cc.labelEs : cc.label) : value;
   };
 
   const filteredItems = items.filter(item => {
