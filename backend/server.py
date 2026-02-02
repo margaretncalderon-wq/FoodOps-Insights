@@ -10815,15 +10815,36 @@ async def get_accounts_payable(user: User = Depends(get_current_user)):
 class PayableAssignment(BaseModel):
     event_id: Optional[str] = None
     cost_center: Optional[str] = None
+    fixed_cost_category_id: Optional[str] = None
 
 @business_clarity_router.put("/payables/{payable_id}/assign")
 async def assign_payable(payable_id: str, data: PayableAssignment, user: User = Depends(get_current_user)):
-    """Assign a payable/expense to an event or cost center"""
+    """Assign a payable/expense to an event, cost center, or fixed cost category"""
     now = datetime.now(timezone.utc)
     
     # Handle "none" values from frontend
     event_id = data.event_id if data.event_id and data.event_id != "none" else None
     cost_center = data.cost_center if data.cost_center and data.cost_center != "none" else None
+    fixed_cost_category_id = data.fixed_cost_category_id if data.fixed_cost_category_id and data.fixed_cost_category_id != "none" else None
+    
+    # Build update data based on assignment type (mutually exclusive)
+    update_data = {"updated_at": now.isoformat()}
+    if event_id:
+        update_data["event_id"] = event_id
+        update_data["cost_center"] = None
+        update_data["fixed_cost_category_id"] = None
+    elif fixed_cost_category_id:
+        update_data["fixed_cost_category_id"] = fixed_cost_category_id
+        update_data["event_id"] = None
+        update_data["cost_center"] = None
+    elif cost_center:
+        update_data["cost_center"] = cost_center
+        update_data["event_id"] = None
+        update_data["fixed_cost_category_id"] = None
+    else:
+        update_data["event_id"] = None
+        update_data["cost_center"] = None
+        update_data["fixed_cost_category_id"] = None
     
     # Try to find in expenses first
     expense = await db.expenses.find_one({
@@ -10832,17 +10853,6 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
     })
     
     if expense:
-        update_data = {"updated_at": now.isoformat()}
-        if event_id:
-            update_data["event_id"] = event_id
-            update_data["cost_center"] = None
-        elif cost_center:
-            update_data["cost_center"] = cost_center
-            update_data["event_id"] = None
-        else:
-            update_data["event_id"] = None
-            update_data["cost_center"] = None
-            
         await db.expenses.update_one(
             {"expense_id": payable_id},
             {"$set": update_data}
@@ -10856,17 +10866,6 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
     })
     
     if payable:
-        update_data = {"updated_at": now.isoformat()}
-        if event_id:
-            update_data["event_id"] = event_id
-            update_data["cost_center"] = None
-        elif cost_center:
-            update_data["cost_center"] = cost_center
-            update_data["event_id"] = None
-        else:
-            update_data["event_id"] = None
-            update_data["cost_center"] = None
-            
         await db.supplier_payables.update_one(
             {"payable_id": payable_id},
             {"$set": update_data}
