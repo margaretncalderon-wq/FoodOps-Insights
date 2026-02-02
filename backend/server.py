@@ -6902,6 +6902,8 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
         "category_name": category_name,
         "internal_notes": data.internal_notes,
         "event_date": data.event_date,
+        "section_title": data.section_title,
+        "section_time": data.section_time,
         "sort_order": data.sort_order,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
