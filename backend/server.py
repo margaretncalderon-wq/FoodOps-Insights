@@ -55,6 +55,20 @@ async def health_check():
 
 # Create routers
 api_router = APIRouter(prefix="/api")
+
+# Health check also under /api for ingress compatibility
+@api_router.get("/health")
+async def api_health_check():
+    """Health check endpoint under /api prefix"""
+    try:
+        await client.admin.command('ping')
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected", "error": str(e)}
+        )
+
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 crm_router = APIRouter(prefix="/crm", tags=["CRM"])
 leads_router = APIRouter(prefix="/leads", tags=["Leads"])
