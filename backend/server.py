@@ -14542,6 +14542,462 @@ async def bootstrap_super_admin(user: User = Depends(get_current_user)):
     
     return {"success": True, "message": "You are now a super admin"}
 
+# ============== SUPER ADMIN CRM ==============
+
+class PlatformLeadCreate(BaseModel):
+    company_name: str
+    contact_name: str
+    email: str
+    phone: Optional[str] = None
+    source: str = "outreach"  # inbound, outreach
+    status: str = "new"  # new, contacted, qualified, proposal, won, lost
+    notes: Optional[str] = None
+    estimated_value: Optional[float] = None
+    next_follow_up: Optional[str] = None
+
+class PlatformLeadUpdate(BaseModel):
+    company_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    estimated_value: Optional[float] = None
+    next_follow_up: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+@super_admin_router.get("/crm/leads")
+async def get_platform_leads(
+    source: str = None,
+    status: str = None,
+    search: str = None,
+    admin: User = Depends(get_super_admin)
+):
+    """Get all platform leads (for sales team)"""
+    query = {}
+    if source:
+        query["source"] = source
+    if status:
+        query["status"] = status
+    if search:
+        query["$or"] = [
+            {"company_name": {"$regex": search, "$options": "i"}},
+            {"contact_name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}}
+        ]
+    
+    leads = await db.platform_leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Stats
+    total = len(leads)
+    by_status = {}
+    by_source = {"inbound": 0, "outreach": 0}
+    for lead in leads:
+        status = lead.get("status", "new")
+        by_status[status] = by_status.get(status, 0) + 1
+        src = lead.get("source", "outreach")
+        if src in by_source:
+            by_source[src] += 1
+    
+    return {
+        "leads": leads,
+        "stats": {
+            "total": total,
+            "by_status": by_status,
+            "by_source": by_source
+        }
+    }
+
+@super_admin_router.post("/crm/leads")
+async def create_platform_lead(data: PlatformLeadCreate, admin: User = Depends(get_super_admin)):
+    """Create a new platform lead"""
+    now = datetime.now(timezone.utc)
+    lead = {
+        "lead_id": f"plead_{uuid.uuid4().hex[:12]}",
+        "company_name": data.company_name,
+        "contact_name": data.contact_name,
+        "email": data.email,
+        "phone": data.phone,
+        "source": data.source,
+        "status": data.status,
+        "notes": data.notes,
+        "estimated_value": data.estimated_value,
+        "next_follow_up": data.next_follow_up,
+        "assigned_to": admin.user_id,
+        "created_by": admin.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.platform_leads.insert_one(lead)
+    del lead["_id"] if "_id" in lead else None
+    return lead
+
+@super_admin_router.get("/crm/leads/{lead_id}")
+async def get_platform_lead(lead_id: str, admin: User = Depends(get_super_admin)):
+    """Get a specific platform lead"""
+    lead = await db.platform_leads.find_one({"lead_id": lead_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Get communication logs
+    logs = await db.platform_lead_logs.find(
+        {"lead_id": lead_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return {"lead": lead, "logs": logs}
+
+@super_admin_router.put("/crm/leads/{lead_id}")
+async def update_platform_lead(lead_id: str, data: PlatformLeadUpdate, admin: User = Depends(get_super_admin)):
+    """Update a platform lead"""
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.platform_leads.update_one(
+        {"lead_id": lead_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    return {"success": True}
+
+@super_admin_router.post("/crm/leads/{lead_id}/log")
+async def add_lead_communication(lead_id: str, data: dict, admin: User = Depends(get_super_admin)):
+    """Add communication log to a lead"""
+    now = datetime.now(timezone.utc)
+    log = {
+        "log_id": f"plog_{uuid.uuid4().hex[:12]}",
+        "lead_id": lead_id,
+        "type": data.get("type", "note"),  # call, email, meeting, note
+        "content": data.get("content", ""),
+        "created_by": admin.user_id,
+        "created_at": now.isoformat()
+    }
+    await db.platform_lead_logs.insert_one(log)
+    
+    # Update lead's updated_at
+    await db.platform_leads.update_one(
+        {"lead_id": lead_id},
+        {"$set": {"updated_at": now.isoformat()}}
+    )
+    
+    return {"success": True, "log_id": log["log_id"]}
+
+@super_admin_router.delete("/crm/leads/{lead_id}")
+async def delete_platform_lead(lead_id: str, admin: User = Depends(get_super_admin)):
+    """Delete a platform lead"""
+    result = await db.platform_leads.delete_one({"lead_id": lead_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Also delete logs
+    await db.platform_lead_logs.delete_many({"lead_id": lead_id})
+    
+    return {"success": True}
+
+@super_admin_router.get("/crm/follow-ups")
+async def get_platform_follow_ups(admin: User = Depends(get_super_admin)):
+    """Get leads with pending follow-ups"""
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    
+    leads = await db.platform_leads.find(
+        {"next_follow_up": {"$exists": True, "$ne": None}},
+        {"_id": 0}
+    ).to_list(500)
+    
+    overdue = []
+    today_list = []
+    upcoming = []
+    
+    for lead in leads:
+        follow_up = lead.get("next_follow_up", "")
+        if follow_up:
+            if follow_up < today:
+                overdue.append(lead)
+            elif follow_up == today:
+                today_list.append(lead)
+            else:
+                upcoming.append(lead)
+    
+    return {
+        "overdue": overdue,
+        "today": today_list,
+        "upcoming": upcoming[:10]  # Next 10
+    }
+
+# ============== SUPER ADMIN BUSINESS INTELLIGENCE ==============
+
+@super_admin_router.get("/bi/overview")
+async def get_bi_overview(admin: User = Depends(get_super_admin)):
+    """Get business intelligence overview"""
+    now = datetime.now(timezone.utc)
+    current_month = now.strftime("%Y-%m")
+    current_year = now.year
+    
+    # Subscription Revenue (MRR)
+    subscriptions = await db.subscriptions.find(
+        {"status": {"$in": ["active", "trialing"]}},
+        {"_id": 0, "plan_id": 1, "billing_cycle": 1}
+    ).to_list(1000)
+    
+    plans_cache = {}
+    async for plan in db.plans.find({}, {"_id": 0}):
+        plans_cache[plan["plan_id"]] = plan
+    
+    mrr = 0
+    arr = 0
+    for sub in subscriptions:
+        plan = plans_cache.get(sub.get("plan_id"), {})
+        if sub.get("billing_cycle") == "yearly":
+            arr += plan.get("price_yearly", 0)
+            mrr += plan.get("price_yearly", 0) / 12
+        else:
+            mrr += plan.get("price_monthly", 0)
+            arr += plan.get("price_monthly", 0) * 12
+    
+    # Subscription transactions this month
+    month_start = f"{current_month}-01"
+    transactions = await db.subscription_transactions.find(
+        {"payment_status": "paid", "created_at": {"$gte": month_start}},
+        {"_id": 0, "amount": 1}
+    ).to_list(1000)
+    
+    revenue_this_month = sum(t.get("amount", 0) for t in transactions)
+    
+    # Total customers (paying)
+    paying_customers = await db.subscriptions.count_documents({
+        "status": "active",
+        "plan_id": {"$ne": "plan_starter"}
+    })
+    
+    # Churn - canceled this month
+    canceled = await db.subscriptions.count_documents({
+        "status": "canceled",
+        "canceled_at": {"$gte": month_start}
+    })
+    
+    return {
+        "mrr": round(mrr, 2),
+        "arr": round(arr, 2),
+        "revenue_this_month": round(revenue_this_month, 2),
+        "paying_customers": paying_customers,
+        "total_organizations": await db.companies.count_documents({}),
+        "churned_this_month": canceled,
+        "period": current_month
+    }
+
+@super_admin_router.get("/bi/payments")
+async def get_bi_payments(
+    period: str = None,
+    admin: User = Depends(get_super_admin)
+):
+    """Get payment transactions for BI"""
+    now = datetime.now(timezone.utc)
+    if not period:
+        period = now.strftime("%Y-%m")
+    
+    # Subscription payments
+    sub_transactions = await db.subscription_transactions.find(
+        {"created_at": {"$regex": f"^{period}"}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    
+    # Aggregate by status
+    by_status = {"paid": 0, "initiated": 0, "failed": 0, "expired": 0}
+    total_revenue = 0
+    
+    for txn in sub_transactions:
+        status = txn.get("payment_status", "initiated")
+        if status in by_status:
+            by_status[status] += 1
+        if status == "paid":
+            total_revenue += txn.get("amount", 0)
+    
+    return {
+        "transactions": sub_transactions,
+        "summary": {
+            "total_transactions": len(sub_transactions),
+            "by_status": by_status,
+            "total_revenue": round(total_revenue, 2)
+        },
+        "period": period
+    }
+
+@super_admin_router.get("/bi/supplier-invoices")
+async def get_bi_supplier_invoices(
+    period: str = None,
+    admin: User = Depends(get_super_admin)
+):
+    """Get supplier invoices across all organizations"""
+    now = datetime.now(timezone.utc)
+    if not period:
+        period = now.strftime("%Y-%m")
+    
+    # Get all invoices for the period (across all orgs)
+    invoices = await db.invoices.find(
+        {"created_at": {"$regex": f"^{period}"}},
+        {"_id": 0, "invoice_id": 1, "company_id": 1, "total": 1, "status": 1, "supplier_name": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(1000)
+    
+    # Also check purchase_orders_full
+    pos = await db.purchase_orders_full.find(
+        {"created_at": {"$regex": f"^{period}"}},
+        {"_id": 0, "po_number": 1, "company_id": 1, "total": 1, "status": 1, "supplier_name": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(1000)
+    
+    # Aggregate
+    total_invoiced = sum(inv.get("total", 0) for inv in invoices)
+    total_pos = sum(po.get("total", 0) for po in pos)
+    
+    # By status
+    invoice_by_status = {}
+    for inv in invoices:
+        status = inv.get("status", "pending")
+        invoice_by_status[status] = invoice_by_status.get(status, 0) + 1
+    
+    po_by_status = {}
+    for po in pos:
+        status = po.get("status", "Draft")
+        po_by_status[status] = po_by_status.get(status, 0) + 1
+    
+    return {
+        "invoices": invoices[:100],
+        "purchase_orders": pos[:100],
+        "summary": {
+            "total_invoiced": round(total_invoiced, 2),
+            "total_pos": round(total_pos, 2),
+            "invoice_count": len(invoices),
+            "po_count": len(pos),
+            "invoices_by_status": invoice_by_status,
+            "pos_by_status": po_by_status
+        },
+        "period": period
+    }
+
+@super_admin_router.get("/bi/abc-analysis")
+async def get_bi_abc_analysis(admin: User = Depends(get_super_admin)):
+    """ABC Analysis - Classify organizations by value"""
+    # Get all organizations with their subscription data
+    orgs = await db.companies.find({}, {"_id": 0, "company_id": 1, "name": 1, "created_at": 1}).to_list(1000)
+    
+    plans_cache = {}
+    async for plan in db.plans.find({}, {"_id": 0}):
+        plans_cache[plan["plan_id"]] = plan
+    
+    org_values = []
+    
+    for org in orgs:
+        company_id = org["company_id"]
+        
+        # Get subscription
+        sub = await db.subscriptions.find_one({"company_id": company_id}, {"_id": 0})
+        
+        # Calculate value (annual revenue)
+        annual_value = 0
+        plan_name = "Starter"
+        if sub:
+            plan = plans_cache.get(sub.get("plan_id"), {})
+            plan_name = plan.get("display_name_es", "Starter")
+            if sub.get("billing_cycle") == "yearly":
+                annual_value = plan.get("price_yearly", 0)
+            else:
+                annual_value = plan.get("price_monthly", 0) * 12
+        
+        # Count events created
+        events_count = await db.events.count_documents({"company_id": company_id})
+        
+        # Count users
+        users_count = await db.memberships.count_documents({"company_id": company_id, "status": "active"})
+        if users_count == 0:
+            users_count = await db.users.count_documents({"company_id": company_id})
+        
+        org_values.append({
+            "company_id": company_id,
+            "name": org.get("name", "Unknown"),
+            "plan": plan_name,
+            "annual_value": annual_value,
+            "events_count": events_count,
+            "users_count": users_count,
+            "created_at": org.get("created_at")
+        })
+    
+    # Sort by annual value (descending)
+    org_values.sort(key=lambda x: x["annual_value"], reverse=True)
+    
+    # Calculate cumulative percentage and assign ABC
+    total_value = sum(o["annual_value"] for o in org_values) or 1
+    cumulative = 0
+    
+    for org in org_values:
+        cumulative += org["annual_value"]
+        percentage = (cumulative / total_value) * 100
+        
+        if percentage <= 80:
+            org["abc_class"] = "A"
+        elif percentage <= 95:
+            org["abc_class"] = "B"
+        else:
+            org["abc_class"] = "C"
+        
+        org["cumulative_percentage"] = round(percentage, 2)
+    
+    # Summary
+    a_count = sum(1 for o in org_values if o["abc_class"] == "A")
+    b_count = sum(1 for o in org_values if o["abc_class"] == "B")
+    c_count = sum(1 for o in org_values if o["abc_class"] == "C")
+    
+    a_value = sum(o["annual_value"] for o in org_values if o["abc_class"] == "A")
+    b_value = sum(o["annual_value"] for o in org_values if o["abc_class"] == "B")
+    c_value = sum(o["annual_value"] for o in org_values if o["abc_class"] == "C")
+    
+    return {
+        "organizations": org_values,
+        "summary": {
+            "total_organizations": len(org_values),
+            "total_annual_value": round(total_value, 2),
+            "classes": {
+                "A": {"count": a_count, "value": round(a_value, 2), "description": "Top 80% of revenue"},
+                "B": {"count": b_count, "value": round(b_value, 2), "description": "Next 15% of revenue"},
+                "C": {"count": c_count, "value": round(c_value, 2), "description": "Bottom 5% of revenue"}
+            }
+        }
+    }
+
+@super_admin_router.get("/bi/revenue-trend")
+async def get_bi_revenue_trend(months: int = 6, admin: User = Depends(get_super_admin)):
+    """Get revenue trend over past months"""
+    now = datetime.now(timezone.utc)
+    trends = []
+    
+    for i in range(months - 1, -1, -1):
+        # Calculate month
+        month_date = now - timedelta(days=30 * i)
+        period = month_date.strftime("%Y-%m")
+        
+        # Get transactions for that month
+        transactions = await db.subscription_transactions.find(
+            {"payment_status": "paid", "created_at": {"$regex": f"^{period}"}},
+            {"_id": 0, "amount": 1}
+        ).to_list(1000)
+        
+        revenue = sum(t.get("amount", 0) for t in transactions)
+        
+        # Count new orgs that month
+        new_orgs = await db.companies.count_documents({
+            "created_at": {"$regex": f"^{period}"}
+        })
+        
+        trends.append({
+            "period": period,
+            "revenue": round(revenue, 2),
+            "new_organizations": new_orgs,
+            "transactions": len(transactions)
+        })
+    
+    return {"trends": trends}
+
 # Include super_admin_router
 api_router.include_router(super_admin_router)
 
