@@ -13796,6 +13796,9 @@ async def get_my_permissions(user: User = Depends(get_current_user)):
         "permissions": ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["viewer"])
     }
 
+# Include org_router after all endpoints are defined
+api_router.include_router(org_router)
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
