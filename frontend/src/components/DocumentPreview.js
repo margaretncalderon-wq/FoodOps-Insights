@@ -319,15 +319,24 @@ export default function DocumentPreview({
         <Card className="shadow-lg">
           <CardContent className="p-8" ref={printRef}>
             {/* Header */}
-            <div className="header border-b-2 border-primary pb-6 mb-6">
+            <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: template?.primary_color || '#3A4D3F' }}>
               <div className="flex justify-between items-start">
                 <div>
-                  {company?.logo_url && (
+                  {/* Logo - controlled by template */}
+                  {template?.show_logo !== false && company?.logo_url && (
                     <img src={company.logo_url} alt={company.name} className="h-12 mb-2" />
                   )}
-                  <h1 className="company-name text-2xl font-bold text-primary">
+                  <h1 className="company-name text-2xl font-bold" style={{ color: template?.primary_color || '#3A4D3F' }}>
                     {company?.name || "Company Name"}
                   </h1>
+                  {/* Company Address - controlled by template */}
+                  {template?.show_company_address !== false && company?.address && (
+                    <p className="text-sm text-muted-foreground mt-1">{company.address}</p>
+                  )}
+                  {/* Tax ID - controlled by template */}
+                  {template?.show_tax_id !== false && company?.tax_id && (
+                    <p className="text-sm text-muted-foreground">RFC: {company.tax_id}</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <h2 className="text-xl font-semibold text-foreground">{docName}</h2>
