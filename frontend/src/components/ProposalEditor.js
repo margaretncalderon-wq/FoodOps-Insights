@@ -148,8 +148,33 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchClient(),
       fetchGeneratedDocs(),
       fetchEventInvoices(),
+      fetchItemTypes(),
     ]).finally(() => setLoading(false));
   }, [eventId]);
+
+  const fetchItemTypes = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/company`, { withCredentials: true });
+      if (response.data?.proposal_item_types?.length > 0) {
+        setItemTypes(response.data.proposal_item_types);
+      }
+    } catch (error) {
+      console.error("Failed to fetch item types:", error);
+    }
+  };
+
+  const getItemTypeLabel = (typeKey) => {
+    const itemType = itemTypes.find(t => t.type_key === typeKey);
+    if (itemType) {
+      return language === "es" ? itemType.label_es : itemType.label_en;
+    }
+    return typeKey;
+  };
+
+  const getItemTypeColor = (typeKey) => {
+    const itemType = itemTypes.find(t => t.type_key === typeKey);
+    return itemType?.color || "#6b7280";
+  };
 
   const fetchEventInvoices = async () => {
     try {
