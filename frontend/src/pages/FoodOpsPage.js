@@ -315,14 +315,38 @@ function InventorySection() {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{t("type")}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{t("stock")}</TableHead><TableHead className="text-right">{t("parLevel")}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{t("type")}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{language === "es" ? "En Mano" : "On Hand"}</TableHead><TableHead className="text-right">{language === "es" ? "Reservado" : "Reserved"}</TableHead><TableHead className="text-right">{language === "es" ? "Disponible" : "Available"}</TableHead><TableHead className="text-right">{t("parLevel")}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {filteredItems.map(item => (
-                    <TableRow key={item.ingredient_id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
+                  {filteredItems.map(item => {
+                    const onHand = item.stock_quantity || 0;
+                    const reserved = item.reserved_quantity || 0;
+                    const available = onHand - reserved;
+                    const isLowStock = item.par_level > 0 && onHand < item.par_level;
+                    const hasReserved = reserved > 0;
+                    
+                    return (
+                    <TableRow key={item.ingredient_id} className={isLowStock ? "bg-red-50" : hasReserved ? "bg-amber-50/50" : ""}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {item.name}
+                          {hasReserved && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">{language === "es" ? "Reservado" : "Reserved"}</Badge>}
+                        </div>
+                      </TableCell>
                       <TableCell><Badge variant="outline">{INVENTORY_TYPES.find(t => t.value === item.inventory_type)?.[language === "es" ? "labelEs" : "label"] || item.inventory_type}</Badge></TableCell>
                       <TableCell className="capitalize">{item.category?.replace("_", " ")}</TableCell>
-                      <TableCell className="text-right"><span className={item.par_level > 0 && (item.stock_quantity || 0) < item.par_level ? "text-red-500 font-semibold" : ""}>{item.stock_quantity || 0} {item.unit}</span></TableCell>
+                      <TableCell className="text-right font-mono">{onHand} {item.unit}</TableCell>
+                      <TableCell className="text-right">
+                        {hasReserved ? (
+                          <span className="font-mono text-amber-700">{reserved} {item.unit}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={`font-mono ${available <= 0 ? "text-red-600 font-bold" : available < (item.par_level || 0) ? "text-amber-600" : "text-green-600"}`}>
+                          {available} {item.unit}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">{item.par_level || 0} {item.unit}</TableCell>
                       <TableCell className="text-right">${(item.cost_per_unit || 0).toFixed(2)}/{item.unit}</TableCell>
                       <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
@@ -340,8 +364,8 @@ function InventorySection() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {filteredItems.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{language === "es" ? "No hay artículos" : "No items found"}</TableCell></TableRow>}
+                  )})}
+                  {filteredItems.length === 0 && <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">{language === "es" ? "No hay artículos" : "No items found"}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent>
