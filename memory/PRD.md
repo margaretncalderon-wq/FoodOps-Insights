@@ -717,6 +717,29 @@ Auto-generated from Event Order:
   - CSV features:
     - Clean data export for spreadsheet analysis
     - Properly formatted with quoted fields
+
+- [x] **Editable Document Templates** - COMPLETE (Feb 2, 2026):
+  - Extended document templates system in Settings page
+  - **All Template Types** (Proposal, Invoice, PackingList, KitchenSheet, ServiceSheet):
+    - Header text (EN/ES)
+    - Footer text (EN/ES)
+    - Document Primary Color (hex color picker)
+    - Custom Fields support
+  - **Proposal-specific**:
+    - Customizable section titles (Menu, Services, Rentals) in EN/ES
+  - **Invoice-specific**:
+    - Terms & Conditions (EN/ES)
+    - Payment Instructions (EN/ES)
+    - Bank Details
+    - Toggle: Show Logo, Show Address, Show Tax ID
+  - **PackingList/KitchenSheet-specific**:
+    - Display Options toggles:
+      - Show Quantities
+      - Show Checkboxes
+      - Notes Column
+      - Group by Category
+  - Backend model updated with all new fields
+  - Templates saved per company, applied to document generation
 - **Procurement/Purchases**: Requires recipes to be linked to food items in order_items. Not a code bug, but a workflow requirement
 - **Merma (Waste) Calculations**: Implemented correctly in server.py - user to verify
 
