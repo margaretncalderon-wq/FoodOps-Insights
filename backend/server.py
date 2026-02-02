@@ -9925,8 +9925,7 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user),
     
     # Calculate margin for each event
     negative_margin_count = 0
-    below_target_count = 0  # Below 30% margin
-    target_margin = 30  # Default target
+    below_target_count = 0  # Below target margin
     
     for event in events:
         revenue = event.get("total_quoted", 0)
