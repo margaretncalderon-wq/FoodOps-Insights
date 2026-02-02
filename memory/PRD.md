@@ -800,6 +800,40 @@ Auto-generated from Event Order:
   - Shows blue info banner for clients with credit lines showing available amounts
   - Tested and verified working
 
+- [x] **SaaS Multi-Tenant System** - COMPLETE (Feb 2, 2026):
+  - **Data Models:**
+    - `Plan` - Subscription plans with limits and feature flags (Starter, Professional, Enterprise)
+    - `Subscription` - Organization subscription with status, billing cycle, period dates
+    - `UsageMeter` - Monthly usage tracking per organization
+    - `Membership` - User membership in organization with role (owner, admin, ops, finance, viewer)
+    - `Invitation` - Team invitations with token and expiry
+  - **Backend Endpoints (`/api/org/*`):**
+    - Plans: GET /plans, GET /plans/{id}
+    - Billing: GET /billing, POST /subscription/upgrade, POST /subscription/cancel
+    - Usage: GET /usage, GET /usage/check/{metric}
+    - Members: GET /members, PUT /members/{id}/role, DELETE /members/{id}
+    - Invitations: GET /invitations, POST /invitations, DELETE /invitations/{id}
+    - Organization: GET /current, GET /my-organizations, POST /switch/{id}, POST /create
+  - **Frontend Components:**
+    - `/pages/onboarding/OnboardingPage.js` - 5-step wizard
+    - `/components/org/BillingSection.js` - Billing management
+    - `/components/org/TeamSection.js` - Team management
+    - `/components/org/OrgSwitcher.js` - Organization switcher
+  - **Plan Limits:**
+    - Starter (Free): 5 events/mo, 2 users, 20 invoices, 10 proposals
+    - Professional ($49/mo): 30 events/mo, 10 users, 200 invoices, 50 proposals
+    - Enterprise ($149/mo): Unlimited (999)
+  - **Roles & Permissions:**
+    - OWNER/ADMIN: Full access to billing, members, settings, events, business clarity
+    - OPS: Events, inventory, no billing
+    - FINANCE: Business clarity, no billing
+    - VIEWER: Read-only
+  - **Usage Enforcement:**
+    - Soft warning at 80% usage
+    - Hard block on create actions (events, invitations) when limit exceeded
+  - **Stripe Integration:** STUBBED with clear extension points
+  - Tested and verified: 15/15 backend tests, 100% frontend success
+
 ## Future/Backlog
 - [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
