@@ -821,36 +821,146 @@ function AccountsPayableSection() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
+  // Calculate unassigned costs
+  const unassignedRecords = (data?.records || []).filter(r => !r.event_id);
+  const unassignedTotal = unassignedRecords.reduce((sum, r) => sum + (r.balance_due || 0), 0);
+
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">{isEs ? "Cuentas por Pagar" : "Accounts Payable"}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{isEs ? "Cuentas por Pagar" : "Accounts Payable"}</h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <Badge variant="outline" className="gap-1">
+                <Info className="w-3 h-3" />
+                {isEs ? "Fuga de Margen" : "Margin Leakage"}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p>{isEs 
+                ? "Los costos sin evento asignado afectan el margen global pero no aparecen en la rentabilidad de eventos específicos." 
+                : "Costs without an assigned event affect global margin but don't appear in specific event profitability."}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Total Pendiente" : "Total Pending"}</p><p className="text-xl font-bold text-orange-600">{formatCurrency(data?.summary?.total_pending)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Total Pagado" : "Total Paid"}</p><p className="text-xl font-bold text-green-600">{formatCurrency(data?.summary?.total_paid)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Pendientes" : "Pending"}</p><p className="text-xl font-bold">{data?.summary?.pending_count || 0}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Facturas Pendientes" : "Pending Invoices"}</p><p className="text-xl font-bold">{data?.summary?.pending_count || 0}</p></CardContent></Card>
+        <Card className={unassignedTotal > 0 ? "border-purple-200 bg-purple-50/50" : ""}>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-1">
+              <p className="text-xs text-muted-foreground">{isEs ? "Sin Asignar (Overhead)" : "Unassigned (Overhead)"}</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger><AlertCircle className="w-3 h-3 text-purple-500" /></TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isEs ? "Afecta margen global, no eventos" : "Affects global margin, not events"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className={`text-xl font-bold ${unassignedTotal > 0 ? "text-purple-600" : "text-muted-foreground"}`}>{formatCurrency(unassignedTotal)}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow><TableHead>{isEs ? "Proveedor" : "Supplier"}</TableHead><TableHead>{isEs ? "Descripción" : "Description"}</TableHead><TableHead>{isEs ? "Evento" : "Event"}</TableHead><TableHead className="text-right">{isEs ? "Monto" : "Amount"}</TableHead><TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead><TableHead>{isEs ? "Estado" : "Status"}</TableHead></TableRow></TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{isEs ? "Proveedor" : "Supplier"}</TableHead>
+                <TableHead>{isEs ? "Descripción" : "Description"}</TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    {isEs ? "Evento / Impacto" : "Event / Impact"}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>{isEs 
+                            ? "Muestra qué margen se ve afectado: evento específico o global" 
+                            : "Shows which margin is affected: specific event or global"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">{isEs ? "Monto" : "Amount"}</TableHead>
+                <TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead>
+                <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
-              {(data?.records || []).map((rec) => (
-                <TableRow key={rec.payable_id}>
-                  <TableCell>{rec.supplier_name || "-"}</TableCell>
-                  <TableCell>{rec.description || "-"}</TableCell>
-                  <TableCell>{rec.event_name || "-"}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(rec.amount)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(rec.balance_due)}</TableCell>
-                  <TableCell><Badge variant={rec.status === "paid" ? "default" : "outline"}>{rec.status === "paid" ? (isEs ? "Pagado" : "Paid") : (isEs ? "Pendiente" : "Pending")}</Badge></TableCell>
+              {(data?.records || []).map((rec) => {
+                const isOverhead = !rec.event_id;
+                return (
+                  <TableRow key={rec.payable_id} className={isOverhead ? "bg-purple-50/30" : ""}>
+                    <TableCell>{rec.supplier_name || "-"}</TableCell>
+                    <TableCell>{rec.description || "-"}</TableCell>
+                    <TableCell>
+                      {isOverhead ? (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
+                            {isEs ? "Overhead" : "Overhead"}
+                          </Badge>
+                          <span className="text-xs text-purple-600">
+                            {isEs ? "→ Margen Global" : "→ Global Margin"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{rec.event_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {isEs ? "→ Margen Evento" : "→ Event Margin"}
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(rec.amount)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(rec.balance_due)}</TableCell>
+                    <TableCell>
+                      <Badge variant={rec.status === "paid" ? "default" : "outline"}>
+                        {rec.status === "paid" ? (isEs ? "Pagado" : "Paid") : (isEs ? "Pendiente" : "Pending")}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {(data?.records || []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    {isEs ? "Sin registros" : "No records"}
+                  </TableCell>
                 </TableRow>
-              ))}
-              {(data?.records || []).length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{isEs ? "Sin registros" : "No records"}</TableCell></TableRow>}
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Margin Leakage Warning */}
+      {unassignedTotal > 0 && (
+        <Card className="border-purple-200 bg-purple-50/30">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-purple-600 mt-0.5" />
+              <div>
+                <p className="font-medium text-purple-800">{isEs ? "Fuga de Margen Detectada" : "Margin Leakage Detected"}</p>
+                <p className="text-sm text-purple-600 mt-1">
+                  {isEs 
+                    ? `Hay ${formatCurrency(unassignedTotal)} en costos no asignados a eventos. Estos costos erosionan silenciosamente el margen global y pueden hacer que eventos pequeños parezcan más rentables de lo que realmente son.`
+                    : `There's ${formatCurrency(unassignedTotal)} in costs not assigned to events. These costs silently erode global margin and may make small events appear more profitable than they really are.`}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
