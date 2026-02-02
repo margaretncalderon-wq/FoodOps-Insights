@@ -839,6 +839,182 @@ function ReportsSection() {
     return <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="w-3 h-3" />{isEs ? "Saludable" : "Healthy"}</Badge>;
   };
 
+  // Export to CSV
+  const exportToCSV = () => {
+    if (!reportData) return;
+    
+    let headers = [];
+    let rows = [];
+    const date = new Date().toISOString().split('T')[0];
+    let filename = `report_${activeReport}_${date}.csv`;
+    
+    if (activeReport === "snapshot") {
+      headers = ["Metric", "Value"];
+      rows = [
+        [isEs ? "Facturado" : "Invoiced", reportData.revenue?.total_invoiced || 0],
+        [isEs ? "Costos Asignados" : "Assigned Costs", reportData.expenses?.assigned || reportData.expenses?.total || 0],
+        [isEs ? "Utilidad Bruta" : "Gross Profit", reportData.profit?.gross || 0],
+        [isEs ? "Margen %" : "Margin %", reportData.profit?.margin || 0],
+        [isEs ? "Cobrado" : "Collected", reportData.revenue?.total_collected || 0],
+        [isEs ? "Pagado" : "Paid", reportData.expenses?.paid || 0],
+        [isEs ? "Flujo Neto" : "Net Cash Flow", (reportData.revenue?.total_collected || 0) - (reportData.expenses?.paid || 0)],
+      ];
+    } else if (activeReport === "clients") {
+      headers = [isEs ? "Cliente" : "Client", isEs ? "Facturado" : "Invoiced", isEs ? "Cobrado" : "Collected", isEs ? "Pendiente" : "Outstanding"];
+      rows = (reportData.records || []).map(r => [r.client_name, r.total_invoiced, r.total_paid, r.total_outstanding]);
+    } else if (activeReport === "suppliers") {
+      headers = [isEs ? "Proveedor" : "Supplier", "Total", isEs ? "Pagado" : "Paid", isEs ? "Pendiente" : "Pending"];
+      rows = (reportData.records || []).map(r => [r.supplier_name, r.total_amount, r.paid_amount, r.pending_amount]);
+    } else if (activeReport === "events") {
+      headers = [isEs ? "Evento" : "Event", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen %" : "Margin %"];
+      rows = (reportData.records || []).map(r => {
+        const health = r.margin_percent < 0 ? (isEs ? "Pérdida" : "Loss") : r.margin_percent < targetMargin ? (isEs ? "Riesgo" : "Risk") : (isEs ? "Saludable" : "Healthy");
+        return [r.event_name, health, r.revenue, r.costs, r.profit, r.margin_percent];
+      });
+    }
+    
+    const csvContent = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    toast.success(isEs ? "CSV exportado" : "CSV exported");
+  };
+
+  // Export to PDF
+  const exportToPDF = async () => {
+    if (!reportData) return;
+    
+    try {
+      const { jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
+      
+      const doc = new jsPDF();
+      const date = new Date().toLocaleDateString();
+      const reportTitles = {
+        snapshot: isEs ? "Resumen Financiero" : "Financial Snapshot",
+        clients: isEs ? "Reporte por Cliente" : "Client Revenue Report",
+        suppliers: isEs ? "Reporte por Proveedor" : "Supplier Spend Report",
+        events: isEs ? "Reporte por Evento" : "Event Profitability Report"
+      };
+      
+      // Header
+      doc.setFontSize(18);
+      doc.text(reportTitles[activeReport], 14, 22);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`${isEs ? "Generado:" : "Generated:"} ${date}`, 14, 30);
+      
+      let startY = 40;
+      
+      if (activeReport === "snapshot") {
+        // Summary boxes
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text(isEs ? "Utilidad Operativa (Devengado)" : "Operational Profit (Accrued)", 14, startY);
+        
+        doc.autoTable({
+          startY: startY + 5,
+          head: [[isEs ? "Métrica" : "Metric", isEs ? "Valor" : "Value"]],
+          body: [
+            [isEs ? "Facturado" : "Invoiced", `$${(reportData.revenue?.total_invoiced || 0).toLocaleString()}`],
+            [isEs ? "Costos Asignados" : "Assigned Costs", `$${(reportData.expenses?.assigned || reportData.expenses?.total || 0).toLocaleString()}`],
+            [isEs ? "Utilidad Bruta" : "Gross Profit", `$${(reportData.profit?.gross || 0).toLocaleString()}`],
+            [isEs ? "Margen" : "Margin", `${reportData.profit?.margin || 0}%`],
+          ],
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246] }
+        });
+        
+        doc.text(isEs ? "Posición de Caja (Realizado)" : "Cash Position (Realized)", 14, doc.lastAutoTable.finalY + 15);
+        
+        doc.autoTable({
+          startY: doc.lastAutoTable.finalY + 20,
+          head: [[isEs ? "Métrica" : "Metric", isEs ? "Valor" : "Value"]],
+          body: [
+            [isEs ? "Cobrado de Clientes" : "Collected from Clients", `$${(reportData.revenue?.total_collected || 0).toLocaleString()}`],
+            [isEs ? "Pagado a Proveedores" : "Paid to Suppliers", `$${(reportData.expenses?.paid || 0).toLocaleString()}`],
+            [isEs ? "Flujo Neto de Caja" : "Net Cash Flow", `$${((reportData.revenue?.total_collected || 0) - (reportData.expenses?.paid || 0)).toLocaleString()}`],
+          ],
+          theme: 'striped',
+          headStyles: { fillColor: [34, 197, 94] }
+        });
+      } else if (activeReport === "clients") {
+        doc.autoTable({
+          startY: startY,
+          head: [[isEs ? "Cliente" : "Client", isEs ? "Facturado" : "Invoiced", isEs ? "Cobrado" : "Collected", isEs ? "Pendiente" : "Outstanding"]],
+          body: (reportData.records || []).map(r => [
+            r.client_name,
+            `$${(r.total_invoiced || 0).toLocaleString()}`,
+            `$${(r.total_paid || 0).toLocaleString()}`,
+            `$${(r.total_outstanding || 0).toLocaleString()}`
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246] }
+        });
+      } else if (activeReport === "suppliers") {
+        doc.autoTable({
+          startY: startY,
+          head: [[isEs ? "Proveedor" : "Supplier", "Total", isEs ? "Pagado" : "Paid", isEs ? "Pendiente" : "Pending"]],
+          body: (reportData.records || []).map(r => [
+            r.supplier_name,
+            `$${(r.total_amount || 0).toLocaleString()}`,
+            `$${(r.paid_amount || 0).toLocaleString()}`,
+            `$${(r.pending_amount || 0).toLocaleString()}`
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [249, 115, 22] }
+        });
+      } else if (activeReport === "events") {
+        doc.autoTable({
+          startY: startY,
+          head: [[isEs ? "Evento" : "Event", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen" : "Margin"]],
+          body: (reportData.records || []).map(r => {
+            const health = r.margin_percent < 0 ? (isEs ? "Pérdida" : "Loss") : r.margin_percent < targetMargin ? (isEs ? "Riesgo" : "Risk") : (isEs ? "Saludable" : "Healthy");
+            return [
+              r.event_name,
+              health,
+              `$${(r.revenue || 0).toLocaleString()}`,
+              `$${(r.costs || 0).toLocaleString()}`,
+              `$${(r.profit || 0).toLocaleString()}`,
+              `${r.margin_percent || 0}%`
+            ];
+          }),
+          theme: 'striped',
+          headStyles: { fillColor: [139, 92, 246] },
+          didParseCell: function(data) {
+            if (data.column.index === 1 && data.section === 'body') {
+              const health = data.cell.raw;
+              if (health === (isEs ? "Pérdida" : "Loss")) {
+                data.cell.styles.textColor = [220, 38, 38];
+              } else if (health === (isEs ? "Riesgo" : "Risk")) {
+                data.cell.styles.textColor = [217, 119, 6];
+              } else {
+                data.cell.styles.textColor = [22, 163, 74];
+              }
+            }
+          }
+        });
+      }
+      
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`${isEs ? "Página" : "Page"} ${i} / ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+      }
+      
+      doc.save(`report_${activeReport}_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success(isEs ? "PDF exportado" : "PDF exported");
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast.error(isEs ? "Error al exportar PDF" : "Failed to export PDF");
+    }
+  };
+
   const reports = [
     { key: "snapshot", label: isEs ? "Resumen" : "Snapshot", icon: PieChart },
     { key: "clients", label: isEs ? "Por Cliente" : "By Client", icon: Users },
