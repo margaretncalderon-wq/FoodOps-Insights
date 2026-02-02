@@ -1648,6 +1648,9 @@ function CheckInOutSection() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handlePrintDeliveryNote(note)} title={language === "es" ? "Imprimir" : "Print"}>
+                              <Printer className="w-4 h-4" />
+                            </Button>
                             {note.status === "pending" && (
                               <>
                                 <Button variant="ghost" size="sm" onClick={() => handleEditNote(note)} title={language === "es" ? "Editar" : "Edit"}>
