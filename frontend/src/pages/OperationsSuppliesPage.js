@@ -57,7 +57,7 @@ const COST_CENTERS = [
 function InventorySection() {
   const { language } = useLanguage();
   const [items, setItems] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -67,12 +67,14 @@ function InventorySection() {
   const [itemForm, setItemForm] = useState({
     name: "", category: "other", inventory_type: "equipment", unit: "unit",
     cost_per_unit: 0, stock_quantity: 0, reserved_quantity: 0, par_level: 0, 
-    pack_size: 1, preferred_supplier_id: "", replacement_cost: 0
+    pack_size: 1, replacement_cost: 0, cost_center: "operations",
+    purchase_date: "", useful_life_years: 5, depreciation_rate: 20
   });
   const [priceHistoryDialog, setPriceHistoryDialog] = useState(null);
   const [priceHistory, setPriceHistory] = useState([]);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedSupplierForUpload, setSelectedSupplierForUpload] = useState("");
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState({ value: "", label: "", labelEs: "" });
 
   const t = useCallback((key) => {
     const translations = {
