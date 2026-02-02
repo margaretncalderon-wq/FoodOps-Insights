@@ -421,10 +421,36 @@ export function BillingSection() {
               {isEs ? "Selecciona el plan que mejor se adapte a tus necesidades" : "Select the plan that best fits your needs"}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Billing Cycle Selection */}
+          <div className="flex justify-center mb-4">
+            <RadioGroup
+              value={selectedBillingCycle}
+              onValueChange={setSelectedBillingCycle}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="monthly" id="monthly" />
+                <Label htmlFor="monthly">{isEs ? "Mensual" : "Monthly"}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="yearly" id="yearly" />
+                <Label htmlFor="yearly" className="flex items-center gap-2">
+                  {isEs ? "Anual" : "Yearly"}
+                  <Badge className="bg-green-500 text-xs">{isEs ? "Ahorra 17%" : "Save 17%"}</Badge>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
             {plans.map((p, idx) => {
               const isCurrent = p.plan_id === plan?.plan_id;
+              const displayPrice = selectedBillingCycle === "yearly" 
+                ? (p.price_yearly / 12).toFixed(0) 
+                : p.price_monthly;
+              const isUpgrade = idx > currentPlanIndex;
+              const isPaid = selectedBillingCycle === "yearly" ? p.price_yearly > 0 : p.price_monthly > 0;
               
               return (
                 <div 
@@ -442,7 +468,15 @@ export function BillingSection() {
                   <div className="text-center mb-4">
                     {getPlanIcon(p.name)}
                     <h3 className="font-bold mt-2">{isEs ? p.display_name_es : p.display_name_en}</h3>
-                    <p className="text-2xl font-bold mt-2">${p.price_monthly}<span className="text-sm font-normal">/mo</span></p>
+                    <p className="text-2xl font-bold mt-2">
+                      ${displayPrice}
+                      <span className="text-sm font-normal">/mo</span>
+                    </p>
+                    {selectedBillingCycle === "yearly" && p.price_yearly > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        ${p.price_yearly} {isEs ? "facturado anualmente" : "billed annually"}
+                      </p>
+                    )}
                   </div>
                   
                   <ul className="space-y-2 text-sm mb-4">
@@ -465,9 +499,11 @@ export function BillingSection() {
                     {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                     {isCurrent 
                       ? (isEs ? "Plan Actual" : "Current Plan")
-                      : idx > currentPlanIndex 
-                        ? (isEs ? "Mejorar" : "Upgrade")
-                        : (isEs ? "Cambiar" : "Switch")}
+                      : isPaid && isUpgrade
+                        ? (isEs ? "Pagar y Mejorar" : "Pay & Upgrade")
+                        : isUpgrade 
+                          ? (isEs ? "Mejorar" : "Upgrade")
+                          : (isEs ? "Cambiar" : "Switch")}
                   </Button>
                 </div>
               );
