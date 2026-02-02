@@ -127,8 +127,8 @@ class TestCreditWarnings:
     """P2: Test credit warnings in proposal endpoint"""
     
     def test_get_clients_list(self, session):
-        """GET /api/clients should return clients list"""
-        response = session.get(f"{BASE_URL}/api/clients")
+        """GET /api/crm/clients should return clients list"""
+        response = session.get(f"{BASE_URL}/api/crm/clients")
         
         assert response.status_code == 200, f"Failed: {response.text}"
         data = response.json()
@@ -198,7 +198,7 @@ class TestCreditWarnings:
     def test_enable_client_credit_and_verify_warnings(self, session):
         """Test enabling credit on a client and verifying warnings appear"""
         # Get clients
-        clients_response = session.get(f"{BASE_URL}/api/clients")
+        clients_response = session.get(f"{BASE_URL}/api/crm/clients")
         assert clients_response.status_code == 200
         clients = clients_response.json()
         
@@ -220,7 +220,7 @@ class TestCreditWarnings:
             pytest.skip("Event has no client")
         
         # Get client details
-        client_response = session.get(f"{BASE_URL}/api/clients/{client_id}")
+        client_response = session.get(f"{BASE_URL}/api/crm/clients/{client_id}")
         if client_response.status_code != 200:
             pytest.skip(f"Could not get client: {client_response.text}")
         
@@ -232,7 +232,7 @@ class TestCreditWarnings:
         print(f"Original credit status: has_credit={original_has_credit}, limit=${original_credit_limit}")
         
         # Enable credit with a low limit to trigger warning
-        update_response = session.put(f"{BASE_URL}/api/clients/{client_id}/credit", json={
+        update_response = session.put(f"{BASE_URL}/api/business-clarity/clients/{client_id}/credit", json={
             "has_credit": True,
             "credit_limit": 100  # Very low limit to trigger warning
         })
@@ -240,7 +240,7 @@ class TestCreditWarnings:
         if update_response.status_code != 200:
             print(f"Could not update client credit: {update_response.text}")
             # Try alternative endpoint
-            update_response = session.put(f"{BASE_URL}/api/clients/{client_id}", json={
+            update_response = session.put(f"{BASE_URL}/api/crm/clients/{client_id}", json={
                 "has_credit": True,
                 "credit_limit": 100
             })
@@ -257,7 +257,7 @@ class TestCreditWarnings:
             print(f"  - Credit percentage: {proposal['client_credit'].get('credit_percentage', 0)}%")
         
         # Restore original credit settings
-        session.put(f"{BASE_URL}/api/clients/{client_id}/credit", json={
+        session.put(f"{BASE_URL}/api/business-clarity/clients/{client_id}/credit", json={
             "has_credit": original_has_credit,
             "credit_limit": original_credit_limit
         })
@@ -280,8 +280,8 @@ class TestBusinessClarityPage:
             print(f"Dashboard endpoint returned: {response.status_code}")
     
     def test_invoices_endpoint(self, session):
-        """GET /api/invoices should return invoices list"""
-        response = session.get(f"{BASE_URL}/api/invoices")
+        """GET /api/business-clarity/invoices should return invoices list"""
+        response = session.get(f"{BASE_URL}/api/business-clarity/invoices")
         
         assert response.status_code == 200, f"Failed: {response.text}"
         data = response.json()
@@ -290,8 +290,8 @@ class TestBusinessClarityPage:
         print(f"Found {len(data)} invoices")
     
     def test_payments_endpoint(self, session):
-        """GET /api/payments should return payments list"""
-        response = session.get(f"{BASE_URL}/api/payments")
+        """GET /api/business-clarity/payments should return payments list"""
+        response = session.get(f"{BASE_URL}/api/business-clarity/payments")
         
         assert response.status_code == 200, f"Failed: {response.text}"
         data = response.json()
