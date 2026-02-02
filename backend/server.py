@@ -9842,7 +9842,7 @@ async def suggest_production_from_events(
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
 
 @business_clarity_router.get("/dashboard")
-async def get_business_clarity_dashboard(user: User = Depends(get_current_user)):
+async def get_business_clarity_dashboard(user: User = Depends(get_current_user), target_margin: int = 30):
     """Get Business Clarity executive dashboard"""
     now = datetime.now(timezone.utc)
     
