@@ -732,40 +732,13 @@ export default function ConsolidatedPurchaseSection() {
           {/* Procurement Summary Card */}
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
-                  <span>{language === "es" ? "Resumen de Procurement" : "Procurement Summary"}</span>
-                  <Badge variant="outline" className="ml-2 text-sm px-3 py-0.5">
-                    {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
-                  </Badge>
-                </CardTitle>
-                {/* Create PO buttons - styled similar to Process SR */}
-                {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
-                  items.some(i => i.to_purchase > 0) && id !== "no_supplier"
-                ).length > 0 && (
-                  <div className="flex items-center gap-2">
-                    {Object.entries(purchaseData.items_by_supplier || {}).filter(([id, items]) => 
-                      items.some(i => i.to_purchase > 0) && id !== "no_supplier"
-                    ).map(([supplierId, items]) => (
-                      <Button 
-                        key={supplierId}
-                        size="sm"
-                        onClick={() => handleCreatePO(supplierId, items)}
-                        disabled={creatingPO === supplierId}
-                        className="h-8 bg-amber-600 hover:bg-amber-700"
-                      >
-                        {creatingPO === supplierId ? (
-                          <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <FileText className="w-4 h-4 mr-1" />
-                        )}
-                        {items[0]?.supplier_name || "Unknown"} (${items.filter(i => i.to_purchase > 0).reduce((s, i) => s + i.total_cost, 0).toFixed(0)})
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" />
+                <span>{language === "es" ? "Resumen de Procurement" : "Procurement Summary"}</span>
+                <Badge variant="outline" className="ml-2 text-sm px-3 py-0.5">
+                  {t("totalCost")}: ${purchaseData.total_cost?.toFixed(2)}
+                </Badge>
+              </CardTitle>
               <CardDescription>
                 {language === "es" 
                   ? "Consolidación de compras y resumen de proveedores para los eventos seleccionados"
@@ -808,8 +781,8 @@ export default function ConsolidatedPurchaseSection() {
                 </Button>
                 <p className="text-xs text-muted-foreground text-center mt-2">
                   {language === "es" 
-                    ? "Esto confirma que todas las órdenes de compra para estos eventos han sido enviadas a Vendor Orders como borradores. El inventario se actualizará cuando se reciban los productos y durante la producción."
-                    : "This confirms that all purchase orders for these events have been sent to Vendor Orders as drafts. Inventory will be updated when goods are received and during production."}
+                    ? "Este resumen es solo para referencia y auditoría. No afecta la contabilidad. El Stock afectó el gasto cuando entró al inventario, y las PO afectarán el gasto cuando se les agreguen las facturas."
+                    : "This summary is for reference and audit purposes only. It does not affect accounting. Stock affected expenses when received into inventory, and POs will affect expenses when invoices are added."}
                 </p>
               </div>
             </CardContent>
