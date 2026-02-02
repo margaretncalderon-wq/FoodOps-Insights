@@ -33,7 +33,7 @@ import {
   OrganizationsListPage,
   OrganizationDetailPage,
   GlobalAuditPage,
-  CRMPage,
+  CRMPage as SuperAdminCRMPage,
   BIPage
 } from "./pages/super-admin";
 
