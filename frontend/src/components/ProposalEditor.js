@@ -1257,7 +1257,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(`/business-clarity?tab=invoices&edit=${inv.invoice_id}`, '_blank')}
+                            onClick={() => handleEditInvoice(inv)}
                             title={language === "es" ? "Editar factura" : "Edit invoice"}
                           >
                             <Edit className="w-3 h-3" />
