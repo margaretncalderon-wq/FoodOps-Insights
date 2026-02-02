@@ -8374,24 +8374,43 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
             {"_id": 0}
         )
         
-        quoted_food_total = 0  # Only Food items with recipes
-        proposal_total = 0     # Full proposal total for reference
+        quoted_inventory_total = 0  # All items from inventory (Food, Beverages, Disposables)
+        proposal_total = 0          # Full proposal total for reference
         
         if proposal:
             proposal_total = proposal.get("total_amount", 0) or proposal.get("total", 0) or 0
             
-            # Calculate quoted total ONLY for Food items with recipes (inventoriable)
+            # Calculate quoted total for ALL inventory-related items
+            # Include: Food (with recipes), Beverages, Disposables/Supplies
+            # Exclude: Services, Rentals (these don't come from inventory)
             order_items_for_quote = await db.order_items.find(
-                {"proposal_id": proposal.get("proposal_id"), "event_id": event_id, "item_type": "Food"},
+                {"proposal_id": proposal.get("proposal_id"), "event_id": event_id},
                 {"_id": 0}
             ).to_list(500)
             
             for oi in order_items_for_quote:
-                if oi.get("reference_id"):  # Has a recipe linked
+                item_type = oi.get("item_type", "")
+                
+                # Skip non-inventory items (services, rentals, fees, etc.)
+                if item_type in ["Service", "Rental", "Staff", "Fee", "Other"]:
+                    continue
+                
+                # Include Food with recipes
+                if item_type == "Food" and oi.get("reference_id"):
                     item_total = (oi.get("quantity", 1) * oi.get("unit_price", 0))
-                    quoted_food_total += item_total
+                    quoted_inventory_total += item_total
+                
+                # Include Beverages (they come from inventory)
+                elif item_type == "Beverage":
+                    item_total = (oi.get("quantity", 1) * oi.get("unit_price", 0))
+                    quoted_inventory_total += item_total
+                
+                # Include Disposables/Supplies (they come from inventory)
+                elif item_type in ["Disposable", "Supply", "Supplies", "Equipment"]:
+                    item_total = (oi.get("quantity", 1) * oi.get("unit_price", 0))
+                    quoted_inventory_total += item_total
             
-            total_quoted += quoted_food_total
+            total_quoted += quoted_inventory_total
         
         events_info.append({
             "event_id": event_id,
@@ -8399,8 +8418,8 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
             "guest_count": guest_count,
             "date": event.get("event_date"),
             "time": event.get("event_time") or event.get("start_time"),
-            "quoted_total": round(quoted_food_total, 2),      # Only Food with recipes
-            "proposal_total": round(proposal_total, 2)         # Full proposal for reference
+            "quoted_total": round(quoted_inventory_total, 2),  # All inventory items
+            "proposal_total": round(proposal_total, 2)          # Full proposal for reference
         })
         
         if not proposal:
