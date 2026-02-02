@@ -1141,6 +1141,8 @@ class OrderItemCreate(BaseModel):
     internal_notes: Optional[str] = None
     event_date: Optional[str] = None
     sort_order: int = 0
+    section_title: Optional[str] = None  # Custom section title for grouping
+    section_time: Optional[str] = None   # Service time for section
 
 class OrderItemUpdate(BaseModel):
     item_type: Optional[str] = None
@@ -1153,6 +1155,8 @@ class OrderItemUpdate(BaseModel):
     internal_notes: Optional[str] = None
     event_date: Optional[str] = None
     sort_order: Optional[int] = None
+    section_title: Optional[str] = None
+    section_time: Optional[str] = None
 
 class OrderItem(BaseModel):
     """Order item with calculated fields"""
