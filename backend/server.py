@@ -8679,13 +8679,22 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
     # Calculate production total cost
     production_total_cost = sum(p["total_cost"] for p in production_needs)
     
+    # Calculate SR total cost (inventory value used)
+    sr_total_cost = sum(item.get("total_cost", 0) for item in stock_requisition)
+    
+    # Grand total = SR (inventory used) + PL (to purchase)
+    grand_total = round(sr_total_cost + total_cost, 2)
+    
     return {
         "events": events_info,
         "items_by_supplier": items_by_supplier,
         "stock_requisition": stock_requisition,  # Items from inventory (SR)
         "purchase_list": purchase_list,          # Items to buy (PL)
         "production_needs": production_needs,     # BASE/COMPONENT to produce (PN)
-        "total_cost": round(total_cost, 2),
+        "total_cost": round(total_cost, 2),      # Only PL cost
+        "sr_total_cost": round(sr_total_cost, 2), # SR inventory value
+        "grand_total": grand_total,              # SR + PL total
+        "total_quoted": round(total_quoted, 2),  # Sum of quoted amounts from proposals
         "production_total_cost": round(production_total_cost, 2),
         "generated_at": now.isoformat()
     }
