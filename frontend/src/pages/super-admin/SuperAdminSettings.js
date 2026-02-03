@@ -155,9 +155,8 @@ export default function SuperAdminSettings() {
                     placeholder="ventas@evoke.com"
                     value={leadFormConfig.notification_email}
                     onChange={(e) => setLeadFormConfig({ ...leadFormConfig, notification_email: e.target.value })}
-                    className="bg-slate-700 border-slate-600"
                   />
-                  <p className="text-xs text-slate-400">Recibirás una notificación cuando llegue un nuevo lead</p>
+                  <p className="text-xs text-muted-foreground">Recibirás una notificación cuando llegue un nuevo lead</p>
                 </div>
 
                 <Button onClick={handleSaveConfig} disabled={loading} className="w-full">
