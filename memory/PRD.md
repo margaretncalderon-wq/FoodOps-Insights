@@ -920,6 +920,8 @@ Auto-generated from Event Order:
   - Support tool for super admins to troubleshoot tenant issues
 
 ## Future/Backlog
+- [ ] Period Close System - Phase 2: COGS Engine improvements, Exception fixes (Fix/Assign/Edit actions)
+- [ ] Period Close System - Phase 3: Close Period Modal with snapshot storage, AR aging alignment, Executive Dashboard integration
 - [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
 - [ ] Implement actual automation execution (cron jobs for reminders, alerts)
@@ -928,3 +930,33 @@ Auto-generated from Event Order:
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
 - [ ] Finalize Role-Based Access Control (RBAC) logic in backend
+
+## Recently Completed - Period Close System (Phase 1) - Feb 3, 2026
+
+### Backend Endpoints Added (`/api/business-clarity/period-close/...`)
+- GET `/periods` - List all period close records
+- GET `/{year}/{month}` - Get detailed period info with readiness checklist
+- GET `/{year}/{month}/exceptions` - Get actionable exceptions with filters
+- PUT `/exceptions/{exception_id}` - Update exception (fix, assign, categorize)
+- POST `/{year}/{month}/cash-snapshot` - Save manual cash snapshot
+- POST `/{year}/{month}/close` - Close period (Finance/Owner only)
+- POST `/{year}/{month}/reopen` - Reopen period (Owner only, reason required)
+- GET `/{year}/{month}/event-allocation` - COGS allocation preview by event
+- GET `/{year}/{month}/audit-log` - Period audit log
+
+### Data Models
+- `period_close_snapshots`: Period close records with inventory valuation, COGS allocation, AR aging
+- `cash_snapshots`: Manual cash flow snapshots
+- `close_exception_log`: Resolution audit trail
+- `period_close_audit_log`: Close/reopen audit trail
+
+### Frontend Component: CloseReconciliationSection.js
+- Close Readiness Checklist (6 validation items)
+- Inventory Valuation Cards (Opening, Purchases, Closing, COGS)
+- COGS Allocation (Event vs Overhead split)
+- Reconciliation Banner (Balanced/Gap status)
+- Cash Management panel with manual snapshot
+- Event Allocation Preview (collapsible table)
+- Exceptions Table with filters
+- Close Period Modal with confirmation
+- Reopen Period Modal (Owner only)
