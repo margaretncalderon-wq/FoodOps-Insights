@@ -37,6 +37,7 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/receivables", label: isEs ? "Cuentas por Cobrar" : "Accounts Receivable", icon: TrendingUp },
     { path: "/business-clarity/payables", label: isEs ? "Cuentas por Pagar" : "Accounts Payable", icon: TrendingDown },
     { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos & Budget" : "Fixed Costs & Budget", icon: Target },
+    { path: "/business-clarity/close", label: isEs ? "Cierre & Reconciliación" : "Close & Reconciliation", icon: Lock },
     { path: "/business-clarity/reports", label: isEs ? "Reportes Ejecutivos" : "Executive Reports", icon: FileBarChart },
   ];
 
