@@ -387,7 +387,7 @@ export default function CRMPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Building2 className="w-6 h-6" />
-              {selectedLead?.company_name}
+              {selectedLead?.lead_name}
             </DialogTitle>
           </DialogHeader>
 
@@ -396,10 +396,6 @@ export default function CRMPage() {
               {/* Lead Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Users className="w-4 h-4" />
-                    <span>{selectedLead.contact_name}</span>
-                  </div>
                   <div className="flex items-center gap-2 text-slate-400">
                     <Mail className="w-4 h-4" />
                     <span>{selectedLead.email}</span>
@@ -410,28 +406,31 @@ export default function CRMPage() {
                       <span>{selectedLead.phone}</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-2 text-blue-400">
+                    <Building2 className="w-4 h-4" />
+                    <span>{selectedLead.organization_name}</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Badge className={STATUS_CONFIG[selectedLead.status]?.color}>
-                      {STATUS_CONFIG[selectedLead.status]?.label}
+                      {STATUS_CONFIG[selectedLead.status]?.label || selectedLead.status}
                     </Badge>
+                    <Badge variant="outline">{selectedLead.lead_type}</Badge>
                     <Badge variant="outline">{selectedLead.source}</Badge>
                   </div>
-                  {selectedLead.estimated_value && (
-                    <p className="text-lg font-bold text-green-400">${selectedLead.estimated_value}</p>
+                  {selectedLead.budget_range && (
+                    <p className="text-lg font-bold text-green-400">{selectedLead.budget_range}</p>
                   )}
-                  {selectedLead.next_follow_up && (
-                    <p className="text-sm text-slate-400">
-                      Follow-up: {selectedLead.next_follow_up}
-                    </p>
+                  {selectedLead.event_type && (
+                    <p className="text-sm text-slate-400">Evento: {selectedLead.event_type}</p>
                   )}
                 </div>
               </div>
 
-              {selectedLead.notes && (
+              {selectedLead.message && (
                 <div className="p-3 rounded bg-slate-700/50">
-                  <p className="text-sm">{selectedLead.notes}</p>
+                  <p className="text-sm">{selectedLead.message}</p>
                 </div>
               )}
 
