@@ -48,12 +48,13 @@ export default function CRMPage() {
 
   const fetchData = async () => {
     try {
-      const [leadsRes, followUpsRes] = await Promise.all([
+      const [leadsRes, followUpsRes, statsRes] = await Promise.all([
         axios.get(`${API}/api/super-admin/crm/leads`, { withCredentials: true }),
-        axios.get(`${API}/api/super-admin/crm/follow-ups`, { withCredentials: true })
+        axios.get(`${API}/api/super-admin/crm/follow-ups`, { withCredentials: true }),
+        axios.get(`${API}/api/super-admin/crm/stats`, { withCredentials: true })
       ]);
       setLeads(leadsRes.data.leads);
-      setStats(leadsRes.data.stats);
+      setStats(statsRes.data);
       setFollowUps(followUpsRes.data);
     } catch (err) {
       console.error(err);
