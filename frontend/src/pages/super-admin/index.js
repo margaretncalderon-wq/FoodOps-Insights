@@ -5,3 +5,5 @@ export { default as OrganizationDetailPage } from './OrganizationDetailPage';
 export { default as GlobalAuditPage } from './GlobalAuditPage';
 export { default as CRMPage } from './CRMPage';
 export { default as BIPage } from './BIPage';
+export { default as SuperAdminClarity } from './SuperAdminClarity';
+export { default as SuperAdminSettings } from './SuperAdminSettings';
