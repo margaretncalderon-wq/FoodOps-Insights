@@ -18,8 +18,10 @@ import {
 import {
   DollarSign, TrendingUp, TrendingDown, Users, CreditCard, FileText,
   BarChart3, ArrowUp, ArrowDown, Calendar, Building2, Plus, Edit, Trash2,
-  Receipt, Wallet, PiggyBank, Calculator, ClipboardList, Loader2
+  Receipt, Wallet, PiggyBank, Calculator, ClipboardList, Loader2, Download
 } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
