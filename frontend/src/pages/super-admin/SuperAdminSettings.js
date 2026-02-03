@@ -272,7 +272,6 @@ export default function SuperAdminSettings() {
                 <Label>Nombre de la Plataforma</Label>
                 <Input
                   defaultValue="Evoke OS"
-                  className="bg-slate-700 border-slate-600"
                 />
               </div>
               
