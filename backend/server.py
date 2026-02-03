@@ -3332,13 +3332,19 @@ async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_
     """Adjust stock quantity (waste, breakage, count correction)"""
     now = datetime.now(timezone.utc)
     adjustment = data.get("adjustment", 0)
+    adjustment_qty = data.get("adjustment_qty")  # Absolute quantity
     reason = data.get("reason", "manual")
+    adjustment_type = data.get("adjustment_type", "manual")
     
     ingredient = await db.ingredients.find_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0})
     if not ingredient:
         raise HTTPException(status_code=404, detail="Ingredient not found")
     
-    new_quantity = ingredient.get("stock_quantity", 0) + adjustment
+    # Support both adjustment (delta) and adjustment_qty (absolute)
+    if adjustment_qty is not None:
+        new_quantity = adjustment_qty
+    else:
+        new_quantity = ingredient.get("stock_quantity", 0) + adjustment
     
     await db.ingredients.update_one(
         {"ingredient_id": ingredient_id},
@@ -3350,7 +3356,8 @@ async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_
         "adjustment_id": f"adj_{uuid.uuid4().hex[:8]}",
         "company_id": user.company_id,
         "ingredient_id": ingredient_id,
-        "adjustment": adjustment,
+        "adjustment": new_quantity - ingredient.get("stock_quantity", 0),
+        "adjustment_type": adjustment_type,
         "reason": reason,
         "previous_quantity": ingredient.get("stock_quantity", 0),
         "new_quantity": new_quantity,
@@ -3358,7 +3365,48 @@ async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_
         "created_at": now.isoformat()
     })
     
-    return {"new_quantity": new_quantity}
+    return {"new_quantity": new_quantity, "success": True}
+
+@inventory_router.patch("/ingredients/{ingredient_id}")
+async def patch_ingredient(ingredient_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Partial update of ingredient (for unit_cost, stock_quantity, etc.)"""
+    now = datetime.now(timezone.utc)
+    
+    ingredient = await db.ingredients.find_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0})
+    if not ingredient:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    
+    # Allowed fields for partial update
+    allowed_fields = ["unit_cost", "cost_per_unit", "stock_quantity", "min_stock_level", "par_level", "notes"]
+    update_data = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
+    
+    # Handle unit_cost/cost_per_unit aliasing
+    if "unit_cost" in update_data:
+        update_data["cost_per_unit"] = update_data.pop("unit_cost")
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    # Log price change
+    if "cost_per_unit" in update_data and ingredient.get("cost_per_unit", 0) != update_data["cost_per_unit"]:
+        price_history = ingredient.get("price_history", [])
+        price_history.append({
+            "price": update_data["cost_per_unit"],
+            "date": now.isoformat(),
+            "previous": ingredient.get("cost_per_unit", 0),
+            "source": "period_close_fix"
+        })
+        update_data["price_history"] = price_history
+    
+    update_data["updated_at"] = now.isoformat()
+    
+    await db.ingredients.update_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id},
+        {"$set": update_data}
+    )
+    
+    updated = await db.ingredients.find_one({"ingredient_id": ingredient_id}, {"_id": 0})
+    return updated
 
 @inventory_router.get("/low-stock")
 async def get_low_stock(user: User = Depends(get_current_user)):
