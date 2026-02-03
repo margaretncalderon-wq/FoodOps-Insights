@@ -351,7 +351,7 @@ export default function SuperAdminSettings() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700 opacity-60">
+            <Card className="opacity-60">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
