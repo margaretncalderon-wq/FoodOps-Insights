@@ -111,7 +111,6 @@ export default function SuperAdminSettings() {
                   <Input
                     value={leadFormConfig.title}
                     onChange={(e) => setLeadFormConfig({ ...leadFormConfig, title: e.target.value })}
-                    className="bg-slate-700 border-slate-600"
                   />
                 </div>
 
