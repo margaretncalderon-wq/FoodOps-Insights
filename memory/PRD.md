@@ -929,6 +929,20 @@ Auto-generated from Event Order:
 - [ ] Multi-currency support
 - [ ] Finalize Role-Based Access Control (RBAC) logic in backend
 
+## Recently Completed - Period Close Bug Fix (Feb 3, 2026)
+
+### Critical Bug Fix: `cost_per_unit` Field Correction ✅
+- **Issue:** Backend readiness check and inventory valuation calculations were using `unit_cost` field instead of `cost_per_unit`
+- **Impact:** Period close was blocked because items appeared to have missing costs
+- **Fix Applied:** Updated `/api/business-clarity/period-close/{year}/{month}` endpoint in `server.py`:
+  - Changed inventory projection from `{"unit_cost": 1}` to `{"cost_per_unit": 1}`
+  - Fixed valuation calculation: `i.get("cost_per_unit", 0)` instead of `i.get("unit_cost", 0)`
+- **Verification:** Full end-to-end test completed:
+  - Readiness check: `can_close: True`, `has_blockers: False`
+  - Period closed successfully with snapshot ID `pclose_818e6bd61a3b`
+  - Closing inventory value correctly shows $22,429.14
+  - UI displays "Closed" badge with "Reopen Period" button
+
 ## Recently Completed - Period Close System (Phase 3) - Feb 3, 2026
 
 ### Layered Navigation with Role-Based Permissions
