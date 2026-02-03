@@ -11996,9 +11996,14 @@ async def get_period_close_detail(year: int, month: int, user: User = Depends(ge
         "unassigned_usage": {"status": "ok", "count": 0, "value": 0}
     }
     
-    # Check for missing unit costs in inventory
+    # Check for missing unit costs in inventory (check both unit_cost and cost_per_unit)
     items_without_cost = await db.ingredients.find(
-        {"company_id": user.company_id, "$or": [{"unit_cost": None}, {"unit_cost": 0}, {"unit_cost": {"$exists": False}}]},
+        {"company_id": user.company_id, 
+         "$and": [
+             {"$or": [{"unit_cost": None}, {"unit_cost": 0}, {"unit_cost": {"$exists": False}}]},
+             {"$or": [{"cost_per_unit": None}, {"cost_per_unit": 0}, {"cost_per_unit": {"$exists": False}}]}
+         ]
+        },
         {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1}
     ).to_list(100)
     
