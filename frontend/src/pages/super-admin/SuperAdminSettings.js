@@ -207,7 +207,7 @@ export default function SuperAdminSettings() {
               </Card>
 
               {/* Preview */}
-              <Card className="bg-slate-800 border-slate-700">
+              <Card>
                 <CardHeader>
                   <CardTitle>Vista Previa</CardTitle>
                 </CardHeader>
