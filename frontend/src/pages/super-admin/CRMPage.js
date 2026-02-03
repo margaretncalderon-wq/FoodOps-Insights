@@ -93,37 +93,6 @@ export default function CRMPage() {
     }
   };
 
-  const handleEditLead = (lead) => {
-    setSelectedLead(lead);
-    setFormData({
-      company_name: lead.company_name || "",
-      contact_name: lead.contact_name || "",
-      email: lead.email || "",
-      phone: lead.phone || "",
-      source: lead.source || "outreach",
-      status: lead.status || "new",
-      notes: lead.notes || "",
-      estimated_value: lead.estimated_value?.toString() || "",
-      next_follow_up: lead.next_follow_up || ""
-    });
-    setShowLeadDialog(true);
-  };
-
-  const resetForm = () => {
-    setSelectedLead(null);
-    setFormData({
-      company_name: "",
-      contact_name: "",
-      email: "",
-      phone: "",
-      source: "outreach",
-      status: "new",
-      notes: "",
-      estimated_value: "",
-      next_follow_up: ""
-    });
-  };
-
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = !searchQuery || 
       lead.lead_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
