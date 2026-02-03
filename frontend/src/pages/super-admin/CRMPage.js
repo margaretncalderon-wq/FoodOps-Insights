@@ -370,8 +370,8 @@ export default function CRMPage() {
                       className="p-2 rounded bg-slate-700/50 cursor-pointer hover:bg-slate-700"
                       onClick={() => handleViewLead(lead)}
                     >
-                      <p className="text-sm font-medium">{lead.company_name}</p>
-                      <p className="text-xs text-slate-400">{lead.contact_name}</p>
+                      <p className="text-sm font-medium">{lead.lead_name}</p>
+                      <p className="text-xs text-slate-400">{lead.organization_name}</p>
                     </div>
                   ))}
                 </div>
