@@ -185,8 +185,8 @@ export function CloseReconciliationSection() {
       return;
     }
     try {
-      await axios.put(
-        `${API}/api/inventory/${selectedExc.item_id}`,
+      await axios.patch(
+        `${API}/api/inventory/ingredients/${selectedExc.item_id}`,
         { unit_cost: parseFloat(fixForm.unit_cost) },
         { withCredentials: true }
       );
