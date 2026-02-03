@@ -12487,6 +12487,223 @@ async def reopen_period(year: int, month: int, reason: str, user: User = Depends
     
     return {"success": True, "status": "open"}
 
+# ============== PHYSICAL INVENTORY CHECK (Conteo Físico) ==============
+
+class PhysicalCountItem(BaseModel):
+    ingredient_id: str
+    counted_qty: float
+    notes: Optional[str] = None
+
+class PhysicalCountCreate(BaseModel):
+    items: List[PhysicalCountItem]
+    count_date: Optional[str] = None
+    notes: Optional[str] = None
+
+@business_clarity_router.get("/period-close/{year}/{month}/physical-count")
+async def get_physical_count_status(year: int, month: int, user: User = Depends(get_current_user)):
+    """Get physical inventory count status for the period"""
+    period_key = f"{year}-{month:02d}"
+    
+    # Get existing count for period
+    existing_count = await db.physical_inventory_counts.find_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    # Get all inventory items for comparison
+    all_items = await db.ingredients.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1, "unit_cost": 1, "unit": 1, "category": 1}
+    ).to_list(1000)
+    
+    # Build comparison if count exists
+    comparison = []
+    total_system_value = 0
+    total_counted_value = 0
+    total_variance_value = 0
+    items_with_variance = 0
+    
+    if existing_count and existing_count.get("items"):
+        count_items = {ci["ingredient_id"]: ci for ci in existing_count.get("items", [])}
+        
+        for item in all_items:
+            iid = item.get("ingredient_id")
+            system_qty = item.get("stock_quantity", 0)
+            unit_cost = item.get("unit_cost", 0) or item.get("cost_per_unit", 0) or 0
+            
+            counted_data = count_items.get(iid)
+            counted_qty = counted_data.get("counted_qty", system_qty) if counted_data else None
+            
+            variance_qty = (counted_qty - system_qty) if counted_qty is not None else 0
+            variance_value = variance_qty * unit_cost
+            
+            system_value = system_qty * unit_cost
+            counted_value = (counted_qty * unit_cost) if counted_qty is not None else system_value
+            
+            total_system_value += system_value
+            total_counted_value += counted_value
+            total_variance_value += abs(variance_value)
+            
+            if abs(variance_qty) > 0.01:
+                items_with_variance += 1
+            
+            comparison.append({
+                "ingredient_id": iid,
+                "name": item.get("name"),
+                "category": item.get("category"),
+                "unit": item.get("unit"),
+                "system_qty": round(system_qty, 2),
+                "counted_qty": round(counted_qty, 2) if counted_qty is not None else None,
+                "variance_qty": round(variance_qty, 2),
+                "unit_cost": round(unit_cost, 2),
+                "variance_value": round(variance_value, 2),
+                "status": "counted" if counted_qty is not None else "pending",
+                "notes": counted_data.get("notes") if counted_data else None
+            })
+    else:
+        # No count yet - show all items as pending
+        for item in all_items:
+            system_qty = item.get("stock_quantity", 0)
+            unit_cost = item.get("unit_cost", 0) or item.get("cost_per_unit", 0) or 0
+            system_value = system_qty * unit_cost
+            total_system_value += system_value
+            
+            comparison.append({
+                "ingredient_id": item.get("ingredient_id"),
+                "name": item.get("name"),
+                "category": item.get("category"),
+                "unit": item.get("unit"),
+                "system_qty": round(system_qty, 2),
+                "counted_qty": None,
+                "variance_qty": 0,
+                "unit_cost": round(unit_cost, 2),
+                "variance_value": 0,
+                "status": "pending",
+                "notes": None
+            })
+    
+    items_counted = len([c for c in comparison if c["status"] == "counted"])
+    items_pending = len([c for c in comparison if c["status"] == "pending"])
+    
+    return {
+        "period_key": period_key,
+        "has_count": existing_count is not None,
+        "count_date": existing_count.get("count_date") if existing_count else None,
+        "counted_by": existing_count.get("counted_by_name") if existing_count else None,
+        "summary": {
+            "total_items": len(all_items),
+            "items_counted": items_counted,
+            "items_pending": items_pending,
+            "items_with_variance": items_with_variance,
+            "completion_percent": round((items_counted / len(all_items) * 100) if all_items else 0, 1),
+            "total_system_value": round(total_system_value, 2),
+            "total_counted_value": round(total_counted_value, 2),
+            "total_variance_value": round(total_variance_value, 2)
+        },
+        "items": comparison,
+        "is_complete": items_pending == 0 and len(all_items) > 0
+    }
+
+@business_clarity_router.post("/period-close/{year}/{month}/physical-count")
+async def save_physical_count(year: int, month: int, data: PhysicalCountCreate, user: User = Depends(get_current_user)):
+    """Save physical inventory count for the period"""
+    now = datetime.now(timezone.utc)
+    
+    count_doc = {
+        "count_id": f"pcount_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "year": year,
+        "month": month,
+        "period_key": f"{year}-{month:02d}",
+        "items": [item.dict() for item in data.items],
+        "count_date": data.count_date or now.isoformat()[:10],
+        "notes": data.notes,
+        "counted_by": user.user_id,
+        "counted_by_name": user.name,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    # Upsert
+    await db.physical_inventory_counts.update_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"$set": count_doc},
+        upsert=True
+    )
+    
+    return {"success": True, "count_id": count_doc["count_id"]}
+
+@business_clarity_router.post("/period-close/{year}/{month}/physical-count/apply")
+async def apply_physical_count_adjustments(year: int, month: int, user: User = Depends(get_current_user)):
+    """Apply physical count variances as inventory adjustments"""
+    # Check user role
+    if user.role not in ["owner", "admin", "finance"]:
+        raise HTTPException(status_code=403, detail="Only Finance+ can apply count adjustments")
+    
+    # Get count
+    count = await db.physical_inventory_counts.find_one(
+        {"company_id": user.company_id, "year": year, "month": month}
+    )
+    
+    if not count:
+        raise HTTPException(status_code=404, detail="No physical count found for this period")
+    
+    now = datetime.now(timezone.utc)
+    adjustments_made = 0
+    
+    for item in count.get("items", []):
+        iid = item.get("ingredient_id")
+        counted_qty = item.get("counted_qty")
+        
+        if counted_qty is None:
+            continue
+        
+        # Get current system qty
+        ingredient = await db.ingredients.find_one(
+            {"ingredient_id": iid, "company_id": user.company_id},
+            {"_id": 0, "stock_quantity": 1, "unit_cost": 1}
+        )
+        
+        if not ingredient:
+            continue
+        
+        system_qty = ingredient.get("stock_quantity", 0)
+        variance = counted_qty - system_qty
+        
+        if abs(variance) < 0.01:
+            continue
+        
+        # Apply adjustment
+        await db.ingredients.update_one(
+            {"ingredient_id": iid, "company_id": user.company_id},
+            {"$set": {"stock_quantity": counted_qty, "updated_at": now.isoformat()}}
+        )
+        
+        # Log the adjustment
+        await db.inventory_adjustments.insert_one({
+            "adjustment_id": f"adj_{uuid.uuid4().hex[:8]}",
+            "company_id": user.company_id,
+            "ingredient_id": iid,
+            "adjustment": variance,
+            "adjustment_type": "physical_count",
+            "reason": f"Physical count adjustment for {year}-{month:02d}",
+            "previous_quantity": system_qty,
+            "new_quantity": counted_qty,
+            "user_id": user.user_id,
+            "period_key": f"{year}-{month:02d}",
+            "created_at": now.isoformat()
+        })
+        
+        adjustments_made += 1
+    
+    # Mark count as applied
+    await db.physical_inventory_counts.update_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"$set": {"applied": True, "applied_at": now.isoformat(), "applied_by": user.user_id}}
+    )
+    
+    return {"success": True, "adjustments_made": adjustments_made}
+
 @business_clarity_router.get("/period-close/{year}/{month}/event-allocation")
 async def get_event_allocation_preview(year: int, month: int, user: User = Depends(get_current_user)):
     """Get COGS allocation preview by event for the period"""
