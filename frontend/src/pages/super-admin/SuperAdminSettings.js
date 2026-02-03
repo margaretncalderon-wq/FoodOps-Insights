@@ -180,7 +180,7 @@ export default function SuperAdminSettings() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="relative">
-                    <pre className="bg-slate-900 p-4 rounded-lg text-xs overflow-x-auto text-green-400">
+                    <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto text-foreground border">
                       {embedCode}
                     </pre>
                     <Button
