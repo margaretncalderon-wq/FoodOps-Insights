@@ -14570,145 +14570,211 @@ async def bootstrap_super_admin(user: User = Depends(get_current_user)):
     
     return {"success": True, "message": "You are now a super admin"}
 
-# ============== SUPER ADMIN CRM (Cross-Tenant View) ==============
-# Uses the unified db.leads collection - NOT a separate platform_leads
+# ============== SUPER ADMIN CRM (Platform Sales Pipeline) ==============
+# This is for EVOKE's own sales team - NOT tenant data access
+# Tracks companies interested in becoming Evoke OS tenants
 
-@super_admin_router.get("/crm/leads")
-async def get_all_leads_cross_tenant(
-    lead_type: str = None,  # inbound, outreach
+class PlatformProspect(BaseModel):
+    company_name: str
+    contact_name: str
+    email: str
+    phone: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None  # 1-10, 11-50, 51-200, 200+
+    source: str = "website"  # website, referral, outbound, event, partner
+    status: str = "new"  # new, contacted, qualified, demo, proposal, negotiation, won, lost
+    notes: Optional[str] = None
+    estimated_mrr: Optional[float] = None
+    next_follow_up: Optional[str] = None
+    assigned_to: Optional[str] = None
+    interest_level: Optional[str] = None  # hot, warm, cold
+    plan_interest: Optional[str] = None  # starter, professional, enterprise
+
+class PlatformProspectUpdate(BaseModel):
+    company_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    estimated_mrr: Optional[float] = None
+    next_follow_up: Optional[str] = None
+    assigned_to: Optional[str] = None
+    interest_level: Optional[str] = None
+    plan_interest: Optional[str] = None
+
+@super_admin_router.get("/crm/prospects")
+async def get_platform_prospects(
     status: str = None,
-    company_id: str = None,
+    source: str = None,
+    assigned_to: str = None,
     search: str = None,
-    limit: int = 200,
     admin: User = Depends(get_super_admin)
 ):
-    """Get all leads across all organizations (Super Admin cross-tenant view)"""
+    """Get platform sales prospects (companies interested in becoming tenants)"""
     query = {}
-    if lead_type:
-        query["lead_type"] = lead_type
     if status:
         query["status"] = status
-    if company_id:
-        query["company_id"] = company_id
+    if source:
+        query["source"] = source
+    if assigned_to:
+        query["assigned_to"] = assigned_to
     if search:
         query["$or"] = [
-            {"lead_name": {"$regex": search, "$options": "i"}},
             {"company_name": {"$regex": search, "$options": "i"}},
+            {"contact_name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}}
         ]
     
-    leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
-    
-    # Enrich with company names
-    company_ids = list(set(l.get("company_id") for l in leads if l.get("company_id")))
-    companies = {}
-    if company_ids:
-        async for comp in db.companies.find({"company_id": {"$in": company_ids}}, {"_id": 0, "company_id": 1, "name": 1}):
-            companies[comp["company_id"]] = comp.get("name", "Unknown")
-    
-    for lead in leads:
-        lead["organization_name"] = companies.get(lead.get("company_id"), "Unknown")
+    prospects = await db.platform_prospects.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
     # Stats
-    total = await db.leads.count_documents(query if query else {})
-    by_status = {}
-    by_type = {"inbound": 0, "outreach": 0}
+    total = await db.platform_prospects.count_documents({})
+    pipeline_stats = await db.platform_prospects.aggregate([
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+    ]).to_list(20)
+    by_status = {r["_id"]: r["count"] for r in pipeline_stats if r["_id"]}
     
-    for lead in leads:
-        st = lead.get("status", "New")
-        by_status[st] = by_status.get(st, 0) + 1
-        lt = lead.get("lead_type", "inbound")
-        if lt in by_type:
-            by_type[lt] += 1
+    source_stats = await db.platform_prospects.aggregate([
+        {"$group": {"_id": "$source", "count": {"$sum": 1}}}
+    ]).to_list(20)
+    by_source = {r["_id"]: r["count"] for r in source_stats if r["_id"]}
+    
+    # Calculate potential MRR
+    potential_mrr = sum(p.get("estimated_mrr", 0) or 0 for p in prospects if p.get("status") not in ["lost", "won"])
     
     return {
-        "leads": leads,
+        "prospects": prospects,
         "stats": {
             "total": total,
             "by_status": by_status,
-            "by_type": by_type
+            "by_source": by_source,
+            "potential_mrr": round(potential_mrr, 2)
         }
     }
 
-@super_admin_router.get("/crm/leads/{lead_id}")
-async def get_lead_detail_cross_tenant(lead_id: str, admin: User = Depends(get_super_admin)):
-    """Get a specific lead with communication history (cross-tenant)"""
-    lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
+@super_admin_router.post("/crm/prospects")
+async def create_platform_prospect(data: PlatformProspect, admin: User = Depends(get_super_admin)):
+    """Create a new platform sales prospect"""
+    now = datetime.now(timezone.utc)
+    prospect = {
+        "prospect_id": f"prospect_{uuid.uuid4().hex[:12]}",
+        "company_name": data.company_name,
+        "contact_name": data.contact_name,
+        "email": data.email,
+        "phone": data.phone,
+        "industry": data.industry,
+        "company_size": data.company_size,
+        "source": data.source,
+        "status": data.status,
+        "notes": data.notes,
+        "estimated_mrr": data.estimated_mrr,
+        "next_follow_up": data.next_follow_up,
+        "assigned_to": data.assigned_to or admin.user_id,
+        "interest_level": data.interest_level,
+        "plan_interest": data.plan_interest,
+        "created_by": admin.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.platform_prospects.insert_one(prospect)
+    if "_id" in prospect:
+        del prospect["_id"]
+    return prospect
+
+@super_admin_router.get("/crm/prospects/{prospect_id}")
+async def get_platform_prospect(prospect_id: str, admin: User = Depends(get_super_admin)):
+    """Get a specific platform prospect with activity history"""
+    prospect = await db.platform_prospects.find_one({"prospect_id": prospect_id}, {"_id": 0})
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
     
-    # Get company name
-    company = await db.companies.find_one({"company_id": lead.get("company_id")}, {"_id": 0, "name": 1})
-    lead["organization_name"] = company.get("name") if company else "Unknown"
-    
-    # Get communication logs from unified comm_logs collection
-    logs = await db.comm_logs.find(
-        {"lead_id": lead_id}, {"_id": 0}
+    # Get activity logs
+    logs = await db.platform_prospect_logs.find(
+        {"prospect_id": prospect_id}, {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     
-    return {"lead": lead, "logs": logs}
+    return {"prospect": prospect, "logs": logs}
 
-@super_admin_router.post("/crm/leads/{lead_id}/log")
-async def add_lead_communication_cross_tenant(lead_id: str, data: dict, admin: User = Depends(get_super_admin)):
-    """Add communication log to a lead (uses unified comm_logs)"""
-    # Verify lead exists
-    lead = await db.leads.find_one({"lead_id": lead_id})
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
+@super_admin_router.put("/crm/prospects/{prospect_id}")
+async def update_platform_prospect(prospect_id: str, data: PlatformProspectUpdate, admin: User = Depends(get_super_admin)):
+    """Update a platform prospect"""
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.platform_prospects.update_one(
+        {"prospect_id": prospect_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    
+    return {"success": True}
+
+@super_admin_router.post("/crm/prospects/{prospect_id}/activity")
+async def add_prospect_activity(prospect_id: str, data: dict, admin: User = Depends(get_super_admin)):
+    """Add activity log to a prospect"""
+    prospect = await db.platform_prospects.find_one({"prospect_id": prospect_id})
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
     
     now = datetime.now(timezone.utc)
     log = {
-        "log_id": f"log_{uuid.uuid4().hex[:12]}",
-        "lead_id": lead_id,
-        "company_id": lead.get("company_id"),
-        "type": data.get("type", "note"),  # call, email, meeting, note
+        "log_id": f"plog_{uuid.uuid4().hex[:12]}",
+        "prospect_id": prospect_id,
+        "type": data.get("type", "note"),  # call, email, meeting, demo, note
         "content": data.get("content", ""),
         "created_by": admin.user_id,
-        "created_by_super_admin": True,
         "created_at": now.isoformat()
     }
-    await db.comm_logs.insert_one(log)
+    await db.platform_prospect_logs.insert_one(log)
     
-    # Update lead's last_contact_date
-    await db.leads.update_one(
-        {"lead_id": lead_id},
-        {"$set": {"last_contact_date": now.isoformat(), "updated_at": now.isoformat()}}
+    # Update prospect's updated_at
+    await db.platform_prospects.update_one(
+        {"prospect_id": prospect_id},
+        {"$set": {"updated_at": now.isoformat()}}
     )
     
     return {"success": True, "log_id": log["log_id"]}
 
+@super_admin_router.delete("/crm/prospects/{prospect_id}")
+async def delete_platform_prospect(prospect_id: str, admin: User = Depends(get_super_admin)):
+    """Delete a platform prospect"""
+    result = await db.platform_prospects.delete_one({"prospect_id": prospect_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    
+    await db.platform_prospect_logs.delete_many({"prospect_id": prospect_id})
+    return {"success": True}
+
 @super_admin_router.get("/crm/follow-ups")
-async def get_all_follow_ups_cross_tenant(admin: User = Depends(get_super_admin)):
-    """Get leads with pending follow-ups across all organizations"""
+async def get_prospect_follow_ups(admin: User = Depends(get_super_admin)):
+    """Get prospects with pending follow-ups"""
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
     
-    leads = await db.leads.find(
-        {"next_follow_up_date": {"$exists": True, "$ne": None}},
+    prospects = await db.platform_prospects.find(
+        {"next_follow_up": {"$exists": True, "$ne": None}},
         {"_id": 0}
     ).to_list(500)
-    
-    # Enrich with company names
-    company_ids = list(set(l.get("company_id") for l in leads if l.get("company_id")))
-    companies = {}
-    if company_ids:
-        async for comp in db.companies.find({"company_id": {"$in": company_ids}}, {"_id": 0, "company_id": 1, "name": 1}):
-            companies[comp["company_id"]] = comp.get("name", "Unknown")
     
     overdue = []
     today_list = []
     upcoming = []
     
-    for lead in leads:
-        lead["organization_name"] = companies.get(lead.get("company_id"), "Unknown")
-        follow_up = lead.get("next_follow_up_date", "")
+    for prospect in prospects:
+        follow_up = prospect.get("next_follow_up", "")
         if follow_up:
             if follow_up < today:
-                overdue.append(lead)
+                overdue.append(prospect)
             elif follow_up == today:
-                today_list.append(lead)
+                today_list.append(prospect)
             else:
-                upcoming.append(lead)
+                upcoming.append(prospect)
     
     return {
         "overdue": overdue,
@@ -14717,41 +14783,37 @@ async def get_all_follow_ups_cross_tenant(admin: User = Depends(get_super_admin)
     }
 
 @super_admin_router.get("/crm/stats")
-async def get_crm_stats_cross_tenant(admin: User = Depends(get_super_admin)):
-    """Get CRM statistics across all organizations"""
-    total = await db.leads.count_documents({})
+async def get_platform_crm_stats(admin: User = Depends(get_super_admin)):
+    """Get platform CRM statistics"""
+    total = await db.platform_prospects.count_documents({})
     
     # By status
     pipeline_status = [
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+        {"$group": {"_id": "$status", "count": {"$sum": 1}, "mrr": {"$sum": {"$ifNull": ["$estimated_mrr", 0]}}}}
     ]
-    status_results = await db.leads.aggregate(pipeline_status).to_list(20)
-    by_status = {r["_id"]: r["count"] for r in status_results if r["_id"]}
+    status_results = await db.platform_prospects.aggregate(pipeline_status).to_list(20)
+    by_status = {r["_id"]: {"count": r["count"], "mrr": r["mrr"]} for r in status_results if r["_id"]}
     
-    # By type
-    pipeline_type = [
-        {"$group": {"_id": "$lead_type", "count": {"$sum": 1}}}
-    ]
-    type_results = await db.leads.aggregate(pipeline_type).to_list(10)
-    by_type = {r["_id"] or "inbound": r["count"] for r in type_results}
+    # Conversion metrics
+    won = await db.platform_prospects.count_documents({"status": "won"})
+    lost = await db.platform_prospects.count_documents({"status": "lost"})
+    closed = won + lost
+    win_rate = (won / closed * 100) if closed > 0 else 0
     
-    # By source
-    pipeline_source = [
-        {"$group": {"_id": "$source", "count": {"$sum": 1}}}
-    ]
-    source_results = await db.leads.aggregate(pipeline_source).to_list(20)
-    by_source = {r["_id"] or "Other": r["count"] for r in source_results}
-    
-    # Conversion rate
-    converted = await db.leads.count_documents({"status": "Converted"})
-    conversion_rate = (converted / total * 100) if total > 0 else 0
+    # Pipeline value
+    pipeline_value = await db.platform_prospects.aggregate([
+        {"$match": {"status": {"$nin": ["won", "lost"]}}},
+        {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$estimated_mrr", 0]}}}}
+    ]).to_list(1)
+    total_pipeline = pipeline_value[0]["total"] if pipeline_value else 0
     
     return {
         "total": total,
         "by_status": by_status,
-        "by_type": by_type,
-        "by_source": by_source,
-        "conversion_rate": round(conversion_rate, 2)
+        "win_rate": round(win_rate, 2),
+        "pipeline_value": round(total_pipeline, 2),
+        "won_this_month": won,
+        "lost_this_month": lost
     }
 
 # ============== SUPER ADMIN BUSINESS INTELLIGENCE ==============
