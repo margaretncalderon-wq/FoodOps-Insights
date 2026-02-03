@@ -101,16 +101,26 @@ export function CloseReconciliationSection() {
   const fetchPeriodData = useCallback(async () => {
     setLoading(true);
     try {
-      const [periodRes, exceptionsRes, allocationRes, eventsRes] = await Promise.all([
+      const [periodRes, exceptionsRes, allocationRes, eventsRes, countRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/exceptions?filter_type=${exceptionFilter}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/event-allocation`, { withCredentials: true }),
-        axios.get(`${API}/api/events`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${API}/api/events`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/physical-count`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
       setPeriodData(periodRes.data);
       setExceptions(exceptionsRes.data?.exceptions || []);
       setEventAllocation(allocationRes.data);
       setEvents(Array.isArray(eventsRes.data) ? eventsRes.data : eventsRes.data?.events || []);
+      setPhysicalCount(countRes.data);
+      
+      // Initialize count items for editing
+      if (countRes.data?.items) {
+        setCountItems(countRes.data.items.map(i => ({
+          ...i,
+          counted_qty: i.counted_qty !== null ? i.counted_qty : ""
+        })));
+      }
       
       // Pre-fill cash form if exists
       if (periodRes.data?.cash_snapshot) {
