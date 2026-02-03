@@ -920,7 +920,6 @@ Auto-generated from Event Order:
   - Support tool for super admins to troubleshoot tenant issues
 
 ## Future/Backlog
-- [ ] Period Close System - Phase 2: COGS Engine improvements, Exception fixes (Fix/Assign/Edit actions)
 - [ ] Period Close System - Phase 3: Close Period Modal with snapshot storage, AR aging alignment, Executive Dashboard integration
 - [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
@@ -930,6 +929,28 @@ Auto-generated from Event Order:
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
 - [ ] Finalize Role-Based Access Control (RBAC) logic in backend
+
+## Recently Completed - Period Close System (Phase 2) - Feb 3, 2026
+
+### Alert System
+- Automatic alert banner when:
+  - There are blocking items (red banner with count)
+  - End of month is approaching (amber banner reminder)
+- "View Exceptions" quick action button
+- Dismissible alert with X button
+
+### Exception Fix Actions
+- **Missing Unit Cost:** Input field to set unit cost, updates ingredient via PATCH endpoint
+- **Negative Stock:** Input field for correct quantity, creates adjustment with audit trail
+- **Unassigned Usage:** Two options:
+  - Assign to Event: Select dropdown with company events
+  - Categorize as Overhead: Dropdown with categories (Waste, Shrink, Correction, Overhead, Samples)
+
+### Backend Improvements
+- `PATCH /api/inventory/ingredients/{id}` - Partial update for unit_cost, stock_quantity
+- `POST /api/inventory/ingredients/{id}/adjust` - Enhanced with `adjustment_qty` for absolute values
+- Price history logging for cost changes
+- Adjustment audit trail with user, timestamp, reason
 
 ## Recently Completed - Period Close System (Phase 1) - Feb 3, 2026
 
