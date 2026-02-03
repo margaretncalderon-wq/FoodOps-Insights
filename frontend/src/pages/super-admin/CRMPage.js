@@ -42,10 +42,6 @@ export default function CRMPage() {
   const [leadLogs, setLeadLogs] = useState([]);
   const [newLog, setNewLog] = useState({ type: "note", content: "" });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     try {
       const [leadsRes, followUpsRes, statsRes] = await Promise.all([
@@ -62,6 +58,10 @@ export default function CRMPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleViewLead = async (lead) => {
     setSelectedLead(lead);
