@@ -220,25 +220,25 @@ export default function SuperAdminSettings() {
                       {leadFormConfig.fields.company_name && (
                         <div>
                           <label className="text-sm font-medium">Empresa *</label>
-                          <div className="mt-1 h-10 bg-slate-100 rounded border" />
+                          <div className="mt-1 h-10 bg-muted rounded border" />
                         </div>
                       )}
                       {leadFormConfig.fields.contact_name && (
                         <div>
                           <label className="text-sm font-medium">Nombre *</label>
-                          <div className="mt-1 h-10 bg-slate-100 rounded border" />
+                          <div className="mt-1 h-10 bg-muted rounded border" />
                         </div>
                       )}
                       {leadFormConfig.fields.email && (
                         <div>
                           <label className="text-sm font-medium">Email *</label>
-                          <div className="mt-1 h-10 bg-slate-100 rounded border" />
+                          <div className="mt-1 h-10 bg-muted rounded border" />
                         </div>
                       )}
                       {leadFormConfig.fields.phone && (
                         <div>
                           <label className="text-sm font-medium">Teléfono</label>
-                          <div className="mt-1 h-10 bg-slate-100 rounded border" />
+                          <div className="mt-1 h-10 bg-muted rounded border" />
                         </div>
                       )}
                       {leadFormConfig.fields.message && (
