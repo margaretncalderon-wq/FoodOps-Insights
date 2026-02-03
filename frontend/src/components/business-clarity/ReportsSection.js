@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import {
   Users, Download, RefreshCw, Wallet, PieChart, Calendar,
-  FileBarChart, BarChart3, Building2, AlertTriangle, CheckCircle, AlertCircle, Info, FileText
+  FileBarChart, BarChart3, Building2, AlertTriangle, CheckCircle, AlertCircle, Info, FileText, Lock, Unlock
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -23,6 +23,22 @@ export function ReportsSection() {
   const [loading, setLoading] = useState(false);
   const [targetMargin, setTargetMargin] = useState(30);
   const [showCollectedPaid, setShowCollectedPaid] = useState(false);
+  const [periodStatus, setPeriodStatus] = useState(null);
+  const [selectedPeriod, setSelectedPeriod] = useState("current");
+  const [closedPeriods, setClosedPeriods] = useState([]);
+
+  useEffect(() => {
+    // Fetch closed periods
+    axios.get(`${API}/api/business-clarity/period-close/periods?year=${new Date().getFullYear()}`, { withCredentials: true })
+      .then(res => setClosedPeriods(res.data || []))
+      .catch(() => {});
+    
+    // Fetch current period status
+    const now = new Date();
+    axios.get(`${API}/api/business-clarity/period-close/${now.getFullYear()}/${now.getMonth() + 1}`, { withCredentials: true })
+      .then(res => setPeriodStatus(res.data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -43,6 +59,9 @@ export function ReportsSection() {
     }
     return <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="w-3 h-3" />{isEs ? "Saludable" : "Healthy"}</Badge>;
   };
+
+  const currentMonthName = new Date().toLocaleString(isEs ? 'es' : 'en', { month: 'long' });
+  const isPeriodClosed = periodStatus?.status === "closed";
 
   const exportToCSV = () => {
     if (!reportData) return;
