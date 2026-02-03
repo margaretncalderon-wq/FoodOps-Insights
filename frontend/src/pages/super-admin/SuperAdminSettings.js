@@ -247,7 +247,7 @@ export default function SuperAdminSettings() {
                           <div className="mt-1 h-20 bg-muted rounded border" />
                         </div>
                       )}
-                      <div className="h-10 bg-blue-600 rounded flex items-center justify-center text-white font-medium">
+                      <div className="h-10 bg-primary rounded flex items-center justify-center text-primary-foreground font-medium">
                         Solicitar Demo
                       </div>
                     </div>
