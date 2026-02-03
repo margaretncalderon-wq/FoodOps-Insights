@@ -920,14 +920,18 @@ Auto-generated from Event Order:
   - Support tool for super admins to troubleshoot tenant issues
 
 ## Future/Backlog
-- [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
+- [ ] **P0: Deployment** - User has requested deployment multiple times
+- [ ] **P1: Finalize Role-Based Access Control (RBAC)** - Ensure backend endpoints for Business Clarity are protected by role checks
+- [ ] **P2: Integrations** (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
 - [ ] Implement actual automation execution (cron jobs for reminders, alerts)
 - [ ] AI integrations for supplier suggestions
 - [ ] Additional payment gateways (MercadoPago)
 - [ ] Email POs to suppliers
 - [ ] Multi-currency support
-- [ ] Finalize Role-Based Access Control (RBAC) logic in backend
+- [ ] Alert notifications for negative operating margin
+- [ ] End-of-month email notifications for finance team
+- [ ] Client Credit Context UI Warnings
 
 ## Recently Completed - Period Close Bug Fix (Feb 3, 2026)
 
