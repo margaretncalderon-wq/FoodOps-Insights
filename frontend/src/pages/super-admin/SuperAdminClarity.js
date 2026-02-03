@@ -665,10 +665,20 @@ export default function SuperAdminClarity() {
                 </CardContent>
               </Card>
             </div>
-            <Button onClick={() => { resetCostForm(); setShowCostDialog(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              {isEs ? "Agregar Gasto" : "Add Cost"}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={exportCostsToCSV} data-testid="export-csv-btn">
+                <Download className="w-4 h-4 mr-2" />
+                CSV
+              </Button>
+              <Button variant="outline" onClick={exportCostsToPDF} data-testid="export-pdf-btn">
+                <FileText className="w-4 h-4 mr-2" />
+                PDF
+              </Button>
+              <Button onClick={() => { resetCostForm(); setShowCostDialog(true); }}>
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Agregar Gasto" : "Add Cost"}
+              </Button>
+            </div>
           </div>
 
           <Card>
