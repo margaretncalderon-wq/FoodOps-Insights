@@ -953,6 +953,153 @@ export function CloseReconciliationSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Fix Exception Modal */}
+      <Dialog open={showFixModal} onOpenChange={setShowFixModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="w-5 h-5" />
+              {isEs ? "Resolver Excepción" : "Fix Exception"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedExc?.sku} - {selectedExc?.type?.replace(/_/g, " ")}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedExc && (
+            <div className="space-y-4">
+              {/* Summary of the exception */}
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{isEs ? "Cantidad:" : "Quantity:"}</span>
+                  <span className="font-mono">{selectedExc.qty} {selectedExc.unit}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{isEs ? "Impacto:" : "Impact:"}</span>
+                  <span className="font-mono">{formatCurrency(selectedExc.value_impact)}</span>
+                </div>
+              </div>
+
+              {/* Fix options based on exception type */}
+              {selectedExc.type === "missing_cost" && (
+                <div className="space-y-3">
+                  <div className="p-3 border rounded-lg bg-blue-50/50">
+                    <p className="text-sm font-medium mb-2">{isEs ? "Establecer Costo Unitario" : "Set Unit Cost"}</p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fixForm.unit_cost || ""}
+                        onChange={(e) => setFixForm({ ...fixForm, unit_cost: parseFloat(e.target.value) || 0 })}
+                      />
+                      <Button onClick={handleFixMissingCost} disabled={!fixForm.unit_cost}>
+                        {isEs ? "Actualizar" : "Update"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedExc.type === "negative_stock" && (
+                <div className="space-y-3">
+                  <div className="p-3 border rounded-lg bg-amber-50/50">
+                    <p className="text-sm font-medium mb-2">{isEs ? "Ajustar Stock" : "Adjust Stock"}</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {isEs ? `Stock actual: ${selectedExc.qty}. Ingresa la cantidad correcta:` : `Current stock: ${selectedExc.qty}. Enter correct quantity:`}
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0"
+                        value={fixForm.adjustment_qty || ""}
+                        onChange={(e) => setFixForm({ ...fixForm, adjustment_qty: parseFloat(e.target.value) || 0 })}
+                      />
+                      <Button onClick={handleFixNegativeStock}>
+                        {isEs ? "Ajustar" : "Adjust"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>{isEs ? "Notas del ajuste" : "Adjustment notes"}</Label>
+                    <Textarea
+                      value={fixForm.resolution_notes}
+                      onChange={(e) => setFixForm({ ...fixForm, resolution_notes: e.target.value })}
+                      placeholder={isEs ? "Razón del ajuste..." : "Reason for adjustment..."}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedExc.type === "unassigned" && (
+                <Tabs defaultValue="assign" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="assign">{isEs ? "Asignar a Evento" : "Assign to Event"}</TabsTrigger>
+                    <TabsTrigger value="categorize">{isEs ? "Categorizar" : "Categorize"}</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="assign" className="space-y-3 mt-4">
+                    <div className="p-3 border rounded-lg bg-green-50/50">
+                      <p className="text-sm font-medium mb-2">{isEs ? "Seleccionar Evento" : "Select Event"}</p>
+                      <Select value={fixForm.assigned_event_id} onValueChange={(v) => setFixForm({ ...fixForm, assigned_event_id: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Selecciona un evento..." : "Select an event..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {events.slice(0, 20).map(e => (
+                            <SelectItem key={e.event_id} value={e.event_id}>
+                              {e.event_name || e.name} {e.event_date ? `(${e.event_date})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={handleAssignToEvent} disabled={!fixForm.assigned_event_id} className="mt-2 w-full">
+                        {isEs ? "Asignar" : "Assign"}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="categorize" className="space-y-3 mt-4">
+                    <div className="p-3 border rounded-lg bg-amber-50/50">
+                      <p className="text-sm font-medium mb-2">{isEs ? "Categorizar como Overhead" : "Categorize as Overhead"}</p>
+                      <Select value={fixForm.categorization} onValueChange={(v) => setFixForm({ ...fixForm, categorization: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Selecciona categoría..." : "Select category..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIZATIONS.map(c => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={handleCategorizeOverhead} disabled={!fixForm.categorization} className="mt-2 w-full">
+                        {isEs ? "Categorizar" : "Categorize"}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              )}
+
+              <div>
+                <Label>{isEs ? "Notas de Resolución" : "Resolution Notes"}</Label>
+                <Textarea
+                  value={fixForm.resolution_notes}
+                  onChange={(e) => setFixForm({ ...fixForm, resolution_notes: e.target.value })}
+                  placeholder={isEs ? "Notas opcionales..." : "Optional notes..."}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFixModal(false)}>
+              {isEs ? "Cerrar" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
