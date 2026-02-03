@@ -162,6 +162,167 @@ export default function SuperAdminClarity() {
     other: isEs ? "Otros" : "Other"
   };
 
+  // Export Fixed Costs to CSV
+  const exportCostsToCSV = () => {
+    const headers = [
+      isEs ? "Nombre" : "Name",
+      isEs ? "Categoría" : "Category",
+      isEs ? "Monto" : "Amount",
+      isEs ? "Frecuencia" : "Frequency",
+      isEs ? "Monto Mensual" : "Monthly Amount",
+      isEs ? "Notas" : "Notes"
+    ];
+    
+    const rows = fixedCosts.map(cost => [
+      cost.name,
+      categoryLabels[cost.category] || cost.category,
+      `$${cost.amount}`,
+      cost.frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") : (isEs ? "Anual" : "Yearly"),
+      `$${cost.frequency === "monthly" ? cost.amount : (cost.amount / 12).toFixed(2)}`,
+      cost.notes || ""
+    ]);
+    
+    // Add totals row
+    rows.push([]);
+    rows.push([
+      isEs ? "TOTAL MENSUAL" : "MONTHLY TOTAL",
+      "",
+      "",
+      "",
+      `$${totalFixedCosts.toFixed(2)}`,
+      ""
+    ]);
+    rows.push([
+      isEs ? "TOTAL ANUAL" : "ANNUAL TOTAL",
+      "",
+      "",
+      "",
+      `$${(totalFixedCosts * 12).toFixed(2)}`,
+      ""
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `evoke_os_fixed_costs_${period}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(isEs ? "CSV descargado" : "CSV downloaded");
+  };
+
+  // Export Fixed Costs to PDF
+  const exportCostsToPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(58, 77, 63); // Brand color
+    doc.text("Evoke OS", 14, 20);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text(isEs ? "Reporte de Costos Fijos" : "Fixed Costs Report", 14, 30);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(128, 128, 128);
+    doc.text(`${isEs ? "Período" : "Period"}: ${period}`, 14, 38);
+    doc.text(`${isEs ? "Generado" : "Generated"}: ${new Date().toLocaleDateString()}`, 14, 44);
+    
+    // Summary Cards
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(isEs ? "Resumen Ejecutivo" : "Executive Summary", 14, 56);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`${isEs ? "Total Mensual" : "Monthly Total"}: $${totalFixedCosts.toFixed(2)}`, 14, 64);
+    doc.text(`${isEs ? "Total Anual" : "Annual Total"}: $${(totalFixedCosts * 12).toFixed(2)}`, 14, 70);
+    doc.text(`${isEs ? "Número de Conceptos" : "Number of Items"}: ${fixedCosts.length}`, 14, 76);
+    
+    // Table
+    const tableData = fixedCosts.map(cost => [
+      cost.name,
+      categoryLabels[cost.category] || cost.category,
+      `$${cost.amount.toFixed(2)}`,
+      cost.frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") : (isEs ? "Anual" : "Yearly"),
+      `$${(cost.frequency === "monthly" ? cost.amount : cost.amount / 12).toFixed(2)}`
+    ]);
+    
+    doc.autoTable({
+      startY: 85,
+      head: [[
+        isEs ? "Concepto" : "Item",
+        isEs ? "Categoría" : "Category",
+        isEs ? "Monto" : "Amount",
+        isEs ? "Frecuencia" : "Frequency",
+        isEs ? "Mensual" : "Monthly"
+      ]],
+      body: tableData,
+      foot: [[
+        isEs ? "TOTAL" : "TOTAL",
+        "",
+        "",
+        "",
+        `$${totalFixedCosts.toFixed(2)}`
+      ]],
+      theme: "striped",
+      headStyles: { fillColor: [58, 77, 63], textColor: 255 },
+      footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: "bold" },
+      styles: { fontSize: 9 }
+    });
+    
+    // By Category breakdown
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(isEs ? "Desglose por Categoría" : "Breakdown by Category", 14, finalY);
+    
+    const categoryData = Object.entries(
+      fixedCosts.reduce((acc, cost) => {
+        const cat = cost.category;
+        const monthly = cost.frequency === "monthly" ? cost.amount : cost.amount / 12;
+        acc[cat] = (acc[cat] || 0) + monthly;
+        return acc;
+      }, {})
+    ).map(([cat, amount]) => [
+      categoryLabels[cat] || cat,
+      `$${amount.toFixed(2)}`,
+      `${((amount / totalFixedCosts) * 100).toFixed(1)}%`
+    ]);
+    
+    doc.autoTable({
+      startY: finalY + 5,
+      head: [[isEs ? "Categoría" : "Category", isEs ? "Monto Mensual" : "Monthly Amount", "%"]],
+      body: categoryData,
+      theme: "grid",
+      headStyles: { fillColor: [100, 100, 100] },
+      styles: { fontSize: 9 }
+    });
+    
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Evoke OS - Business Clarity | ${isEs ? "Página" : "Page"} ${i} ${isEs ? "de" : "of"} ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: "center" }
+      );
+    }
+    
+    doc.save(`evoke_os_fixed_costs_${period}.pdf`);
+    toast.success(isEs ? "PDF descargado" : "PDF downloaded");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
