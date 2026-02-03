@@ -286,7 +286,6 @@ export default function SuperAdminSettings() {
                 <Label>Email de Soporte</Label>
                 <Input
                   defaultValue="soporte@evoke.app"
-                  className="bg-slate-700 border-slate-600"
                 />
               </div>
 
