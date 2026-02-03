@@ -74,7 +74,7 @@ export default function SuperAdminSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-800">
+        <TabsList>
           <TabsTrigger value="leadform">Formulario de Leads</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="integrations">Integraciones</TabsTrigger>
