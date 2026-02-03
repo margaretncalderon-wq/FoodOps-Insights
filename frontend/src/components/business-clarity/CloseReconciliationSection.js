@@ -735,23 +735,33 @@ export function CloseReconciliationSection() {
                 <TableHead className="text-right">{isEs ? "Cantidad" : "Qty"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Impacto" : "Impact"}</TableHead>
                 <TableHead>{isEs ? "Fuente" : "Source"}</TableHead>
-                <TableHead>{isEs ? "Acción Sugerida" : "Suggested Action"}</TableHead>
+                <TableHead>{isEs ? "Acción" : "Action"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {exceptions.slice(0, 10).map(exc => (
+              {exceptions.slice(0, 15).map(exc => (
                 <TableRow key={exc.exception_id} className={exc.severity === "block" ? "bg-red-50/50" : exc.severity === "warning" ? "bg-amber-50/30" : ""}>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {exc.severity === "block" ? <XCircle className="w-4 h-4 text-red-600" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                      <span className="text-xs">{exc.type.replace("_", " ")}</span>
+                      <span className="text-xs capitalize">{exc.type.replace(/_/g, " ")}</span>
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{exc.sku}</TableCell>
                   <TableCell className="text-right font-mono">{exc.qty} {exc.unit}</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(exc.value_impact)}</TableCell>
                   <TableCell><Badge variant="outline">{exc.source}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{exc.suggested_action}</TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => openFixModal(exc)}
+                      className="gap-1"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      {isEs ? "Arreglar" : "Fix"}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {exceptions.length === 0 && (
