@@ -241,6 +241,47 @@ export function ReportsSection() {
 
   return (
     <div className="space-y-4">
+      {/* Period Status Banner */}
+      {periodStatus && (
+        <div className={`p-3 rounded-lg border flex items-center justify-between ${isPeriodClosed ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+          <div className="flex items-center gap-3">
+            {isPeriodClosed ? <Lock className="w-5 h-5 text-green-600" /> : <Unlock className="w-5 h-5 text-amber-600" />}
+            <div>
+              <p className={`font-medium ${isPeriodClosed ? "text-green-800" : "text-amber-800"}`}>
+                {currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)} {new Date().getFullYear()} — {isPeriodClosed ? (isEs ? "Cerrado" : "Closed") : (isEs ? "Abierto" : "Open")}
+              </p>
+              <p className={`text-xs ${isPeriodClosed ? "text-green-600" : "text-amber-600"}`}>
+                {isPeriodClosed 
+                  ? (isEs ? "Reportes basados en datos bloqueados del cierre" : "Reports based on locked close data")
+                  : (isEs ? "Reportes basados en datos en tiempo real (período abierto)" : "Reports based on live data (open period)")
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {closedPeriods.length > 0 && (
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue placeholder={isEs ? "Período" : "Period"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current">{isEs ? "Período Actual" : "Current Period"}</SelectItem>
+                  {closedPeriods.filter(p => p.status === "closed").slice(0, 6).map(p => (
+                    <SelectItem key={p.period_key} value={p.period_key}>
+                      {p.period_key} <Lock className="w-3 h-3 inline ml-1" />
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Badge variant={isPeriodClosed ? "default" : "outline"} className={isPeriodClosed ? "bg-green-600" : ""}>
+              {isPeriodClosed ? <Lock className="w-3 h-3 mr-1" /> : null}
+              {isPeriodClosed ? (isEs ? "Bloqueado" : "Locked") : (isEs ? "En Vivo" : "Live")}
+            </Badge>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-lg font-semibold">{isEs ? "Reportes Ejecutivos" : "Executive Reports"}</h2>
