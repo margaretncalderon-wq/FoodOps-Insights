@@ -84,7 +84,7 @@ export default function SuperAdminSettings() {
         <TabsContent value="leadform" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Configuration */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5" />
