@@ -13,13 +13,14 @@ import {
   StatementsSection,
   ReceivablesSection,
   ReportsSection,
-  FixedCostsSection
+  FixedCostsSection,
+  CloseReconciliationSection
 } from "../components/business-clarity";
 
 // Icons
 import {
   FileText, TrendingUp, TrendingDown, PieChart, Banknote,
-  UserCircle, Landmark, FileBarChart, ArrowLeft, Target
+  UserCircle, Landmark, FileBarChart, ArrowLeft, Target, Lock
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
