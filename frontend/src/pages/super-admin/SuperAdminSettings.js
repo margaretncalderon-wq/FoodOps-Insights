@@ -244,7 +244,7 @@ export default function SuperAdminSettings() {
                       {leadFormConfig.fields.message && (
                         <div>
                           <label className="text-sm font-medium">Mensaje</label>
-                          <div className="mt-1 h-20 bg-slate-100 rounded border" />
+                          <div className="mt-1 h-20 bg-muted rounded border" />
                         </div>
                       )}
                       <div className="h-10 bg-blue-600 rounded flex items-center justify-center text-white font-medium">
