@@ -309,7 +309,7 @@ export default function SuperAdminSettings() {
                     </div>
                     <div>
                       <p className="font-medium">Stripe</p>
-                      <p className="text-xs text-slate-400">Procesamiento de pagos</p>
+                      <p className="text-xs text-muted-foreground">Procesamiento de pagos</p>
                     </div>
                   </div>
                   <Badge className="bg-green-500">Conectado</Badge>
