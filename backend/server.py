@@ -11889,6 +11889,635 @@ async def get_budget_analysis(user: User = Depends(get_current_user), period: st
         }
     }
 
+# ============== PERIOD CLOSE & RECONCILIATION ==============
+
+class PeriodCloseCreate(BaseModel):
+    period_type: str = "monthly"  # monthly, quarterly
+    year: int
+    month: int
+    notes: Optional[str] = None
+
+class CloseExceptionUpdate(BaseModel):
+    status: Optional[str] = None  # open, resolved, approved
+    resolution_notes: Optional[str] = None
+    assigned_event_id: Optional[str] = None
+    categorization: Optional[str] = None  # waste, shrink, correction, overhead
+
+class CashSnapshotCreate(BaseModel):
+    opening_cash: float
+    closing_cash: float
+    cash_in: float
+    cash_out: float
+    notes: Optional[str] = None
+
+@business_clarity_router.get("/period-close/periods")
+async def get_period_close_periods(year: int = None, user: User = Depends(get_current_user)):
+    """Get all period close records for the company"""
+    query = {"company_id": user.company_id}
+    if year:
+        query["year"] = year
+    
+    periods = await db.period_close_snapshots.find(query, {"_id": 0}).sort([("year", -1), ("month", -1)]).to_list(100)
+    return periods
+
+@business_clarity_router.get("/period-close/{year}/{month}")
+async def get_period_close_detail(year: int, month: int, user: User = Depends(get_current_user)):
+    """Get detailed period close information including readiness checklist"""
+    period_key = f"{year}-{month:02d}"
+    
+    # Check if period exists
+    existing = await db.period_close_snapshots.find_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    # Calculate date range for the period
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    # ===== CLOSE READINESS CHECKLIST =====
+    readiness = {
+        "receipts_completed": {"status": "ok", "count": 0, "issues": 0},
+        "requisitions_recorded": {"status": "ok", "count": 0, "issues": 0},
+        "missing_unit_costs": {"status": "ok", "count": 0, "items": []},
+        "negative_stock": {"status": "ok", "count": 0, "items": []},
+        "adjustments_reviewed": {"status": "ok", "count": 0, "pending": 0},
+        "unassigned_usage": {"status": "ok", "count": 0, "value": 0}
+    }
+    
+    # Check for missing unit costs in inventory
+    items_without_cost = await db.ingredients.find(
+        {"company_id": user.company_id, "$or": [{"unit_cost": None}, {"unit_cost": 0}, {"unit_cost": {"$exists": False}}]},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1}
+    ).to_list(100)
+    
+    if items_without_cost:
+        readiness["missing_unit_costs"] = {
+            "status": "block",
+            "count": len(items_without_cost),
+            "items": items_without_cost[:10]  # Limit to 10 for preview
+        }
+    
+    # Check for negative stock
+    negative_stock_items = await db.ingredients.find(
+        {"company_id": user.company_id, "stock_quantity": {"$lt": 0}},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1}
+    ).to_list(100)
+    
+    if negative_stock_items:
+        readiness["negative_stock"] = {
+            "status": "block",
+            "count": len(negative_stock_items),
+            "items": negative_stock_items[:10]
+        }
+    
+    # Check stock movements without event_id (unassigned usage)
+    unassigned_movements = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": {"$in": ["requisition", "production", "usage"]},
+        "event_id": {"$in": [None, ""]},
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(500)
+    
+    unassigned_value = sum(m.get("quantity", 0) * m.get("unit_cost", 0) for m in unassigned_movements)
+    if unassigned_movements:
+        readiness["unassigned_usage"] = {
+            "status": "warning",
+            "count": len(unassigned_movements),
+            "value": round(unassigned_value, 2)
+        }
+    
+    # Check inventory adjustments
+    adjustments = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": {"$in": ["adjustment", "count_variance", "waste", "shrink"]},
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(500)
+    
+    pending_adjustments = [a for a in adjustments if not a.get("categorized")]
+    if pending_adjustments:
+        readiness["adjustments_reviewed"] = {
+            "status": "warning",
+            "count": len(adjustments),
+            "pending": len(pending_adjustments)
+        }
+    
+    # Count receipts (stock in) for period
+    receipts = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": "stock_in",
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(1000)
+    
+    receipts_without_cost = [r for r in receipts if not r.get("unit_cost")]
+    if receipts_without_cost:
+        readiness["receipts_completed"] = {
+            "status": "warning",
+            "count": len(receipts),
+            "issues": len(receipts_without_cost)
+        }
+    else:
+        readiness["receipts_completed"]["count"] = len(receipts)
+    
+    # Count requisitions for period
+    requisitions = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": {"$in": ["requisition", "production", "usage"]},
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(1000)
+    readiness["requisitions_recorded"]["count"] = len(requisitions)
+    
+    # ===== INVENTORY VALUATION =====
+    # Get opening inventory (from previous period snapshot or calculate)
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+    prev_snapshot = await db.period_close_snapshots.find_one(
+        {"company_id": user.company_id, "year": prev_year, "month": prev_month},
+        {"_id": 0, "inventory_valuation": 1}
+    )
+    
+    opening_inventory = prev_snapshot.get("inventory_valuation", {}).get("closing_value", 0) if prev_snapshot else 0
+    
+    # Calculate purchases received in period
+    purchases_value = sum(
+        (r.get("quantity", 0) * r.get("unit_cost", 0)) for r in receipts
+    )
+    
+    # Calculate current inventory value (closing)
+    all_inventory = await db.ingredients.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "stock_quantity": 1, "unit_cost": 1}
+    ).to_list(1000)
+    
+    closing_inventory = sum(
+        (i.get("stock_quantity", 0) * i.get("unit_cost", 0)) for i in all_inventory
+    )
+    
+    # Calculate COGS: Opening + Purchases - Closing
+    total_cogs = opening_inventory + purchases_value - closing_inventory
+    
+    inventory_valuation = {
+        "opening_value": round(opening_inventory, 2),
+        "purchases_received": round(purchases_value, 2),
+        "closing_value": round(closing_inventory, 2),
+        "cogs_calculated": round(max(0, total_cogs), 2)
+    }
+    
+    # ===== COGS ALLOCATION (Event vs Overhead) =====
+    # Event COGS: movements with event_id
+    event_movements = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": {"$in": ["requisition", "production", "usage"]},
+        "event_id": {"$nin": [None, ""]},
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(1000)
+    
+    event_cogs = sum((m.get("quantity", 0) * m.get("unit_cost", 0)) for m in event_movements)
+    
+    # Overhead COGS: movements without event_id + adjustments
+    overhead_cogs = unassigned_value + sum(
+        abs(a.get("quantity", 0) * a.get("unit_cost", 0)) for a in adjustments
+    )
+    
+    cogs_allocation = {
+        "event_cogs": round(event_cogs, 2),
+        "overhead_cogs": round(overhead_cogs, 2),
+        "total_allocated": round(event_cogs + overhead_cogs, 2),
+        "unassigned_requisitions": len(unassigned_movements),
+        "adjustments_value": round(sum(abs(a.get("quantity", 0) * a.get("unit_cost", 0)) for a in adjustments), 2)
+    }
+    
+    # Reconciliation status
+    allocation_gap = abs(total_cogs - (event_cogs + overhead_cogs))
+    reconciliation = {
+        "status": "balanced" if allocation_gap < 1 else "gap",
+        "calculated_cogs": round(total_cogs, 2),
+        "allocated_cogs": round(event_cogs + overhead_cogs, 2),
+        "gap_amount": round(allocation_gap, 2)
+    }
+    
+    # ===== AR AGING at close =====
+    invoices = await db.invoices.find(
+        {"company_id": user.company_id, "status": {"$in": ["sent", "overdue", "partial"]}},
+        {"_id": 0, "total_amount": 1, "amount_paid": 1, "due_date": 1, "created_at": 1}
+    ).to_list(500)
+    
+    now = datetime.now(timezone.utc)
+    ar_aging = {"current": 0, "1_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0, "total": 0}
+    
+    for inv in invoices:
+        balance = inv.get("total_amount", 0) - inv.get("amount_paid", 0)
+        if balance <= 0:
+            continue
+        
+        ar_aging["total"] += balance
+        
+        due_date_str = inv.get("due_date") or inv.get("created_at")
+        if due_date_str:
+            try:
+                due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00")) if isinstance(due_date_str, str) else due_date_str
+                days_overdue = (now - due_date).days
+                
+                if days_overdue <= 0:
+                    ar_aging["current"] += balance
+                elif days_overdue <= 30:
+                    ar_aging["1_30"] += balance
+                elif days_overdue <= 60:
+                    ar_aging["31_60"] += balance
+                elif days_overdue <= 90:
+                    ar_aging["61_90"] += balance
+                else:
+                    ar_aging["90_plus"] += balance
+            except:
+                ar_aging["current"] += balance
+    
+    for k in ar_aging:
+        ar_aging[k] = round(ar_aging[k], 2)
+    
+    # Determine if period can be closed
+    has_blockers = (
+        readiness["missing_unit_costs"]["status"] == "block" or
+        readiness["negative_stock"]["status"] == "block"
+    )
+    
+    can_close = not has_blockers and not (existing and existing.get("status") == "closed")
+    
+    return {
+        "period_key": period_key,
+        "year": year,
+        "month": month,
+        "status": existing.get("status", "open") if existing else "open",
+        "closed_at": existing.get("closed_at") if existing else None,
+        "closed_by": existing.get("closed_by") if existing else None,
+        "readiness": readiness,
+        "inventory_valuation": inventory_valuation,
+        "cogs_allocation": cogs_allocation,
+        "reconciliation": reconciliation,
+        "ar_aging": ar_aging,
+        "cash_snapshot": existing.get("cash_snapshot") if existing else None,
+        "can_close": can_close,
+        "has_blockers": has_blockers
+    }
+
+@business_clarity_router.get("/period-close/{year}/{month}/exceptions")
+async def get_period_exceptions(year: int, month: int, filter_type: str = "all", user: User = Depends(get_current_user)):
+    """Get actionable exceptions for a period"""
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    exceptions = []
+    
+    # Missing unit costs
+    items_without_cost = await db.ingredients.find(
+        {"company_id": user.company_id, "$or": [{"unit_cost": None}, {"unit_cost": 0}, {"unit_cost": {"$exists": False}}]},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1, "unit": 1}
+    ).to_list(100)
+    
+    for item in items_without_cost:
+        exceptions.append({
+            "exception_id": f"missing_cost_{item['ingredient_id']}",
+            "type": "missing_cost",
+            "severity": "block",
+            "sku": item.get("name"),
+            "item_id": item["ingredient_id"],
+            "qty": item.get("stock_quantity", 0),
+            "unit": item.get("unit", ""),
+            "value_impact": 0,
+            "source": "Inventory",
+            "suggested_action": "Set unit cost",
+            "status": "open"
+        })
+    
+    # Negative stock
+    negative_items = await db.ingredients.find(
+        {"company_id": user.company_id, "stock_quantity": {"$lt": 0}},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1, "unit_cost": 1, "unit": 1}
+    ).to_list(100)
+    
+    for item in negative_items:
+        exceptions.append({
+            "exception_id": f"negative_stock_{item['ingredient_id']}",
+            "type": "negative_stock",
+            "severity": "block",
+            "sku": item.get("name"),
+            "item_id": item["ingredient_id"],
+            "qty": item.get("stock_quantity", 0),
+            "unit": item.get("unit", ""),
+            "value_impact": round(item.get("stock_quantity", 0) * item.get("unit_cost", 0), 2),
+            "source": "Inventory",
+            "suggested_action": "Adjust stock or record receipt",
+            "status": "open"
+        })
+    
+    # Unassigned usage
+    unassigned = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": {"$in": ["requisition", "production", "usage"]},
+        "event_id": {"$in": [None, ""]},
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(200)
+    
+    for m in unassigned:
+        exceptions.append({
+            "exception_id": f"unassigned_{m.get('movement_id', m.get('ingredient_id'))}",
+            "type": "unassigned",
+            "severity": "warning",
+            "sku": m.get("ingredient_name", m.get("name", "Unknown")),
+            "item_id": m.get("ingredient_id"),
+            "qty": m.get("quantity", 0),
+            "unit": m.get("unit", ""),
+            "value_impact": round(m.get("quantity", 0) * m.get("unit_cost", 0), 2),
+            "source": "Requisition",
+            "suggested_action": "Assign to event or categorize as overhead",
+            "status": "open"
+        })
+    
+    # Filter by type
+    if filter_type == "blocking":
+        exceptions = [e for e in exceptions if e["severity"] == "block"]
+    elif filter_type == "warnings":
+        exceptions = [e for e in exceptions if e["severity"] == "warning"]
+    elif filter_type == "resolved":
+        exceptions = [e for e in exceptions if e["status"] == "resolved"]
+    
+    return {
+        "period_key": f"{year}-{month:02d}",
+        "exceptions": exceptions,
+        "summary": {
+            "total": len(exceptions),
+            "blocking": len([e for e in exceptions if e["severity"] == "block"]),
+            "warnings": len([e for e in exceptions if e["severity"] == "warning"]),
+            "resolved": len([e for e in exceptions if e["status"] == "resolved"])
+        }
+    }
+
+@business_clarity_router.put("/period-close/exceptions/{exception_id}")
+async def update_exception(exception_id: str, data: CloseExceptionUpdate, user: User = Depends(get_current_user)):
+    """Update an exception (fix, assign, categorize)"""
+    # Parse exception type from ID
+    parts = exception_id.split("_")
+    exc_type = parts[0] if parts else ""
+    item_id = "_".join(parts[1:]) if len(parts) > 1 else ""
+    
+    if exc_type == "missing" and item_id:
+        # This would update unit cost - handled via inventory endpoint
+        pass
+    elif exc_type == "negative" and item_id:
+        # Would need stock adjustment
+        pass
+    elif exc_type == "unassigned" and item_id:
+        # Update movement with event_id or categorization
+        if data.assigned_event_id:
+            await db.stock_movements.update_one(
+                {"movement_id": item_id, "company_id": user.company_id},
+                {"$set": {"event_id": data.assigned_event_id, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        elif data.categorization:
+            await db.stock_movements.update_one(
+                {"movement_id": item_id, "company_id": user.company_id},
+                {"$set": {"categorization": data.categorization, "categorized": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+    
+    # Log the resolution
+    await db.close_exception_log.insert_one({
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "exception_id": exception_id,
+        "action": "updated",
+        "resolution_notes": data.resolution_notes,
+        "updated_by": user.user_id,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"success": True, "exception_id": exception_id}
+
+@business_clarity_router.post("/period-close/{year}/{month}/cash-snapshot")
+async def save_cash_snapshot(year: int, month: int, data: CashSnapshotCreate, user: User = Depends(get_current_user)):
+    """Save manual cash snapshot for a period"""
+    snapshot = {
+        "snapshot_id": f"cash_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "year": year,
+        "month": month,
+        "opening_cash": data.opening_cash,
+        "closing_cash": data.closing_cash,
+        "cash_in": data.cash_in,
+        "cash_out": data.cash_out,
+        "notes": data.notes,
+        "created_by": user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Upsert cash snapshot
+    await db.cash_snapshots.update_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"$set": snapshot},
+        upsert=True
+    )
+    
+    return snapshot
+
+@business_clarity_router.post("/period-close/{year}/{month}/close")
+async def close_period(year: int, month: int, notes: str = "", user: User = Depends(get_current_user)):
+    """Close a period - locks all data and creates snapshot"""
+    # Check user role (only Finance or Owner can close)
+    if user.role not in ["owner", "admin", "finance"]:
+        raise HTTPException(status_code=403, detail="Only Finance or Owner can close periods")
+    
+    # Get period detail to check readiness
+    period_detail = await get_period_close_detail(year, month, user)
+    
+    if period_detail["has_blockers"]:
+        raise HTTPException(status_code=400, detail="Cannot close period with blocking issues")
+    
+    # Check if already closed
+    existing = await db.period_close_snapshots.find_one(
+        {"company_id": user.company_id, "year": year, "month": month}
+    )
+    
+    if existing and existing.get("status") == "closed":
+        raise HTTPException(status_code=400, detail="Period already closed")
+    
+    # Get cash snapshot if exists
+    cash_snapshot = await db.cash_snapshots.find_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create period close snapshot
+    snapshot = {
+        "snapshot_id": f"pclose_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "year": year,
+        "month": month,
+        "period_key": f"{year}-{month:02d}",
+        "status": "closed",
+        "inventory_valuation": period_detail["inventory_valuation"],
+        "cogs_allocation": period_detail["cogs_allocation"],
+        "reconciliation": period_detail["reconciliation"],
+        "ar_aging": period_detail["ar_aging"],
+        "cash_snapshot": cash_snapshot,
+        "close_notes": notes,
+        "closed_by": user.user_id,
+        "closed_by_name": user.name,
+        "closed_at": now.isoformat(),
+        "created_at": now.isoformat()
+    }
+    
+    # Upsert snapshot
+    await db.period_close_snapshots.update_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"$set": snapshot},
+        upsert=True
+    )
+    
+    # Create audit log
+    await db.period_close_audit_log.insert_one({
+        "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "year": year,
+        "month": month,
+        "action": "close",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "notes": notes,
+        "timestamp": now.isoformat()
+    })
+    
+    return {"success": True, "snapshot_id": snapshot["snapshot_id"], "status": "closed"}
+
+@business_clarity_router.post("/period-close/{year}/{month}/reopen")
+async def reopen_period(year: int, month: int, reason: str, user: User = Depends(get_current_user)):
+    """Reopen a closed period - Owner only"""
+    # Only owner can reopen
+    if user.role != "owner":
+        raise HTTPException(status_code=403, detail="Only Owner can reopen closed periods")
+    
+    if not reason or len(reason) < 10:
+        raise HTTPException(status_code=400, detail="Reason required (minimum 10 characters)")
+    
+    existing = await db.period_close_snapshots.find_one(
+        {"company_id": user.company_id, "year": year, "month": month}
+    )
+    
+    if not existing or existing.get("status") != "closed":
+        raise HTTPException(status_code=400, detail="Period is not closed")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Update status to open
+    await db.period_close_snapshots.update_one(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"$set": {
+            "status": "open",
+            "reopened_at": now.isoformat(),
+            "reopened_by": user.user_id,
+            "reopen_reason": reason
+        }}
+    )
+    
+    # Audit log
+    await db.period_close_audit_log.insert_one({
+        "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "year": year,
+        "month": month,
+        "action": "reopen",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "notes": reason,
+        "timestamp": now.isoformat()
+    })
+    
+    return {"success": True, "status": "open"}
+
+@business_clarity_router.get("/period-close/{year}/{month}/event-allocation")
+async def get_event_allocation_preview(year: int, month: int, user: User = Depends(get_current_user)):
+    """Get COGS allocation preview by event for the period"""
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    # Get events in period
+    events = await db.events.find({
+        "company_id": user.company_id,
+        "event_date": {"$gte": start_date.isoformat()[:10], "$lt": end_date.isoformat()[:10]}
+    }, {"_id": 0, "event_id": 1, "event_name": 1, "client_id": 1, "total_price": 1}).to_list(200)
+    
+    # Get movements by event
+    movements = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": {"$in": ["requisition", "production", "usage"]},
+        "event_id": {"$nin": [None, ""]},
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0}).to_list(2000)
+    
+    # Aggregate COGS by event
+    event_cogs = {}
+    for m in movements:
+        eid = m.get("event_id")
+        if eid:
+            if eid not in event_cogs:
+                event_cogs[eid] = 0
+            event_cogs[eid] += m.get("quantity", 0) * m.get("unit_cost", 0)
+    
+    # Build allocation preview
+    allocation = []
+    for e in events:
+        eid = e.get("event_id")
+        cogs = event_cogs.get(eid, 0)
+        revenue = e.get("total_price", 0)
+        margin = revenue - cogs if revenue > 0 else 0
+        margin_pct = (margin / revenue * 100) if revenue > 0 else 0
+        
+        # Check if all requisitions for this event have costs
+        event_movements = [m for m in movements if m.get("event_id") == eid]
+        has_missing_costs = any(not m.get("unit_cost") for m in event_movements)
+        
+        allocation.append({
+            "event_id": eid,
+            "event_name": e.get("event_name"),
+            "event_cogs": round(cogs, 2),
+            "revenue": round(revenue, 2),
+            "margin": round(margin, 2),
+            "margin_percent": round(margin_pct, 1),
+            "completeness": "incomplete" if has_missing_costs else "complete"
+        })
+    
+    # Sort by margin (lowest first to highlight issues)
+    allocation.sort(key=lambda x: x["margin_percent"])
+    
+    return {
+        "period_key": f"{year}-{month:02d}",
+        "events": allocation,
+        "summary": {
+            "total_events": len(allocation),
+            "complete": len([a for a in allocation if a["completeness"] == "complete"]),
+            "incomplete": len([a for a in allocation if a["completeness"] == "incomplete"]),
+            "total_event_cogs": round(sum(a["event_cogs"] for a in allocation), 2)
+        }
+    }
+
+@business_clarity_router.get("/period-close/{year}/{month}/audit-log")
+async def get_period_audit_log(year: int, month: int, user: User = Depends(get_current_user)):
+    """Get audit log for a period"""
+    logs = await db.period_close_audit_log.find(
+        {"company_id": user.company_id, "year": year, "month": month},
+        {"_id": 0}
+    ).sort("timestamp", -1).to_list(100)
+    
+    return logs
+
 # ============== EVENT ORCHESTRATION ROUTES ==============
 
 @orchestration_router.get("/events")
