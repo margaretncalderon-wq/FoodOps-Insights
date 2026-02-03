@@ -98,7 +98,7 @@ export default function SuperAdminSettings() {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Formulario Activo</Label>
-                    <p className="text-xs text-slate-400">Habilitar/deshabilitar el formulario</p>
+                    <p className="text-xs text-muted-foreground">Habilitar/deshabilitar el formulario</p>
                   </div>
                   <Switch 
                     checked={leadFormConfig.enabled}
