@@ -279,7 +279,6 @@ export default function SuperAdminSettings() {
                 <Label>Dominio Principal</Label>
                 <Input
                   defaultValue="evoke.app"
-                  className="bg-slate-700 border-slate-600"
                 />
               </div>
 
