@@ -38,21 +38,9 @@ export default function CRMPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
-  const [showLeadDialog, setShowLeadDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [leadLogs, setLeadLogs] = useState([]);
   const [newLog, setNewLog] = useState({ type: "note", content: "" });
-  const [formData, setFormData] = useState({
-    company_name: "",
-    contact_name: "",
-    email: "",
-    phone: "",
-    source: "outreach",
-    status: "new",
-    notes: "",
-    estimated_value: "",
-    next_follow_up: ""
-  });
 
   useEffect(() => {
     fetchData();
