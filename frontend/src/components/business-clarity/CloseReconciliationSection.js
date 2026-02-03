@@ -202,9 +202,8 @@ export function CloseReconciliationSection() {
   const handleFixNegativeStock = async () => {
     if (!selectedExc) return;
     try {
-      // Create a stock adjustment to fix negative
       await axios.post(
-        `${API}/api/inventory/${selectedExc.item_id}/adjust`,
+        `${API}/api/inventory/ingredients/${selectedExc.item_id}/adjust`,
         { 
           adjustment_qty: fixForm.adjustment_qty,
           reason: fixForm.resolution_notes || "Period close adjustment",
@@ -216,19 +215,7 @@ export function CloseReconciliationSection() {
       setShowFixModal(false);
       fetchPeriodData();
     } catch (err) {
-      // Fallback to direct update if adjust endpoint doesn't exist
-      try {
-        await axios.put(
-          `${API}/api/inventory/${selectedExc.item_id}`,
-          { stock_quantity: fixForm.adjustment_qty },
-          { withCredentials: true }
-        );
-        toast.success(isEs ? "Stock actualizado" : "Stock updated");
-        setShowFixModal(false);
-        fetchPeriodData();
-      } catch (err2) {
-        toast.error(err2.response?.data?.detail || "Error");
-      }
+      toast.error(err.response?.data?.detail || "Error");
     }
   };
 
