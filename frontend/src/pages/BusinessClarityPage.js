@@ -115,6 +115,7 @@ export default function BusinessClarityPage() {
           <Route path="receivables" element={<ReceivablesSection />} />
           <Route path="payables" element={<PayablesSection />} />
           <Route path="fixed-costs" element={<FixedCostsSection />} />
+          <Route path="close" element={<CloseReconciliationSection />} />
           <Route path="reports" element={<ReportsSection />} />
         </Routes>
       </div>
