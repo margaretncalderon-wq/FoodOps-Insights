@@ -17,7 +17,8 @@ import { Checkbox } from "../ui/checkbox";
 import {
   Lock, Unlock, RefreshCw, Download, CheckCircle2, AlertTriangle, XCircle,
   HelpCircle, Package, Calculator, Wallet, FileText, ChevronDown, ChevronUp,
-  ArrowRight, Clock, DollarSign, BarChart3, AlertCircle, Eye
+  ArrowRight, Clock, DollarSign, BarChart3, AlertCircle, Eye, Edit, Wrench,
+  Tag, Bell, BellRing, Calendar
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -31,6 +32,7 @@ export function CloseReconciliationSection() {
   const [periodData, setPeriodData] = useState(null);
   const [exceptions, setExceptions] = useState([]);
   const [eventAllocation, setEventAllocation] = useState(null);
+  const [events, setEvents] = useState([]);
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -38,11 +40,24 @@ export function CloseReconciliationSection() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
+  const [showFixModal, setShowFixModal] = useState(false);
+  const [showAlertBanner, setShowAlertBanner] = useState(true);
+  
   const [closeNotes, setCloseNotes] = useState("");
   const [reopenReason, setReopenReason] = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
   const [showAllocation, setShowAllocation] = useState(false);
   const [exceptionFilter, setExceptionFilter] = useState("all");
+  
+  // Fix Exception State
+  const [selectedExc, setSelectedExc] = useState(null);
+  const [fixForm, setFixForm] = useState({
+    unit_cost: 0,
+    assigned_event_id: "",
+    categorization: "",
+    adjustment_qty: 0,
+    resolution_notes: ""
+  });
   
   const [cashForm, setCashForm] = useState({
     opening_cash: 0,
@@ -67,17 +82,27 @@ export function CloseReconciliationSection() {
     { value: 12, label: isEs ? "Diciembre" : "December" },
   ];
 
+  const CATEGORIZATIONS = [
+    { value: "waste", label: isEs ? "Desperdicio" : "Waste" },
+    { value: "shrink", label: isEs ? "Merma" : "Shrink" },
+    { value: "correction", label: isEs ? "Corrección" : "Correction" },
+    { value: "overhead", label: isEs ? "Overhead General" : "General Overhead" },
+    { value: "samples", label: isEs ? "Muestras/Degustación" : "Samples/Tasting" },
+  ];
+
   const fetchPeriodData = useCallback(async () => {
     setLoading(true);
     try {
-      const [periodRes, exceptionsRes, allocationRes] = await Promise.all([
+      const [periodRes, exceptionsRes, allocationRes, eventsRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/exceptions?filter_type=${exceptionFilter}`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/event-allocation`, { withCredentials: true })
+        axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/event-allocation`, { withCredentials: true }),
+        axios.get(`${API}/api/events`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setPeriodData(periodRes.data);
       setExceptions(exceptionsRes.data?.exceptions || []);
       setEventAllocation(allocationRes.data);
+      setEvents(Array.isArray(eventsRes.data) ? eventsRes.data : eventsRes.data?.events || []);
       
       // Pre-fill cash form if exists
       if (periodRes.data?.cash_snapshot) {
