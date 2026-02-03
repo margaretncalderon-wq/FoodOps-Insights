@@ -168,7 +168,7 @@ export default function SuperAdminSettings() {
 
             {/* Embed Code */}
             <div className="space-y-6">
-              <Card className="bg-slate-800 border-slate-700">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Code className="w-5 h-5" />
