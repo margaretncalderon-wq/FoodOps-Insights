@@ -70,7 +70,7 @@ export default function SuperAdminSettings() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="text-slate-400">Ajustes de la plataforma Evoke OS</p>
+        <p className="text-muted-foreground">Ajustes de la plataforma Evoke OS</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
