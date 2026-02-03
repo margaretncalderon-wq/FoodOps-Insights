@@ -151,13 +151,9 @@ export default function CRMPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">CRM</h1>
-          <p className="text-slate-400">Gestión de leads y pipeline de ventas</p>
+          <h1 className="text-2xl font-bold">CRM - Vista Cross-Tenant</h1>
+          <p className="text-slate-400">Todos los leads del sistema Evoke OS</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowLeadDialog(true); }}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Lead
-        </Button>
       </div>
 
       {/* Stats Cards */}
