@@ -31,6 +31,7 @@ export default function SuperAdminLayout() {
 
   useEffect(() => {
     checkAccess();
+    checkViewAsStatus();
   }, []);
 
   const checkAccess = async () => {
@@ -45,8 +46,28 @@ export default function SuperAdminLayout() {
     setLoading(false);
   };
 
+  const checkViewAsStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/api/super-admin/view-as/status`, { withCredentials: true });
+      if (res.data.active) {
+        setViewAsStatus({
+          active: true,
+          org_id: res.data.org_id,
+          org_name: res.data.org_name
+        });
+      }
+    } catch (err) {
+      console.error("Failed to check view-as status:", err);
+    }
+  };
+
   const exitViewAs = async () => {
-    setViewAsStatus({ active: false, org_id: null, org_name: null });
+    try {
+      await axios.post(`${API}/api/super-admin/exit-view-as`, {}, { withCredentials: true });
+      setViewAsStatus({ active: false, org_id: null, org_name: null });
+    } catch (err) {
+      console.error("Failed to exit view-as mode:", err);
+    }
   };
 
   if (loading) {
