@@ -54,17 +54,12 @@ export default function SuperAdminClarity() {
       const [overviewRes, paymentsRes, costsRes] = await Promise.all([
         axios.get(`${API}/api/super-admin/bi/overview`, { withCredentials: true }),
         axios.get(`${API}/api/super-admin/bi/payments?period=${period}`, { withCredentials: true }),
-        axios.get(`${API}/api/super-admin/clarity/fixed-costs`, { withCredentials: true }).catch(() => ({ data: { costs: [] } })),
+        axios.get(`${API}/api/super-admin/clarity/fixed-costs`, { withCredentials: true }),
       ]);
       
       setOverview(overviewRes.data);
       setPayments(paymentsRes.data);
-      setFixedCosts(costsRes.data?.costs || [
-        { cost_id: "1", name: "AWS Hosting", amount: 500, category: "infrastructure", frequency: "monthly" },
-        { cost_id: "2", name: "MongoDB Atlas", amount: 200, category: "infrastructure", frequency: "monthly" },
-        { cost_id: "3", name: "Stripe Fees", amount: 150, category: "payments", frequency: "monthly" },
-        { cost_id: "4", name: isEs ? "Dominio" : "Domain", amount: 15, category: "infrastructure", frequency: "yearly" },
-      ]);
+      setFixedCosts(costsRes.data?.costs || []);
     } catch (err) {
       console.error(err);
     }
