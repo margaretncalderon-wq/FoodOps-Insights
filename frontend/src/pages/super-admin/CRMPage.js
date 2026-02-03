@@ -264,7 +264,7 @@ export default function CRMPage() {
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="Buscar..."
+                    placeholder="Buscar leads..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 w-64 bg-slate-700 border-slate-600"
