@@ -283,6 +283,76 @@ export function CloseReconciliationSection() {
     }
   };
 
+  // Physical Count Functions
+  const updateCountItem = (ingredientId, countedQty) => {
+    setCountItems(prev => prev.map(item => 
+      item.ingredient_id === ingredientId 
+        ? { ...item, counted_qty: countedQty }
+        : item
+    ));
+  };
+
+  const handleSavePhysicalCount = async () => {
+    try {
+      const itemsToSave = countItems
+        .filter(i => i.counted_qty !== "" && i.counted_qty !== null)
+        .map(i => ({
+          ingredient_id: i.ingredient_id,
+          counted_qty: parseFloat(i.counted_qty) || 0,
+          notes: i.notes || null
+        }));
+      
+      if (itemsToSave.length === 0) {
+        toast.error(isEs ? "Ingresa al menos un conteo" : "Enter at least one count");
+        return;
+      }
+      
+      await axios.post(
+        `${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/physical-count`,
+        { items: itemsToSave },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Conteo físico guardado" : "Physical count saved");
+      fetchPeriodData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  const handleApplyCountAdjustments = async () => {
+    if (!confirm(isEs 
+      ? "¿Aplicar los ajustes del conteo físico al inventario? Esta acción actualizará las cantidades de stock."
+      : "Apply physical count adjustments to inventory? This will update stock quantities."
+    )) return;
+    
+    try {
+      const res = await axios.post(
+        `${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/physical-count/apply`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(isEs 
+        ? `${res.data.adjustments_made} ajustes aplicados` 
+        : `${res.data.adjustments_made} adjustments applied`
+      );
+      fetchPeriodData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  // Filter count items
+  const filteredCountItems = countItems.filter(item => {
+    const matchesSearch = !countSearch || 
+      item.name?.toLowerCase().includes(countSearch.toLowerCase()) ||
+      item.category?.toLowerCase().includes(countSearch.toLowerCase());
+    
+    if (countFilter === "pending") return matchesSearch && item.status === "pending";
+    if (countFilter === "counted") return matchesSearch && item.status === "counted";
+    if (countFilter === "variance") return matchesSearch && Math.abs(item.variance_qty || 0) > 0.01;
+    return matchesSearch;
+  });
+
   // Check if end of month is approaching (for alerts)
   const isEndOfMonthApproaching = () => {
     const now = new Date();
