@@ -190,10 +190,10 @@ function AppRouter() {
       <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
         <Route index element={<SuperAdminOverview />} />
         <Route path="crm" element={<SuperAdminCRMPage />} />
-        <Route path="bi" element={<BIPage />} />
+        <Route path="clarity" element={<SuperAdminClarity />} />
         <Route path="organizations" element={<OrganizationsListPage />} />
         <Route path="organizations/:id" element={<OrganizationDetailPage />} />
-        <Route path="audit" element={<GlobalAuditPage />} />
+        <Route path="settings" element={<SuperAdminSettings />} />
       </Route>
       
       <Route path="*" element={<Navigate to="/" replace />} />
