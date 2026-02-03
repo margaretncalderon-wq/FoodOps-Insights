@@ -63,53 +63,11 @@ export default function CRMPage() {
     setLoading(false);
   };
 
-  const handleCreateLead = async () => {
-    try {
-      const payload = {
-        ...formData,
-        estimated_value: formData.estimated_value ? parseFloat(formData.estimated_value) : null
-      };
-      await axios.post(`${API}/api/super-admin/crm/leads`, payload, { withCredentials: true });
-      toast.success("Lead creado");
-      setShowLeadDialog(false);
-      resetForm();
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Error creating lead");
-    }
-  };
-
-  const handleUpdateLead = async () => {
-    try {
-      const payload = {
-        ...formData,
-        estimated_value: formData.estimated_value ? parseFloat(formData.estimated_value) : null
-      };
-      await axios.put(`${API}/api/super-admin/crm/leads/${selectedLead.lead_id}`, payload, { withCredentials: true });
-      toast.success("Lead actualizado");
-      setShowLeadDialog(false);
-      resetForm();
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Error updating lead");
-    }
-  };
-
-  const handleDeleteLead = async (leadId) => {
-    if (!window.confirm("¿Eliminar este lead?")) return;
-    try {
-      await axios.delete(`${API}/api/super-admin/crm/leads/${leadId}`, { withCredentials: true });
-      toast.success("Lead eliminado");
-      fetchData();
-    } catch (err) {
-      toast.error("Error deleting lead");
-    }
-  };
-
   const handleViewLead = async (lead) => {
     setSelectedLead(lead);
     try {
       const res = await axios.get(`${API}/api/super-admin/crm/leads/${lead.lead_id}`, { withCredentials: true });
+      setSelectedLead(res.data.lead);
       setLeadLogs(res.data.logs || []);
       setShowDetailDialog(true);
     } catch (err) {
