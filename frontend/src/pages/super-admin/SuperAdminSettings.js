@@ -326,7 +326,7 @@ export default function SuperAdminSettings() {
                     </div>
                     <div>
                       <p className="font-medium">Google Auth</p>
-                      <p className="text-xs text-slate-400">Autenticación social</p>
+                      <p className="text-xs text-muted-foreground">Autenticación social</p>
                     </div>
                   </div>
                   <Badge className="bg-green-500">Conectado</Badge>
