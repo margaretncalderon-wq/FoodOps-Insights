@@ -901,8 +901,23 @@ Auto-generated from Event Order:
     - KPI cards: Monthly Costs, Annual Costs, Item Count
     - Add/Edit/Delete functionality via dialog
     - Real-time totals calculation
+  - **Export Reports:**
+    - CSV export with all costs and totals
+    - PDF export with executive summary, breakdown by category, and professional formatting
   - **Collection:** `platform_expenses` for platform operational costs
-  - Tested and verified: Full CRUD working, UI displaying correctly
+  - Tested and verified: Full CRUD working, UI displaying correctly, exports functional
+
+- [x] **View As Organization Mode** - COMPLETE (Feb 3, 2026):
+  - **Backend Endpoints:**
+    - POST `/api/super-admin/view-as/{org_id}` - Start read-only view-as mode
+    - POST `/api/super-admin/exit-view-as` - Exit view-as mode
+    - GET `/api/super-admin/view-as/status` - Check current view-as status
+  - **Frontend Integration:**
+    - "View As" button on organization detail page
+    - Yellow banner when view-as mode is active showing org name
+    - "Exit" button to return to normal mode
+    - Auto-checks view-as status on Super Admin layout load
+  - Support tool for super admins to troubleshoot tenant issues
 
 ## Future/Backlog
 - [ ] Implement "View as Org" mode for super admin support
