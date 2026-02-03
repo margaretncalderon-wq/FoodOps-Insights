@@ -163,7 +163,7 @@ export default function SuperAdminLayout() {
               onClick={() => navigate("/dashboard")}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Exit Super Admin
+              Salir de Super Admin
             </Button>
           </div>
         </div>
