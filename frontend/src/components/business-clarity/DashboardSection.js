@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
   TrendingUp, TrendingDown, AlertTriangle, Clock, RefreshCw,
-  Wallet, Banknote, Flame, Target, CircleDollarSign, AlertCircle, HelpCircle, Info
+  Wallet, Banknote, Flame, Target, CircleDollarSign, AlertCircle, HelpCircle, Info, Lock, Unlock
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -22,11 +22,19 @@ export function DashboardSection() {
   const [loading, setLoading] = useState(true);
   const [showProfitSignals, setShowProfitSignals] = useState(true);
   const [targetMargin, setTargetMargin] = useState(30);
+  const [periodStatus, setPeriodStatus] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/business-clarity/dashboard?target_margin=${targetMargin}`, { withCredentials: true });
-      setData(res.data);
+      const now = new Date();
+      const [dashRes, periodRes] = await Promise.all([
+        axios.get(`${API}/api/business-clarity/dashboard?target_margin=${targetMargin}`, { withCredentials: true }),
+        axios.get(`${API}/api/business-clarity/period-close/${now.getFullYear()}/${now.getMonth() + 1}`, { withCredentials: true }).catch(() => null)
+      ]);
+      setData(dashRes.data);
+      if (periodRes?.data) {
+        setPeriodStatus(periodRes.data);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -44,9 +52,36 @@ export function DashboardSection() {
   const belowTargetEvents = profitSignals.below_target_count || 0;
   const unassignedCosts = profitSignals.unassigned_costs || 0;
   const cashGap = (profitSignals.paid_to_suppliers || 0) - (profitSignals.collected_from_clients || 0);
+  
+  const currentMonthName = new Date().toLocaleString(isEs ? 'es' : 'en', { month: 'long' });
+  const currentYear = new Date().getFullYear();
+  const isPeriodClosed = periodStatus?.status === "closed";
 
   return (
     <div className="space-y-6">
+      {/* Period Status Banner */}
+      {periodStatus && (
+        <div className={`p-3 rounded-lg border flex items-center justify-between ${isPeriodClosed ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+          <div className="flex items-center gap-3">
+            {isPeriodClosed ? <Lock className="w-5 h-5 text-green-600" /> : <Unlock className="w-5 h-5 text-amber-600" />}
+            <div>
+              <p className={`font-medium ${isPeriodClosed ? "text-green-800" : "text-amber-800"}`}>
+                {currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)} {currentYear} — {isPeriodClosed ? (isEs ? "Cerrado" : "Closed") : (isEs ? "Abierto" : "Open")}
+              </p>
+              <p className={`text-xs ${isPeriodClosed ? "text-green-600" : "text-amber-600"}`}>
+                {isPeriodClosed 
+                  ? (isEs ? `Cerrado el ${new Date(periodStatus.closed_at).toLocaleDateString()}` : `Closed on ${new Date(periodStatus.closed_at).toLocaleDateString()}`)
+                  : (isEs ? "Los datos mostrados son en tiempo real (período abierto)" : "Data shown is live (open period)")
+                }
+              </p>
+            </div>
+          </div>
+          <Badge variant={isPeriodClosed ? "default" : "outline"} className={isPeriodClosed ? "bg-green-600" : ""}>
+            {isPeriodClosed ? <><Lock className="w-3 h-3 mr-1" />{isEs ? "Datos Bloqueados" : "Locked Data"}</> : <>{isEs ? "Datos en Vivo" : "Live Data"}</>}
+          </Badge>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{isEs ? "Panel Ejecutivo" : "Executive Dashboard"}</h2>
         <div className="flex items-center gap-2">
