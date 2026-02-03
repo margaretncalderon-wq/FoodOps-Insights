@@ -12102,11 +12102,11 @@ async def get_period_close_detail(year: int, month: int, user: User = Depends(ge
     # Calculate current inventory value (closing)
     all_inventory = await db.ingredients.find(
         {"company_id": user.company_id},
-        {"_id": 0, "stock_quantity": 1, "unit_cost": 1}
+        {"_id": 0, "stock_quantity": 1, "cost_per_unit": 1}
     ).to_list(1000)
     
     closing_inventory = sum(
-        (i.get("stock_quantity", 0) * i.get("unit_cost", 0)) for i in all_inventory
+        (i.get("stock_quantity", 0) * i.get("cost_per_unit", 0)) for i in all_inventory
     )
     
     # Calculate COGS: Opening + Purchases - Closing
