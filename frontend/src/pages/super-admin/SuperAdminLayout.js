@@ -1,77 +1,78 @@
 import { useState, useEffect, createContext, useContext } from "react";
-import { Outlet, NavLink, Navigate, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
-import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
 import { 
-  Building2, Users, CreditCard, Activity, Shield, LogOut, 
-  ChevronLeft, Eye, X, BarChart3
+  Shield, BarChart3, Users, Building2, Settings, CreditCard,
+  ChevronLeft, LogOut, Eye, X, Loader2, Landmark
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-// Context for view-as mode
-const ViewAsContext = createContext(null);
+// Context for View-As functionality
+export const ViewAsContext = createContext({
+  viewAsStatus: { active: false, org_id: null, org_name: null },
+  setViewAsStatus: () => {},
+  exitViewAs: () => {}
+});
+
 export const useViewAs = () => useContext(ViewAsContext);
 
 export default function SuperAdminLayout() {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const isEs = language === "es";
+  
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-  const [viewAsStatus, setViewAsStatus] = useState({ active: false });
   const [stats, setStats] = useState(null);
+  const [viewAsStatus, setViewAsStatus] = useState({ active: false, org_id: null, org_name: null });
 
   useEffect(() => {
-    checkAuthorization();
+    checkAccess();
   }, []);
 
-  const checkAuthorization = async () => {
+  const checkAccess = async () => {
     try {
-      // Try to access super admin stats - will fail if not authorized
       const res = await axios.get(`${API}/api/super-admin/stats`, { withCredentials: true });
       setStats(res.data);
       setAuthorized(true);
-      
-      // Check view-as status
-      const viewAsRes = await axios.get(`${API}/api/super-admin/view-as/status`, { withCredentials: true });
-      setViewAsStatus(viewAsRes.data);
     } catch (err) {
-      if (err.response?.status === 404 || err.response?.status === 403) {
-        setAuthorized(false);
-      }
+      console.error("Super admin access denied:", err);
+      setAuthorized(false);
     }
     setLoading(false);
   };
 
   const exitViewAs = async () => {
-    try {
-      await axios.post(`${API}/api/super-admin/exit-view-as`, {}, { withCredentials: true });
-      setViewAsStatus({ active: false });
-      toast.success("Exited view-as mode");
-    } catch (err) {
-      toast.error("Failed to exit view-as mode");
-    }
+    setViewAsStatus({ active: false, org_id: null, org_name: null });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!authorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Shield className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-          <h1 className="text-2xl font-bold text-white mb-2">Acceso Denegado</h1>
-          <p className="text-slate-400 mb-4">No tienes permiso para acceder a esta área.</p>
+          <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="text-2xl font-bold mb-2">
+            {isEs ? "Acceso Denegado" : "Access Denied"}
+          </h1>
+          <p className="text-muted-foreground mb-4">
+            {isEs 
+              ? "No tienes permiso para acceder a esta área." 
+              : "You don't have permission to access this area."}
+          </p>
           <Button variant="outline" onClick={() => navigate("/dashboard")}>
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Volver al Dashboard
+            {isEs ? "Volver al Dashboard" : "Return to Dashboard"}
           </Button>
         </div>
       </div>
@@ -79,91 +80,101 @@ export default function SuperAdminLayout() {
   }
 
   const navItems = [
-    { path: "/super-admin", label: "Resumen", icon: BarChart3, end: true },
-    { path: "/super-admin/crm", label: "Pipeline Ventas", icon: Users },
-    { path: "/super-admin/clarity", label: "Business Clarity", icon: CreditCard },
-    { path: "/super-admin/organizations", label: "Organizaciones", icon: Building2 },
-    { path: "/super-admin/settings", label: "Configuración", icon: Activity },
+    { path: "/super-admin", label: isEs ? "Resumen" : "Overview", icon: BarChart3, end: true },
+    { path: "/super-admin/crm", label: isEs ? "Pipeline Ventas" : "Sales Pipeline", icon: Users },
+    { path: "/super-admin/clarity", label: "Business Clarity", icon: Landmark },
+    { path: "/super-admin/organizations", label: isEs ? "Organizaciones" : "Organizations", icon: Building2 },
+    { path: "/super-admin/settings", label: isEs ? "Configuración" : "Settings", icon: Settings },
   ];
 
   return (
     <ViewAsContext.Provider value={{ viewAsStatus, setViewAsStatus, exitViewAs }}>
-      <div className="min-h-screen bg-slate-900 text-white flex">
+      <div className="flex h-[calc(100vh-4rem)]" data-testid="super-admin-layout">
         {/* View-As Banner */}
         {viewAsStatus.active && (
           <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-black px-4 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Eye className="w-5 h-5" />
               <span className="font-medium">
-                Viendo como: <strong>{viewAsStatus.org_name}</strong> (Solo lectura)
+                {isEs ? "Viendo como:" : "Viewing as:"} <strong>{viewAsStatus.org_name}</strong> 
+                ({isEs ? "Solo lectura" : "Read-only"})
               </span>
             </div>
             <Button size="sm" variant="secondary" onClick={exitViewAs}>
               <X className="w-4 h-4 mr-2" />
-              Salir
+              {isEs ? "Salir" : "Exit"}
             </Button>
           </div>
         )}
 
         {/* Sidebar */}
-        <div className={`w-64 bg-slate-800 flex flex-col ${viewAsStatus.active ? "mt-12" : ""}`}>
+        <div className={`w-64 border-r bg-muted/30 p-4 flex flex-col ${viewAsStatus.active ? "mt-12" : ""}`}>
+          {/* Back Link */}
+          <NavLink 
+            to="/dashboard" 
+            className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            {isEs ? "Volver al Dashboard" : "Back to Dashboard"}
+          </NavLink>
+
           {/* Header */}
-          <div className="p-6 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="font-bold text-lg">Super Admin</h1>
-                <p className="text-xs text-slate-400">Gestión de Plataforma</p>
-              </div>
+          <div className="mb-6 px-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="w-6 h-6 text-red-500" />
+              <h2 className="text-xl font-bold">Super Admin</h2>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {isEs ? "Gestión de Plataforma" : "Platform Management"}
+            </p>
           </div>
 
           {/* Stats Quick View */}
           {stats && (
-            <div className="p-4 border-b border-slate-700">
+            <div className="px-3 mb-6">
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-slate-700/50 rounded p-2">
+                <div className="bg-muted rounded-lg p-2">
                   <p className="text-2xl font-bold">{stats.organizations?.total || 0}</p>
-                  <p className="text-xs text-slate-400">Orgs</p>
+                  <p className="text-xs text-muted-foreground">Orgs</p>
                 </div>
-                <div className="bg-slate-700/50 rounded p-2">
+                <div className="bg-muted rounded-lg p-2">
                   <p className="text-2xl font-bold">{stats.total_users || 0}</p>
-                  <p className="text-xs text-slate-400">Users</p>
+                  <p className="text-xs text-muted-foreground">Users</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
-            {navItems.map(item => (
+          <nav className="flex-1 space-y-1">
+            {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 end={item.end}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                    isActive ? "bg-red-600 text-white" : "text-slate-300 hover:bg-slate-700"
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`
                 }
               >
                 <item.icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                {item.label}
               </NavLink>
             ))}
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-700">
+          <div className="pt-4 border-t">
             <Button 
               variant="outline" 
-              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="w-full"
               onClick={() => navigate("/dashboard")}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Salir de Super Admin
+              {isEs ? "Salir de Super Admin" : "Exit Super Admin"}
             </Button>
           </div>
         </div>
