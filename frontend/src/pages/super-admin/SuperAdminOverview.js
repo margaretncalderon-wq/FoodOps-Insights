@@ -32,10 +32,10 @@ export default function SuperAdminOverview() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold">Platform Overview</h1>
-        <p className="text-slate-400">Monitor all organizations and platform metrics</p>
+        <h1 className="text-2xl font-bold">Resumen de Plataforma</h1>
+        <p className="text-slate-400">Monitorea todas las organizaciones y métricas</p>
       </div>
 
       {/* Stats Grid */}
@@ -48,7 +48,7 @@ export default function SuperAdminOverview() {
               </div>
               <div>
                 <p className="text-3xl font-bold">{stats?.organizations?.total || 0}</p>
-                <p className="text-sm text-slate-400">Total Organizations</p>
+                <p className="text-sm text-slate-400">Organizaciones Totales</p>
               </div>
             </div>
           </CardContent>
@@ -62,7 +62,7 @@ export default function SuperAdminOverview() {
               </div>
               <div>
                 <p className="text-3xl font-bold">{stats?.organizations?.active || 0}</p>
-                <p className="text-sm text-slate-400">Active Organizations</p>
+                <p className="text-sm text-slate-400">Organizaciones Activas</p>
               </div>
             </div>
           </CardContent>
@@ -76,7 +76,7 @@ export default function SuperAdminOverview() {
               </div>
               <div>
                 <p className="text-3xl font-bold">{stats?.total_users || 0}</p>
-                <p className="text-sm text-slate-400">Total Users</p>
+                <p className="text-sm text-slate-400">Usuarios Totales</p>
               </div>
             </div>
           </CardContent>
@@ -90,7 +90,7 @@ export default function SuperAdminOverview() {
               </div>
               <div>
                 <p className="text-3xl font-bold">{stats?.events_this_month || 0}</p>
-                <p className="text-sm text-slate-400">Events This Month</p>
+                <p className="text-sm text-slate-400">Eventos Este Mes</p>
               </div>
             </div>
           </CardContent>
@@ -101,52 +101,51 @@ export default function SuperAdminOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5" />
-              Subscriptions by Plan
+              Suscripciones por Plan
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Object.entries(stats?.subscriptions_by_plan || {}).map(([plan, count]) => (
-                <div key={plan} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      plan === "starter" ? "bg-slate-400" :
-                      plan === "professional" ? "bg-amber-400" :
-                      "bg-purple-400"
-                    }`} />
-                    <span className="capitalize">{plan}</span>
-                  </div>
-                  <span className="font-bold">{count}</span>
-                </div>
-              ))}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Starter (Gratis)</span>
+                <span className="text-2xl font-bold">{stats?.subscriptions?.starter || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Professional</span>
+                <span className="text-2xl font-bold text-blue-400">{stats?.subscriptions?.professional || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Enterprise</span>
+                <span className="text-2xl font-bold text-purple-400">{stats?.subscriptions?.enterprise || 0}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Organization Status
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              Estado de Organizaciones
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                  <span>Active</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-slate-300">Activas</span>
                 </div>
-                <span className="font-bold">{stats?.organizations?.active || 0}</span>
+                <span className="text-2xl font-bold text-green-400">{stats?.organizations?.active || 0}</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <span>Suspended</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <span className="text-slate-300">Suspendidas</span>
                 </div>
-                <span className="font-bold">{stats?.organizations?.suspended || 0}</span>
+                <span className="text-2xl font-bold text-red-400">{stats?.organizations?.suspended || 0}</span>
               </div>
             </div>
           </CardContent>
