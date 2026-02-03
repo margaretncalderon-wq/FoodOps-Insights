@@ -920,7 +920,6 @@ Auto-generated from Event Order:
   - Support tool for super admins to troubleshoot tenant issues
 
 ## Future/Backlog
-- [ ] Implement "View as Org" mode for super admin support
 - [ ] Integrations (User requested): Gmail, WhatsApp Business, Google Calendar
 - [ ] Integrations (Settings placeholders): Alegra, QuickBooks
 - [ ] Implement actual automation execution (cron jobs for reminders, alerts)
