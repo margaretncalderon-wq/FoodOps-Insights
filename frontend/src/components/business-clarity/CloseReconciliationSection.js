@@ -33,6 +33,7 @@ export function CloseReconciliationSection() {
   const [exceptions, setExceptions] = useState([]);
   const [eventAllocation, setEventAllocation] = useState(null);
   const [events, setEvents] = useState([]);
+  const [physicalCount, setPhysicalCount] = useState(null);
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -41,13 +42,20 @@ export function CloseReconciliationSection() {
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
   const [showFixModal, setShowFixModal] = useState(false);
+  const [showCountModal, setShowCountModal] = useState(false);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
   
   const [closeNotes, setCloseNotes] = useState("");
   const [reopenReason, setReopenReason] = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
   const [showAllocation, setShowAllocation] = useState(false);
+  const [showPhysicalCount, setShowPhysicalCount] = useState(false);
   const [exceptionFilter, setExceptionFilter] = useState("all");
+  
+  // Physical Count State
+  const [countItems, setCountItems] = useState([]);
+  const [countFilter, setCountFilter] = useState("all");
+  const [countSearch, setCountSearch] = useState("");
   
   // Fix Exception State
   const [selectedExc, setSelectedExc] = useState(null);
