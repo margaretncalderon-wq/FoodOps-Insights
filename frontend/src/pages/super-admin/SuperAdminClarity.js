@@ -124,10 +124,20 @@ export default function SuperAdminClarity() {
     setShowCostDialog(true);
   };
 
-  const handleDeleteCost = (costId) => {
+  const handleDeleteCost = async (costId) => {
     if (!confirm(isEs ? "¿Eliminar este gasto?" : "Delete this cost?")) return;
-    setFixedCosts(fixedCosts.filter(c => c.cost_id !== costId));
-    toast.success(isEs ? "Gasto eliminado" : "Cost deleted");
+    
+    try {
+      await axios.delete(
+        `${API}/api/super-admin/clarity/fixed-costs/${costId}`,
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Gasto eliminado" : "Cost deleted");
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error(err);
+      toast.error(isEs ? "Error al eliminar el gasto" : "Error deleting cost");
+    }
   };
 
   const resetCostForm = () => {
