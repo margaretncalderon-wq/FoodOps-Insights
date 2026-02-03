@@ -157,7 +157,7 @@ export default function CRMPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -179,7 +179,7 @@ export default function CRMPage() {
                 <TrendingUp className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats?.by_source?.inbound || 0}</p>
+                <p className="text-2xl font-bold">{stats?.by_type?.inbound || 0}</p>
                 <p className="text-xs text-slate-400">Inbound</p>
               </div>
             </div>
@@ -193,8 +193,22 @@ export default function CRMPage() {
                 <Phone className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats?.by_source?.outreach || 0}</p>
+                <p className="text-2xl font-bold">{stats?.by_type?.outreach || 0}</p>
                 <p className="text-xs text-slate-400">Outreach</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/20">
+                <TrendingUp className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats?.conversion_rate || 0}%</p>
+                <p className="text-xs text-slate-400">Conversión</p>
               </div>
             </div>
           </CardContent>
