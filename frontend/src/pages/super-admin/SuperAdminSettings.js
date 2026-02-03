@@ -360,7 +360,7 @@ export default function SuperAdminSettings() {
                     </div>
                     <div>
                       <p className="font-medium">SendGrid</p>
-                      <p className="text-xs text-slate-400">Emails transaccionales</p>
+                      <p className="text-xs text-muted-foreground">Emails transaccionales</p>
                     </div>
                   </div>
                   <Badge variant="outline">No conectado</Badge>
