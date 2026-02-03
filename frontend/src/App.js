@@ -34,7 +34,9 @@ import {
   OrganizationDetailPage,
   GlobalAuditPage,
   CRMPage as SuperAdminCRMPage,
-  BIPage
+  BIPage,
+  SuperAdminClarity,
+  SuperAdminSettings
 } from "./pages/super-admin";
 
 import "./App.css";
