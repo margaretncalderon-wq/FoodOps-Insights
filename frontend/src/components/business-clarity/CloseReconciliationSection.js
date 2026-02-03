@@ -308,9 +308,68 @@ export function CloseReconciliationSection() {
   const inventory = periodData?.inventory_valuation || {};
   const cogs = periodData?.cogs_allocation || {};
   const reconciliation = periodData?.reconciliation || {};
+  
+  // Alert conditions
+  const hasBlockers = periodData?.has_blockers;
+  const blockingCount = exceptions.filter(e => e.severity === "block").length;
+  const warningCount = exceptions.filter(e => e.severity === "warning").length;
 
   return (
     <div className="space-y-6">
+      {/* Automatic Alert Banner */}
+      {showAlertBanner && !isClosed && (hasBlockers || isEndOfMonthApproaching()) && (
+        <Card className={hasBlockers ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50"}>
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {hasBlockers ? (
+                  <BellRing className="w-5 h-5 text-red-600 animate-pulse" />
+                ) : (
+                  <Bell className="w-5 h-5 text-amber-600" />
+                )}
+                <div>
+                  <p className={`font-medium ${hasBlockers ? "text-red-800" : "text-amber-800"}`}>
+                    {hasBlockers 
+                      ? (isEs ? "¡Atención! Hay items bloqueantes que requieren acción" : "Attention! There are blocking items that require action")
+                      : (isEs ? "Recordatorio: El fin de mes se acerca" : "Reminder: End of month is approaching")
+                    }
+                  </p>
+                  <p className={`text-sm ${hasBlockers ? "text-red-600" : "text-amber-600"}`}>
+                    {hasBlockers 
+                      ? (isEs 
+                          ? `${blockingCount} bloqueantes, ${warningCount} advertencias pendientes` 
+                          : `${blockingCount} blocking, ${warningCount} warnings pending`)
+                      : (isEs 
+                          ? "Revisa las excepciones pendientes antes de cerrar el período" 
+                          : "Review pending exceptions before closing the period")
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setExceptionFilter("blocking")}
+                  className={hasBlockers ? "border-red-300 text-red-700" : "border-amber-300 text-amber-700"}
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  {isEs ? "Ver Excepciones" : "View Exceptions"}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowAlertBanner(false)}
+                  className="text-muted-foreground"
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
