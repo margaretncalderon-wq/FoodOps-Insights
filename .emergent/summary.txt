@@ -1,87 +1,67 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix a critical bug preventing events with legacy stages from appearing in the CRM pipeline. After resolving this, the project's scope expanded significantly to include a major UI/UX overhaul, the introduction of a Production module, a redesign of the client-facing proposal, and a critical refactor of the inventory system.
+The user's initial goal was to fix bugs and enhance the existing event management application. This has since evolved into building a full-fledged multi-tenant SaaS platform named Evoke OS.
 
-The most recent requests have focused on a complete reorganization of inventory management. This involved separating inventory into Culinary Intelligence (food, packaging) and a new Operations Supplies module (equipment, disposables). It also included debugging and fixing a major flaw in the procurement cost calculation, and implementing a full Delivery Notes (Conduces) system for check-in/check-out of items for events.
+The most recent set of requests focused on building, and then correcting, a Super Admin portal. The user first requested a CRM and Business Intelligence (BI) module within this portal. A critical privacy issue was identified where the CRM exposed all tenants' leads; this was corrected by creating a separate, isolated CRM for the platform's internal sales team. Subsequently, the user requested that the Super Admin portal be made bilingual (English/Spanish), have its UI aligned with the rest of the application, and include a full Business Clarity module (for the platform's own finances) with the ability to add/manage operational expenses.
 
 **PRODUCT REQUIREMENTS:**
-1.  **Inventory & Operations Overhaul:**
-    *   Separate non-food inventory (, , ) into a new Operations Supplies module.
-    *   Refine the  module to only manage  and .
-    *   Implement an Upload by Supplier feature for bulk product entry.
-    *   Track supplier price changes from invoices.
-2.  **Procurement Logic & UI:**
-    *   Fix the procurement cost calculation bug that was generating excessively high ingredient quantities.
-    *   Enhance the Procurement Summary to provide a clear cost-benefit analysis, comparing quoted value vs. expected spend.
-    *   Refine the UI for processing Stock Requisitions (SR) and Purchase Lists (PL), preventing duplicate POs and clarifying the reservation process.
-3.  **Delivery Notes (Conduces) System:**
-    *   Implement a full check-in/check-out system for items taken to events.
-    *   Differentiate between items that return () and those that are consumed ().
-    *   Track lost or damaged equipment and apply a .
-4.  **Event Orchestration:**
-    *   Make the Packing List for an event editable.
-    *   Ensure the Packing List only contains items from Operations Supplies (non-food).
-    *   Link the finalized Packing List to the creation of a Delivery Note.
+1.  **Super Admin Portal Enhancements:**
+    *   **Bilingual Support:** The entire Super Admin interface must support both English and Spanish, using the existing .
+    *   **UI/UX Consistency:** The visual style (colors, spacing, components) of the Super Admin portal must match the main tenant-facing application.
+    *   **Internal Business Clarity Module:** A comprehensive financial dashboard for the Evoke OS platform itself, including an executive dashboard, subscription metrics, payments, and operational costs.
+    *   **Expense Management:** Within the Business Clarity module, provide a mechanism to add, view, and manage the platform's fixed costs and other expenses.
+    *   **Settings & Lead Form:** A settings page within the Super Admin portal that includes a configurable lead form for capturing new platform prospects (potential tenants).
+2.  **SaaS Multi-Tenant System (Core):**
+    *   Data isolation between tenants must be strictly maintained.
+    *   The Super Admin portal must manage platform-level concerns (tenants, subscriptions, internal sales) and NEVER expose data from one tenant to another or to the platform's sales team.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application has undergone a major refactor. A new Operations Supplies module has been successfully created, separating all non-food inventory from the original Culinary Intelligence module. This new module includes a working UI for inventory management, purchasing, and a full-featured Delivery Notes (Conduces) system for tracking items sent to events. The Conduces system correctly handles returning vs. non-returning items and tracks losses based on replacement cost.
-
-A critical bug in the procurement cost calculation has been fixed, and the UI now provides an accurate margin analysis by comparing quoted value vs. expected spend. The user interface for procurement has also been improved to prevent duplicate purchase orders and clarify the inventory reservation workflow.
+The application is a multi-tenant SaaS platform with a React frontend and FastAPI backend. It features organization management, subscription plans (with real Stripe integration), and a Super Admin portal. This portal includes an overview dashboard, organization management, an isolated CRM for the platform's sales pipeline (), and a dedicated Business Clarity module for the platform's own finances. The UI has been refactored for consistency and supports both English and Spanish.
 
 **Last working item**:
-    - Last item agent was working: Fixing the Packing List functionality within the Event Orchestration module. The user was unable to add/modify items, and it was incorrectly showing food items. The goal is to make it an editable list containing only non-food items from Operations Supplies.
+    - Last item agent was working: The agent was refactoring the Super Admin portal to make it bilingual (EN/ES), align its UI with the rest of the app, and add functionality to manage expenses in the new Business Clarity module. The agent overwrote several frontend files (, , ) to implement these changes.
     - Status: IN PROGRESS
     - Agent Testing Done: N
-    - Which testing method agent to use? both. First, use  to test the new backend endpoints ( and  on ). Then, use the  tool to verify the frontend UI in Event Orchestration, ensuring the new editable packing list works as expected.
+    - Which testing method agent to use? Frontend testing. Use the screenshot tool to verify the following:
+        1. Navigate to .
+        2. Confirm the UI style is consistent with the main app.
+        3. Confirm there's a language toggle and that text changes when switching between English and Spanish.
+        4. Confirm the existence of a button or form to Add Expense.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: The Packing List in Event Orchestration is not editable and shows incorrect items. (P0, In Progress)
-  - Issue 2: The Add Item button in the  was causing an error. A fix was attempted but needs to be verified. (P1, User Verification Pending)
-  
-  Issues Detail:
-  - Issue 1: 
-     - Attempted fixes: A new component  was created along with backend endpoints. It was then integrated into .
-     - Next debug checklist: The  component needs to be modified to render the new editor correctly, likely within a tabbed interface, and fetch/save data using the new endpoints.
-     - Why fix this issue and what will be achieved with the fix?: This will allow users to create event-specific lists of operational supplies (tables, chairs, etc.), which is a critical step before creating a Delivery Note (Conduce).
-     - Status:  IN PROGRESS
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix?: both
-     - Blocked on other issue: No
+  - None at the moment.
 
 **In progress Task List**:
-  - Task 1: Finalize and Test Packing List Editor (P0)
-     - Where to resume: Modify  to correctly render the new  component. This involves adding UI elements (like tabs) to switch between viewing generated documents and editing the packing list. Ensure the editor can fetch inventory from Operations Supplies and save changes to the event's packing list via the new backend endpoints.
-     - What will be achieved with this?: Users will have a fully functional, editable Packing List within each event's orchestration page, isolated to non-food items.
+  - Task 1: Complete and verify the Super Admin Expense Management feature. (P0)
+
+ Task Detail:
+  - Task 1: 
+     - Where to resume: The frontend for adding expenses has been created in . However, the backend endpoints to create, read, update, and delete these expenses are missing. The next step is to add these CRUD endpoints to  and connect the frontend to them.
+     - What will be achieved with this?: A fully functional expense management system for the platform's operators within the Super Admin portal.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix?: both
-     - Blocked on something: No
+     - Blocked on something: No.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - **P0: Connect Packing List to Delivery Notes:** Create the workflow where a finalized Packing List from Event Orchestration can be used to pre-populate and generate a new Delivery Note in the Operations Supplies module.
-    - **P1: Fully Test Check-in/Check-out Flow:** Conduct an end-to-end test of the Delivery Notes system: create a note, check-out items, check-in returns, and verify that lost/damaged items correctly calculate a loss value based on .
-    - **P2: Implement Integrations:** Begin implementation of user-prioritized integrations: **Gmail, WhatsApp, and Google Calendar** using the  agent.
-    - **P3: Finalize Invoice Editing:** Implement the  function and corresponding modal/form in  for the existing Edit button.
+    - **P0: User Verification of Super Admin Portal:** Once the expense management feature is complete, ask the user to verify the entire Super Admin section (Bilingual UI, CRM, Business Clarity, and Settings).
+    - **P1: Implement View as Org Mode**: Add the read-only support tool for super admins to view the application as if they were a user in a specific organization.
+    - **P2: Finalize Role-Based Access Control (RBAC)**: A pending task from the original PRD that needs to be implemented.
+    - **P3: Add Client Credit Context UI Warnings**: Verify and complete the implementation of UI warnings when a proposal exceeds a client's credit limit.
 
     Future Tasks:
-    - Implement provider price history tracking from invoices.
-    - Implement editable document templates.
-    - Add PDF/CSV export functionality for reports.
-    - Add client credit context UI warnings.
-    - Finalize Role-Based Access Control (RBAC).
-    - Add functionality to email Purchase Orders directly to suppliers.
+    - Email Purchase Orders to suppliers.
     - Implement multi-currency support.
 
 **Completed work in this session**
-- **Bugfix:** Corrected a critical logic bug in procurement calculation () that caused extremely inflated ingredient quantities and costs.
-- **Feature:** Implemented a new top-level module, **Operations Supplies**, to manage non-food inventory (, ), separating it from .
-- **Feature:** Built a complete **Delivery Notes (Conduces)** system for check-in/check-out of event items, including tracking returning vs. non-returning items and calculating replacement costs for losses.
-- **Feature:** Added an Upload by Supplier feature (Manual & CSV) to the Operations Supplies module.
-- **UI/UX:** Overhauled the  UI, improving button placement, preventing duplicate POs, and enhancing the summary to show a clear margin analysis (Quoted vs. Expected Spend).
-- **Logic:** Modified the Process SR function to only confirm allocation, not deduct inventory, aligning with the new Reserve vs. Deduct model.
-- **Bugfix:** Resolved an error with the Add Item functionality in the Operations Supplies module.
+- **Critical Privacy Fix: Super Admin CRM (DONE):** Refactored the Super Admin CRM from a cross-tenant view (which was a major data leak) to an isolated pipeline for the platform's own sales team, using a separate  collection.
+- **Feature: Real Stripe Integration (DONE):** Replaced stubbed billing endpoints with a full Stripe Checkout integration for plan upgrades, including backend checkout session creation and webhook handling. Verified with the testing agent.
+- **Feature: Super Admin Business Clarity & Settings (DONE):** Created frontend pages and backend endpoints for a BI dashboard and a configurable lead form, both for the platform's internal use.
+- **Refactor: Super Admin UI/UX & I18n (DONE):** Overhauled the entire Super Admin portal to match the main app's design system and integrated the existing  to make it fully bilingual (English/Spanish).
+- **Bug Fix: Super Admin Dashboard (DONE):** Corrected the API logic in  to ensure the dashboard accurately displays the count of active organizations.
+- **Deployment Fix: Health Check Endpoint (DONE):** Added  and  endpoints to  to resolve Kubernetes deployment failures.
 
 **Earlier issues found/mentioned but not fixed**
    - None.
@@ -93,22 +73,16 @@ A critical bug in the procurement cost calculation has been fixed, and the UI no
 
 
 **Key Technical Concepts**
-- **Inventory Separation:** A foundational change splitting inventory into Culinary Intelligence (food-related) and Operations Supplies (non-food equipment/supplies), each with its own management UI.
-- **Delivery Notes (Conduces):** A check-in/check-out system to track items taken to events, handling the lifecycle of both returning (equipment) and consumable (disposable) goods, including loss tracking.
-- **Procurement Cost-Benefit Analysis:** A UI feature that provides immediate financial insight by comparing the quoted price of items for an event against the calculated procurement cost, showing a real-time margin estimate.
+- **Privacy by Design:** A critical architectural decision was made to pivot the Super Admin CRM from a flawed cross-tenant model to a segregated, secure model using a dedicated  collection. This enforces strict data isolation.
+- **I18n (Internationalization):** The existing React  was successfully extended to the Super Admin module, demonstrating a scalable approach to making new features bilingual.
+- **UI/UX Consistency:** A new, complex feature area (Super Admin) was refactored to align with the application's established design system, ensuring a unified user experience.
+- **Stripe Integration:** A full, real-world implementation of Stripe Checkout for SaaS subscriptions was completed, including frontend and backend logic.
+- **Deployment Readiness:** A  endpoint was added to satisfy standard container orchestration (Kubernetes) health probes, a crucial step for production deployment.
 
 **key DB schema**
-- **:**
-  -  (e.g., , , )
-  -  (New; for  type)
-- **:**
-  -  (New; e.g., )
-- **:** (New Collection)
-  - 
-  - 
-  -  ('pending', 'returned')
-  -  ()
-  - 
+- **** (New): . Stores sales leads for the Evoke OS platform itself, ensuring tenant data privacy.
+- **** (New, pending backend): A new collection is needed to support the expense management feature. Schema would be .
+- ****: This collection holds tenant-specific leads. The Super Admin CRM was explicitly refactored *away* from this collection.
 
 **All files of reference**
 - 
@@ -119,46 +93,47 @@ A critical bug in the procurement cost calculation has been fixed, and the UI no
 - 
 
 **Critical Info for New Agent**
--   **Responde en español.** The user exclusively communicates in Spanish.
--   Your immediate priority is to **complete the editable Packing List** feature in the Event Orchestration module. This is a blocker for the next logical step.
--   The next major task is to **link the completed Packing List to the Delivery Notes (Conduces) system**, allowing a packing list to be the source for creating a new delivery note.
--   The user is reviewing work in parallel. Continue with the planned tasks unless new feedback is provided.
+-   **Responde en español.** The user communicates in Spanish, but the UI itself must be bilingual (English and Spanish).
+-   **PRIORIDAD DE PRIVACIDAD:** The Super Admin CRM is **intentionally separate** from tenant data and uses its own  collection. Do not reintegrate it or attempt to show tenant leads in it. This was a critical privacy fix requested by the user.
+-   Your immediate task is to implement the backend for the expense management feature in the Super Admin's Business Clarity module. The frontend UI is already in place.
+-   The super admin user is  with password . Access the portal by logging in and navigating to the  route.
 
 **documents and test reports created in this job**
-- None created in this session.
+-  (Updated)
+-  (Stripe Integration Test Report)
 
 **Last 10 User Messages and any pending HUMAN messages** 
- - **10. User:** Reported that the packing list in Event Orchestration is not editable and shows food items. It should be editable and only contain non-food items. **Status: In Progress.**
- - **9. User:** Approved the delivery note system and requested a fix for the Add Item error. Also specified the check-in/check-out logic for disposable vs. equipment. **Status: Mostly Completed.**
- - **8. User:** Approved the plan to create an Operations Supplies module and provided a structure for it. **Status: Completed.**
- - **7. User:** Requested to move Equipment/Supplies out of Culinary, add reservation alerts, allow product uploads by supplier, and track price changes. **Status: In Progress.**
- - **6. User:** Approved corrected cost calculations and requested UI/logic changes for the Process SR button to mean Confirm Allocation without deducting inventory. **Status: Completed.**
- - **5. User:** Identified that procurement cost calculations were wrong, resulting in absurdly high quantities. **Status: Completed/Fixed.**
- - **4. User:** Asked for clarification on what is included in the quoted total for the cost comparison. **Status: Completed.**
- - **3. User:** Requested adding more event info, correcting the total procurement calculation, and adding a cost comparison alert (quoted vs. spend). **Status: Completed.**
- - **2. User:** Requested moving PO buttons into the Purchase List card and marking them as sent to prevent duplicates. **Status: Completed.**
- - **1. User:** Asked for a screenshot and provided UI improvement feedback for the procurement summary. **Status: Completed.**
+- **10. User:** the super admin should be the same as everything else english and spanish, where do I add expenses in business clarity? and why is the UI so weird put it similar to our general one - **Status: In Progress.** (Agent implemented frontend changes, backend for expenses is pending).
+- **9. User:** Requested to add a lead form in settings and a full Business Clarity module to the super admin, and pointed out mixed languages. - **Status: Completed.**
+- **8. User:** lets fix this problem. for privacy we cant have the crm of all tenants its a leak!..." - **Status: Completed.** (Agent fixed the critical privacy issue).
+- **7. User:** "I dont understand give me the link for the super admin - **Status: Completed.**
+- **6. User:** continue - **Status: Completed.**
+- **5. User:** first show me how I see the super admin - **Status: Completed.**
+- **4. User:** no, you can add a crm the same as the one we have in evoke to the super admin, also add something similar to business intelligence but more summarized only with subscription payments, income and expenses - **Status: Completed.**
+- **3. User:** the crm must also work for our sales team so add incoming leads and outreach. business intelligent with supplier invoices, payments and also do abc - **Status: Completed.**
+- **2. User:** what is the link and how do I access it? - **Status: Completed.**
+- **1. User:** Provided deployment logs with  404 errors and asked for a fix. - **Status: Completed.**
 
 **Project Health Check:**
-- **Broken:** The Packing List editor is not yet functional.
-- **Mocked:** The Maintenance / Loss tab in the Operations Supplies module is still a placeholder.
+- **Broken:** None.
+- **Mocked:** The expense management feature in the Super Admin portal is partially mocked. The frontend UI exists, but the backend CRUD operations to save and manage expenses have not been implemented yet.
 
 **3rd Party Integrations**
-- **Stripe:** For card payments.
+- **Stripe:** Fully integrated for card payments using a test key.
 - **jspdf / jspdf-autotable:** For client-side PDF generation.
 - **Emergent-managed Google Auth:** For user authentication.
 - **@hello-pangea/dnd:** For drag-and-drop functionality.
 - **lucide-react:** For UI icons.
 
 **Testing status**
-  - Testing agent used after significant changes: NO
+  - Testing agent used after significant changes: YES (for Stripe integration)
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
   - Known regressions: None
 
 **Credentials to test flow:**
-- **Email:** 
+- **Email:**  (Super Admin)
 - **Password:** 
 
 **What agent forgot to execute**
-- The agent has not yet implemented the user's request to connect the Packing List to the creation of a Delivery Note. This is a key part of the workflow specified by the user.</analysis>
+- After creating the frontend UI for managing expenses in , the agent did not implement the corresponding backend endpoints in  to handle the creation, reading, updating, and deletion of these expenses. The feature is therefore incomplete.</analysis>
