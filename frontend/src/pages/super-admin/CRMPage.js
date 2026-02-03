@@ -291,37 +291,23 @@ export default function CRMPage() {
                           <Building2 className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="font-medium">{lead.company_name}</p>
-                          <p className="text-sm text-slate-400">{lead.contact_name} • {lead.email}</p>
+                          <p className="font-medium">{lead.lead_name}</p>
+                          <p className="text-sm text-slate-400">
+                            {lead.email} • <span className="text-blue-400">{lead.organization_name}</span>
+                          </p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-3">
-                        {lead.estimated_value && (
-                          <span className="text-green-400 font-medium">${lead.estimated_value}</span>
+                        {lead.budget_range && (
+                          <span className="text-green-400 font-medium">{lead.budget_range}</span>
                         )}
                         <Badge className={STATUS_CONFIG[lead.status]?.color || "bg-slate-500"}>
                           {STATUS_CONFIG[lead.status]?.label || lead.status}
                         </Badge>
                         <Badge variant="outline" className="text-slate-400">
-                          {lead.source === "inbound" ? "Inbound" : "Outreach"}
+                          {lead.lead_type === "inbound" ? "Inbound" : "Outreach"}
                         </Badge>
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); handleEditLead(lead); }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.lead_id); }}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-400" />
-                          </Button>
-                        </div>
                       </div>
                     </div>
                   ))
