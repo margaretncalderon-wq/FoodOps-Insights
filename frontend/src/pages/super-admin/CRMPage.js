@@ -336,6 +336,21 @@ export default function CRMPage() {
             </CardContent>
           </Card>
 
+          {/* Sources */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg">Por Fuente</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {Object.entries(stats?.by_source || {}).map(([source, count]) => (
+                <div key={source} className="flex items-center justify-between">
+                  <span className="text-sm">{source}</span>
+                  <Badge variant="outline">{count}</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           {/* Today's Follow-ups */}
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
