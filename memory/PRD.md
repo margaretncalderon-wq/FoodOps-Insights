@@ -931,6 +931,32 @@ Auto-generated from Event Order:
 
 ## Recently Completed - Period Close System (Phase 3) - Feb 3, 2026
 
+### Layered Navigation with Role-Based Permissions
+- **Finance Ops** (Blue): Invoices, Payments, Statements, AR, AP
+  - Access: Owner, Admin, Finance, Manager, Ops
+- **Management Control** (Amber): Fixed Costs & Budget
+  - Access: Owner, Admin, Finance, Manager
+- **Executive Intelligence** (Purple): Dashboard, Close & Reconciliation, Reports
+  - Access: Owner, Admin, Finance
+
+### Special Permissions
+- Close Period: Finance+
+- Approve Variance: Owner only
+- Reopen Period: Owner only
+
+### Physical Inventory Check (Conteo Físico)
+- **Backend Endpoints:**
+  - GET `/period-close/{year}/{month}/physical-count` - Get count status and items
+  - POST `/period-close/{year}/{month}/physical-count` - Save count items
+  - POST `/period-close/{year}/{month}/physical-count/apply` - Apply adjustments to inventory
+- **UI Features:**
+  - Summary cards: Total Items, Counted, Pending, With Variance, Variance Value
+  - Search and filter (All, Pending, Counted, With Variance)
+  - Inline count input for each inventory item
+  - Real-time variance calculation
+  - "Save Count" and "Apply Adjustments" buttons
+  - Collapsible section with completion percentage badge
+
 ### Enhanced Close Period Modal
 - Complete snapshot summary with:
   - Inventory valuation cards (Opening, Purchases, Closing, COGS)
