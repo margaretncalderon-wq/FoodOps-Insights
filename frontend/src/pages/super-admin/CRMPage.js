@@ -474,6 +474,9 @@ export default function CRMPage() {
                           <Badge variant="outline" className="text-xs">
                             {log.type}
                           </Badge>
+                          {log.created_by_super_admin && (
+                            <Badge className="bg-purple-500 text-xs">Super Admin</Badge>
+                          )}
                           <span className="text-xs text-slate-400">
                             {new Date(log.created_at).toLocaleString()}
                           </span>
