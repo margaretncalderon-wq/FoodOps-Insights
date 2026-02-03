@@ -72,22 +72,44 @@ export default function SuperAdminClarity() {
       return;
     }
     
-    const newCost = {
-      cost_id: editingCost?.cost_id || `cost_${Date.now()}`,
-      ...costForm,
-      amount: parseFloat(costForm.amount)
-    };
-    
-    if (editingCost) {
-      setFixedCosts(fixedCosts.map(c => c.cost_id === editingCost.cost_id ? newCost : c));
-      toast.success(isEs ? "Gasto actualizado" : "Cost updated");
-    } else {
-      setFixedCosts([...fixedCosts, newCost]);
-      toast.success(isEs ? "Gasto agregado" : "Cost added");
+    try {
+      if (editingCost) {
+        // Update existing cost
+        await axios.put(
+          `${API}/api/super-admin/clarity/fixed-costs/${editingCost.cost_id}`,
+          {
+            name: costForm.name,
+            amount: parseFloat(costForm.amount),
+            category: costForm.category,
+            frequency: costForm.frequency,
+            notes: costForm.notes || null
+          },
+          { withCredentials: true }
+        );
+        toast.success(isEs ? "Gasto actualizado" : "Cost updated");
+      } else {
+        // Create new cost
+        await axios.post(
+          `${API}/api/super-admin/clarity/fixed-costs`,
+          {
+            name: costForm.name,
+            amount: parseFloat(costForm.amount),
+            category: costForm.category,
+            frequency: costForm.frequency,
+            notes: costForm.notes || null
+          },
+          { withCredentials: true }
+        );
+        toast.success(isEs ? "Gasto agregado" : "Cost added");
+      }
+      
+      setShowCostDialog(false);
+      resetCostForm();
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error(err);
+      toast.error(isEs ? "Error al guardar el gasto" : "Error saving cost");
     }
-    
-    setShowCostDialog(false);
-    resetCostForm();
   };
 
   const handleEditCost = (cost) => {
