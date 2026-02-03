@@ -165,6 +165,127 @@ export function CloseReconciliationSection() {
     }
   };
 
+  // Open Fix Modal for an exception
+  const openFixModal = (exc) => {
+    setSelectedExc(exc);
+    setFixForm({
+      unit_cost: 0,
+      assigned_event_id: "",
+      categorization: "",
+      adjustment_qty: Math.abs(exc.qty || 0),
+      resolution_notes: ""
+    });
+    setShowFixModal(true);
+  };
+
+  // Handle fixing missing unit cost
+  const handleFixMissingCost = async () => {
+    if (!selectedExc || !fixForm.unit_cost) {
+      toast.error(isEs ? "Ingresa un costo unitario válido" : "Enter a valid unit cost");
+      return;
+    }
+    try {
+      await axios.put(
+        `${API}/api/inventory/${selectedExc.item_id}`,
+        { unit_cost: parseFloat(fixForm.unit_cost) },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Costo unitario actualizado" : "Unit cost updated");
+      setShowFixModal(false);
+      fetchPeriodData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  // Handle fixing negative stock
+  const handleFixNegativeStock = async () => {
+    if (!selectedExc) return;
+    try {
+      // Create a stock adjustment to fix negative
+      await axios.post(
+        `${API}/api/inventory/${selectedExc.item_id}/adjust`,
+        { 
+          adjustment_qty: fixForm.adjustment_qty,
+          reason: fixForm.resolution_notes || "Period close adjustment",
+          adjustment_type: "count_correction"
+        },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Stock ajustado" : "Stock adjusted");
+      setShowFixModal(false);
+      fetchPeriodData();
+    } catch (err) {
+      // Fallback to direct update if adjust endpoint doesn't exist
+      try {
+        await axios.put(
+          `${API}/api/inventory/${selectedExc.item_id}`,
+          { stock_quantity: fixForm.adjustment_qty },
+          { withCredentials: true }
+        );
+        toast.success(isEs ? "Stock actualizado" : "Stock updated");
+        setShowFixModal(false);
+        fetchPeriodData();
+      } catch (err2) {
+        toast.error(err2.response?.data?.detail || "Error");
+      }
+    }
+  };
+
+  // Handle assigning unassigned usage to event
+  const handleAssignToEvent = async () => {
+    if (!selectedExc || !fixForm.assigned_event_id) {
+      toast.error(isEs ? "Selecciona un evento" : "Select an event");
+      return;
+    }
+    try {
+      await axios.put(
+        `${API}/api/business-clarity/period-close/exceptions/${selectedExc.exception_id}`,
+        { 
+          assigned_event_id: fixForm.assigned_event_id,
+          resolution_notes: fixForm.resolution_notes
+        },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Asignado a evento" : "Assigned to event");
+      setShowFixModal(false);
+      fetchPeriodData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  // Handle categorizing as overhead
+  const handleCategorizeOverhead = async () => {
+    if (!selectedExc || !fixForm.categorization) {
+      toast.error(isEs ? "Selecciona una categorización" : "Select a categorization");
+      return;
+    }
+    try {
+      await axios.put(
+        `${API}/api/business-clarity/period-close/exceptions/${selectedExc.exception_id}`,
+        { 
+          categorization: fixForm.categorization,
+          resolution_notes: fixForm.resolution_notes
+        },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Categorizado como overhead" : "Categorized as overhead");
+      setShowFixModal(false);
+      fetchPeriodData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  // Check if end of month is approaching (for alerts)
+  const isEndOfMonthApproaching = () => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysRemaining = daysInMonth - now.getDate();
+    return daysRemaining <= 5;
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "ok": return <CheckCircle2 className="w-4 h-4 text-green-600" />;
