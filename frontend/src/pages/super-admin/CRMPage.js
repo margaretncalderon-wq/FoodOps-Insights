@@ -126,13 +126,14 @@ export default function CRMPage() {
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = !searchQuery || 
+      lead.lead_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.organization_name?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesTab = activeTab === "all" || 
-      (activeTab === "inbound" && lead.source === "inbound") ||
-      (activeTab === "outreach" && lead.source === "outreach");
+      (activeTab === "inbound" && lead.lead_type === "inbound") ||
+      (activeTab === "outreach" && lead.lead_type === "outreach");
     
     return matchesSearch && matchesTab;
   });
