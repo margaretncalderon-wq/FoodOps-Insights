@@ -15087,6 +15087,99 @@ async def get_bi_revenue_trend(months: int = 6, admin: User = Depends(get_super_
     
     return {"trends": trends}
 
+# ============== SUPER ADMIN: PLATFORM FIXED COSTS (Expense Management) ==============
+
+class PlatformFixedCostCreate(BaseModel):
+    """Platform operational expense"""
+    name: str
+    amount: float
+    category: str = "infrastructure"  # infrastructure, payments, marketing, personnel, other
+    frequency: str = "monthly"  # monthly, yearly
+    notes: Optional[str] = None
+
+class PlatformFixedCostUpdate(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    category: Optional[str] = None
+    frequency: Optional[str] = None
+    notes: Optional[str] = None
+
+@super_admin_router.get("/clarity/fixed-costs")
+async def get_platform_fixed_costs(admin: User = Depends(get_super_admin)):
+    """Get all platform fixed costs/expenses"""
+    costs = await db.platform_expenses.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Calculate totals
+    monthly_total = sum(
+        c["amount"] if c.get("frequency") == "monthly" else c["amount"] / 12 
+        for c in costs
+    )
+    yearly_total = sum(
+        c["amount"] * 12 if c.get("frequency") == "monthly" else c["amount"] 
+        for c in costs
+    )
+    
+    # By category
+    by_category = {}
+    for cost in costs:
+        cat = cost.get("category", "other")
+        monthly_amt = cost["amount"] if cost.get("frequency") == "monthly" else cost["amount"] / 12
+        by_category[cat] = by_category.get(cat, 0) + monthly_amt
+    
+    return {
+        "costs": costs,
+        "summary": {
+            "total_monthly": round(monthly_total, 2),
+            "total_yearly": round(yearly_total, 2),
+            "count": len(costs),
+            "by_category": {k: round(v, 2) for k, v in by_category.items()}
+        }
+    }
+
+@super_admin_router.post("/clarity/fixed-costs")
+async def create_platform_fixed_cost(data: PlatformFixedCostCreate, admin: User = Depends(get_super_admin)):
+    """Create a new platform fixed cost/expense"""
+    now = datetime.now(timezone.utc)
+    cost = {
+        "cost_id": f"pcost_{uuid.uuid4().hex[:12]}",
+        "name": data.name,
+        "amount": data.amount,
+        "category": data.category,
+        "frequency": data.frequency,
+        "notes": data.notes,
+        "created_by": admin.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.platform_expenses.insert_one(cost)
+    del cost["_id"]
+    return cost
+
+@super_admin_router.put("/clarity/fixed-costs/{cost_id}")
+async def update_platform_fixed_cost(cost_id: str, data: PlatformFixedCostUpdate, admin: User = Depends(get_super_admin)):
+    """Update a platform fixed cost"""
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.platform_expenses.update_one(
+        {"cost_id": cost_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Cost not found")
+    
+    updated = await db.platform_expenses.find_one({"cost_id": cost_id}, {"_id": 0})
+    return updated
+
+@super_admin_router.delete("/clarity/fixed-costs/{cost_id}")
+async def delete_platform_fixed_cost(cost_id: str, admin: User = Depends(get_super_admin)):
+    """Delete a platform fixed cost"""
+    result = await db.platform_expenses.delete_one({"cost_id": cost_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Cost not found")
+    return {"success": True, "deleted": cost_id}
+
 # Include super_admin_router
 api_router.include_router(super_admin_router)
 
