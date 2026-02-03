@@ -823,9 +823,9 @@ export function CloseReconciliationSection() {
         </CardContent>
       </Card>
 
-      {/* Close Period Modal */}
+      {/* Close Period Modal - Enhanced */}
       <Dialog open={showCloseModal} onOpenChange={setShowCloseModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Lock className="w-5 h-5" />
@@ -837,25 +837,109 @@ export function CloseReconciliationSection() {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-              <div>
-                <p className="text-xs text-muted-foreground">{isEs ? "Inventario Final" : "Closing Inventory"}</p>
-                <p className="font-bold">{formatCurrency(inventory.closing_value)}</p>
+            {/* Snapshot Summary Header */}
+            <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                {isEs ? "Resumen del Período a Cerrar" : "Period Close Summary"}
+              </h4>
+              
+              {/* Inventory & COGS */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="text-center p-2 bg-white rounded border">
+                  <p className="text-[10px] text-muted-foreground uppercase">{isEs ? "Inv. Inicial" : "Opening Inv"}</p>
+                  <p className="font-bold text-sm">{formatCurrency(inventory.opening_value)}</p>
+                </div>
+                <div className="text-center p-2 bg-white rounded border">
+                  <p className="text-[10px] text-muted-foreground uppercase">{isEs ? "Compras" : "Purchases"}</p>
+                  <p className="font-bold text-sm text-blue-600">{formatCurrency(inventory.purchases_received)}</p>
+                </div>
+                <div className="text-center p-2 bg-white rounded border">
+                  <p className="text-[10px] text-muted-foreground uppercase">{isEs ? "Inv. Final" : "Closing Inv"}</p>
+                  <p className="font-bold text-sm text-emerald-600">{formatCurrency(inventory.closing_value)}</p>
+                </div>
+                <div className="text-center p-2 bg-white rounded border">
+                  <p className="text-[10px] text-muted-foreground uppercase">COGS</p>
+                  <p className="font-bold text-sm text-purple-600">{formatCurrency(inventory.cogs_calculated)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{isEs ? "COGS Total" : "Total COGS"}</p>
-                <p className="font-bold">{formatCurrency(inventory.cogs_calculated)}</p>
+
+              {/* COGS Split */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="p-2 bg-green-50 rounded border border-green-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-green-700">{isEs ? "COGS Eventos" : "Event COGS"}</span>
+                    <span className="font-bold text-green-700">{formatCurrency(cogs.event_cogs)}</span>
+                  </div>
+                </div>
+                <div className="p-2 bg-amber-50 rounded border border-amber-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-amber-700">{isEs ? "COGS Overhead" : "Overhead COGS"}</span>
+                    <span className="font-bold text-amber-700">{formatCurrency(cogs.overhead_cogs)}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{isEs ? "COGS Eventos" : "Event COGS"}</p>
-                <p className="font-bold text-green-600">{formatCurrency(cogs.event_cogs)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{isEs ? "COGS Overhead" : "Overhead COGS"}</p>
-                <p className="font-bold text-amber-600">{formatCurrency(cogs.overhead_cogs)}</p>
-              </div>
+
+              {/* AR Aging */}
+              {periodData?.ar_aging && (
+                <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-xs font-medium text-blue-800 mb-2">{isEs ? "Cuentas por Cobrar (AR)" : "Accounts Receivable (AR)"}</p>
+                  <div className="grid grid-cols-5 gap-2 text-center">
+                    <div>
+                      <p className="text-[10px] text-blue-600">{isEs ? "Corriente" : "Current"}</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.ar_aging.current)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-blue-600">1-30</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.ar_aging["1_30"])}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-amber-600">31-60</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.ar_aging["31_60"])}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-orange-600">61-90</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.ar_aging["61_90"])}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-red-600">90+</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.ar_aging["90_plus"])}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-blue-200 flex justify-between">
+                    <span className="text-xs text-blue-800">{isEs ? "Total AR" : "Total AR"}</span>
+                    <span className="text-xs font-bold text-blue-800">{formatCurrency(periodData.ar_aging.total)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Cash Snapshot if exists */}
+              {periodData?.cash_snapshot && (
+                <div className="p-3 bg-emerald-50 rounded border border-emerald-200 mt-3">
+                  <p className="text-xs font-medium text-emerald-800 mb-2">{isEs ? "Snapshot de Caja" : "Cash Snapshot"}</p>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <p className="text-[10px] text-emerald-600">{isEs ? "Inicial" : "Opening"}</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.cash_snapshot.opening_cash)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-green-600">{isEs ? "Entradas" : "In"}</p>
+                      <p className="text-xs font-bold text-green-600">{formatCurrency(periodData.cash_snapshot.cash_in)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-red-600">{isEs ? "Salidas" : "Out"}</p>
+                      <p className="text-xs font-bold text-red-600">{formatCurrency(periodData.cash_snapshot.cash_out)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-emerald-600">{isEs ? "Final" : "Closing"}</p>
+                      <p className="text-xs font-bold">{formatCurrency(periodData.cash_snapshot.closing_cash)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Reconciliation Status */}
             {reconciliation.status !== "balanced" && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -864,27 +948,51 @@ export function CloseReconciliationSection() {
                     {isEs ? `Brecha de reconciliación: ${formatCurrency(reconciliation.gap_amount)}` : `Reconciliation gap: ${formatCurrency(reconciliation.gap_amount)}`}
                   </span>
                 </div>
+                <p className="text-xs text-amber-600 mt-1">
+                  {isEs ? "Esta brecha se registrará en el snapshot del cierre." : "This gap will be recorded in the close snapshot."}
+                </p>
               </div>
             )}
 
+            {/* Warnings Summary */}
+            {warningCount > 0 && (
+              <div className="p-3 bg-slate-50 border rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  {isEs 
+                    ? `Hay ${warningCount} advertencias pendientes. Puedes cerrar el período pero se recomienda revisarlas.`
+                    : `There are ${warningCount} pending warnings. You can close the period but it's recommended to review them.`
+                  }
+                </p>
+              </div>
+            )}
+
+            {/* Close Notes */}
             <div>
               <Label>{isEs ? "Notas de Cierre" : "Close Notes"}</Label>
               <Textarea
                 value={closeNotes}
                 onChange={(e) => setCloseNotes(e.target.value)}
                 placeholder={isEs ? "Notas opcionales sobre el cierre..." : "Optional notes about the close..."}
+                className="h-20"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="confirm"
-                checked={confirmClose}
-                onCheckedChange={setConfirmClose}
-              />
-              <Label htmlFor="confirm" className="text-sm">
-                {isEs ? "Confirmo que estoy listo para cerrar y bloquear este período" : "I confirm I'm ready to close and lock this period"}
-              </Label>
+            {/* Confirmation */}
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="confirm"
+                  checked={confirmClose}
+                  onCheckedChange={setConfirmClose}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="confirm" className="text-sm leading-tight">
+                  {isEs 
+                    ? "Confirmo que he revisado los números y estoy listo para cerrar y bloquear este período. Una vez cerrado, los datos de inventario y COGS quedarán fijos."
+                    : "I confirm I have reviewed the numbers and I'm ready to close and lock this period. Once closed, inventory and COGS data will be locked."
+                  }
+                </Label>
+              </div>
             </div>
           </div>
 
