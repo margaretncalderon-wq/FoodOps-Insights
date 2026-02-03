@@ -15,20 +15,19 @@ import {
 import { Textarea } from "../../components/ui/textarea";
 import { Label } from "../../components/ui/label";
 import {
-  Users, UserPlus, Phone, Mail, Building2, Search, Plus,
-  Calendar, Clock, ArrowRight, Edit, Trash2, MessageSquare,
-  TrendingUp, AlertCircle, CheckCircle2, XCircle, Loader2
+  Users, Phone, Mail, Building2, Search, 
+  Calendar, Clock, MessageSquare,
+  TrendingUp, AlertCircle, Loader2
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Uses unified Lead model status values
 const STATUS_CONFIG = {
-  new: { label: "Nuevo", color: "bg-blue-500" },
-  contacted: { label: "Contactado", color: "bg-yellow-500" },
-  qualified: { label: "Calificado", color: "bg-purple-500" },
-  proposal: { label: "Propuesta", color: "bg-orange-500" },
-  won: { label: "Ganado", color: "bg-green-500" },
-  lost: { label: "Perdido", color: "bg-red-500" }
+  New: { label: "Nuevo", color: "bg-blue-500" },
+  Contacted: { label: "Contactado", color: "bg-yellow-500" },
+  Converted: { label: "Convertido", color: "bg-green-500" },
+  Discarded: { label: "Descartado", color: "bg-red-500" }
 };
 
 export default function CRMPage() {
