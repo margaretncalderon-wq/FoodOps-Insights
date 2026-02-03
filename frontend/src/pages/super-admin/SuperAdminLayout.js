@@ -79,11 +79,11 @@ export default function SuperAdminLayout() {
   }
 
   const navItems = [
-    { path: "/super-admin", label: "Overview", icon: BarChart3, end: true },
-    { path: "/super-admin/crm", label: "CRM", icon: Users },
-    { path: "/super-admin/bi", label: "Business Intelligence", icon: CreditCard },
-    { path: "/super-admin/organizations", label: "Organizations", icon: Building2 },
-    { path: "/super-admin/audit", label: "Audit Log", icon: Activity },
+    { path: "/super-admin", label: "Resumen", icon: BarChart3, end: true },
+    { path: "/super-admin/crm", label: "Pipeline Ventas", icon: Users },
+    { path: "/super-admin/clarity", label: "Business Clarity", icon: CreditCard },
+    { path: "/super-admin/organizations", label: "Organizaciones", icon: Building2 },
+    { path: "/super-admin/settings", label: "Configuración", icon: Activity },
   ];
 
   return (
@@ -95,12 +95,12 @@ export default function SuperAdminLayout() {
             <div className="flex items-center gap-2">
               <Eye className="w-5 h-5" />
               <span className="font-medium">
-                Viewing as: <strong>{viewAsStatus.org_name}</strong> (Read-only)
+                Viendo como: <strong>{viewAsStatus.org_name}</strong> (Solo lectura)
               </span>
             </div>
             <Button size="sm" variant="secondary" onClick={exitViewAs}>
               <X className="w-4 h-4 mr-2" />
-              Exit View-As
+              Salir
             </Button>
           </div>
         )}
@@ -115,7 +115,7 @@ export default function SuperAdminLayout() {
               </div>
               <div>
                 <h1 className="font-bold text-lg">Super Admin</h1>
-                <p className="text-xs text-slate-400">Platform Management</p>
+                <p className="text-xs text-slate-400">Gestión de Plataforma</p>
               </div>
             </div>
           </div>
