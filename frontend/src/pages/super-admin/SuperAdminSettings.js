@@ -212,9 +212,9 @@ export default function SuperAdminSettings() {
                   <CardTitle>Vista Previa</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-white rounded-lg p-6 text-slate-900">
+                  <div className="bg-card rounded-lg p-6 border">
                     <h2 className="text-xl font-bold mb-2">{leadFormConfig.title}</h2>
-                    <p className="text-slate-600 text-sm mb-6">{leadFormConfig.subtitle}</p>
+                    <p className="text-muted-foreground text-sm mb-6">{leadFormConfig.subtitle}</p>
                     
                     <div className="space-y-4">
                       {leadFormConfig.fields.company_name && (
