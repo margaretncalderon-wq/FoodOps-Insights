@@ -38,6 +38,7 @@ import UsersSettingsSection from "../components/settings/UsersSettingsSection";
 import RolesSettingsSection from "../components/settings/RolesSettingsSection";
 import AutomationsSettingsSection from "../components/settings/AutomationsSettingsSection";
 import IntegrationsSettingsSection from "../components/settings/IntegrationsSettingsSection";
+import ImportExportSection from "../components/settings/ImportExportSection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
