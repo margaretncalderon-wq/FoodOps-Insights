@@ -2232,6 +2232,17 @@ class CampaignAccessCreate(BaseModel):
     user_id: str
     access_level: str = "view"  # view, edit, admin
 
+# ============== NOTIFICATION MODEL ==============
+
+class NotificationCreate(BaseModel):
+    """Create a notification"""
+    user_id: str
+    notification_type: str  # campaign_access, campaign_removed, system, etc.
+    title: str
+    message: str
+    link: Optional[str] = None
+    metadata: Optional[dict] = None
+
 # ============== AUTH HELPERS ==============
 
 def hash_password(password: str) -> str:
