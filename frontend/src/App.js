@@ -32,6 +32,12 @@ import ImportExportPage from "./pages/ImportExportPage";
 import OnboardingPage from "./pages/onboarding/OnboardingPage";
 import DemandStudioPage from "./pages/demand-studio/DemandStudioPage";
 import DemandStudioOverview from "./pages/demand-studio/DemandStudioOverview";
+import CampaignsPage from "./pages/demand-studio/CampaignsPage";
+import ActivationsPage from "./pages/demand-studio/ActivationsPage";
+import EmailMarketingPage from "./pages/demand-studio/EmailMarketingPage";
+import SpendLedgerPage from "./pages/demand-studio/SpendLedgerPage";
+import InsightsPage from "./pages/demand-studio/InsightsPage";
+import DemandStudioSettings from "./pages/demand-studio/DemandStudioSettings";
 import {
   SuperAdminLayout,
   SuperAdminOverview,
