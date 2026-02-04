@@ -104,8 +104,13 @@ export const Layout = ({ children }) => {
           })}
         </nav>
 
-        {/* User Section */}
+        {/* Notifications & User Section */}
         <div className="p-4 border-t border-white/10">
+          {/* Notification Bell */}
+          <div className="flex justify-end mb-3">
+            <NotificationBell />
+          </div>
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors">
