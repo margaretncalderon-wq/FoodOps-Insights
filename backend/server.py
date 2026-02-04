@@ -2340,8 +2340,8 @@ async def google_callback(request: Request, response: Response):
             "created_at": now.isoformat()
         })
     
-    # Create session
-    session_token = secrets.token_urlsafe(32)
+    # Create session - using uuid for token generation
+    session_token = f"sess_{uuid.uuid4().hex}{uuid.uuid4().hex[:16]}"
     await db.user_sessions.insert_one({
         "session_token": session_token,
         "user_id": user_id,
