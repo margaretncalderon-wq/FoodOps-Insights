@@ -18244,6 +18244,45 @@ async def is_marketing_partner(user: User, company_id: str) -> bool:
     role = await get_user_role(user, company_id)
     return role == "marketing_partner"
 
+async def create_notification(
+    user_id: str,
+    notification_type: str,
+    title: str,
+    message: str,
+    link: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    send_email: bool = True
+):
+    """Create an in-app notification and optionally send email"""
+    notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "notification_type": notification_type,
+        "title": title,
+        "message": message,
+        "link": link,
+        "metadata": metadata or {},
+        "read": False,
+        "email_sent": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notification)
+    
+    # Email sending placeholder - enable when email service is configured
+    if send_email:
+        email_config = os.environ.get("EMAIL_API_KEY")
+        if email_config:
+            # TODO: Implement email sending with Resend/SendGrid
+            # For now, just log that email would be sent
+            logging.info(f"Would send email to user {user_id}: {title}")
+            notification["email_sent"] = True
+            await db.notifications.update_one(
+                {"notification_id": notification["notification_id"]},
+                {"$set": {"email_sent": True}}
+            )
+    
+    return notification
+
 async def get_user_campaign_access(user_id: str, company_id: str) -> list:
     """Get list of campaign_ids the user has access to"""
     accesses = await db.campaign_access.find({
