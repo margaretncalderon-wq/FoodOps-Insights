@@ -2574,7 +2574,7 @@ async def google_callback(request: Request, response: Response):
     """Handle Google OAuth callback"""
     body = await request.json()
     code = body.get("code")
-    redirect_uri = body.get("redirect_uri", "https://ourkora.com/auth/google/callback")
+    redirect_uri = body.get("redirect_uri", f"{FRONTEND_URL}/auth/google/callback")
     
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code required")
