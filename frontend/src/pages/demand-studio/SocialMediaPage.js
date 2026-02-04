@@ -847,7 +847,7 @@ export default function SocialMediaPage() {
             <div>
               <label className="text-sm font-medium">{isEs ? "Título" : "Title"} *</label>
               <Input
-                value postForm.title}
+                value={postForm.title}
                 onChange={e => setPostForm({...postForm, title: e.target.value})}
                 placeholder={isEs ? "Título del post" : "Post title"}
               />
