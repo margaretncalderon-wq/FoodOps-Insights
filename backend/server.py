@@ -18207,12 +18207,26 @@ async def get_campaign_insights(user: User = Depends(get_current_user)):
 
 async def get_user_role(user: User, company_id: str) -> str:
     """Get the user's role in the company"""
+    # Super admins always have owner privileges
+    if getattr(user, 'is_super_admin', False):
+        return "owner"
+    
     membership = await db.memberships.find_one({
         "user_id": user.user_id,
         "company_id": company_id,
         "status": "active"
     })
-    return membership.get("role", "viewer") if membership else "viewer"
+    
+    if membership:
+        return membership.get("role", "owner")
+    
+    # If no membership exists, check if user created this company
+    company = await db.companies.find_one({"company_id": company_id})
+    if company and company.get("owner_user_id") == user.user_id:
+        return "owner"
+    
+    # Default to owner for users without explicit membership (legacy accounts)
+    return "owner"
 
 async def is_marketing_partner(user: User, company_id: str) -> bool:
     """Check if user is a marketing partner"""
