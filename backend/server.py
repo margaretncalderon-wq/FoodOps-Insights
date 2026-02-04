@@ -18650,6 +18650,540 @@ async def mark_all_notifications_read(user: User = Depends(get_current_user)):
     )
     return {"success": True}
 
+# ============== SOCIAL MEDIA ENDPOINTS ==============
+
+# ---- Social Accounts CRUD ----
+
+@demand_studio_router.get("/social/accounts")
+async def get_social_accounts(user: User = Depends(get_current_user)):
+    """Get all social media accounts"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    accounts = await db.social_accounts.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(100)
+    return accounts
+
+@demand_studio_router.post("/social/accounts")
+async def create_social_account(data: SocialAccountCreate, user: User = Depends(get_current_user)):
+    """Create a social media account"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    account = {
+        "account_id": f"social_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "platform": data.platform,
+        "handle": data.handle,
+        "status": data.status,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.social_accounts.insert_one(account)
+    del account["_id"]
+    return account
+
+@demand_studio_router.put("/social/accounts/{account_id}")
+async def update_social_account(account_id: str, data: SocialAccountCreate, user: User = Depends(get_current_user)):
+    """Update a social account"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.social_accounts.update_one(
+        {"account_id": account_id, "company_id": company_id},
+        {"$set": {
+            "platform": data.platform,
+            "handle": data.handle,
+            "status": data.status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return await db.social_accounts.find_one({"account_id": account_id}, {"_id": 0})
+
+@demand_studio_router.delete("/social/accounts/{account_id}")
+async def delete_social_account(account_id: str, user: User = Depends(get_current_user)):
+    """Delete a social account"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.social_accounts.delete_one(
+        {"account_id": account_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {"success": True}
+
+# ---- Content Pillars CRUD ----
+
+@demand_studio_router.get("/social/pillars")
+async def get_content_pillars(user: User = Depends(get_current_user)):
+    """Get all content pillars"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    pillars = await db.content_pillars.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(100)
+    return pillars
+
+@demand_studio_router.post("/social/pillars")
+async def create_content_pillar(data: ContentPillarCreate, user: User = Depends(get_current_user)):
+    """Create a content pillar"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    pillar = {
+        "pillar_id": f"pillar_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.name,
+        "description": data.description,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.content_pillars.insert_one(pillar)
+    del pillar["_id"]
+    return pillar
+
+@demand_studio_router.delete("/social/pillars/{pillar_id}")
+async def delete_content_pillar(pillar_id: str, user: User = Depends(get_current_user)):
+    """Delete a content pillar"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.content_pillars.delete_one(
+        {"pillar_id": pillar_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Pillar not found")
+    return {"success": True}
+
+# ---- Social Posts CRUD ----
+
+@demand_studio_router.get("/social/posts")
+async def get_social_posts(
+    account_id: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    pillar_id: Optional[str] = None,
+    status: Optional[str] = None,
+    format: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get social posts with filters"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    query = {"company_id": company_id}
+    if account_id:
+        query["social_account_id"] = account_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if pillar_id:
+        query["pillar_id"] = pillar_id
+    if status:
+        query["status"] = status
+    if format:
+        query["format"] = format
+    
+    # Check if marketing partner - filter by accessible campaigns
+    role = await get_user_role(user, company_id)
+    if role == "marketing_partner":
+        accessible_campaigns = await get_user_campaign_access(user.user_id, company_id)
+        query["$or"] = [
+            {"campaign_id": {"$in": accessible_campaigns}},
+            {"campaign_id": None, "created_by_user_id": user.user_id}
+        ]
+    
+    posts = await db.social_posts.find(query, {"_id": 0}).sort("scheduled_at", -1).to_list(500)
+    return posts
+
+@demand_studio_router.post("/social/posts")
+async def create_social_post(data: SocialPostCreate, user: User = Depends(get_current_user)):
+    """Create a social post"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Check campaign access for marketing partners
+    role = await get_user_role(user, company_id)
+    if role == "marketing_partner" and data.campaign_id:
+        has_access = await can_access_campaign(user, company_id, data.campaign_id)
+        if not has_access:
+            raise HTTPException(status_code=403, detail="No access to this campaign")
+    
+    now = datetime.now(timezone.utc)
+    post = {
+        "post_id": f"post_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "social_account_id": data.social_account_id,
+        "campaign_id": data.campaign_id,
+        "pillar_id": data.pillar_id,
+        "format": data.format,
+        "status": data.status,
+        "title": data.title,
+        "caption": data.caption,
+        "hook": data.hook,
+        "cta": data.cta,
+        "scheduled_at": data.scheduled_at,
+        "posted_at": None,
+        "link_url": data.link_url,
+        "notes": data.notes,
+        "created_by_user_id": user.user_id,
+        "owner_user_id": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.social_posts.insert_one(post)
+    del post["_id"]
+    return post
+
+@demand_studio_router.get("/social/posts/{post_id}")
+async def get_social_post(post_id: str, user: User = Depends(get_current_user)):
+    """Get a single social post"""
+    company_id = user.company_id or user.active_org_id
+    post = await db.social_posts.find_one(
+        {"post_id": post_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Enrich with account and campaign info
+    if post.get("social_account_id"):
+        account = await db.social_accounts.find_one({"account_id": post["social_account_id"]}, {"_id": 0})
+        post["account"] = account
+    if post.get("campaign_id"):
+        campaign = await db.marketing_campaigns.find_one({"campaign_id": post["campaign_id"]}, {"_id": 0, "campaign_id": 1, "name": 1})
+        post["campaign"] = campaign
+    if post.get("pillar_id"):
+        pillar = await db.content_pillars.find_one({"pillar_id": post["pillar_id"]}, {"_id": 0})
+        post["pillar"] = pillar
+    
+    # Get linked assets
+    asset_links = await db.social_post_assets.find({"post_id": post_id}, {"_id": 0}).to_list(50)
+    asset_ids = [l["asset_id"] for l in asset_links]
+    if asset_ids:
+        assets = await db.campaign_assets.find({"asset_id": {"$in": asset_ids}}, {"_id": 0}).to_list(50)
+        post["assets"] = assets
+    else:
+        post["assets"] = []
+    
+    # Get linked spend
+    spend_links = await db.social_post_spend.find({"post_id": post_id}, {"_id": 0}).to_list(50)
+    spend_ids = [l["spend_id"] for l in spend_links]
+    if spend_ids:
+        spend = await db.campaign_spend.find({"spend_id": {"$in": spend_ids}}, {"_id": 0}).to_list(50)
+        post["spend"] = spend
+    else:
+        post["spend"] = []
+    
+    return post
+
+@demand_studio_router.put("/social/posts/{post_id}")
+async def update_social_post(post_id: str, data: SocialPostCreate, user: User = Depends(get_current_user)):
+    """Update a social post"""
+    company_id = user.company_id or user.active_org_id
+    
+    update_data = {
+        "social_account_id": data.social_account_id,
+        "campaign_id": data.campaign_id,
+        "pillar_id": data.pillar_id,
+        "format": data.format,
+        "status": data.status,
+        "title": data.title,
+        "caption": data.caption,
+        "hook": data.hook,
+        "cta": data.cta,
+        "scheduled_at": data.scheduled_at,
+        "link_url": data.link_url,
+        "notes": data.notes,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    result = await db.social_posts.update_one(
+        {"post_id": post_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
+
+@demand_studio_router.post("/social/posts/{post_id}/mark-posted")
+async def mark_post_as_posted(post_id: str, user: User = Depends(get_current_user)):
+    """Mark a post as posted"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.social_posts.update_one(
+        {"post_id": post_id, "company_id": company_id},
+        {"$set": {
+            "status": "posted",
+            "posted_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
+
+@demand_studio_router.post("/social/posts/{post_id}/duplicate")
+async def duplicate_social_post(post_id: str, user: User = Depends(get_current_user)):
+    """Duplicate a social post"""
+    company_id = user.company_id or user.active_org_id
+    
+    original = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not original:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    now = datetime.now(timezone.utc)
+    new_post = {
+        "post_id": f"post_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "social_account_id": original["social_account_id"],
+        "campaign_id": original.get("campaign_id"),
+        "pillar_id": original.get("pillar_id"),
+        "format": original["format"],
+        "status": "idea",
+        "title": f"{original['title']} (copy)",
+        "caption": original.get("caption"),
+        "hook": original.get("hook"),
+        "cta": original.get("cta"),
+        "scheduled_at": None,
+        "posted_at": None,
+        "link_url": original.get("link_url"),
+        "notes": original.get("notes"),
+        "created_by_user_id": user.user_id,
+        "owner_user_id": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.social_posts.insert_one(new_post)
+    del new_post["_id"]
+    return new_post
+
+@demand_studio_router.delete("/social/posts/{post_id}")
+async def delete_social_post(post_id: str, user: User = Depends(get_current_user)):
+    """Delete a social post"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.social_posts.delete_one(
+        {"post_id": post_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Delete linked assets and spend
+    await db.social_post_assets.delete_many({"post_id": post_id})
+    await db.social_post_spend.delete_many({"post_id": post_id})
+    
+    return {"success": True}
+
+# ---- Social Post Asset/Spend Links ----
+
+@demand_studio_router.post("/social/posts/{post_id}/link-asset")
+async def link_asset_to_post(post_id: str, data: SocialPostAssetLinkCreate, user: User = Depends(get_current_user)):
+    """Link an asset to a social post"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Check post exists
+    post = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check if already linked
+    existing = await db.social_post_assets.find_one({"post_id": post_id, "asset_id": data.asset_id})
+    if existing:
+        return {"success": True, "message": "Already linked"}
+    
+    link = {
+        "link_id": f"link_{uuid.uuid4().hex[:12]}",
+        "post_id": post_id,
+        "asset_id": data.asset_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.social_post_assets.insert_one(link)
+    del link["_id"]
+    return link
+
+@demand_studio_router.delete("/social/posts/{post_id}/unlink-asset/{asset_id}")
+async def unlink_asset_from_post(post_id: str, asset_id: str, user: User = Depends(get_current_user)):
+    """Unlink an asset from a social post"""
+    result = await db.social_post_assets.delete_one({"post_id": post_id, "asset_id": asset_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return {"success": True}
+
+@demand_studio_router.post("/social/posts/{post_id}/link-spend")
+async def link_spend_to_post(post_id: str, data: SocialPostSpendLinkCreate, user: User = Depends(get_current_user)):
+    """Link spend to a social post"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Check post exists
+    post = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check if already linked
+    existing = await db.social_post_spend.find_one({"post_id": post_id, "spend_id": data.spend_id})
+    if existing:
+        return {"success": True, "message": "Already linked"}
+    
+    link = {
+        "link_id": f"link_{uuid.uuid4().hex[:12]}",
+        "post_id": post_id,
+        "spend_id": data.spend_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.social_post_spend.insert_one(link)
+    del link["_id"]
+    return link
+
+@demand_studio_router.delete("/social/posts/{post_id}/unlink-spend/{spend_id}")
+async def unlink_spend_from_post(post_id: str, spend_id: str, user: User = Depends(get_current_user)):
+    """Unlink spend from a social post"""
+    result = await db.social_post_spend.delete_one({"post_id": post_id, "spend_id": spend_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return {"success": True}
+
+# ---- Social Media Stats & Insights ----
+
+@demand_studio_router.get("/social/stats")
+async def get_social_stats(user: User = Depends(get_current_user)):
+    """Get social media statistics for dashboard"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {
+            "scheduledThisWeek": 0,
+            "postedThisMonth": 0,
+            "activeAccounts": 0,
+            "campaignLinkedPosts": 0
+        }
+    
+    now = datetime.now(timezone.utc)
+    week_from_now = (now + timedelta(days=7)).isoformat()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    
+    # Scheduled this week
+    scheduled_this_week = await db.social_posts.count_documents({
+        "company_id": company_id,
+        "scheduled_at": {"$gte": now.isoformat(), "$lte": week_from_now},
+        "status": {"$in": ["scheduled", "drafted"]}
+    })
+    
+    # Posted this month
+    posted_this_month = await db.social_posts.count_documents({
+        "company_id": company_id,
+        "posted_at": {"$gte": month_start},
+        "status": "posted"
+    })
+    
+    # Active accounts
+    active_accounts = await db.social_accounts.count_documents({
+        "company_id": company_id,
+        "status": "active"
+    })
+    
+    # Campaign-linked posts
+    campaign_linked = await db.social_posts.count_documents({
+        "company_id": company_id,
+        "campaign_id": {"$ne": None}
+    })
+    
+    return {
+        "scheduledThisWeek": scheduled_this_week,
+        "postedThisMonth": posted_this_month,
+        "activeAccounts": active_accounts,
+        "campaignLinkedPosts": campaign_linked
+    }
+
+@demand_studio_router.get("/social/insights")
+async def get_social_insights(user: User = Depends(get_current_user)):
+    """Get social media insights for reporting"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"byFormat": [], "byPillar": [], "byStatus": []}
+    
+    # Posts by format
+    by_format = await db.social_posts.aggregate([
+        {"$match": {"company_id": company_id}},
+        {"$group": {"_id": "$format", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]).to_list(20)
+    
+    # Posts by pillar
+    by_pillar_raw = await db.social_posts.aggregate([
+        {"$match": {"company_id": company_id, "pillar_id": {"$ne": None}}},
+        {"$group": {"_id": "$pillar_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]).to_list(20)
+    
+    # Enrich pillar names
+    by_pillar = []
+    for item in by_pillar_raw:
+        pillar = await db.content_pillars.find_one({"pillar_id": item["_id"]}, {"name": 1})
+        by_pillar.append({
+            "pillar_id": item["_id"],
+            "name": pillar.get("name", "Unknown") if pillar else "Unknown",
+            "count": item["count"]
+        })
+    
+    # Posts by status
+    by_status = await db.social_posts.aggregate([
+        {"$match": {"company_id": company_id}},
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]).to_list(20)
+    
+    # Scheduled vs Posted rate
+    total_posts = await db.social_posts.count_documents({"company_id": company_id})
+    posted_count = await db.social_posts.count_documents({"company_id": company_id, "status": "posted"})
+    
+    return {
+        "byFormat": [{"format": item["_id"], "count": item["count"]} for item in by_format],
+        "byPillar": by_pillar,
+        "byStatus": [{"status": item["_id"], "count": item["count"]} for item in by_status],
+        "totalPosts": total_posts,
+        "postedCount": posted_count,
+        "postRate": round((posted_count / total_posts * 100) if total_posts > 0 else 0, 1)
+    }
+
+@demand_studio_router.get("/social/calendar")
+async def get_social_calendar(
+    start_date: str,
+    end_date: str,
+    user: User = Depends(get_current_user)
+):
+    """Get posts for calendar view"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    posts = await db.social_posts.find({
+        "company_id": company_id,
+        "$or": [
+            {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
+            {"posted_at": {"$gte": start_date, "$lte": end_date}}
+        ]
+    }, {"_id": 0}).to_list(500)
+    
+    # Enrich with account info
+    for post in posts:
+        if post.get("social_account_id"):
+            account = await db.social_accounts.find_one(
+                {"account_id": post["social_account_id"]},
+                {"_id": 0, "platform": 1, "handle": 1}
+            )
+            post["account"] = account
+    
+    return posts
+
 # Include demand_studio_router
 api_router.include_router(demand_studio_router)
 
