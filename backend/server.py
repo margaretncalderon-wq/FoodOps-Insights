@@ -17140,11 +17140,15 @@ async def get_import_template(type: str, format: str = "csv"):
         "events": {
             "columns": ["nombre_evento", "cliente", "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "ubicacion", "tipo_evento", "num_invitados", "estado", "presupuesto", "notas"],
             "sample": [["Boda García-López", "Juan García", "2026-02-14", "2026-02-14", "16:00", "23:00", "Jardín Las Palmas", "wedding", 150, "confirmed", 50000, "Incluye catering"]]
+        },
+        "leads": {
+            "columns": ["nombre", "email", "telefono", "empresa", "fuente", "estado", "valor_estimado", "tipo_evento", "fecha_evento", "num_invitados", "notas"],
+            "sample": [["María García", "maria@email.com", "555-9876", "Empresa XYZ", "website", "new", 15000, "corporate", "2026-03-15", 100, "Interesado en catering"]]
         }
     }
     
     if type not in templates:
-        raise HTTPException(status_code=400, detail="Tipo inválido. Use: clients, inventory, recipes, quotes, events")
+        raise HTTPException(status_code=400, detail="Tipo inválido. Use: clients, inventory, recipes, quotes, events, leads")
     
     template = templates[type]
     df = pd.DataFrame(template["sample"], columns=template["columns"])
