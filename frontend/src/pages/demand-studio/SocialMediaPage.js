@@ -23,7 +23,8 @@ import {
 import { 
   Plus, Calendar, List, BarChart3, Hash, Instagram, 
   Loader2, Play, Copy, Archive, Check, Settings,
-  ChevronLeft, ChevronRight, Linkedin, Youtube
+  ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
+  ExternalLink, Sparkles, Trash2, ArrowRight
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -52,6 +53,14 @@ const STATUSES = [
   { value: "archived", label: "Archived", labelEs: "Archivado", color: "bg-gray-100 text-gray-600" },
 ];
 
+const IDEA_STATUSES = [
+  { value: "new", label: "New", labelEs: "Nueva", color: "bg-purple-100 text-purple-800" },
+  { value: "reviewing", label: "Reviewing", labelEs: "Revisando", color: "bg-yellow-100 text-yellow-800" },
+  { value: "approved", label: "Approved", labelEs: "Aprobada", color: "bg-green-100 text-green-800" },
+  { value: "used", label: "Used", labelEs: "Usada", color: "bg-blue-100 text-blue-800" },
+  { value: "archived", label: "Archived", labelEs: "Archivada", color: "bg-gray-100 text-gray-600" },
+];
+
 export default function SocialMediaPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -65,12 +74,19 @@ export default function SocialMediaPage() {
   const [pillars, setPillars] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [insights, setInsights] = useState({});
+  const [ideas, setIdeas] = useState([]);
   
   // Filters
   const [filterAccount, setFilterAccount] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterFormat, setFilterFormat] = useState("all");
   const [filterCampaign, setFilterCampaign] = useState("all");
+  const [filterPillar, setFilterPillar] = useState("all");
+  
+  // Calendar filters
+  const [calFilterAccount, setCalFilterAccount] = useState("all");
+  const [calFilterFormat, setCalFilterFormat] = useState("all");
+  const [calFilterPillar, setCalFilterPillar] = useState("all");
   
   // Calendar
   const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -80,7 +96,11 @@ export default function SocialMediaPage() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [pillarDialogOpen, setPillarDialogOpen] = useState(false);
+  const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
+  const [editingIdea, setEditingIdea] = useState(null);
+  const [convertIdeaDialogOpen, setConvertIdeaDialogOpen] = useState(false);
+  const [ideaToConvert, setIdeaToConvert] = useState(null);
   
   // Forms
   const [postForm, setPostForm] = useState({
@@ -109,6 +129,16 @@ export default function SocialMediaPage() {
     description: ""
   });
 
+  const [ideaForm, setIdeaForm] = useState({
+    title: "",
+    description: "",
+    source_url: "",
+    pillar_id: "",
+    tags: [],
+    status: "new"
+  });
+  const [tagInput, setTagInput] = useState("");
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -117,17 +147,18 @@ export default function SocialMediaPage() {
     if (activeView === "calendar") {
       fetchCalendarPosts();
     }
-  }, [activeView, calendarMonth]);
+  }, [activeView, calendarMonth, calFilterAccount, calFilterFormat, calFilterPillar]);
 
   const fetchData = async () => {
     try {
-      const [statsRes, postsRes, accountsRes, pillarsRes, campaignsRes, insightsRes] = await Promise.all([
+      const [statsRes, postsRes, accountsRes, pillarsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
         axios.get(`${API}/api/demand-studio/social/stats`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/posts`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/accounts`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/pillars`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/campaigns`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/insights`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/ideas`, { withCredentials: true }),
       ]);
       
       setStats(statsRes.data);
@@ -136,6 +167,7 @@ export default function SocialMediaPage() {
       setPillars(pillarsRes.data);
       setCampaigns(campaignsRes.data);
       setInsights(insightsRes.data);
+      setIdeas(ideasRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -225,6 +257,84 @@ export default function SocialMediaPage() {
     }
   };
 
+  // Ideas handlers
+  const handleSaveIdea = async () => {
+    try {
+      const payload = { ...ideaForm };
+      if (!payload.pillar_id) delete payload.pillar_id;
+      
+      if (editingIdea) {
+        await axios.put(`${API}/api/demand-studio/social/ideas/${editingIdea.idea_id}`, payload, { withCredentials: true });
+      } else {
+        await axios.post(`${API}/api/demand-studio/social/ideas`, payload, { withCredentials: true });
+      }
+      setIdeaDialogOpen(false);
+      setEditingIdea(null);
+      resetIdeaForm();
+      fetchData();
+    } catch (error) {
+      console.error("Error saving idea:", error);
+    }
+  };
+
+  const handleDeleteIdea = async (ideaId) => {
+    if (!window.confirm(isEs ? "¿Eliminar esta idea?" : "Delete this idea?")) return;
+    try {
+      await axios.delete(`${API}/api/demand-studio/social/ideas/${ideaId}`, { withCredentials: true });
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting idea:", error);
+    }
+  };
+
+  const handleConvertIdea = async (accountId) => {
+    if (!ideaToConvert || !accountId) return;
+    try {
+      await axios.post(`${API}/api/demand-studio/social/ideas/${ideaToConvert.idea_id}/convert-to-post?social_account_id=${accountId}`, {}, { withCredentials: true });
+      setConvertIdeaDialogOpen(false);
+      setIdeaToConvert(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error converting idea:", error);
+    }
+  };
+
+  const openEditIdea = (idea) => {
+    setEditingIdea(idea);
+    setIdeaForm({
+      title: idea.title,
+      description: idea.description || "",
+      source_url: idea.source_url || "",
+      pillar_id: idea.pillar_id || "",
+      tags: idea.tags || [],
+      status: idea.status
+    });
+    setIdeaDialogOpen(true);
+  };
+
+  const resetIdeaForm = () => {
+    setIdeaForm({
+      title: "",
+      description: "",
+      source_url: "",
+      pillar_id: "",
+      tags: [],
+      status: "new"
+    });
+    setTagInput("");
+  };
+
+  const addTag = () => {
+    if (tagInput.trim() && !ideaForm.tags.includes(tagInput.trim())) {
+      setIdeaForm({ ...ideaForm, tags: [...ideaForm.tags, tagInput.trim()] });
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tag) => {
+    setIdeaForm({ ...ideaForm, tags: ideaForm.tags.filter(t => t !== tag) });
+  };
+
   const openEditPost = (post) => {
     setEditingPost(post);
     setPostForm({
@@ -266,6 +376,11 @@ export default function SocialMediaPage() {
     return s ? <Badge className={s.color}>{isEs ? s.labelEs : s.label}</Badge> : <Badge>{status}</Badge>;
   };
 
+  const getIdeaStatusBadge = (status) => {
+    const s = IDEA_STATUSES.find(st => st.value === status);
+    return s ? <Badge className={s.color}>{isEs ? s.labelEs : s.label}</Badge> : <Badge>{status}</Badge>;
+  };
+
   const getFormatBadge = (format) => {
     const f = FORMATS.find(ft => ft.value === format);
     return f ? <Badge variant="outline">{isEs ? f.labelEs : f.label}</Badge> : <Badge variant="outline">{format}</Badge>;
@@ -288,6 +403,15 @@ export default function SocialMediaPage() {
     if (filterStatus !== "all" && post.status !== filterStatus) return false;
     if (filterFormat !== "all" && post.format !== filterFormat) return false;
     if (filterCampaign !== "all" && post.campaign_id !== filterCampaign) return false;
+    if (filterPillar !== "all" && post.pillar_id !== filterPillar) return false;
+    return true;
+  });
+
+  // Filter calendar posts
+  const filteredCalendarPosts = calendarPosts.filter(post => {
+    if (calFilterAccount !== "all" && post.social_account_id !== calFilterAccount) return false;
+    if (calFilterFormat !== "all" && post.format !== calFilterFormat) return false;
+    if (calFilterPillar !== "all" && post.pillar_id !== calFilterPillar) return false;
     return true;
   });
 
@@ -311,7 +435,7 @@ export default function SocialMediaPage() {
   const getPostsForDay = (day) => {
     if (!day) return [];
     const dateStr = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return calendarPosts.filter(p => {
+    return filteredCalendarPosts.filter(p => {
       const scheduledDate = p.scheduled_at?.substring(0, 10);
       const postedDate = p.posted_at?.substring(0, 10);
       return scheduledDate === dateStr || postedDate === dateStr;
@@ -330,30 +454,40 @@ export default function SocialMediaPage() {
     <div className="space-y-6" data-testid="social-media-page">
       {/* View Tabs */}
       <Tabs value={activeView} onValueChange={setActiveView}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <TabsList>
             <TabsTrigger value="overview" className="gap-2">
               <BarChart3 className="w-4 h-4" />
-              {isEs ? "Resumen" : "Overview"}
+              <span className="hidden sm:inline">{isEs ? "Resumen" : "Overview"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="ideas" className="gap-2">
+              <Lightbulb className="w-4 h-4" />
+              <span className="hidden sm:inline">{isEs ? "Ideas" : "Ideas"}</span>
             </TabsTrigger>
             <TabsTrigger value="calendar" className="gap-2">
               <Calendar className="w-4 h-4" />
-              {isEs ? "Calendario" : "Calendar"}
+              <span className="hidden sm:inline">{isEs ? "Calendario" : "Calendar"}</span>
             </TabsTrigger>
             <TabsTrigger value="queue" className="gap-2">
               <List className="w-4 h-4" />
-              {isEs ? "Cola" : "Queue"}
+              <span className="hidden sm:inline">{isEs ? "Cola" : "Queue"}</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
-              {isEs ? "Config" : "Settings"}
+              <span className="hidden sm:inline">{isEs ? "Config" : "Settings"}</span>
             </TabsTrigger>
           </TabsList>
           
-          <Button onClick={() => { resetPostForm(); setPostDialogOpen(true); }} data-testid="new-post-button">
-            <Plus className="w-4 h-4 mr-2" />
-            {isEs ? "Nuevo Post" : "New Post"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { resetIdeaForm(); setIdeaDialogOpen(true); }}>
+              <Lightbulb className="w-4 h-4 mr-2" />
+              {isEs ? "Nueva Idea" : "New Idea"}
+            </Button>
+            <Button onClick={() => { resetPostForm(); setPostDialogOpen(true); }} data-testid="new-post-button">
+              <Plus className="w-4 h-4 mr-2" />
+              {isEs ? "Nuevo Post" : "New Post"}
+            </Button>
+          </div>
         </div>
 
         {/* Overview Tab */}
@@ -396,12 +530,12 @@ export default function SocialMediaPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Hash className="w-5 h-5 text-purple-600" />
+                    <Lightbulb className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{stats.activeAccounts || 0}</p>
+                    <p className="text-2xl font-bold">{ideas.filter(i => i.status !== 'archived' && i.status !== 'used').length}</p>
                     <p className="text-xs text-muted-foreground">
-                      {isEs ? "Cuentas activas" : "Active accounts"}
+                      {isEs ? "Ideas pendientes" : "Pending ideas"}
                     </p>
                   </div>
                 </div>
@@ -417,7 +551,7 @@ export default function SocialMediaPage() {
                   <div>
                     <p className="text-2xl font-bold">{stats.campaignLinkedPosts || 0}</p>
                     <p className="text-xs text-muted-foreground">
-                      {isEs ? "Posts con campaña" : "Campaign-linked posts"}
+                      {isEs ? "Posts con campaña" : "Campaign-linked"}
                     </p>
                   </div>
                 </div>
@@ -496,9 +630,89 @@ export default function SocialMediaPage() {
           </div>
         </TabsContent>
 
+        {/* Ideas Tab */}
+        <TabsContent value="ideas" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">{isEs ? "Ideas e Inspiración" : "Ideas & Inspiration"}</h3>
+              <p className="text-sm text-muted-foreground">
+                {isEs ? "Guarda ideas de contenido para usar después" : "Save content ideas to use later"}
+              </p>
+            </div>
+          </div>
+
+          {ideas.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {isEs ? "No hay ideas guardadas. ¡Agrega tu primera idea!" : "No saved ideas. Add your first idea!"}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {ideas.map(idea => (
+                <Card key={idea.idea_id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-medium line-clamp-2">{idea.title}</h4>
+                      {getIdeaStatusBadge(idea.status)}
+                    </div>
+                    
+                    {idea.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{idea.description}</p>
+                    )}
+                    
+                    {idea.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {idea.tags.map(tag => (
+                          <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {idea.source_url && (
+                      <a 
+                        href={idea.source_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline flex items-center gap-1 mb-3"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        {isEs ? "Ver fuente" : "View source"}
+                      </a>
+                    )}
+                    
+                    <div className="flex justify-end gap-1 pt-2 border-t">
+                      {idea.status !== "used" && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => { setIdeaToConvert(idea); setConvertIdeaDialogOpen(true); }}
+                          title={isEs ? "Convertir a post" : "Convert to post"}
+                        >
+                          <ArrowRight className="w-4 h-4 mr-1" />
+                          {isEs ? "A Post" : "To Post"}
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => openEditIdea(idea)}>
+                        <Settings className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteIdea(idea.idea_id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
         {/* Calendar Tab */}
         <TabsContent value="calendar" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}>
                 <ChevronLeft className="w-4 h-4" />
@@ -510,12 +724,53 @@ export default function SocialMediaPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            
+            {/* Calendar Filters */}
+            <div className="flex flex-wrap gap-2">
+              <Select value={calFilterAccount} onValueChange={setCalFilterAccount}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder={isEs ? "Canal" : "Channel"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
+                  {accounts.map(a => (
+                    <SelectItem key={a.account_id} value={a.account_id}>
+                      {a.handle}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={calFilterFormat} onValueChange={setCalFilterFormat}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder={isEs ? "Tipo" : "Type"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
+                  {FORMATS.map(f => (
+                    <SelectItem key={f.value} value={f.value}>{isEs ? f.labelEs : f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={calFilterPillar} onValueChange={setCalFilterPillar}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder={isEs ? "Pilar" : "Pillar"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
+                  {pillars.map(p => (
+                    <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <Card>
             <CardContent className="p-4">
               <div className="grid grid-cols-7 gap-1">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                {[isEs ? 'Dom' : 'Sun', isEs ? 'Lun' : 'Mon', isEs ? 'Mar' : 'Tue', isEs ? 'Mié' : 'Wed', isEs ? 'Jue' : 'Thu', isEs ? 'Vie' : 'Fri', isEs ? 'Sáb' : 'Sat'].map(day => (
                   <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
                     {day}
                   </div>
@@ -531,19 +786,24 @@ export default function SocialMediaPage() {
                         <>
                           <span className="text-xs font-medium">{day}</span>
                           <div className="space-y-1 mt-1">
-                            {dayPosts.slice(0, 3).map(post => (
-                              <div
-                                key={post.post_id}
-                                className={`text-xs p-1 rounded truncate cursor-pointer ${
-                                  post.status === 'posted' ? 'bg-green-100' : 'bg-blue-100'
-                                }`}
-                                onClick={() => openEditPost(post)}
-                              >
-                                {post.title}
-                              </div>
-                            ))}
+                            {dayPosts.slice(0, 3).map(post => {
+                              const platform = post.account?.platform;
+                              const platformInfo = getPlatformInfo(platform);
+                              return (
+                                <div
+                                  key={post.post_id}
+                                  className={`text-xs p-1 rounded truncate cursor-pointer flex items-center gap-1 ${
+                                    post.status === 'posted' ? 'bg-green-100' : 'bg-blue-100'
+                                  }`}
+                                  onClick={() => openEditPost(post)}
+                                >
+                                  <span className={`w-2 h-2 rounded-full ${platformInfo.color}`}></span>
+                                  <span className="truncate">{post.title}</span>
+                                </div>
+                              );
+                            })}
                             {dayPosts.length > 3 && (
-                              <span className="text-xs text-muted-foreground">+{dayPosts.length - 3} more</span>
+                              <span className="text-xs text-muted-foreground">+{dayPosts.length - 3} más</span>
                             )}
                           </div>
                         </>
@@ -598,6 +858,18 @@ export default function SocialMediaPage() {
               </SelectContent>
             </Select>
             
+            <Select value={filterPillar} onValueChange={setFilterPillar}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder={isEs ? "Pilar" : "Pillar"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
+                {pillars.map(p => (
+                  <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
             <Select value={filterCampaign} onValueChange={setFilterCampaign}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder={isEs ? "Campaña" : "Campaign"} />
@@ -623,7 +895,7 @@ export default function SocialMediaPage() {
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Formato" : "Format"}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Estado" : "Status"}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Título" : "Title"}</th>
-                      <th className="text-left p-3 text-sm font-medium">{isEs ? "Campaña" : "Campaign"}</th>
+                      <th className="text-left p-3 text-sm font-medium">{isEs ? "Pilar" : "Pillar"}</th>
                       <th className="text-right p-3 text-sm font-medium">{isEs ? "Acciones" : "Actions"}</th>
                     </tr>
                   </thead>
@@ -645,7 +917,7 @@ export default function SocialMediaPage() {
                           <td className="p-3">{getStatusBadge(post.status)}</td>
                           <td className="p-3 text-sm font-medium max-w-[200px] truncate">{post.title}</td>
                           <td className="p-3 text-sm">
-                            {post.campaign_id ? campaigns.find(c => c.campaign_id === post.campaign_id)?.name || "-" : "-"}
+                            {post.pillar_id ? pillars.find(p => p.pillar_id === post.pillar_id)?.name || "-" : "-"}
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-1">
@@ -981,6 +1253,136 @@ export default function SocialMediaPage() {
             </Button>
             <Button onClick={handleSavePillar} disabled={!pillarForm.name}>
               {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Idea Dialog */}
+      <Dialog open={ideaDialogOpen} onOpenChange={setIdeaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingIdea ? (isEs ? "Editar Idea" : "Edit Idea") : (isEs ? "Nueva Idea" : "New Idea")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Título" : "Title"} *</label>
+              <Input
+                value={ideaForm.title}
+                onChange={e => setIdeaForm({...ideaForm, title: e.target.value})}
+                placeholder={isEs ? "Título de la idea" : "Idea title"}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Descripción" : "Description"}</label>
+              <textarea
+                className="w-full min-h-[80px] p-2 border rounded-md text-sm"
+                value={ideaForm.description}
+                onChange={e => setIdeaForm({...ideaForm, description: e.target.value})}
+                placeholder={isEs ? "Descripción o notas..." : "Description or notes..."}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "URL Fuente (inspiración)" : "Source URL (inspiration)"}</label>
+              <Input
+                value={ideaForm.source_url}
+                onChange={e => setIdeaForm({...ideaForm, source_url: e.target.value})}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Pilar" : "Pillar"}</label>
+              <Select value={ideaForm.pillar_id || "none"} onValueChange={v => setIdeaForm({...ideaForm, pillar_id: v === "none" ? "" : v})}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Sin pilar" : "No pillar"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin pilar" : "No pillar"}</SelectItem>
+                  {pillars.map(p => (
+                    <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Tags</label>
+              <div className="flex gap-2">
+                <Input
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  placeholder={isEs ? "Agregar tag..." : "Add tag..."}
+                />
+                <Button type="button" variant="outline" onClick={addTag}>+</Button>
+              </div>
+              {ideaForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {ideaForm.tags.map(tag => (
+                    <Badge key={tag} variant="secondary" className="cursor-pointer" onClick={() => removeTag(tag)}>
+                      {tag} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Estado" : "Status"}</label>
+              <Select value={ideaForm.status} onValueChange={v => setIdeaForm({...ideaForm, status: v})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IDEA_STATUSES.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{isEs ? s.labelEs : s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIdeaDialogOpen(false); setEditingIdea(null); }}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveIdea} disabled={!ideaForm.title}>
+              {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert Idea to Post Dialog */}
+      <Dialog open={convertIdeaDialogOpen} onOpenChange={setConvertIdeaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Convertir Idea a Post" : "Convert Idea to Post"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {isEs 
+                ? `Selecciona la cuenta para crear un post a partir de "${ideaToConvert?.title}"`
+                : `Select the account to create a post from "${ideaToConvert?.title}"`}
+            </p>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Cuenta" : "Account"}</label>
+              <Select onValueChange={handleConvertIdea}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar cuenta..." : "Select account..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map(a => (
+                    <SelectItem key={a.account_id} value={a.account_id}>
+                      {a.handle} ({a.platform})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setConvertIdeaDialogOpen(false); setIdeaToConvert(null); }}>
+              {isEs ? "Cancelar" : "Cancel"}
             </Button>
           </DialogFooter>
         </DialogContent>
