@@ -184,8 +184,8 @@ export default function LandingPage() {
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
             {isEs
-              ? "Únete a cientos de profesionales de eventos que confían en Evoke OS"
-              : "Join hundreds of event professionals who trust Evoke OS"}
+              ? "Únete a cientos de profesionales de eventos que confían en Kora OS"
+              : "Join hundreds of event professionals who trust Kora OS"}
           </p>
           <div className="mt-8">
             <Link to="/register">
@@ -203,10 +203,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="font-heading text-sm font-bold text-white">E</span>
+              <span className="font-heading text-sm font-bold text-white">K</span>
             </div>
             <span className="text-sm text-muted-foreground">
-              © 2024 Evoke OS
+              © 2024 Kora OS
             </span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
