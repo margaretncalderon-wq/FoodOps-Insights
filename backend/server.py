@@ -2242,7 +2242,7 @@ async def google_login(request: Request):
     if "localhost" in origin:
         redirect_uri = "http://localhost:3000/auth/google/callback"
     elif "preview.emergentagent.com" in origin:
-        redirect_uri = "https://period-close.preview.emergentagent.com/auth/google/callback"
+        redirect_uri = "https://campaign-hub-141.preview.emergentagent.com/auth/google/callback"
     else:
         redirect_uri = "https://ourkora.com/auth/google/callback"
     
