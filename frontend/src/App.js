@@ -40,6 +40,7 @@ import {
   SuperAdminClarity,
   SuperAdminSettings
 } from "./pages/super-admin";
+import UserManagementPage from "./pages/super-admin/UserManagementPage";
 
 import "./App.css";
 
