@@ -162,7 +162,7 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       await axios.post(`${API}/api/org/complete-onboarding`, {}, { withCredentials: true });
-      toast.success(isEs ? "¡Bienvenido a Evoke!" : "Welcome to Evoke!");
+      toast.success(isEs ? "¡Bienvenido a Kora!" : "Welcome to Kora!");
       navigate("/dashboard");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
@@ -186,7 +186,7 @@ export default function OnboardingPage() {
       <div className="max-w-4xl mx-auto">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">Evoke OS</h1>
+          <h1 className="text-3xl font-bold text-primary">Kora OS</h1>
           <p className="text-muted-foreground">
             {isEs ? "Configura tu espacio de trabajo" : "Set up your workspace"}
           </p>

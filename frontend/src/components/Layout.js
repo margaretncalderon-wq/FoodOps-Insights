@@ -65,7 +65,7 @@ export const Layout = ({ children }) => {
               <span className="font-heading text-xl font-bold">E</span>
             </div>
             <div>
-              <h1 className="font-heading text-lg font-semibold">Evoke OS</h1>
+              <h1 className="font-heading text-lg font-semibold">Kora OS</h1>
               <p className="text-xs text-white/60">Events Platform</p>
             </div>
           </Link>
@@ -140,7 +140,7 @@ export const Layout = ({ children }) => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="font-heading text-white font-bold">E</span>
             </div>
-            <span className="font-heading font-semibold">Evoke OS</span>
+            <span className="font-heading font-semibold">Kora OS</span>
           </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
