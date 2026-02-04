@@ -165,6 +165,7 @@ function AppRouter() {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
         <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
           <Route index element={<SuperAdminOverview />} />
           <Route path="crm" element={<SuperAdminCRMPage />} />
