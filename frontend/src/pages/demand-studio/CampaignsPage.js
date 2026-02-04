@@ -195,7 +195,7 @@ export default function CampaignsPage() {
           </Select>
         </div>
         
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-campaign-btn">
           <Plus className="w-4 h-4 mr-2" />
           {isEs ? "Nueva Campaña" : "New Campaign"}
         </Button>
