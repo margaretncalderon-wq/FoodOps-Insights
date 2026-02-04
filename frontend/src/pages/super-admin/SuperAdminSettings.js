@@ -152,7 +152,7 @@ export default function SuperAdminSettings() {
                   <Label>Email de Notificación</Label>
                   <Input
                     type="email"
-                    placeholder="ventas@evoke.com"
+                    placeholder="ventas@kora.com"
                     value={leadFormConfig.notification_email}
                     onChange={(e) => setLeadFormConfig({ ...leadFormConfig, notification_email: e.target.value })}
                   />
@@ -271,21 +271,21 @@ export default function SuperAdminSettings() {
               <div className="space-y-2">
                 <Label>Nombre de la Plataforma</Label>
                 <Input
-                  defaultValue="Evoke OS"
+                  defaultValue="Kora OS"
                 />
               </div>
               
               <div className="space-y-2">
                 <Label>Dominio Principal</Label>
                 <Input
-                  defaultValue="evoke.app"
+                  defaultValue="kora.app"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label>Email de Soporte</Label>
                 <Input
-                  defaultValue="soporte@evoke.app"
+                  defaultValue="soporte@kora.app"
                 />
               </div>
 
