@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { 
   Upload, Download, Users, Package, 
   ChefHat, Loader2, CheckCircle2, AlertCircle, FileDown,
-  FileText, CalendarDays
+  FileText, CalendarDays, UserPlus
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -31,6 +31,12 @@ export default function ImportExportSection() {
       name: isEs ? "Clientes" : "Clients", 
       icon: Users,
       description: isEs ? "Nombre, email, teléfono, empresa" : "Name, email, phone, company"
+    },
+    { 
+      id: "leads", 
+      name: "Leads", 
+      icon: UserPlus,
+      description: isEs ? "Prospectos, fuente, valor estimado, estado" : "Prospects, source, estimated value, status"
     },
     { 
       id: "inventory", 
