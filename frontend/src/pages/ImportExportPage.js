@@ -42,6 +42,18 @@ export default function ImportExportPage() {
       name: isEs ? "Recetas" : "Recipes", 
       icon: ChefHat,
       description: isEs ? "Nombre, ingredientes, porciones, instrucciones" : "Name, ingredients, servings, instructions"
+    },
+    { 
+      id: "quotes", 
+      name: isEs ? "Cotizaciones" : "Quotes", 
+      icon: FileText,
+      description: isEs ? "Cliente, fecha, items, totales, estado" : "Client, date, items, totals, status"
+    },
+    { 
+      id: "events", 
+      name: isEs ? "Eventos" : "Events", 
+      icon: CalendarDays,
+      description: isEs ? "Nombre, cliente, fecha, ubicación, invitados" : "Name, client, date, location, guests"
     }
   ];
 
