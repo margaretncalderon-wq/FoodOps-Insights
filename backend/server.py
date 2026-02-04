@@ -99,6 +99,7 @@ production_router = APIRouter(prefix="/production", tags=["Production"])
 delivery_notes_router = APIRouter(prefix="/delivery-notes", tags=["Delivery Notes"])
 org_router = APIRouter(prefix="/org", tags=["Organization & SaaS"])
 super_admin_router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
+demand_studio_router = APIRouter(prefix="/demand-studio", tags=["Demand Studio"])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
