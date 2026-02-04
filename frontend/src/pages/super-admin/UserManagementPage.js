@@ -73,7 +73,7 @@ export default function UserManagementPage() {
     
     setSaving(true);
     try {
-      await axios.post(`${API}/super-admin/users`, newUser, { withCredentials: true });
+      await axios.post(`${API}/api/super-admin/users`, newUser, { withCredentials: true });
       toast.success(isEs ? "Usuario creado" : "User created");
       setShowCreateModal(false);
       setNewUser({ email: "", name: "", password: "", company_id: "", role: "user", is_super_admin: false });
