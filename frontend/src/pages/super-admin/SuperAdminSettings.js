@@ -23,7 +23,7 @@ export default function SuperAdminSettings() {
   
   const [leadFormConfig, setLeadFormConfig] = useState({
     enabled: true,
-    title: "Solicita una Demo de Evoke OS",
+    title: "Solicita una Demo de Kora OS",
     subtitle: "Completa el formulario y nos pondremos en contacto contigo",
     fields: {
       company_name: true,
@@ -38,7 +38,7 @@ export default function SuperAdminSettings() {
     redirect_url: ""
   });
 
-  const embedCode = `<!-- Evoke OS Lead Form -->
+  const embedCode = `<!-- Kora OS Lead Form -->
 <iframe 
   src="${window.location.origin}/embed/lead-form" 
   width="100%" 
@@ -70,7 +70,7 @@ export default function SuperAdminSettings() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="text-muted-foreground">Ajustes de la plataforma Evoke OS</p>
+        <p className="text-muted-foreground">Ajustes de la plataforma Kora OS</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
