@@ -542,7 +542,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
             <span class="recipe-type">${form.recipe_type === 'base' ? 'Base' : form.recipe_type === 'component' ? 'Componente' : 'Plato Final'}</span>
           </div>
           <div class="header-right">
-            ${imageUrl ? `<img src="${imageUrl.startsWith('/api') ? API + imageUrl : imageUrl}" alt="${form.name}" />` : '<div class="company-name">Evoke OS</div>'}
+            ${imageUrl ? `<img src="${imageUrl.startsWith('/api') ? API + imageUrl : imageUrl}" alt="${form.name}" />` : '<div class="company-name">Kora OS</div>'}
           </div>
         </div>
         
@@ -660,7 +660,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         ` : ''}
         
         <div class="footer">
-          <div>Generado por Evoke OS - Culinary Intelligence</div>
+          <div>Generado por Kora OS - Culinary Intelligence</div>
           <div>${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
         </div>
       </body>
