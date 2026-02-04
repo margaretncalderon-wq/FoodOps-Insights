@@ -379,10 +379,10 @@ export default function CampaignsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="cancel-campaign-btn">
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name}>
+            <Button onClick={handleSave} disabled={!formData.name} data-testid="save-campaign-btn">
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
