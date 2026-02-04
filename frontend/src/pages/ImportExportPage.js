@@ -11,7 +11,8 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { 
   Upload, Download, FileSpreadsheet, Users, Package, 
-  ChefHat, Loader2, CheckCircle2, AlertCircle, FileDown
+  ChefHat, Loader2, CheckCircle2, AlertCircle, FileDown,
+  FileText, CalendarDays
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
