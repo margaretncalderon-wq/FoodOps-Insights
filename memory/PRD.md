@@ -1,9 +1,12 @@
-# Evoke OS - PRD
+# Kora OS - PRD
 
 ## Overview
 Cloud-based, modular web platform for event management with CRM, Event Management, Recipe Costing (Culinary Intelligence), Quoting System, and full Proposal/Contract workflow.
 
-**Rebranded: January 31, 2026**
+**Rebranded: February 3, 2026**
+- Platform: "Evoke OS" → "Kora OS"
+
+**Previous Rebrand: January 31, 2026**
 - Platform: "Evoque Events Platform" → "Evoke OS"
 - Module: "Food Ops" → "Culinary Intelligence"
 
