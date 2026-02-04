@@ -7,6 +7,7 @@ import {
   Target, DollarSign, Users, Briefcase, 
   TrendingUp, Loader2, Monitor, MapPin, Zap, ShieldCheck
 } from "lucide-react";
+import GlobalMarketingCalendar from "../../components/demand-studio/GlobalMarketingCalendar";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
