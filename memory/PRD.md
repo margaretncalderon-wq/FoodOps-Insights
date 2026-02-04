@@ -952,8 +952,8 @@ Auto-generated from Event Order:
 
 - **Frontend Pages:**
   - `DemandStudioPage.js`: Main layout with tab navigation
-  - `DemandStudioOverview.js`: Dashboard with KPIs
-  - `CampaignsPage.js`: Full CRUD for campaigns with filters
+  - `DemandStudioOverview.js`: Dashboard with KPIs (role-aware)
+  - `CampaignsPage.js`: Full CRUD for campaigns with filters and access management
   - `ActivationsPage.js`: Marketing activations management
   - `EmailMarketingPage.js`: Email campaign tracking
   - `SpendLedgerPage.js`: Expense tracking with summaries
@@ -963,6 +963,24 @@ Auto-generated from Event Order:
 - **Navigation:**
   - Added to main sidebar as "Demand Studio"
   - Tabs: Overview, Campaigns, Activations, Email Marketing, Spend Ledger, Insights, Settings
+
+### Marketing Partner Role Implementation ✅
+- **New Role:** `marketing_partner` added to `ROLE_PERMISSIONS`
+  - Can view and edit assigned campaigns only
+  - Cannot see financial data (budget, spend, costs)
+  - Cannot create new campaigns or manage access
+  
+- **Campaign Access System:**
+  - `campaign_access` collection for assigning users to campaigns
+  - Endpoints: `GET/POST /campaigns/{id}/access`, `DELETE /campaigns/{id}/access/{user_id}`
+  - `GET /marketing-partners` - list users with marketing_partner role
+  - `GET /my-campaigns` - role-aware campaign list
+  - `GET /my-stats` - role-aware statistics
+  
+- **UI Features:**
+  - Owner/Admin can manage campaign access via Users icon
+  - Marketing Partners see restricted dashboard (no financial data)
+  - Access management dialog with add/remove partner functionality
 
 ### Security Fix ✅
 - Removed insecure emergency admin endpoint `/api/super-admin/emergency-fix-admin/{email}`
