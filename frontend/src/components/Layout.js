@@ -27,7 +27,6 @@ import {
   Briefcase,
   Music4,
   Puzzle,
-  FileSpreadsheet,
 } from "lucide-react";
 import { OrgSwitcher } from "./org";
 
