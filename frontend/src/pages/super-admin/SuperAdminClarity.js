@@ -209,7 +209,7 @@ export default function SuperAdminClarity() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `evoke_os_fixed_costs_${period}.csv`;
+    link.download = `kora_os_fixed_costs_${period}.csv`;
     link.click();
     URL.revokeObjectURL(url);
     toast.success(isEs ? "CSV descargado" : "CSV downloaded");
@@ -223,7 +223,7 @@ export default function SuperAdminClarity() {
     // Title
     doc.setFontSize(20);
     doc.setTextColor(58, 77, 63); // Brand color
-    doc.text("Evoke OS", 14, 20);
+    doc.text("Kora OS", 14, 20);
     
     doc.setFontSize(16);
     doc.setTextColor(0, 0, 0);
@@ -312,14 +312,14 @@ export default function SuperAdminClarity() {
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
       doc.text(
-        `Evoke OS - Business Clarity | ${isEs ? "Página" : "Page"} ${i} ${isEs ? "de" : "of"} ${pageCount}`,
+        `Kora OS - Business Clarity | ${isEs ? "Página" : "Page"} ${i} ${isEs ? "de" : "of"} ${pageCount}`,
         pageWidth / 2,
         doc.internal.pageSize.getHeight() - 10,
         { align: "center" }
       );
     }
     
-    doc.save(`evoke_os_fixed_costs_${period}.pdf`);
+    doc.save(`kora_os_fixed_costs_${period}.pdf`);
     toast.success(isEs ? "PDF descargado" : "PDF downloaded");
   };
 
@@ -338,7 +338,7 @@ export default function SuperAdminClarity() {
         <div>
           <h1 className="text-2xl font-bold">Business Clarity</h1>
           <p className="text-muted-foreground">
-            {isEs ? "Finanzas y métricas de Evoke OS" : "Evoke OS Finances & Metrics"}
+            {isEs ? "Finanzas y métricas de Kora OS" : "Kora OS Finances & Metrics"}
           </p>
         </div>
         <Input

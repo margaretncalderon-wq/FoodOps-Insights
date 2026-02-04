@@ -148,7 +148,7 @@ export default function CRMPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{isEs ? "Pipeline de Ventas" : "Sales Pipeline"}</h1>
-          <p className="text-muted-foreground">{isEs ? "Prospectos interesados en Evoke OS" : "Prospects interested in Evoke OS"}</p>
+          <p className="text-muted-foreground">{isEs ? "Prospectos interesados en Kora OS" : "Prospects interested in Kora OS"}</p>
         </div>
         <Button onClick={() => { resetForm(); setShowProspectDialog(true); }}>
           <Plus className="w-4 h-4 mr-2" />
