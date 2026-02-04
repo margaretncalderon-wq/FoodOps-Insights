@@ -319,7 +319,7 @@ export default function PurchaseOrdersSection() {
       </head>
       <body>
         <div class="header">
-          <div class="company-info">Evoke OS</div>
+          <div class="company-info">Kora OS</div>
           <div class="po-info">
             <div class="po-number">${selectedPO?.po_number || ''}</div>
             <div>Fecha: ${selectedPO?.created_at ? new Date(selectedPO.created_at).toLocaleDateString() : ''}</div>
@@ -767,7 +767,7 @@ export default function PurchaseOrdersSection() {
             <div id="print-po-content" className="border rounded-lg p-6 bg-white">
               <div className="flex justify-between items-start border-b pb-4 mb-4">
                 <div>
-                  <p className="text-xl font-bold">Evoke OS</p>
+                  <p className="text-xl font-bold">Kora OS</p>
                   <p className="text-sm text-muted-foreground">{language === "es" ? "Orden de Compra" : "Purchase Order"}</p>
                 </div>
                 <div className="text-right">
