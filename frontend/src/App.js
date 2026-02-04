@@ -216,6 +216,9 @@ function AppRouter() {
       <Route path="/ops-supplies/*" element={<ProtectedRoute><OperationsSuppliesPage /></ProtectedRoute>} />
       <Route path="/business-clarity/*" element={<ProtectedRoute><BusinessClarityPage /></ProtectedRoute>} />
       <Route path="/event-orchestration/*" element={<ProtectedRoute><EventOrchestrationPage /></ProtectedRoute>} />
+      <Route path="/demand-studio" element={<ProtectedRoute><DemandStudioPage /></ProtectedRoute>}>
+        <Route index element={<DemandStudioOverview />} />
+      </Route>
       <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentPreview /></ProtectedRoute>} />
       <Route path="/import-export" element={<ProtectedRoute><ImportExportPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
