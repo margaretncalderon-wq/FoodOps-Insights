@@ -184,11 +184,11 @@ export default function ImportExportPage() {
 
       {/* Modules */}
       <Tabs defaultValue="clients" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           {modules.map(module => (
-            <TabsTrigger key={module.id} value={module.id} className="gap-2">
+            <TabsTrigger key={module.id} value={module.id} className="gap-2 text-xs md:text-sm">
               <module.icon className="w-4 h-4" />
-              {module.name}
+              <span className="hidden md:inline">{module.name}</span>
             </TabsTrigger>
           ))}
         </TabsList>
