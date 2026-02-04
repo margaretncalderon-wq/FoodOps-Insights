@@ -88,10 +88,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginWithGoogle = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/dashboard";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  const loginWithGoogle = async () => {
+    try {
+      // Get the Google auth URL from backend
+      const response = await axios.get(`${API}/auth/google/login`, {
+        headers: {
+          'Origin': window.location.origin
+        }
+      });
+      // Redirect to Google
+      window.location.href = response.data.auth_url;
+    } catch (error) {
+      console.error("Failed to initiate Google login:", error);
+    }
+  };
+
+  const handleGoogleCallback = async (code, redirectUri) => {
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        `${API}/auth/google/callback`,
+        { code, redirect_uri: redirectUri },
+        { withCredentials: true }
+      );
+      setUser(response.data.user);
+      return response.data;
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -105,6 +129,7 @@ export const AuthProvider = ({ children }) => {
         checkAuth,
         exchangeSession,
         loginWithGoogle,
+        handleGoogleCallback,
       }}
     >
       {children}
