@@ -15580,24 +15580,6 @@ async def get_platform_stats(admin: User = Depends(get_super_admin)):
 
 # ---- Super Admin: Make User Super Admin (bootstrap) ----
 
-# TEMPORARY: Emergency endpoint to fix super admin (remove after use)
-@super_admin_router.post("/emergency-fix-admin/{email}")
-async def emergency_fix_super_admin(email: str, secret: str = "kora-emergency-2024"):
-    """TEMPORARY: Emergency fix for super admin access"""
-    if secret != "kora-emergency-2024":
-        raise HTTPException(status_code=403, detail="Invalid secret")
-    
-    user = await db.users.find_one({"email": email})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    await db.users.update_one(
-        {"email": email},
-        {"$set": {"is_super_admin": True}}
-    )
-    
-    return {"success": True, "message": f"Super admin granted to {email}"}
-
 @super_admin_router.post("/grant-super-admin/{user_email}")
 async def grant_super_admin(user_email: str, admin: User = Depends(get_super_admin)):
     """Grant super admin privileges to a user (requires existing super admin)"""
