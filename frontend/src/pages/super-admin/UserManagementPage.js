@@ -128,7 +128,7 @@ export default function UserManagementPage() {
     if (!confirm(isEs ? "¿Eliminar este usuario?" : "Delete this user?")) return;
     
     try {
-      await axios.delete(`${API}/super-admin/users/${userId}`, { withCredentials: true });
+      await axios.delete(`${API}/api/super-admin/users/${userId}`, { withCredentials: true });
       toast.success(isEs ? "Usuario eliminado" : "User deleted");
       fetchData();
     } catch (error) {
