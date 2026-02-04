@@ -57,7 +57,7 @@ export default function UserManagementPage() {
         axios.get(`${API}/api/super-admin/organizations`, { withCredentials: true })
       ]);
       setUsers(usersRes.data);
-      setOrganizations(orgsRes.data);
+      setOrganizations(orgsRes.data.organizations || []);
     } catch (error) {
       toast.error(isEs ? "Error al cargar datos" : "Error loading data");
     } finally {
