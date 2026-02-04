@@ -226,6 +226,7 @@ function AppRouter() {
       <Route path="/demand-studio" element={<ProtectedRoute><DemandStudioPage /></ProtectedRoute>}>
         <Route index element={<DemandStudioOverview />} />
         <Route path="campaigns" element={<CampaignsPage />} />
+        <Route path="social" element={<SocialMediaPage />} />
         <Route path="activations" element={<ActivationsPage />} />
         <Route path="email-marketing" element={<EmailMarketingPage />} />
         <Route path="spend-ledger" element={<SpendLedgerPage />} />
