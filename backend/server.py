@@ -18379,6 +18379,26 @@ async def grant_campaign_access(campaign_id: str, data: CampaignAccessCreate, us
     }
     await db.campaign_access.insert_one(access)
     del access["_id"]
+    
+    # Create notification for the assigned user
+    granter_name = user.name or user.email or "Un administrador"
+    access_level_text = "ver y editar" if data.access_level == "edit" else "ver"
+    
+    await create_notification(
+        user_id=data.user_id,
+        notification_type="campaign_access_granted",
+        title=f"Acceso a campaña: {campaign['name']}",
+        message=f"{granter_name} te ha dado acceso para {access_level_text} la campaña '{campaign['name']}'.",
+        link=f"/demand-studio/campaigns",
+        metadata={
+            "campaign_id": campaign_id,
+            "campaign_name": campaign["name"],
+            "access_level": data.access_level,
+            "granted_by": user.user_id
+        },
+        send_email=True
+    )
+    
     return access
 
 @demand_studio_router.delete("/campaigns/{campaign_id}/access/{user_id}")
