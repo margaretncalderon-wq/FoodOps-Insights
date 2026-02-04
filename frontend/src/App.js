@@ -30,6 +30,8 @@ import ClientEngagementPage from "./pages/ClientEngagementPage";
 import OperationsSuppliesPage from "./pages/OperationsSuppliesPage";
 import ImportExportPage from "./pages/ImportExportPage";
 import OnboardingPage from "./pages/onboarding/OnboardingPage";
+import DemandStudioPage from "./pages/demand-studio/DemandStudioPage";
+import DemandStudioOverview from "./pages/demand-studio/DemandStudioOverview";
 import {
   SuperAdminLayout,
   SuperAdminOverview,
