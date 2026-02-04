@@ -10,6 +10,12 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Helper to detect if we're on the admin subdomain
+const isAdminSubdomain = () => {
+  const hostname = window.location.hostname;
+  return hostname.startsWith('admin.') || hostname === 'admin.ourkora.com';
+};
+
 // Context for View-As functionality
 export const ViewAsContext = createContext({
   viewAsStatus: { active: false, org_id: null, org_name: null },
