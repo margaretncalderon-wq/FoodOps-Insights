@@ -224,6 +224,12 @@ function AppRouter() {
       <Route path="/event-orchestration/*" element={<ProtectedRoute><EventOrchestrationPage /></ProtectedRoute>} />
       <Route path="/demand-studio" element={<ProtectedRoute><DemandStudioPage /></ProtectedRoute>}>
         <Route index element={<DemandStudioOverview />} />
+        <Route path="campaigns" element={<CampaignsPage />} />
+        <Route path="activations" element={<ActivationsPage />} />
+        <Route path="email-marketing" element={<EmailMarketingPage />} />
+        <Route path="spend-ledger" element={<SpendLedgerPage />} />
+        <Route path="insights" element={<InsightsPage />} />
+        <Route path="settings" element={<DemandStudioSettings />} />
       </Route>
       <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentPreview /></ProtectedRoute>} />
       <Route path="/import-export" element={<ProtectedRoute><ImportExportPage /></ProtectedRoute>} />
