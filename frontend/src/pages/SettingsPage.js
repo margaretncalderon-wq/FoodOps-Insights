@@ -3040,6 +3040,11 @@ Mantel Blanco, , 10, 3`}
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Import/Export Tab */}
+          <TabsContent value="import-export">
+            <ImportExportSection />
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
