@@ -2037,6 +2037,186 @@ class EventOrder(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+# ============== DEMAND STUDIO MODELS ==============
+
+class MarketingCampaignCreate(BaseModel):
+    """Create a marketing campaign"""
+    name: str
+    campaign_type: str = "brand"  # brand, acquisition, retention, reactivation
+    objective: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    budget: float = 0.0
+    status: str = "draft"  # draft, active, paused, completed
+    tags: List[str] = []
+    notes: Optional[str] = None
+
+class MarketingCampaign(BaseModel):
+    """Marketing campaign model"""
+    campaign_id: str
+    company_id: str
+    name: str
+    campaign_type: str = "brand"
+    objective: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    budget: float = 0.0
+    actual_spend: float = 0.0
+    status: str = "draft"
+    tags: List[str] = []
+    notes: Optional[str] = None
+    owner_user_id: Optional[str] = None
+    leads_linked: int = 0
+    opportunities_linked: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+class CampaignChannelCreate(BaseModel):
+    """Create a campaign channel"""
+    campaign_id: str
+    channel_type: str  # facebook, instagram, google_ads, email, sms, whatsapp, linkedin, tiktok, radio, print, event, other
+    channel_name: Optional[str] = None  # Custom name
+    budget_allocated: float = 0.0
+    status: str = "active"  # active, paused, completed
+    notes: Optional[str] = None
+
+class CampaignChannel(BaseModel):
+    """Campaign channel model"""
+    channel_id: str
+    company_id: str
+    campaign_id: str
+    channel_type: str
+    channel_name: Optional[str] = None
+    budget_allocated: float = 0.0
+    actual_spend: float = 0.0
+    status: str = "active"
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class CampaignSpendCreate(BaseModel):
+    """Record campaign spend"""
+    campaign_id: str
+    channel_id: Optional[str] = None
+    spend_type: str = "media"  # media, creative, agency, production, other
+    category: str = "online"  # online, offline
+    amount: float
+    spend_date: Optional[str] = None
+    description: Optional[str] = None
+    vendor: Optional[str] = None
+    invoice_ref: Optional[str] = None
+
+class CampaignSpend(BaseModel):
+    """Campaign spend record"""
+    spend_id: str
+    company_id: str
+    campaign_id: str
+    channel_id: Optional[str] = None
+    spend_type: str = "media"
+    category: str = "online"
+    amount: float
+    spend_date: Optional[str] = None
+    description: Optional[str] = None
+    vendor: Optional[str] = None
+    invoice_ref: Optional[str] = None
+    created_at: datetime
+
+class CampaignAssetCreate(BaseModel):
+    """Create a campaign asset"""
+    campaign_id: str
+    title: str
+    asset_type: str = "image"  # image, video, copy, landing_page, document, other
+    url_or_file_ref: Optional[str] = None
+    description: Optional[str] = None
+    tags: List[str] = []
+
+class CampaignAsset(BaseModel):
+    """Campaign asset model"""
+    asset_id: str
+    company_id: str
+    campaign_id: str
+    title: str
+    asset_type: str = "image"
+    url_or_file_ref: Optional[str] = None
+    description: Optional[str] = None
+    tags: List[str] = []
+    created_at: datetime
+    updated_at: datetime
+
+class MarketingActivationCreate(BaseModel):
+    """Create a marketing activation"""
+    name: str
+    activation_type: str = "event"  # event, promo, partnership, sampling, popup, webinar, other
+    campaign_id: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    location: Optional[str] = None
+    budget: float = 0.0
+    status: str = "planned"  # planned, active, completed, cancelled
+    notes: Optional[str] = None
+
+class MarketingActivation(BaseModel):
+    """Marketing activation model"""
+    activation_id: str
+    company_id: str
+    name: str
+    activation_type: str = "event"
+    campaign_id: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    location: Optional[str] = None
+    budget: float = 0.0
+    actual_spend: float = 0.0
+    status: str = "planned"
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class EmailTrackingCreate(BaseModel):
+    """Create email tracking record"""
+    campaign_id: Optional[str] = None
+    name: str
+    segment: Optional[str] = None
+    list_size: int = 0
+    send_date: Optional[str] = None
+    status: str = "draft"  # draft, scheduled, sent, completed
+    cost: float = 0.0
+    notes: Optional[str] = None
+
+class EmailTracking(BaseModel):
+    """Email tracking model"""
+    email_id: str
+    company_id: str
+    campaign_id: Optional[str] = None
+    name: str
+    segment: Optional[str] = None
+    list_size: int = 0
+    sent_count: int = 0
+    open_count: int = 0
+    click_count: int = 0
+    send_date: Optional[str] = None
+    status: str = "draft"
+    cost: float = 0.0
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class CampaignLeadLinkCreate(BaseModel):
+    """Link a lead to a campaign"""
+    campaign_id: str
+    lead_id: str
+
+class CampaignOpportunityLinkCreate(BaseModel):
+    """Link an opportunity/event to a campaign"""
+    campaign_id: str
+    event_id: str
+
+class CampaignAccessCreate(BaseModel):
+    """Grant access to a campaign"""
+    campaign_id: str
+    user_id: str
+    access_level: str = "view"  # view, edit, admin
+
 # ============== AUTH HELPERS ==============
 
 def hash_password(password: str) -> str:
