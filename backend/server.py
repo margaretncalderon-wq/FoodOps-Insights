@@ -2322,6 +2322,29 @@ class SocialPostSpendLinkCreate(BaseModel):
     post_id: str
     spend_id: str
 
+class ContentIdeaCreate(BaseModel):
+    """Create a content idea/inspiration"""
+    title: str
+    description: Optional[str] = None
+    source_url: Optional[str] = None
+    pillar_id: Optional[str] = None
+    tags: List[str] = []
+    status: str = "new"  # new, reviewing, approved, used, archived
+
+class ContentIdea(BaseModel):
+    """Content idea/inspiration model"""
+    idea_id: str
+    company_id: str
+    title: str
+    description: Optional[str] = None
+    source_url: Optional[str] = None
+    pillar_id: Optional[str] = None
+    tags: List[str] = []
+    status: str = "new"
+    created_by_user_id: str
+    created_at: datetime
+    updated_at: datetime
+
 # ============== AUTH HELPERS ==============
 
 def hash_password(password: str) -> str:
