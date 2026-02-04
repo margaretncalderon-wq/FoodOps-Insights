@@ -111,7 +111,7 @@ export default function UserManagementPage() {
     
     setSaving(true);
     try {
-      await axios.patch(`${API}/super-admin/users/${selectedUser.user_id}/permissions`, {
+      await axios.patch(`${API}/api/super-admin/users/${selectedUser.user_id}/permissions`, {
         permissions: selectedUser.permissions || {}
       }, { withCredentials: true });
       toast.success(isEs ? "Permisos actualizados" : "Permissions updated");
