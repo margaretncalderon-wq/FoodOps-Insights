@@ -197,14 +197,30 @@ export default function SuperAdminLayout() {
 
           {/* Footer */}
           <div className="pt-4 border-t">
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={() => navigate("/dashboard")}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              {isEs ? "Salir de Super Admin" : "Exit Super Admin"}
-            </Button>
+            {isAdminSubdomain() ? (
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  // Clear auth and redirect to login
+                  localStorage.removeItem('token');
+                  document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                  navigate("/login");
+                }}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                {isEs ? "Cerrar Sesión" : "Logout"}
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => navigate("/dashboard")}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                {isEs ? "Salir de Super Admin" : "Exit Super Admin"}
+              </Button>
+            )}
           </div>
         </div>
 
