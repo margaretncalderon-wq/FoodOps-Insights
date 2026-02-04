@@ -17484,6 +17484,714 @@ async def delete_user(
     
     return {"success": True}
 
+# ============== DEMAND STUDIO ENDPOINTS ==============
+
+@demand_studio_router.get("/stats")
+async def get_demand_studio_stats(user: User = Depends(get_current_user)):
+    """Get dashboard statistics for Demand Studio"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {
+            "activeCampaigns": 0,
+            "spendMTD": 0,
+            "spendQTD": 0,
+            "leadsLinked": 0,
+            "opportunitiesLinked": 0,
+            "onlineSpend": 0,
+            "offlineSpend": 0
+        }
+    
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    quarter_month = ((now.month - 1) // 3) * 3 + 1
+    quarter_start = now.replace(month=quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Count active campaigns
+    active_campaigns = await db.marketing_campaigns.count_documents({
+        "company_id": company_id,
+        "status": "active"
+    })
+    
+    # Calculate spend MTD
+    mtd_spend = await db.campaign_spend.aggregate([
+        {"$match": {
+            "company_id": company_id,
+            "created_at": {"$gte": month_start.isoformat()}
+        }},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    spend_mtd = mtd_spend[0]["total"] if mtd_spend else 0
+    
+    # Calculate spend QTD
+    qtd_spend = await db.campaign_spend.aggregate([
+        {"$match": {
+            "company_id": company_id,
+            "created_at": {"$gte": quarter_start.isoformat()}
+        }},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    spend_qtd = qtd_spend[0]["total"] if qtd_spend else 0
+    
+    # Count linked leads
+    leads_linked = await db.campaign_lead_links.count_documents({"company_id": company_id})
+    
+    # Count linked opportunities
+    opportunities_linked = await db.campaign_opportunity_links.count_documents({"company_id": company_id})
+    
+    # Online vs Offline spend
+    online_spend = await db.campaign_spend.aggregate([
+        {"$match": {"company_id": company_id, "category": "online"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    offline_spend = await db.campaign_spend.aggregate([
+        {"$match": {"company_id": company_id, "category": "offline"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    
+    return {
+        "activeCampaigns": active_campaigns,
+        "spendMTD": round(spend_mtd, 2),
+        "spendQTD": round(spend_qtd, 2),
+        "leadsLinked": leads_linked,
+        "opportunitiesLinked": opportunities_linked,
+        "onlineSpend": round(online_spend[0]["total"] if online_spend else 0, 2),
+        "offlineSpend": round(offline_spend[0]["total"] if offline_spend else 0, 2)
+    }
+
+# ---- Campaigns CRUD ----
+
+@demand_studio_router.get("/campaigns")
+async def get_campaigns(
+    status: Optional[str] = None,
+    campaign_type: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all marketing campaigns"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if campaign_type:
+        query["campaign_type"] = campaign_type
+    
+    campaigns = await db.marketing_campaigns.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return campaigns
+
+@demand_studio_router.post("/campaigns")
+async def create_campaign(data: MarketingCampaignCreate, user: User = Depends(get_current_user)):
+    """Create a new marketing campaign"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    campaign = {
+        "campaign_id": f"camp_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.name,
+        "campaign_type": data.campaign_type,
+        "objective": data.objective,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "budget": data.budget,
+        "actual_spend": 0.0,
+        "status": data.status,
+        "tags": data.tags,
+        "notes": data.notes,
+        "owner_user_id": user.user_id,
+        "leads_linked": 0,
+        "opportunities_linked": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.marketing_campaigns.insert_one(campaign)
+    del campaign["_id"]
+    return campaign
+
+@demand_studio_router.get("/campaigns/{campaign_id}")
+async def get_campaign(campaign_id: str, user: User = Depends(get_current_user)):
+    """Get a single campaign"""
+    company_id = user.company_id or user.active_org_id
+    campaign = await db.marketing_campaigns.find_one(
+        {"campaign_id": campaign_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign
+
+@demand_studio_router.put("/campaigns/{campaign_id}")
+async def update_campaign(campaign_id: str, data: MarketingCampaignCreate, user: User = Depends(get_current_user)):
+    """Update a campaign"""
+    company_id = user.company_id or user.active_org_id
+    update_data = data.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.marketing_campaigns.update_one(
+        {"campaign_id": campaign_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    return await db.marketing_campaigns.find_one(
+        {"campaign_id": campaign_id},
+        {"_id": 0}
+    )
+
+@demand_studio_router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(campaign_id: str, user: User = Depends(get_current_user)):
+    """Delete a campaign"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.marketing_campaigns.delete_one(
+        {"campaign_id": campaign_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Also delete related data
+    await db.campaign_channels.delete_many({"campaign_id": campaign_id})
+    await db.campaign_spend.delete_many({"campaign_id": campaign_id})
+    await db.campaign_assets.delete_many({"campaign_id": campaign_id})
+    await db.campaign_lead_links.delete_many({"campaign_id": campaign_id})
+    await db.campaign_opportunity_links.delete_many({"campaign_id": campaign_id})
+    
+    return {"success": True}
+
+# ---- Campaign Channels CRUD ----
+
+@demand_studio_router.get("/channels")
+async def get_channels(campaign_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get campaign channels"""
+    company_id = user.company_id or user.active_org_id
+    query = {"company_id": company_id}
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    
+    channels = await db.campaign_channels.find(query, {"_id": 0}).to_list(500)
+    return channels
+
+@demand_studio_router.post("/channels")
+async def create_channel(data: CampaignChannelCreate, user: User = Depends(get_current_user)):
+    """Create a campaign channel"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    channel = {
+        "channel_id": f"chan_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "channel_type": data.channel_type,
+        "channel_name": data.channel_name,
+        "budget_allocated": data.budget_allocated,
+        "actual_spend": 0.0,
+        "status": data.status,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.campaign_channels.insert_one(channel)
+    del channel["_id"]
+    return channel
+
+@demand_studio_router.put("/channels/{channel_id}")
+async def update_channel(channel_id: str, data: CampaignChannelCreate, user: User = Depends(get_current_user)):
+    """Update a channel"""
+    company_id = user.company_id or user.active_org_id
+    update_data = data.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.campaign_channels.update_one(
+        {"channel_id": channel_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    
+    return await db.campaign_channels.find_one({"channel_id": channel_id}, {"_id": 0})
+
+@demand_studio_router.delete("/channels/{channel_id}")
+async def delete_channel(channel_id: str, user: User = Depends(get_current_user)):
+    """Delete a channel"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.campaign_channels.delete_one(
+        {"channel_id": channel_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    return {"success": True}
+
+# ---- Campaign Spend CRUD ----
+
+@demand_studio_router.get("/spend")
+async def get_spend(
+    campaign_id: Optional[str] = None,
+    channel_id: Optional[str] = None,
+    category: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get campaign spend records"""
+    company_id = user.company_id or user.active_org_id
+    query = {"company_id": company_id}
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if channel_id:
+        query["channel_id"] = channel_id
+    if category:
+        query["category"] = category
+    
+    spend = await db.campaign_spend.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return spend
+
+@demand_studio_router.post("/spend")
+async def create_spend(data: CampaignSpendCreate, user: User = Depends(get_current_user)):
+    """Record campaign spend"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    spend = {
+        "spend_id": f"spend_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "channel_id": data.channel_id,
+        "spend_type": data.spend_type,
+        "category": data.category,
+        "amount": data.amount,
+        "spend_date": data.spend_date or now.strftime("%Y-%m-%d"),
+        "description": data.description,
+        "vendor": data.vendor,
+        "invoice_ref": data.invoice_ref,
+        "created_at": now.isoformat()
+    }
+    await db.campaign_spend.insert_one(spend)
+    del spend["_id"]
+    
+    # Update campaign actual_spend
+    await db.marketing_campaigns.update_one(
+        {"campaign_id": data.campaign_id},
+        {"$inc": {"actual_spend": data.amount}}
+    )
+    
+    # Update channel actual_spend if applicable
+    if data.channel_id:
+        await db.campaign_channels.update_one(
+            {"channel_id": data.channel_id},
+            {"$inc": {"actual_spend": data.amount}}
+        )
+    
+    return spend
+
+@demand_studio_router.delete("/spend/{spend_id}")
+async def delete_spend(spend_id: str, user: User = Depends(get_current_user)):
+    """Delete spend record"""
+    company_id = user.company_id or user.active_org_id
+    spend = await db.campaign_spend.find_one(
+        {"spend_id": spend_id, "company_id": company_id}
+    )
+    if not spend:
+        raise HTTPException(status_code=404, detail="Spend record not found")
+    
+    # Reverse the spend from campaign and channel
+    await db.marketing_campaigns.update_one(
+        {"campaign_id": spend["campaign_id"]},
+        {"$inc": {"actual_spend": -spend["amount"]}}
+    )
+    if spend.get("channel_id"):
+        await db.campaign_channels.update_one(
+            {"channel_id": spend["channel_id"]},
+            {"$inc": {"actual_spend": -spend["amount"]}}
+        )
+    
+    await db.campaign_spend.delete_one({"spend_id": spend_id})
+    return {"success": True}
+
+# ---- Campaign Assets CRUD ----
+
+@demand_studio_router.get("/assets")
+async def get_assets(campaign_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get campaign assets"""
+    company_id = user.company_id or user.active_org_id
+    query = {"company_id": company_id}
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    
+    assets = await db.campaign_assets.find(query, {"_id": 0}).to_list(500)
+    return assets
+
+@demand_studio_router.post("/assets")
+async def create_asset(data: CampaignAssetCreate, user: User = Depends(get_current_user)):
+    """Create a campaign asset"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    asset = {
+        "asset_id": f"asset_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "title": data.title,
+        "asset_type": data.asset_type,
+        "url_or_file_ref": data.url_or_file_ref,
+        "description": data.description,
+        "tags": data.tags,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.campaign_assets.insert_one(asset)
+    del asset["_id"]
+    return asset
+
+@demand_studio_router.delete("/assets/{asset_id}")
+async def delete_asset(asset_id: str, user: User = Depends(get_current_user)):
+    """Delete an asset"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.campaign_assets.delete_one(
+        {"asset_id": asset_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return {"success": True}
+
+# ---- Marketing Activations CRUD ----
+
+@demand_studio_router.get("/activations")
+async def get_activations(
+    campaign_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get marketing activations"""
+    company_id = user.company_id or user.active_org_id
+    query = {"company_id": company_id}
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if status:
+        query["status"] = status
+    
+    activations = await db.marketing_activations.find(query, {"_id": 0}).sort("start_date", -1).to_list(500)
+    return activations
+
+@demand_studio_router.post("/activations")
+async def create_activation(data: MarketingActivationCreate, user: User = Depends(get_current_user)):
+    """Create a marketing activation"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    activation = {
+        "activation_id": f"activ_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.name,
+        "activation_type": data.activation_type,
+        "campaign_id": data.campaign_id,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "location": data.location,
+        "budget": data.budget,
+        "actual_spend": 0.0,
+        "status": data.status,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.marketing_activations.insert_one(activation)
+    del activation["_id"]
+    return activation
+
+@demand_studio_router.put("/activations/{activation_id}")
+async def update_activation(activation_id: str, data: MarketingActivationCreate, user: User = Depends(get_current_user)):
+    """Update an activation"""
+    company_id = user.company_id or user.active_org_id
+    update_data = data.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.marketing_activations.update_one(
+        {"activation_id": activation_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    
+    return await db.marketing_activations.find_one({"activation_id": activation_id}, {"_id": 0})
+
+@demand_studio_router.delete("/activations/{activation_id}")
+async def delete_activation(activation_id: str, user: User = Depends(get_current_user)):
+    """Delete an activation"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.marketing_activations.delete_one(
+        {"activation_id": activation_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    return {"success": True}
+
+# ---- Email Tracking CRUD ----
+
+@demand_studio_router.get("/emails")
+async def get_emails(campaign_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get email tracking records"""
+    company_id = user.company_id or user.active_org_id
+    query = {"company_id": company_id}
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    
+    emails = await db.email_tracking.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return emails
+
+@demand_studio_router.post("/emails")
+async def create_email(data: EmailTrackingCreate, user: User = Depends(get_current_user)):
+    """Create email tracking record"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    email = {
+        "email_id": f"email_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "name": data.name,
+        "segment": data.segment,
+        "list_size": data.list_size,
+        "sent_count": 0,
+        "open_count": 0,
+        "click_count": 0,
+        "send_date": data.send_date,
+        "status": data.status,
+        "cost": data.cost,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.email_tracking.insert_one(email)
+    del email["_id"]
+    return email
+
+@demand_studio_router.put("/emails/{email_id}")
+async def update_email(email_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update email tracking record"""
+    company_id = user.company_id or user.active_org_id
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.email_tracking.update_one(
+        {"email_id": email_id, "company_id": company_id},
+        {"$set": data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Email record not found")
+    
+    return await db.email_tracking.find_one({"email_id": email_id}, {"_id": 0})
+
+@demand_studio_router.delete("/emails/{email_id}")
+async def delete_email(email_id: str, user: User = Depends(get_current_user)):
+    """Delete email record"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.email_tracking.delete_one(
+        {"email_id": email_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Email record not found")
+    return {"success": True}
+
+# ---- Lead & Opportunity Links ----
+
+@demand_studio_router.post("/link-lead")
+async def link_lead_to_campaign(data: CampaignLeadLinkCreate, user: User = Depends(get_current_user)):
+    """Link a lead to a campaign"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Check if already linked
+    existing = await db.campaign_lead_links.find_one({
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "lead_id": data.lead_id
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Lead already linked to this campaign")
+    
+    link = {
+        "link_id": f"link_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "lead_id": data.lead_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.campaign_lead_links.insert_one(link)
+    
+    # Update campaign leads_linked count
+    await db.marketing_campaigns.update_one(
+        {"campaign_id": data.campaign_id},
+        {"$inc": {"leads_linked": 1}}
+    )
+    
+    del link["_id"]
+    return link
+
+@demand_studio_router.delete("/unlink-lead/{campaign_id}/{lead_id}")
+async def unlink_lead_from_campaign(campaign_id: str, lead_id: str, user: User = Depends(get_current_user)):
+    """Unlink a lead from a campaign"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.campaign_lead_links.delete_one({
+        "company_id": company_id,
+        "campaign_id": campaign_id,
+        "lead_id": lead_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Update campaign leads_linked count
+    await db.marketing_campaigns.update_one(
+        {"campaign_id": campaign_id},
+        {"$inc": {"leads_linked": -1}}
+    )
+    
+    return {"success": True}
+
+@demand_studio_router.post("/link-opportunity")
+async def link_opportunity_to_campaign(data: CampaignOpportunityLinkCreate, user: User = Depends(get_current_user)):
+    """Link an opportunity/event to a campaign"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Check if already linked
+    existing = await db.campaign_opportunity_links.find_one({
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "event_id": data.event_id
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Opportunity already linked to this campaign")
+    
+    link = {
+        "link_id": f"link_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": data.campaign_id,
+        "event_id": data.event_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.campaign_opportunity_links.insert_one(link)
+    
+    # Update campaign opportunities_linked count
+    await db.marketing_campaigns.update_one(
+        {"campaign_id": data.campaign_id},
+        {"$inc": {"opportunities_linked": 1}}
+    )
+    
+    del link["_id"]
+    return link
+
+@demand_studio_router.delete("/unlink-opportunity/{campaign_id}/{event_id}")
+async def unlink_opportunity_from_campaign(campaign_id: str, event_id: str, user: User = Depends(get_current_user)):
+    """Unlink an opportunity from a campaign"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.campaign_opportunity_links.delete_one({
+        "company_id": company_id,
+        "campaign_id": campaign_id,
+        "event_id": event_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Update campaign opportunities_linked count
+    await db.marketing_campaigns.update_one(
+        {"campaign_id": campaign_id},
+        {"$inc": {"opportunities_linked": -1}}
+    )
+    
+    return {"success": True}
+
+@demand_studio_router.get("/campaign-leads/{campaign_id}")
+async def get_campaign_leads(campaign_id: str, user: User = Depends(get_current_user)):
+    """Get all leads linked to a campaign"""
+    company_id = user.company_id or user.active_org_id
+    links = await db.campaign_lead_links.find(
+        {"company_id": company_id, "campaign_id": campaign_id},
+        {"_id": 0}
+    ).to_list(500)
+    
+    lead_ids = [l["lead_id"] for l in links]
+    if not lead_ids:
+        return []
+    
+    leads = await db.leads.find(
+        {"lead_id": {"$in": lead_ids}},
+        {"_id": 0}
+    ).to_list(500)
+    return leads
+
+@demand_studio_router.get("/campaign-opportunities/{campaign_id}")
+async def get_campaign_opportunities(campaign_id: str, user: User = Depends(get_current_user)):
+    """Get all opportunities linked to a campaign"""
+    company_id = user.company_id or user.active_org_id
+    links = await db.campaign_opportunity_links.find(
+        {"company_id": company_id, "campaign_id": campaign_id},
+        {"_id": 0}
+    ).to_list(500)
+    
+    event_ids = [l["event_id"] for l in links]
+    if not event_ids:
+        return []
+    
+    events = await db.events.find(
+        {"event_id": {"$in": event_ids}},
+        {"_id": 0}
+    ).to_list(500)
+    return events
+
+# ---- Campaign Insights ----
+
+@demand_studio_router.get("/insights")
+async def get_campaign_insights(user: User = Depends(get_current_user)):
+    """Get campaign performance insights"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"campaigns": [], "summary": {}}
+    
+    # Get all campaigns with spend
+    campaigns = await db.marketing_campaigns.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(500)
+    
+    total_budget = sum(c.get("budget", 0) for c in campaigns)
+    total_spend = sum(c.get("actual_spend", 0) for c in campaigns)
+    total_leads = sum(c.get("leads_linked", 0) for c in campaigns)
+    total_opportunities = sum(c.get("opportunities_linked", 0) for c in campaigns)
+    
+    # Calculate ROI metrics
+    cost_per_lead = total_spend / total_leads if total_leads > 0 else 0
+    cost_per_opportunity = total_spend / total_opportunities if total_opportunities > 0 else 0
+    
+    return {
+        "campaigns": campaigns,
+        "summary": {
+            "total_campaigns": len(campaigns),
+            "active_campaigns": len([c for c in campaigns if c.get("status") == "active"]),
+            "total_budget": round(total_budget, 2),
+            "total_spend": round(total_spend, 2),
+            "budget_utilization": round((total_spend / total_budget * 100) if total_budget > 0 else 0, 1),
+            "total_leads_linked": total_leads,
+            "total_opportunities_linked": total_opportunities,
+            "cost_per_lead": round(cost_per_lead, 2),
+            "cost_per_opportunity": round(cost_per_opportunity, 2)
+        }
+    }
+
+# Include demand_studio_router
+api_router.include_router(demand_studio_router)
+
 # Include super_admin_router
 api_router.include_router(super_admin_router)
 
