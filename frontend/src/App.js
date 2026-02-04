@@ -223,6 +223,7 @@ function AppRouter() {
         <Route path="clarity" element={<SuperAdminClarity />} />
         <Route path="organizations" element={<OrganizationsListPage />} />
         <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+        <Route path="users" element={<UserManagementPage />} />
         <Route path="settings" element={<SuperAdminSettings />} />
       </Route>
       
