@@ -851,6 +851,10 @@ export default function SettingsPage() {
               <FileText className="w-4 h-4" />
               {language === "es" ? "Plantillas" : "Templates"}
             </TabsTrigger>
+            <TabsTrigger value="import-export" className="gap-2">
+              <FileStack className="w-4 h-4" />
+              {language === "es" ? "Importar/Exportar" : "Import/Export"}
+            </TabsTrigger>
             <TabsTrigger value="preferences">
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
