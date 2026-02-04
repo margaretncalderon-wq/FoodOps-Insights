@@ -161,18 +161,18 @@ function AppRouter() {
     return <AuthCallback />;
   }
 
-  // If on admin subdomain, show only Super Admin routes
+  // If on admin subdomain, show only Super Admin routes with simple login
   if (isAdminSubdomain()) {
     return (
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+        <Route path="/login" element={<AdminLoginPage />} />
         <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
           <Route index element={<SuperAdminOverview />} />
           <Route path="crm" element={<SuperAdminCRMPage />} />
           <Route path="clarity" element={<SuperAdminClarity />} />
           <Route path="organizations" element={<OrganizationsListPage />} />
           <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+          <Route path="users" element={<UserManagementPage />} />
           <Route path="settings" element={<SuperAdminSettings />} />
         </Route>
         {/* Redirect all other routes to Super Admin */}
