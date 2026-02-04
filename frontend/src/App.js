@@ -184,6 +184,7 @@ function AppRouter() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
       <Route path="/portal/:documentId" element={<ClientPortal />} />
       <Route path="/forms/:formId" element={<LeadFormPage />} />
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
