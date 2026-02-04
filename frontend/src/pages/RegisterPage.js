@@ -48,7 +48,7 @@ export default function RegisterPage() {
           <div className="mb-8">
             <Link to="/" className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <span className="font-heading text-xl font-bold text-white">E</span>
+                <span className="font-heading text-xl font-bold text-white">K</span>
               </div>
               <span className="font-heading text-xl font-semibold">Kora OS</span>
             </Link>
