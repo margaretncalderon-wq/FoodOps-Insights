@@ -16647,6 +16647,338 @@ async def import_recipes(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
 
+# --- QUOTES/PROPOSALS EXPORT/IMPORT ---
+
+@import_export_router.get("/quotes/export")
+async def export_quotes(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export quotes/proposals to CSV or Excel"""
+    quotes = await db.quotes.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not quotes:
+        quotes = []
+    
+    export_data = []
+    for q in quotes:
+        # Get client name
+        client = await db.clients.find_one({"client_id": q.get("client_id")}, {"name": 1})
+        client_name = client.get("name", "") if client else ""
+        
+        # Format items
+        items_str = ""
+        for item in q.get("items", []):
+            items_str += f"{item.get('name', '')}: {item.get('quantity', 1)} x ${item.get('unit_price', 0)}; "
+        
+        export_data.append({
+            "numero_cotizacion": q.get("quote_number", ""),
+            "cliente": client_name,
+            "cliente_id": q.get("client_id", ""),
+            "fecha": q.get("date", ""),
+            "fecha_evento": q.get("event_date", ""),
+            "estado": q.get("status", "draft"),
+            "subtotal": q.get("subtotal", 0),
+            "impuestos": q.get("tax_amount", 0),
+            "total": q.get("total", 0),
+            "items": items_str.strip("; "),
+            "notas": q.get("notes", ""),
+            "terminos": q.get("terms", "")
+        })
+    
+    df = pd.DataFrame(export_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Cotizaciones')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=cotizaciones.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=cotizaciones.csv"}
+        )
+
+@import_export_router.post("/quotes/import")
+async def import_quotes(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Import quotes from CSV or Excel"""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+        
+        df.columns = df.columns.str.lower().str.strip()
+        
+        imported = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                # Find or create client
+                client_name = row.get('cliente') or row.get('client') or ""
+                client_id = row.get('cliente_id') or row.get('client_id') or ""
+                
+                if not client_id and client_name:
+                    client = await db.clients.find_one({
+                        "company_id": user.company_id,
+                        "name": {"$regex": f"^{client_name}$", "$options": "i"}
+                    })
+                    if client:
+                        client_id = client["client_id"]
+                    else:
+                        # Create new client
+                        client_id = f"client_{uuid.uuid4().hex[:12]}"
+                        await db.clients.insert_one({
+                            "client_id": client_id,
+                            "company_id": user.company_id,
+                            "name": client_name,
+                            "email": "",
+                            "phone": "",
+                            "type": "individual",
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        })
+                
+                if not client_id:
+                    errors.append(f"Fila {idx+2}: Cliente requerido")
+                    continue
+                
+                # Parse items (format: "item1: qty x $price; item2: qty x $price")
+                items = []
+                items_str = row.get('items') or ""
+                if items_str and not pd.isna(items_str):
+                    for item_str in str(items_str).split(";"):
+                        item_str = item_str.strip()
+                        if ":" in item_str:
+                            parts = item_str.split(":")
+                            item_name = parts[0].strip()
+                            qty_price = parts[1].strip() if len(parts) > 1 else "1 x $0"
+                            
+                            # Parse "qty x $price"
+                            qty = 1
+                            price = 0
+                            if "x" in qty_price:
+                                qty_part, price_part = qty_price.split("x")
+                                qty = float(qty_part.strip()) if qty_part.strip() else 1
+                                price = float(price_part.replace("$", "").strip()) if price_part else 0
+                            
+                            items.append({
+                                "name": item_name,
+                                "quantity": qty,
+                                "unit_price": price,
+                                "total": qty * price
+                            })
+                
+                # Calculate totals
+                subtotal = sum(item.get("total", 0) for item in items)
+                tax_rate = 0.16  # Default 16% tax
+                tax_amount = row.get('impuestos') or row.get('tax_amount')
+                if pd.isna(tax_amount):
+                    tax_amount = subtotal * tax_rate
+                total = row.get('total')
+                if pd.isna(total):
+                    total = subtotal + float(tax_amount)
+                
+                # Generate quote number
+                quote_count = await db.quotes.count_documents({"company_id": user.company_id})
+                quote_number = row.get('numero_cotizacion') or row.get('quote_number') or f"COT-{str(quote_count + 1).zfill(4)}"
+                
+                quote_data = {
+                    "quote_id": f"quote_{uuid.uuid4().hex[:12]}",
+                    "company_id": user.company_id,
+                    "quote_number": str(quote_number),
+                    "client_id": client_id,
+                    "date": row.get('fecha') or row.get('date') or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    "event_date": row.get('fecha_evento') or row.get('event_date') or "",
+                    "status": row.get('estado') or row.get('status') or "draft",
+                    "items": items,
+                    "subtotal": float(subtotal),
+                    "tax_amount": float(tax_amount),
+                    "total": float(total),
+                    "notes": row.get('notas') or row.get('notes') or "",
+                    "terms": row.get('terminos') or row.get('terms') or "",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                await db.quotes.insert_one(quote_data)
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Fila {idx+2}: {str(e)}")
+        
+        return {
+            "success": True,
+            "imported": imported,
+            "errors": errors[:10] if errors else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
+
+# --- EVENTS EXPORT/IMPORT ---
+
+@import_export_router.get("/events/export")
+async def export_events(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export events to CSV or Excel"""
+    events = await db.events.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not events:
+        events = []
+    
+    export_data = []
+    for e in events:
+        # Get client name
+        client = await db.clients.find_one({"client_id": e.get("client_id")}, {"name": 1})
+        client_name = client.get("name", "") if client else ""
+        
+        export_data.append({
+            "nombre_evento": e.get("name", ""),
+            "cliente": client_name,
+            "cliente_id": e.get("client_id", ""),
+            "fecha_inicio": e.get("start_date", ""),
+            "fecha_fin": e.get("end_date", ""),
+            "hora_inicio": e.get("start_time", ""),
+            "hora_fin": e.get("end_time", ""),
+            "ubicacion": e.get("location", ""),
+            "tipo_evento": e.get("event_type", ""),
+            "num_invitados": e.get("guest_count", 0),
+            "estado": e.get("status", ""),
+            "presupuesto": e.get("budget", 0),
+            "notas": e.get("notes", "")
+        })
+    
+    df = pd.DataFrame(export_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Eventos')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=eventos.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=eventos.csv"}
+        )
+
+@import_export_router.post("/events/import")
+async def import_events(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Import events from CSV or Excel"""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+        
+        df.columns = df.columns.str.lower().str.strip()
+        
+        imported = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                event_name = row.get('nombre_evento') or row.get('event_name') or row.get('nombre') or ""
+                
+                if not event_name:
+                    errors.append(f"Fila {idx+2}: Nombre de evento requerido")
+                    continue
+                
+                # Find or create client
+                client_name = row.get('cliente') or row.get('client') or ""
+                client_id = row.get('cliente_id') or row.get('client_id') or ""
+                
+                if not client_id and client_name:
+                    client = await db.clients.find_one({
+                        "company_id": user.company_id,
+                        "name": {"$regex": f"^{client_name}$", "$options": "i"}
+                    })
+                    if client:
+                        client_id = client["client_id"]
+                    else:
+                        client_id = f"client_{uuid.uuid4().hex[:12]}"
+                        await db.clients.insert_one({
+                            "client_id": client_id,
+                            "company_id": user.company_id,
+                            "name": client_name,
+                            "email": "",
+                            "phone": "",
+                            "type": "individual",
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        })
+                
+                guest_count = row.get('num_invitados') or row.get('guest_count') or 0
+                if pd.isna(guest_count): guest_count = 0
+                
+                budget = row.get('presupuesto') or row.get('budget') or 0
+                if pd.isna(budget): budget = 0
+                
+                event_data = {
+                    "event_id": f"event_{uuid.uuid4().hex[:12]}",
+                    "company_id": user.company_id,
+                    "name": event_name,
+                    "client_id": client_id,
+                    "start_date": str(row.get('fecha_inicio') or row.get('start_date') or ""),
+                    "end_date": str(row.get('fecha_fin') or row.get('end_date') or ""),
+                    "start_time": str(row.get('hora_inicio') or row.get('start_time') or ""),
+                    "end_time": str(row.get('hora_fin') or row.get('end_time') or ""),
+                    "location": row.get('ubicacion') or row.get('location') or "",
+                    "event_type": row.get('tipo_evento') or row.get('event_type') or "other",
+                    "guest_count": int(guest_count),
+                    "status": row.get('estado') or row.get('status') or "inquiry",
+                    "budget": float(budget),
+                    "notes": row.get('notas') or row.get('notes') or "",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                await db.events.insert_one(event_data)
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Fila {idx+2}: {str(e)}")
+        
+        return {
+            "success": True,
+            "imported": imported,
+            "errors": errors[:10] if errors else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
+
 # --- TEMPLATES ---
 
 @import_export_router.get("/templates/{type}")
