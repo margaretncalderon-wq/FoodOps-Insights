@@ -16831,6 +16831,142 @@ async def import_quotes(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
 
+# --- LEADS EXPORT/IMPORT ---
+
+@import_export_router.get("/leads/export")
+async def export_leads(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export leads to CSV or Excel"""
+    leads = await db.leads.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not leads:
+        leads = []
+    
+    export_data = []
+    for l in leads:
+        export_data.append({
+            "nombre": l.get("name", ""),
+            "email": l.get("email", ""),
+            "telefono": l.get("phone", ""),
+            "empresa": l.get("company", ""),
+            "fuente": l.get("source", ""),
+            "estado": l.get("status", "new"),
+            "valor_estimado": l.get("estimated_value", 0),
+            "tipo_evento": l.get("event_type", ""),
+            "fecha_evento": l.get("event_date", ""),
+            "num_invitados": l.get("guest_count", 0),
+            "notas": l.get("notes", ""),
+            "fecha_creacion": l.get("created_at", "")
+        })
+    
+    df = pd.DataFrame(export_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Leads')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=leads.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=leads.csv"}
+        )
+
+@import_export_router.post("/leads/import")
+async def import_leads(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Import leads from CSV or Excel"""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+        
+        df.columns = df.columns.str.lower().str.strip()
+        
+        imported = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                name = row.get('nombre') or row.get('name') or ""
+                email = row.get('email') or ""
+                
+                if not name and not email:
+                    errors.append(f"Fila {idx+2}: Nombre o email requerido")
+                    continue
+                
+                # Check if lead exists by email
+                existing = None
+                if email:
+                    existing = await db.leads.find_one({
+                        "company_id": user.company_id,
+                        "email": email
+                    })
+                
+                estimated_value = row.get('valor_estimado') or row.get('estimated_value') or 0
+                if pd.isna(estimated_value): estimated_value = 0
+                
+                guest_count = row.get('num_invitados') or row.get('guest_count') or 0
+                if pd.isna(guest_count): guest_count = 0
+                
+                lead_data = {
+                    "name": name,
+                    "email": email,
+                    "phone": str(row.get('telefono') or row.get('phone') or ""),
+                    "company": row.get('empresa') or row.get('company') or "",
+                    "source": row.get('fuente') or row.get('source') or "import",
+                    "status": row.get('estado') or row.get('status') or "new",
+                    "estimated_value": float(estimated_value),
+                    "event_type": row.get('tipo_evento') or row.get('event_type') or "",
+                    "event_date": str(row.get('fecha_evento') or row.get('event_date') or ""),
+                    "guest_count": int(guest_count),
+                    "notes": row.get('notas') or row.get('notes') or "",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                if existing:
+                    await db.leads.update_one(
+                        {"lead_id": existing["lead_id"]},
+                        {"$set": lead_data}
+                    )
+                else:
+                    lead_data["lead_id"] = f"lead_{uuid.uuid4().hex[:12]}"
+                    lead_data["company_id"] = user.company_id
+                    lead_data["created_at"] = datetime.now(timezone.utc).isoformat()
+                    await db.leads.insert_one(lead_data)
+                
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Fila {idx+2}: {str(e)}")
+        
+        return {
+            "success": True,
+            "imported": imported,
+            "errors": errors[:10] if errors else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
+
 # --- EVENTS EXPORT/IMPORT ---
 
 @import_export_router.get("/events/export")
