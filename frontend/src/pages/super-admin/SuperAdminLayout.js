@@ -136,23 +136,25 @@ export default function SuperAdminLayout() {
 
         {/* Sidebar */}
         <div className={`w-64 border-r bg-muted/30 p-4 flex flex-col ${viewAsStatus.active ? "mt-12" : ""}`}>
-          {/* Back Link */}
-          <NavLink 
-            to="/dashboard" 
-            className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            {isEs ? "Volver al Dashboard" : "Back to Dashboard"}
-          </NavLink>
+          {/* Back Link - Only show if not on admin subdomain */}
+          {!isAdminSubdomain() && (
+            <NavLink 
+              to="/dashboard" 
+              className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              {isEs ? "Volver al Dashboard" : "Back to Dashboard"}
+            </NavLink>
+          )}
 
           {/* Header */}
           <div className="mb-6 px-3">
             <div className="flex items-center gap-2 mb-1">
               <Shield className="w-6 h-6 text-red-500" />
-              <h2 className="text-xl font-bold">Super Admin</h2>
+              <h2 className="text-xl font-bold">Kora OS</h2>
             </div>
             <p className="text-xs text-muted-foreground">
-              {isEs ? "Gestión de Plataforma" : "Platform Management"}
+              {isEs ? "Super Admin" : "Super Admin"}
             </p>
           </div>
 
