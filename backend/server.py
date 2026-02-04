@@ -2243,6 +2243,85 @@ class NotificationCreate(BaseModel):
     link: Optional[str] = None
     metadata: Optional[dict] = None
 
+# ============== SOCIAL MEDIA MODELS ==============
+
+class SocialAccountCreate(BaseModel):
+    """Create a social media account"""
+    platform: str  # instagram, tiktok, linkedin, facebook, youtube
+    handle: str
+    status: str = "active"  # active, paused
+
+class SocialAccount(BaseModel):
+    """Social media account model"""
+    account_id: str
+    company_id: str
+    platform: str
+    handle: str
+    status: str = "active"
+    created_at: datetime
+    updated_at: datetime
+
+class ContentPillarCreate(BaseModel):
+    """Create a content pillar"""
+    name: str
+    description: Optional[str] = None
+
+class ContentPillar(BaseModel):
+    """Content pillar model"""
+    pillar_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class SocialPostCreate(BaseModel):
+    """Create a social media post"""
+    social_account_id: str
+    campaign_id: Optional[str] = None
+    pillar_id: Optional[str] = None
+    format: str = "post"  # reel, carousel, post, story, live
+    status: str = "idea"  # idea, drafted, scheduled, posted, archived
+    title: str
+    caption: Optional[str] = None
+    hook: Optional[str] = None
+    cta: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    link_url: Optional[str] = None
+    notes: Optional[str] = None
+
+class SocialPost(BaseModel):
+    """Social media post model"""
+    post_id: str
+    company_id: str
+    social_account_id: str
+    campaign_id: Optional[str] = None
+    pillar_id: Optional[str] = None
+    format: str = "post"
+    status: str = "idea"
+    title: str
+    caption: Optional[str] = None
+    hook: Optional[str] = None
+    cta: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    posted_at: Optional[str] = None
+    link_url: Optional[str] = None
+    notes: Optional[str] = None
+    created_by_user_id: str
+    owner_user_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class SocialPostAssetLinkCreate(BaseModel):
+    """Link an asset to a social post"""
+    post_id: str
+    asset_id: str
+
+class SocialPostSpendLinkCreate(BaseModel):
+    """Link spend to a social post"""
+    post_id: str
+    spend_id: str
+
 # ============== AUTH HELPERS ==============
 
 def hash_password(password: str) -> str:
