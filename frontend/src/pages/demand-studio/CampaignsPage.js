@@ -21,7 +21,7 @@ import {
 } from "../../components/ui/select";
 import { 
   Plus, Target, Calendar, DollarSign, Trash2, 
-  Edit2, Loader2, MoreHorizontal, Eye
+  Edit2, Loader2, Users, UserPlus, X, ShieldCheck
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -40,15 +40,32 @@ const CAMPAIGN_STATUSES = [
   { value: "completed", label: "Completed", labelEs: "Completada", color: "bg-blue-100 text-blue-800" },
 ];
 
+const ACCESS_LEVELS = [
+  { value: "view", label: "View Only", labelEs: "Solo Ver" },
+  { value: "edit", label: "View & Edit", labelEs: "Ver y Editar" },
+];
+
 export default function CampaignsPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
+  const [selectedCampaignForAccess, setSelectedCampaignForAccess] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  
+  // Role-based access
+  const [userRole, setUserRole] = useState(null);
+  const [hasFullAccess, setHasFullAccess] = useState(true);
+  
+  // Access management
+  const [campaignAccess, setCampaignAccess] = useState([]);
+  const [marketingPartners, setMarketingPartners] = useState([]);
+  const [newAccessUserId, setNewAccessUserId] = useState("");
+  const [newAccessLevel, setNewAccessLevel] = useState("edit");
   
   const [formData, setFormData] = useState({
     name: "",
@@ -68,16 +85,26 @@ export default function CampaignsPage() {
 
   const fetchCampaigns = async () => {
     try {
-      let url = `${API}/api/demand-studio/campaigns`;
-      const params = [];
-      if (filterStatus !== "all") params.push(`status=${filterStatus}`);
-      if (filterType !== "all") params.push(`campaign_type=${filterType}`);
-      if (params.length) url += `?${params.join("&")}`;
-      
-      const response = await axios.get(url, { withCredentials: true });
-      setCampaigns(response.data);
+      // Use my-campaigns endpoint to get role-aware data
+      const response = await axios.get(`${API}/api/demand-studio/my-campaigns`, { withCredentials: true });
+      setCampaigns(response.data.campaigns || []);
+      setUserRole(response.data.role);
+      setHasFullAccess(response.data.has_full_access !== false);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
+      // Fallback to regular endpoint
+      try {
+        let url = `${API}/api/demand-studio/campaigns`;
+        const params = [];
+        if (filterStatus !== "all") params.push(`status=${filterStatus}`);
+        if (filterType !== "all") params.push(`campaign_type=${filterType}`);
+        if (params.length) url += `?${params.join("&")}`;
+        
+        const fallbackResponse = await axios.get(url, { withCredentials: true });
+        setCampaigns(fallbackResponse.data);
+      } catch (e) {
+        console.error("Fallback also failed:", e);
+      }
     } finally {
       setLoading(false);
     }
@@ -139,6 +166,56 @@ export default function CampaignsPage() {
     });
   };
 
+  // Access Management Functions
+  const openAccessDialog = async (campaign) => {
+    setSelectedCampaignForAccess(campaign);
+    setAccessDialogOpen(true);
+    
+    try {
+      const [accessRes, partnersRes] = await Promise.all([
+        axios.get(`${API}/api/demand-studio/campaigns/${campaign.campaign_id}/access`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/marketing-partners`, { withCredentials: true })
+      ]);
+      setCampaignAccess(accessRes.data);
+      setMarketingPartners(partnersRes.data);
+    } catch (error) {
+      console.error("Error fetching access data:", error);
+    }
+  };
+
+  const grantAccess = async () => {
+    if (!newAccessUserId || !selectedCampaignForAccess) return;
+    
+    try {
+      await axios.post(`${API}/api/demand-studio/campaigns/${selectedCampaignForAccess.campaign_id}/access`, {
+        campaign_id: selectedCampaignForAccess.campaign_id,
+        user_id: newAccessUserId,
+        access_level: newAccessLevel
+      }, { withCredentials: true });
+      
+      // Refresh access list
+      const accessRes = await axios.get(`${API}/api/demand-studio/campaigns/${selectedCampaignForAccess.campaign_id}/access`, { withCredentials: true });
+      setCampaignAccess(accessRes.data);
+      setNewAccessUserId("");
+    } catch (error) {
+      console.error("Error granting access:", error);
+    }
+  };
+
+  const revokeAccess = async (userId) => {
+    if (!selectedCampaignForAccess) return;
+    
+    try {
+      await axios.delete(`${API}/api/demand-studio/campaigns/${selectedCampaignForAccess.campaign_id}/access/${userId}`, { withCredentials: true });
+      
+      // Refresh access list
+      const accessRes = await axios.get(`${API}/api/demand-studio/campaigns/${selectedCampaignForAccess.campaign_id}/access`, { withCredentials: true });
+      setCampaignAccess(accessRes.data);
+    } catch (error) {
+      console.error("Error revoking access:", error);
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
   };
@@ -157,6 +234,18 @@ export default function CampaignsPage() {
     ) : <Badge variant="outline">{type}</Badge>;
   };
 
+  // Check if user can manage this campaign
+  const canManage = userRole === "owner" || userRole === "admin";
+  const canCreate = canManage; // Only owner/admin can create
+  const canEdit = canManage || userRole === "marketing_partner"; // marketing_partner can edit assigned
+
+  // Filter campaigns client-side for status/type
+  const filteredCampaigns = campaigns.filter(c => {
+    if (filterStatus !== "all" && c.status !== filterStatus) return false;
+    if (filterType !== "all" && c.campaign_type !== filterType) return false;
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -167,11 +256,25 @@ export default function CampaignsPage() {
 
   return (
     <div className="space-y-6" data-testid="campaigns-page">
+      {/* Marketing Partner Banner */}
+      {userRole === "marketing_partner" && (
+        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800">
+          <CardContent className="p-3 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-purple-600" />
+            <span className="text-sm text-purple-700 dark:text-purple-300">
+              {isEs 
+                ? "Mostrando solo campañas asignadas. Datos financieros ocultos." 
+                : "Showing assigned campaigns only. Financial data hidden."}
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex gap-2">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px]" data-testid="filter-status">
               <SelectValue placeholder={isEs ? "Estado" : "Status"} />
             </SelectTrigger>
             <SelectContent>
@@ -183,7 +286,7 @@ export default function CampaignsPage() {
           </Select>
           
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[160px]" data-testid="filter-type">
               <SelectValue placeholder={isEs ? "Tipo" : "Type"} />
             </SelectTrigger>
             <SelectContent>
@@ -195,26 +298,30 @@ export default function CampaignsPage() {
           </Select>
         </div>
         
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-campaign-btn">
-          <Plus className="w-4 h-4 mr-2" />
-          {isEs ? "Nueva Campaña" : "New Campaign"}
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-campaign-button">
+            <Plus className="w-4 h-4 mr-2" />
+            {isEs ? "Nueva Campaña" : "New Campaign"}
+          </Button>
+        )}
       </div>
 
       {/* Campaigns Grid */}
-      {campaigns.length === 0 ? (
+      {filteredCampaigns.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Target className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              {isEs ? "No hay campañas. Crea una para comenzar." : "No campaigns yet. Create one to get started."}
+              {userRole === "marketing_partner"
+                ? (isEs ? "No tienes campañas asignadas. Contacta a tu administrador." : "You have no assigned campaigns. Contact your admin.")
+                : (isEs ? "No hay campañas. Crea una para comenzar." : "No campaigns yet. Create one to get started.")}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {campaigns.map(campaign => (
-            <Card key={campaign.campaign_id} className="hover:shadow-md transition-shadow">
+          {filteredCampaigns.map(campaign => (
+            <Card key={campaign.campaign_id} className="hover:shadow-md transition-shadow" data-testid={`campaign-card-${campaign.campaign_id}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
@@ -225,12 +332,21 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(campaign.campaign_id)} data-testid={`delete-campaign-${campaign.campaign_id}`}>
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
+                    {canManage && (
+                      <Button variant="ghost" size="icon" onClick={() => openAccessDialog(campaign)} title={isEs ? "Gestionar Acceso" : "Manage Access"}>
+                        <Users className="w-4 h-4 text-purple-500" />
+                      </Button>
+                    )}
+                    {canEdit && (
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(campaign.campaign_id)} data-testid={`delete-campaign-${campaign.campaign_id}`}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -239,16 +355,19 @@ export default function CampaignsPage() {
                   <p className="text-sm text-muted-foreground line-clamp-2">{campaign.objective}</p>
                 )}
                 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
-                    <p className="font-semibold">{formatCurrency(campaign.budget)}</p>
+                {/* Financial Data - Hidden for marketing_partner */}
+                {hasFullAccess && (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
+                      <p className="font-semibold">{formatCurrency(campaign.budget)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">{isEs ? "Gastado" : "Spent"}</p>
+                      <p className="font-semibold">{formatCurrency(campaign.actual_spend)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">{isEs ? "Gastado" : "Spent"}</p>
-                    <p className="font-semibold">{formatCurrency(campaign.actual_spend)}</p>
-                  </div>
-                </div>
+                )}
 
                 <div className="flex gap-4 text-sm">
                   <div className="flex items-center gap-1">
@@ -264,7 +383,7 @@ export default function CampaignsPage() {
                 {campaign.start_date && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="w-3 h-3" />
-                    {campaign.start_date} - {campaign.end_date || "Ongoing"}
+                    {campaign.start_date} - {campaign.end_date || (isEs ? "En curso" : "Ongoing")}
                   </div>
                 )}
               </CardContent>
@@ -291,6 +410,7 @@ export default function CampaignsPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder={isEs ? "Nombre de la campaña" : "Campaign name"}
+                data-testid="campaign-name-input"
               />
             </div>
             
@@ -301,7 +421,7 @@ export default function CampaignsPage() {
                   value={formData.campaign_type} 
                   onValueChange={(v) => setFormData({ ...formData, campaign_type: v })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="campaign-type-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -317,7 +437,7 @@ export default function CampaignsPage() {
                   value={formData.status} 
                   onValueChange={(v) => setFormData({ ...formData, status: v })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="campaign-status-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -357,16 +477,19 @@ export default function CampaignsPage() {
               </div>
             </div>
             
-            <div>
-              <label className="text-sm font-medium">{isEs ? "Presupuesto" : "Budget"}</label>
-              <Input
-                type="number"
-                value={formData.budget}
-                onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
-                min="0"
-                step="100"
-              />
-            </div>
+            {/* Budget - Only for non-marketing_partner */}
+            {(canManage || !editingCampaign) && (
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Presupuesto" : "Budget"}</label>
+                <Input
+                  type="number"
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
+                  min="0"
+                  step="100"
+                />
+              </div>
+            )}
             
             <div>
               <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
@@ -379,11 +502,120 @@ export default function CampaignsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="cancel-campaign-btn">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name} data-testid="save-campaign-btn">
+            <Button onClick={handleSave} disabled={!formData.name} data-testid="save-campaign-button">
               {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Management Dialog */}
+      <Dialog open={accessDialogOpen} onOpenChange={setAccessDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-purple-500" />
+              {isEs ? "Gestionar Acceso" : "Manage Access"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {isEs 
+                ? `Asigna Marketing Partners a "${selectedCampaignForAccess?.name}"` 
+                : `Assign Marketing Partners to "${selectedCampaignForAccess?.name}"`}
+            </p>
+            
+            {/* Add New Access */}
+            <div className="flex gap-2">
+              <Select value={newAccessUserId} onValueChange={setNewAccessUserId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={isEs ? "Seleccionar usuario..." : "Select user..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {marketingPartners
+                    .filter(p => !campaignAccess.find(a => a.user_id === p.user_id))
+                    .map(partner => (
+                      <SelectItem key={partner.user_id} value={partner.user_id}>
+                        {partner.name || partner.email}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={newAccessLevel} onValueChange={setNewAccessLevel}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCESS_LEVELS.map(level => (
+                    <SelectItem key={level.value} value={level.value}>
+                      {isEs ? level.labelEs : level.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button onClick={grantAccess} disabled={!newAccessUserId}>
+                <UserPlus className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {marketingPartners.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {isEs 
+                  ? "No hay Marketing Partners. Crea uno desde Configuración > Equipo." 
+                  : "No Marketing Partners. Create one from Settings > Team."}
+              </p>
+            )}
+            
+            {/* Current Access List */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {isEs ? "Usuarios con acceso" : "Users with access"}
+              </label>
+              
+              {campaignAccess.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  {isEs ? "No hay usuarios asignados" : "No users assigned"}
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {campaignAccess.map(access => (
+                    <div 
+                      key={access.user_id} 
+                      className="flex items-center justify-between p-2 bg-muted rounded-lg"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{access.user_name || access.user_email}</p>
+                        <p className="text-xs text-muted-foreground">{access.user_email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">
+                          {ACCESS_LEVELS.find(l => l.value === access.access_level)?.[isEs ? 'labelEs' : 'label'] || access.access_level}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => revokeAccess(access.user_id)}
+                          className="h-8 w-8"
+                        >
+                          <X className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAccessDialogOpen(false)}>
+              {isEs ? "Cerrar" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>
