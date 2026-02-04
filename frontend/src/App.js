@@ -41,6 +41,12 @@ import {
 
 import "./App.css";
 
+// Helper to detect if we're on the admin subdomain
+const isAdminSubdomain = () => {
+  const hostname = window.location.hostname;
+  return hostname.startsWith('admin.') || hostname === 'admin.ourkora.com';
+};
+
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 const AuthCallback = () => {
   const navigate = useNavigate();
