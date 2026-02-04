@@ -19207,6 +19207,191 @@ async def get_social_calendar(
     
     return posts
 
+# ---- Content Ideas CRUD ----
+
+@demand_studio_router.get("/social/ideas")
+async def get_content_ideas(
+    status: Optional[str] = None,
+    pillar_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get content ideas"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if pillar_id:
+        query["pillar_id"] = pillar_id
+    
+    ideas = await db.content_ideas.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return ideas
+
+@demand_studio_router.post("/social/ideas")
+async def create_content_idea(data: ContentIdeaCreate, user: User = Depends(get_current_user)):
+    """Create a content idea"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    idea = {
+        "idea_id": f"idea_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "title": data.title,
+        "description": data.description,
+        "source_url": data.source_url,
+        "pillar_id": data.pillar_id,
+        "tags": data.tags,
+        "status": data.status,
+        "created_by_user_id": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.content_ideas.insert_one(idea)
+    del idea["_id"]
+    return idea
+
+@demand_studio_router.put("/social/ideas/{idea_id}")
+async def update_content_idea(idea_id: str, data: ContentIdeaCreate, user: User = Depends(get_current_user)):
+    """Update a content idea"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.content_ideas.update_one(
+        {"idea_id": idea_id, "company_id": company_id},
+        {"$set": {
+            "title": data.title,
+            "description": data.description,
+            "source_url": data.source_url,
+            "pillar_id": data.pillar_id,
+            "tags": data.tags,
+            "status": data.status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    
+    return await db.content_ideas.find_one({"idea_id": idea_id}, {"_id": 0})
+
+@demand_studio_router.delete("/social/ideas/{idea_id}")
+async def delete_content_idea(idea_id: str, user: User = Depends(get_current_user)):
+    """Delete a content idea"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.content_ideas.delete_one(
+        {"idea_id": idea_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    return {"success": True}
+
+@demand_studio_router.post("/social/ideas/{idea_id}/convert-to-post")
+async def convert_idea_to_post(idea_id: str, social_account_id: str, user: User = Depends(get_current_user)):
+    """Convert an idea to a social post"""
+    company_id = user.company_id or user.active_org_id
+    
+    idea = await db.content_ideas.find_one({"idea_id": idea_id, "company_id": company_id})
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    
+    now = datetime.now(timezone.utc)
+    post = {
+        "post_id": f"post_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "social_account_id": social_account_id,
+        "campaign_id": None,
+        "pillar_id": idea.get("pillar_id"),
+        "format": "post",
+        "status": "idea",
+        "title": idea["title"],
+        "caption": idea.get("description"),
+        "hook": None,
+        "cta": None,
+        "scheduled_at": None,
+        "posted_at": None,
+        "link_url": idea.get("source_url"),
+        "notes": f"Converted from idea. Tags: {', '.join(idea.get('tags', []))}",
+        "created_by_user_id": user.user_id,
+        "owner_user_id": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.social_posts.insert_one(post)
+    del post["_id"]
+    
+    # Mark idea as used
+    await db.content_ideas.update_one(
+        {"idea_id": idea_id},
+        {"$set": {"status": "used", "updated_at": now.isoformat()}}
+    )
+    
+    return post
+
+# ---- Global Marketing Calendar ----
+
+@demand_studio_router.get("/global-calendar")
+async def get_global_marketing_calendar(
+    start_date: str,
+    end_date: str,
+    user: User = Depends(get_current_user)
+):
+    """Get all marketing events for global calendar"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"campaigns": [], "posts": [], "activations": [], "emails": []}
+    
+    # Get campaigns in date range
+    campaigns = await db.marketing_campaigns.find({
+        "company_id": company_id,
+        "$or": [
+            {"start_date": {"$gte": start_date, "$lte": end_date}},
+            {"end_date": {"$gte": start_date, "$lte": end_date}},
+            {"$and": [{"start_date": {"$lte": start_date}}, {"end_date": {"$gte": end_date}}]}
+        ]
+    }, {"_id": 0, "campaign_id": 1, "name": 1, "start_date": 1, "end_date": 1, "status": 1, "campaign_type": 1}).to_list(100)
+    
+    # Get social posts
+    posts = await db.social_posts.find({
+        "company_id": company_id,
+        "$or": [
+            {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
+            {"posted_at": {"$gte": start_date, "$lte": end_date}}
+        ]
+    }, {"_id": 0, "post_id": 1, "title": 1, "scheduled_at": 1, "posted_at": 1, "status": 1, "format": 1, "social_account_id": 1}).to_list(200)
+    
+    # Enrich posts with account info
+    for post in posts:
+        if post.get("social_account_id"):
+            account = await db.social_accounts.find_one(
+                {"account_id": post["social_account_id"]},
+                {"_id": 0, "platform": 1, "handle": 1}
+            )
+            post["account"] = account
+    
+    # Get activations
+    activations = await db.marketing_activations.find({
+        "company_id": company_id,
+        "$or": [
+            {"start_date": {"$gte": start_date, "$lte": end_date}},
+            {"end_date": {"$gte": start_date, "$lte": end_date}}
+        ]
+    }, {"_id": 0, "activation_id": 1, "name": 1, "start_date": 1, "end_date": 1, "status": 1, "activation_type": 1}).to_list(100)
+    
+    # Get email campaigns
+    emails = await db.email_tracking.find({
+        "company_id": company_id,
+        "send_date": {"$gte": start_date, "$lte": end_date}
+    }, {"_id": 0, "email_id": 1, "name": 1, "send_date": 1, "status": 1}).to_list(100)
+    
+    return {
+        "campaigns": campaigns,
+        "posts": posts,
+        "activations": activations,
+        "emails": emails
+    }
+
 # Include demand_studio_router
 api_router.include_router(demand_studio_router)
 
