@@ -30,6 +30,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { OrgSwitcher } from "./org";
+import NotificationBell from "./notifications/NotificationBell";
 
 const navItems = [
   { path: "/dashboard", icon: Activity, labelKey: "systemPulse" },
