@@ -18203,6 +18203,245 @@ async def get_campaign_insights(user: User = Depends(get_current_user)):
         }
     }
 
+# ---- Campaign Access Management (for Marketing Partners) ----
+
+async def get_user_role(user: User, company_id: str) -> str:
+    """Get the user's role in the company"""
+    membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "company_id": company_id,
+        "status": "active"
+    })
+    return membership.get("role", "viewer") if membership else "viewer"
+
+async def is_marketing_partner(user: User, company_id: str) -> bool:
+    """Check if user is a marketing partner"""
+    role = await get_user_role(user, company_id)
+    return role == "marketing_partner"
+
+async def get_user_campaign_access(user_id: str, company_id: str) -> list:
+    """Get list of campaign_ids the user has access to"""
+    accesses = await db.campaign_access.find({
+        "user_id": user_id,
+        "company_id": company_id
+    }, {"campaign_id": 1, "_id": 0}).to_list(500)
+    return [a["campaign_id"] for a in accesses]
+
+async def can_access_campaign(user: User, company_id: str, campaign_id: str) -> bool:
+    """Check if user can access a specific campaign"""
+    role = await get_user_role(user, company_id)
+    if role in ["owner", "admin"]:
+        return True
+    if role == "marketing_partner":
+        access = await db.campaign_access.find_one({
+            "user_id": user.user_id,
+            "company_id": company_id,
+            "campaign_id": campaign_id
+        })
+        return access is not None
+    return True  # Other roles can view all
+
+def strip_financial_data(campaign: dict) -> dict:
+    """Remove financial data from campaign for marketing partners"""
+    sensitive_fields = ["budget", "actual_spend", "cost_per_lead", "cost_per_opportunity"]
+    return {k: v for k, v in campaign.items() if k not in sensitive_fields}
+
+@demand_studio_router.get("/campaigns/{campaign_id}/access")
+async def get_campaign_access(campaign_id: str, user: User = Depends(get_current_user)):
+    """Get users with access to a campaign (owner/admin only)"""
+    company_id = user.company_id or user.active_org_id
+    role = await get_user_role(user, company_id)
+    
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner/admin can manage campaign access")
+    
+    accesses = await db.campaign_access.find(
+        {"campaign_id": campaign_id, "company_id": company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Enrich with user info
+    for access in accesses:
+        user_doc = await db.users.find_one({"user_id": access["user_id"]}, {"_id": 0, "name": 1, "email": 1})
+        if user_doc:
+            access["user_name"] = user_doc.get("name", "")
+            access["user_email"] = user_doc.get("email", "")
+    
+    return accesses
+
+@demand_studio_router.post("/campaigns/{campaign_id}/access")
+async def grant_campaign_access(campaign_id: str, data: CampaignAccessCreate, user: User = Depends(get_current_user)):
+    """Grant a user access to a campaign (owner/admin only)"""
+    company_id = user.company_id or user.active_org_id
+    role = await get_user_role(user, company_id)
+    
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner/admin can manage campaign access")
+    
+    # Verify campaign exists
+    campaign = await db.marketing_campaigns.find_one({"campaign_id": campaign_id, "company_id": company_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Verify user exists
+    target_user = await db.users.find_one({"user_id": data.user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if already has access
+    existing = await db.campaign_access.find_one({
+        "campaign_id": campaign_id,
+        "user_id": data.user_id,
+        "company_id": company_id
+    })
+    if existing:
+        # Update access level
+        await db.campaign_access.update_one(
+            {"campaign_id": campaign_id, "user_id": data.user_id, "company_id": company_id},
+            {"$set": {"access_level": data.access_level, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"success": True, "message": "Access updated"}
+    
+    # Create new access
+    access = {
+        "access_id": f"acc_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "campaign_id": campaign_id,
+        "user_id": data.user_id,
+        "access_level": data.access_level,
+        "granted_by": user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.campaign_access.insert_one(access)
+    del access["_id"]
+    return access
+
+@demand_studio_router.delete("/campaigns/{campaign_id}/access/{user_id}")
+async def revoke_campaign_access(campaign_id: str, user_id: str, user: User = Depends(get_current_user)):
+    """Revoke a user's access to a campaign (owner/admin only)"""
+    company_id = user.company_id or user.active_org_id
+    role = await get_user_role(user, company_id)
+    
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner/admin can manage campaign access")
+    
+    result = await db.campaign_access.delete_one({
+        "campaign_id": campaign_id,
+        "user_id": user_id,
+        "company_id": company_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Access not found")
+    
+    return {"success": True}
+
+@demand_studio_router.get("/my-campaigns")
+async def get_my_campaigns(user: User = Depends(get_current_user)):
+    """Get campaigns accessible to the current user (for marketing partners)"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    role = await get_user_role(user, company_id)
+    
+    if role in ["owner", "admin"]:
+        # Full access - return all campaigns
+        campaigns = await db.marketing_campaigns.find(
+            {"company_id": company_id},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(500)
+        return {"campaigns": campaigns, "role": role, "has_full_access": True}
+    
+    if role == "marketing_partner":
+        # Limited access - only assigned campaigns without financial data
+        campaign_ids = await get_user_campaign_access(user.user_id, company_id)
+        if not campaign_ids:
+            return {"campaigns": [], "role": role, "has_full_access": False}
+        
+        campaigns = await db.marketing_campaigns.find(
+            {"campaign_id": {"$in": campaign_ids}, "company_id": company_id},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(500)
+        
+        # Strip financial data
+        campaigns = [strip_financial_data(c) for c in campaigns]
+        return {"campaigns": campaigns, "role": role, "has_full_access": False}
+    
+    # Other roles - return all campaigns
+    campaigns = await db.marketing_campaigns.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return {"campaigns": campaigns, "role": role, "has_full_access": True}
+
+@demand_studio_router.get("/my-stats")
+async def get_my_stats(user: User = Depends(get_current_user)):
+    """Get stats for marketing partner (limited view)"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"activeCampaigns": 0, "leadsLinked": 0, "activationsCount": 0, "role": "viewer"}
+    
+    role = await get_user_role(user, company_id)
+    
+    if role == "marketing_partner":
+        # Limited stats - only for assigned campaigns, no financial data
+        campaign_ids = await get_user_campaign_access(user.user_id, company_id)
+        if not campaign_ids:
+            return {"activeCampaigns": 0, "leadsLinked": 0, "activationsCount": 0, "role": role}
+        
+        active_campaigns = await db.marketing_campaigns.count_documents({
+            "campaign_id": {"$in": campaign_ids},
+            "status": "active"
+        })
+        
+        leads_linked = await db.campaign_lead_links.count_documents({
+            "campaign_id": {"$in": campaign_ids}
+        })
+        
+        activations_count = await db.marketing_activations.count_documents({
+            "campaign_id": {"$in": campaign_ids}
+        })
+        
+        return {
+            "activeCampaigns": active_campaigns,
+            "leadsLinked": leads_linked,
+            "activationsCount": activations_count,
+            "assignedCampaigns": len(campaign_ids),
+            "role": role,
+            "has_full_access": False
+        }
+    
+    # For other roles, redirect to full stats
+    return await get_demand_studio_stats(user)
+
+@demand_studio_router.get("/marketing-partners")
+async def get_marketing_partners(user: User = Depends(get_current_user)):
+    """Get list of users with marketing_partner role (for assigning to campaigns)"""
+    company_id = user.company_id or user.active_org_id
+    role = await get_user_role(user, company_id)
+    
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner/admin can view marketing partners")
+    
+    # Get all users with marketing_partner role in this company
+    memberships = await db.memberships.find(
+        {"company_id": company_id, "role": "marketing_partner", "status": "active"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    user_ids = [m["user_id"] for m in memberships]
+    if not user_ids:
+        return []
+    
+    users = await db.users.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
+    ).to_list(100)
+    
+    return users
+
 # Include demand_studio_router
 api_router.include_router(demand_studio_router)
 
