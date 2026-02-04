@@ -53,8 +53,8 @@ export default function UserManagementPage() {
   const fetchData = async () => {
     try {
       const [usersRes, orgsRes] = await Promise.all([
-        axios.get(`${API}/super-admin/users`, { withCredentials: true }),
-        axios.get(`${API}/super-admin/organizations`, { withCredentials: true })
+        axios.get(`${API}/api/super-admin/users`, { withCredentials: true }),
+        axios.get(`${API}/api/super-admin/organizations`, { withCredentials: true })
       ]);
       setUsers(usersRes.data);
       setOrganizations(orgsRes.data);
