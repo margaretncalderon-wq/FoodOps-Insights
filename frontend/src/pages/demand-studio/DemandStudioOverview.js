@@ -305,6 +305,9 @@ export default function DemandStudioOverview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Global Marketing Calendar */}
+      <GlobalMarketingCalendar />
     </div>
   );
 }
