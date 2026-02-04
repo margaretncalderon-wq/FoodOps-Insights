@@ -1075,6 +1075,52 @@ Auto-generated from Event Order:
 - Price history logging for cost changes
 - Adjustment audit trail with user, timestamp, reason
 
+## Recently Completed - Social Media Module Enhancements (Feb 4, 2026)
+
+### Global Marketing Calendar ✅
+- **New Component:** `GlobalMarketingCalendar.js` in `/components/demand-studio/`
+- **Features:**
+  - Filter dropdown (All, Campaigns, Posts, Activations, Emails)
+  - Month navigation (previous/next buttons)
+  - Legend badges showing counts for each event type
+  - Calendar grid with day view
+  - Events color-coded by type (purple=campaigns, blue=posts, orange=activations, green=emails)
+  - Today indicator with ring highlight
+  - Empty state message when no events
+- **Integration:** Added to `DemandStudioOverview.js`
+- **Endpoint:** GET `/api/demand-studio/global-calendar?start_date=...&end_date=...`
+
+### Social Media Ideas System ✅
+- **New Tab:** "Ideas" in Social Media module
+- **Features:**
+  - Ideas & Inspiration section header
+  - Empty state with icon and message
+  - New Idea button and dialog
+  - Full CRUD for content ideas
+  - Convert idea to post functionality
+- **Endpoints:**
+  - GET `/api/demand-studio/social/ideas` - List ideas
+  - POST `/api/demand-studio/social/ideas` - Create idea
+  - PUT `/api/demand-studio/social/ideas/{id}` - Update idea
+  - DELETE `/api/demand-studio/social/ideas/{id}` - Delete idea
+  - POST `/api/demand-studio/social/ideas/{id}/convert-to-post` - Convert to post
+
+### Social Media Calendar Filters ✅
+- **Location:** Social Media > Calendar tab
+- **Features:**
+  - 3 filter dropdowns: Channel/Canal, Type/Tipo, Pillar/Pilar
+  - Month navigation with arrows
+  - Calendar grid with filtered posts
+  - Post color-coded by status (scheduled=blue, posted=green)
+- **Endpoint:** GET `/api/demand-studio/social/calendar?start_date=...&end_date=...`
+
+### Testing
+- Backend: 100% (15/15 tests passed)
+- Frontend: 100% (all features verified)
+- Test report: `/app/test_reports/iteration_30.json`
+
+---
+
 ## Recently Completed - Period Close System (Phase 1) - Feb 3, 2026
 
 ### Backend Endpoints Added (`/api/business-clarity/period-close/...`)
