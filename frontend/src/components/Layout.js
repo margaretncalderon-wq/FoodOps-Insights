@@ -66,7 +66,7 @@ export const Layout = ({ children }) => {
             </div>
             <div>
               <h1 className="font-heading text-lg font-semibold">Kora OS</h1>
-              <p className="text-xs text-white/60">Events Platform</p>
+              <p className="text-xs text-white/60">Designed for clarity</p>
             </div>
           </Link>
           {/* Organization Switcher */}
