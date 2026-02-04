@@ -16239,6 +16239,463 @@ async def delete_platform_fixed_cost(cost_id: str, admin: User = Depends(get_sup
         raise HTTPException(status_code=404, detail="Cost not found")
     return {"success": True, "deleted": cost_id}
 
+# ============== IMPORT/EXPORT ENDPOINTS ==============
+
+import_export_router = APIRouter(prefix="/import-export", tags=["Import/Export"])
+
+# --- EXPORT ENDPOINTS ---
+
+@import_export_router.get("/clients/export")
+async def export_clients(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export clients to CSV or Excel"""
+    clients = await db.clients.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not clients:
+        clients = []
+    
+    # Prepare data for export
+    export_data = []
+    for c in clients:
+        export_data.append({
+            "nombre": c.get("name", ""),
+            "email": c.get("email", ""),
+            "telefono": c.get("phone", ""),
+            "empresa": c.get("company", ""),
+            "tipo": c.get("type", "individual"),
+            "direccion": c.get("address", ""),
+            "notas": c.get("notes", ""),
+            "etiquetas": ", ".join(c.get("tags", [])) if c.get("tags") else ""
+        })
+    
+    df = pd.DataFrame(export_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Clientes')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=clientes.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=clientes.csv"}
+        )
+
+@import_export_router.get("/inventory/export")
+async def export_inventory(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export inventory/ingredients to CSV or Excel"""
+    items = await db.ingredients.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not items:
+        items = []
+    
+    export_data = []
+    for i in items:
+        export_data.append({
+            "nombre": i.get("name", ""),
+            "categoria": i.get("category", ""),
+            "unidad": i.get("unit", ""),
+            "costo_por_unidad": i.get("cost_per_unit", 0),
+            "stock_actual": i.get("stock_quantity", 0),
+            "stock_minimo": i.get("min_stock", 0),
+            "proveedor": i.get("supplier", ""),
+            "ubicacion": i.get("location", ""),
+            "notas": i.get("notes", "")
+        })
+    
+    df = pd.DataFrame(export_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Inventario')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=inventario.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=inventario.csv"}
+        )
+
+@import_export_router.get("/recipes/export")
+async def export_recipes(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export recipes to CSV or Excel"""
+    recipes = await db.recipes.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not recipes:
+        recipes = []
+    
+    export_data = []
+    for r in recipes:
+        # Format ingredients as string
+        ingredients_str = ""
+        for ing in r.get("ingredients", []):
+            ingredients_str += f"{ing.get('name', '')}: {ing.get('quantity', '')} {ing.get('unit', '')}; "
+        
+        export_data.append({
+            "nombre": r.get("name", ""),
+            "categoria": r.get("category", ""),
+            "porciones": r.get("servings", 1),
+            "tiempo_preparacion": r.get("prep_time", ""),
+            "costo_total": r.get("total_cost", 0),
+            "ingredientes": ingredients_str.strip("; "),
+            "instrucciones": r.get("instructions", ""),
+            "notas": r.get("notes", "")
+        })
+    
+    df = pd.DataFrame(export_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Recetas')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=recetas.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=recetas.csv"}
+        )
+
+# --- IMPORT ENDPOINTS ---
+
+@import_export_router.post("/clients/import")
+async def import_clients(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Import clients from CSV or Excel"""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+        
+        # Normalize column names
+        df.columns = df.columns.str.lower().str.strip()
+        
+        imported = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                # Map columns (support both Spanish and English)
+                name = row.get('nombre') or row.get('name') or ""
+                email = row.get('email') or ""
+                phone = str(row.get('telefono') or row.get('phone') or "")
+                company = row.get('empresa') or row.get('company') or ""
+                
+                if not name and not email:
+                    errors.append(f"Fila {idx+2}: Nombre o email requerido")
+                    continue
+                
+                # Check if client exists
+                existing = await db.clients.find_one({
+                    "company_id": user.company_id,
+                    "$or": [
+                        {"email": email} if email else {"email": ""},
+                        {"name": name, "phone": phone}
+                    ]
+                })
+                
+                if existing:
+                    # Update existing
+                    await db.clients.update_one(
+                        {"client_id": existing["client_id"]},
+                        {"$set": {
+                            "name": name or existing.get("name"),
+                            "email": email or existing.get("email"),
+                            "phone": phone or existing.get("phone"),
+                            "company": company or existing.get("company"),
+                            "address": row.get('direccion') or row.get('address') or existing.get("address", ""),
+                            "notes": row.get('notas') or row.get('notes') or existing.get("notes", ""),
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                else:
+                    # Create new
+                    await db.clients.insert_one({
+                        "client_id": f"client_{uuid.uuid4().hex[:12]}",
+                        "company_id": user.company_id,
+                        "name": name,
+                        "email": email,
+                        "phone": phone,
+                        "company": company,
+                        "type": row.get('tipo') or row.get('type') or "individual",
+                        "address": row.get('direccion') or row.get('address') or "",
+                        "notes": row.get('notas') or row.get('notes') or "",
+                        "tags": [],
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    })
+                
+                imported += 1
+            except Exception as e:
+                errors.append(f"Fila {idx+2}: {str(e)}")
+        
+        return {
+            "success": True,
+            "imported": imported,
+            "errors": errors[:10] if errors else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
+
+@import_export_router.post("/inventory/import")
+async def import_inventory(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Import inventory/ingredients from CSV or Excel"""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+        
+        df.columns = df.columns.str.lower().str.strip()
+        
+        imported = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                name = row.get('nombre') or row.get('name') or ""
+                
+                if not name:
+                    errors.append(f"Fila {idx+2}: Nombre requerido")
+                    continue
+                
+                # Check if ingredient exists
+                existing = await db.ingredients.find_one({
+                    "company_id": user.company_id,
+                    "name": {"$regex": f"^{name}$", "$options": "i"}
+                })
+                
+                cost = row.get('costo_por_unidad') or row.get('cost_per_unit') or row.get('costo') or 0
+                stock = row.get('stock_actual') or row.get('stock_quantity') or row.get('stock') or 0
+                
+                # Handle NaN values
+                if pd.isna(cost): cost = 0
+                if pd.isna(stock): stock = 0
+                
+                data = {
+                    "name": name,
+                    "category": row.get('categoria') or row.get('category') or "General",
+                    "unit": row.get('unidad') or row.get('unit') or "unidad",
+                    "cost_per_unit": float(cost),
+                    "stock_quantity": float(stock),
+                    "min_stock": float(row.get('stock_minimo') or row.get('min_stock') or 0) if not pd.isna(row.get('stock_minimo') or row.get('min_stock') or 0) else 0,
+                    "supplier": row.get('proveedor') or row.get('supplier') or "",
+                    "location": row.get('ubicacion') or row.get('location') or "",
+                    "notes": row.get('notas') or row.get('notes') or "",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                if existing:
+                    await db.ingredients.update_one(
+                        {"ingredient_id": existing["ingredient_id"]},
+                        {"$set": data}
+                    )
+                else:
+                    data["ingredient_id"] = f"ing_{uuid.uuid4().hex[:12]}"
+                    data["company_id"] = user.company_id
+                    data["created_at"] = datetime.now(timezone.utc).isoformat()
+                    await db.ingredients.insert_one(data)
+                
+                imported += 1
+            except Exception as e:
+                errors.append(f"Fila {idx+2}: {str(e)}")
+        
+        return {
+            "success": True,
+            "imported": imported,
+            "errors": errors[:10] if errors else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
+
+@import_export_router.post("/recipes/import")
+async def import_recipes(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Import recipes from CSV or Excel"""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+        
+        df.columns = df.columns.str.lower().str.strip()
+        
+        imported = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                name = row.get('nombre') or row.get('name') or ""
+                
+                if not name:
+                    errors.append(f"Fila {idx+2}: Nombre requerido")
+                    continue
+                
+                # Check if recipe exists
+                existing = await db.recipes.find_one({
+                    "company_id": user.company_id,
+                    "name": {"$regex": f"^{name}$", "$options": "i"}
+                })
+                
+                # Parse ingredients string (format: "ingrediente1: cantidad unidad; ingrediente2: cantidad unidad")
+                ingredients = []
+                ingredients_str = row.get('ingredientes') or row.get('ingredients') or ""
+                if ingredients_str and not pd.isna(ingredients_str):
+                    for ing_str in str(ingredients_str).split(";"):
+                        ing_str = ing_str.strip()
+                        if ":" in ing_str:
+                            parts = ing_str.split(":")
+                            ing_name = parts[0].strip()
+                            qty_unit = parts[1].strip().split() if len(parts) > 1 else ["1", "unidad"]
+                            ingredients.append({
+                                "name": ing_name,
+                                "quantity": float(qty_unit[0]) if qty_unit else 1,
+                                "unit": qty_unit[1] if len(qty_unit) > 1 else "unidad"
+                            })
+                
+                servings = row.get('porciones') or row.get('servings') or 1
+                if pd.isna(servings): servings = 1
+                
+                data = {
+                    "name": name,
+                    "category": row.get('categoria') or row.get('category') or "General",
+                    "servings": int(servings),
+                    "prep_time": row.get('tiempo_preparacion') or row.get('prep_time') or "",
+                    "instructions": row.get('instrucciones') or row.get('instructions') or "",
+                    "notes": row.get('notas') or row.get('notes') or "",
+                    "ingredients": ingredients,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                if existing:
+                    await db.recipes.update_one(
+                        {"recipe_id": existing["recipe_id"]},
+                        {"$set": data}
+                    )
+                else:
+                    data["recipe_id"] = f"recipe_{uuid.uuid4().hex[:12]}"
+                    data["company_id"] = user.company_id
+                    data["created_at"] = datetime.now(timezone.utc).isoformat()
+                    data["total_cost"] = 0
+                    await db.recipes.insert_one(data)
+                
+                imported += 1
+            except Exception as e:
+                errors.append(f"Fila {idx+2}: {str(e)}")
+        
+        return {
+            "success": True,
+            "imported": imported,
+            "errors": errors[:10] if errors else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al procesar archivo: {str(e)}")
+
+# --- TEMPLATES ---
+
+@import_export_router.get("/templates/{type}")
+async def get_import_template(type: str, format: str = "csv"):
+    """Get import template for clients, inventory, or recipes"""
+    templates = {
+        "clients": {
+            "columns": ["nombre", "email", "telefono", "empresa", "tipo", "direccion", "notas"],
+            "sample": [["Juan Pérez", "juan@email.com", "555-1234", "Empresa ABC", "corporate", "Calle 123", "Cliente VIP"]]
+        },
+        "inventory": {
+            "columns": ["nombre", "categoria", "unidad", "costo_por_unidad", "stock_actual", "stock_minimo", "proveedor", "ubicacion", "notas"],
+            "sample": [["Tomate", "Vegetales", "kg", 2.50, 100, 20, "Proveedor XYZ", "Bodega A", ""]]
+        },
+        "recipes": {
+            "columns": ["nombre", "categoria", "porciones", "tiempo_preparacion", "ingredientes", "instrucciones", "notas"],
+            "sample": [["Ensalada César", "Ensaladas", 4, "15 min", "Lechuga: 200 g; Pollo: 300 g; Aderezo: 50 ml", "1. Lavar lechuga...", ""]]
+        }
+    }
+    
+    if type not in templates:
+        raise HTTPException(status_code=400, detail="Tipo inválido. Use: clients, inventory, recipes")
+    
+    template = templates[type]
+    df = pd.DataFrame(template["sample"], columns=template["columns"])
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Template')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=template_{type}.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=template_{type}.csv"}
+        )
+
+# Include import_export_router
+api_router.include_router(import_export_router)
+
 # ============== USER MANAGEMENT ENDPOINTS ==============
 
 @super_admin_router.get("/users")
