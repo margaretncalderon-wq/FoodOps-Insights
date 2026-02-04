@@ -177,11 +177,11 @@ export default function ImportExportSection() {
 
       {/* Modules */}
       <Tabs defaultValue="clients" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           {modules.map(module => (
-            <TabsTrigger key={module.id} value={module.id} className="gap-2 text-xs md:text-sm">
-              <module.icon className="w-4 h-4" />
-              <span className="hidden md:inline">{module.name}</span>
+            <TabsTrigger key={module.id} value={module.id} className="gap-1 text-xs px-2">
+              <module.icon className="w-3 h-3" />
+              <span className="hidden lg:inline">{module.name}</span>
             </TabsTrigger>
           ))}
         </TabsList>
