@@ -90,7 +90,7 @@ export default function UserManagementPage() {
     
     setSaving(true);
     try {
-      await axios.patch(`${API}/super-admin/users/${selectedUser.user_id}`, {
+      await axios.patch(`${API}/api/super-admin/users/${selectedUser.user_id}`, {
         name: selectedUser.name,
         role: selectedUser.role,
         is_super_admin: selectedUser.is_super_admin,
