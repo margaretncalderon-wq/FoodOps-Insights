@@ -225,10 +225,10 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)}>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(campaign.campaign_id)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(campaign.campaign_id)} data-testid={`delete-campaign-${campaign.campaign_id}`}>
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
