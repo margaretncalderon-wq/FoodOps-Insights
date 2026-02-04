@@ -2541,18 +2541,22 @@ import httpx
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 @auth_router.get("/google/login")
 async def google_login(request: Request):
     """Initiate Google OAuth flow"""
-    # Determine redirect URI based on request origin
-    origin = request.headers.get("origin") or request.headers.get("referer") or "https://ourkora.com"
+    # Use FRONTEND_URL env variable for redirect, with fallback logic for different environments
+    frontend_url = FRONTEND_URL
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    
+    # Override with origin if it's a known valid domain
     if "localhost" in origin:
-        redirect_uri = "http://localhost:3000/auth/google/callback"
-    elif "preview.emergentagent.com" in origin:
-        redirect_uri = "https://kora-business-os.preview.emergentagent.com/auth/google/callback"
-    else:
-        redirect_uri = "https://ourkora.com/auth/google/callback"
+        frontend_url = "http://localhost:3000"
+    elif origin and ("ourkora.com" in origin or "emergentagent.com" in origin or "emergent.host" in origin):
+        frontend_url = origin.rstrip("/")
+    
+    redirect_uri = f"{frontend_url}/auth/google/callback"
     
     google_auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
