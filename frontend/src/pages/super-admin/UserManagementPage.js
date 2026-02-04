@@ -141,7 +141,7 @@ export default function UserManagementPage() {
     if (!newPassword) return;
     
     try {
-      await axios.post(`${API}/super-admin/users/${userId}/reset-password`, 
+      await axios.post(`${API}/api/super-admin/users/${userId}/reset-password`, 
         { new_password: newPassword }, 
         { withCredentials: true }
       );
