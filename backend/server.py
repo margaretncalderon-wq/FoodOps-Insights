@@ -16237,6 +16237,151 @@ async def delete_platform_fixed_cost(cost_id: str, admin: User = Depends(get_sup
         raise HTTPException(status_code=404, detail="Cost not found")
     return {"success": True, "deleted": cost_id}
 
+# ============== USER MANAGEMENT ENDPOINTS ==============
+
+@super_admin_router.get("/users")
+async def get_all_users(user: User = Depends(get_current_user)):
+    """Get all users (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(1000)
+    return users
+
+@super_admin_router.post("/users")
+async def create_user(
+    user_data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new user (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data.get("email")})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Hash password
+    hashed_password = bcrypt.hashpw(
+        user_data.get("password", "").encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+    
+    new_user = {
+        "user_id": f"user_{uuid.uuid4().hex[:12]}",
+        "email": user_data.get("email"),
+        "name": user_data.get("name"),
+        "hashed_password": hashed_password,
+        "company_id": user_data.get("company_id"),
+        "role": user_data.get("role", "user"),
+        "is_super_admin": user_data.get("is_super_admin", False),
+        "is_active": True,
+        "permissions": {},
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(new_user)
+    del new_user["hashed_password"]
+    return {"success": True, "user": {k: v for k, v in new_user.items() if k != "_id"}}
+
+@super_admin_router.patch("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    updates: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a user (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    allowed_fields = ["name", "role", "is_super_admin", "is_active", "company_id"]
+    update_data = {k: v for k, v in updates.items() if k in allowed_fields}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True}
+
+@super_admin_router.patch("/users/{user_id}/permissions")
+async def update_user_permissions(
+    user_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update user permissions (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    permissions = data.get("permissions", {})
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"permissions": permissions}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True}
+
+@super_admin_router.post("/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Reset user password (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    new_password = data.get("new_password")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="New password required")
+    
+    hashed_password = bcrypt.hashpw(
+        new_password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"hashed_password": hashed_password}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True}
+
+@super_admin_router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete a user (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    # Prevent self-deletion
+    if user_id == user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    
+    result = await db.users.delete_one({"user_id": user_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True}
+
 # Include super_admin_router
 api_router.include_router(super_admin_router)
 
