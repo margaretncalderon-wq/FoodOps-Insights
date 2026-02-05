@@ -26,7 +26,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
 // Role-based permissions for Business Clarity
 const PERMISSIONS = {

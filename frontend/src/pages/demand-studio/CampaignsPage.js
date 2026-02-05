@@ -24,7 +24,7 @@ import {
   Edit2, Loader2, Users, UserPlus, X, ShieldCheck
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
 const CAMPAIGN_TYPES = [
   { value: "brand", label: "Brand Awareness", labelEs: "Reconocimiento de Marca" },

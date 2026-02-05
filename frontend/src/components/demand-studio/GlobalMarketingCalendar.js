@@ -17,7 +17,7 @@ import {
   Loader2
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
 const PLATFORMS = {
   instagram: { icon: Instagram, color: "bg-pink-500" },
