@@ -218,11 +218,12 @@ function AppRouter() {
   // If on admin subdomain, show only Super Admin routes with simple login
   if (isAdminSubdomain()) {
     return (
-      <Routes>
-        <Route path="/login" element={<AdminLoginPage />} />
-        <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
-          <Route index element={<SuperAdminOverview />} />
-          <Route path="crm" element={<SuperAdminCRMPage />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<AdminLoginPage />} />
+          <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
+            <Route index element={<SuperAdminOverview />} />
+            <Route path="crm" element={<SuperAdminCRMPage />} />
           <Route path="clarity" element={<SuperAdminClarity />} />
           <Route path="organizations" element={<OrganizationsListPage />} />
           <Route path="organizations/:id" element={<OrganizationDetailPage />} />
