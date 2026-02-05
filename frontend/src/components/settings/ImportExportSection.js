@@ -15,7 +15,7 @@ import {
   FileText, CalendarDays, UserPlus
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function ImportExportSection() {
   const { language } = useLanguage();

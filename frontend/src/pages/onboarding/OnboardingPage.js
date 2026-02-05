@@ -14,7 +14,7 @@ import {
   ChevronLeft, Loader2, Crown, Zap, Rocket, Mail, Plus, X 
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },

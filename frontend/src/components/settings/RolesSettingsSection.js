@@ -15,7 +15,7 @@ import {
   PenLine, Settings2, Users, Calendar, Utensils, Landmark
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 // Available permissions grouped by module
 const PERMISSION_GROUPS = [

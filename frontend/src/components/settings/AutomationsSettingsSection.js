@@ -16,7 +16,7 @@ import {
   DollarSign, Package, CheckSquare
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 // Automation trigger types
 const TRIGGER_TYPES = [

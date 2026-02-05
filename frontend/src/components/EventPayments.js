@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { API } from "../utils/api";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
@@ -13,7 +14,6 @@ import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
 import { Plus, CreditCard, RefreshCw, DollarSign, CheckCircle, AlertTriangle, Banknote, ExternalLink } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
