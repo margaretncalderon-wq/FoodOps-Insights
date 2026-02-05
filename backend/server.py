@@ -97,10 +97,7 @@ async def api_health_check():
         )
 
 # auth_router imported from routers.auth
-crm_router = APIRouter(prefix="/crm", tags=["CRM"])
-leads_router = APIRouter(prefix="/leads", tags=["Leads"])
-contacts_router = APIRouter(prefix="/contacts", tags=["Contacts"])
-lead_forms_router = APIRouter(prefix="/lead-forms", tags=["Lead Forms"])
+# crm_router, leads_router, contacts_router, lead_forms_router imported from routers.crm
 events_router = APIRouter(prefix="/events", tags=["Events"])
 recipes_router = APIRouter(prefix="/recipes", tags=["Recipes"])
 plated_menus_router = APIRouter(prefix="/plated-menus", tags=["Plated Menus"])
