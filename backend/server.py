@@ -573,6 +573,52 @@ class Recipe(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+# Supplier Item Models (linking suppliers to ingredients)
+class SupplierItemCreate(BaseModel):
+    supplier_id: str
+    ingredient_id: str
+    supplier_sku: str = ""
+    supplier_item_name: str = ""
+    purchase_unit: str = "unit"  # case, bag, box, gallon, lb, kg
+    pack_size_conversion: float = 1.0  # e.g., 1 case = 12 units
+    last_purchase_price: float = 0.0
+    tax_rate: float = 0.0
+
+# Plated Menu Models
+class MenuCourse(BaseModel):
+    """A course in a plated menu (Appetizer, Entree, Dessert, etc.)"""
+    course_id: str
+    course_name: str  # appetizer, salad, soup, entree, dessert
+    course_order: int = 0
+    items: List[Dict[str, Any]] = []  # [{recipe_id, recipe_name, portions_per_guest, notes}]
+
+class PlatedMenuCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    menu_type: str = "plated"  # plated, buffet, cocktail, grab_and_go
+    pricing_model: str = "per_guest"  # per_guest, fixed
+    serving_style: str = "plated"  # plated, family_style, stations
+    courses: List[MenuCourse] = []
+    buffer_percentage: float = 0.0  # Extra % for prep loss/overage
+    notes: Optional[str] = None
+
+class PlatedMenu(BaseModel):
+    menu_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    menu_type: str = "plated"
+    pricing_model: str = "per_guest"
+    serving_style: str = "plated"
+    courses: List[MenuCourse] = []
+    buffer_percentage: float = 0.0
+    cost_per_guest: float = 0.0  # Calculated from recipe costs
+    cost_with_buffer: float = 0.0  # cost_per_guest * (1 + buffer_percentage/100)
+    notes: Optional[str] = None
+    status: str = "active"  # active, archived
+    created_at: datetime
+    updated_at: datetime
+
 # Purchase Order Models
 class PurchaseOrderLineCreate(BaseModel):
     ingredient_id: str
