@@ -17005,7 +17005,6 @@ api_router.include_router(demand_studio_router)
 
 # Include super_admin_router
 api_router.include_router(super_admin_router)
-api_router.include_router(super_admin_router)
 
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
