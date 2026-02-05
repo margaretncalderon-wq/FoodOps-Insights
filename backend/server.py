@@ -1,9 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import io
@@ -22,24 +20,15 @@ import pandas as pd
 # Stripe integration
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 
-ROOT_DIR = Path(__file__).parent
-UPLOADS_DIR = ROOT_DIR / "uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
-
-load_dotenv(ROOT_DIR / '.env')
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-# JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', 'eep-evoque-secret-key')
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24 * 7
+# Import from new modules
+from config import (
+    ROOT_DIR, UPLOADS_DIR, client, db, 
+    JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRATION_HOURS,
+    GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
+)
 
 # Create the main app
-app = FastAPI(title="EEP Evoque Events Platform API")
+app = FastAPI(title="Kora OS - Business Management Platform")
 
 # Health check endpoint for Kubernetes - MUST be at root level, not under /api
 @app.get("/health")
