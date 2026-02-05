@@ -17004,10 +17004,7 @@ async def delete_user(
 api_router.include_router(demand_studio_router)
 
 # Include super_admin_router
-# Include demand_studio_router
-api_router.include_router(demand_studio_router)
-
-# Include super_admin_router
+api_router.include_router(super_admin_router)
 api_router.include_router(super_admin_router)
 
 # Serve uploaded files
