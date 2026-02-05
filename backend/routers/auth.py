@@ -276,41 +276,152 @@ async def google_callback(request: Request, response: Response):
     existing_user = await db.users.find_one({"email": email})
     
     if existing_user:
+        # Existing user - log them in
         user_id = existing_user["user_id"]
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {"picture": picture, "name": name}}
         )
-    else:
-        user_id = f"user_{uuid.uuid4().hex[:12]}"
-        company_id = f"company_{uuid.uuid4().hex[:12]}"
-        now = datetime.now(timezone.utc)
         
-        await db.companies.insert_one({
-            "company_id": company_id,
-            "name": f"{name}'s Organization",
-            "created_at": now.isoformat(),
-            "settings": {}
+        # Create session
+        session_token = f"sess_{uuid.uuid4().hex}{uuid.uuid4().hex[:16]}"
+        await db.user_sessions.insert_one({
+            "session_token": session_token,
+            "user_id": user_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         })
         
-        await db.users.insert_one({
-            "user_id": user_id,
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            max_age=7 * 24 * 60 * 60,
+            path="/"
+        )
+        
+        user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+        
+        return {
+            "success": True,
+            "is_new_user": False,
+            "user": user_data
+        }
+    else:
+        # New user - require registration
+        # Store temporary Google data for registration completion
+        temp_token = f"google_temp_{uuid.uuid4().hex}"
+        await db.google_temp_registrations.insert_one({
+            "temp_token": temp_token,
             "email": email,
             "name": name,
             "picture": picture,
-            "company_id": company_id,
-            "role": "admin",
-            "is_super_admin": False,
-            "created_at": now.isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
         })
+        
+        return {
+            "success": True,
+            "is_new_user": True,
+            "requires_registration": True,
+            "temp_token": temp_token,
+            "google_data": {
+                "email": email,
+                "name": name,
+                "picture": picture
+            }
+        }
+
+
+@auth_router.post("/google/complete-registration")
+async def complete_google_registration(request: Request, response: Response):
+    """Complete registration for new Google OAuth users"""
+    body = await request.json()
+    temp_token = body.get("temp_token")
+    company_name = body.get("company_name")
+    
+    if not temp_token:
+        raise HTTPException(status_code=400, detail="Token de registro temporal requerido")
+    
+    # Get temporary registration data
+    temp_data = await db.google_temp_registrations.find_one({"temp_token": temp_token})
+    if not temp_data:
+        raise HTTPException(status_code=400, detail="Token inválido o expirado. Por favor, inicia sesión con Google nuevamente.")
+    
+    # Check expiration
+    expires_at = temp_data.get("expires_at")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        await db.google_temp_registrations.delete_one({"temp_token": temp_token})
+        raise HTTPException(status_code=400, detail="Token expirado. Por favor, inicia sesión con Google nuevamente.")
+    
+    email = temp_data["email"]
+    name = temp_data["name"]
+    picture = temp_data.get("picture")
+    
+    # Double-check user doesn't exist (race condition protection)
+    existing_user = await db.users.find_one({"email": email})
+    if existing_user:
+        await db.google_temp_registrations.delete_one({"temp_token": temp_token})
+        raise HTTPException(status_code=400, detail="Este email ya está registrado. Intenta iniciar sesión.")
+    
+    # Create company and user with FREE plan
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    company_id = f"company_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    # Create company with Free plan defaults
+    company_doc = {
+        "company_id": company_id,
+        "name": company_name or f"Empresa de {name}",
+        "logo_url": None,
+        "primary_color": "#3A4D3F",
+        "secondary_color": "#E5DCC5",
+        "default_language": "es",
+        "currency": "USD",
+        "default_tax_rate": 0.0,
+        "plan": "free",
+        "plan_started_at": now.isoformat(),
+        "plan_limits": {
+            "max_users": 2,
+            "max_events": 10,
+            "max_clients": 25,
+            "max_storage_mb": 100
+        },
+        "created_at": now.isoformat(),
+        "settings": {}
+    }
+    await db.companies.insert_one(company_doc)
+    
+    # Create user as admin of their company
+    user_doc = {
+        "user_id": user_id,
+        "email": email,
+        "name": name,
+        "picture": picture,
+        "company_id": company_id,
+        "role": "admin",
+        "is_super_admin": False,
+        "auth_provider": "google",
+        "created_at": now.isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Clean up temp registration
+    await db.google_temp_registrations.delete_one({"temp_token": temp_token})
     
     # Create session
     session_token = f"sess_{uuid.uuid4().hex}{uuid.uuid4().hex[:16]}"
     await db.user_sessions.insert_one({
         "session_token": session_token,
         "user_id": user_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(days=7)).isoformat()
     })
     
     response.set_cookie(
@@ -324,8 +435,11 @@ async def google_callback(request: Request, response: Response):
     )
     
     user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    company_data = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
     
     return {
         "success": True,
-        "user": user_data
+        "user": user_data,
+        "company": company_data,
+        "message": "¡Bienvenido a Kora OS! Tu cuenta con Plan Free ha sido creada."
     }
