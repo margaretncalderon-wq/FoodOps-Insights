@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -18,7 +19,6 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CATEGORIES = ["appetizer", "main", "dessert", "beverage", "side", "sauce", "other"];
 

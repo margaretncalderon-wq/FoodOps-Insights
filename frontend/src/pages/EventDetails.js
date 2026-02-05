@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -40,7 +41,6 @@ import {
   ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive
 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Engagement Stages with icons and colors
 const ENGAGEMENT_STAGES = [

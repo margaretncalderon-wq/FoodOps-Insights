@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -37,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];

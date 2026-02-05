@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -31,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CATEGORIES = ["produce", "meat", "dairy", "dry_goods", "spices", "beverages", "other"];
 const UNITS = ["kg", "g", "lb", "oz", "l", "ml", "unit", "dozen", "bunch"];

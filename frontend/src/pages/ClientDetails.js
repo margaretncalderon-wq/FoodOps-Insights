@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -9,7 +10,6 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Mail, Phone, MapPin, Building2, Calendar, Edit, Trash2 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function ClientDetails() {
   const { clientId } = useParams();

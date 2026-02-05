@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -10,7 +11,6 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { Search, FileText, CheckCircle, Clock, ExternalLink } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function DocumentsPage() {
   const { t, language } = useLanguage();

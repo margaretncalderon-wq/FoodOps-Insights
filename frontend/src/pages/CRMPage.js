@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -45,7 +46,6 @@ import {
   TableRow,
 } from "../components/ui/table";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Helper to extract error message from Pydantic validation errors
 const getErrorMessage = (error, fallback = "An error occurred") => {

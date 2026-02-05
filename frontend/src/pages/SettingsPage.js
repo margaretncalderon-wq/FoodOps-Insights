@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -41,7 +42,6 @@ import IntegrationsSettingsSection from "../components/settings/IntegrationsSett
 import ImportExportSection from "../components/settings/ImportExportSection";
 import { BillingSection, TeamSection } from "../components/org";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const LEAD_SOURCES = ["Website", "Instagram", "QR", "Referral", "Other"];

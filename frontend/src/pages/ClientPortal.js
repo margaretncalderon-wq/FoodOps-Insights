@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { API } from "../utils/api";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import SignatureCanvas from "react-signature-canvas";
@@ -14,7 +15,6 @@ import {
   Utensils, Wine, Armchair, Package, Clock, DollarSign, CalendarDays
 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Item type icons
 const TYPE_ICONS = {

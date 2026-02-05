@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API } from "../utils/api";
 import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -16,7 +17,6 @@ import {
 import { toast } from "sonner";
 import { CheckCircle, Loader2, Calendar, Users, Mail, Phone, Building2, User, Globe, MessageCircle } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Translations
 const translations = {

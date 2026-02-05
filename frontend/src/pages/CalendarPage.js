@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API } from "../utils/api";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -18,7 +19,6 @@ import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List } from 
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isWithinInterval } from "date-fns";
 import { es, enUS } from "date-fns/locale";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function CalendarPage({ embedded = false }) {
   const { t, language } = useLanguage();

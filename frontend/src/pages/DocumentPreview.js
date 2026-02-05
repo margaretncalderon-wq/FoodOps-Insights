@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { API } from "../utils/api";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import SignatureCanvas from "react-signature-canvas";
@@ -10,7 +11,6 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Download, FileText, CheckCircle, Calendar, Users, MapPin, DollarSign, ChefHat, Package } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function DocumentPreview() {
   const { documentId } = useParams();
