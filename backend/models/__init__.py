@@ -26,3 +26,13 @@ from models.crm import (
     ClientCreate, Client, CommLogCreate, CommLog,
     LeadFormCreate, LeadForm, LeadFormFieldConfig, CustomFieldConfig
 )
+from models.events import (
+    EventCreate, Event, EventMenuCreate,
+    EventBlueprintUpdate, ExperienceDesignCreate, OperationalFlowCreate, OperationalPhase,
+    RunOfShowCreate, TimeBlock, TeamRolesCreate, EventRole,
+    ProductionAssetsCreate, ProductionAsset, ChecklistItem, PostEventReviewCreate,
+    EventScalingRequest, ScaledIngredient, ConsolidatedPurchaseList,
+    CreatePOFromPurchaseListItem, CreatePOFromPurchaseListRequest,
+    EventExtendedUpdate, EventOrderItemCreate, EventOrderItem, EventOrderCreate, EventOrder,
+    RUN_OF_SHOW_TEMPLATES
+)
