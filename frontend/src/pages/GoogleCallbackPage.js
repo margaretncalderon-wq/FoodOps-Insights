@@ -87,16 +87,16 @@ export default function GoogleCallbackPage() {
   // Registration form for new Google users
   if (showRegistration && googleData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1a1f1a] via-[#0f1310] to-[#1a1f1a] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           {/* Card */}
-          <div className="bg-[#1e2420]/80 backdrop-blur-xl border border-[#3A4D3F]/30 rounded-2xl p-8 shadow-2xl">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-lg">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#3A4D3F] to-[#2a3d2f] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-[#E5DCC5]" />
+              <div className="w-16 h-16 bg-[#2A2F3A] rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+                <img src="/favicon.png" alt="Kora" className="w-12 h-12" />
               </div>
-              <h1 className="text-2xl font-bold text-white mb-2">
+              <h1 className="text-2xl font-bold text-[#1F2937] mb-2">
                 ¡Bienvenido a Kora OS!
               </h1>
               <p className="text-[#a3b18a]">
