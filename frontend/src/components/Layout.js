@@ -38,8 +38,8 @@ const navItems = [
   { path: "/event-orchestration", icon: Music4, label: "Event Orchestration", labelEs: "Event Orchestration" },
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
   { path: "/ops-supplies", icon: Package, label: "Operations Supplies", labelEs: "Operations Supplies" },
-  { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
   { path: "/demand-studio", icon: Megaphone, label: "Demand Studio", labelEs: "Demand Studio" },
+  { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
 ];
 
