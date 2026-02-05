@@ -28,6 +28,13 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
   - `/app/frontend/src/pages/GoogleCallbackPage.js` - Registration form UI
   - `/app/frontend/src/contexts/AuthContext.js` - `completeGoogleRegistration` method
 
+### February 5, 2026 - Welcome Email Integration
+- **Feature:** Automatic welcome email for new user registrations
+- **Service:** Resend API integration (pending API key configuration)
+- **Files Created:**
+  - `/app/backend/services/email_service.py` - Email service with HTML templates
+- **Trigger Points:** Register endpoint, Google complete-registration endpoint
+
 ### February 5, 2026 - Backend Refactoring Phase 6 (CRM Module)
 - **Task:** Extracted CRM module from monolithic `server.py`
 - **server.py reduced:** 14,315 → 13,179 lines (~1,136 lines moved)
@@ -35,6 +42,14 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
   - `/app/backend/models/crm.py` - Lead, Contact, Client, CommLog, LeadForm models
   - `/app/backend/routers/crm.py` - All CRM routes (leads, clients, contacts, lead-forms)
 - **Modules Refactored So Far:** Config, Dependencies, Auth, Demand Studio, Business Clarity, **CRM**
+
+### February 5, 2026 - Backend Refactoring Phase 7 (Events Models)
+- **Task:** Extracted Events models from `server.py`
+- **server.py reduced:** 13,179 → 12,856 lines (~323 lines moved)
+- **New Files Created:**
+  - `/app/backend/models/events.py` - Event, EventCreate, EventOrchestration models, RUN_OF_SHOW_TEMPLATES
+- **Note:** Event endpoints remain in server.py due to extensive size. Router extraction pending.
+- **Modules Refactored So Far:** Config, Dependencies, Auth, Demand Studio, Business Clarity, CRM, **Events (models only)**
 
 ---
 
