@@ -1048,52 +1048,10 @@ class Expense(BaseModel):
     updated_at: datetime
 
 # ============== EVENT SCALING / CONSOLIDATED PURCHASE MODELS ==============
-
-class EventScalingRequest(BaseModel):
-    """Request to generate purchase list from event menu"""
-    event_ids: List[str]  # Can combine multiple events
-    include_buffer: bool = True
-    compare_inventory: bool = True  # Deduct current stock
-
-class ScaledIngredient(BaseModel):
-    inventory_item_id: str
-    item_name: str
-    unit: str
-    total_required: float
-    in_stock: float
-    to_purchase: float
-    unit_cost: float
-    total_cost: float
-    supplier_id: Optional[str] = None
-    supplier_name: Optional[str] = None
-    recipes_used: List[str] = []
-
-class ConsolidatedPurchaseList(BaseModel):
-    events: List[Dict[str, Any]]  # [{event_id, event_name, guest_count, date}]
-    items_by_supplier: Dict[str, List[ScaledIngredient]]
-    total_cost: float
-    generated_at: datetime
-
-class CreatePOFromPurchaseListItem(BaseModel):
-    inventory_item_id: Optional[str] = None
-    item_name: str
-    to_purchase: float
-    unit: str = "unit"
-    unit_cost: float = 0
-
-class CreatePOFromPurchaseListRequest(BaseModel):
-    supplier_id: Optional[str] = None
-    items: List[CreatePOFromPurchaseListItem]
-    needed_by_date: Optional[datetime] = None
+# All Event Scaling models moved to models/events.py
 
 # ============== EVENT EXTENSION MODELS ==============
-
-class EventExtendedUpdate(BaseModel):
-    """Extended event fields for the new proposal system"""
-    owner_id: Optional[str] = None
-    internal_notes: Optional[str] = None
-    financial_status: Optional[str] = None  # Draft, In Review, Approved
-    operational_status: Optional[str] = None  # Open, In Production, Completed, Closed
+# EventExtendedUpdate moved to models/events.py
 
 # ============== EVENT ORDER MODELS (Contract & Event Order) ==============
 
