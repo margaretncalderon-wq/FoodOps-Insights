@@ -4,15 +4,6 @@ import axios from "axios";
 import { API_BASE as API } from "../utils/api";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { 
-  Activity, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight,
-  FileCheck, Users, Zap, Bell, RefreshCw, ChefHat, MapPin, Building2,
-  GitBranch, Lock, Unlock
-} from "lucide-react";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
