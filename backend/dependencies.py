@@ -1,6 +1,7 @@
 # dependencies.py - Common dependencies for FastAPI
 from fastapi import Depends, HTTPException, Request
 from datetime import datetime, timezone
+from typing import Optional
 import jwt
 
 from config import db, JWT_SECRET, JWT_ALGORITHM
