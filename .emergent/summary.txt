@@ -1,180 +1,203 @@
 <analysis>**original_problem_statement:**
-The user initially wanted to finalize and test a Period Close System. After successfully testing that, the user requested a series of significant additions and changes:
-1.  **Rebranding:** Change the application name from Evoke OS to Kora OS across the entire frontend.
-2.  **Custom Domain & Deployment:** Deploy the application and configure it to use a custom domain () with a dedicated subdomain for the super admin panel ().
-3.  **Custom Authentication:** Implement custom Google OAuth using the user's own Google Cloud credentials to replace the Emergent-branded login.
-4.  **Admin Panel Enhancements:**
-    *   Create a separate, simplified login page (email/password only) for the admin subdomain.
-    *   Build a comprehensive User Management module within the Super Admin panel for CRUD operations on users and their permissions.
-5.  **Data Migration Tool:** Create a full-featured Import/Export system to migrate data from a previous system. This includes support for Leads, Clients, Inventory, Recipes, Quotes, and Events via CSV/Excel formats.
-6.  **New Module (Demand Studio):** A large, additive-only request to build a new Demand Studio module for managing marketing campaigns, channels, spend, and assets, including a new Marketing Partner user role with restricted access. The user provided a detailed, multi-step plan for this module.
+The user's overall goal is to build a comprehensive business management SaaS called Kora OS. This has involved several major phases:
+1.  **Core System:** Finalizing and testing a Period Close System.
+2.  **Rebranding & Deployment:** Rebranding from Evoke OS to Kora OS, setting up custom domains, and attempting to deploy with custom Google OAuth.
+3.  **Admin & Data Tools:** Building a Super Admin panel with User Management (CRUD) and a full-featured Import/Export tool for data migration.
+4.  **Demand Studio Module:** Building a large, new module for managing marketing campaigns, channels, spend, and assets.
+5.  **Marketing Partner Role:** Implementing a restricted-access Marketing Partner user role.
+6.  **Social Media Module:** Adding a comprehensive submodule within Demand Studio for planning and tracking social media content.
+7.  **Social Media Enhancements:** Adding an Ideas space, advanced calendar filters, and a global marketing calendar view.
+8.  **Login & Performance Issues:** Debugging and fixing a critical login issue preventing users from accessing the application, and improving frontend performance.
+9.  **Backend Refactoring:** A major ongoing effort to break down the monolithic  file into a modular, maintainable structure.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application, now named Kora OS, is a multi-tenant SaaS platform with a React frontend and FastAPI backend. It features a fully functional Period Close System, a Super Admin panel with a new User Management section, and a comprehensive Import/Export tool located within the Settings page. The backend has been prepared for custom domain routing () and custom Google OAuth integration. The implementation of a brand new Demand Studio module has just begun, with the main navigation link and placeholder pages already created.
+The Kora OS application is a multi-tenant SaaS with a React frontend and a FastAPI backend.
+- **Completed Modules:** Period Close System, User Management (Super Admin), Import/Export tool, Demand Studio, Social Media Marketing module (including enhancements like Ideas space and Global Calendar).
+- **Login Flow:** A critical login issue has been fixed by correcting cross-domain cookie handling (), implementing a dynamic backend URL in the frontend, and adding cache-busting logic. Frontend performance was also improved with lazy loading.
+- **Backend Architecture:** A major refactoring of the monolithic  is underway. The backend now has a modular structure with  and  directories. The following modules have been successfully extracted from :
+    -  and 
+    -  (models and router)
+    -  (models and router)
+    -  (models and router)
+- The main  file has been significantly reduced in size but still contains the remaining application logic.
 
 **Last working item**:
-    - Last item agent was working: Implementing **Step 2** of the new Demand Studio module. The agent was actively adding the new Pydantic models and FastAPI router endpoints to  to support the required data structures (MarketingCampaign, CampaignChannel, etc.). The work was interrupted mid-implementation.
+    - Last item agent was working: Continuing the phased refactoring of the monolithic . The agent just completed **Phase 5**, which involved extracting all Pydantic models and FastAPI endpoints related to the Business Clarity module into new files:  and . This involved significant debugging to resolve dependency issues ( for various models and FastAPI components).
     - Status: IN PROGRESS
-    - Agent Testing Done: N
-    - Which testing method agent to use? backend testing agent. Once the CRUD endpoints for the Demand Studio models are created in , they need to be tested using  commands to verify create, read, update, and delete functionality for each new model before building the frontend UI.
-    - User Testing Done: N
+    - Agent Testing Done: Y
+    - Which testing method agent to use? backend testing agent. The task is a pure backend refactoring. After moving the next module, the agent should use  to test a few key endpoints of that module to ensure they still work correctly.
+    - User Testing Done: Y (User confirmed deployment after the last phase was completed)
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Custom Google Auth Login Loop (P1)
-  - Issue 2: Custom Admin Subdomain () SSL/Access Issue (P2)
+  - Issue 1: Custom Google Auth Login Flow (P0)
+  - Issue 2: Local DB data is not persisted (P1)
+  - Issue 3: Custom Admin Subdomain () SSL/Access Issue (P2)
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: The user reported a deployment error () related to the custom Google Auth callback. The agent fixed this by replacing the  module with  for token generation in . However, the user reported the login loop persisted after re-deploying, and the root cause was not definitively resolved. This issue is likely related to the deployment process caching an old version of the code.
+     - Attempted fixes: The agent fixed a critical general login issue by correcting cookie settings (), implementing dynamic API URL detection in the frontend, and adding cache-busting. The user confirmed the standard login now works on other machines (si, funciono). However, the original issue was specifically about **Google Auth**. While the fixes likely addressed the root cause (cross-domain cookie problems), the Google OAuth flow itself has not been explicitly re-verified by the user since the fix.
      - Next debug checklist: 
-        1. After the next deployment, have the user clear their browser cache and cookies thoroughly and test the Google login flow again.
-        2. If it fails, check the production logs for any errors in the  endpoint.
-        3. Verify that the commit containing the  fix was successfully deployed.
-     - Why fix this issue and what will be achieved with the fix?: This blocks users from signing in with their Google accounts using the company's branding.
+        1. Ask the user to explicitly test the Login with Google button on .
+        2. If it fails, check the browser's developer console for errors during the redirect and callback.
+        3. Verify the  in  is correctly set in the production environment to .
+     - Why fix this issue and what will be achieved with the fix?: This is a primary login method for users.
      - Status:  USER VERIFICATION PENDING
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix?: both
      - Blocked on other issue: No
   - Issue 2: 
-     - Attempted fixes: The user reported an  error when trying to access . The agent correctly identified this as the platform (Emergent) needing to issue an SSL certificate for the new subdomain. The agent instructed the user to add  as a custom domain in their Emergent deployment settings.
+     - Attempted fixes: A temporary workaround was implemented in  to hardcode the owner role for local development. This has not been addressed.
+     - Next debug checklist: 
+        1. Investigate why the local MongoDB container doesn't persist data across restarts.
+        2. Create a seeding script () to populate the database with essential test data (users, companies, roles).
+        3. Remove the hardcoded role logic from the  function.
+     - Why fix this issue and what will be achieved with the fix?: Enables robust local testing of role-based permissions and removes technical debt.
+     - Status:  NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix?: backend
+     - Blocked on other issue: No
+  - Issue 3: 
+     - Attempted fixes: The agent previously instructed the user to add the subdomain to their Emergent deployment settings.
      - Next debug checklist:
-        1. Confirm with the user that they have successfully added  as a linked domain in their Emergent panel.
-        2. Wait for SSL propagation (can take 15-30 minutes).
-        3. Test access to .
-     - Why fix this issue and what will be achieved with the fix?: This will enable the dedicated, simplified login experience for super admins on a custom-branded URL.
+        1. Confirm with the user if they have added  in the Emergent panel and if it's accessible now.
+     - Why fix this issue and what will be achieved with the fix?: Enables the custom-branded login experience for super admins.
      - Status:  USER VERIFICATION PENDING
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix?: frontend
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1: Implement the Demand Studio Module (P0)
+  - Task 1: Complete the refactoring of  (P0)
 
  Task Detail:
   - Task 1: 
-     - Where to resume: Continue building the backend in . The agent needs to add the Pydantic models and FastAPI CRUD endpoints for , , , , , , and the linking tables (, , ). After creating the models and endpoints, proceed to Step 3 (building the frontend UI).
-     - What will be achieved with this?: This will create the foundational backend for the entire new marketing module as requested by the user.
+     - Where to resume: The refactoring is being done in phases, with user approval and deployment after each phase. Phases 1-5 (Config, Dependencies, Auth, Demand Studio, Business Clarity) are complete. The next step is **Phase 6: Extract the CRM module**. This involves moving CRM-related Pydantic models to  and API endpoints to .
+     - What will be achieved with this?: This will further modularize the backend, making the codebase more maintainable, easier to debug, and preparing it for future development.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix?: backend
      - Blocked on something: No
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - **P0: Complete Demand Studio - Step 3 (Frontend):** Build all the UI pages and components under  (Overview, Campaigns, Workspace, etc.).
-    - **P0: Complete Demand Studio - Step 4 (Permissions):** Implement the Marketing Partner role and enforce access control logic on both the frontend and backend.
-    - **P0: Complete Demand Studio - Step 5 & 6 (Integration & QA):** Implement non-destructive integration points and perform a final QA check.
-    - **P1: User Data Migration:** The user plans to use the new Import/Export tool to migrate data for January and then close the period. The agent should be prepared to assist if any issues arise.
+    - **P1: Social Media - Campaign Widget:** Add a read-only widget to the Campaign Workspace page showing linked social posts.
+    - **P2: User Data Migration Assistance:** Be prepared to help the user with the Import/Export tool to migrate their data.
 
     Future Tasks:
-    - Email Purchase Orders to suppliers.
-    - Implement multi-currency support.
-    - Add alert notifications for negative operating margin.
-    - Add end-of-month email notifications for the finance team.
+    - **Email Integration:** Integrate Resend or SendGrid to enable email notifications.
+    - **Feature:** Email Purchase Orders to suppliers.
+    - **Feature:** Implement multi-currency support.
+    - **Feature:** Add alert notifications for negative operating margin.
+    - **Feature:** Add end-of-month summary email notifications for the finance team.
 
 **Completed work in this session**
-- **Bug Fix: Period Close System (DONE):** Fixed a critical bug where  was used instead of , which blocked period closing. The entire end-to-end flow was successfully tested.
-- **Feature: Full Application Rebranding (DONE):** Renamed the application from Evoke OS to Kora OS and updated logos across all relevant pages.
-- **Feature: Custom Domain Routing (DONE):** Implemented logic in  to detect an  subdomain and render a specific admin-only layout.
-- **Feature: Custom Google OAuth (DONE):** Integrated Google Sign-In using user-provided Client ID/Secret, including backend endpoints and frontend callback handling.
-- **Feature: Admin-Specific Login (DONE):** Created a new  that appears only on the  subdomain, offering a simplified email/password login without the Google option.
-- **Feature: User Management Module (DONE):** Built a complete CRUD interface () within the Super Admin panel to create, view, edit, and delete users and their roles.
-- **Feature: Data Migration Tool (DONE):** Implemented a comprehensive Import/Export system within Settings, supporting CSV/Excel for Leads, Clients, Inventory, Recipes, Quotes, and Events.
-- **Task: Production Debugging (DONE):** Diagnosed and provided fixes for multiple live deployment issues, including CORS errors and incorrect super admin permissions in the production database.
+- **Feature:** Completed the Social Media module enhancements (Global Marketing Calendar, Ideas space, calendar filters).
+- **Testing:** Successfully ran tests for the Social Media module using the testing agent.
+- **Fix:** Removed the Made with Emergent badge and updated the app title/metadata in .
+- **CRITICAL FIX (Login Flow):** Resolved a major issue preventing users from logging in. This involved a multi-pronged solution:
+    - Centralized the backend API URL retrieval in the frontend via a new  file to dynamically handle different environments (local vs. production).
+    - Corrected all backend session cookie settings to use  and  to allow for cross-domain API requests.
+    - Implemented a cache-busting mechanism in  to force browsers to load the latest version of the application.
+- **Performance:** Implemented  and  in  to code-split the application and lazily load pages, improving the initial load time.
+- **Refactoring (Phases 1-5):** Began and made significant progress on a major refactor of :
+    - Created  and .
+    - Created , , .
+    - Created , , .
+    -  was reduced from over 19,000 lines to ~14,315 lines.
 
 **Earlier issues found/mentioned but not fixed**
-   - None other than the ones listed in the Pending/In progress Issue list.
+   - The local database persistence issue (listed in Pending/In progress Issue list).
 
 **Known issue recurrence from previous fork**
-  - None.
+  - **Custom Google Auth Login Loop:** This was a recurring issue. The agent fixed the underlying cookie and cross-domain problems that were causing the general login to fail. The user confirmed the fix worked for standard login. The specific Google Auth flow is pending final user verification.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Additive Development:** The current major task (Demand Studio) is strictly additive, requiring the creation of new models, routes, and components without modifying existing core application logic.
-- **Custom OAuth 2.0 Flow:** Implementation of a full Google OAuth2 flow, including backend endpoints for token exchange and user creation, and frontend handling of the redirect callback.
-- **Subdomain-based Routing:** Using  in React to conditionally render different application layouts and login experiences for a specific subdomain ().
-- **Data Processing with Pandas:** Using  and  in the FastAPI backend to parse uploaded Excel/CSV files for the data import feature and to generate downloadable templates.
+- **Monolithic to Modular Refactoring:** The core activity is the gradual refactoring of the large  into a modular structure with domain-specific files for models and routers.
+- **Frontend Performance Optimization:** Using  and  for code-splitting and on-demand loading of page components.
+- **Frontend Resilience & Environment Handling:** Creating a centralized utility () to dynamically determine the correct backend URL, preventing environment-specific build issues.
+- **Cache Busting:** A simple versioning system in the frontend to force browsers to download new code after a deployment.
+- **Cross-Origin Resource Sharing (CORS):** Debugging and correctly configuring backend cookie settings (, ) to work with a frontend on a different domain/subdomain during development and production.
 
 **key DB schema**
-- ****: The  flag is critical for admin access. The User Management feature now edits this collection.
-- ****: Schema for storing auditable financial period data.
-- **(New) **: 
-- **(New) **: 
-- **(New) **: 
-- **(New) **: 
-- **(New) **: 
-- **(New) **: 
-- **(New) **: Join table 
-- **(New) **: Join table 
-- **(New) **: 
+- No changes to the database schema in this session. Existing schemas for , , , ,  etc., remain the same.
 
 **changes in tech stack**
--  and  were added to the backend for data import/export functionality.
+- No new technologies were added.
 
 **All files of reference**
--  (for Demand Studio backend implementation)
--  (folder for all new frontend pages)
-- 
-- 
-- 
-- 
+- **Refactored Backend:**
+    -  (The file being refactored)
+    -  (New)
+    -  (New)
+    - , ,  (New)
+    - , ,  (New)
+- **Frontend Fixes & Features:**
+    -  (Lazy loading, cache busting)
+    -  (Dynamic API URL)
+    -  (Title and badge removal)
+    -  (Global calendar integration)
+    -  (New component)
+    - All frontend pages/components making API calls were modified to use .
 
 **Areas that need refactoring**:
-- An emergency, unauthenticated endpoint was added to grant super admin access: . This was necessary to fix a production issue but is a major security risk. **It should be removed immediately** now that the issue is resolved.
+- **CRITICAL:  Monolith:** The refactoring is in progress but far from complete. The file still contains ~14,000 lines of code for modules like CRM, Events, Culinary, etc. This task must continue.
+- ** Workaround:** The hardcoded owner role for local development in  (previously ) should be removed and replaced with a database seeding solution.
 
 **key api endpoints**
--  (GET, POST, PUT, DELETE for User Management)
--  (POST for importing data)
--  (GET for downloading templates)
--  (Initiates custom Google OAuth flow)
--  (Handles callback from Google)
-- **(New)**  (The set of CRUD endpoints to be built for the new module)
+-  (Now in )
+-  (Now in )
+-  (Now in )
+- All remaining endpoints are still defined in .
 
 **Critical Info for New Agent**
 - **Responde en español.**
-- Your immediate priority is to continue the implementation of the **Demand Studio module**, starting with the backend models and endpoints in  as per the user's detailed step-by-step prompt (message #642).
-- Be aware of the two lingering production issues: the **Google Auth login loop** and the **SSL error on **. These may require further debugging after the next deployment. The  fix for Google Auth token generation has been implemented but not yet verified by the user in production.
-- **Security Warning:** An insecure emergency admin-granting endpoint exists in . It should be removed before finishing the current task.
+- The primary task is to **continue the refactoring of **. The user wants to proceed module by module, with a deployment after each successful phase. The next module to extract is **CRM**.
+- After each refactoring phase, thoroughly test the backend startup and the key endpoints of the moved module before asking the user to deploy.
+- Ask the user to verify the **Google Login** flow is working correctly in production, as this was a major recurring issue that was indirectly fixed.
+- Be aware of the local database issue where data is not persisted. This may require a proper seeding script if you need to test role-based features locally.
 
 **documents and test reports created in this job**
--  (Updated with Period Close system completion and rebranding).
+-  (Updated with Social Media module completion)
+-  (Test report for Social Media module enhancements)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-- **10. User:** lets do some updates Im moving from several systems to this one and Id like to have the option to import and export: clients, food inventory products and recipes. as well as add all the data for the month of January quotes, etc etc and close January so that everything stays in this system what do we do?" - **Status: Completed** (Agent built the requested Import/Export system).
-- **9. User:** "yes add it and then we redeploy" - **Status: Completed** (Agent added Quotes/Events to Import/Export).
-- **8. User:** "move import export inside settings so it doesnt look like another category - **Status: Completed**.
-- **7. User:** and past leads to have them in the crm can they be imported? - **Status: Completed** (Agent added Leads to Import/Export).
-- **6. User:** Provides a very detailed, multi-step prompt to build a new Demand Studio module. - **Status: In Progress**.
-- **5. User:** yes - Approves the agent's plan for the Demand Studio module. - **Status: Acknowledged**.
-- **4. Agent:** Asks for confirmation on the plan for the new Demand Studio module. - **Status: Responded**.
-- **3. User:** what do we do? - Asks how to proceed with data migration. - **Status: Responded**.
-- **2. User:** 1-could I have everything in cvs, excel or google sheets ? 2- I have it in another system I could see about putting them in excel, cvs or google sheets or manual 3. yes import /export to have all the data to add to the quotes - Provides clarification on data migration needs. - **Status: Acknowledged**.
-- **1. Agent:** Asks for clarification on the data migration request. - **Status: Responded**.
+- **10. User:**  (Confirms deployment after Business Clarity refactor is complete).
+- **9. User:**  (Approves starting the Business Clarity refactor).
+- **8. User:**  (Confirms deployment after Demand Studio refactor is complete, asks to continue).
+- **7. User:**  (Confirms deployment after Demand Studio models were extracted, asks to continue).
+- **6. User:**  (Confirms deployment and approves starting Auth Router refactor).
+- **5. User:**  (Confirms deployment and approves starting Model extraction).
+- **4. User:**  (Agrees to the refactor plan and establishes the strategy of deploying after each phase).
+- **3. User:**  (Confirms login fix worked and asks for the refactoring plan).
+- **2. User:**  (User confirms they have deployed the app).
+- **1. User:**  (User asks if refactoring will help with performance after the agent implemented lazy loading).
 
 **Project Health Check:**
-- **Broken:** The custom Google Auth flow might still be broken in production due to a potential deployment caching issue.
-- **Mocked:** None.
+- **Broken:**
+    - None confirmed broken. Google Auth is pending user verification.
+- **Mocked:**
+    - Email notification sending (awaits API key).
+    - User roles in the local development environment (due to the  workaround).
 
 **3rd Party Integrations**
-- **Stripe:** For card payments.
-- **jspdf / jspdf-autotable:** For PDF generation.
-- **@hello-pangea/dnd:** For drag-and-drop functionality.
-- **lucide-react:** For UI icons.
-- **Custom Google OAuth:** Using user's own Google Cloud credentials (, ).
-- **pandas / openpyxl:** For backend data processing (Import/Export).
+- **Stripe:** For payments.
+- **Custom Google OAuth:** Using user's own Google Cloud credentials. (Status: **USER VERIFICATION PENDING** after major login fixes).
+- **pandas / openpyxl:** For backend data processing.
+- **Resend / SendGrid:** Planned for email notifications, but not yet configured.
 
 **Testing status**
-  - Testing agent used after significant changes: NO
+  - Testing agent used after significant changes: YES (For the Social Media module).
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: The custom Google Auth login flow was reported as being in a loop by the user after deployment, even after a bug fix. The root cause remains unconfirmed on the user's end.
+  - Known regressions: A major login regression occurred and was successfully fixed during this session.
 
 **Credentials to test flow:**
-- **Email:**  (Super Admin/Owner role)
+- **Email:** 
 - **Password:** 
 
 **What agent forgot to execute**
-- The agent created a highly insecure, temporary endpoint () to solve a production access issue. It acknowledged this was temporary but has not yet removed it. This is a critical security vulnerability that must be addressed.</analysis>
+- The agent correctly prioritized user-reported issues (login, performance) before continuing with the planned refactoring. No major tasks were forgotten.</analysis>
