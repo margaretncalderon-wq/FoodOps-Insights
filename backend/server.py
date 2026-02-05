@@ -1206,57 +1206,7 @@ class TaxRate(BaseModel):
     is_default: bool
     created_at: datetime
 
-# Event Order Line Item (individual items in the Contract & Event Order)
-class EventOrderItemCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    category_id: str
-    quantity: float = 1.0
-    unit_price: float = 0.0
-    discount_amount: float = 0.0  # Discount for this specific item
-    recipe_id: Optional[str] = None  # Link to recipe if food item
-    internal_notes: Optional[str] = None  # Shows in Kitchen Sheet & Packing List
-    event_date: Optional[str] = None  # For grouping by date
-    sort_order: int = 0
-
-class EventOrderItem(BaseModel):
-    item_id: str
-    name: str
-    description: Optional[str] = None
-    category_id: str
-    category_name: Optional[str] = None
-    quantity: float
-    unit_price: float
-    discount_amount: float
-    subtotal: float  # quantity * unit_price - discount_amount
-    recipe_id: Optional[str] = None
-    internal_notes: Optional[str] = None
-    event_date: Optional[str] = None
-    sort_order: int
-    created_at: datetime
-
-# Event Order (the main Contract & Event Order document)
-class EventOrderCreate(BaseModel):
-    items: List[EventOrderItemCreate] = []
-    discount_amount: float = 0.0  # Overall discount
-    tax_ids: List[str] = []  # Tax rates to apply
-    payment_terms: Optional[str] = None
-    client_notes: Optional[str] = None  # Notes visible to client
-
-class EventOrder(BaseModel):
-    order_id: str
-    event_id: str
-    company_id: str
-    items: List[EventOrderItem]
-    subtotal: float
-    discount_amount: float
-    tax_details: List[Dict[str, Any]]  # [{tax_id, name, rate, amount}]
-    total_tax: float
-    total: float
-    payment_terms: Optional[str] = None
-    client_notes: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+# Event Order models moved to models/events.py (EventOrderItemCreate, EventOrderItem, EventOrderCreate, EventOrder)
 
 # ============== DEMAND STUDIO MODELS ==============
 # All Demand Studio models moved to models/demand_studio.py
