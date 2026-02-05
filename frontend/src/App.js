@@ -233,10 +233,12 @@ function AppRouter() {
         {/* Redirect all other routes to Super Admin */}
         <Route path="*" element={<Navigate to="/super-admin" replace />} />
       </Routes>
+      </Suspense>
     );
   }
 
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
