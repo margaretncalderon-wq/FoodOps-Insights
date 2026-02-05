@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import GlobalMarketingCalendar from "../../components/demand-studio/GlobalMarketingCalendar";
 
-import { API_BASE as API } from "../utils/api"; // Dynamic API URL
+import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 
 export default function DemandStudioOverview() {
   const { language } = useLanguage();

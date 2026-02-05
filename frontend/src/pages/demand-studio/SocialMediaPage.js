@@ -27,7 +27,7 @@ import {
   ExternalLink, Sparkles, Trash2, ArrowRight
 } from "lucide-react";
 
-import { API_BASE as API } from "../utils/api"; // Dynamic API URL
+import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
