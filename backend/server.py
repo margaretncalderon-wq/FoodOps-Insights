@@ -27,6 +27,21 @@ from config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
 )
 from models.auth import User, UserCreate, UserLogin, TokenResponse
+from models.demand_studio import (
+    MarketingCampaignCreate, MarketingCampaign,
+    CampaignChannelCreate, CampaignChannel,
+    CampaignSpendCreate, CampaignSpend,
+    CampaignAssetCreate, CampaignAsset,
+    MarketingActivationCreate, MarketingActivation,
+    EmailTrackingCreate, EmailTracking,
+    CampaignLeadLinkCreate, CampaignOpportunityLinkCreate, CampaignAccessCreate,
+    NotificationCreate,
+    SocialAccountCreate, SocialAccount,
+    ContentPillarCreate, ContentPillar,
+    SocialPostCreate, SocialPost,
+    SocialPostAssetLinkCreate, SocialPostSpendLinkCreate,
+    ContentIdeaCreate, ContentIdea
+)
 from routers.auth import auth_router, get_current_user, hash_password, verify_password, create_jwt_token
 
 # Create the main app
