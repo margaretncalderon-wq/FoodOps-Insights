@@ -110,6 +110,25 @@ export const AuthProvider = ({ children }) => {
         { code, redirect_uri: redirectUri },
         { withCredentials: true }
       );
+      // Check if this is a new user requiring registration
+      if (response.data.requires_registration) {
+        return response.data; // Return without setting user - needs registration
+      }
+      setUser(response.data.user);
+      return response.data;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeGoogleRegistration = async (tempToken, companyName) => {
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        `${API}/auth/google/complete-registration`,
+        { temp_token: tempToken, company_name: companyName },
+        { withCredentials: true }
+      );
       setUser(response.data.user);
       return response.data;
     } finally {
