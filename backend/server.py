@@ -16998,8 +16998,12 @@ async def delete_user(
     return {"success": True}
 
 # ============== DEMAND STUDIO ENDPOINTS ==============
+# All Demand Studio endpoints moved to routers/demand_studio.py
 
-@demand_studio_router.get("/stats")
+# Include demand_studio_router
+api_router.include_router(demand_studio_router)
+
+# Include super_admin_router
 async def get_demand_studio_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics for Demand Studio"""
     company_id = user.company_id or user.active_org_id
