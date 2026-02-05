@@ -93,7 +93,7 @@ const SuperAdminCRMPage = lazy(() => import("./pages/super-admin").then(m => ({ 
 const BIPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.BIPage })));
 const SuperAdminClarity = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminClarity })));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminSettings })));
-import UserManagementPage from "./pages/super-admin/UserManagementPage";
+const UserManagementPage = lazy(() => import("./pages/super-admin/UserManagementPage"));
 
 import "./App.css";
 
