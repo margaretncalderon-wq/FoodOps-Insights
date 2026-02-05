@@ -6,37 +6,56 @@
 
 @layer base {
   :root {
-    /* Organic Luxury Theme - EEP Evoque */
-    --background: 60 10% 97%;
-    --foreground: 0 0% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    /* Kora OS Brand Palette - Tech-forward, confident, cohesive */
+    
+    /* Core Background / Surface */
+    --background: 220 13% 97%; /* #F7F8FA - Soft neutral background */
+    --foreground: 220 13% 13%; /* #1F2937 - Primary text (near-black) */
+    
+    /* Cards and Panels */
+    --card: 0 0% 100%; /* #FFFFFF - White cards */
+    --card-foreground: 220 13% 13%; /* #1F2937 */
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 144 15% 27%;
+    --popover-foreground: 220 13% 13%;
+    
+    /* Primary - Sidebar / Core containers - Dark Graphite */
+    --primary: 222 17% 20%; /* #2A2F3A - Primary Core dark graphite */
     --primary-foreground: 0 0% 100%;
-    --secondary: 42 30% 84%;
-    --secondary-foreground: 0 0% 17%;
-    --muted: 60 10% 94%;
-    --muted-foreground: 0 0% 35%;
-    --accent: 42 30% 84%;
-    --accent-foreground: 0 0% 17%;
-    --destructive: 3 74% 46%;
+    
+    /* Secondary - Brand Accent - Kora Green */
+    --secondary: 82 62% 63%; /* #AED768 - Kora Green accent */
+    --secondary-foreground: 220 13% 13%;
+    
+    /* Muted - Subtle backgrounds */
+    --muted: 220 13% 94%; /* Soft gray for contrast */
+    --muted-foreground: 218 11% 45%; /* #6B7280 - Secondary text */
+    
+    /* Accent - Same as secondary for consistency */
+    --accent: 82 62% 63%; /* #AED768 - Kora Green */
+    --accent-foreground: 220 13% 13%;
+    
+    /* Functional Colors - DO NOT CHANGE */
+    --destructive: 3 74% 46%; /* Red - Errors */
     --destructive-foreground: 0 0% 100%;
-    --success: 144 20% 36%;
+    --success: 142 71% 45%; /* Green - Success */
     --success-foreground: 0 0% 100%;
-    --warning: 43 89% 46%;
+    --warning: 43 89% 46%; /* Amber - Warning */
     --warning-foreground: 0 0% 10%;
-    --info: 195 35% 42%;
+    --info: 201 96% 46%; /* Blue - Information */
     --info-foreground: 0 0% 100%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 144 15% 27%;
-    --chart-1: 144 15% 27%;
-    --chart-2: 42 30% 84%;
-    --chart-3: 43 89% 46%;
-    --chart-4: 195 35% 42%;
-    --chart-5: 3 74% 46%;
+    
+    /* Border and Input */
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 82 62% 63%; /* Kora Green for focus rings */
+    
+    /* Chart colors - Maintain variety */
+    --chart-1: 222 17% 20%; /* Dark graphite */
+    --chart-2: 82 62% 63%; /* Kora Green */
+    --chart-3: 43 89% 46%; /* Amber */
+    --chart-4: 201 96% 46%; /* Blue */
+    --chart-5: 3 74% 46%; /* Red */
+    
     --radius: 0.75rem;
   }
 }
