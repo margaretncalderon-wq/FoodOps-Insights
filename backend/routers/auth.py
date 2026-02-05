@@ -12,6 +12,7 @@ from config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
 )
 from models.auth import User, UserCreate, UserLogin, TokenResponse
+from services.email_service import send_welcome_email
 
 logger = logging.getLogger(__name__)
 
