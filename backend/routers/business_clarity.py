@@ -11,7 +11,8 @@ from models.business_clarity import (
     PaymentCreate, Payment, PaymentApplicationCreate,
     InvoicePaymentRequest, ClientCreditUpdate,
     SupplierPayableCreate, FixedCostCategoryCreate, FixedCostBudgetCreate,
-    CashSnapshotCreate, PhysicalCountCreate
+    CashSnapshotCreate, PhysicalCountCreate,
+    InvoiceCreate, InvoiceLineCreate
 )
 from routers.auth import get_current_user
 
