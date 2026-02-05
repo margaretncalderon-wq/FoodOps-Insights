@@ -43,8 +43,16 @@ from models.demand_studio import (
     ContentIdeaCreate, ContentIdea
 )
 from models.business_clarity import (
-    PaymentCreate, InvoiceCreate
+    PaymentCreate as BCPaymentCreate, InvoiceCreate
 )
+
+# Simple Payment model for finance_router (different from Business Clarity)
+class PaymentCreate(BaseModel):
+    invoice_id: str
+    amount: float
+    payment_method: str = "transfer"
+    reference: Optional[str] = None
+    notes: Optional[str] = None
 from routers.auth import auth_router, get_current_user, hash_password, verify_password, create_jwt_token
 from routers.demand_studio import demand_studio_router, get_user_role, can_user_perform_action
 from routers.business_clarity import business_clarity_router
