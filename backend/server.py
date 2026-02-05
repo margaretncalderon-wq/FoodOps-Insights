@@ -2456,7 +2456,7 @@ async def register(data: UserCreate, response: Response):
     await db.users.insert_one(user_doc)
     
     token = create_jwt_token(user_id)
-    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="lax", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
     
     user = User(user_id=user_id, email=data.email, name=data.name, picture=None, company_id=company_id, role="admin", created_at=now)
     return TokenResponse(access_token=token, user=user)
@@ -2471,7 +2471,7 @@ async def login(data: UserLogin, response: Response):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_jwt_token(user_doc["user_id"])
-    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="lax", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
     
     user = User(
         user_id=user_doc["user_id"], email=user_doc["email"], name=user_doc["name"],
