@@ -4,6 +4,39 @@ import { Toaster } from "./components/ui/sonner";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
+// App version for cache busting - increment this on major updates
+const APP_VERSION = "2.0.1";
+
+// Clear old caches on app load
+const clearOldCaches = async () => {
+  try {
+    const storedVersion = localStorage.getItem("kora_app_version");
+    if (storedVersion !== APP_VERSION) {
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      // Unregister service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(reg => reg.unregister()));
+      }
+      // Store new version
+      localStorage.setItem("kora_app_version", APP_VERSION);
+      // Only reload if we had an old version (not first visit)
+      if (storedVersion) {
+        window.location.reload(true);
+      }
+    }
+  } catch (e) {
+    console.log("Cache clear skipped:", e);
+  }
+};
+
+// Run cache clear immediately
+clearOldCaches();
+
 // Pages
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
