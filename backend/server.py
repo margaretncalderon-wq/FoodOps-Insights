@@ -27,6 +27,7 @@ from config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
 )
 from models.auth import User, UserCreate, UserLogin, TokenResponse
+from routers.auth import auth_router, get_current_user, hash_password, verify_password, create_jwt_token
 
 # Create the main app
 app = FastAPI(title="Kora OS - Business Management Platform")
