@@ -62,7 +62,7 @@ async def api_health_check():
             content={"status": "unhealthy", "database": "disconnected", "error": str(e)}
         )
 
-auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
+# auth_router imported from routers.auth
 crm_router = APIRouter(prefix="/crm", tags=["CRM"])
 leads_router = APIRouter(prefix="/leads", tags=["Leads"])
 contacts_router = APIRouter(prefix="/contacts", tags=["Contacts"])
