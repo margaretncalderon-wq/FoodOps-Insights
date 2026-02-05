@@ -68,31 +68,31 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const LeadFormPage = lazy(() => import("./pages/LeadFormPage"));
 const BusinessClarityPage = lazy(() => import("./pages/BusinessClarityPage"));
-import EventOrchestrationPage from "./pages/EventOrchestrationPage";
-import ClientEngagementPage from "./pages/ClientEngagementPage";
-import OperationsSuppliesPage from "./pages/OperationsSuppliesPage";
-import ImportExportPage from "./pages/ImportExportPage";
-import OnboardingPage from "./pages/onboarding/OnboardingPage";
-import DemandStudioPage from "./pages/demand-studio/DemandStudioPage";
-import DemandStudioOverview from "./pages/demand-studio/DemandStudioOverview";
-import CampaignsPage from "./pages/demand-studio/CampaignsPage";
-import SocialMediaPage from "./pages/demand-studio/SocialMediaPage";
-import ActivationsPage from "./pages/demand-studio/ActivationsPage";
-import EmailMarketingPage from "./pages/demand-studio/EmailMarketingPage";
-import SpendLedgerPage from "./pages/demand-studio/SpendLedgerPage";
-import InsightsPage from "./pages/demand-studio/InsightsPage";
-import DemandStudioSettings from "./pages/demand-studio/DemandStudioSettings";
-import {
-  SuperAdminLayout,
-  SuperAdminOverview,
-  OrganizationsListPage,
-  OrganizationDetailPage,
-  GlobalAuditPage,
-  CRMPage as SuperAdminCRMPage,
-  BIPage,
-  SuperAdminClarity,
-  SuperAdminSettings
-} from "./pages/super-admin";
+const EventOrchestrationPage = lazy(() => import("./pages/EventOrchestrationPage"));
+const ClientEngagementPage = lazy(() => import("./pages/ClientEngagementPage"));
+const OperationsSuppliesPage = lazy(() => import("./pages/OperationsSuppliesPage"));
+const ImportExportPage = lazy(() => import("./pages/ImportExportPage"));
+const OnboardingPage = lazy(() => import("./pages/onboarding/OnboardingPage"));
+const DemandStudioPage = lazy(() => import("./pages/demand-studio/DemandStudioPage"));
+const DemandStudioOverview = lazy(() => import("./pages/demand-studio/DemandStudioOverview"));
+const CampaignsPage = lazy(() => import("./pages/demand-studio/CampaignsPage"));
+const SocialMediaPage = lazy(() => import("./pages/demand-studio/SocialMediaPage"));
+const ActivationsPage = lazy(() => import("./pages/demand-studio/ActivationsPage"));
+const EmailMarketingPage = lazy(() => import("./pages/demand-studio/EmailMarketingPage"));
+const SpendLedgerPage = lazy(() => import("./pages/demand-studio/SpendLedgerPage"));
+const InsightsPage = lazy(() => import("./pages/demand-studio/InsightsPage"));
+const DemandStudioSettings = lazy(() => import("./pages/demand-studio/DemandStudioSettings"));
+
+// Super Admin pages
+const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
+const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
+const OrganizationsListPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.OrganizationsListPage })));
+const OrganizationDetailPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.OrganizationDetailPage })));
+const GlobalAuditPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.GlobalAuditPage })));
+const SuperAdminCRMPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.CRMPage })));
+const BIPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.BIPage })));
+const SuperAdminClarity = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminClarity })));
+const SuperAdminSettings = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminSettings })));
 import UserManagementPage from "./pages/super-admin/UserManagementPage";
 
 import "./App.css";
