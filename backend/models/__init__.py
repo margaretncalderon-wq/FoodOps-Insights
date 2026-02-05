@@ -21,3 +21,8 @@ from models.business_clarity import (
     SupplierPayableCreate, FixedCostCategoryCreate, FixedCostBudgetCreate,
     CashSnapshotCreate, PhysicalCountCreate
 )
+from models.crm import (
+    LeadCreate, Lead, ContactCreate, Contact,
+    ClientCreate, Client, CommLogCreate, CommLog,
+    LeadFormCreate, LeadForm, LeadFormFieldConfig, CustomFieldConfig
+)
