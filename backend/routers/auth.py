@@ -1,0 +1,331 @@
+# routers/auth.py - Authentication routes
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
+from datetime import datetime, timezone, timedelta
+import uuid
+import bcrypt
+import jwt
+import httpx
+import logging
+
+from config import (
+    db, JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRATION_HOURS,
+    GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
+)
+from models.auth import User, UserCreate, UserLogin, TokenResponse
+
+logger = logging.getLogger(__name__)
+
+auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+# ============== HELPER FUNCTIONS ==============
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+
+def create_jwt_token(user_id: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS),
+        "iat": datetime.now(timezone.utc)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def get_current_user(request: Request) -> User:
+    """Extract and validate user from session token cookie or Authorization header"""
+    token = request.cookies.get("session_token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Check session table first
+    session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+    if session:
+        expires_at = session.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=401, detail="Session expired")
+        
+        user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+        if not user_doc:
+            raise HTTPException(status_code=401, detail="User not found")
+        return User(**user_doc)
+    
+    # Try JWT decode
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_doc = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
+        if not user_doc:
+            raise HTTPException(status_code=401, detail="User not found")
+        return User(**user_doc)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+# ============== AUTH ROUTES ==============
+
+@auth_router.post("/register", response_model=TokenResponse)
+async def register(data: UserCreate, response: Response):
+    existing = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    company_id = f"company_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    company_doc = {
+        "company_id": company_id,
+        "name": data.company_name or f"{data.name}'s Company",
+        "logo_url": None,
+        "primary_color": "#3A4D3F",
+        "secondary_color": "#E5DCC5",
+        "default_language": "en",
+        "currency": "USD",
+        "default_tax_rate": 0.0,
+        "created_at": now.isoformat()
+    }
+    await db.companies.insert_one(company_doc)
+    
+    user_doc = {
+        "user_id": user_id,
+        "email": data.email,
+        "name": data.name,
+        "password_hash": hash_password(data.password),
+        "picture": None,
+        "company_id": company_id,
+        "role": "admin",
+        "created_at": now.isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    token = create_jwt_token(user_id)
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
+    
+    user = User(user_id=user_id, email=data.email, name=data.name, picture=None, company_id=company_id, role="admin", created_at=now)
+    return TokenResponse(access_token=token, user=user)
+
+
+@auth_router.post("/login", response_model=TokenResponse)
+async def login(data: UserLogin, response: Response):
+    user_doc = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    if not verify_password(data.password, user_doc.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_jwt_token(user_doc["user_id"])
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
+    
+    user = User(
+        user_id=user_doc["user_id"], email=user_doc["email"], name=user_doc["name"],
+        picture=user_doc.get("picture"), company_id=user_doc.get("company_id"),
+        role=user_doc.get("role", "admin"),
+        created_at=datetime.fromisoformat(user_doc["created_at"]) if isinstance(user_doc["created_at"], str) else user_doc["created_at"]
+    )
+    return TokenResponse(access_token=token, user=user)
+
+
+@auth_router.post("/session")
+async def exchange_session(request: Request, response: Response):
+    body = await request.json()
+    session_id = body.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+    
+    async with httpx.AsyncClient() as client_http:
+        resp = await client_http.get("https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data", headers={"X-Session-ID": session_id})
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        oauth_data = resp.json()
+    
+    email = oauth_data.get("email")
+    name = oauth_data.get("name")
+    picture = oauth_data.get("picture")
+    session_token = oauth_data.get("session_token")
+    
+    now = datetime.now(timezone.utc)
+    user_doc = await db.users.find_one({"email": email}, {"_id": 0})
+    
+    if user_doc:
+        user_id = user_doc["user_id"]
+        await db.users.update_one({"user_id": user_id}, {"$set": {"name": name, "picture": picture}})
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        company_id = f"company_{uuid.uuid4().hex[:12]}"
+        
+        company_doc = {"company_id": company_id, "name": f"{name}'s Company", "logo_url": None, "primary_color": "#3A4D3F", "secondary_color": "#E5DCC5", "default_language": "en", "currency": "USD", "default_tax_rate": 0.0, "created_at": now.isoformat()}
+        await db.companies.insert_one(company_doc)
+        
+        user_doc = {"user_id": user_id, "email": email, "name": name, "picture": picture, "company_id": company_id, "role": "admin", "created_at": now.isoformat()}
+        await db.users.insert_one(user_doc)
+    
+    expires_at = now + timedelta(days=7)
+    await db.user_sessions.delete_many({"user_id": user_id})
+    await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": now.isoformat()})
+    
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 3600)
+    
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    return user_doc
+
+
+@auth_router.get("/me", response_model=User)
+async def get_me(user: User = Depends(get_current_user)):
+    return user
+
+
+@auth_router.post("/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("session_token")
+    if token:
+        await db.user_sessions.delete_one({"session_token": token})
+    response.delete_cookie(key="session_token", path="/")
+    return {"message": "Logged out successfully"}
+
+
+# ============== GOOGLE OAUTH ==============
+
+@auth_router.get("/google/login")
+async def google_login(request: Request):
+    """Initiate Google OAuth flow"""
+    frontend_url = FRONTEND_URL
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    
+    if "localhost" in origin:
+        frontend_url = "http://localhost:3000"
+    elif origin and ("ourkora.com" in origin or "emergentagent.com" in origin or "emergent.host" in origin):
+        frontend_url = origin.rstrip("/")
+    
+    redirect_uri = f"{frontend_url}/auth/google/callback"
+    
+    google_auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth"
+        f"?client_id={GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        "&response_type=code"
+        "&scope=openid%20email%20profile"
+        "&access_type=offline"
+        "&prompt=consent"
+    )
+    return {"auth_url": google_auth_url}
+
+
+@auth_router.post("/google/callback")
+async def google_callback(request: Request, response: Response):
+    """Handle Google OAuth callback"""
+    body = await request.json()
+    code = body.get("code")
+    redirect_uri = body.get("redirect_uri", f"{FRONTEND_URL}/auth/google/callback")
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Authorization code required")
+    
+    # Exchange code for tokens
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri
+            }
+        )
+        
+        if token_response.status_code != 200:
+            logger.error(f"Google token error: {token_response.text}")
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+        
+        tokens = token_response.json()
+        access_token = tokens.get("access_token")
+        
+        # Get user info
+        userinfo_response = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        
+        if userinfo_response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to get user info")
+        
+        google_user = userinfo_response.json()
+    
+    email = google_user.get("email")
+    name = google_user.get("name")
+    picture = google_user.get("picture")
+    
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": email})
+    
+    if existing_user:
+        user_id = existing_user["user_id"]
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"picture": picture, "name": name}}
+        )
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        company_id = f"company_{uuid.uuid4().hex[:12]}"
+        now = datetime.now(timezone.utc)
+        
+        await db.companies.insert_one({
+            "company_id": company_id,
+            "name": f"{name}'s Organization",
+            "created_at": now.isoformat(),
+            "settings": {}
+        })
+        
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": email,
+            "name": name,
+            "picture": picture,
+            "company_id": company_id,
+            "role": "admin",
+            "is_super_admin": False,
+            "created_at": now.isoformat()
+        })
+    
+    # Create session
+    session_token = f"sess_{uuid.uuid4().hex}{uuid.uuid4().hex[:16]}"
+    await db.user_sessions.insert_one({
+        "session_token": session_token,
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    })
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=7 * 24 * 60 * 60,
+        path="/"
+    )
+    
+    user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    
+    return {
+        "success": True,
+        "user": user_data
+    }
