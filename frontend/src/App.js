@@ -1,11 +1,19 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "./components/ui/sonner";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 // App version for cache busting - increment this on major updates
-const APP_VERSION = "2.0.1";
+const APP_VERSION = "2.0.2";
+
+// Loading component for lazy loaded pages
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+  </div>
+);
 
 // Clear old caches on app load
 const clearOldCaches = async () => {
@@ -37,27 +45,29 @@ const clearOldCaches = async () => {
 // Run cache clear immediately
 clearOldCaches();
 
-// Pages
+// Core pages (loaded immediately)
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
-import AdminLoginPage from "./pages/AdminLoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import Dashboard from "./pages/Dashboard";
-import CRMPage from "./pages/CRMPageNew";
-import ClientDetails from "./pages/ClientDetails";
-import EventsPage from "./pages/EventsPage";
-import EventDetails from "./pages/EventDetails";
-import CalendarPage from "./pages/CalendarPage";
-import RecipesPage from "./pages/RecipesPage";
-import RecipeBuilder from "./pages/RecipeBuilder";
-import InventoryPage from "./pages/InventoryPage";
-import FoodOpsPage from "./pages/FoodOpsPage";
-import DocumentPreview from "./pages/DocumentPreview";
-import SettingsPage from "./pages/SettingsPage";
-import ClientPortal from "./pages/ClientPortal";
-import LeadFormPage from "./pages/LeadFormPage";
-import BusinessClarityPage from "./pages/BusinessClarityPage";
+
+// Lazy loaded pages (loaded on demand)
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const GoogleCallbackPage = lazy(() => import("./pages/GoogleCallbackPage"));
+const CRMPage = lazy(() => import("./pages/CRMPageNew"));
+const ClientDetails = lazy(() => import("./pages/ClientDetails"));
+const EventsPage = lazy(() => import("./pages/EventsPage"));
+const EventDetails = lazy(() => import("./pages/EventDetails"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const RecipesPage = lazy(() => import("./pages/RecipesPage"));
+const RecipeBuilder = lazy(() => import("./pages/RecipeBuilder"));
+const InventoryPage = lazy(() => import("./pages/InventoryPage"));
+const FoodOpsPage = lazy(() => import("./pages/FoodOpsPage"));
+const DocumentPreview = lazy(() => import("./pages/DocumentPreview"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ClientPortal = lazy(() => import("./pages/ClientPortal"));
+const LeadFormPage = lazy(() => import("./pages/LeadFormPage"));
+const BusinessClarityPage = lazy(() => import("./pages/BusinessClarityPage"));
 import EventOrchestrationPage from "./pages/EventOrchestrationPage";
 import ClientEngagementPage from "./pages/ClientEngagementPage";
 import OperationsSuppliesPage from "./pages/OperationsSuppliesPage";
