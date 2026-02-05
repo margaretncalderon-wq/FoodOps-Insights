@@ -1,18 +1,6 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import axios from "axios";
-
-// Dynamically determine API URL based on current domain
-const getApiUrl = () => {
-  const currentHost = window.location.origin;
-  // If on custom domain (ourkora.com), use same origin for API
-  if (currentHost.includes('ourkora.com')) {
-    return `${currentHost}/api`;
-  }
-  // Otherwise use environment variable
-  return `${process.env.REACT_APP_BACKEND_URL}/api`;
-};
-
-const API = getApiUrl();
+import { API } from "../utils/api";
 
 const AuthContext = createContext(null);
 
