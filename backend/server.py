@@ -101,7 +101,7 @@ audit_router = APIRouter(prefix="/audit", tags=["Audit"])
 purchase_orders_router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
 expenses_router = APIRouter(prefix="/expenses", tags=["Expenses"])
 allergens_router = APIRouter(prefix="/allergens", tags=["Allergens"])
-business_clarity_router = APIRouter(prefix="/business-clarity", tags=["Business Clarity"])
+# business_clarity_router imported from routers.business_clarity
 orchestration_router = APIRouter(prefix="/orchestration", tags=["Event Orchestration"])
 production_router = APIRouter(prefix="/production", tags=["Production"])
 delivery_notes_router = APIRouter(prefix="/delivery-notes", tags=["Delivery Notes"])
