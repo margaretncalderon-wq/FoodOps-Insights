@@ -148,6 +148,7 @@ export const AuthProvider = ({ children }) => {
         exchangeSession,
         loginWithGoogle,
         handleGoogleCallback,
+        completeGoogleRegistration,
       }}
     >
       {children}
