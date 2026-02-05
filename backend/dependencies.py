@@ -4,22 +4,7 @@ from datetime import datetime, timezone
 import jwt
 
 from config import db, JWT_SECRET, JWT_ALGORITHM
-
-# Import User model - will be moved to models/auth.py later
-from pydantic import BaseModel, EmailStr
-from typing import Optional
-
-class User(BaseModel):
-    user_id: str
-    email: str
-    name: str
-    picture: Optional[str] = None
-    company_id: Optional[str] = None
-    role: str = "admin"
-    active_org_id: Optional[str] = None
-    is_super_admin: bool = False
-    view_as_org_id: Optional[str] = None
-    created_at: datetime
+from models.auth import User
 
 
 async def get_current_user(request: Request) -> User:
