@@ -13,7 +13,7 @@ import {
   Building2, Clock, MapPin, Palette, Target, AlertTriangle
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function EventBinderTab({ eventId }) {
   const { language } = useLanguage();

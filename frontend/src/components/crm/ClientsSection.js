@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import CommsLogSection from "./CommsLogSection";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const CLIENT_SOURCES = ["Website", "Instagram", "QR", "Referral", "Direct", "Other"];
 const PAYMENT_TERMS = [

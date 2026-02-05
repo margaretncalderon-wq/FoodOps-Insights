@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 export default function EventPurchaseList({ eventId, eventName }) {
   const { language } = useLanguage();

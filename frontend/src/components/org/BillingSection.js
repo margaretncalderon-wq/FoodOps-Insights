@@ -17,7 +17,7 @@ import {
   ExternalLink, Loader2, TrendingUp, Users, FileText, Package, CheckCircle2
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export function BillingSection() {
   const { language } = useLanguage();

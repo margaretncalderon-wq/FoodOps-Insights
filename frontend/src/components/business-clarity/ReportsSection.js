@@ -12,7 +12,7 @@ import {
   FileBarChart, BarChart3, Building2, AlertTriangle, CheckCircle, AlertCircle, Info, FileText, Lock, Unlock
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ReportsSection() {

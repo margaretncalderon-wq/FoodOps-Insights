@@ -22,7 +22,7 @@ import {
   UserMinus, RefreshCw, Clock, Check, X
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const ROLES = [
   { value: "owner", label_en: "Owner", label_es: "Propietario", color: "bg-purple-500" },

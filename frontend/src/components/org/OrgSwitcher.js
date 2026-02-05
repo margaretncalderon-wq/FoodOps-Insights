@@ -14,7 +14,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Building2, ChevronDown, Check, Plus, Loader2 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export function OrgSwitcher({ onOrgChange }) {
   const { language } = useLanguage();

@@ -26,7 +26,7 @@ import {
   AlertOctagon, Tag, Upload, Image, FileText
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", icon: Beaker, color: "bg-purple-100 text-purple-700", description: "Salsas, fondos, masas básicas" },

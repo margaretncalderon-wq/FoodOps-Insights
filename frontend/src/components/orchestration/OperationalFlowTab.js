@@ -17,7 +17,7 @@ import {
   CheckCircle, Clock, Play, ChevronDown, ChevronRight
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const PHASE_STATUSES = [
   { value: "pending", label: "Pending", labelEs: "Pendiente", color: "bg-gray-100 text-gray-700" },

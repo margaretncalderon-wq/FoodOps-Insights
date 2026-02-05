@@ -14,7 +14,7 @@ import {
 } from "../ui/dialog";
 import PackingListEditor from "./PackingListEditor";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function OperationalDocumentsTab({ eventId, isLocked, language }) {
   const isEs = language === "es";

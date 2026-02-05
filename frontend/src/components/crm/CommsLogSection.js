@@ -16,7 +16,7 @@ import {
   Clock, ArrowUpRight, ArrowDownLeft, FileText
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const COMM_TYPES = [
   { value: "call", labelEn: "Call", labelEs: "Llamada", icon: Phone },

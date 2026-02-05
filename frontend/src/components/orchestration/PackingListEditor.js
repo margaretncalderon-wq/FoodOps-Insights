@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "../ui/table";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function PackingListEditor({ eventId, language }) {
   const isEs = language === "es";

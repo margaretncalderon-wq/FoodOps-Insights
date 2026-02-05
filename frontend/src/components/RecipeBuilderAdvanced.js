@@ -22,7 +22,7 @@ import {
   Layers, Utensils, FlaskConical, AlertCircle, RefreshCw
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", desc: "Sauces, stocks, seasonings" },

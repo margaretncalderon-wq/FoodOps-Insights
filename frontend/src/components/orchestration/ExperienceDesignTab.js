@@ -15,7 +15,7 @@ import {
   Upload, Link2, MapPin, X, LayoutGrid
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const CATERING_SETUPS = [
   { value: "buffet", label: "Buffet", labelEs: "Buffet" },

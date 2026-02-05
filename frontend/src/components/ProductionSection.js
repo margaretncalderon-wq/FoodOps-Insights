@@ -23,7 +23,7 @@ import {
   Calendar, FileText, Loader2, Info
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 export default function ProductionSection() {
   const { language } = useLanguage();

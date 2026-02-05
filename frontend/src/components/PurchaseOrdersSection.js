@@ -23,7 +23,7 @@ import {
   AlertTriangle, Receipt, ArrowRight, Printer
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 const PO_STATUSES = [
   { value: "Draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-700" },

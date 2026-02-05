@@ -9,7 +9,7 @@ import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Save, RefreshCw, Target, FileText, AlertTriangle, Lock, CheckCircle } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function EventBlueprintTab({ eventId, event, onUpdate }) {
   const { language } = useLanguage();
