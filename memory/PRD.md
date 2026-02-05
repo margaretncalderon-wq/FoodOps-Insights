@@ -15,6 +15,29 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
 - Event Orchestration → Execution Layer
 - Clear separation: Sales (decision) vs Execution (delivery)
 
+---
+
+## Latest Updates
+
+### February 5, 2026 - Google OAuth Registration Flow
+- **Feature:** New users signing in with Google now see a registration form instead of auto-login
+- **Flow:** Google Sign In → Check if user exists → If new: Show registration form → Create account with Free Plan
+- **Plan Free Limits:** 2 users, 10 events, 25 clients, 100MB storage
+- **Files Modified:**
+  - `/app/backend/routers/auth.py` - New endpoint `/auth/google/complete-registration`
+  - `/app/frontend/src/pages/GoogleCallbackPage.js` - Registration form UI
+  - `/app/frontend/src/contexts/AuthContext.js` - `completeGoogleRegistration` method
+
+### February 5, 2026 - Backend Refactoring Phase 6 (CRM Module)
+- **Task:** Extracted CRM module from monolithic `server.py`
+- **server.py reduced:** 14,315 → 13,179 lines (~1,136 lines moved)
+- **New Files Created:**
+  - `/app/backend/models/crm.py` - Lead, Contact, Client, CommLog, LeadForm models
+  - `/app/backend/routers/crm.py` - All CRM routes (leads, clients, contacts, lead-forms)
+- **Modules Refactored So Far:** Config, Dependencies, Auth, Demand Studio, Business Clarity, **CRM**
+
+---
+
 ## Architecture Principle
 **A single Event entity exists. It moves through layers, not modules.**
 - Events = Sales / Decision layer (Should we take this event?)
@@ -25,6 +48,7 @@ Cloud-based, modular web platform for event management with CRM, Event Managemen
 ### 1. Authentication
 - JWT-based email/password authentication (WORKING ✅)
 - Google OAuth via Emergent-managed auth (WORKING ✅)
+- **NEW:** Google OAuth registration flow with Plan Free (WORKING ✅)
 
 ### 2. CRM Module (REFINED - Feb 1, 2026) ✅
 Reorganized into 6 simplified sections for relationship management:
