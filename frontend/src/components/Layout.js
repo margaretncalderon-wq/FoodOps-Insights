@@ -60,15 +60,15 @@ export const Layout = ({ children }) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-primary text-primary-foreground z-50">
+      <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-[#2A2F3A] text-white z-50">
         {/* Logo */}
         <div className="p-6 border-b border-white/10">
           <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-              <span className="font-heading text-xl font-bold">K</span>
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center">
+              <img src="/favicon.png" alt="Kora" className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="font-heading text-lg font-semibold">Kora OS</h1>
+              <h1 className="font-heading text-lg font-semibold text-white">Kora OS</h1>
               <p className="text-xs text-white/60">Designed for clarity</p>
             </div>
           </Link>
@@ -93,7 +93,7 @@ export const Layout = ({ children }) => {
                 data-testid={`nav-${item.labelKey || item.path.replace('/', '')}`}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                   active
-                    ? "bg-white/20 text-white"
+                    ? "bg-[#AED768] text-[#1F2937]"
                     : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
@@ -116,12 +116,12 @@ export const Layout = ({ children }) => {
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors">
                 <Avatar className="w-9 h-9">
                   <AvatarImage src={user?.picture} />
-                  <AvatarFallback className="bg-white/20 text-white">
+                  <AvatarFallback className="bg-[#AED768] text-[#1F2937]">
                     {user?.name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium truncate">{user?.name}</p>
+                  <p className="text-sm font-medium truncate text-white">{user?.name}</p>
                   <p className="text-xs text-white/60 truncate">{user?.email}</p>
                 </div>
               </button>
@@ -145,10 +145,10 @@ export const Layout = ({ children }) => {
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-border z-50">
         <div className="flex items-center justify-between h-full px-4">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="font-heading text-white font-bold">K</span>
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#2A2F3A] flex items-center justify-center">
+              <img src="/favicon.png" alt="Kora" className="w-6 h-6" />
             </div>
-            <span className="font-heading font-semibold">Kora OS</span>
+            <span className="font-heading font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -177,8 +177,8 @@ export const Layout = ({ children }) => {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:bg-muted"
+                      ? "bg-[#AED768] text-[#1F2937]"
+                      : "text-[#1F2937] hover:bg-muted"
                   }`}
                 >
                   <Icon className="w-5 h-5" strokeWidth={1.5} />
