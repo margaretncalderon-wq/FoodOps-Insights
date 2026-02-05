@@ -1,5 +1,6 @@
 # routers/business_clarity.py - Business Clarity routes
 from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 import uuid
