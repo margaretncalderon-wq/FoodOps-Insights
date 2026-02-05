@@ -2526,11 +2526,7 @@ async def logout(request: Request, response: Response):
     return {"message": "Logged out successfully"}
 
 # ============== GOOGLE OAUTH ==============
-import httpx
-
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL imported from config.py
 
 @auth_router.get("/google/login")
 async def google_login(request: Request):
