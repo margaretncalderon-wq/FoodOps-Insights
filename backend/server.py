@@ -56,6 +56,12 @@ class PaymentCreate(BaseModel):
 from routers.auth import auth_router, get_current_user, hash_password, verify_password, create_jwt_token
 from routers.demand_studio import demand_studio_router, get_user_role, can_user_perform_action
 from routers.business_clarity import business_clarity_router
+from routers.crm import crm_router, leads_router, contacts_router, lead_forms_router
+from models.crm import (
+    LeadCreate, Lead, ContactCreate, Contact,
+    ClientCreate, Client, CommLogCreate, CommLog,
+    LeadFormCreate, LeadForm, LeadFormFieldConfig, CustomFieldConfig
+)
 
 # Create the main app
 app = FastAPI(title="Kora OS - Business Management Platform")
