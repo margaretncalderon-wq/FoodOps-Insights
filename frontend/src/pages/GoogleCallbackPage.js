@@ -99,41 +99,41 @@ export default function GoogleCallbackPage() {
               <h1 className="text-2xl font-bold text-[#1F2937] mb-2">
                 ¡Bienvenido a Kora OS!
               </h1>
-              <p className="text-[#a3b18a]">
+              <p className="text-[#6B7280]">
                 Completa tu registro para continuar
               </p>
             </div>
 
             {/* Google user info */}
-            <div className="bg-[#2a332c]/50 rounded-xl p-4 mb-6 flex items-center gap-4">
+            <div className="bg-[#F7F8FA] rounded-xl p-4 mb-6 flex items-center gap-4">
               {googleData.picture ? (
                 <img 
                   src={googleData.picture} 
                   alt={googleData.name}
-                  className="w-12 h-12 rounded-full border-2 border-[#3A4D3F]"
+                  className="w-12 h-12 rounded-full border-2 border-[#AED768]"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-[#3A4D3F] flex items-center justify-center">
-                  <span className="text-[#E5DCC5] text-lg font-semibold">
+                <div className="w-12 h-12 rounded-full bg-[#2A2F3A] flex items-center justify-center">
+                  <span className="text-white text-lg font-semibold">
                     {googleData.name?.charAt(0)?.toUpperCase()}
                   </span>
                 </div>
               )}
               <div>
-                <p className="text-white font-medium">{googleData.name}</p>
-                <p className="text-[#a3b18a] text-sm">{googleData.email}</p>
+                <p className="text-[#1F2937] font-medium">{googleData.name}</p>
+                <p className="text-[#6B7280] text-sm">{googleData.email}</p>
               </div>
               <CheckCircle className="w-5 h-5 text-green-500 ml-auto" />
             </div>
 
             {/* Plan info */}
-            <div className="bg-gradient-to-r from-[#3A4D3F]/20 to-[#2a3d2f]/20 rounded-xl p-4 mb-6 border border-[#3A4D3F]/30">
+            <div className="bg-[#F7F8FA] rounded-xl p-4 mb-6 border border-[#E5E7EB]">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold px-2 py-1 bg-[#3A4D3F] text-[#E5DCC5] rounded-full">
+                <span className="text-xs font-semibold px-2 py-1 bg-[#AED768] text-[#1F2937] rounded-full">
                   PLAN FREE
                 </span>
               </div>
-              <p className="text-sm text-[#a3b18a]">
+              <p className="text-sm text-[#6B7280]">
                 Incluye: 2 usuarios, 10 eventos, 25 clientes
               </p>
             </div>
@@ -141,7 +141,7 @@ export default function GoogleCallbackPage() {
             {/* Registration form */}
             <form onSubmit={handleCompleteRegistration} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[#E5DCC5] mb-2">
+                <label className="block text-sm font-medium text-[#1F2937] mb-2">
                   <Building2 className="w-4 h-4 inline mr-2" />
                   Nombre de tu empresa
                 </label>
@@ -150,7 +150,7 @@ export default function GoogleCallbackPage() {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Mi Empresa S.A."
-                  className="bg-[#2a332c] border-[#3A4D3F]/50 text-white placeholder:text-[#6b7a6a] focus:border-[#3A4D3F]"
+                  className="bg-white border-[#E5E7EB] text-[#1F2937] placeholder:text-[#9CA3AF]"
                   data-testid="company-name-input"
                   required
                 />
@@ -158,7 +158,7 @@ export default function GoogleCallbackPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#3A4D3F] to-[#2a3d2f] hover:from-[#4a5d4f] hover:to-[#3a4d3f] text-[#E5DCC5] font-semibold py-6"
+                className="w-full bg-[#2A2F3A] hover:bg-[#3A4049] text-white font-semibold py-6"
                 disabled={isSubmitting}
                 data-testid="complete-registration-btn"
               >
@@ -173,7 +173,7 @@ export default function GoogleCallbackPage() {
               </Button>
             </form>
 
-            <p className="text-center text-xs text-[#6b7a6a] mt-6">
+            <p className="text-center text-xs text-[#6B7280] mt-6">
               Al registrarte, aceptas nuestros términos de servicio y política de privacidad.
             </p>
           </div>
@@ -184,10 +184,10 @@ export default function GoogleCallbackPage() {
 
   // Loading state
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1f1a] via-[#0f1310] to-[#1a1f1a] flex items-center justify-center">
+    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
       <div className="text-center">
-        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[#3A4D3F]" />
-        <p className="text-[#a3b18a]">Verificando autenticación...</p>
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[#2A2F3A]" />
+        <p className="text-[#6B7280]">Verificando autenticación...</p>
       </div>
     </div>
   );
