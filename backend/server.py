@@ -12594,6 +12594,9 @@ async def update_event_blueprint(event_id: str, data: EventBlueprintUpdate, user
     
     return await db.event_blueprints.find_one({"event_id": event_id}, {"_id": 0})
 
+# ============== BUSINESS CLARITY ROUTES ==============
+# All Business Clarity routes moved to routers/business_clarity.py
+
 # --- Experience Design ---
 @orchestration_router.get("/experience/{event_id}")
 async def get_experience_design(event_id: str, user: User = Depends(get_current_user)):
