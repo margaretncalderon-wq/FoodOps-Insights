@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { API } from "../utils/api";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -33,7 +34,6 @@ import {
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, Search
 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CATEGORY_ICONS = {
   utensils: Utensils,

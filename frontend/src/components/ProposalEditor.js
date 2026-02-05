@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { API } from "../utils/api";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
 import DocumentPreview from "./DocumentPreview";
@@ -54,7 +55,6 @@ import {
   Edit, Clock, Calculator, Link2, RefreshCw, CreditCard
 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CATEGORY_ICONS = {
   utensils: Utensils,

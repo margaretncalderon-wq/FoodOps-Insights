@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { API } from "../utils/api";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -18,7 +19,6 @@ import {
   ClipboardList, ScrollText, Receipt, MenuSquare, Clock
 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Document type configurations
 const DOCUMENT_CONFIGS = {
