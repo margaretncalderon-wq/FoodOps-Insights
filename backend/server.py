@@ -2336,8 +2336,6 @@ def convert_units(quantity: float, from_unit: str, to_unit: str) -> float:
 # ============== AUTH ROUTES ==============
 # All auth routes moved to routers/auth.py
 
- 
-
 # ============== NEW CRM ROUTES ==============
 
 # ----- LEADS ROUTES -----
