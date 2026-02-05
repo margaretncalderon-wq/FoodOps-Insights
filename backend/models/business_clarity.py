@@ -4,6 +4,28 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 
+# ============== INVOICE MODELS ==============
+
+class InvoiceLineCreate(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    discount_percent: float = 0.0
+    tax_rate: float = 0.0
+    linked_item_id: Optional[str] = None
+    linked_item_type: Optional[str] = None  # menu_item, service, rental
+
+
+class InvoiceCreate(BaseModel):
+    client_id: str
+    event_id: Optional[str] = None
+    due_date: datetime
+    lines: List[InvoiceLineCreate]
+    discount_percent: float = 0.0
+    tax_rate: float = 0.0
+    notes: Optional[str] = None
+
+
 # ============== PAYMENT MODELS ==============
 
 class PaymentCreate(BaseModel):
