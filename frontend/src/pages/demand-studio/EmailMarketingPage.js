@@ -32,7 +32,7 @@ import {
   Users, MousePointerClick, MailOpen
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const EMAIL_STATUSES = [
   { value: "draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-800" },

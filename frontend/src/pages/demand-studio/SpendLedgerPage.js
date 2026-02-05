@@ -32,7 +32,7 @@ import {
   TrendingUp, TrendingDown
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 const SPEND_TYPES = [
   { value: "media", label: "Media Buy", labelEs: "Compra de Medios" },

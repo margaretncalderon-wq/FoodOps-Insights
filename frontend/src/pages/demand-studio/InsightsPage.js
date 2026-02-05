@@ -4,7 +4,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Loader2, TrendingUp, DollarSign, Users, Target, BarChart3 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function InsightsPage() {
   const { language } = useLanguage();
