@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { RefreshCw, Users, FileText, CalendarDays, ArrowUpDown, 
   UserPlus, Inbox, Clock, MessageSquare, UserCircle, Puzzle } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 // Lazy load CRM sections
 const LeadOutreachSection = lazy(() => import("../components/crm/LeadOutreachSection"));

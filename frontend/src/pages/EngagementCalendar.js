@@ -12,7 +12,7 @@ import {
   RefreshCw, Filter, Users, MapPin, Clock, DollarSign
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 // Engagement Stages (OS-level progression)
 const ENGAGEMENT_STAGES = [

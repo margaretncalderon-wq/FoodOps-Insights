@@ -19,7 +19,7 @@ import {
   Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../utils/api";
 
 // Operations Supplies types (equipment, disposables, event supplies)
 const OPS_SUPPLY_TYPES = [
