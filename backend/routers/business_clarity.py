@@ -655,8 +655,8 @@ async def get_checkout_status(session_id: str, user: User = Depends(get_current_
         "amount": status.amount_total / 100 if status.amount_total else 0
     }
 
-# Stripe Webhook
-@api_router.post("/webhook/stripe")
+# Stripe Webhook - Note: This should be at api_router level, keeping in business_clarity for now
+@business_clarity_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     """Handle Stripe webhooks"""
     try:
