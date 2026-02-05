@@ -8,7 +8,7 @@ import {
   ChevronLeft, LogOut, Eye, X, Loader2, Landmark
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 // Helper to detect if we're on the admin subdomain
 const isAdminSubdomain = () => {

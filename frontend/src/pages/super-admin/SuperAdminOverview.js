@@ -4,7 +4,7 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Building2, Users, CreditCard, TrendingUp, Activity, Loader2 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function SuperAdminOverview() {
   const { language } = useLanguage();

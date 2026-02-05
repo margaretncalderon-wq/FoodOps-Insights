@@ -13,7 +13,7 @@ import {
   Package, AlertCircle, CheckCircle2, Clock, Loader2
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function BIPage() {
   const [activeTab, setActiveTab] = useState("overview");

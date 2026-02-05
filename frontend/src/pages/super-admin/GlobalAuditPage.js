@@ -5,7 +5,7 @@ import { Badge } from "../../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Shield, Activity, Building2, Users, Loader2 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function GlobalAuditPage() {
   const [audit, setAudit] = useState([]);

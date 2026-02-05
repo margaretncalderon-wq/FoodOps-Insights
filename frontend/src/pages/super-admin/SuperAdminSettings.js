@@ -14,7 +14,7 @@ import {
   Loader2, Save, Eye
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function SuperAdminSettings() {
   const [activeTab, setActiveTab] = useState("leadform");

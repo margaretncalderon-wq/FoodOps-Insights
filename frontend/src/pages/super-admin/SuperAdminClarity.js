@@ -23,7 +23,7 @@ import {
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function SuperAdminClarity() {
   const { language } = useLanguage();

@@ -14,7 +14,7 @@ import {
   Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_BASE as API } from "../../utils/api";
 
 export default function OrganizationsListPage() {
   const navigate = useNavigate();
