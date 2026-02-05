@@ -20,7 +20,14 @@ export default function LoginPage() {
     try {
       await login(formData.email, formData.password);
       toast.success(language === "es" ? "¡Bienvenido!" : "Welcome back!");
+      // Use both navigate and fallback to ensure redirect works
       navigate("/dashboard");
+      // Fallback: if navigate doesn't work within 500ms, force redirect
+      setTimeout(() => {
+        if (window.location.pathname === "/login") {
+          window.location.href = "/dashboard";
+        }
+      }, 500);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Login failed");
     }
