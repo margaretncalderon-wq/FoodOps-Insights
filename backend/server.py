@@ -426,6 +426,153 @@ DEFAULT_PLANS = [
 
 # Event Models imported from models.events
 
+# Supplier Models - Enhanced
+class SupplierCreate(BaseModel):
+    name: str
+    contact_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    delivery_days: List[str] = []  # ["Monday", "Wednesday", "Friday"]
+    minimum_order: float = 0.0
+    payment_terms: str = "net30"
+    notes: Optional[str] = None
+
+class Supplier(BaseModel):
+    supplier_id: str
+    company_id: str
+    name: str
+    contact_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    delivery_days: List[str] = []
+    minimum_order: float = 0.0
+    payment_terms: str = "net30"
+    notes: Optional[str] = None
+    created_at: datetime
+
+# Ingredient Models - Enhanced for recipe costing
+class IngredientCreate(BaseModel):
+    name: str
+    category: str  # protein, dairy, produce, dry_goods, beverage, packaging, etc.
+    inventory_type: str = "food"  # food, packaging, disposable, equipment, event_supply
+    unit: str  # g, kg, ml, L, oz, lb, unit
+    cost_per_unit: float = 0.0
+    stock_quantity: float = 0.0
+    min_stock_level: float = 0.0
+    par_level: float = 0.0
+    yield_waste_percent: float = 0.0
+    allergens: List[str] = []
+    storage_location: str = "dry"  # dry, fridge, freezer
+    reorder_threshold: float = 0.0
+    preferred_supplier_id: Optional[str] = None
+    alternate_supplier_ids: List[str] = []
+    pack_size: float = 1.0
+    pack_unit: str = "unit"  # case, bag, box, gallon
+    replacement_cost: float = 0.0  # For equipment - cost to replace if lost/damaged
+    # Operations Supplies specific fields
+    cost_center: str = "operations"  # operations, kitchen, service, logistics, admin
+    purchase_date: Optional[str] = None  # For depreciation tracking
+    useful_life_years: int = 5  # Expected lifespan for depreciation
+    depreciation_rate: float = 20.0  # Annual depreciation percentage
+
+class Ingredient(BaseModel):
+    ingredient_id: str
+    company_id: str
+    name: str
+    category: str
+    inventory_type: str = "food"
+    item_type: str = "RAW"  # RAW or PREPARED
+    linked_recipe_id: Optional[str] = None  # For PREPARED items
+    unit: str
+    cost_per_unit: float
+    stock_quantity: float
+    min_stock_level: float
+    par_level: float = 0.0
+    yield_waste_percent: float = 0.0
+    allergens: List[str] = []
+    storage_location: str = "dry"
+    reorder_threshold: float = 0.0
+    preferred_supplier_id: Optional[str] = None
+    alternate_supplier_ids: List[str] = []
+    pack_size: float = 1.0
+    pack_unit: str = "unit"
+    average_cost: float = 0.0
+    price_history: List[Dict[str, Any]] = []
+    replacement_cost: float = 0.0  # For equipment - cost to replace if lost/damaged
+    # Operations Supplies specific fields
+    cost_center: str = "operations"
+    purchase_date: Optional[str] = None
+    useful_life_years: int = 5
+    depreciation_rate: float = 20.0
+    created_at: datetime
+
+# Recipe Models - Enhanced for detailed costing
+class RecipeIngredient(BaseModel):
+    ingredient_id: str
+    name: str
+    quantity: float
+    unit: str
+    cost: float = 0.0
+
+class RecipeCreate(BaseModel):
+    name: str
+    name_es: Optional[str] = None
+    description: Optional[str] = None
+    description_es: Optional[str] = None
+    category: str
+    yield_quantity: float = 1.0
+    yield_unit: str = "portion"  # portion, kg, L, unit
+    prep_time: int = 0  # minutes
+    cook_time: int = 0  # minutes
+    difficulty: str = "medium"  # easy, medium, hard
+    ingredients: List[RecipeIngredient] = []
+    instructions: Optional[str] = None
+    instructions_es: Optional[str] = None
+    presentation_notes: Optional[str] = None
+    chef_notes: Optional[str] = None
+    photo_url: Optional[str] = None
+    allergens: List[str] = []
+    dietary_tags: List[str] = []  # vegetarian, vegan, gluten-free, etc.
+    default_portion_price: float = 0.0  # Default selling price per portion
+    recipe_type: str = "Final"  # Base, Component, Final - for recipe composition
+    is_public: bool = False  # Can be used in menus
+    # Sub-recipes (composition)
+    sub_recipes: List[Dict[str, Any]] = []  # [{recipe_id, quantity, unit}]
+
+class Recipe(BaseModel):
+    recipe_id: str
+    company_id: str
+    name: str
+    name_es: Optional[str] = None
+    description: Optional[str] = None
+    description_es: Optional[str] = None
+    category: str
+    yield_quantity: float
+    yield_unit: str
+    prep_time: int
+    cook_time: int
+    difficulty: str
+    ingredients: List[Dict[str, Any]]
+    instructions: Optional[str] = None
+    instructions_es: Optional[str] = None
+    presentation_notes: Optional[str] = None
+    chef_notes: Optional[str] = None
+    photo_url: Optional[str] = None
+    allergens: List[str] = []
+    dietary_tags: List[str] = []
+    default_portion_price: float = 0.0
+    recipe_type: str = "Final"
+    is_public: bool = False
+    sub_recipes: List[Dict[str, Any]] = []
+    # Calculated fields
+    total_cost: float = 0.0
+    cost_per_portion: float = 0.0
+    margin_percentage: float = 0.0
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
 # Purchase Order Models
 class PurchaseOrderLineCreate(BaseModel):
     ingredient_id: str
