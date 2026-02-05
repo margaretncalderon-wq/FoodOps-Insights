@@ -43,6 +43,7 @@ from models.demand_studio import (
     ContentIdeaCreate, ContentIdea
 )
 from routers.auth import auth_router, get_current_user, hash_password, verify_password, create_jwt_token
+from routers.demand_studio import demand_studio_router, get_user_role, can_user_perform_action
 
 # Create the main app
 app = FastAPI(title="Kora OS - Business Management Platform")
