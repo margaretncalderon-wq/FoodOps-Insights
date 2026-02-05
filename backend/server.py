@@ -45,6 +45,16 @@ from models.demand_studio import (
 from models.business_clarity import (
     PaymentCreate as BCPaymentCreate, InvoiceCreate
 )
+from models.events import (
+    EventCreate, Event, EventMenuCreate,
+    EventBlueprintUpdate, ExperienceDesignCreate, OperationalFlowCreate, OperationalPhase,
+    RunOfShowCreate, TimeBlock, TeamRolesCreate, EventRole,
+    ProductionAssetsCreate, ProductionAsset, ChecklistItem, PostEventReviewCreate,
+    EventScalingRequest, ScaledIngredient, ConsolidatedPurchaseList,
+    CreatePOFromPurchaseListItem, CreatePOFromPurchaseListRequest,
+    EventExtendedUpdate, EventOrderItemCreate, EventOrderItem, EventOrderCreate, EventOrder,
+    RUN_OF_SHOW_TEMPLATES
+)
 
 # Simple Payment model for finance_router (different from Business Clarity)
 class PaymentCreate(BaseModel):
