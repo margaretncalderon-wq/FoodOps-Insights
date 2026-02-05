@@ -90,9 +90,11 @@ async def register(data: UserCreate, response: Response):
     company_id = f"company_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
     
+    company_name = data.company_name or f"{data.name}'s Company"
+    
     company_doc = {
         "company_id": company_id,
-        "name": data.company_name or f"{data.name}'s Company",
+        "name": company_name,
         "logo_url": None,
         "primary_color": "#3A4D3F",
         "secondary_color": "#E5DCC5",
@@ -117,6 +119,17 @@ async def register(data: UserCreate, response: Response):
     
     token = create_jwt_token(user_id)
     response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
+    
+    # Send welcome email (non-blocking)
+    try:
+        await send_welcome_email(
+            to_email=data.email,
+            user_name=data.name,
+            company_name=company_name,
+            plan_name="Free"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send welcome email to {data.email}: {e}")
     
     user = User(user_id=user_id, email=data.email, name=data.name, picture=None, company_id=company_id, role="admin", created_at=now)
     return TokenResponse(access_token=token, user=user)
