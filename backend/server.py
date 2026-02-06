@@ -551,10 +551,10 @@ class Recipe(BaseModel):
     category: str
     yield_quantity: float
     yield_unit: str
-    prep_time: int
-    cook_time: int
-    difficulty: str
-    ingredients: List[Dict[str, Any]]
+    prep_time: Optional[int] = 0
+    cook_time: Optional[int] = 0
+    difficulty: Optional[str] = "medium"
+    ingredients: List[Dict[str, Any]] = []
     instructions: Optional[str] = None
     instructions_es: Optional[str] = None
     presentation_notes: Optional[str] = None
@@ -570,8 +570,11 @@ class Recipe(BaseModel):
     total_cost: float = 0.0
     cost_per_portion: float = 0.0
     margin_percentage: float = 0.0
-    created_at: datetime
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # Allow extra fields from DB
+    class Config:
+        extra = "allow"
 
 # Supplier Item Models (linking suppliers to ingredients)
 class SupplierItemCreate(BaseModel):
