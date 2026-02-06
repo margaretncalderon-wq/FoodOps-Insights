@@ -22,6 +22,10 @@ import {
 
 import { API_BASE as API } from "../utils/api";
 import { AssetCountSection } from "../components/operations/AssetCountSection";
+import { AgreementsSection } from "../components/operations/AgreementsSection";
+import { GallerySection } from "../components/operations/GallerySection";
+import { PurchasingSection } from "../components/operations/PurchasingSection";
+import { CheckInOutSection } from "../components/operations/CheckInOutSection";
 
 // Operations Supplies types (equipment, disposables, event supplies)
 const OPS_SUPPLY_TYPES = [
