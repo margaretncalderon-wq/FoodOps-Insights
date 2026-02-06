@@ -54,12 +54,9 @@ const PERMISSIONS = {
 export default function BusinessClarityPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const location = useLocation();
+  const navigate = useNavigate();
   const [userRole, setUserRole] = useState(null);
-  const [expandedSections, setExpandedSections] = useState({
-    finance_ops: true,
-    management_control: true,
-    executive_intelligence: true
-  });
 
   useEffect(() => {
     // Get current user role
@@ -67,12 +64,6 @@ export default function BusinessClarityPage() {
       .then(res => setUserRole(res.data?.role || "viewer"))
       .catch(() => setUserRole("viewer"));
   }, []);
-
-  // Check if user has access to a layer
-  const hasAccessToLayer = (layer) => {
-    if (!userRole) return false;
-    return PERMISSIONS[layer]?.roles?.includes(userRole);
-  };
 
   // Check if user has access to a specific page
   const hasAccessToPage = (pagePath) => {
@@ -85,52 +76,18 @@ export default function BusinessClarityPage() {
     return false;
   };
 
-  // Layered navigation structure
-  const navLayers = [
-    {
-      key: "finance_ops",
-      label: isEs ? "Operaciones Financieras" : "Finance Ops",
-      icon: Briefcase,
-      description: isEs ? "Transacciones diarias" : "Daily transactions",
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      items: [
-        { path: "invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
-        { path: "payments", label: isEs ? "Pagos Recibidos" : "Received Payments", icon: Banknote },
-        { path: "statements", label: isEs ? "Estados de Cuenta" : "Account Statements", icon: UserCircle },
-        { path: "receivables", label: isEs ? "Cuentas por Cobrar (AR)" : "Accounts Receivable (AR)", icon: TrendingUp },
-        { path: "payables", label: isEs ? "Cuentas por Pagar (AP)" : "Accounts Payable (AP)", icon: TrendingDown },
-      ]
-    },
-    {
-      key: "management_control",
-      label: isEs ? "Control de Gestión" : "Management Control",
-      icon: BarChart3,
-      description: isEs ? "Presupuestos y varianzas" : "Budgets & variances",
-      color: "text-amber-600",
-      bgColor: "bg-amber-50",
-      items: [
-        { path: "fixed-costs", label: isEs ? "Costos Fijos & Budget" : "Fixed Costs & Budget", icon: Target },
-      ]
-    },
-    {
-      key: "executive_intelligence",
-      label: isEs ? "Inteligencia Ejecutiva" : "Executive Intelligence",
-      icon: Brain,
-      description: isEs ? "Decisiones y cierre" : "Decisions & close",
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-      items: [
-        { path: "dashboard", label: isEs ? "Panel Ejecutivo" : "Executive Dashboard", icon: PieChart },
-        { path: "close", label: isEs ? "Cierre & Reconciliación" : "Close & Reconciliation", icon: Lock },
-        { path: "reports", label: isEs ? "Reportes Ejecutivos" : "Executive Reports", icon: FileBarChart },
-      ]
-    }
+  // Navigation tabs - flat structure
+  const navTabs = [
+    { path: "/business-clarity/dashboard", label: isEs ? "Dashboard" : "Dashboard", icon: PieChart },
+    { path: "/business-clarity/invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
+    { path: "/business-clarity/payments", label: isEs ? "Pagos" : "Payments", icon: Banknote },
+    { path: "/business-clarity/statements", label: isEs ? "Estados" : "Statements", icon: UserCircle },
+    { path: "/business-clarity/receivables", label: "AR", icon: TrendingUp },
+    { path: "/business-clarity/payables", label: "AP", icon: TrendingDown },
+    { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
+    { path: "/business-clarity/close", label: isEs ? "Cierre" : "Close", icon: Lock },
+    { path: "/business-clarity/reports", label: isEs ? "Reportes" : "Reports", icon: FileBarChart },
   ];
-
-  const toggleSection = (key) => {
-    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -152,121 +109,47 @@ export default function BusinessClarityPage() {
   }, [isEs]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]" data-testid="business-clarity-page">
-      {/* Sidebar Navigation */}
-      <div className="w-72 border-r bg-muted/30 p-4 flex flex-col overflow-y-auto">
-        <NavLink 
-          to="/dashboard" 
-          className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {isEs ? "Volver a System Pulse" : "Back to System Pulse"}
-        </NavLink>
-        
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Landmark className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold">Business Clarity</h2>
+    <Layout>
+      <div className="space-y-6" data-testid="business-clarity-page">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+            <Briefcase className="w-5 h-5 text-white" />
           </div>
-          <p className="text-xs text-muted-foreground pl-8">
-            {isEs 
-              ? "Donde las finanzas se convierten en decisiones" 
-              : "Where finances become decisions"}
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold">Business Clarity</h1>
+            <p className="text-sm text-muted-foreground">
+              {isEs ? "Finanzas, facturas y reportes" : "Finance, invoices & reports"}
+            </p>
+          </div>
+          {userRole && (
+            <Badge variant="outline" className="ml-auto text-xs capitalize">{userRole}</Badge>
+          )}
         </div>
 
-        {/* Role Badge */}
-        {userRole && (
-          <div className="mb-4 px-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Shield className="w-3 h-3" />
-              <span>{isEs ? "Tu rol:" : "Your role:"}</span>
-              <Badge variant="outline" className="text-xs capitalize">{userRole}</Badge>
-            </div>
-          </div>
-        )}
-
-        {/* Layered Navigation */}
-        <nav className="space-y-2 flex-1">
-          {navLayers.map(layer => {
-            const hasAccess = hasAccessToLayer(layer.key);
-            const isExpanded = expandedSections[layer.key];
-            
-            return (
-              <div key={layer.key} className={`rounded-lg ${!hasAccess ? "opacity-50" : ""}`}>
-                {/* Layer Header */}
-                <button
-                  onClick={() => hasAccess && toggleSection(layer.key)}
-                  disabled={!hasAccess}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${layer.bgColor} ${hasAccess ? "cursor-pointer hover:opacity-80" : "cursor-not-allowed"}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <layer.icon className={`w-4 h-4 ${layer.color}`} />
-                    <div className="text-left">
-                      <p className={`text-sm font-medium ${layer.color}`}>{layer.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{layer.description}</p>
-                    </div>
-                  </div>
-                  {hasAccess ? (
-                    isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
-                  ) : (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Lock className="w-3 h-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{isEs ? "Acceso restringido" : "Restricted access"}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </button>
-
-                {/* Layer Items */}
-                {hasAccess && isExpanded && (
-                  <div className="mt-1 ml-2 space-y-0.5">
-                    {layer.items.map(item => (
-                      <NavLink
-                        key={item.path}
-                        to={`/business-clarity/${item.path}`}
-                        className={({ isActive }) =>
-                          `flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-sm ${
-                            isActive 
-                              ? "bg-primary text-primary-foreground" 
-                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                          }`
-                        }
-                      >
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Permission Legend */}
-        <div className="mt-4 pt-4 border-t">
-          <p className="text-[10px] text-muted-foreground mb-2">{isEs ? "Permisos especiales:" : "Special permissions:"}</p>
-          <div className="space-y-1 text-[10px] text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Lock className="w-3 h-3" />
-              <span>{isEs ? "Cerrar período: Finance+" : "Close period: Finance+"}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              <span>{isEs ? "Aprobar varianza: Owner" : "Approve variance: Owner"}</span>
-            </div>
-          </div>
+        {/* Navigation Tabs */}
+        <div className="border-b">
+          <nav className="flex gap-1 overflow-x-auto pb-px">
+            {navTabs.map((tab) => (
+              <NavLink
+                key={tab.path}
+                to={tab.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isActive
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`
+                }
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </NavLink>
+            ))}
+          </nav>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto p-6">
+        {/* Content */}
         <Routes>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardSection />} />
@@ -278,6 +161,11 @@ export default function BusinessClarityPage() {
           <Route path="fixed-costs" element={<FixedCostsSection />} />
           <Route path="close" element={<CloseReconciliationSection />} />
           <Route path="reports" element={<ReportsSection />} />
+        </Routes>
+      </div>
+    </Layout>
+  );
+}
         </Routes>
       </div>
     </div>
