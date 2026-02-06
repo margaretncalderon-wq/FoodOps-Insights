@@ -9645,6 +9645,79 @@ api_router.include_router(orchestration_router)
 api_router.include_router(production_router)
 api_router.include_router(delivery_notes_router)
 
+# ============== OPS SUPPLIES AGREEMENTS ROUTER ==============
+ops_supplies_router = APIRouter(prefix="/ops-supplies", tags=["Operations Supplies"])
+
+@ops_supplies_router.get("/agreements")
+async def get_ops_agreements(user: User = Depends(get_current_user)):
+    """Get all agreements for the company"""
+    agreements = await db.ops_agreements.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(length=500)
+    return agreements
+
+@ops_supplies_router.post("/agreements")
+async def create_ops_agreement(data: dict, user: User = Depends(get_current_user)):
+    """Create a new agreement"""
+    agreement_id = str(uuid4())
+    agreement = {
+        "agreement_id": agreement_id,
+        "company_id": user.company_id,
+        "title": data.get("title", ""),
+        "agreement_type": data.get("agreement_type", "rental"),
+        "supplier_id": data.get("supplier_id", ""),
+        "start_date": data.get("start_date", ""),
+        "end_date": data.get("end_date", ""),
+        "terms": data.get("terms", ""),
+        "monthly_cost": data.get("monthly_cost", 0),
+        "deposit": data.get("deposit", 0),
+        "status": data.get("status", "active"),
+        "documents": data.get("documents", []),
+        "notes": data.get("notes", ""),
+        "created_at": datetime.now(timezone.utc),
+        "created_by": user.user_id
+    }
+    await db.ops_agreements.insert_one(agreement)
+    del agreement["_id"]
+    return agreement
+
+@ops_supplies_router.put("/agreements/{agreement_id}")
+async def update_ops_agreement(agreement_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update an agreement"""
+    result = await db.ops_agreements.update_one(
+        {"agreement_id": agreement_id, "company_id": user.company_id},
+        {"$set": {
+            "title": data.get("title", ""),
+            "agreement_type": data.get("agreement_type", "rental"),
+            "supplier_id": data.get("supplier_id", ""),
+            "start_date": data.get("start_date", ""),
+            "end_date": data.get("end_date", ""),
+            "terms": data.get("terms", ""),
+            "monthly_cost": data.get("monthly_cost", 0),
+            "deposit": data.get("deposit", 0),
+            "status": data.get("status", "active"),
+            "documents": data.get("documents", []),
+            "notes": data.get("notes", ""),
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+    return {"success": True}
+
+@ops_supplies_router.delete("/agreements/{agreement_id}")
+async def delete_ops_agreement(agreement_id: str, user: User = Depends(get_current_user)):
+    """Delete an agreement"""
+    result = await db.ops_agreements.delete_one(
+        {"agreement_id": agreement_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+    return {"success": True}
+
+api_router.include_router(ops_supplies_router)
+
 # ============== ORGANIZATION & SAAS ENDPOINTS ==============
 
 async def get_user_membership(user_id: str, company_id: str) -> Optional[dict]:
