@@ -332,7 +332,7 @@ export default function DocumentPreview({
         <Card className="shadow-lg">
           <CardContent className="p-8" ref={printRef}>
             {/* Header */}
-            <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: template?.primary_color || '#3A4D3F' }}>
+            <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
               <div className="flex justify-between items-start">
                 <div>
                   {/* Logo - controlled by template */}
