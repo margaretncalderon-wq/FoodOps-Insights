@@ -434,6 +434,18 @@ export default function ClientsSection() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const portalUrl = `${window.location.origin}/portal/client/${client.client_id}`;
+                            window.open(portalUrl, '_blank');
+                          }}
+                          title={isEs ? "Portal Cliente" : "Client Portal"}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => viewClient(client)} title={isEs ? "Ver" : "View"}>
                           <Eye className="w-4 h-4" />
                         </Button>
