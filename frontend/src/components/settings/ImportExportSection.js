@@ -191,8 +191,8 @@ export default function ImportExportSection({ filter }) {
       </Card>
 
       {/* Modules */}
-      <Tabs defaultValue="clients" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue={modules[0]?.id || "clients"} className="space-y-4">
+        <TabsList className={`grid w-full ${modules.length === 2 ? 'grid-cols-2' : modules.length === 4 ? 'grid-cols-4' : 'grid-cols-6'}`}>
           {modules.map(module => (
             <TabsTrigger key={module.id} value={module.id} className="gap-1 text-xs px-2">
               <module.icon className="w-3 h-3" />
