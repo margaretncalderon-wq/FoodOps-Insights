@@ -4082,6 +4082,60 @@ async def get_portal_delivery_notes(event_id: str):
     
     return notes
 
+@portal_router.get("/event/{event_id}/all-documents")
+async def get_portal_all_documents(event_id: str):
+    """Get all documents for an event - accessible via client portal"""
+    # Get the event with basic info
+    event = await db.events.find_one(
+        {"event_id": event_id}, 
+        {"_id": 0, "name": 1, "event_date": 1, "client_id": 1, "company_id": 1, "documents": 1, "venue": 1, "guest_count": 1}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get client info
+    client = None
+    if event.get("client_id"):
+        client = await db.clients.find_one(
+            {"client_id": event["client_id"]},
+            {"_id": 0, "name": 1, "email": 1, "phone": 1}
+        )
+    
+    # Get company info
+    company = None
+    if event.get("company_id"):
+        company = await db.companies.find_one(
+            {"company_id": event["company_id"]},
+            {"_id": 0, "name": 1, "logo_url": 1, "primary_color": 1}
+        )
+    
+    # Get all documents for this event
+    documents = await db.documents.find(
+        {"event_id": event_id},
+        {"_id": 0}
+    ).to_list(length=100)
+    
+    # Get delivery notes
+    delivery_notes = await db.delivery_notes.find(
+        {"event_id": event_id},
+        {"_id": 0}
+    ).to_list(length=100)
+    
+    # Get event design/blueprint
+    blueprint = await db.event_blueprints.find_one(
+        {"event_id": event_id},
+        {"_id": 0}
+    )
+    
+    return {
+        "event": event,
+        "client": client,
+        "company": company,
+        "documents": documents,
+        "delivery_notes": delivery_notes,
+        "blueprint": blueprint
+    }
+
 # ============== DASHBOARD ROUTES ==============
 
 @api_router.get("/dashboard/stats")
