@@ -17,7 +17,11 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 
-export default function ImportExportSection() {
+// Filter options:
+// - "culinary" = inventory, recipes only
+// - "business" = clients, leads, quotes, events only  
+// - undefined/null = all modules
+export default function ImportExportSection({ filter }) {
   const { language } = useLanguage();
   const isEs = language === "es";
   
@@ -25,44 +29,55 @@ export default function ImportExportSection() {
   const [results, setResults] = useState(null);
   const [exportFormat, setExportFormat] = useState("csv");
 
-  const modules = [
+  const allModules = [
     { 
       id: "clients", 
       name: isEs ? "Clientes" : "Clients", 
       icon: Users,
-      description: isEs ? "Nombre, email, teléfono, empresa" : "Name, email, phone, company"
+      description: isEs ? "Nombre, email, teléfono, empresa" : "Name, email, phone, company",
+      category: "business"
     },
     { 
       id: "leads", 
       name: "Leads", 
       icon: UserPlus,
-      description: isEs ? "Prospectos, fuente, valor estimado, estado" : "Prospects, source, estimated value, status"
+      description: isEs ? "Prospectos, fuente, valor estimado, estado" : "Prospects, source, estimated value, status",
+      category: "business"
     },
     { 
       id: "inventory", 
       name: isEs ? "Inventario" : "Inventory", 
       icon: Package,
-      description: isEs ? "Ingredientes, costos, stock, proveedores" : "Ingredients, costs, stock, suppliers"
+      description: isEs ? "Ingredientes, costos, stock, proveedores" : "Ingredients, costs, stock, suppliers",
+      category: "culinary"
     },
     { 
       id: "recipes", 
       name: isEs ? "Recetas" : "Recipes", 
       icon: ChefHat,
-      description: isEs ? "Nombre, ingredientes, porciones, instrucciones" : "Name, ingredients, servings, instructions"
+      description: isEs ? "Nombre, ingredientes, porciones, instrucciones" : "Name, ingredients, servings, instructions",
+      category: "culinary"
     },
     { 
       id: "quotes", 
       name: isEs ? "Cotizaciones" : "Quotes", 
       icon: FileText,
-      description: isEs ? "Cliente, fecha, items, totales, estado" : "Client, date, items, totals, status"
+      description: isEs ? "Cliente, fecha, items, totales, estado" : "Client, date, items, totals, status",
+      category: "business"
     },
     { 
       id: "events", 
       name: isEs ? "Eventos" : "Events", 
       icon: CalendarDays,
-      description: isEs ? "Nombre, cliente, fecha, ubicación, invitados" : "Name, client, date, location, guests"
+      description: isEs ? "Nombre, cliente, fecha, ubicación, invitados" : "Name, client, date, location, guests",
+      category: "business"
     }
   ];
+
+  // Filter modules based on the filter prop
+  const modules = filter 
+    ? allModules.filter(m => m.category === filter)
+    : allModules;
 
   const handleExport = async (type) => {
     setLoading(true);
