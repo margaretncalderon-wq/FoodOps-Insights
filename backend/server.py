@@ -4136,6 +4136,70 @@ async def get_portal_all_documents(event_id: str):
         "blueprint": blueprint
     }
 
+@portal_router.get("/client/{client_id}/summary")
+async def get_client_portal_summary(client_id: str):
+    """Get client summary for client portal - all events and documents"""
+    # Get client info
+    client = await db.clients.find_one(
+        {"client_id": client_id},
+        {"_id": 0, "client_id": 1, "name": 1, "email": 1, "phone": 1, "company_id": 1}
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Get company info
+    company = None
+    if client.get("company_id"):
+        company = await db.companies.find_one(
+            {"company_id": client["company_id"]},
+            {"_id": 0, "name": 1, "logo_url": 1, "primary_color": 1}
+        )
+    
+    # Get all events for this client
+    events = await db.events.find(
+        {"client_id": client_id},
+        {"_id": 0, "event_id": 1, "name": 1, "event_date": 1, "venue": 1, "guest_count": 1, "status": 1}
+    ).sort("event_date", -1).to_list(length=100)
+    
+    # Get event IDs for document lookup
+    event_ids = [e["event_id"] for e in events]
+    
+    # Get all documents for this client's events (client-facing only)
+    client_doc_types = ["proposal", "quote", "contract", "invoice", "receipt", "statement"]
+    documents = await db.documents.find(
+        {"event_id": {"$in": event_ids}, "document_type": {"$in": client_doc_types}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(length=50)
+    
+    # Add event name to each document
+    event_names = {e["event_id"]: e["name"] for e in events}
+    for doc in documents:
+        doc["event_name"] = event_names.get(doc.get("event_id"), "")
+    
+    # Calculate financial summary
+    total_billed = 0
+    total_paid = 0
+    for doc in documents:
+        if doc.get("document_type") == "invoice":
+            total_billed += doc.get("total", 0) or doc.get("amount", 0) or 0
+        if doc.get("document_type") == "receipt":
+            total_paid += doc.get("amount", 0) or doc.get("total", 0) or 0
+    
+    financial_summary = {
+        "total_events": len(events),
+        "total_billed": total_billed,
+        "total_paid": total_paid,
+        "outstanding": total_billed - total_paid
+    }
+    
+    return {
+        "client": client,
+        "company": company,
+        "events": events,
+        "documents": documents,
+        "financial_summary": financial_summary
+    }
+
 # ============== DASHBOARD ROUTES ==============
 
 @api_router.get("/dashboard/stats")
