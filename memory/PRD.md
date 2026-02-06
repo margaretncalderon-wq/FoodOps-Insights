@@ -64,5 +64,5 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Password: Evoque2024!
 
 ## URLs
-- Preview: https://kora-reloaded.preview.emergentagent.com
+- Preview: https://brand-template-fix.preview.emergentagent.com
 - Production: https://ourkora.com
