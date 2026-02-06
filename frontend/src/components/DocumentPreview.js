@@ -633,7 +633,7 @@ export default function DocumentPreview({
 
             {/* Payment Instructions (Invoice specific) */}
             {(selectedDocType === "invoice" || selectedDocType === "proposal") && template?.payment_instructions_en && (
-              <div className="payment-info p-4 rounded-lg mt-4 text-sm" style={{ borderLeftColor: template?.primary_color || '#3A4D3F', borderLeftWidth: '4px', borderLeftStyle: 'solid', backgroundColor: '#e8f5e9' }}>
+              <div className="payment-info p-4 rounded-lg mt-4 text-sm" style={{ borderLeftColor: company?.primary_color || '#3A4D3F', borderLeftWidth: '4px', borderLeftStyle: 'solid', backgroundColor: '#e8f5e9' }}>
                 <h4 className="font-semibold mb-2">
                   {language === "es" ? "Instrucciones de Pago" : "Payment Instructions"}
                 </h4>
