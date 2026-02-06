@@ -750,7 +750,7 @@ export function CloseReconciliationSection() {
                   )}
                   {physicalCount?.applied && (
                     <Badge className="bg-green-600">
-                      <CheckCircle className="w-3 h-3 mr-1" />
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
                       {isEs ? "Ajustes Aplicados" : "Adjustments Applied"}
                     </Badge>
                   )}
