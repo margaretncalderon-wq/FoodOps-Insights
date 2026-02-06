@@ -41,6 +41,14 @@ import {
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
+// Event Source Options
+const EVENT_SOURCES = [
+  { value: "recurrent_client", labelEn: "Recurrent Client", labelEs: "Cliente Recurrente" },
+  { value: "inbound_lead", labelEn: "Inbound Lead", labelEs: "Lead Inbound" },
+  { value: "outbound", labelEn: "Outbound", labelEs: "Outbound" },
+  { value: "referral", labelEn: "Referral", labelEs: "Referido" },
+  { value: "other", labelEn: "Other", labelEs: "Otro" },
+];
 // Engagement Stages (OS-level progression)
 const ENGAGEMENT_STAGES = [
   "Inquiry Received",    // Intention exists, nothing defined
