@@ -16,10 +16,11 @@ import { toast } from "sonner";
 import { 
   Package, Plus, Edit, Trash2, Search, AlertTriangle, ShoppingCart,
   Truck, ClipboardList, History, Upload, DollarSign, TrendingUp, TrendingDown,
-  Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer
+  Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer, Boxes
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { AssetCountSection } from "../components/operations/AssetCountSection";
 
 // Operations Supplies types (equipment, disposables, event supplies)
 const OPS_SUPPLY_TYPES = [
