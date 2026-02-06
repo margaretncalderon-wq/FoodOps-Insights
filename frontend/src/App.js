@@ -68,6 +68,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const ClientDeliveryNote = lazy(() => import("./pages/ClientDeliveryNote"));
 const ClientEventPortal = lazy(() => import("./pages/ClientEventPortal"));
+const ClientPortalMain = lazy(() => import("./pages/ClientPortalMain"));
 const LeadFormPage = lazy(() => import("./pages/LeadFormPage"));
 const BusinessClarityPage = lazy(() => import("./pages/BusinessClarityPage"));
 const EventOrchestrationPage = lazy(() => import("./pages/EventOrchestrationPage"));
