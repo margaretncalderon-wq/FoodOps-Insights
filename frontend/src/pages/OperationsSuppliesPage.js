@@ -2230,34 +2230,7 @@ function CheckInOutSection() {
   );
 }
 
-// ==================== AGREEMENTS SECTION ====================
-function AgreementsSection() {
-  const { language } = useLanguage();
-  const [agreements, setAgreements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingAgreement, setEditingAgreement] = useState(null);
-  const [suppliers, setSuppliers] = useState([]);
-  const [form, setForm] = useState({
-    title: "",
-    agreement_type: "rental", // rental, supplier, service
-    supplier_id: "",
-    start_date: "",
-    end_date: "",
-    terms: "",
-    monthly_cost: 0,
-    deposit: 0,
-    status: "active", // active, expired, pending
-    documents: [], // URLs to attached documents
-    notes: ""
-  });
-
-  const isEs = language === "es";
-
-  const AGREEMENT_TYPES = [
-    { value: "rental", label: "Equipment Rental", labelEs: "Alquiler de Equipos" },
-    { value: "supplier", label: "Supplier Contract", labelEs: "Contrato con Proveedor" },
-    { value: "service", label: "Service Agreement", labelEs: "Acuerdo de Servicio" },
+// ==================== MAIN PAGE ====================
     { value: "lease", label: "Lease", labelEs: "Arrendamiento" }
   ];
 
