@@ -443,12 +443,12 @@ export function AssetCountSection() {
               <TableHeader className="sticky top-0 bg-muted z-10">
                 <TableRow>
                   <TableHead>{isEs ? "Activo" : "Asset"}</TableHead>
-                  <TableHead>SKU</TableHead>
                   <TableHead>{isEs ? "Categoría" : "Category"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "En Sistema" : "System Qty"}</TableHead>
-                  <TableHead className="text-center w-28">{isEs ? "Conteo" : "Count"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "En Evento" : "Out"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Disponible" : "Available"}</TableHead>
+                  <TableHead className="text-center w-24">{isEs ? "Conteo" : "Count"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Diferencia" : "Variance"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "Valor Unit." : "Unit Value"}</TableHead>
                   <TableHead className="text-center">{isEs ? "Estado" : "Status"}</TableHead>
                   <TableHead className="text-center">{isEs ? "Acción" : "Action"}</TableHead>
                 </TableRow>
