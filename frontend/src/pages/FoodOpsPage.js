@@ -1240,6 +1240,7 @@ export default function FoodOpsPage() {
     { path: "/food-ops/production", label: isEs ? "Producción" : "Production", icon: Factory },
     { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
     { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
+    { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
   ];
 
   return (
