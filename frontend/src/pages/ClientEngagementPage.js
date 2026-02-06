@@ -150,7 +150,7 @@ export default function ClientEngagementPage() {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  CRM: {getCrmLabel()}
+                  {getCrmLabel() ? `CRM: ${getCrmLabel()}` : "CRM"}
                   {totalCrmBadge > 0 && (
                     <Badge variant="secondary" className="text-xs ml-1">
                       {totalCrmBadge}
