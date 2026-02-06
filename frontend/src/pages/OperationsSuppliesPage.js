@@ -1292,6 +1292,9 @@ function CheckInOutSection() {
     try {
       await axios.post(`${API}/api/delivery-notes`, {
         event_id: selectedEvent,
+        checkout_date: checkoutDate,
+        expected_return_date: expectedReturnDate,
+        notes: notes,
         items: selectedItems.map(item => ({
           inventory_item_id: item.inventory_item_id || item.ingredient_id,
           name: item.name,
@@ -1307,6 +1310,9 @@ function CheckInOutSection() {
       setCreateDialogOpen(false);
       setSelectedEvent("");
       setSelectedItems([]);
+      setCheckoutDate(new Date().toISOString().split('T')[0]);
+      setExpectedReturnDate("");
+      setNotes("");
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Error creating delivery note");
