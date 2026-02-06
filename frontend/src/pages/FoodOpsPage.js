@@ -5,6 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import { PhysicalCountSection } from "../components/culinary/PhysicalCountSection";
+import ImportExportSection from "../components/settings/ImportExportSection";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
