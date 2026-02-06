@@ -88,10 +88,10 @@ export function ReportsSection() {
       headers = [isEs ? "Proveedor" : "Supplier", "Total", isEs ? "Pagado" : "Paid", isEs ? "Pendiente" : "Pending"];
       rows = (reportData.records || []).map(r => [r.supplier_name, r.total_amount, r.paid_amount, r.pending_amount]);
     } else if (activeReport === "events") {
-      headers = [isEs ? "Evento" : "Event", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen %" : "Margin %"];
+      headers = [isEs ? "Evento" : "Event", isEs ? "Cliente" : "Client", isEs ? "Origen" : "Source", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen %" : "Margin %"];
       rows = (reportData.records || []).map(r => {
         const health = r.margin_percent < 0 ? (isEs ? "Pérdida" : "Loss") : r.margin_percent < targetMargin ? (isEs ? "Riesgo" : "Risk") : (isEs ? "Saludable" : "Healthy");
-        return [r.event_name, health, r.revenue, r.costs, r.profit, r.margin_percent];
+        return [r.event_name, r.client_name || "", r.source_display || "N/A", health, r.revenue, r.costs, r.profit, r.margin_percent];
       });
     }
     
