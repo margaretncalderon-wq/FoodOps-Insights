@@ -43,7 +43,7 @@ export function ReportsSection() {
 
   useEffect(() => {
     setLoading(true);
-    const endpoints = { snapshot: "/api/business-clarity/reports/financial-snapshot", clients: "/api/business-clarity/reports/client-revenue", suppliers: "/api/business-clarity/reports/supplier-spend", events: "/api/business-clarity/reports/event-profitability" };
+    const endpoints = { snapshot: "/api/business-clarity/reports/financial-snapshot", clients: "/api/business-clarity/reports/client-revenue", suppliers: "/api/business-clarity/reports/supplier-spend", events: "/api/business-clarity/reports/event-profitability", assets: "/api/business-clarity/reports/asset-value" };
     axios.get(`${API}${endpoints[activeReport]}`, { withCredentials: true })
       .then(res => setReportData(res.data))
       .catch(console.error)
