@@ -435,8 +435,8 @@ export default function DocumentPreview({
                     return (
                     <div key={sectionKey} className="category-section mb-4">
                       {/* Section Title with Date and Time */}
-                      <div className="section-title border-b pb-2 mb-3" style={{ borderColor: template?.primary_color || '#3A4D3F' }}>
-                        <h4 className="text-sm font-semibold" style={{ color: template?.primary_color || '#3A4D3F' }}>
+                      <div className="section-title border-b pb-2 mb-3" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
+                        <h4 className="text-sm font-semibold" style={{ color: company?.primary_color || '#3A4D3F' }}>
                           {sectionTitle || getCategoryName(sectionKey)}
                         </h4>
                         {/* Show date and time if available */}
