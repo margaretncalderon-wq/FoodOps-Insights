@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import {
   Users, Download, RefreshCw, Wallet, PieChart, Calendar,
-  FileBarChart, BarChart3, Building2, AlertTriangle, CheckCircle, AlertCircle, Info, FileText, Lock, Unlock
+  FileBarChart, BarChart3, Building2, AlertTriangle, CheckCircle, AlertCircle, Info, FileText, Lock, Unlock,
+  Package, TrendingDown, DollarSign, Receipt
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
