@@ -214,6 +214,62 @@ export function AssetCountSection() {
     link.click();
   };
 
+  // Fetch events and clients for loss registration
+  const fetchEventsAndClients = async () => {
+    try {
+      const [eventsRes, clientsRes] = await Promise.all([
+        axios.get(`${API}/api/events`, { withCredentials: true }),
+        axios.get(`${API}/api/clients`, { withCredentials: true })
+      ]);
+      setEvents(eventsRes.data || []);
+      setClients(clientsRes.data || []);
+    } catch (err) {
+      console.error("Error fetching events/clients:", err);
+    }
+  };
+
+  // Open loss dialog for an item
+  const openLossDialog = (item) => {
+    setSelectedLossItem(item);
+    setLossForm({
+      quantity: Math.abs(item.variance_qty) || 1,
+      reason: "lost",
+      resolution: "operational_expense",
+      client_id: "",
+      event_id: "",
+      notes: ""
+    });
+    fetchEventsAndClients();
+    setLossDialogOpen(true);
+  };
+
+  // Register asset loss
+  const handleRegisterLoss = async () => {
+    if (!selectedLossItem) return;
+    
+    try {
+      await axios.post(`${API}/api/ops-supplies/asset-loss`, {
+        item_id: selectedLossItem.item_id || selectedLossItem.ingredient_id,
+        item_name: selectedLossItem.name,
+        quantity: lossForm.quantity,
+        unit_value: selectedLossItem.unit_value || 0,
+        total_value: lossForm.quantity * (selectedLossItem.unit_value || 0),
+        reason: lossForm.reason,
+        resolution: lossForm.resolution,
+        client_id: lossForm.resolution === "bill_client" ? lossForm.client_id : null,
+        event_id: lossForm.event_id || null,
+        notes: lossForm.notes,
+        count_period: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+      }, { withCredentials: true });
+      
+      toast.success(isEs ? "Pérdida registrada" : "Loss registered");
+      setLossDialogOpen(false);
+      setSelectedLossItem(null);
+    } catch (err) {
+      toast.error(isEs ? "Error al registrar pérdida" : "Failed to register loss");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
