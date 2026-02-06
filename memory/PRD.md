@@ -33,14 +33,20 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
     - Top Losses table with full details
     - CSV and PDF export support for the new report
 
-- **OperationsSuppliesPage.js Refactoring:** Reduced file from 2718 to 1220 lines (~55%)
+- **OperationsSuppliesPage.js Refactoring:** Reduced file from 2718 to 92 lines (~97%)
   - Extracted components to `/app/frontend/src/components/operations/`:
+    - `InventorySection.js` - Complete inventory management (~1130 lines)
     - `GallerySection.js` - Asset image gallery
     - `AgreementsSection.js` - Contracts & agreements management
     - `PurchasingSection.js` - Purchase orders
     - `CheckInOutSection.js` - Delivery notes (Conduces)
     - `index.js` - Exports and shared constants
-  - InventorySection remains in main file (still ~800 lines)
+  - Main page now only contains routing logic
+
+- **Events Router Extraction (Phase 8 - Started):**
+  - Created `/app/backend/routers/events.py` with core CRUD endpoints
+  - Added `EventUpdate` model to `/app/backend/models/events.py`
+  - Router ready for full migration (endpoints still duplicated in server.py)
   - All functionality preserved and working
 
 ### Previous Session
