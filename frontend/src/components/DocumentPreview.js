@@ -117,6 +117,33 @@ export default function DocumentPreview({
   
   const config = DOCUMENT_CONFIGS[selectedDocType];
 
+  // Currency formatting based on company settings
+  const CURRENCY_SYMBOLS = {
+    USD: "$",
+    EUR: "€",
+    MXN: "$",
+    COP: "$",
+    ARS: "$",
+    CLP: "$",
+    PEN: "S/",
+    DOP: "RD$",
+    GBP: "£"
+  };
+
+  const formatCurrency = (amount) => {
+    const currency = company?.currency || "USD";
+    const symbol = CURRENCY_SYMBOLS[currency] || "$";
+    const value = (amount || 0).toFixed(2);
+    // For currencies like EUR, symbol goes after in some locales
+    if (currency === "EUR" && language === "es") {
+      return `${value} ${symbol}`;
+    }
+    return `${symbol}${value}`;
+  };
+
+  // Get currency code for display
+  const getCurrencyCode = () => company?.currency || "USD";
+
   useEffect(() => {
     fetchCompany();
     fetchCategories();
