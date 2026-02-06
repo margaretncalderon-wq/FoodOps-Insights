@@ -485,6 +485,19 @@ export function AssetCountSection() {
                           </Badge>
                         )}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {item.status === "counted" && item.variance_qty < 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-300 hover:bg-red-50"
+                            onClick={() => openLossDialog(item)}
+                          >
+                            <XCircle className="w-3 h-3 mr-1" />
+                            {isEs ? "Pérdida" : "Loss"}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
