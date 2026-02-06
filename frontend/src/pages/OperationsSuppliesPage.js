@@ -1721,12 +1721,10 @@ function CheckInOutSection() {
                   <TableRow>
                     <TableHead>{language === "es" ? "# Conduce" : "Note #"}</TableHead>
                     <TableHead>{language === "es" ? "Evento" : "Event"}</TableHead>
-                    <TableHead>{language === "es" ? "Fecha Salida" : "Check-out Date"}</TableHead>
-                    <TableHead className="text-center">{language === "es" ? "Items" : "Items"}</TableHead>
+                    <TableHead>{language === "es" ? "Salida" : "Out"}</TableHead>
+                    <TableHead>{language === "es" ? "Retorno" : "Return"}</TableHead>
                     <TableHead className="text-center">{language === "es" ? "Equipo" : "Equipment"}</TableHead>
-                    <TableHead className="text-center">{language === "es" ? "Desechables" : "Disposables"}</TableHead>
                     <TableHead>{language === "es" ? "Estado" : "Status"}</TableHead>
-                    <TableHead className="text-right">{language === "es" ? "Pérdida" : "Loss"}</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1734,31 +1732,40 @@ function CheckInOutSection() {
                   {deliveryNotes.map(note => {
                     const equipmentItems = note.items?.filter(i => i.inventory_type === "equipment") || [];
                     const disposableItems = note.items?.filter(i => i.inventory_type === "disposable" || i.inventory_type === "event_supply") || [];
+                    const isOverdue = note.expected_return_date && new Date(note.expected_return_date) < new Date() && note.status !== "completed";
                     
                     return (
-                      <TableRow key={note.note_id}>
+                      <TableRow key={note.note_id} className={isOverdue ? "bg-red-50" : ""}>
                         <TableCell className="font-mono">{note.note_number || note.note_id?.slice(-8)}</TableCell>
                         <TableCell className="font-medium">{getEventName(note.event_id)}</TableCell>
-                        <TableCell>{note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : "-"}</TableCell>
-                        <TableCell className="text-center">{note.items?.length || 0}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="bg-blue-50">
-                            {equipmentItems.length} <span className="text-xs ml-1">↩️</span>
-                          </Badge>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-muted-foreground" />
+                            {note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : "-"}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="bg-gray-50">
-                            {disposableItems.length} <span className="text-xs ml-1">🚫</span>
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(note)}</TableCell>
-                        <TableCell className="text-right">
-                          {note.total_loss_cost > 0 ? (
-                            <span className="text-red-600 font-mono">${note.total_loss_cost.toFixed(2)}</span>
+                        <TableCell>
+                          {note.expected_return_date ? (
+                            <div className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
+                              <Clock className="w-3 h-3" />
+                              {new Date(note.expected_return_date).toLocaleDateString()}
+                              {isOverdue && <AlertTriangle className="w-3 h-3 ml-1" />}
+                            </div>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Badge variant="outline" className="bg-blue-50">
+                              {equipmentItems.length} ↩️
+                            </Badge>
+                            <Badge variant="outline" className="bg-gray-50">
+                              {disposableItems.length} 🚫
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(note)}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => handlePrintDeliveryNote(note)} title={language === "es" ? "Imprimir" : "Print"}>
