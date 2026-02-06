@@ -2575,3 +2575,171 @@ async def get_period_audit_log(year: int, month: int, user: User = Depends(get_c
     
     return logs
 
+
+# ============== ASSET VALUE REPORT ==============
+
+@business_clarity_router.get("/reports/asset-value")
+async def get_asset_value_report(user: User = Depends(get_current_user)):
+    """Get comprehensive asset value report combining inventory and losses"""
+    
+    # Get all equipment/operational inventory items
+    equipment_items = await db.ingredients.find(
+        {
+            "company_id": user.company_id,
+            "inventory_type": {"$in": ["equipment", "event_supply"]}
+        },
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Calculate total asset value (purchase value based on cost_per_unit * stock)
+    total_asset_value = 0
+    total_replacement_value = 0
+    assets_by_category = {}
+    
+    for item in equipment_items:
+        stock = item.get("stock_quantity", 0)
+        unit_cost = item.get("cost_per_unit", 0)
+        replacement_cost = item.get("replacement_cost", 0) or unit_cost
+        category = item.get("category", "general")
+        
+        item_value = stock * unit_cost
+        item_replacement = stock * replacement_cost
+        
+        total_asset_value += item_value
+        total_replacement_value += item_replacement
+        
+        if category not in assets_by_category:
+            assets_by_category[category] = {
+                "count": 0,
+                "total_stock": 0,
+                "value": 0,
+                "replacement_value": 0
+            }
+        assets_by_category[category]["count"] += 1
+        assets_by_category[category]["total_stock"] += stock
+        assets_by_category[category]["value"] += item_value
+        assets_by_category[category]["replacement_value"] += item_replacement
+    
+    # Get all asset losses
+    losses = await db.asset_losses.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Calculate loss totals
+    total_loss_value = sum(l.get("total_value", 0) for l in losses)
+    operational_expense_losses = sum(
+        l.get("total_value", 0) 
+        for l in losses 
+        if l.get("resolution") == "operational_expense"
+    )
+    billed_to_client_losses = sum(
+        l.get("total_value", 0) 
+        for l in losses 
+        if l.get("resolution") == "bill_client"
+    )
+    pending_losses = sum(
+        l.get("total_value", 0) 
+        for l in losses 
+        if l.get("status") == "pending"
+    )
+    
+    # Group losses by reason
+    losses_by_reason = {}
+    for l in losses:
+        reason = l.get("reason", "unknown")
+        if reason not in losses_by_reason:
+            losses_by_reason[reason] = {"count": 0, "value": 0}
+        losses_by_reason[reason]["count"] += 1
+        losses_by_reason[reason]["value"] += l.get("total_value", 0)
+    
+    # Group losses by month for trend analysis
+    losses_by_month = {}
+    for l in losses:
+        created = l.get("created_at")
+        if created:
+            if isinstance(created, str):
+                period = created[:7]  # YYYY-MM
+            else:
+                period = created.strftime("%Y-%m")
+        else:
+            period = l.get("count_period", "unknown")
+        
+        if period not in losses_by_month:
+            losses_by_month[period] = {"count": 0, "value": 0}
+        losses_by_month[period]["count"] += 1
+        losses_by_month[period]["value"] += l.get("total_value", 0)
+    
+    # Sort months chronologically
+    sorted_months = sorted(losses_by_month.items(), key=lambda x: x[0])
+    
+    # Top losses (most valuable items lost)
+    top_losses = sorted(losses, key=lambda x: x.get("total_value", 0), reverse=True)[:10]
+    
+    # Calculate loss rate
+    loss_rate = (total_loss_value / total_asset_value * 100) if total_asset_value > 0 else 0
+    
+    # Recovery metrics
+    recovered_value = billed_to_client_losses  # Value recovered by billing clients
+    net_loss = total_loss_value - recovered_value
+    recovery_rate = (recovered_value / total_loss_value * 100) if total_loss_value > 0 else 0
+    
+    return {
+        "assets": {
+            "total_value": round(total_asset_value, 2),
+            "replacement_value": round(total_replacement_value, 2),
+            "items_count": len(equipment_items),
+            "by_category": {
+                k: {
+                    "count": v["count"],
+                    "total_stock": v["total_stock"],
+                    "value": round(v["value"], 2),
+                    "replacement_value": round(v["replacement_value"], 2)
+                }
+                for k, v in assets_by_category.items()
+            }
+        },
+        "losses": {
+            "total_value": round(total_loss_value, 2),
+            "total_count": len(losses),
+            "operational_expense": round(operational_expense_losses, 2),
+            "billed_to_clients": round(billed_to_client_losses, 2),
+            "pending": round(pending_losses, 2),
+            "by_reason": {
+                k: {"count": v["count"], "value": round(v["value"], 2)}
+                for k, v in losses_by_reason.items()
+            },
+            "by_month": [
+                {"period": period, "count": data["count"], "value": round(data["value"], 2)}
+                for period, data in sorted_months
+            ],
+            "recent": [
+                {
+                    "loss_id": l.get("loss_id"),
+                    "item_name": l.get("item_name"),
+                    "quantity": l.get("quantity"),
+                    "total_value": round(l.get("total_value", 0), 2),
+                    "reason": l.get("reason"),
+                    "resolution": l.get("resolution"),
+                    "status": l.get("status"),
+                    "created_at": l.get("created_at").isoformat() if hasattr(l.get("created_at"), 'isoformat') else l.get("created_at")
+                }
+                for l in top_losses
+            ]
+        },
+        "metrics": {
+            "loss_rate": round(loss_rate, 2),
+            "recovery_rate": round(recovery_rate, 2),
+            "recovered_value": round(recovered_value, 2),
+            "net_loss": round(net_loss, 2),
+            "avg_loss_per_incident": round(total_loss_value / len(losses), 2) if losses else 0
+        },
+        "summary": {
+            "current_asset_value": round(total_asset_value, 2),
+            "total_losses_absorbed": round(operational_expense_losses, 2),
+            "total_billed_to_clients": round(billed_to_client_losses, 2),
+            "pending_resolution": round(pending_losses, 2),
+            "effective_asset_base": round(total_asset_value - net_loss, 2)
+        }
+    }
+
