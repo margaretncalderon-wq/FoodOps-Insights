@@ -2084,13 +2084,13 @@ export default function OperationsSuppliesPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+            <Package className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Package className="w-6 h-6 text-indigo-600" />
-              {language === "es" ? "Operations Supplies" : "Operations Supplies"}
-            </h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl font-bold">Operations Supplies</h1>
+            <p className="text-sm text-muted-foreground">
               {language === "es" 
                 ? "Equipo, desechables y suministros para eventos" 
                 : "Equipment, disposables, and event supplies"}
@@ -2100,18 +2100,18 @@ export default function OperationsSuppliesPage() {
 
         {/* Navigation Tabs */}
         <div className="border-b">
-          <nav className="flex gap-4">
+          <nav className="flex gap-1 overflow-x-auto pb-px">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => !tab.disabled && navigate(tab.path)}
                 disabled={tab.disabled}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   currentTab === tab.id 
                     ? "border-indigo-600 text-indigo-600" 
                     : tab.disabled 
                       ? "border-transparent text-muted-foreground/50 cursor-not-allowed"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
