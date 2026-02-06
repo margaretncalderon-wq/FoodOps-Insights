@@ -9406,6 +9406,8 @@ class DeliveryNoteCreate(BaseModel):
     event_id: str
     items: List[dict]  # [{inventory_item_id, name, inventory_type, qty_out, replacement_cost, unit}]
     notes: Optional[str] = None
+    checkout_date: Optional[str] = None
+    expected_return_date: Optional[str] = None
 
 class DeliveryNoteCheckIn(BaseModel):
     items: List[dict]  # [{inventory_item_id, qty_returned, notes}]
