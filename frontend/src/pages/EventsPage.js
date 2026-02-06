@@ -212,6 +212,7 @@ export default function EventsPage({ embedded = false }) {
       expected_value: event.expected_value || "",
       next_followup_date: event.next_followup_date ? new Date(event.next_followup_date) : null,
       next_step: event.next_step || "",
+      source: event.source || "",
     });
     setDialogOpen(true);
   };
@@ -237,6 +238,7 @@ export default function EventsPage({ embedded = false }) {
       expected_value: "",
       next_followup_date: null,
       next_step: "",
+      source: "",
     });
   };
 
