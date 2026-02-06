@@ -2263,6 +2263,13 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
         r.setdefault("work_category", None)
         r.setdefault("recipe_code", None)
         r.setdefault("verified_status", "Draft")
+        # Map old field names to new ones for backwards compatibility
+        r.setdefault("prep_time", r.get("prep_time_minutes", 0))
+        r.setdefault("cook_time", r.get("cook_time_minutes", 0))
+        r.setdefault("difficulty", "medium")
+        # Convert instructions array to string if needed
+        if isinstance(r.get("instructions"), list):
+            r["instructions"] = "\n".join(r["instructions"]) if r["instructions"] else ""
     return recipes
 
 async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes: List[Dict] = None, company_id: str = "") -> tuple:
