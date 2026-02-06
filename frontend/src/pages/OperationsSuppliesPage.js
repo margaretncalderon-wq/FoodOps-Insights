@@ -17,7 +17,7 @@ import {
   Package, Plus, Edit, Trash2, Search, AlertTriangle, ShoppingCart,
   Truck, ClipboardList, History, Upload, DollarSign, TrendingUp, TrendingDown,
   Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer, Boxes,
-  Image, Camera, FileImage
+  Image, Camera, FileImage, Loader2
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
