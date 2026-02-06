@@ -8547,6 +8547,39 @@ async def suggest_production_from_events(
     }
 
 # --- Experience Design ---
+# --- Event Blueprint (main event detail) ---
+@orchestration_router.get("/blueprint/{event_id}")
+async def get_event_blueprint(event_id: str, user: User = Depends(get_current_user)):
+    """Get event with all blueprint information for event detail page"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Parse date fields
+    for field in ["event_date", "end_date", "created_at", "updated_at"]:
+        if event.get(field) and isinstance(event[field], str):
+            try:
+                event[field] = datetime.fromisoformat(event[field])
+            except:
+                event[field] = None
+    
+    # Get client info
+    if event.get("client_id"):
+        client = await db.clients.find_one({"client_id": event["client_id"]}, {"_id": 0, "display_name": 1, "email": 1, "phone": 1})
+        event["client_info"] = client or {}
+    
+    # Get blueprint data
+    blueprint = await db.event_blueprints.find_one({"event_id": event_id}, {"_id": 0})
+    event["blueprint"] = blueprint or {}
+    
+    # Get orchestration data
+    event["has_blueprint"] = blueprint is not None
+    event["has_run_of_show"] = await db.run_of_show.find_one({"event_id": event_id}) is not None
+    team = await db.event_teams.find_one({"event_id": event_id})
+    event["has_team"] = team is not None and len(team.get("assignees", [])) > 0
+    
+    return event
+
 @orchestration_router.get("/experience/{event_id}")
 async def get_experience_design(event_id: str, user: User = Depends(get_current_user)):
     """Get experience design for an event"""
