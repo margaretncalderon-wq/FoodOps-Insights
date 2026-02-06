@@ -663,6 +663,53 @@ function InventorySection() {
                 </div>
               </>
             )}
+
+            {/* Image Upload Section */}
+            <div className="col-span-2 border-t pt-3 mt-2">
+              <Label className="flex items-center gap-2 mb-2">
+                <Camera className="w-4 h-4" />
+                {language === "es" ? "Foto del Item" : "Item Photo"}
+              </Label>
+              <div className="flex items-center gap-3">
+                {itemForm.image_url ? (
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden border">
+                    <img src={itemForm.image_url} alt={itemForm.name} className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={() => setItemForm({...itemForm, image_url: ""})}
+                      className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl"
+                    >
+                      <XCircle className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground">
+                    <FileImage className="w-6 h-6" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input 
+                    type="url"
+                    value={itemForm.image_url || ""} 
+                    onChange={(e) => setItemForm({...itemForm, image_url: e.target.value})} 
+                    placeholder={language === "es" ? "URL de la imagen" : "Image URL"}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === "es" ? "Pega una URL de imagen o sube a un servicio de imágenes" : "Paste an image URL or upload to an image hosting service"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="col-span-2">
+              <Label>{language === "es" ? "Notas" : "Notes"}</Label>
+              <Input 
+                value={itemForm.notes || ""} 
+                onChange={(e) => setItemForm({...itemForm, notes: e.target.value})}
+                placeholder={language === "es" ? "Notas adicionales..." : "Additional notes..."}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemDialogOpen(false)}>{t("cancel")}</Button>
