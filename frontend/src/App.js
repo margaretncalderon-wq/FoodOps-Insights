@@ -66,6 +66,7 @@ const FoodOpsPage = lazy(() => import("./pages/FoodOpsPage"));
 const DocumentPreview = lazy(() => import("./pages/DocumentPreview"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
+const ClientDeliveryNote = lazy(() => import("./pages/ClientDeliveryNote"));
 const LeadFormPage = lazy(() => import("./pages/LeadFormPage"));
 const BusinessClarityPage = lazy(() => import("./pages/BusinessClarityPage"));
 const EventOrchestrationPage = lazy(() => import("./pages/EventOrchestrationPage"));
