@@ -2140,6 +2140,8 @@ export default function OperationsSuppliesPage() {
     { id: "purchasing", path: "/ops-supplies/purchasing", label: language === "es" ? "Compras" : "Purchasing", icon: ShoppingCart },
     { id: "checkin", path: "/ops-supplies/checkin", label: language === "es" ? "Conduces" : "Delivery Notes", icon: Truck },
     { id: "asset-count", path: "/ops-supplies/asset-count", label: language === "es" ? "Conteo de Activos" : "Asset Count", icon: Boxes },
+    { id: "agreements", path: "/ops-supplies/agreements", label: language === "es" ? "Contratos" : "Agreements", icon: FileText },
+    { id: "gallery", path: "/ops-supplies/gallery", label: language === "es" ? "Galería" : "Gallery", icon: Image },
     { id: "maintenance", path: "/ops-supplies/maintenance", label: language === "es" ? "Mantenimiento" : "Maintenance", icon: Archive, disabled: true, badge: "v2" },
   ];
 
