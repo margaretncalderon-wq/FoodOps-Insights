@@ -102,12 +102,9 @@ export default function ClientEventPortal() {
   const { event, client, company, documents, delivery_notes, blueprint } = data;
 
   // Filter client-facing documents
+  // Filter client-facing documents only
   const clientDocuments = documents?.filter(d => 
-    ["proposal", "quote", "contract", "invoice"].includes(d.document_type)
-  ) || [];
-
-  const operationalDocs = documents?.filter(d => 
-    ["beo", "packing_list", "mise_en_place"].includes(d.document_type)
+    ["proposal", "quote", "contract", "invoice", "receipt", "statement"].includes(d.document_type)
   ) || [];
 
   return (
