@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { 
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
   Eye, TrendingUp, Edit, Trash2, UserPlus, CreditCard, Plus,
-  MessageCircle, ExternalLink, Users, FileText
+  MessageCircle, ExternalLink, Users, FileText, Link2, Copy
 } from "lucide-react";
 import CommsLogSection from "./CommsLogSection";
 
