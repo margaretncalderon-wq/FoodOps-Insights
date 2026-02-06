@@ -262,7 +262,7 @@ export function AssetCountSection() {
         reason: lossForm.reason,
         resolution: lossForm.resolution,
         client_id: lossForm.resolution === "bill_client" ? lossForm.client_id : null,
-        event_id: lossForm.event_id || null,
+        event_id: lossForm.event_id && lossForm.event_id !== "none" ? lossForm.event_id : null,
         notes: lossForm.notes,
         count_period: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
       }, { withCredentials: true });
