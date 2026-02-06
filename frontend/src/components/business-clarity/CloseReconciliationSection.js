@@ -611,7 +611,7 @@ export function CloseReconciliationSection() {
         </CardContent>
       </Card>
 
-      {/* Physical Inventory Check Section */}
+      {/* Physical Inventory Check Section - READ ONLY SUMMARY */}
       <Card className={physicalCount?.is_complete ? "border-green-200 bg-green-50/30" : "border-amber-200 bg-amber-50/30"}>
         <CardHeader className="pb-3 cursor-pointer" onClick={() => setShowPhysicalCount(!showPhysicalCount)}>
           <div className="flex items-center justify-between">
@@ -619,19 +619,23 @@ export function CloseReconciliationSection() {
               <ClipboardList className={`w-5 h-5 ${physicalCount?.is_complete ? "text-green-600" : "text-amber-600"}`} />
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  {isEs ? "Conteo Físico de Inventario" : "Physical Inventory Count"}
+                  {isEs ? "Verificación de Conteo Físico" : "Physical Count Verification"}
                   {physicalCount?.is_complete ? (
-                    <Badge className="bg-green-600">{isEs ? "Completo" : "Complete"}</Badge>
-                  ) : (
+                    <Badge className="bg-green-600">{isEs ? "Verificado" : "Verified"}</Badge>
+                  ) : physicalCount?.has_count ? (
                     <Badge variant="outline" className="text-amber-600 border-amber-300">
                       {physicalCount?.summary?.completion_percent || 0}% {isEs ? "completado" : "complete"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {isEs ? "Sin conteo" : "No count"}
                     </Badge>
                   )}
                 </CardTitle>
                 <CardDescription>
                   {isEs 
-                    ? "Verificación física del inventario antes del cierre" 
-                    : "Physical verification of inventory before closing"}
+                    ? "Resumen del conteo realizado en Culinary Intelligence" 
+                    : "Summary of count performed in Culinary Intelligence"}
                 </CardDescription>
               </div>
             </div>
@@ -648,116 +652,111 @@ export function CloseReconciliationSection() {
         
         {showPhysicalCount && (
           <CardContent className="space-y-4">
-            {/* Count Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="text-center p-3 bg-white rounded-lg border">
-                <p className="text-2xl font-bold">{physicalCount?.summary?.total_items || 0}</p>
-                <p className="text-xs text-muted-foreground">{isEs ? "Total Items" : "Total Items"}</p>
-              </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-2xl font-bold text-green-700">{physicalCount?.summary?.items_counted || 0}</p>
-                <p className="text-xs text-green-600">{isEs ? "Contados" : "Counted"}</p>
-              </div>
-              <div className="text-center p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <p className="text-2xl font-bold text-amber-700">{physicalCount?.summary?.items_pending || 0}</p>
-                <p className="text-xs text-amber-600">{isEs ? "Pendientes" : "Pending"}</p>
-              </div>
-              <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
-                <p className="text-2xl font-bold text-red-700">{physicalCount?.summary?.items_with_variance || 0}</p>
-                <p className="text-xs text-red-600">{isEs ? "Con Varianza" : "With Variance"}</p>
-              </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-lg font-bold text-purple-700">{formatCurrency(physicalCount?.summary?.total_variance_value || 0)}</p>
-                <p className="text-xs text-purple-600">{isEs ? "Valor Varianza" : "Variance Value"}</p>
-              </div>
-            </div>
-
-            {/* Filters and Search */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder={isEs ? "Buscar item..." : "Search item..."}
-                  value={countSearch}
-                  onChange={(e) => setCountSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={countFilter} onValueChange={setCountFilter}>
-                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
-                  <SelectItem value="pending">{isEs ? "Pendientes" : "Pending"}</SelectItem>
-                  <SelectItem value="counted">{isEs ? "Contados" : "Counted"}</SelectItem>
-                  <SelectItem value="variance">{isEs ? "Con Varianza" : "With Variance"}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" onClick={handleSavePhysicalCount}>
-                <Check className="w-4 h-4 mr-2" />
-                {isEs ? "Guardar Conteo" : "Save Count"}
-              </Button>
-              {physicalCount?.has_count && !physicalCount?.applied && (
-                <Button size="sm" onClick={handleApplyCountAdjustments} className="bg-amber-600 hover:bg-amber-700">
-                  {isEs ? "Aplicar Ajustes" : "Apply Adjustments"}
+            {!physicalCount?.has_count ? (
+              <div className="text-center py-8 space-y-4">
+                <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">
+                    {isEs 
+                      ? "No hay conteo físico registrado para este período" 
+                      : "No physical count recorded for this period"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isEs 
+                      ? "El equipo de almacén debe realizar el conteo en Culinary Intelligence" 
+                      : "Warehouse team should perform the count in Culinary Intelligence"}
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => window.location.href = "/food-ops/physical-count"}>
+                  {isEs ? "Ir a Conteo Físico" : "Go to Physical Count"}
                 </Button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <>
+                {/* Count Summary - Read Only */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="text-center p-3 bg-white rounded-lg border">
+                    <p className="text-2xl font-bold">{physicalCount?.summary?.total_items || 0}</p>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Total Items" : "Total Items"}</p>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-2xl font-bold text-green-700">{physicalCount?.summary?.items_counted || 0}</p>
+                    <p className="text-xs text-green-600">{isEs ? "Contados" : "Counted"}</p>
+                  </div>
+                  <div className="text-center p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-2xl font-bold text-amber-700">{physicalCount?.summary?.items_pending || 0}</p>
+                    <p className="text-xs text-amber-600">{isEs ? "Pendientes" : "Pending"}</p>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-2xl font-bold text-red-700">{physicalCount?.summary?.items_with_variance || 0}</p>
+                    <p className="text-xs text-red-600">{isEs ? "Con Varianza" : "With Variance"}</p>
+                  </div>
+                  <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <p className="text-lg font-bold text-purple-700">{formatCurrency(physicalCount?.summary?.total_variance_value || 0)}</p>
+                    <p className="text-xs text-purple-600">{isEs ? "Valor Varianza" : "Variance Value"}</p>
+                  </div>
+                </div>
 
-            {/* Count Table */}
-            <div className="border rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-muted">
-                  <TableRow>
-                    <TableHead>{isEs ? "Item" : "Item"}</TableHead>
-                    <TableHead>{isEs ? "Categoría" : "Category"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Sistema" : "System"}</TableHead>
-                    <TableHead className="text-center w-32">{isEs ? "Conteo" : "Count"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Varianza" : "Variance"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Valor Var." : "Var. Value"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCountItems.slice(0, 50).map(item => (
-                    <TableRow 
-                      key={item.ingredient_id}
-                      className={
-                        item.status === "counted" && Math.abs(item.variance_qty || 0) > 0.01 
-                          ? "bg-red-50/50" 
-                          : item.status === "counted" 
-                            ? "bg-green-50/30" 
-                            : ""
-                      }
-                    >
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{item.category}</TableCell>
-                      <TableCell className="text-right font-mono">{item.system_qty} {item.unit}</TableCell>
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="w-24 h-8 text-center mx-auto"
-                          value={item.counted_qty}
-                          onChange={(e) => updateCountItem(item.ingredient_id, e.target.value)}
-                          placeholder="—"
-                        />
-                      </TableCell>
-                      <TableCell className={`text-right font-mono ${(item.variance_qty || 0) < 0 ? "text-red-600" : (item.variance_qty || 0) > 0 ? "text-green-600" : ""}`}>
-                        {item.counted_qty !== "" && item.counted_qty !== null 
-                          ? `${(item.variance_qty || 0) > 0 ? "+" : ""}${(parseFloat(item.counted_qty) - item.system_qty).toFixed(2)}`
-                          : "—"
-                        }
-                      </TableCell>
-                      <TableCell className={`text-right font-mono ${(item.variance_value || 0) < 0 ? "text-red-600" : ""}`}>
-                        {item.counted_qty !== "" && item.counted_qty !== null 
-                          ? formatCurrency((parseFloat(item.counted_qty) - item.system_qty) * item.unit_cost)
-                          : "—"
-                        }
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                {/* Variance Items Table - Read Only (only showing items with variance) */}
+                {physicalCount?.summary?.items_with_variance > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      {isEs ? "Items con Varianza" : "Items with Variance"}
+                    </h4>
+                    <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-muted">
+                          <TableRow>
+                            <TableHead>{isEs ? "Item" : "Item"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Sistema" : "System"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Conteo" : "Count"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Varianza" : "Variance"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Valor" : "Value"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(physicalCount?.items || [])
+                            .filter(item => item.status === "counted" && Math.abs(item.variance_qty || 0) > 0.01)
+                            .map(item => (
+                              <TableRow key={item.ingredient_id} className="bg-red-50/50">
+                                <TableCell className="font-medium">{item.name}</TableCell>
+                                <TableCell className="text-right font-mono">{item.system_qty?.toFixed(2)} {item.unit}</TableCell>
+                                <TableCell className="text-right font-mono">{parseFloat(item.counted_qty)?.toFixed(2)} {item.unit}</TableCell>
+                                <TableCell className={`text-right font-mono ${(item.variance_qty || 0) < 0 ? "text-red-600" : "text-green-600"}`}>
+                                  {(item.variance_qty || 0) > 0 ? "+" : ""}{item.variance_qty?.toFixed(2)}
+                                </TableCell>
+                                <TableCell className={`text-right font-mono ${(item.variance_value || 0) < 0 ? "text-red-600" : "text-amber-600"}`}>
+                                  {formatCurrency(item.variance_value || 0)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <Button variant="outline" size="sm" onClick={() => window.location.href = "/food-ops/physical-count"}>
+                    {isEs ? "Ver Conteo Completo" : "View Full Count"}
+                  </Button>
+                  {physicalCount?.has_count && !physicalCount?.applied && (
+                    <Button size="sm" onClick={handleApplyCountAdjustments} className="bg-amber-600 hover:bg-amber-700">
+                      <Check className="w-4 h-4 mr-2" />
+                      {isEs ? "Aplicar Ajustes al Inventario" : "Apply Inventory Adjustments"}
+                    </Button>
+                  )}
+                  {physicalCount?.applied && (
+                    <Badge className="bg-green-600">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      {isEs ? "Ajustes Aplicados" : "Adjustments Applied"}
+                    </Badge>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         )}
       </Card>
