@@ -170,11 +170,6 @@ async def get_confirmed_events(user: User = Depends(get_current_user)):
 @events_router.post("")
 async def create_event(data: EventCreate, user: User = Depends(get_current_user)):
     """Create a new event"""
-    # Check usage limit
-    limit_check = await check_usage_limit(user.company_id, "events_created")
-    if limit_check.get("allowed", True) == False:
-        raise HTTPException(status_code=403, detail=limit_check.get("message", "Límite de eventos alcanzado"))
-    
     now = datetime.now(timezone.utc)
     event_id = f"event_{uuid.uuid4().hex[:12]}"
     
