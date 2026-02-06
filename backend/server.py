@@ -9142,6 +9142,38 @@ async def update_event_packing_list(event_id: str, data: PackingListUpdate, user
     return {"message": "Packing list updated", "items_count": len(data.items)}
 
 # --- Event Calendar ---
+@orchestration_router.get("/events")
+async def get_orchestration_events(user: User = Depends(get_current_user)):
+    """Get events for orchestration (Committed/Won/Closed only)"""
+    events = await db.events.find(
+        {"company_id": user.company_id, "stage": {"$in": ["Committed", "Won", "Closed"]}},
+        {"_id": 0}
+    ).sort("event_date", 1).to_list(500)
+    
+    # Enrich with client info and orchestration flags
+    for e in events:
+        # Parse dates
+        for field in ["event_date", "end_date", "created_at", "updated_at"]:
+            if e.get(field) and isinstance(e[field], str):
+                try:
+                    e[field] = datetime.fromisoformat(e[field])
+                except:
+                    e[field] = None
+        
+        # Get client name
+        if e.get("client_id"):
+            client = await db.clients.find_one({"client_id": e["client_id"]}, {"_id": 0, "display_name": 1})
+            e["client_name"] = client.get("display_name") if client else ""
+        
+        # Check orchestration status
+        event_id = e.get("event_id")
+        e["has_blueprint"] = await db.event_blueprints.find_one({"event_id": event_id}) is not None
+        e["has_run_of_show"] = await db.run_of_show.find_one({"event_id": event_id}) is not None
+        team = await db.event_teams.find_one({"event_id": event_id})
+        e["has_team"] = team is not None and len(team.get("assignees", [])) > 0
+    
+    return events
+
 @orchestration_router.get("/calendar")
 async def get_events_calendar(
     start_date: Optional[str] = None,
