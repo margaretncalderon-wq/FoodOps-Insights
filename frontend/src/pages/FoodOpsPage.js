@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
+import { Layout } from "../components/Layout";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
