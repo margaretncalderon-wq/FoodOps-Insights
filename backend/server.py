@@ -4054,6 +4054,34 @@ async def client_sign_document(document_id: str, data: dict):
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document signed successfully"}
 
+@portal_router.get("/event/{event_id}/delivery-notes")
+async def get_portal_delivery_notes(event_id: str):
+    """Get delivery notes for an event - accessible via client portal"""
+    # Get the event to verify it exists
+    event = await db.events.find_one({"event_id": event_id}, {"_id": 0, "company_id": 1})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get delivery notes for this event
+    notes = await db.delivery_notes.find(
+        {"event_id": event_id},
+        {"_id": 0}
+    ).to_list(length=100)
+    
+    # Enrich items with photos from inventory
+    for note in notes:
+        for item in note.get("items", []):
+            item_id = item.get("item_id")
+            if item_id:
+                inv_item = await db.ingredients.find_one(
+                    {"ingredient_id": item_id},
+                    {"_id": 0, "image_url": 1}
+                )
+                if inv_item and inv_item.get("image_url"):
+                    item["image_url"] = inv_item["image_url"]
+    
+    return notes
+
 # ============== DASHBOARD ROUTES ==============
 
 @api_router.get("/dashboard/stats")
