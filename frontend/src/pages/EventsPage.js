@@ -439,6 +439,26 @@ export default function EventsPage({ embedded = false }) {
                     </div>
                   </div>
 
+                  {/* Source Field */}
+                  <div className="space-y-2">
+                    <Label>{language === "es" ? "Origen de la Solicitud" : "Request Source"}</Label>
+                    <Select
+                      value={formData.source}
+                      onValueChange={(value) => setFormData({ ...formData, source: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "es" ? "Seleccionar origen..." : "Select source..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVENT_SOURCES.map((source) => (
+                          <SelectItem key={source.value} value={source.value}>
+                            {language === "es" ? source.labelEs : source.labelEn}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Multi-day booking toggle */}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
