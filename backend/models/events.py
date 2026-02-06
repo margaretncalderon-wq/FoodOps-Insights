@@ -63,6 +63,30 @@ class Event(BaseModel):
     updated_at: datetime
 
 
+class EventUpdate(BaseModel):
+    """Update model for events - all fields optional"""
+    client_id: Optional[str] = None
+    name: Optional[str] = None
+    event_type: Optional[str] = None
+    event_date: Optional[datetime] = None
+    event_date_tbd: Optional[bool] = None
+    end_date: Optional[datetime] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    is_booking: Optional[bool] = None
+    venue: Optional[str] = None
+    guest_count: Optional[int] = None
+    budget: Optional[float] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+    stage: Optional[str] = None
+    expected_value: Optional[float] = None
+    next_followup_date: Optional[datetime] = None
+    next_step: Optional[str] = None
+    lost_reason: Optional[str] = None
+    source: Optional[str] = None
+
+
 # ============== EVENT MENU MODELS ==============
 
 class EventMenuCreate(BaseModel):
