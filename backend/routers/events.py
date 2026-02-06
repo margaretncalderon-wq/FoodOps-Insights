@@ -7,7 +7,29 @@ import uuid
 from database import db
 from models.events import Event, EventCreate, EventUpdate
 from dependencies import get_current_user, User
-from utils import normalize_stage, check_usage_limit
+
+# Stage mapping constants (imported from server.py context)
+ENGAGEMENT_STAGES = ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review", "Committed", "Archived"]
+LEGACY_STAGE_MAP = {
+    "Lead": "Inquiry Received",
+    "Contacted": "Context Captured",
+    "Proposal": "Scope Drafted",
+    "Negotiation": "Definition In Review",
+    "Won": "Committed",
+    "Approved": "Committed",
+    "Closed": "Archived",
+    "Lost": "Archived"
+}
+
+def normalize_stage(stage: str) -> str:
+    """Normalize legacy stages to new Engagement Stages"""
+    if not stage:
+        return "Inquiry Received"
+    if stage in LEGACY_STAGE_MAP:
+        return LEGACY_STAGE_MAP[stage]
+    if stage in ENGAGEMENT_STAGES:
+        return stage
+    return "Inquiry Received"
 
 events_router = APIRouter(prefix="/events", tags=["Events"])
 
