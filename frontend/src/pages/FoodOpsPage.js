@@ -1294,6 +1294,7 @@ export default function FoodOpsPage() {
           <Route path="purchase-orders" element={<PurchaseOrdersSectionWrapper />} />
           <Route path="consolidated" element={<ConsolidatedPurchaseSectionWrapper />} />
           <Route path="physical-count" element={<PhysicalCountSection />} />
+          <Route path="import-export" element={<ImportExportSection />} />
         </Routes>
       </div>
     </Layout>
