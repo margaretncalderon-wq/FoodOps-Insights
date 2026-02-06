@@ -238,6 +238,7 @@ export function ReportsSection() {
     { key: "clients", label: isEs ? "Por Cliente" : "By Client", icon: Users },
     { key: "suppliers", label: isEs ? "Por Proveedor" : "By Supplier", icon: Building2 },
     { key: "events", label: isEs ? "Por Evento" : "By Event", icon: Calendar },
+    { key: "assets", label: isEs ? "Activos" : "Assets", icon: Package },
   ];
 
   return (
