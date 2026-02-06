@@ -74,7 +74,7 @@ export default function ClientEngagementPage() {
     if (path.includes("comms")) return isEs ? "Comunicaciones" : "Comms";
     if (path.includes("owners")) return isEs ? "Responsables" : "Owners";
     if (path.includes("clients")) return isEs ? "Clientes" : "Clients";
-    return "CRM";
+    return null; // No sub-section active
   };
 
   // CRM dropdown items
