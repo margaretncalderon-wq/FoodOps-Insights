@@ -1,5 +1,5 @@
 // Operations Components Index
-export { InventorySection } from "./InventorySection";
+export { InventorySection, SupplierProductUpload } from "./InventorySection";
 export { PurchasingSection } from "./PurchasingSection";
 export { CheckInOutSection } from "./CheckInOutSection";
 export { AssetCountSection } from "./AssetCountSection";
