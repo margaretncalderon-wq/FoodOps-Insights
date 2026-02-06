@@ -55,6 +55,8 @@ export default function ClientEventPortal() {
       quote: isEs ? "Cotización" : "Quote",
       contract: isEs ? "Contrato" : "Contract",
       invoice: isEs ? "Factura" : "Invoice",
+      receipt: isEs ? "Recibo" : "Receipt",
+      statement: isEs ? "Estado de Cuenta" : "Account Statement",
       kitchen_sheet: isEs ? "Hoja de Cocina" : "Kitchen Sheet",
       packing_list: isEs ? "Lista de Montaje" : "Packing List",
       beo: isEs ? "Orden de Evento" : "Banquet Event Order",
