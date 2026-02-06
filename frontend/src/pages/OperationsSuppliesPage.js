@@ -443,9 +443,19 @@ function InventorySection() {
                     return (
                       <TableRow key={item.ingredient_id} className={isLowStock ? "bg-red-50" : ""}>
                         <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {item.name}
-                            {isLowStock && <Badge variant="destructive" className="text-xs">Low</Badge>}
+                          <div className="flex items-center gap-3">
+                            {item.image_url ? (
+                              <img src={item.image_url} alt={item.name} className="w-10 h-10 rounded-lg object-cover border" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                                <Package className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium">{item.name}</span>
+                              {isLowStock && <Badge variant="destructive" className="text-xs ml-2">Low</Badge>}
+                              {item.notes && <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.notes}</p>}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
