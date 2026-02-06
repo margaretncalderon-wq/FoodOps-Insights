@@ -1,7 +1,7 @@
 # routers/demand_studio.py - Demand Studio routes
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 
 from config import db
