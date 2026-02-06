@@ -221,6 +221,29 @@ export default function EventDetails() {
             {language === "es" ? "Volver a Propuestas" : "Back to Proposals"}
           </Link>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => {
+                const portalUrl = `${window.location.origin}/portal/event/${eventId}`;
+                window.open(portalUrl, '_blank');
+              }}
+            >
+              <ExternalLink className="w-4 h-4" />
+              {language === "es" ? "Portal Cliente" : "Client Portal"}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => {
+                const portalUrl = `${window.location.origin}/portal/event/${eventId}`;
+                navigator.clipboard.writeText(portalUrl);
+                toast.success(language === "es" ? "Link copiado!" : "Link copied!");
+              }}
+              title={language === "es" ? "Copiar link del portal" : "Copy portal link"}
+            >
+              <Link2 className="w-4 h-4" />
+            </Button>
             <Button variant="outline" onClick={handleDuplicateEvent} className="gap-2">
               <Copy className="w-4 h-4" />
               {t("duplicate")}
