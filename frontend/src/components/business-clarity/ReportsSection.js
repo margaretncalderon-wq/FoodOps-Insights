@@ -129,7 +129,8 @@ export function ReportsSection() {
         snapshot: isEs ? "Resumen Financiero" : "Financial Snapshot",
         clients: isEs ? "Reporte por Cliente" : "Client Revenue Report",
         suppliers: isEs ? "Reporte por Proveedor" : "Supplier Spend Report",
-        events: isEs ? "Reporte por Evento" : "Event Profitability Report"
+        events: isEs ? "Reporte por Evento" : "Event Profitability Report",
+        assets: isEs ? "Reporte de Valor de Activos" : "Asset Value Report"
       };
       
       doc.setFontSize(18);
