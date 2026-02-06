@@ -1136,68 +1136,8 @@ function SupplierProductUpload({ suppliers, language, onSuccess, onCancel }) {
   );
 }
 
-// ==================== CHECK-IN/CHECK-OUT SECTION (CONDUCES) ====================
-function CheckInOutSection() {
-  const { language } = useLanguage();
-  const [deliveryNotes, setDeliveryNotes] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState("");
-  const [packingListItems, setPackingListItems] = useState([]);
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [viewingNote, setViewingNote] = useState(null);
-  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState(null);
-  const [availableInventory, setAvailableInventory] = useState([]);
-  
-  // New date fields for delivery note
-  const [checkoutDate, setCheckoutDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expectedReturnDate, setExpectedReturnDate] = useState("");
-  const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [notesRes, eventsRes] = await Promise.all([
-        axios.get(`${API}/api/delivery-notes`, { withCredentials: true }).catch(() => ({ data: [] })),
-        axios.get(`${API}/api/events/confirmed`, { withCredentials: true }).catch(() => ({ data: [] }))
-      ]);
-      setDeliveryNotes(notesRes.data || []);
-      setEvents(eventsRes.data || []);
-    } catch (error) {
-      console.error("Error:", error);
-    }
-    setLoading(false);
-  };
-
-  const handleEventSelect = async (eventId) => {
-    setSelectedEvent(eventId);
-    if (!eventId) {
-      setPackingListItems([]);
-      return;
-    }
-    
-    try {
-      // Get packing list items for this event (from ops supplies inventory)
-      const res = await axios.get(`${API}/api/events/${eventId}/packing-list-supplies`, { withCredentials: true }).catch(() => ({ data: [] }));
-      setPackingListItems(res.data || []);
-      // Pre-select all items
-      setSelectedItems(res.data?.map(item => ({
-        ...item,
-        qty_out: item.quantity || 1,
-        qty_returned: 0,
-        status: "pending"
-      })) || []);
-    } catch (error) {
-      setPackingListItems([]);
-    }
-  };
+// ==================== MAIN PAGE ====================
+export default function OperationsSuppliesPage() {
 
   const handleCreateDeliveryNote = async () => {
     if (!selectedEvent || selectedItems.length === 0) {
