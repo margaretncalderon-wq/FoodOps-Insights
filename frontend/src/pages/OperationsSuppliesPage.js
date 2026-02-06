@@ -2507,8 +2507,6 @@ function AgreementsSection() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
-            <Button onClick={handleSave}>{isEs ? "Guardar" : "Save"}</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
