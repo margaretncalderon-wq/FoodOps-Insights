@@ -1823,6 +1823,43 @@ function CheckInOutSection() {
               </Select>
             </div>
 
+            {/* Date fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {language === "es" ? "Fecha de Salida" : "Checkout Date"}
+                </Label>
+                <Input
+                  type="date"
+                  value={checkoutDate}
+                  onChange={(e) => setCheckoutDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {language === "es" ? "Retorno Esperado" : "Expected Return"}
+                </Label>
+                <Input
+                  type="date"
+                  value={expectedReturnDate}
+                  onChange={(e) => setExpectedReturnDate(e.target.value)}
+                  min={checkoutDate}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label>{language === "es" ? "Notas" : "Notes"}</Label>
+              <Input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={language === "es" ? "Instrucciones especiales, contacto, etc." : "Special instructions, contact, etc."}
+              />
+            </div>
+
             {selectedItems.length > 0 && (
               <div className="border rounded-lg max-h-64 overflow-y-auto">
                 <Table>
