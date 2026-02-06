@@ -333,13 +333,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F2937] leading-tight max-w-4xl mx-auto">
             {isEs
-              ? "El sistema operativo para negocios de eventos y hospitalidad"
-              : "The operating system for event & hospitality businesses"}
+              ? "El sistema para operaciones complejas."
+              : "The system for complex operations."}
           </h1>
-          <p className="mt-6 text-lg text-[#6B7280] max-w-2xl mx-auto">
+          <p className="mt-6 text-lg text-[#6B7280] max-w-3xl mx-auto">
             {isEs
-              ? "Conecta clientes, eventos, cocina, operaciones, marketing y finanzas en una sola plataforma. Comienza simple. Escala cuando lo necesites."
-              : "Connect clients, events, kitchen, operations, marketing, and finance in one platform. Start simple. Scale when you need to."}
+              ? "Conecta clientes, ejecución, inventario, marketing y finanzas en un solo sistema. Construido para equipos que operan en el mundo real — desde eventos y hospitalidad hasta negocios multi-equipo."
+              : "Connect clients, execution, inventory, marketing, and finance in one system. Built for teams running real-world operations — from events and hospitality to multi-team businesses."}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Link to="/register">
