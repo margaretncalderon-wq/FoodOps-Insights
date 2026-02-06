@@ -20,23 +20,32 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 
 ## What's Been Implemented
 
-### February 6, 2026
-- **UI Consistency Update:** Updated all modules (Business Clarity, Event Orchestration, Culinary Intelligence, Operations Supplies) to have consistent header design with:
-  - Gradient icon pills
-  - Title + subtitle
-  - Horizontal navigation tabs with icons
-  
-- **Login/Register Redesign:** Modern split-screen design inspired by Monday.com/HoneyBook:
-  - Left side: Clean form with Google OAuth + email/password
-  - Right side: Kora OS branded illustration (dark graphite with green accents)
-  - "Don't have an account? Create one" / "Already have account? Log in" links
+### February 6, 2026 (Latest Session)
+- **Asset Value Report in Business Clarity:** Complete new report for tracking operational assets
+  - New backend endpoint: `GET /api/business-clarity/reports/asset-value`
+  - Frontend: New "Assets" tab in Executive Reports (ReportsSection.js)
+  - Features:
+    - Asset Value summary cards (Total Value, Losses, Operational Expense, Billed to Clients)
+    - Loss Metrics (Loss Rate, Recovery Rate, Net Loss, Avg per Incident)
+    - Assets by Category table with stock and replacement values
+    - Losses by Reason breakdown with color-coded cards
+    - Monthly Loss Trend visualization
+    - Top Losses table with full details
+    - CSV and PDF export support for the new report
 
-- **Landing Page Redesign:**
-  - Video hero section with play button
-  - Compact module highlights with tabs (Demand Studio first)
-  - Stats bar
-  - Simplified pricing cards
-  - Less text, more visual
+### Previous Session
+- **Import/Export Feature:** Restored and enhanced with context-based filtering
+- **UI Bug Fixes:** Recipe card icons, "CRM: CRM" label fixed
+- **Template Engine Fixes:** Company brand colors and currency applied correctly
+- **Operations Module:** Added item images, Agreements/Gallery tabs, departure/return dates for delivery notes
+- **Asset Loss System:** Registration of losses during inventory count
+- **Connected Inventory:** Asset Count now shows items out on delivery
+- **Client Portal:** Comprehensive two-tier portal (per-client and per-event views)
+
+### February 6, 2026 (Earlier)
+- **UI Consistency Update:** Updated all modules to have consistent header design
+- **Login/Register Redesign:** Modern split-screen design inspired by Monday.com/HoneyBook
+- **Landing Page Redesign:** Video hero section, compact module highlights
 
 ### Previous Sessions
 - Full Kora OS rebranding (dark graphite #2A2F3A, Kora Green #AED768)
@@ -46,13 +55,15 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Custom favicon and logo
 
 ## Pending Issues
-- **P1:** Local DB data not persisted (workaround in dependencies.py)
-- **P2:** Admin subdomain (admin.ourkora.com) SSL configuration
+- **P1:** Google OAuth `redirect_uri_mismatch` in preview environment (user action required)
+- **P2:** Local DB data not persisted (workaround in dependencies.py)
+- **P3:** Admin subdomain (admin.ourkora.com) SSL configuration
 
 ## Upcoming Tasks
 - Continue backend refactoring (Phase 8: Extract Events Router)
 - Social Media Campaign Widget
 - Activate welcome emails (needs RESEND_API_KEY)
+- Refactor OperationsSuppliesPage.js (2500+ lines - needs splitting)
 
 ## Integrations
 - **Stripe:** Payment processing
