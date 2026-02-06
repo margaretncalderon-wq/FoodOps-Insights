@@ -3044,7 +3044,7 @@ Mantel Blanco, , 10, 3`}
 
           {/* Import/Export Tab */}
           <TabsContent value="import-export">
-            <ImportExportSection />
+            <ImportExportSection filter="business" />
           </TabsContent>
         </Tabs>
       </div>
