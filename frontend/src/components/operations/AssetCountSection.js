@@ -475,9 +475,16 @@ export function AssetCountSection() {
                       }
                     >
                       <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">{item.sku || "—"}</TableCell>
                       <TableCell className="text-xs">{item.category}</TableCell>
                       <TableCell className="text-right font-mono">{item.system_qty}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {item.currently_out > 0 ? (
+                          <span className="text-blue-600">{item.currently_out}</span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">{item.available_qty}</TableCell>
                       <TableCell className="text-center">
                         <Input
                           type="number"
@@ -497,9 +504,6 @@ export function AssetCountSection() {
                           ? `${(item.variance_qty || 0) > 0 ? "+" : ""}${item.variance_qty || 0}`
                           : "—"
                         }
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-muted-foreground">
-                        {formatCurrency(item.unit_value || 0)}
                       </TableCell>
                       <TableCell className="text-center">
                         {item.status === "counted" ? (
