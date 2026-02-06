@@ -166,12 +166,12 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Side - Colorful Illustration (like Monday.com) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#6C5CE7] relative overflow-hidden items-center justify-center p-12">
+      {/* Right Side - Kora Brand Illustration */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[#2A2F3A] relative overflow-hidden items-center justify-center p-12">
         {/* Background decorative elements */}
-        <div className="absolute top-20 right-20 w-32 h-32 bg-[#A29BFE] rounded-full opacity-40" />
-        <div className="absolute bottom-32 left-16 w-24 h-24 bg-[#74B9FF] rounded-full opacity-50" />
-        <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-[#55EFC4] rounded-full opacity-60" />
+        <div className="absolute top-20 right-20 w-32 h-32 bg-[#AED768] rounded-full opacity-20" />
+        <div className="absolute bottom-32 left-16 w-24 h-24 bg-[#AED768] rounded-full opacity-30" />
+        <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-[#AED768] rounded-full opacity-25" />
         
         {/* Main illustration card */}
         <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md transform rotate-[-2deg]">
@@ -210,20 +210,21 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Floating hand illustration */}
-        <div className="absolute bottom-20 right-10 transform rotate-12">
-          <svg className="w-32 h-32" viewBox="0 0 100 100" fill="none">
-            <path d="M70 60C70 60 65 45 60 40C55 35 45 35 40 40C35 45 30 55 35 70C40 85 55 90 70 85C85 80 90 65 70 60Z" fill="#FFEAA7"/>
-            <path d="M50 45C50 45 45 50 45 60" stroke="#F39C12" strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="60" cy="55" r="3" fill="#2A2F3A"/>
-          </svg>
+        {/* Kora logo accent */}
+        <div className="absolute top-12 left-12 flex items-center gap-3">
+          <div className="w-12 h-12 bg-[#AED768] rounded-xl flex items-center justify-center">
+            <img src="/favicon.png" alt="Kora" className="w-8 h-8" />
+          </div>
+          <span className="text-white/80 font-heading text-xl font-semibold">Kora OS</span>
         </div>
 
-        {/* Decorative lines */}
-        <svg className="absolute bottom-0 left-0 w-full h-24 opacity-20" viewBox="0 0 400 100">
-          <path d="M0 80 Q100 20 200 60 T400 40" stroke="white" strokeWidth="2" fill="none"/>
-          <path d="M0 90 Q150 30 300 70 T400 50" stroke="white" strokeWidth="1.5" fill="none"/>
-        </svg>
+        {/* Decorative grid pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="w-full h-full" style={{
+            backgroundImage: 'radial-gradient(circle, #AED768 1px, transparent 1px)',
+            backgroundSize: '30px 30px'
+          }} />
+        </div>
       </div>
     </div>
   );
