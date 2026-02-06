@@ -235,40 +235,6 @@ export default function ClientEventPortal() {
                 </div>
               )}
             </div>
-
-            {/* Operational Documents */}
-            {operationalDocs.length > 0 && (
-              <div>
-                <h3 className="font-heading font-semibold mb-4 flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5" />
-                  {isEs ? "Documentos Operativos" : "Operational Documents"}
-                </h3>
-                <div className="grid gap-4 md:grid-cols-3">
-                  {operationalDocs.map(doc => {
-                    const Icon = getDocTypeIcon(doc.document_type);
-                    return (
-                      <Card key={doc.document_id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                              <Icon className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm truncate">{getDocTypeLabel(doc.document_type)}</h4>
-                            </div>
-                            <Link to={`/portal/${doc.document_id}`}>
-                              <Button variant="ghost" size="sm">
-                                <ExternalLink className="w-4 h-4" />
-                              </Button>
-                            </Link>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </TabsContent>
 
           {/* Event Design Tab */}
