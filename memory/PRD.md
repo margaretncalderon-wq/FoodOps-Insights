@@ -33,6 +33,16 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
     - Top Losses table with full details
     - CSV and PDF export support for the new report
 
+- **OperationsSuppliesPage.js Refactoring:** Reduced file from 2718 to 1220 lines (~55%)
+  - Extracted components to `/app/frontend/src/components/operations/`:
+    - `GallerySection.js` - Asset image gallery
+    - `AgreementsSection.js` - Contracts & agreements management
+    - `PurchasingSection.js` - Purchase orders
+    - `CheckInOutSection.js` - Delivery notes (Conduces)
+    - `index.js` - Exports and shared constants
+  - InventorySection remains in main file (still ~800 lines)
+  - All functionality preserved and working
+
 ### Previous Session
 - **Import/Export Feature:** Restored and enhanced with context-based filtering
 - **UI Bug Fixes:** Recipe card icons, "CRM: CRM" label fixed
