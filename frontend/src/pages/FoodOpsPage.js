@@ -740,30 +740,30 @@ function RecipesSection() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredRecipes.map(recipe => (
-              <Card key={recipe.recipe_id} className="hover:shadow-lg transition-shadow">
+              <Card key={recipe.recipe_id} className="hover:shadow-lg transition-shadow group">
                 <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {getRecipeTypeIcon(recipe.recipe_type)}
-                        <CardTitle className="text-lg">{recipe.name}</CardTitle>
-                      </div>
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
+                      {getRecipeTypeIcon(recipe.recipe_type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate">{recipe.name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
                         {getRecipeTypeBadge(recipe.recipe_type)}
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {recipe.yield_quantity} {recipe.yield_unit}
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(recipe.recipe_id)} title={language === "es" ? "Duplicar" : "Duplicate"}>
-                        <Copy className="w-4 h-4" />
+                    <div className="flex-shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDuplicate(recipe.recipe_id)} title={language === "es" ? "Duplicar" : "Duplicate"}>
+                        <Copy className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingRecipe(recipe); setDialogOpen(true); }}>
-                        <Edit className="w-4 h-4" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingRecipe(recipe); setDialogOpen(true); }}>
+                        <Edit className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(recipe.recipe_id)}>
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(recipe.recipe_id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       </Button>
                     </div>
                   </div>
