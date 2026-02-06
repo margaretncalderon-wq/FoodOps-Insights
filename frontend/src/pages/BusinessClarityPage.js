@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
+import { Layout } from "../components/Layout";
 
 // Refactored Section Components
 import {
@@ -20,11 +21,10 @@ import {
 // Icons
 import {
   FileText, TrendingUp, TrendingDown, PieChart, Banknote,
-  UserCircle, Landmark, FileBarChart, ArrowLeft, Target, Lock,
-  Briefcase, BarChart3, Brain, ChevronDown, ChevronRight, Shield
+  UserCircle, Landmark, FileBarChart, Target, Lock,
+  Briefcase
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
