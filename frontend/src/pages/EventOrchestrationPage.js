@@ -324,7 +324,7 @@ function EventDetail() {
   const fetchEvent = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/orchestration/blueprint/${eventId}`, { withCredentials: true });
-      setEvent(res.data.event);
+      setEvent(res.data);
     } catch (err) {
       console.error(err);
       toast.error(isEs ? "Error al cargar evento" : "Failed to load event");
