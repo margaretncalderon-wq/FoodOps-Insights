@@ -2129,6 +2129,419 @@ function CheckInOutSection() {
   );
 }
 
+// ==================== AGREEMENTS SECTION ====================
+function AgreementsSection() {
+  const { language } = useLanguage();
+  const [agreements, setAgreements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingAgreement, setEditingAgreement] = useState(null);
+  const [suppliers, setSuppliers] = useState([]);
+  const [form, setForm] = useState({
+    title: "",
+    agreement_type: "rental", // rental, supplier, service
+    supplier_id: "",
+    start_date: "",
+    end_date: "",
+    terms: "",
+    monthly_cost: 0,
+    deposit: 0,
+    status: "active", // active, expired, pending
+    documents: [], // URLs to attached documents
+    notes: ""
+  });
+
+  const isEs = language === "es";
+
+  const AGREEMENT_TYPES = [
+    { value: "rental", label: "Equipment Rental", labelEs: "Alquiler de Equipos" },
+    { value: "supplier", label: "Supplier Contract", labelEs: "Contrato con Proveedor" },
+    { value: "service", label: "Service Agreement", labelEs: "Acuerdo de Servicio" },
+    { value: "lease", label: "Lease", labelEs: "Arrendamiento" }
+  ];
+
+  const STATUSES = [
+    { value: "active", label: "Active", labelEs: "Activo" },
+    { value: "pending", label: "Pending", labelEs: "Pendiente" },
+    { value: "expired", label: "Expired", labelEs: "Vencido" },
+    { value: "cancelled", label: "Cancelled", labelEs: "Cancelado" }
+  ];
+
+  useEffect(() => {
+    fetchAgreements();
+    fetchSuppliers();
+  }, []);
+
+  const fetchAgreements = async () => {
+    try {
+      const res = await axios.get(`${API}/api/ops-supplies/agreements`, { withCredentials: true });
+      setAgreements(res.data || []);
+    } catch (error) {
+      console.error("Error fetching agreements:", error);
+      setAgreements([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const res = await axios.get(`${API}/api/suppliers`, { withCredentials: true });
+      setSuppliers(res.data || []);
+    } catch (error) {
+      setSuppliers([]);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      if (editingAgreement) {
+        await axios.put(`${API}/api/ops-supplies/agreements/${editingAgreement.agreement_id}`, form, { withCredentials: true });
+        toast.success(isEs ? "Contrato actualizado" : "Agreement updated");
+      } else {
+        await axios.post(`${API}/api/ops-supplies/agreements`, form, { withCredentials: true });
+        toast.success(isEs ? "Contrato creado" : "Agreement created");
+      }
+      fetchAgreements();
+      setDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      toast.error(isEs ? "Error al guardar" : "Error saving");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm(isEs ? "¿Eliminar este contrato?" : "Delete this agreement?")) return;
+    try {
+      await axios.delete(`${API}/api/ops-supplies/agreements/${id}`, { withCredentials: true });
+      toast.success(isEs ? "Contrato eliminado" : "Agreement deleted");
+      fetchAgreements();
+    } catch (error) {
+      toast.error(isEs ? "Error al eliminar" : "Error deleting");
+    }
+  };
+
+  const handleEdit = (agreement) => {
+    setEditingAgreement(agreement);
+    setForm({
+      title: agreement.title || "",
+      agreement_type: agreement.agreement_type || "rental",
+      supplier_id: agreement.supplier_id || "",
+      start_date: agreement.start_date || "",
+      end_date: agreement.end_date || "",
+      terms: agreement.terms || "",
+      monthly_cost: agreement.monthly_cost || 0,
+      deposit: agreement.deposit || 0,
+      status: agreement.status || "active",
+      documents: agreement.documents || [],
+      notes: agreement.notes || ""
+    });
+    setDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingAgreement(null);
+    setForm({
+      title: "", agreement_type: "rental", supplier_id: "", start_date: "", end_date: "",
+      terms: "", monthly_cost: 0, deposit: 0, status: "active", documents: [], notes: ""
+    });
+  };
+
+  const getStatusBadge = (status) => {
+    const colors = {
+      active: "bg-green-100 text-green-800",
+      pending: "bg-amber-100 text-amber-800",
+      expired: "bg-red-100 text-red-800",
+      cancelled: "bg-gray-100 text-gray-800"
+    };
+    const label = STATUSES.find(s => s.value === status)?.[isEs ? "labelEs" : "label"] || status;
+    return <Badge className={colors[status] || ""}>{label}</Badge>;
+  };
+
+  if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">{isEs ? "Contratos y Acuerdos" : "Contracts & Agreements"}</h3>
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+          <Plus className="w-4 h-4 mr-2" />
+          {isEs ? "Nuevo Contrato" : "New Agreement"}
+        </Button>
+      </div>
+
+      {agreements.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>{isEs ? "No hay contratos registrados" : "No agreements registered"}</p>
+            <Button variant="outline" className="mt-4" onClick={() => { resetForm(); setDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              {isEs ? "Agregar primer contrato" : "Add first agreement"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {agreements.map(agreement => (
+            <Card key={agreement.agreement_id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-base">{agreement.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {AGREEMENT_TYPES.find(t => t.value === agreement.agreement_type)?.[isEs ? "labelEs" : "label"]}
+                    </p>
+                  </div>
+                  {getStatusBadge(agreement.status)}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {agreement.supplier_id && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    <span>{suppliers.find(s => s.supplier_id === agreement.supplier_id)?.name || "-"}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <span>{agreement.start_date} - {agreement.end_date || (isEs ? "Indefinido" : "Indefinite")}</span>
+                </div>
+                {agreement.monthly_cost > 0 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <DollarSign className="w-4 h-4 text-muted-foreground" />
+                    <span>${agreement.monthly_cost.toFixed(2)}/{isEs ? "mes" : "month"}</span>
+                  </div>
+                )}
+                <div className="flex justify-end gap-1 pt-2 border-t">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(agreement)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(agreement.agreement_id)}>
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Agreement Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingAgreement ? (isEs ? "Editar Contrato" : "Edit Agreement") : (isEs ? "Nuevo Contrato" : "New Agreement")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div>
+              <Label>{isEs ? "Título" : "Title"}</Label>
+              <Input value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} placeholder={isEs ? "Nombre del contrato" : "Agreement name"} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Tipo" : "Type"}</Label>
+                <Select value={form.agreement_type} onValueChange={(v) => setForm({...form, agreement_type: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {AGREEMENT_TYPES.map(type => (
+                      <SelectItem key={type.value} value={type.value}>{isEs ? type.labelEs : type.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{isEs ? "Estado" : "Status"}</Label>
+                <Select value={form.status} onValueChange={(v) => setForm({...form, status: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map(s => (
+                      <SelectItem key={s.value} value={s.value}>{isEs ? s.labelEs : s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>{isEs ? "Proveedor" : "Supplier"}</Label>
+              <Select value={form.supplier_id} onValueChange={(v) => setForm({...form, supplier_id: v})}>
+                <SelectTrigger><SelectValue placeholder={isEs ? "Seleccionar proveedor" : "Select supplier"} /></SelectTrigger>
+                <SelectContent>
+                  {suppliers.map(s => (
+                    <SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Fecha Inicio" : "Start Date"}</Label>
+                <Input type="date" value={form.start_date} onChange={(e) => setForm({...form, start_date: e.target.value})} />
+              </div>
+              <div>
+                <Label>{isEs ? "Fecha Fin" : "End Date"}</Label>
+                <Input type="date" value={form.end_date} onChange={(e) => setForm({...form, end_date: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Costo Mensual" : "Monthly Cost"}</Label>
+                <Input type="number" step="0.01" value={form.monthly_cost} onChange={(e) => setForm({...form, monthly_cost: parseFloat(e.target.value) || 0})} />
+              </div>
+              <div>
+                <Label>{isEs ? "Depósito" : "Deposit"}</Label>
+                <Input type="number" step="0.01" value={form.deposit} onChange={(e) => setForm({...form, deposit: parseFloat(e.target.value) || 0})} />
+              </div>
+            </div>
+            <div>
+              <Label>{isEs ? "Términos" : "Terms"}</Label>
+              <Input value={form.terms} onChange={(e) => setForm({...form, terms: e.target.value})} placeholder={isEs ? "Condiciones del contrato..." : "Contract terms..."} />
+            </div>
+            <div>
+              <Label>{isEs ? "Notas" : "Notes"}</Label>
+              <Input value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleSave}>{isEs ? "Guardar" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ==================== GALLERY SECTION ====================
+function GallerySection() {
+  const { language } = useLanguage();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const isEs = language === "es";
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const fetchItems = async () => {
+    try {
+      const res = await axios.get(`${API}/api/inventory/operations`, { withCredentials: true });
+      // Filter only items with images
+      const itemsWithImages = (res.data || []).filter(item => item.image_url);
+      setItems(itemsWithImages);
+    } catch (error) {
+      console.error("Error fetching items:", error);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredItems = filter === "all" 
+    ? items 
+    : items.filter(item => item.inventory_type === filter);
+
+  if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">{isEs ? "Galería de Activos" : "Asset Gallery"}</h3>
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
+            <SelectItem value="equipment">{isEs ? "Equipos" : "Equipment"}</SelectItem>
+            <SelectItem value="disposable">{isEs ? "Desechables" : "Disposables"}</SelectItem>
+            <SelectItem value="event_supply">{isEs ? "Suministros" : "Event Supplies"}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Image className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>{isEs ? "No hay imágenes de activos" : "No asset images"}</p>
+            <p className="text-sm mt-2">{isEs ? "Agrega fotos desde el inventario" : "Add photos from inventory"}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {filteredItems.map(item => (
+            <div 
+              key={item.ingredient_id} 
+              className="group relative aspect-square rounded-lg overflow-hidden border cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => setSelectedImage(item)}
+            >
+              <img 
+                src={item.image_url} 
+                alt={item.name} 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                <p className="text-white text-sm font-medium truncate">{item.name}</p>
+                <p className="text-white/70 text-xs">{item.stock_quantity} {item.unit}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Image Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-2xl">
+          {selectedImage && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedImage.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <img 
+                  src={selectedImage.image_url} 
+                  alt={selectedImage.name} 
+                  className="w-full max-h-[400px] object-contain rounded-lg"
+                />
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Tipo:" : "Type:"}</span>
+                    <span className="ml-2 font-medium">{selectedImage.inventory_type}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Categoría:" : "Category:"}</span>
+                    <span className="ml-2 font-medium">{selectedImage.category}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Cantidad:" : "Quantity:"}</span>
+                    <span className="ml-2 font-medium">{selectedImage.stock_quantity} {selectedImage.unit}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Costo:" : "Cost:"}</span>
+                    <span className="ml-2 font-medium">${(selectedImage.cost_per_unit || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+                {selectedImage.notes && (
+                  <div className="border-t pt-3">
+                    <span className="text-muted-foreground text-sm">{isEs ? "Notas:" : "Notes:"}</span>
+                    <p className="mt-1">{selectedImage.notes}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ==================== MAIN PAGE ====================
 export default function OperationsSuppliesPage() {
   const { language } = useLanguage();
