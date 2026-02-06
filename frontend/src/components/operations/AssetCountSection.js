@@ -88,10 +88,6 @@ export function AssetCountSection() {
       try {
         // Use the same inventory endpoint but filter for operational categories
         const invRes = await axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true });
-        // Operational categories (not food)
-        const opsCategories = ["equipment", "linens", "decor", "furniture", "tableware", "audiovisual", 
-                               "kitchen equipment", "serving equipment", "tables_chairs", "serving", 
-                               "kitchen", "transport", "cleaning", "packaging", "other"];
         const items = (invRes.data || [])
           .filter(inv => {
             const category = (inv.category || "").toLowerCase();
@@ -101,10 +97,14 @@ export function AssetCountSection() {
             if (invType === "equipment" || invType === "operational" || invType === "event_supply" || invType === "disposable") {
               return true;
             }
+            // Exclude food items
+            if (invType === "food") {
+              return false;
+            }
             // Then check categories that are typically operational
             const opsCategories = ["equipment", "linens", "decor", "furniture", "tableware", "audiovisual", 
                                    "kitchen equipment", "serving equipment", "tables_chairs", "serving", 
-                                   "kitchen", "transport", "cleaning", "packaging", "containers", "bags", "cups"];
+                                   "kitchen", "transport", "cleaning", "packaging", "containers", "bags", "cups", "other"];
             return opsCategories.some(oc => category.includes(oc.toLowerCase()));
           })
           .map(inv => ({
