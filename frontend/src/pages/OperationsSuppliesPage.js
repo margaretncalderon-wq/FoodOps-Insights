@@ -1235,6 +1235,11 @@ function CheckInOutSection() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [availableInventory, setAvailableInventory] = useState([]);
+  
+  // New date fields for delivery note
+  const [checkoutDate, setCheckoutDate] = useState(new Date().toISOString().split('T')[0]);
+  const [expectedReturnDate, setExpectedReturnDate] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     fetchData();
