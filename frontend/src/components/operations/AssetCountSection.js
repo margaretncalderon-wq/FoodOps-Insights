@@ -95,12 +95,17 @@ export function AssetCountSection() {
         const items = (invRes.data || [])
           .filter(inv => {
             const category = (inv.category || "").toLowerCase();
+            const invType = (inv.inventory_type || "").toLowerCase();
             // Include items that are operational (not food)
-            return opsCategories.some(oc => category.includes(oc.toLowerCase())) ||
-                   inv.item_type === "equipment" || 
-                   inv.item_type === "operational" ||
-                   inv.supply_type === "equipment" ||
-                   inv.supply_type === "event_supply";
+            // Filter by inventory_type first (most reliable)
+            if (invType === "equipment" || invType === "operational" || invType === "event_supply" || invType === "disposable") {
+              return true;
+            }
+            // Then check categories that are typically operational
+            const opsCategories = ["equipment", "linens", "decor", "furniture", "tableware", "audiovisual", 
+                                   "kitchen equipment", "serving equipment", "tables_chairs", "serving", 
+                                   "kitchen", "transport", "cleaning", "packaging", "containers", "bags", "cups"];
+            return opsCategories.some(oc => category.includes(oc.toLowerCase()));
           })
           .map(inv => ({
             item_id: inv.item_id || inv.ingredient_id,
