@@ -166,8 +166,3 @@ export default function BusinessClarityPage() {
     </Layout>
   );
 }
-        </Routes>
-      </div>
-    </div>
-  );
-}
