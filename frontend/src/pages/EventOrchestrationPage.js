@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import {
   Music4, ArrowLeft, Calendar, Users, Clock, Package,
   Palette, GitBranch, FileCheck, Star, Search, RefreshCw,
-  CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock
+  CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock, ExternalLink
 } from "lucide-react";
 
 // Tab Components
