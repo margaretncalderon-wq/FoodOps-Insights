@@ -228,6 +228,60 @@ export function ReportsSection() {
             }
           }
         });
+      } else if (activeReport === "assets") {
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text(isEs ? "Resumen de Activos" : "Asset Summary", 14, startY);
+        
+        doc.autoTable({
+          startY: startY + 5,
+          head: [[isEs ? "Métrica" : "Metric", isEs ? "Valor" : "Value"]],
+          body: [
+            [isEs ? "Valor Total de Activos" : "Total Asset Value", `$${(reportData.assets?.total_value || 0).toLocaleString()}`],
+            [isEs ? "Valor de Reposición" : "Replacement Value", `$${(reportData.assets?.replacement_value || 0).toLocaleString()}`],
+            [isEs ? "Cantidad de Artículos" : "Items Count", reportData.assets?.items_count || 0],
+          ],
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246] }
+        });
+        
+        doc.text(isEs ? "Pérdidas de Activos" : "Asset Losses", 14, doc.lastAutoTable.finalY + 15);
+        
+        doc.autoTable({
+          startY: doc.lastAutoTable.finalY + 20,
+          head: [[isEs ? "Métrica" : "Metric", isEs ? "Valor" : "Value"]],
+          body: [
+            [isEs ? "Pérdidas Totales" : "Total Losses", `$${(reportData.losses?.total_value || 0).toLocaleString()}`],
+            [isEs ? "Gasto Operativo" : "Operational Expense", `$${(reportData.losses?.operational_expense || 0).toLocaleString()}`],
+            [isEs ? "Facturado a Clientes" : "Billed to Clients", `$${(reportData.losses?.billed_to_clients || 0).toLocaleString()}`],
+            [isEs ? "Tasa de Pérdida" : "Loss Rate", `${reportData.metrics?.loss_rate || 0}%`],
+            [isEs ? "Tasa de Recuperación" : "Recovery Rate", `${reportData.metrics?.recovery_rate || 0}%`],
+            [isEs ? "Pérdida Neta" : "Net Loss", `$${(reportData.metrics?.net_loss || 0).toLocaleString()}`],
+          ],
+          theme: 'striped',
+          headStyles: { fillColor: [220, 38, 38] }
+        });
+        
+        if (reportData.losses?.recent && reportData.losses.recent.length > 0) {
+          doc.text(isEs ? "Pérdidas Más Significativas" : "Top Losses", 14, doc.lastAutoTable.finalY + 15);
+          
+          const reasonLabels = { lost: isEs ? "Extraviado" : "Lost", damaged: isEs ? "Dañado" : "Damaged", stolen: isEs ? "Robado" : "Stolen", broken: isEs ? "Roto" : "Broken" };
+          const resolutionLabels = { operational_expense: isEs ? "Gasto Op." : "Op. Expense", bill_client: isEs ? "Fact. Cliente" : "Bill Client" };
+          
+          doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 20,
+            head: [[isEs ? "Artículo" : "Item", isEs ? "Cantidad" : "Qty", isEs ? "Valor" : "Value", isEs ? "Motivo" : "Reason", isEs ? "Resolución" : "Resolution"]],
+            body: reportData.losses.recent.slice(0, 10).map(l => [
+              l.item_name,
+              l.quantity,
+              `$${(l.total_value || 0).toLocaleString()}`,
+              reasonLabels[l.reason] || l.reason,
+              resolutionLabels[l.resolution] || l.resolution
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [249, 115, 22] }
+          });
+        }
       }
       
       const pageCount = doc.internal.getNumberOfPages();
