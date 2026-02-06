@@ -369,6 +369,11 @@ export default function LandingPage() {
                 ? "Soluciones para cada equipo. Impulsadas por una plataforma."
                 : "Solutions for every team. Powered by one platform."}
             </h2>
+            <p className="mt-4 text-[#6B7280] max-w-2xl mx-auto">
+              {isEs
+                ? "Ya sea que gestiones eventos, hospitalidad, producción o servicios — los mismos módulos se adaptan a tu flujo operativo."
+                : "Whether you manage events, hospitality, production, or services — the same modules adapt to your operational flow."}
+            </p>
           </div>
 
           {/* Team Tabs */}
