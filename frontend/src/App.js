@@ -250,6 +250,7 @@ function AppRouter() {
       <Route path="/portal/:documentId" element={<ClientPortal />} />
       <Route path="/portal/delivery/:eventId" element={<ClientDeliveryNote />} />
       <Route path="/portal/event/:eventId" element={<ClientEventPortal />} />
+      <Route path="/portal/client/:clientId" element={<ClientPortalMain />} />
       <Route path="/forms/:formId" element={<LeadFormPage />} />
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       
