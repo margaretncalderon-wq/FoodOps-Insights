@@ -127,12 +127,21 @@ export default function DocumentPreview({
     CLP: "$",
     PEN: "S/",
     DOP: "RD$",
-    GBP: "£"
+    GBP: "£",
+    BRL: "R$",
+    CAD: "C$",
+    AUD: "A$",
+    JPY: "¥",
+    CNY: "¥",
+    INR: "₹",
+    CHF: "Fr.",
+    KRW: "₩"
   };
 
   const formatCurrency = (amount) => {
     const currency = company?.currency || "USD";
-    const symbol = CURRENCY_SYMBOLS[currency] || "$";
+    // Use symbol if defined, otherwise use the currency code as fallback
+    const symbol = CURRENCY_SYMBOLS[currency] || `${currency} `;
     const value = (amount || 0).toFixed(2);
     // For currencies like EUR, symbol goes after in some locales
     if (currency === "EUR" && language === "es") {
