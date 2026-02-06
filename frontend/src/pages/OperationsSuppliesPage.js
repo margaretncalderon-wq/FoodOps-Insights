@@ -196,7 +196,9 @@ function InventorySection() {
       cost_center: item.cost_center || "operations",
       purchase_date: item.purchase_date || "",
       useful_life_years: item.useful_life_years || 5,
-      depreciation_rate: item.depreciation_rate || 20
+      depreciation_rate: item.depreciation_rate || 20,
+      image_url: item.image_url || "",
+      notes: item.notes || ""
     });
     setItemDialogOpen(true);
   };
@@ -216,7 +218,8 @@ function InventorySection() {
       name: "", category: "other", inventory_type: "equipment", unit: "unit",
       cost_per_unit: 0, stock_quantity: 0, reserved_quantity: 0, par_level: 0, 
       pack_size: 1, replacement_cost: 0, cost_center: "operations",
-      purchase_date: "", useful_life_years: 5, depreciation_rate: 20
+      purchase_date: "", useful_life_years: 5, depreciation_rate: 20,
+      image_url: "", notes: ""
     });
   };
 
