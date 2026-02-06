@@ -1227,63 +1227,59 @@ function PurchasesSection() {
 // ==================== MAIN FOOD OPS PAGE ====================
 export default function FoodOpsPage() {
   const { language } = useLanguage();
+  const isEs = language === "es";
+  const location = useLocation();
+  const navigate = useNavigate();
   
-  // Culinary Intelligence - New branding
-  const navItems = [
-    { path: "/food-ops/inventory", label: language === "es" ? "Inteligencia de Abastecimiento" : "Supply Intelligence", icon: Package },
-    { path: "/food-ops/recipes", label: language === "es" ? "Arquitectura de Recetas" : "Recipe Architecture", icon: ChefHat },
-    { path: "/food-ops/menus", label: language === "es" ? "Estrategia de Menús" : "Menu Strategy", icon: BookOpen },
-    { path: "/food-ops/production", label: language === "es" ? "Producción" : "Production", icon: Factory },
-    { path: "/food-ops/consolidated", label: language === "es" ? "Costos y Consumo" : "Cost & Usage", icon: Layers },
-    { path: "/food-ops/purchase-orders", label: language === "es" ? "Órdenes a Proveedores" : "Vendor Orders", icon: Truck },
+  // Culinary Intelligence - Navigation tabs
+  const navTabs = [
+    { path: "/food-ops/inventory", label: isEs ? "Inventario" : "Inventory", icon: Package },
+    { path: "/food-ops/recipes", label: isEs ? "Recetas" : "Recipes", icon: ChefHat },
+    { path: "/food-ops/menus", label: isEs ? "Menús" : "Menus", icon: BookOpen },
+    { path: "/food-ops/production", label: isEs ? "Producción" : "Production", icon: Factory },
+    { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
+    { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
   ];
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]" data-testid="food-ops-page">
-      {/* Sidebar Navigation */}
-      <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
-        {/* Back to System Pulse */}
-        <NavLink 
-          to="/dashboard" 
-          className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowUpDown className="w-4 h-4 rotate-90" />
-          {language === "es" ? "← Volver a System Pulse" : "← Back to System Pulse"}
-        </NavLink>
-        
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1">
-            <UtensilsCrossed className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold">Culinary Intelligence</h2>
+    <Layout>
+      <div className="space-y-6" data-testid="food-ops-page">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+            <ChefHat className="w-5 h-5 text-white" />
           </div>
-          <p className="text-xs text-muted-foreground pl-8">
-            {language === "es" 
-              ? "Donde la comida deja de ser intuición y se convierte en sistema" 
-              : "Where food decisions move from intuition to system"}
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold">Culinary Intelligence</h1>
+            <p className="text-sm text-muted-foreground">
+              {isEs ? "Recetas, costos e inventario de alimentos" : "Recipes, costing & food inventory"}
+            </p>
+          </div>
         </div>
-        <nav className="space-y-1 flex-1">
-          {navItems.map(item => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "hover:bg-muted"
-                }`
-              }
-            >
-              <item.icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto p-6">
+        {/* Navigation Tabs */}
+        <div className="border-b">
+          <nav className="flex gap-1 overflow-x-auto pb-px">
+            {navTabs.map((tab) => (
+              <NavLink
+                key={tab.path}
+                to={tab.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isActive
+                      ? "border-orange-600 text-orange-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`
+                }
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        {/* Content */}
         <Routes>
           <Route index element={<Navigate to="inventory" replace />} />
           <Route path="inventory" element={<InventorySection />} />
@@ -1294,7 +1290,7 @@ export default function FoodOpsPage() {
           <Route path="consolidated" element={<ConsolidatedPurchaseSectionWrapper />} />
         </Routes>
       </div>
-    </div>
+    </Layout>
   );
 }
 
