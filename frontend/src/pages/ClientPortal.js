@@ -159,9 +159,12 @@ export default function ClientPortal() {
   // Determine display order: Food (Menu) first, then Services/Rentals
   const typeOrder = ["Food", "Service", "Rental", "Fee", "Other"];
 
-  // Helper to render items table
+  // Helper to render items table with optional images
   const renderItemsTable = (items, showPrices = true) => {
     if (!items || items.length === 0) return null;
+    
+    // Check if any item has an image
+    const hasImages = items.some(item => item.image_url);
     
     return (
       <table className="w-full text-sm">
@@ -181,10 +184,21 @@ export default function ClientPortal() {
           {items.map((item, idx) => (
             <tr key={idx} className="border-b hover:bg-muted/30">
               <td className="py-3 px-2">
-                <p className="font-medium">{item.description}</p>
-                {item.internal_notes && document.document_type !== "quote" && (
-                  <p className="text-xs text-muted-foreground mt-1">{item.internal_notes}</p>
-                )}
+                <div className="flex items-center gap-3">
+                  {item.image_url && (
+                    <img 
+                      src={item.image_url} 
+                      alt={item.description} 
+                      className="w-10 h-10 rounded-lg object-cover border"
+                    />
+                  )}
+                  <div>
+                    <p className="font-medium">{item.description}</p>
+                    {item.internal_notes && document.document_type !== "quote" && (
+                      <p className="text-xs text-muted-foreground mt-1">{item.internal_notes}</p>
+                    )}
+                  </div>
+                </div>
               </td>
               <td className="text-center py-3 px-2">{item.quantity}</td>
               {showPrices && (
