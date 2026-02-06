@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
+import { Layout } from "../components/Layout";
 import axios from "axios";
 
 // UI Components
 import { Badge } from "../components/ui/badge";
-import { RefreshCw, Users, FileText, CalendarDays, ArrowUpDown, 
-  UserPlus, Inbox, Clock, MessageSquare, UserCircle, Puzzle } from "lucide-react";
+import { RefreshCw, Users, FileText, CalendarDays, 
+  UserPlus, Inbox, Clock, MessageSquare, UserCircle } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
 
@@ -36,6 +37,7 @@ const LoadingSpinner = () => (
 
 export default function ClientEngagementPage() {
   const { language } = useLanguage();
+  const isEs = language === "es";
   const location = useLocation();
   const [stats, setStats] = useState({});
 
@@ -52,123 +54,62 @@ export default function ClientEngagementPage() {
     fetchStats(); 
   }, [fetchStats]);
 
-  // Determine active section based on current path
-  const getActiveSection = () => {
-    const path = location.pathname;
-    if (path.includes("/client-engagement/proposals") || path.includes("/client-engagement/events")) return "proposals";
-    if (path.includes("/client-engagement/crm")) return "crm";
-    return "calendar"; // Default to calendar
-  };
-
-  const activeSection = getActiveSection();
-
-  // Navigation items organized by section (minimal style)
-  const navSections = [
-    {
-      id: "calendar",
-      title: language === "es" ? "Calendario" : "Calendar",
-      icon: CalendarDays,
-      items: [
-        { path: "/client-engagement/calendar", label: language === "es" ? "Ver Calendario" : "View Calendar", icon: CalendarDays },
-      ]
-    },
-    {
-      id: "proposals",
-      title: language === "es" ? "Propuestas" : "Proposals",
-      icon: FileText,
-      items: [
-        { path: "/client-engagement/proposals", label: language === "es" ? "Ver Propuestas" : "View Proposals", icon: FileText },
-      ]
-    },
-    {
-      id: "crm",
-      title: "CRM",
-      icon: Users,
-      items: [
-        { path: "/client-engagement/crm/outreach", label: "Lead Outreach", icon: UserPlus, badge: stats.outreach_leads },
-        { path: "/client-engagement/crm/inbound", label: language === "es" ? "Leads Inbound" : "Inbound Leads", icon: Inbox, badge: stats.inbound_leads },
-        { path: "/client-engagement/crm/follow-ups", label: language === "es" ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due, badgeColor: stats.follow_ups_due > 0 ? "bg-amber-100 text-amber-700" : "" },
-        { path: "/client-engagement/crm/comms", label: language === "es" ? "Comunicaciones" : "Comms Log", icon: MessageSquare },
-        { path: "/client-engagement/crm/owners", label: language === "es" ? "Responsables" : "Owners", icon: UserCircle },
-        { path: "/client-engagement/crm/clients", label: language === "es" ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
-      ]
-    },
+  // Navigation tabs - flat structure
+  const navTabs = [
+    { path: "/client-engagement/calendar", label: isEs ? "Calendario" : "Calendar", icon: CalendarDays },
+    { path: "/client-engagement/proposals", label: isEs ? "Propuestas" : "Proposals", icon: FileText },
+    { path: "/client-engagement/crm/outreach", label: "Outreach", icon: UserPlus, badge: stats.outreach_leads },
+    { path: "/client-engagement/crm/inbound", label: "Inbound", icon: Inbox, badge: stats.inbound_leads },
+    { path: "/client-engagement/crm/follow-ups", label: isEs ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due },
+    { path: "/client-engagement/crm/comms", label: isEs ? "Comunicaciones" : "Comms", icon: MessageSquare },
+    { path: "/client-engagement/crm/owners", label: isEs ? "Responsables" : "Owners", icon: UserCircle },
+    { path: "/client-engagement/crm/clients", label: isEs ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
   ];
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]" data-testid="client-engagement-page">
-      {/* Sidebar Navigation */}
-      <div className="w-64 border-r bg-muted/30 p-4 flex flex-col overflow-y-auto">
-        {/* Back to System Pulse */}
-        <NavLink 
-          to="/dashboard" 
-          className="flex items-center gap-2 mb-4 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowUpDown className="w-4 h-4 rotate-90" />
-          {language === "es" ? "← Volver a System Pulse" : "← Back to System Pulse"}
-        </NavLink>
-        
-        {/* Module Header */}
-        <div className="mb-6 pb-4 border-b">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Puzzle className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">Client Engagement</h2>
-              <p className="text-xs text-muted-foreground">
-                {language === "es" ? "Intención → Acuerdo" : "Intent → Agreement"}
-              </p>
-            </div>
+    <Layout>
+      <div className="space-y-6" data-testid="client-engagement-page">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Client Engagement</h1>
+            <p className="text-sm text-muted-foreground">
+              {isEs ? "Leads, propuestas y gestión de clientes" : "Leads, proposals & client management"}
+            </p>
           </div>
         </div>
 
-        {/* Navigation Sections */}
-        <nav className="space-y-5 flex-1">
-          {navSections.map(section => (
-            <div key={section.id} className="space-y-1">
-              {/* Section Header - Bold */}
-              <div className="flex items-center gap-2 px-3 py-1.5">
-                <section.icon className={`w-4 h-4 ${activeSection === section.id ? "text-primary" : "text-muted-foreground"}`} />
-                <span className={`text-sm font-bold ${activeSection === section.id ? "text-primary" : "text-foreground"}`}>
-                  {section.title}
-                </span>
-              </div>
-              
-              {/* Section Items */}
-              <div className="space-y-0.5">
-                {section.items.map(item => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end={item.path === "/client-engagement/proposals" || item.path === "/client-engagement/calendar"}
-                    className={({ isActive }) =>
-                      `flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${
-                        isActive 
-                          ? "bg-primary/10 text-primary font-medium" 
-                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
-                      }`
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </div>
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <Badge variant="secondary" className={`text-xs ${item.badgeColor || ""}`}>
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </div>
+        {/* Navigation Tabs */}
+        <div className="border-b">
+          <nav className="flex gap-1 overflow-x-auto pb-px">
+            {navTabs.map((tab) => (
+              <NavLink
+                key={tab.path}
+                to={tab.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isActive
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`
+                }
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <Badge variant="secondary" className="text-xs ml-1">
+                    {tab.badge}
+                  </Badge>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto p-6">
+        {/* Content */}
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* Default redirect to Calendar */}
@@ -196,6 +137,6 @@ export default function ClientEngagementPage() {
           </Routes>
         </Suspense>
       </div>
-    </div>
+    </Layout>
   );
 }
