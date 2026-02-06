@@ -1138,8 +1138,86 @@ function SupplierProductUpload({ suppliers, language, onSuccess, onCancel }) {
 
 // ==================== MAIN PAGE ====================
 export default function OperationsSuppliesPage() {
+  const { language } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const tabs = [
+    { id: "inventory", path: "/ops-supplies/inventory", label: language === "es" ? "Inventario" : "Inventory", icon: Package },
+    { id: "purchasing", path: "/ops-supplies/purchasing", label: language === "es" ? "Compras" : "Purchasing", icon: ShoppingCart },
+    { id: "checkin", path: "/ops-supplies/checkin", label: language === "es" ? "Conduces" : "Delivery Notes", icon: Truck },
+    { id: "asset-count", path: "/ops-supplies/asset-count", label: language === "es" ? "Conteo de Activos" : "Asset Count", icon: Boxes },
+    { id: "agreements", path: "/ops-supplies/agreements", label: language === "es" ? "Contratos" : "Agreements", icon: FileText },
+    { id: "gallery", path: "/ops-supplies/gallery", label: language === "es" ? "Galería" : "Gallery", icon: Image },
+    { id: "maintenance", path: "/ops-supplies/maintenance", label: language === "es" ? "Mantenimiento" : "Maintenance", icon: Archive, disabled: true, badge: "v2" },
+  ];
 
-  const handleCreateDeliveryNote = async () => {
+  const currentTab = tabs.find(t => location.pathname.startsWith(t.path))?.id || "inventory";
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{language === "es" ? "Suministros de Operaciones" : "Operations Supplies"}</h1>
+            <p className="text-muted-foreground">
+              {language === "es" ? "Gestión de inventario, compras y logística operativa" : "Inventory, purchasing, and operational logistics management"}
+            </p>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="border-b">
+          <nav className="flex space-x-8">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = currentTab === tab.id;
+              const isDisabled = tab.disabled;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => !isDisabled && navigate(tab.path)}
+                  disabled={isDisabled}
+                  className={`
+                    flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors
+                    ${isActive 
+                      ? "border-primary text-primary" 
+                      : isDisabled
+                        ? "border-transparent text-muted-foreground/50 cursor-not-allowed"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/50"
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                  {tab.badge && (
+                    <Badge variant="secondary" className="text-xs">
+                      {tab.badge}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Content */}
+        <Routes>
+          <Route path="/" element={<InventorySection />} />
+          <Route path="/inventory" element={<InventorySection />} />
+          <Route path="/purchasing" element={<PurchasingSection />} />
+          <Route path="/checkin" element={<CheckInOutSection />} />
+          <Route path="/asset-count" element={<AssetCountSection />} />
+          <Route path="/agreements" element={<AgreementsSection />} />
+          <Route path="/gallery" element={<GallerySection />} />
+          <Route path="/maintenance" element={<div className="text-center py-12 text-muted-foreground">Coming in v2</div>} />
+        </Routes>
+      </div>
+    </Layout>
+  );
+}
     if (!selectedEvent || selectedItems.length === 0) {
       toast.error(language === "es" ? "Selecciona un evento e items" : "Select an event and items");
       return;
