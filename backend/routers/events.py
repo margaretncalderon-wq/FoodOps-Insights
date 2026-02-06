@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import uuid
 
-from database import db
+from config import db
 from models.events import Event, EventCreate, EventUpdate
 from dependencies import get_current_user, User
 
