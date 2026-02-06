@@ -225,8 +225,8 @@ export default function DocumentPreview({
   const handlePrint = () => {
     const printContent = printRef.current;
     const printWindow = window.open('', '_blank');
-    // Use template primary color or fallback to default
-    const primaryColor = template?.primary_color || '#3A4D3F';
+    // Use company primary color or fallback to default
+    const primaryColor = company?.primary_color || '#3A4D3F';
     printWindow.document.write(`
       <html>
         <head>
