@@ -9798,6 +9798,83 @@ async def delete_ops_agreement(agreement_id: str, user: User = Depends(get_curre
         raise HTTPException(status_code=404, detail="Agreement not found")
     return {"success": True}
 
+@ops_supplies_router.post("/asset-loss")
+async def register_asset_loss(data: dict, user: User = Depends(get_current_user)):
+    """Register an asset loss"""
+    loss_id = str(uuid4())
+    loss = {
+        "loss_id": loss_id,
+        "company_id": user.company_id,
+        "item_id": data.get("item_id"),
+        "item_name": data.get("item_name"),
+        "quantity": data.get("quantity", 1),
+        "unit_value": data.get("unit_value", 0),
+        "total_value": data.get("total_value", 0),
+        "reason": data.get("reason", "lost"),  # lost, damaged, stolen, broken
+        "resolution": data.get("resolution", "operational_expense"),  # operational_expense, bill_client
+        "client_id": data.get("client_id"),
+        "event_id": data.get("event_id"),
+        "notes": data.get("notes", ""),
+        "count_period": data.get("count_period"),
+        "status": "pending" if data.get("resolution") == "bill_client" else "processed",
+        "created_at": datetime.now(timezone.utc),
+        "created_by": user.user_id
+    }
+    await db.asset_losses.insert_one(loss)
+    del loss["_id"]
+    return loss
+
+@ops_supplies_router.get("/asset-losses")
+async def get_asset_losses(user: User = Depends(get_current_user)):
+    """Get all asset losses for the company"""
+    losses = await db.asset_losses.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(length=500)
+    return losses
+
+@ops_supplies_router.get("/asset-losses/report")
+async def get_asset_loss_report(user: User = Depends(get_current_user)):
+    """Get asset loss report summary"""
+    losses = await db.asset_losses.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(length=1000)
+    
+    # Calculate totals
+    total_losses = len(losses)
+    total_value = sum(l.get("total_value", 0) for l in losses)
+    operational_expenses = sum(l.get("total_value", 0) for l in losses if l.get("resolution") == "operational_expense")
+    billed_to_clients = sum(l.get("total_value", 0) for l in losses if l.get("resolution") == "bill_client")
+    
+    # Group by reason
+    by_reason = {}
+    for l in losses:
+        reason = l.get("reason", "unknown")
+        if reason not in by_reason:
+            by_reason[reason] = {"count": 0, "value": 0}
+        by_reason[reason]["count"] += 1
+        by_reason[reason]["value"] += l.get("total_value", 0)
+    
+    # Group by month
+    by_month = {}
+    for l in losses:
+        period = l.get("count_period") or l.get("created_at", "")[:7]
+        if period not in by_month:
+            by_month[period] = {"count": 0, "value": 0}
+        by_month[period]["count"] += 1
+        by_month[period]["value"] += l.get("total_value", 0)
+    
+    return {
+        "total_losses": total_losses,
+        "total_value": total_value,
+        "operational_expenses": operational_expenses,
+        "billed_to_clients": billed_to_clients,
+        "by_reason": by_reason,
+        "by_month": by_month,
+        "recent_losses": losses[:10]
+    }
+
 api_router.include_router(ops_supplies_router)
 
 # ============== ORGANIZATION & SAAS ENDPOINTS ==============
