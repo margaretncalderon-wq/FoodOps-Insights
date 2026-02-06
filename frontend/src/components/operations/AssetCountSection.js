@@ -31,6 +31,32 @@ export function AssetCountSection() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
+  // Loss registration state
+  const [lossDialogOpen, setLossDialogOpen] = useState(false);
+  const [selectedLossItem, setSelectedLossItem] = useState(null);
+  const [lossForm, setLossForm] = useState({
+    quantity: 1,
+    reason: "lost", // lost, damaged, stolen
+    resolution: "operational_expense", // operational_expense, bill_client
+    client_id: "",
+    event_id: "",
+    notes: ""
+  });
+  const [events, setEvents] = useState([]);
+  const [clients, setClients] = useState([]);
+
+  const LOSS_REASONS = [
+    { value: "lost", label: isEs ? "Perdido" : "Lost" },
+    { value: "damaged", label: isEs ? "Dañado" : "Damaged" },
+    { value: "stolen", label: isEs ? "Robado" : "Stolen" },
+    { value: "broken", label: isEs ? "Roto" : "Broken" }
+  ];
+
+  const RESOLUTION_OPTIONS = [
+    { value: "operational_expense", label: isEs ? "Gasto Operacional" : "Operational Expense", icon: DollarSign },
+    { value: "bill_client", label: isEs ? "Facturar al Cliente" : "Bill to Client", icon: Receipt }
+  ];
+
   const MONTHS = [
     { value: 1, label: isEs ? "Enero" : "January" },
     { value: 2, label: isEs ? "Febrero" : "February" },
