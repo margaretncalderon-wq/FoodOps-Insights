@@ -86,8 +86,29 @@ export function AssetCountSection() {
       // Initialize with empty if no count exists - load operational supplies from inventory
       setAssetCount(null);
       try {
-        // Use the same inventory endpoint but filter for operational categories
-        const invRes = await axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true });
+        // Fetch both inventory and delivery notes
+        const [invRes, deliveryRes] = await Promise.all([
+          axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
+          axios.get(`${API}/api/delivery-notes`, { withCredentials: true })
+        ]);
+        
+        // Calculate items currently out (from active delivery notes)
+        const itemsOut = {};
+        (deliveryRes.data || []).forEach(note => {
+          // Only count items from notes that are checked out but not fully returned
+          if (note.status === "checked_out" || note.status === "partial_return") {
+            (note.items || []).forEach(item => {
+              const itemId = item.item_id;
+              if (!itemsOut[itemId]) {
+                itemsOut[itemId] = 0;
+              }
+              // Add qty_out minus qty_returned
+              const outQty = (item.qty_out || 0) - (item.qty_returned || 0);
+              itemsOut[itemId] += outQty;
+            });
+          }
+        });
+        
         const items = (invRes.data || [])
           .filter(inv => {
             const category = (inv.category || "").toLowerCase();
@@ -107,20 +128,28 @@ export function AssetCountSection() {
                                    "kitchen", "transport", "cleaning", "packaging", "containers", "bags", "cups", "other"];
             return opsCategories.some(oc => category.includes(oc.toLowerCase()));
           })
-          .map(inv => ({
-            item_id: inv.item_id || inv.ingredient_id,
-            name: inv.name,
-            category: inv.category || "General",
-            sku: inv.sku || "",
-            system_qty: inv.stock_quantity || inv.total_quantity || inv.quantity || 0,
-            available_qty: inv.available_quantity || inv.stock_quantity || 0,
-            unit_value: inv.cost_per_unit || inv.unit_cost || inv.purchase_price || 0,
-            counted_qty: "",
-            variance_qty: 0,
-            variance_value: 0,
-            condition: inv.condition || "Good",
-            status: "pending"
-          }));
+          .map(inv => {
+            const itemId = inv.item_id || inv.ingredient_id;
+            const totalQty = inv.stock_quantity || inv.total_quantity || inv.quantity || 0;
+            const currentlyOut = itemsOut[itemId] || 0;
+            const availableQty = Math.max(0, totalQty - currentlyOut);
+            
+            return {
+              item_id: itemId,
+              name: inv.name,
+              category: inv.category || "General",
+              sku: inv.sku || "",
+              system_qty: totalQty,
+              currently_out: currentlyOut,
+              available_qty: availableQty,
+              unit_value: inv.cost_per_unit || inv.unit_cost || inv.purchase_price || 0,
+              counted_qty: "",
+              variance_qty: 0,
+              variance_value: 0,
+              condition: inv.condition || "Good",
+              status: "pending"
+            };
+          });
         setCountItems(items);
       } catch (e) {
         console.error(e);
