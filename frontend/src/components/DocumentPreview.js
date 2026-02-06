@@ -570,7 +570,7 @@ export default function DocumentPreview({
 
             {/* Totals */}
             {config.showTotals && (
-              <div className="totals pt-4 mt-6 space-y-2" style={{ borderTopWidth: '2px', borderTopStyle: 'solid', borderTopColor: template?.primary_color || '#3A4D3F' }}>
+              <div className="totals pt-4 mt-6 space-y-2" style={{ borderTopWidth: '2px', borderTopStyle: 'solid', borderTopColor: company?.primary_color || '#3A4D3F' }}>
                 <div className="flex justify-between">
                   <span>{language === "es" ? "Subtotal" : "Subtotal"}</span>
                   <span className="font-mono">${proposal?.subtotal?.toFixed(2) || "0.00"}</span>
