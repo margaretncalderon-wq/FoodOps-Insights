@@ -113,10 +113,6 @@ function InventorySection() {
     return translations[key] || key;
   }, [language]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -138,6 +134,10 @@ function InventorySection() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleSaveItem = async () => {
     try {
