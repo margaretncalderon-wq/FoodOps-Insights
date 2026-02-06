@@ -28,7 +28,7 @@ import {
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
   Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList
+  Factory, ClipboardList, FileUp
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
