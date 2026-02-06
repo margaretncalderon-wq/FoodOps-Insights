@@ -588,7 +588,7 @@ export default function DocumentPreview({
                   {Object.entries(subtotals).map(([type, data]) => (
                     <div key={type} className="flex justify-between text-sm">
                       <span>{type} ({data.count} {language === "es" ? "ítems" : "items"})</span>
-                      <span className="font-mono">${data.total.toFixed(2)}</span>
+                      <span className="font-mono">{formatCurrency(data.total)}</span>
                     </div>
                   ))}
                 </div>
