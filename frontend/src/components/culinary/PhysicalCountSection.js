@@ -57,21 +57,31 @@ export function PhysicalCountSection() {
       console.error(err);
       // Initialize with empty if no count exists
       setPhysicalCount(null);
-      // Load inventory items for counting
+      // Load FOOD inventory items only for counting (exclude operational supplies)
       try {
         const invRes = await axios.get(`${API}/api/food-ops/inventory`, { withCredentials: true });
-        const items = (invRes.data || []).map(inv => ({
-          ingredient_id: inv.ingredient_id,
-          name: inv.name,
-          category: inv.category || "General",
-          unit: inv.unit,
-          system_qty: inv.quantity || 0,
-          unit_cost: inv.unit_cost || 0,
-          counted_qty: "",
-          variance_qty: 0,
-          variance_value: 0,
-          status: "pending"
-        }));
+        // Filter to only include food-related categories
+        const foodCategories = ["Proteins", "Produce", "Dairy", "Dry Goods", "Beverages", "Spices", "Frozen", "Bakery", "Seafood", "Grains", "Oils", "Sauces", "General"];
+        const items = (invRes.data || [])
+          .filter(inv => {
+            // Include items that are food-related (not equipment or operational supplies)
+            const category = (inv.category || "").toLowerCase();
+            const isFood = foodCategories.some(fc => category.includes(fc.toLowerCase())) || 
+                          !["equipment", "linens", "decor", "furniture", "tableware", "audiovisual", "kitchen equipment", "serving equipment"].some(ec => category.toLowerCase().includes(ec));
+            return isFood && inv.item_type !== "equipment" && inv.item_type !== "operational";
+          })
+          .map(inv => ({
+            ingredient_id: inv.ingredient_id,
+            name: inv.name,
+            category: inv.category || "General",
+            unit: inv.unit,
+            system_qty: inv.quantity || 0,
+            unit_cost: inv.unit_cost || 0,
+            counted_qty: "",
+            variance_qty: 0,
+            variance_value: 0,
+            status: "pending"
+          }));
         setCountItems(items);
       } catch (e) {
         console.error(e);
