@@ -648,12 +648,21 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           </div>
         ` : ''}
         
-        ${form.instructions.length > 0 ? `
+        ${Array.isArray(form.instructions) && form.instructions.length > 0 ? `
           <div class="section">
             <div class="section-title">📝 Procedimiento</div>
             <div class="instructions">
               <ol>
                 ${form.instructions.map(inst => `<li>${inst}</li>`).join('')}
+              </ol>
+            </div>
+          </div>
+        ` : form.instructions && typeof form.instructions === 'string' && form.instructions.trim() ? `
+          <div class="section">
+            <div class="section-title">📝 Procedimiento</div>
+            <div class="instructions">
+              <ol>
+                ${form.instructions.split('\n').filter(line => line.trim()).map(inst => `<li>${inst}</li>`).join('')}
               </ol>
             </div>
           </div>
