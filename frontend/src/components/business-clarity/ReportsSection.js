@@ -495,6 +495,7 @@ export function ReportsSection() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{isEs ? "Evento" : "Event"}</TableHead>
+                        <TableHead>{isEs ? "Origen" : "Source"}</TableHead>
                         <TableHead>{isEs ? "Estado" : "Health"}</TableHead>
                         <TableHead className="text-right">{isEs ? "Ingresos" : "Revenue"}</TableHead>
                         {showCollectedPaid && <TableHead className="text-right">{isEs ? "Cobrado" : "Collected"}</TableHead>}
@@ -507,7 +508,15 @@ export function ReportsSection() {
                     <TableBody>
                       {(reportData.records || []).map(r => (
                         <TableRow key={r.event_id} className={r.margin_percent < 0 ? "bg-red-50/50" : r.margin_percent < targetMargin ? "bg-amber-50/30" : ""}>
-                          <TableCell className="font-medium">{r.event_name}</TableCell>
+                          <TableCell className="font-medium">
+                            <div>{r.event_name}</div>
+                            {r.client_name && <div className="text-xs text-muted-foreground">{r.client_name}</div>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {r.source_display || "N/A"}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{getHealthBadge(r)}</TableCell>
                           <TableCell className="text-right">{formatCurrency(r.revenue)}</TableCell>
                           {showCollectedPaid && <TableCell className="text-right text-green-600">{formatCurrency(r.collected || 0)}</TableCell>}
@@ -527,6 +536,29 @@ export function ReportsSection() {
                   </Table>
                 </CardContent>
               </Card>
+
+              {/* Revenue by Source Summary */}
+              {reportData.by_source && Object.keys(reportData.by_source).length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{isEs ? "Resumen por Origen" : "Summary by Source"}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                      {Object.entries(reportData.by_source).map(([source, data]) => (
+                        <div key={source} className="p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground">{source}</p>
+                          <p className="text-lg font-semibold">{data.count} {isEs ? "eventos" : "events"}</p>
+                          <p className="text-sm text-green-600">{formatCurrency(data.revenue)} {isEs ? "ingresos" : "revenue"}</p>
+                          <p className={`text-xs ${data.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(data.profit)} {isEs ? "utilidad" : "profit"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="bg-slate-50 border-slate-200">
                 <CardContent className="pt-4">
