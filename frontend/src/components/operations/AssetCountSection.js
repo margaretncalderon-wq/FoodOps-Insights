@@ -415,6 +415,7 @@ export function AssetCountSection() {
                   <TableHead className="text-right">{isEs ? "Diferencia" : "Variance"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Valor Unit." : "Unit Value"}</TableHead>
                   <TableHead className="text-center">{isEs ? "Estado" : "Status"}</TableHead>
+                  <TableHead className="text-center">{isEs ? "Acción" : "Action"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
