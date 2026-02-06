@@ -92,6 +92,7 @@ export default function EventsPage({ embedded = false }) {
     expected_value: "",
     next_followup_date: null,
     next_step: "",
+    source: "",
   });
 
   useEffect(() => {
