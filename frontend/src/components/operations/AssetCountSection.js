@@ -162,12 +162,13 @@ export function AssetCountSection() {
     fetchData();
   }, [fetchData]);
 
-  // Update count item
+  // Update count item - variance is calculated against available_qty (what should be in warehouse)
   const updateCountItem = (itemId, value) => {
     setCountItems(prev => prev.map(item => {
       if ((item.item_id || item.ingredient_id) === itemId) {
         const countedQty = value === "" ? "" : parseInt(value) || 0;
-        const varianceQty = countedQty === "" ? 0 : countedQty - item.system_qty;
+        // Variance = counted - available (what should be in warehouse, not total)
+        const varianceQty = countedQty === "" ? 0 : countedQty - item.available_qty;
         const varianceValue = varianceQty * (item.unit_value || 0);
         return {
           ...item,
