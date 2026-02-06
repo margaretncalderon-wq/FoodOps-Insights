@@ -616,7 +616,7 @@ export function AssetCountSection() {
                 <Select value={lossForm.event_id} onValueChange={(v) => setLossForm({...lossForm, event_id: v})}>
                   <SelectTrigger><SelectValue placeholder={isEs ? "Seleccionar evento..." : "Select event..."} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isEs ? "-- Sin evento --" : "-- No event --"}</SelectItem>
+                    <SelectItem value="none">{isEs ? "-- Sin evento --" : "-- No event --"}</SelectItem>
                     {events.slice(0, 20).map(e => (
                       <SelectItem key={e.event_id} value={e.event_id}>{e.name}</SelectItem>
                     ))}
