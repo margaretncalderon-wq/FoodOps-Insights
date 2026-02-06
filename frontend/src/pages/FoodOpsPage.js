@@ -1243,6 +1243,7 @@ export default function FoodOpsPage() {
     { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
     { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
     { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
+    { path: "/food-ops/import-export", label: isEs ? "Importar/Exportar" : "Import/Export", icon: FileUp },
   ];
 
   return (
