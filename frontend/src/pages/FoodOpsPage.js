@@ -4,6 +4,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "reac
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
+import { PhysicalCountSection } from "../components/culinary/PhysicalCountSection";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
