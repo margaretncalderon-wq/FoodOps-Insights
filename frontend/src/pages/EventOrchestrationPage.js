@@ -428,12 +428,24 @@ function EventDetail() {
             </span>
           </div>
         </div>
-        {!isLocked && (
-          <Button variant="outline" onClick={handleCloseEvent}>
-            <Lock className="w-4 h-4 mr-2" />
-            {isEs ? "Cerrar Evento" : "Close Event"}
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              const portalUrl = `${window.location.origin}/portal/event/${eventId}`;
+              window.open(portalUrl, '_blank');
+            }}
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            {isEs ? "Portal Cliente" : "Client Portal"}
           </Button>
-        )}
+          {!isLocked && (
+            <Button variant="outline" onClick={handleCloseEvent}>
+              <Lock className="w-4 h-4 mr-2" />
+              {isEs ? "Cerrar Evento" : "Close Event"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
