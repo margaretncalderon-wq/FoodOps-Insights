@@ -559,10 +559,10 @@ export default function DocumentPreview({
                                 {config.showPrices && (
                                   <>
                                     <td className="px-3 py-2 text-right font-mono">
-                                      ${item.unit_price?.toFixed(2)}
+                                      {formatCurrency(item.unit_price)}
                                     </td>
                                     <td className="px-3 py-2 text-right font-mono font-medium">
-                                      ${item.total_price?.toFixed(2)}
+                                      {formatCurrency(item.total_price)}
                                     </td>
                                   </>
                                 )}
