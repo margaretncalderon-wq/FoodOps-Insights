@@ -600,23 +600,23 @@ export default function DocumentPreview({
               <div className="totals pt-4 mt-6 space-y-2" style={{ borderTopWidth: '2px', borderTopStyle: 'solid', borderTopColor: company?.primary_color || '#3A4D3F' }}>
                 <div className="flex justify-between">
                   <span>{language === "es" ? "Subtotal" : "Subtotal"}</span>
-                  <span className="font-mono">${proposal?.subtotal?.toFixed(2) || "0.00"}</span>
+                  <span className="font-mono">{formatCurrency(proposal?.subtotal)}</span>
                 </div>
                 {proposal?.discount_amount > 0 && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>{language === "es" ? "Descuento" : "Discount"}</span>
-                    <span className="font-mono">-${proposal.discount_amount?.toFixed(2)}</span>
+                    <span className="font-mono">-{formatCurrency(proposal.discount_amount)}</span>
                   </div>
                 )}
                 {proposal?.total_tax > 0 && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>{language === "es" ? "Impuestos" : "Taxes"}</span>
-                    <span className="font-mono">${proposal.total_tax?.toFixed(2)}</span>
+                    <span className="font-mono">{formatCurrency(proposal.total_tax)}</span>
                   </div>
                 )}
                 <div className="total-row flex justify-between text-lg font-bold pt-2 border-t">
-                  <span>{language === "es" ? "TOTAL" : "TOTAL"}</span>
-                  <span className="font-mono">${proposal?.total?.toFixed(2) || "0.00"}</span>
+                  <span>{language === "es" ? "TOTAL" : "TOTAL"} ({getCurrencyCode()})</span>
+                  <span className="font-mono">{formatCurrency(proposal?.total)}</span>
                 </div>
               </div>
             )}
