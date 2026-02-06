@@ -1267,6 +1267,22 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
         {"_id": 0}
     ).to_list(1000)
     
+    # Get all clients for lookup
+    clients = await db.clients.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "client_id": 1, "display_name": 1}
+    ).to_list(1000)
+    client_map = {c["client_id"]: c.get("display_name", "") for c in clients}
+    
+    # Source labels for display
+    source_labels = {
+        "recurrent_client": "Recurrent Client",
+        "inbound_lead": "Inbound Lead",
+        "outbound": "Outbound",
+        "referral": "Referral",
+        "other": "Other"
+    }
+    
     records = []
     for event in events:
         event_id = event.get("event_id")
@@ -1297,11 +1313,24 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
         profit = revenue - total_costs
         margin = (profit / revenue * 100) if revenue > 0 else 0
         
+        # Get source info
+        source_key = event.get("source", "")
+        source_display = source_labels.get(source_key, source_key or "N/A")
+        
+        # Get client name
+        client_name = client_map.get(event.get("client_id"), "")
+        
         records.append({
             "event_id": event_id,
             "event_name": event.get("name"),
             "event_date": event.get("event_date"),
+            "event_type": event.get("event_type"),
             "status": event.get("status"),
+            "stage": event.get("stage"),
+            "source": source_key,
+            "source_display": source_display,
+            "client_id": event.get("client_id"),
+            "client_name": client_name,
             "revenue": round(revenue, 2),
             "collected": round(collected, 2),
             "costs": round(total_costs, 2),
@@ -1316,6 +1345,16 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
     total_costs = sum(r["costs"] for r in records)
     total_profit = sum(r["profit"] for r in records)
     
+    # Group by source for summary
+    source_summary = {}
+    for r in records:
+        src = r["source_display"]
+        if src not in source_summary:
+            source_summary[src] = {"count": 0, "revenue": 0, "profit": 0}
+        source_summary[src]["count"] += 1
+        source_summary[src]["revenue"] += r["revenue"]
+        source_summary[src]["profit"] += r["profit"]
+    
     return {
         "records": records,
         "summary": {
@@ -1324,7 +1363,8 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
             "total_profit": round(total_profit, 2),
             "average_margin": round((total_profit / total_revenue * 100) if total_revenue > 0 else 0, 1),
             "events_count": len(records)
-        }
+        },
+        "by_source": source_summary
     }
 
 # ============== FIXED COSTS & BUDGET ==============
