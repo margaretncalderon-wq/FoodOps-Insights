@@ -471,7 +471,7 @@ export default function DocumentPreview({
                         /* Table Style */
                         <table className="w-full text-sm">
                           <thead>
-                            <tr style={{ backgroundColor: template?.primary_color || '#3A4D3F', color: 'white' }}>
+                            <tr style={{ backgroundColor: company?.primary_color || '#3A4D3F', color: 'white' }}>
                               {/* Checkbox column for PackingList/KitchenSheet */}
                               {template?.show_checkboxes !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
                                 <th className="px-2 py-2 w-10">✓</th>
