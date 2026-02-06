@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { 
   Package, Plus, Edit, Trash2, Search, AlertTriangle, ShoppingCart,
   Truck, ClipboardList, History, Upload, DollarSign, TrendingUp, TrendingDown,
-  Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer, Boxes
+  Archive, FileText, Building2, Calendar, Clock, CheckCircle2, XCircle, Save, Printer, Boxes,
+  Image, Camera, FileImage
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
