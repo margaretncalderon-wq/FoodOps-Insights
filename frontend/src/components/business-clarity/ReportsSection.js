@@ -94,6 +94,18 @@ export function ReportsSection() {
         const health = r.margin_percent < 0 ? (isEs ? "Pérdida" : "Loss") : r.margin_percent < targetMargin ? (isEs ? "Riesgo" : "Risk") : (isEs ? "Saludable" : "Healthy");
         return [r.event_name, r.client_name || "", r.source_display || "N/A", health, r.revenue, r.costs, r.profit, r.margin_percent];
       });
+    } else if (activeReport === "assets") {
+      headers = [isEs ? "Métrica" : "Metric", isEs ? "Valor" : "Value"];
+      rows = [
+        [isEs ? "Valor Total de Activos" : "Total Asset Value", reportData.assets?.total_value || 0],
+        [isEs ? "Valor de Reposición" : "Replacement Value", reportData.assets?.replacement_value || 0],
+        [isEs ? "Pérdidas Totales" : "Total Losses", reportData.losses?.total_value || 0],
+        [isEs ? "Gasto Operativo" : "Operational Expense", reportData.losses?.operational_expense || 0],
+        [isEs ? "Facturado a Clientes" : "Billed to Clients", reportData.losses?.billed_to_clients || 0],
+        [isEs ? "Tasa de Pérdida %" : "Loss Rate %", reportData.metrics?.loss_rate || 0],
+        [isEs ? "Tasa de Recuperación %" : "Recovery Rate %", reportData.metrics?.recovery_rate || 0],
+        [isEs ? "Pérdida Neta" : "Net Loss", reportData.metrics?.net_loss || 0],
+      ];
     }
     
     const csvContent = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
