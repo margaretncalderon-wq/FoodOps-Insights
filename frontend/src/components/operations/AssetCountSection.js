@@ -521,6 +521,144 @@ export function AssetCountSection() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Loss Registration Dialog */}
+      <Dialog open={lossDialogOpen} onOpenChange={setLossDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-500" />
+              {isEs ? "Registrar Pérdida de Activo" : "Register Asset Loss"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedLossItem && (
+            <div className="space-y-4">
+              {/* Item Info */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{selectedLossItem.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {isEs ? "Faltante:" : "Missing:"} {Math.abs(selectedLossItem.variance_qty)} {isEs ? "unidades" : "units"} 
+                  ({formatCurrency(Math.abs(selectedLossItem.variance_qty) * (selectedLossItem.unit_value || 0))})
+                </p>
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <Label>{isEs ? "Cantidad a Reportar" : "Quantity to Report"}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max={Math.abs(selectedLossItem.variance_qty)}
+                  value={lossForm.quantity}
+                  onChange={(e) => setLossForm({...lossForm, quantity: parseInt(e.target.value) || 1})}
+                />
+              </div>
+
+              {/* Reason */}
+              <div>
+                <Label>{isEs ? "Razón" : "Reason"}</Label>
+                <Select value={lossForm.reason} onValueChange={(v) => setLossForm({...lossForm, reason: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {LOSS_REASONS.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Resolution */}
+              <div>
+                <Label>{isEs ? "Resolución" : "Resolution"}</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {RESOLUTION_OPTIONS.map(opt => {
+                    const Icon = opt.icon;
+                    return (
+                      <Button
+                        key={opt.value}
+                        type="button"
+                        variant={lossForm.resolution === opt.value ? "default" : "outline"}
+                        className="h-auto py-3 flex flex-col gap-1"
+                        onClick={() => setLossForm({...lossForm, resolution: opt.value})}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span className="text-xs">{opt.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Client Selection (if billing) */}
+              {lossForm.resolution === "bill_client" && (
+                <div>
+                  <Label>{isEs ? "Facturar a Cliente" : "Bill to Client"}</Label>
+                  <Select value={lossForm.client_id} onValueChange={(v) => setLossForm({...lossForm, client_id: v})}>
+                    <SelectTrigger><SelectValue placeholder={isEs ? "Seleccionar cliente..." : "Select client..."} /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map(c => (
+                        <SelectItem key={c.client_id} value={c.client_id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Associated Event */}
+              <div>
+                <Label>{isEs ? "Evento Asociado (Opcional)" : "Associated Event (Optional)"}</Label>
+                <Select value={lossForm.event_id} onValueChange={(v) => setLossForm({...lossForm, event_id: v})}>
+                  <SelectTrigger><SelectValue placeholder={isEs ? "Seleccionar evento..." : "Select event..."} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{isEs ? "-- Sin evento --" : "-- No event --"}</SelectItem>
+                    {events.slice(0, 20).map(e => (
+                      <SelectItem key={e.event_id} value={e.event_id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>{isEs ? "Notas" : "Notes"}</Label>
+                <Input
+                  value={lossForm.notes}
+                  onChange={(e) => setLossForm({...lossForm, notes: e.target.value})}
+                  placeholder={isEs ? "Descripción del incidente..." : "Incident description..."}
+                />
+              </div>
+
+              {/* Summary */}
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-sm font-medium text-red-800">
+                  {isEs ? "Total a registrar:" : "Total to register:"} {formatCurrency(lossForm.quantity * (selectedLossItem.unit_value || 0))}
+                </p>
+                <p className="text-xs text-red-600 mt-1">
+                  {lossForm.resolution === "bill_client" 
+                    ? (isEs ? "Se creará una factura para el cliente" : "An invoice will be created for the client")
+                    : (isEs ? "Se registrará como gasto operacional" : "Will be recorded as operational expense")
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLossDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleRegisterLoss}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={lossForm.resolution === "bill_client" && !lossForm.client_id}
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              {isEs ? "Registrar Pérdida" : "Register Loss"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
