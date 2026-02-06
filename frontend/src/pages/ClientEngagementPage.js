@@ -6,8 +6,15 @@ import axios from "axios";
 
 // UI Components
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { RefreshCw, Users, FileText, CalendarDays, 
-  UserPlus, Inbox, Clock, MessageSquare, UserCircle } from "lucide-react";
+  UserPlus, Inbox, Clock, MessageSquare, UserCircle, ChevronDown } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
 
@@ -39,6 +46,7 @@ export default function ClientEngagementPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
   const location = useLocation();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({});
 
   const fetchStats = useCallback(async () => {
@@ -54,10 +62,23 @@ export default function ClientEngagementPage() {
     fetchStats(); 
   }, [fetchStats]);
 
-  // Navigation tabs - flat structure
-  const navTabs = [
-    { path: "/client-engagement/calendar", label: isEs ? "Calendario" : "Calendar", icon: CalendarDays },
-    { path: "/client-engagement/proposals", label: isEs ? "Propuestas" : "Proposals", icon: FileText },
+  // Check if current path is in CRM section
+  const isCrmActive = location.pathname.includes("/client-engagement/crm");
+  
+  // Get current CRM sub-tab label
+  const getCrmLabel = () => {
+    const path = location.pathname;
+    if (path.includes("outreach")) return "Outreach";
+    if (path.includes("inbound")) return "Inbound";
+    if (path.includes("follow-ups")) return isEs ? "Seguimientos" : "Follow-ups";
+    if (path.includes("comms")) return isEs ? "Comunicaciones" : "Comms";
+    if (path.includes("owners")) return isEs ? "Responsables" : "Owners";
+    if (path.includes("clients")) return isEs ? "Clientes" : "Clients";
+    return "CRM";
+  };
+
+  // CRM dropdown items
+  const crmItems = [
     { path: "/client-engagement/crm/outreach", label: "Outreach", icon: UserPlus, badge: stats.outreach_leads },
     { path: "/client-engagement/crm/inbound", label: "Inbound", icon: Inbox, badge: stats.inbound_leads },
     { path: "/client-engagement/crm/follow-ups", label: isEs ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due },
@@ -65,6 +86,9 @@ export default function ClientEngagementPage() {
     { path: "/client-engagement/crm/owners", label: isEs ? "Responsables" : "Owners", icon: UserCircle },
     { path: "/client-engagement/crm/clients", label: isEs ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
   ];
+
+  // Calculate total CRM badges
+  const totalCrmBadge = (stats.outreach_leads || 0) + (stats.inbound_leads || 0) + (stats.follow_ups_due || 0);
 
   return (
     <Layout>
@@ -84,28 +108,79 @@ export default function ClientEngagementPage() {
 
         {/* Navigation Tabs */}
         <div className="border-b">
-          <nav className="flex gap-1 overflow-x-auto pb-px">
-            {navTabs.map((tab) => (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isActive
+          <nav className="flex gap-1 pb-px">
+            {/* Calendar Tab */}
+            <NavLink
+              to="/client-engagement/calendar"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`
+              }
+            >
+              <CalendarDays className="w-4 h-4" />
+              {isEs ? "Calendario" : "Calendar"}
+            </NavLink>
+
+            {/* Proposals Tab */}
+            <NavLink
+              to="/client-engagement/proposals"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`
+              }
+            >
+              <FileText className="w-4 h-4" />
+              {isEs ? "Propuestas" : "Proposals"}
+            </NavLink>
+
+            {/* CRM Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isCrmActive
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                  }`
-                }
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-                {tab.badge !== undefined && tab.badge > 0 && (
-                  <Badge variant="secondary" className="text-xs ml-1">
-                    {tab.badge}
-                  </Badge>
-                )}
-              </NavLink>
-            ))}
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  CRM: {getCrmLabel()}
+                  {totalCrmBadge > 0 && (
+                    <Badge variant="secondary" className="text-xs ml-1">
+                      {totalCrmBadge}
+                    </Badge>
+                  )}
+                  <ChevronDown className="w-3 h-3 ml-1" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {crmItems.map((item) => (
+                  <DropdownMenuItem
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    className={`flex items-center justify-between cursor-pointer ${
+                      location.pathname === item.path ? "bg-blue-50 text-blue-600" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </div>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         </div>
 
