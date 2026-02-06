@@ -553,10 +553,11 @@ export function AssetCountSection() {
             {isEs ? "📦 Instrucciones para Conteo de Activos" : "📦 Asset Count Instructions"}
           </h4>
           <ul className="text-sm text-indigo-700 space-y-1 list-disc list-inside">
-            <li>{isEs ? "Cuente físicamente todos los equipos, mobiliario y suministros" : "Physically count all equipment, furniture & supplies"}</li>
-            <li>{isEs ? "Verifique el estado de cada activo (daños, desgaste)" : "Check condition of each asset (damage, wear)"}</li>
-            <li>{isEs ? "Los faltantes se marcan en rojo para seguimiento" : "Missing items are marked in red for follow-up"}</li>
-            <li>{isEs ? "Este conteo NO afecta costos - son activos fijos con depreciación" : "This count does NOT affect costs - these are fixed assets with depreciation"}</li>
+            <li>{isEs ? "Total = cantidad total en inventario" : "Total = total quantity in inventory"}</li>
+            <li>{isEs ? "En Evento = items actualmente en delivery notes (fuera del almacén)" : "Out = items currently in delivery notes (out of warehouse)"}</li>
+            <li>{isEs ? "Disponible = lo que debería estar en el almacén (Total - En Evento)" : "Available = what should be in warehouse (Total - Out)"}</li>
+            <li>{isEs ? "La diferencia se calcula contra Disponible, no contra Total" : "Variance is calculated against Available, not Total"}</li>
+            <li>{isEs ? "Los faltantes se marcan en rojo para registrar pérdidas" : "Missing items are marked in red to register losses"}</li>
           </ul>
         </CardContent>
       </Card>
