@@ -1321,15 +1321,51 @@ function CheckInOutSection() {
     const equipmentItems = note.items?.filter(i => i.inventory_type === "equipment") || [];
     const disposableItems = note.items?.filter(i => i.inventory_type !== "equipment") || [];
     
-    const itemRows = note.items?.map(item => `
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.inventory_type === "equipment" ? "↩️ Equipo" : "🚫 Desechable"}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold;">${item.qty_out} ${item.unit || "unit"}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;"></td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;"></td>
-      </tr>
-    `).join('') || '';
+    // Create item rows with photos
+    const itemRows = note.items?.map(item => {
+      const itemData = inventory.find(inv => inv.ingredient_id === item.item_id);
+      const photoHtml = itemData?.image_url 
+        ? `<img src="${itemData.image_url}" alt="${item.name}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;" />`
+        : `<div style="width: 40px; height: 40px; background: #f0f0f0; border-radius: 4px; margin-right: 10px; display: inline-flex; align-items: center; justify-content: center; color: #999;">📦</div>`;
+      
+      return `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">
+            <div style="display: flex; align-items: center;">
+              ${photoHtml}
+              <span>${item.name}</span>
+            </div>
+          </td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.inventory_type === "equipment" ? "↩️ Equipo" : "🚫 Desechable"}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold;">${item.qty_out} ${item.unit || "unit"}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;"></td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;"></td>
+        </tr>
+      `;
+    }).join('') || '';
+
+    // Create photo gallery section for items with images
+    const itemsWithPhotos = note.items?.filter(item => {
+      const itemData = inventory.find(inv => inv.ingredient_id === item.item_id);
+      return itemData?.image_url;
+    }) || [];
+    
+    const photoGalleryHtml = itemsWithPhotos.length > 0 ? `
+      <div class="photo-gallery">
+        <h3 style="margin-bottom: 15px; font-size: 14px;">📷 Referencia Visual de Items</h3>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          ${itemsWithPhotos.map(item => {
+            const itemData = inventory.find(inv => inv.ingredient_id === item.item_id);
+            return `
+              <div style="text-align: center;">
+                <img src="${itemData?.image_url}" alt="${item.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;" />
+                <p style="font-size: 10px; margin-top: 4px; color: #666;">${item.name} (${item.qty_out})</p>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -1352,7 +1388,11 @@ function CheckInOutSection() {
           .signature-box { border-top: 1px solid #333; padding-top: 10px; text-align: center; }
           .signature-box p { margin: 5px 0; font-size: 12px; color: #666; }
           .notes { margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107; }
-          @media print { body { padding: 0; } }
+          .photo-gallery { margin-top: 30px; padding: 15px; background: #f0f8ff; border-radius: 8px; page-break-inside: avoid; }
+          @media print { 
+            body { padding: 0; } 
+            .photo-gallery { page-break-before: auto; }
+          }
         </style>
       </head>
       <body>
@@ -1402,6 +1442,8 @@ function CheckInOutSection() {
         </div>
 
         ${note.notes ? `<div class="notes"><strong>Notas:</strong> ${note.notes}</div>` : ''}
+
+        ${photoGalleryHtml}
 
         <div class="signatures">
           <div class="signature-box">
