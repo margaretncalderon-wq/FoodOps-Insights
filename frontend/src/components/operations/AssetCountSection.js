@@ -55,24 +55,39 @@ export function AssetCountSection() {
       setAssetCount(res.data);
       setCountItems(res.data?.items || []);
     } catch (err) {
-      // Initialize with empty if no count exists - load operational supplies
+      // Initialize with empty if no count exists - load operational supplies from inventory
       setAssetCount(null);
       try {
-        const invRes = await axios.get(`${API}/api/ops-supplies/inventory`, { withCredentials: true });
-        const items = (invRes.data || []).map(inv => ({
-          item_id: inv.item_id || inv.ingredient_id,
-          name: inv.name,
-          category: inv.category || "General",
-          sku: inv.sku || "",
-          system_qty: inv.total_quantity || inv.quantity || 0,
-          available_qty: inv.available_quantity || inv.quantity || 0,
-          unit_value: inv.unit_cost || inv.purchase_price || 0,
-          counted_qty: "",
-          variance_qty: 0,
-          variance_value: 0,
-          condition: inv.condition || "Good",
-          status: "pending"
-        }));
+        // Use the same inventory endpoint but filter for operational categories
+        const invRes = await axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true });
+        // Operational categories (not food)
+        const opsCategories = ["equipment", "linens", "decor", "furniture", "tableware", "audiovisual", 
+                               "kitchen equipment", "serving equipment", "tables_chairs", "serving", 
+                               "kitchen", "transport", "cleaning", "packaging", "other"];
+        const items = (invRes.data || [])
+          .filter(inv => {
+            const category = (inv.category || "").toLowerCase();
+            // Include items that are operational (not food)
+            return opsCategories.some(oc => category.includes(oc.toLowerCase())) ||
+                   inv.item_type === "equipment" || 
+                   inv.item_type === "operational" ||
+                   inv.supply_type === "equipment" ||
+                   inv.supply_type === "event_supply";
+          })
+          .map(inv => ({
+            item_id: inv.item_id || inv.ingredient_id,
+            name: inv.name,
+            category: inv.category || "General",
+            sku: inv.sku || "",
+            system_qty: inv.total_quantity || inv.quantity || 0,
+            available_qty: inv.available_quantity || inv.quantity || 0,
+            unit_value: inv.unit_cost || inv.purchase_price || 0,
+            counted_qty: "",
+            variance_qty: 0,
+            variance_value: 0,
+            condition: inv.condition || "Good",
+            status: "pending"
+          }));
         setCountItems(items);
       } catch (e) {
         console.error(e);
