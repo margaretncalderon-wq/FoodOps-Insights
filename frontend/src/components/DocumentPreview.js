@@ -339,7 +339,7 @@ export default function DocumentPreview({
                   {template?.show_logo !== false && company?.logo_url && (
                     <img src={company.logo_url} alt={company.name} className="h-12 mb-2" />
                   )}
-                  <h1 className="company-name text-2xl font-bold" style={{ color: template?.primary_color || '#3A4D3F' }}>
+                  <h1 className="company-name text-2xl font-bold" style={{ color: company?.primary_color || '#3A4D3F' }}>
                     {company?.name || "Company Name"}
                   </h1>
                   {/* Company Address - controlled by template */}
