@@ -2198,6 +2198,8 @@ export default function OperationsSuppliesPage() {
           <Route path="/purchasing" element={<PurchasingSection />} />
           <Route path="/checkin" element={<CheckInOutSection />} />
           <Route path="/asset-count" element={<AssetCountSection />} />
+          <Route path="/agreements" element={<AgreementsSection />} />
+          <Route path="/gallery" element={<GallerySection />} />
           <Route path="/maintenance" element={<div className="text-center py-12 text-muted-foreground">Coming in v2</div>} />
         </Routes>
       </div>
