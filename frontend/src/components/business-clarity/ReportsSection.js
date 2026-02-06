@@ -592,6 +592,260 @@ export function ReportsSection() {
               </Card>
             </div>
           )}
+
+          {activeReport === "assets" && reportData && (
+            <div className="space-y-4">
+              {/* Asset Value Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm text-blue-600">{isEs ? "Valor de Activos" : "Asset Value"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-800">{formatCurrency(reportData.assets?.total_value)}</p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      {reportData.assets?.items_count || 0} {isEs ? "artículos" : "items"}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-red-50 border-red-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingDown className="w-5 h-5 text-red-600" />
+                      <span className="text-sm text-red-600">{isEs ? "Pérdidas Totales" : "Total Losses"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-red-800">{formatCurrency(reportData.losses?.total_value)}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {reportData.losses?.total_count || 0} {isEs ? "incidentes" : "incidents"}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-amber-50 border-amber-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-5 h-5 text-amber-600" />
+                      <span className="text-sm text-amber-600">{isEs ? "Gasto Operativo" : "Operational Expense"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-800">{formatCurrency(reportData.losses?.operational_expense)}</p>
+                    <p className="text-xs text-amber-600 mt-1">
+                      {isEs ? "Absorbido por la empresa" : "Absorbed by company"}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-green-50 border-green-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Receipt className="w-5 h-5 text-green-600" />
+                      <span className="text-sm text-green-600">{isEs ? "Facturado a Clientes" : "Billed to Clients"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-800">{formatCurrency(reportData.losses?.billed_to_clients)}</p>
+                    <p className="text-xs text-green-600 mt-1">
+                      {isEs ? "Recuperado" : "Recovered"}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Metrics Row */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    {isEs ? "Métricas de Pérdidas" : "Loss Metrics"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Tasa de Pérdida" : "Loss Rate"}</p>
+                      <p className="text-xl font-bold">{reportData.metrics?.loss_rate || 0}%</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Tasa de Recuperación" : "Recovery Rate"}</p>
+                      <p className="text-xl font-bold text-green-600">{reportData.metrics?.recovery_rate || 0}%</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Pérdida Neta" : "Net Loss"}</p>
+                      <p className="text-xl font-bold text-red-600">{formatCurrency(reportData.metrics?.net_loss)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{isEs ? "Promedio por Incidente" : "Avg per Incident"}</p>
+                      <p className="text-xl font-bold">{formatCurrency(reportData.metrics?.avg_loss_per_incident)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Assets by Category */}
+              {reportData.assets?.by_category && Object.keys(reportData.assets.by_category).length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{isEs ? "Activos por Categoría" : "Assets by Category"}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{isEs ? "Categoría" : "Category"}</TableHead>
+                          <TableHead className="text-right">{isEs ? "Artículos" : "Items"}</TableHead>
+                          <TableHead className="text-right">{isEs ? "Stock Total" : "Total Stock"}</TableHead>
+                          <TableHead className="text-right">{isEs ? "Valor" : "Value"}</TableHead>
+                          <TableHead className="text-right">{isEs ? "Valor Reposición" : "Replacement Value"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.entries(reportData.assets.by_category).map(([category, data]) => (
+                          <TableRow key={category}>
+                            <TableCell className="font-medium capitalize">{category}</TableCell>
+                            <TableCell className="text-right">{data.count}</TableCell>
+                            <TableCell className="text-right">{data.total_stock}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(data.value)}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{formatCurrency(data.replacement_value)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Losses by Reason */}
+              {reportData.losses?.by_reason && Object.keys(reportData.losses.by_reason).length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{isEs ? "Pérdidas por Motivo" : "Losses by Reason"}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {Object.entries(reportData.losses.by_reason).map(([reason, data]) => {
+                        const reasonLabels = {
+                          lost: isEs ? "Extraviado" : "Lost",
+                          damaged: isEs ? "Dañado" : "Damaged",
+                          stolen: isEs ? "Robado" : "Stolen",
+                          broken: isEs ? "Roto" : "Broken",
+                          unknown: isEs ? "Desconocido" : "Unknown"
+                        };
+                        const reasonColors = {
+                          lost: "bg-amber-100 text-amber-800 border-amber-200",
+                          damaged: "bg-red-100 text-red-800 border-red-200",
+                          stolen: "bg-purple-100 text-purple-800 border-purple-200",
+                          broken: "bg-orange-100 text-orange-800 border-orange-200",
+                          unknown: "bg-gray-100 text-gray-800 border-gray-200"
+                        };
+                        return (
+                          <div key={reason} className={`p-3 rounded-lg border ${reasonColors[reason] || reasonColors.unknown}`}>
+                            <p className="text-xs font-medium">{reasonLabels[reason] || reason}</p>
+                            <p className="text-lg font-bold">{data.count} {isEs ? "incidentes" : "incidents"}</p>
+                            <p className="text-sm">{formatCurrency(data.value)}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Monthly Trend */}
+              {reportData.losses?.by_month && reportData.losses.by_month.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{isEs ? "Tendencia Mensual de Pérdidas" : "Monthly Loss Trend"}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {reportData.losses.by_month.slice(-12).map((month) => (
+                        <div key={month.period} className="p-2 rounded-lg bg-muted/50 min-w-[100px] text-center">
+                          <p className="text-xs text-muted-foreground">{month.period}</p>
+                          <p className="text-sm font-medium">{month.count} {isEs ? "pérdidas" : "losses"}</p>
+                          <p className="text-xs text-red-600">{formatCurrency(month.value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recent/Top Losses */}
+              {reportData.losses?.recent && reportData.losses.recent.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{isEs ? "Pérdidas Más Significativas" : "Top Losses"}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{isEs ? "Artículo" : "Item"}</TableHead>
+                          <TableHead className="text-right">{isEs ? "Cantidad" : "Quantity"}</TableHead>
+                          <TableHead className="text-right">{isEs ? "Valor" : "Value"}</TableHead>
+                          <TableHead>{isEs ? "Motivo" : "Reason"}</TableHead>
+                          <TableHead>{isEs ? "Resolución" : "Resolution"}</TableHead>
+                          <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reportData.losses.recent.map((loss) => {
+                          const reasonLabels = {
+                            lost: isEs ? "Extraviado" : "Lost",
+                            damaged: isEs ? "Dañado" : "Damaged",
+                            stolen: isEs ? "Robado" : "Stolen",
+                            broken: isEs ? "Roto" : "Broken"
+                          };
+                          const resolutionLabels = {
+                            operational_expense: isEs ? "Gasto Operativo" : "Operational Expense",
+                            bill_client: isEs ? "Facturar a Cliente" : "Bill to Client"
+                          };
+                          return (
+                            <TableRow key={loss.loss_id}>
+                              <TableCell className="font-medium">{loss.item_name}</TableCell>
+                              <TableCell className="text-right">{loss.quantity}</TableCell>
+                              <TableCell className="text-right text-red-600">{formatCurrency(loss.total_value)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{reasonLabels[loss.reason] || loss.reason}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={loss.resolution === "bill_client" ? "default" : "secondary"}>
+                                  {resolutionLabels[loss.resolution] || loss.resolution}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={loss.status === "processed" ? "outline" : "destructive"}>
+                                  {loss.status === "processed" 
+                                    ? (isEs ? "Procesado" : "Processed") 
+                                    : (isEs ? "Pendiente" : "Pending")}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Info Card */}
+              <Card className="bg-blue-50/50 border-blue-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium mb-1">{isEs ? "Sobre este reporte" : "About this report"}</p>
+                      <p>
+                        {isEs 
+                          ? "Este reporte muestra el valor de tus activos operacionales (equipos y suministros) y el seguimiento de pérdidas. Las pérdidas registradas en el conteo de inventario se reflejan aquí, separando las absorbidas como gasto operativo de las facturadas a clientes."
+                          : "This report shows the value of your operational assets (equipment and supplies) and loss tracking. Losses registered during inventory counts are reflected here, separating those absorbed as operational expense from those billed to clients."}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </>
       )}
     </div>
