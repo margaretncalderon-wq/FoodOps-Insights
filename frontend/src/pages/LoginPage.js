@@ -45,12 +45,12 @@ export default function LoginPage() {
             <span className="font-heading text-lg font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
 
-          {/* Welcome Text */}
+          {/* Login Title */}
           <h1 className="font-heading text-3xl lg:text-4xl font-bold text-[#1F2937] mb-2">
-            {isEs ? "Bienvenido a Kora" : "Welcome to Kora"}
+            {isEs ? "Iniciar sesión" : "Log in"}
           </h1>
           <p className="text-[#6B7280] mb-8">
-            {isEs ? "Empieza gratis. Sin tarjeta de crédito." : "Get started - it's free. No credit card needed."}
+            {isEs ? "Accede a tu cuenta de Kora" : "Access your Kora account"}
           </p>
 
           {/* Google Login - Primary CTA */}
@@ -146,11 +146,11 @@ export default function LoginPage() {
             <a href="#" className="text-[#2563EB] hover:underline">{isEs ? "Política de Privacidad" : "Privacy Policy"}</a>
           </p>
 
-          {/* Already have account */}
+          {/* Don't have account - Create one */}
           <p className="mt-8 text-center text-sm text-[#6B7280]">
-            {isEs ? "¿Ya tienes cuenta?" : "Already have an account?"}{" "}
-            <Link to="/login" className="text-[#2563EB] hover:underline font-medium">
-              {isEs ? "Ingresar" : "Log in"}
+            {isEs ? "¿No tienes cuenta?" : "Don't have an account?"}{" "}
+            <Link to="/register" className="text-[#2563EB] hover:underline font-medium">
+              {isEs ? "Crear una" : "Create one"}
             </Link>
           </p>
 
