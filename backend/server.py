@@ -2243,7 +2243,7 @@ async def delete_purchase_list(purchase_list_id: str, user: User = Depends(get_c
 
 # ============== RECIPES ROUTES - GastroKaisen Style ==============
 
-@recipes_router.get("", response_model=List[Recipe])
+@recipes_router.get("")
 async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(get_current_user)):
     query = {"company_id": user.company_id}
     if recipe_type:
