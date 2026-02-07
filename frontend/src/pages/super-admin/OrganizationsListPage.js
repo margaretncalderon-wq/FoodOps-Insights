@@ -244,7 +244,7 @@ export default function OrganizationsListPage() {
 
                 {organizations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-400">
+                    <TableCell colSpan={7} className="text-center py-12 text-slate-300">
                       No organizations found
                     </TableCell>
                   </TableRow>
