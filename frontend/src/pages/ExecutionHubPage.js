@@ -332,9 +332,7 @@ export default function ExecutionHubPage() {
                 {t("noGoalsYet")}
               </h3>
               <p className="text-muted-foreground mb-4">
-                {isEs 
-                  ? "Crea tu primera meta de ejecución para comenzar" 
-                  : "Create your first execution goal to get started"}
+                {t("createFirstGoal")}
               </p>
               <Button 
                 onClick={() => setShowCreateDialog(true)}
@@ -364,13 +362,11 @@ export default function ExecutionHubPage() {
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className={`${status.color} border text-xs`}>
                             <StatusIcon className="w-3 h-3 mr-1" />
-                            {isEs ? status.label : status.labelEn}
+                            {t(status.labelKey)}
                           </Badge>
                           {goal.context_type && (
                             <span className="text-xs text-muted-foreground">
-                              {isEs 
-                                ? contextConfig[goal.context_type]?.label 
-                                : contextConfig[goal.context_type]?.labelEn}
+                              {t(contextConfig[goal.context_type]?.labelKey)}
                             </span>
                           )}
                         </div>
@@ -391,7 +387,7 @@ export default function ExecutionHubPage() {
                                   variant="outline" 
                                   className={`${impactConfig[area]?.color} text-xs border-0`}
                                 >
-                                  {isEs ? impactConfig[area]?.label : impactConfig[area]?.labelEn}
+                                  {t(impactConfig[area]?.labelKey)}
                                 </Badge>
                               ))}
                             </div>
