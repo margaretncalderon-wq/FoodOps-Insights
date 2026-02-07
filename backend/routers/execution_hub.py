@@ -21,6 +21,53 @@ execution_hub_router = APIRouter(prefix="/execution-hub", tags=["Execution Hub"]
 
 # ============== HELPER FUNCTIONS ==============
 
+async def get_effective_goal_limit(company_id: str) -> int:
+    """Get the effective execution goals limit (plan + addons)"""
+    # Get base plan limits
+    subscription = await db.subscriptions.find_one(
+        {"company_id": company_id, "status": {"$in": ["active", "trialing"]}},
+        {"_id": 0, "plan_id": 1}
+    )
+    plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
+    
+    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "limits": 1})
+    base_limit = plan.get("limits", {}).get("execution_goals_per_month", 3) if plan else 3
+    
+    # Get limit boost addons
+    limit_addons = await db.organization_addons.find({
+        "company_id": company_id,
+        "status": "active",
+        "addon_type": "limit_boost"
+    }, {"_id": 0, "addon_id": 1, "quantity": 1}).to_list(50)
+    
+    boost = 0
+    for org_addon in limit_addons:
+        addon_def = await db.addon_definitions.find_one(
+            {"addon_id": org_addon["addon_id"]},
+            {"_id": 0, "limit_key": 1, "limit_increase": 1}
+        )
+        if addon_def and addon_def.get("limit_key") == "execution_goals_per_month":
+            boost += addon_def.get("limit_increase", 0) * org_addon.get("quantity", 1)
+    
+    return base_limit + boost
+
+
+async def check_goal_limit(company_id: str) -> bool:
+    """Check if organization can create more goals this month"""
+    # Get current month's goal count
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    current_count = await db.execution_goals.count_documents({
+        "company_id": company_id,
+        "created_at": {"$gte": month_start.isoformat()}
+    })
+    
+    limit = await get_effective_goal_limit(company_id)
+    
+    return current_count < limit
+
+
 def add_change_log(user_id: str, user_name: str, action: str, field: str = None, 
                    from_value=None, to_value=None, note: str = None) -> dict:
     """Create a change log entry"""
