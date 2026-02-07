@@ -186,11 +186,11 @@ export default function OrganizationsListPage() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-slate-600 flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-slate-300" />
+                          <Building2 className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <p className="font-medium">{org.organization.name}</p>
-                          <p className="text-xs text-slate-400">{org.organization.company_id}</p>
+                          <p className="font-medium text-white">{org.organization.name}</p>
+                          <p className="text-xs text-slate-300">{org.organization.company_id}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -198,7 +198,7 @@ export default function OrganizationsListPage() {
                       {getStatusBadge(org, org.subscription)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize border-slate-600">
+                      <Badge variant="outline" className="capitalize border-slate-500 text-white">
                         {org.plan?.name || "No Plan"}
                       </Badge>
                     </TableCell>
@@ -217,19 +217,19 @@ export default function OrganizationsListPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-slate-400" />
+                      <div className="flex items-center gap-2 text-white">
+                        <Users className="w-4 h-4 text-slate-300" />
                         <span>{org.members_count || 0}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
+                    <TableCell className="text-slate-200 text-sm">
                       {new Date(org.organization.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="text-slate-300"
+                        className="text-white hover:text-white hover:bg-slate-600"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/super-admin/organizations/${org.organization.company_id}`);
