@@ -25,6 +25,7 @@ export default function SystemPulse() {
     recentDecisions: [],
     systemAlerts: []
   });
+  const [executionPending, setExecutionPending] = useState(null);
 
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
