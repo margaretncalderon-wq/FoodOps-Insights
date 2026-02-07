@@ -502,7 +502,7 @@ export default function ExecutionHubPage() {
                       onClick={() => toggleImpactArea(key)}
                       data-testid={`impact-${key}`}
                     >
-                      {isEs ? config.label : config.labelEn}
+                      {t(config.labelKey)}
                     </Badge>
                   ))}
                 </div>
