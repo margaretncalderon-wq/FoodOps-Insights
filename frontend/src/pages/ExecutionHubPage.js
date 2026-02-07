@@ -45,9 +45,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Status config uses translation keys
 const statusConfig = {
   planning: { 
-    label: "Planificación", 
+    labelKey: "planning", 
     labelEn: "Planning",
     color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
     icon: CircleDot 
