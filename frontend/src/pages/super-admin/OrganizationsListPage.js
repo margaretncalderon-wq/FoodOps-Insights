@@ -80,12 +80,12 @@ export default function OrganizationsListPage() {
     return (
       <div className="space-y-1">
         <div className="flex justify-between text-xs">
-          <span className="text-slate-400">{label}</span>
-          <span>{current}/{limit}</span>
+          <span className="text-slate-300">{label}</span>
+          <span className="text-white font-medium">{current}/{limit}</span>
         </div>
         <Progress 
           value={percentage} 
-          className={`h-1.5 ${percentage >= 80 ? "[&>div]:bg-amber-500" : ""} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
+          className={`h-1.5 bg-slate-600 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
         />
       </div>
     );
