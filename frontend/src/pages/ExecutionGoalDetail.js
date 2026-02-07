@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API_BASE as API } from "../utils/api";
+import { API } from "../utils/api";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
