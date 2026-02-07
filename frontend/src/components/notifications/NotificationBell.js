@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Button } from "../ui/button";
@@ -18,13 +18,28 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const lastFetchRef = useRef(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    // Throttle: don't fetch if last fetch was less than 10 seconds ago
+    const now = Date.now();
+    if (now - lastFetchRef.current < 10000) return;
+    lastFetchRef.current = now;
+    
+    try {
+      const response = await axios.get(`${API}/api/demand-studio/notifications/unread-count`, { withCredentials: true });
+      setUnreadCount(response.data.count || 0);
+    } catch (error) {
+      // Silently fail - user might not be logged in
+    }
+  }, []);
 
   useEffect(() => {
     fetchUnreadCount();
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Poll for new notifications every 60 seconds (reduced from 30)
+    const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchUnreadCount]);
 
   useEffect(() => {
     // Close dropdown when clicking outside
@@ -36,15 +51,6 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const fetchUnreadCount = async () => {
-    try {
-      const response = await axios.get(`${API}/api/demand-studio/notifications/unread-count`, { withCredentials: true });
-      setUnreadCount(response.data.count || 0);
-    } catch (error) {
-      // Silently fail - user might not be logged in
-    }
-  };
 
   const fetchNotifications = async () => {
     setLoading(true);
