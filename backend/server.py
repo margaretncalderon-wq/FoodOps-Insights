@@ -203,6 +203,7 @@ class PlanLimits(BaseModel):
     supplier_invoices_per_month: int = 50
     storage_mb: int = 500
     proposals_per_month: int = 20
+    execution_goals_per_month: int = 3  # Execution Hub limits
 
 class PlanFeatures(BaseModel):
     """Feature flags for a subscription plan"""
@@ -212,6 +213,7 @@ class PlanFeatures(BaseModel):
     api_access: bool = False
     white_label: bool = False
     priority_support: bool = False
+    execution_hub: bool = True  # Included for all plans
 
 class Plan(BaseModel):
     """Subscription plan definition"""
@@ -382,8 +384,8 @@ DEFAULT_PLANS = [
         "price_monthly": 0,
         "price_yearly": 0,
         "currency": "USD",
-        "limits": {"events_per_month": 5, "active_users": 2, "supplier_invoices_per_month": 20, "storage_mb": 200, "proposals_per_month": 10},
-        "features": {"business_clarity": True, "culinary_intelligence": False, "advanced_reports": False, "api_access": False, "white_label": False, "priority_support": False},
+        "limits": {"events_per_month": 5, "active_users": 2, "supplier_invoices_per_month": 20, "storage_mb": 200, "proposals_per_month": 10, "execution_goals_per_month": 3},
+        "features": {"business_clarity": True, "culinary_intelligence": False, "advanced_reports": False, "api_access": False, "white_label": False, "priority_support": False, "execution_hub": True},
         "is_active": True,
         "sort_order": 0,
         "highlight": False
@@ -398,8 +400,8 @@ DEFAULT_PLANS = [
         "price_monthly": 49,
         "price_yearly": 490,
         "currency": "USD",
-        "limits": {"events_per_month": 30, "active_users": 10, "supplier_invoices_per_month": 200, "storage_mb": 2000, "proposals_per_month": 50},
-        "features": {"business_clarity": True, "culinary_intelligence": True, "advanced_reports": True, "api_access": False, "white_label": False, "priority_support": False},
+        "limits": {"events_per_month": 30, "active_users": 10, "supplier_invoices_per_month": 200, "storage_mb": 2000, "proposals_per_month": 50, "execution_goals_per_month": 999},
+        "features": {"business_clarity": True, "culinary_intelligence": True, "advanced_reports": True, "api_access": False, "white_label": False, "priority_support": False, "execution_hub": True},
         "is_active": True,
         "sort_order": 1,
         "highlight": True
@@ -414,8 +416,8 @@ DEFAULT_PLANS = [
         "price_monthly": 149,
         "price_yearly": 1490,
         "currency": "USD",
-        "limits": {"events_per_month": 999, "active_users": 999, "supplier_invoices_per_month": 999, "storage_mb": 10000, "proposals_per_month": 999},
-        "features": {"business_clarity": True, "culinary_intelligence": True, "advanced_reports": True, "api_access": True, "white_label": True, "priority_support": True},
+        "limits": {"events_per_month": 999, "active_users": 999, "supplier_invoices_per_month": 999, "storage_mb": 10000, "proposals_per_month": 999, "execution_goals_per_month": 999},
+        "features": {"business_clarity": True, "culinary_intelligence": True, "advanced_reports": True, "api_access": True, "white_label": True, "priority_support": True, "execution_hub": True},
         "is_active": True,
         "sort_order": 2,
         "highlight": False
