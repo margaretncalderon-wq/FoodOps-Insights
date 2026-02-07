@@ -419,6 +419,90 @@ export default function SystemPulse() {
             </CardContent>
           </Card>
 
+          {/* -------------------- EXECUTION HUB - MY PENDING -------------------- */}
+          {executionPending && (executionPending.active_goals > 0 || executionPending.pending_tasks > 0) && (
+            <Card data-testid="execution-pending-section">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-[#AED768]" />
+                    <CardTitle className="text-lg">
+                      {isEs ? "Mis Pendientes" : "My Pending"}
+                    </CardTitle>
+                    {(executionPending.active_goals + executionPending.pending_tasks) > 0 && (
+                      <Badge className="bg-[#AED768]/20 text-[#AED768] text-xs">
+                        {executionPending.active_goals + executionPending.pending_tasks}
+                      </Badge>
+                    )}
+                  </div>
+                  <Link 
+                    to="/execution-hub" 
+                    className="text-sm text-muted-foreground hover:text-[#AED768] flex items-center gap-1"
+                  >
+                    {isEs ? "Ver todo" : "View all"}
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs 
+                    ? "Metas y tareas asignadas"
+                    : "Assigned goals and tasks"}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="text-center p-2 bg-blue-500/10 rounded-lg">
+                    <p className="text-xl font-bold text-blue-400">{executionPending.active_goals}</p>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Metas Activas" : "Active Goals"}</p>
+                  </div>
+                  <div className="text-center p-2 bg-yellow-500/10 rounded-lg">
+                    <p className="text-xl font-bold text-yellow-400">{executionPending.pending_tasks}</p>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Tareas" : "Tasks"}</p>
+                  </div>
+                  <div className="text-center p-2 bg-red-500/10 rounded-lg">
+                    <p className="text-xl font-bold text-red-400">{executionPending.blocked_goals}</p>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Bloqueadas" : "Blocked"}</p>
+                  </div>
+                </div>
+                
+                {executionPending.goals?.length > 0 && (
+                  <div className="space-y-2">
+                    {executionPending.goals.slice(0, 3).map((goal) => (
+                      <Link
+                        key={goal.goal_id}
+                        to={`/execution-hub/${goal.goal_id}`}
+                        className="block p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                goal.status === "blocked" 
+                                  ? "border-red-500/50 text-red-400" 
+                                  : goal.status === "in_progress"
+                                  ? "border-yellow-500/50 text-yellow-400"
+                                  : "border-blue-500/50 text-blue-400"
+                              }`}
+                            >
+                              {goal.status === "blocked" 
+                                ? (isEs ? "Bloqueado" : "Blocked")
+                                : goal.status === "in_progress"
+                                ? (isEs ? "En Progreso" : "In Progress")
+                                : (isEs ? "Planificación" : "Planning")}
+                            </Badge>
+                            <span className="text-sm font-medium truncate max-w-[150px]">{goal.title}</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* -------------------- 3) RECENT DECISIONS -------------------- */}
           <Card data-testid="recent-decisions-section">
             <CardHeader className="pb-3">
