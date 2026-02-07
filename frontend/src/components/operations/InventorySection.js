@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { toast } from "sonner";
 import { 
   Package, Plus, Edit, Trash2, Search, AlertTriangle, ShoppingCart,
-  History, Upload, DollarSign, Archive, Clock, Loader2
+  History, Upload, DollarSign, Archive, Clock, Loader2, Camera, 
+  FileImage, Save, TrendingDown, TrendingUp, XCircle
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
