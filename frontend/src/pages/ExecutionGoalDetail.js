@@ -118,7 +118,7 @@ export default function ExecutionGoalDetail() {
       setGoal(res.data);
     } catch (error) {
       console.error("Error fetching goal:", error);
-      toast.error(isEs ? "Error al cargar la meta" : "Error loading goal");
+      toast.error(t("errorLoadingGoal"));
       navigate("/execution-hub");
     } finally {
       setLoading(false);
@@ -132,10 +132,10 @@ export default function ExecutionGoalDetail() {
   const handleStatusChange = async (newStatus) => {
     try {
       await axios.put(`${API}/execution-hub/goals/${goalId}`, { status: newStatus }, { withCredentials: true });
-      toast.success(isEs ? "Estado actualizado" : "Status updated");
+      toast.success(t("statusUpdated"));
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al actualizar" : "Error updating");
+      toast.error(t("errorUpdating"));
     }
   };
 
@@ -145,10 +145,10 @@ export default function ExecutionGoalDetail() {
     }
     try {
       await axios.delete(`${API}/execution-hub/goals/${goalId}`, { withCredentials: true });
-      toast.success(isEs ? "Meta eliminada" : "Goal deleted");
+      toast.success(t("goalDeleted"));
       navigate("/execution-hub");
     } catch (error) {
-      toast.error(isEs ? "Error al eliminar" : "Error deleting");
+      toast.error(t("errorDeleting"));
     }
   };
 
@@ -162,12 +162,12 @@ export default function ExecutionGoalDetail() {
         due_date: newTask.due_date || null,
       };
       await axios.post(`${API}/execution-hub/goals/${goalId}/tasks`, payload, { withCredentials: true });
-      toast.success(isEs ? "Tarea creada" : "Task created");
+      toast.success(t("taskCreated"));
       setShowTaskDialog(false);
       setNewTask({ title: "", description: "", due_date: "" });
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al crear tarea" : "Error creating task");
+      toast.error(t("errorCreatingTask"));
     } finally {
       setCreatingTask(false);
     }
@@ -176,10 +176,10 @@ export default function ExecutionGoalDetail() {
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     try {
       await axios.put(`${API}/execution-hub/tasks/${taskId}`, { status: newStatus }, { withCredentials: true });
-      toast.success(isEs ? "Tarea actualizada" : "Task updated");
+      toast.success(t("taskUpdated"));
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al actualizar" : "Error updating");
+      toast.error(t("errorUpdating"));
     }
   };
 
@@ -189,11 +189,11 @@ export default function ExecutionGoalDetail() {
     
     try {
       await axios.post(`${API}/execution-hub/tasks/${taskId}/notes`, { content }, { withCredentials: true });
-      toast.success(isEs ? "Nota agregada" : "Note added");
+      toast.success(t("noteAdded"));
       setTaskNoteContent({ ...taskNoteContent, [taskId]: "" });
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al agregar nota" : "Error adding note");
+      toast.error(t("errorAddingNote"));
     }
   };
 
@@ -202,12 +202,12 @@ export default function ExecutionGoalDetail() {
     setCreatingDecision(true);
     try {
       await axios.post(`${API}/execution-hub/goals/${goalId}/decisions`, newDecision, { withCredentials: true });
-      toast.success(isEs ? "Decisión registrada" : "Decision recorded");
+      toast.success(t("decisionRecorded"));
       setShowDecisionDialog(false);
       setNewDecision({ decision: "", rationale: "" });
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al registrar decisión" : "Error recording decision");
+      toast.error(t("errorRecordingDecision"));
     } finally {
       setCreatingDecision(false);
     }
@@ -218,12 +218,12 @@ export default function ExecutionGoalDetail() {
     setCreatingDependency(true);
     try {
       await axios.post(`${API}/execution-hub/goals/${goalId}/dependencies`, newDependency, { withCredentials: true });
-      toast.success(isEs ? "Dependencia agregada" : "Dependency added");
+      toast.success(t("dependencyAdded"));
       setShowDependencyDialog(false);
       setNewDependency({ title: "", description: "" });
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al agregar dependencia" : "Error adding dependency");
+      toast.error(t("errorAddingDependency"));
     } finally {
       setCreatingDependency(false);
     }
@@ -232,10 +232,10 @@ export default function ExecutionGoalDetail() {
   const handleUpdateDependencyStatus = async (depId, newStatus) => {
     try {
       await axios.put(`${API}/execution-hub/dependencies/${depId}`, { status: newStatus }, { withCredentials: true });
-      toast.success(isEs ? "Dependencia actualizada" : "Dependency updated");
+      toast.success(t("dependencyUpdated"));
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al actualizar" : "Error updating");
+      toast.error(t("errorUpdating"));
     }
   };
 
@@ -244,11 +244,11 @@ export default function ExecutionGoalDetail() {
     setAddingNote(true);
     try {
       await axios.post(`${API}/execution-hub/goals/${goalId}/notes`, { content: noteContent }, { withCredentials: true });
-      toast.success(isEs ? "Nota agregada" : "Note added");
+      toast.success(t("noteAdded"));
       setNoteContent("");
       fetchGoal();
     } catch (error) {
-      toast.error(isEs ? "Error al agregar nota" : "Error adding note");
+      toast.error(t("errorAddingNote"));
     } finally {
       setAddingNote(false);
     }
