@@ -251,7 +251,7 @@ export default function ExecutionHubPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isEs ? "Bloqueadas" : "Blocked"}
+                    {t("blockedGoals")}
                   </p>
                   <p className="text-2xl font-bold text-foreground">{goalsByStatus.blocked.length}</p>
                 </div>
@@ -267,7 +267,7 @@ export default function ExecutionHubPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isEs ? "Completadas" : "Completed"}
+                    {t("completedGoals")}
                   </p>
                   <p className="text-2xl font-bold text-foreground">{goalsByStatus.completed.length}</p>
                 </div>
@@ -283,7 +283,7 @@ export default function ExecutionHubPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isEs ? "Este Mes" : "This Month"}
+                    {t("thisMonth")}
                   </p>
                   <p className="text-2xl font-bold text-foreground">{goals.length}</p>
                 </div>
@@ -300,7 +300,7 @@ export default function ExecutionHubPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder={isEs ? "Buscar metas..." : "Search goals..."}
+              placeholder={t("searchGoals")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-card border-border"
@@ -313,12 +313,12 @@ export default function ExecutionHubPage() {
               <SelectValue placeholder={isEs ? "Filtrar por estado" : "Filter by status"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
-              <SelectItem value="planning">{isEs ? "Planificación" : "Planning"}</SelectItem>
-              <SelectItem value="in_progress">{isEs ? "En Progreso" : "In Progress"}</SelectItem>
-              <SelectItem value="blocked">{isEs ? "Bloqueado" : "Blocked"}</SelectItem>
-              <SelectItem value="live">{isEs ? "Activo" : "Live"}</SelectItem>
-              <SelectItem value="archived">{isEs ? "Archivado" : "Archived"}</SelectItem>
+              <SelectItem value="all">{t("all")}</SelectItem>
+              <SelectItem value="planning">{t("planning")}</SelectItem>
+              <SelectItem value="in_progress">{t("inProgress")}</SelectItem>
+              <SelectItem value="blocked">{t("blocked")}</SelectItem>
+              <SelectItem value="live">{t("live")}</SelectItem>
+              <SelectItem value="archived">{t("archived")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -329,7 +329,7 @@ export default function ExecutionHubPage() {
             <CardContent className="p-12 text-center">
               <Target className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
-                {isEs ? "No hay metas" : "No goals yet"}
+                {t("noGoalsYet")}
               </h3>
               <p className="text-muted-foreground mb-4">
                 {isEs 
@@ -341,7 +341,7 @@ export default function ExecutionHubPage() {
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                {isEs ? "Crear Meta" : "Create Goal"}
+                {t("createGoal")}
               </Button>
             </CardContent>
           </Card>
@@ -426,7 +426,7 @@ export default function ExecutionHubPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Target className="w-5 h-5 text-[#AED768]" />
-                {isEs ? "Nueva Meta de Ejecución" : "New Execution Goal"}
+                {t("newExecutionGoal")}
               </DialogTitle>
               <DialogDescription>
                 {isEs 
@@ -438,7 +438,7 @@ export default function ExecutionHubPage() {
             <div className="space-y-4 py-4">
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  {isEs ? "Título" : "Title"} *
+                  {t("goalTitle")} *
                 </label>
                 <Input
                   value={newGoal.title}
@@ -450,7 +450,7 @@ export default function ExecutionHubPage() {
               
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  {isEs ? "Objetivo" : "Objective"} *
+                  {t("goalObjective")} *
                 </label>
                 <Textarea
                   value={newGoal.objective}
@@ -465,7 +465,7 @@ export default function ExecutionHubPage() {
               
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  {isEs ? "Contexto" : "Context"}
+                  {t("context")}
                 </label>
                 <Select 
                   value={newGoal.context_type} 
@@ -476,16 +476,16 @@ export default function ExecutionHubPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="organizational">
-                      {isEs ? "Organizacional" : "Organizational"}
+                      {t("organizational")}
                     </SelectItem>
                     <SelectItem value="event">
-                      {isEs ? "Evento" : "Event"}
+                      {t("event")}
                     </SelectItem>
                     <SelectItem value="department">
-                      {isEs ? "Departamento" : "Department"}
+                      {t("department")}
                     </SelectItem>
                     <SelectItem value="personal">
-                      {isEs ? "Personal" : "Personal"}
+                      {t("personal")}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -493,7 +493,7 @@ export default function ExecutionHubPage() {
               
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  {isEs ? "Áreas de Impacto" : "Impact Areas"}
+                  {t("impactAreas")}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(impactConfig).map(([key, config]) => (
@@ -516,7 +516,7 @@ export default function ExecutionHubPage() {
               
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  {isEs ? "Fecha Objetivo" : "Target Date"}
+                  {t("targetDate")}
                 </label>
                 <Input
                   type="date"
@@ -529,7 +529,7 @@ export default function ExecutionHubPage() {
             
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                {isEs ? "Cancelar" : "Cancel"}
+                {t("cancel")}
               </Button>
               <Button 
                 onClick={handleCreateGoal}
@@ -542,7 +542,7 @@ export default function ExecutionHubPage() {
                 ) : (
                   <Plus className="w-4 h-4 mr-2" />
                 )}
-                {isEs ? "Crear Meta" : "Create Goal"}
+                {t("createGoal")}
               </Button>
             </DialogFooter>
           </DialogContent>
