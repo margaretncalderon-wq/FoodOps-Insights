@@ -10067,11 +10067,34 @@ async def check_usage_limit(company_id: str, metric: str) -> dict:
     return {"allowed": True, "warning": False, "percentage": percentage, "current": current_usage, "limit": limit}
 
 async def ensure_default_plans():
-    """Ensure default plans exist in database"""
+    """Ensure default plans exist in database and update existing ones with new fields"""
     for plan_data in DEFAULT_PLANS:
         existing = await db.plans.find_one({"plan_id": plan_data["plan_id"]})
         if not existing:
             await db.plans.insert_one(plan_data)
+        else:
+            # Update existing plans with new limits/features if missing
+            update_needed = False
+            new_limits = existing.get("limits", {})
+            new_features = existing.get("features", {})
+            
+            # Check for new limit fields
+            for key in ["execution_goals_per_month"]:
+                if key not in new_limits:
+                    new_limits[key] = plan_data.get("limits", {}).get(key, 3)
+                    update_needed = True
+            
+            # Check for new feature fields
+            for key in ["execution_hub"]:
+                if key not in new_features:
+                    new_features[key] = plan_data.get("features", {}).get(key, True)
+                    update_needed = True
+            
+            if update_needed:
+                await db.plans.update_one(
+                    {"plan_id": plan_data["plan_id"]},
+                    {"$set": {"limits": new_limits, "features": new_features}}
+                )
 
 # Initialize plans on startup
 @app.on_event("startup")
