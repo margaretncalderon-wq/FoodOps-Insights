@@ -157,7 +157,12 @@ export default function ExecutionGoalDetail() {
     if (!newTask.title) return;
     setCreatingTask(true);
     try {
-      await axios.post(`${API}/execution-hub/goals/${goalId}/tasks`, newTask, { withCredentials: true });
+      const payload = {
+        title: newTask.title,
+        description: newTask.description || null,
+        due_date: newTask.due_date || null,
+      };
+      await axios.post(`${API}/execution-hub/goals/${goalId}/tasks`, payload, { withCredentials: true });
       toast.success(isEs ? "Tarea creada" : "Task created");
       setShowTaskDialog(false);
       setNewTask({ title: "", description: "", due_date: "" });
