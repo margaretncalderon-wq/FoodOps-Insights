@@ -27,3 +27,65 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # CORS Origins
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else []
+
+
+# Create indexes for better query performance
+async def create_indexes():
+    """Create database indexes for optimal query performance"""
+    try:
+        # Users indexes
+        await db.users.create_index("email", unique=True)
+        await db.users.create_index("user_id")
+        await db.users.create_index("company_id")
+        
+        # Events indexes
+        await db.events.create_index("company_id")
+        await db.events.create_index("event_id", unique=True)
+        await db.events.create_index([("company_id", 1), ("stage", 1)])
+        await db.events.create_index([("company_id", 1), ("event_date", -1)])
+        
+        # Clients indexes
+        await db.clients.create_index("company_id")
+        await db.clients.create_index("client_id", unique=True)
+        await db.clients.create_index([("company_id", 1), ("client_type", 1)])
+        
+        # Invoices indexes
+        await db.invoices.create_index("company_id")
+        await db.invoices.create_index("invoice_id", unique=True)
+        await db.invoices.create_index([("company_id", 1), ("status", 1)])
+        await db.invoices.create_index([("company_id", 1), ("event_id", 1)])
+        
+        # Ingredients/Inventory indexes
+        await db.ingredients.create_index("company_id")
+        await db.ingredients.create_index("ingredient_id", unique=True)
+        await db.ingredients.create_index([("company_id", 1), ("inventory_type", 1)])
+        
+        # Recipes indexes
+        await db.recipes.create_index("company_id")
+        await db.recipes.create_index("recipe_id", unique=True)
+        
+        # Organizations indexes
+        await db.organizations.create_index("company_id", unique=True)
+        
+        # Memberships indexes
+        await db.memberships.create_index("user_id")
+        await db.memberships.create_index("company_id")
+        await db.memberships.create_index([("user_id", 1), ("company_id", 1)])
+        
+        # Notifications indexes
+        await db.notifications.create_index("company_id")
+        await db.notifications.create_index([("company_id", 1), ("read", 1)])
+        await db.notifications.create_index([("company_id", 1), ("created_at", -1)])
+        
+        # Suppliers indexes
+        await db.suppliers.create_index("company_id")
+        await db.suppliers.create_index("supplier_id", unique=True)
+        
+        # Delivery notes indexes
+        await db.delivery_notes.create_index("company_id")
+        await db.delivery_notes.create_index("note_id", unique=True)
+        await db.delivery_notes.create_index([("company_id", 1), ("status", 1)])
+        
+        print("✓ Database indexes created successfully")
+    except Exception as e:
+        print(f"Warning: Could not create indexes: {e}")
