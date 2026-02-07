@@ -310,7 +310,7 @@ export default function ExecutionHubPage() {
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-48 bg-card border-border" data-testid="status-filter">
               <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder={isEs ? "Filtrar por estado" : "Filter by status"} />
+              <SelectValue placeholder={t("filterByStatus")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("all")}</SelectItem>
