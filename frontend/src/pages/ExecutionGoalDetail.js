@@ -123,7 +123,7 @@ export default function ExecutionGoalDetail() {
     } finally {
       setLoading(false);
     }
-  }, [goalId, isEs, navigate]);
+  }, [goalId, t, navigate]);
 
   useEffect(() => {
     fetchGoal();
@@ -140,7 +140,7 @@ export default function ExecutionGoalDetail() {
   };
 
   const handleDeleteGoal = async () => {
-    if (!window.confirm(isEs ? "¿Estás seguro de eliminar esta meta?" : "Are you sure you want to delete this goal?")) {
+    if (!window.confirm(t("confirmDeleteGoal"))) {
       return;
     }
     try {
