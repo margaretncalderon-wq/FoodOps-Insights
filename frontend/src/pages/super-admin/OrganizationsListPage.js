@@ -263,11 +263,11 @@ export default function OrganizationsListPage() {
             size="sm"
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="border-slate-600"
+            className="border-slate-600 text-white"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-slate-200">
             Page {page} of {totalPages}
           </span>
           <Button 
@@ -275,7 +275,7 @@ export default function OrganizationsListPage() {
             size="sm"
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="border-slate-600"
+            className="border-slate-600 text-white"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
