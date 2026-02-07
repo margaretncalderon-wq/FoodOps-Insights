@@ -68,6 +68,7 @@ from routers.demand_studio import demand_studio_router, get_user_role, can_user_
 from routers.business_clarity import business_clarity_router
 from routers.crm import crm_router, leads_router, contacts_router, lead_forms_router
 from routers.execution_hub import execution_hub_router
+from routers.addons import addons_router, ensure_default_addons
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
@@ -13212,6 +13213,9 @@ api_router.include_router(demand_studio_router)
 
 # Include execution_hub_router
 api_router.include_router(execution_hub_router)
+
+# Include addons_router
+api_router.include_router(addons_router)
 
 # Include super_admin_router
 api_router.include_router(super_admin_router)
