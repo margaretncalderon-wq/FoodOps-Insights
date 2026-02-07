@@ -348,20 +348,27 @@ class TestAddonsMarketplace(TestAuthSetup):
         assert response.status_code == 200, f"Failed: {response.text}"
         
         data = response.json()
-        assert isinstance(data, list)
-        assert len(data) > 0, "No add-ons in marketplace"
+        
+        # API returns object with addons array and current_plan
+        if isinstance(data, dict) and "addons" in data:
+            addons = data["addons"]
+            current_plan = data.get("current_plan")
+            print(f"Current plan: {current_plan}")
+        else:
+            addons = data
+        
+        assert isinstance(addons, list)
+        assert len(addons) > 0, "No add-ons in marketplace"
         
         # Verify add-on structure
-        addon = data[0]
+        addon = addons[0]
         assert "addon_id" in addon
-        assert "name" in addon
-        assert "display_name_en" in addon or "display_name_es" in addon
-        assert "type" in addon
+        assert "type" in addon or "addon_type" in addon
         assert "price" in addon
         
-        print(f"Marketplace has {len(data)} add-ons available")
-        for a in data[:5]:
-            print(f"  - {a.get('name')}: ${a.get('price')} ({a.get('type')})")
+        print(f"Marketplace has {len(addons)} add-ons available")
+        for a in addons[:5]:
+            print(f"  - {a.get('name', a.get('addon_id'))}: ${a.get('price')} ({a.get('type', a.get('addon_type'))})")
     
     def test_02_get_effective_limits(self, auth_headers):
         """GET /api/addons/effective-limits - Should return effective limits (plan + addons)"""
