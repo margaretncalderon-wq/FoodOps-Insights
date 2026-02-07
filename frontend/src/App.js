@@ -86,6 +86,10 @@ const SpendLedgerPage = lazy(() => import("./pages/demand-studio/SpendLedgerPage
 const InsightsPage = lazy(() => import("./pages/demand-studio/InsightsPage"));
 const DemandStudioSettings = lazy(() => import("./pages/demand-studio/DemandStudioSettings"));
 
+// Execution Hub pages
+const ExecutionHubPage = lazy(() => import("./pages/ExecutionHubPage"));
+const ExecutionGoalDetail = lazy(() => import("./pages/ExecutionGoalDetail"));
+
 // Super Admin pages
 const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
 const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
