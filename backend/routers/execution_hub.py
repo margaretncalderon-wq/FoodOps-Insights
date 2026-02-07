@@ -187,6 +187,15 @@ async def create_execution_goal(
     user: User = Depends(get_current_user)
 ):
     """Create a new execution goal"""
+    # Check goal limit
+    can_create = await check_goal_limit(user.company_id)
+    if not can_create:
+        limit = await get_effective_goal_limit(user.company_id)
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Has alcanzado el límite de {limit} metas de ejecución este mes. Actualiza tu plan o compra un add-on para crear más."
+        )
+    
     now = datetime.now(timezone.utc)
     goal_id = f"goal_{uuid.uuid4().hex[:12]}"
     
