@@ -287,11 +287,11 @@ export default function ExecutionGoalDetail() {
               <div className="flex items-center gap-2 mb-2">
                 <Badge className={`${status.color} border`}>
                   <StatusIcon className="w-3 h-3 mr-1" />
-                  {isEs ? status.label : status.labelEn}
+                  {t(status.labelKey)}
                 </Badge>
                 {goal.impact_areas?.map(area => (
                   <Badge key={area} variant="outline" className={`${impactConfig[area]?.color} text-xs border-0`}>
-                    {isEs ? impactConfig[area]?.label : impactConfig[area]?.labelEn}
+                    {t(impactConfig[area]?.labelKey)}
                   </Badge>
                 ))}
               </div>
@@ -328,7 +328,7 @@ export default function ExecutionGoalDetail() {
                     disabled={goal.status === key}
                   >
                     <config.icon className="w-4 h-4 mr-2" />
-                    {isEs ? config.label : config.labelEn}
+                    {t(config.labelKey)}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -406,7 +406,7 @@ export default function ExecutionGoalDetail() {
                               <div className="flex items-center gap-2 mb-1">
                                 <h4 className="font-medium text-foreground">{task.title}</h4>
                                 <Badge className={`${taskStatus.color} text-xs`}>
-                                  {isEs ? taskStatus.label : taskStatus.labelEn}
+                                  {t(taskStatus.labelKey)}
                                 </Badge>
                               </div>
                               {task.description && (
@@ -426,7 +426,7 @@ export default function ExecutionGoalDetail() {
                                   </span>
                                 )}
                                 <span>
-                                  {task.notes?.length || 0} {isEs ? "notas" : "notes"}
+                                  {task.notes?.length || 0} {t("notes")}
                                 </span>
                               </div>
                             </div>
@@ -479,7 +479,7 @@ export default function ExecutionGoalDetail() {
                                 <Input
                                   value={taskNoteContent[task.task_id] || ""}
                                   onChange={(e) => setTaskNoteContent({ ...taskNoteContent, [task.task_id]: e.target.value })}
-                                  placeholder={isEs ? "Agregar nota..." : "Add note..."}
+                                  placeholder={t("addNote")}
                                   className="flex-1"
                                 />
                                 <Button 
@@ -506,7 +506,7 @@ export default function ExecutionGoalDetail() {
             <Card className="bg-card border-border">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg">
-                  {isEs ? "Registro de Decisiones" : "Decision Log"}
+                  {t("decisionLog")}
                 </CardTitle>
                 <Button 
                   size="sm" 
@@ -530,7 +530,7 @@ export default function ExecutionGoalDetail() {
                         <p className="font-medium text-foreground">{dec.decision}</p>
                         {dec.rationale && (
                           <p className="text-sm text-muted-foreground mt-1">
-                            <span className="font-medium">{isEs ? "Razón:" : "Rationale:"}</span> {dec.rationale}
+                            <span className="font-medium">{t("rationale")}:</span> {dec.rationale}
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
@@ -610,7 +610,7 @@ export default function ExecutionGoalDetail() {
                   <Textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder={isEs ? "Agregar una nota..." : "Add a note..."}
+                    placeholder={t("addNote")}
                     rows={2}
                     className="flex-1"
                   />
