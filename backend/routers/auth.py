@@ -222,6 +222,12 @@ async def google_login(request: Request):
     frontend_url = FRONTEND_URL
     origin = request.headers.get("origin") or request.headers.get("referer") or ""
     
+    # Clean the origin - remove any path components
+    if origin:
+        from urllib.parse import urlparse
+        parsed = urlparse(origin)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+    
     if "localhost" in origin:
         frontend_url = "http://localhost:3000"
     elif origin and ("ourkora.com" in origin or "emergentagent.com" in origin or "emergent.host" in origin):
