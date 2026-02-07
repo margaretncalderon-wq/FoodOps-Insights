@@ -656,7 +656,7 @@ export default function ExecutionGoalDetail() {
                 <Input
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder={isEs ? "Título de la tarea" : "Task title"}
+                  placeholder={t("taskTitle")}
                   data-testid="task-title-input"
                 />
               </div>
@@ -665,7 +665,7 @@ export default function ExecutionGoalDetail() {
                 <Textarea
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder={isEs ? "Descripción opcional" : "Optional description"}
+                  placeholder={language === "es" ? "Descripción opcional" : "Optional description"}
                   rows={2}
                 />
               </div>
@@ -706,7 +706,7 @@ export default function ExecutionGoalDetail() {
                 <Textarea
                   value={newDecision.decision}
                   onChange={(e) => setNewDecision({ ...newDecision, decision: e.target.value })}
-                  placeholder={isEs ? "¿Qué se decidió?" : "What was decided?"}
+                  placeholder={language === "es" ? "¿Qué se decidió?" : "What was decided?"}
                   rows={2}
                   data-testid="decision-content-input"
                 />
@@ -716,7 +716,7 @@ export default function ExecutionGoalDetail() {
                 <Textarea
                   value={newDecision.rationale}
                   onChange={(e) => setNewDecision({ ...newDecision, rationale: e.target.value })}
-                  placeholder={isEs ? "¿Por qué se tomó esta decisión?" : "Why was this decision made?"}
+                  placeholder={language === "es" ? "¿Por qué se tomó esta decisión?" : "Why was this decision made?"}
                   rows={2}
                 />
               </div>
@@ -749,7 +749,7 @@ export default function ExecutionGoalDetail() {
                 <Input
                   value={newDependency.title}
                   onChange={(e) => setNewDependency({ ...newDependency, title: e.target.value })}
-                  placeholder={isEs ? "¿Qué se necesita?" : "What is needed?"}
+                  placeholder={language === "es" ? "¿Qué se necesita?" : "What is needed?"}
                   data-testid="dependency-title-input"
                 />
               </div>
@@ -758,7 +758,7 @@ export default function ExecutionGoalDetail() {
                 <Textarea
                   value={newDependency.description}
                   onChange={(e) => setNewDependency({ ...newDependency, description: e.target.value })}
-                  placeholder={isEs ? "Detalles adicionales" : "Additional details"}
+                  placeholder={language === "es" ? "Detalles adicionales" : "Additional details"}
                   rows={2}
                 />
               </div>
