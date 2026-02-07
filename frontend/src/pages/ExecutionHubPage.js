@@ -200,12 +200,10 @@ export default function ExecutionHubPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Target className="w-7 h-7 text-[#AED768]" />
-              {isEs ? "Centro de Ejecución" : "Execution Hub"}
+              {t("executionHub")}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isEs 
-                ? "Gestiona tus metas operativas y rastrea el progreso" 
-                : "Manage your operational goals and track progress"}
+              {t("manageGoalsTrackProgress")}
             </p>
           </div>
           
@@ -215,7 +213,7 @@ export default function ExecutionHubPage() {
                 <span className="font-medium text-foreground">{usage.goals_created_this_month}</span>
                 <span className="mx-1">/</span>
                 <span>{usage.is_unlimited ? "∞" : usage.goals_limit}</span>
-                <span className="ml-1">{isEs ? "metas este mes" : "goals this month"}</span>
+                <span className="ml-1">{t("goalsThisMonth")}</span>
               </div>
             )}
             <Button 
@@ -225,7 +223,7 @@ export default function ExecutionHubPage() {
               data-testid="create-goal-btn"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {isEs ? "Nueva Meta" : "New Goal"}
+              {t("newGoal")}
             </Button>
           </div>
         </div>
@@ -237,7 +235,7 @@ export default function ExecutionHubPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isEs ? "Activas" : "Active"}
+                    {t("active")}
                   </p>
                   <p className="text-2xl font-bold text-foreground">{goalsByStatus.active.length}</p>
                 </div>
