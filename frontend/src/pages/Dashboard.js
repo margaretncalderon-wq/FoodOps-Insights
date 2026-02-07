@@ -276,7 +276,7 @@ export default function SystemPulse() {
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-yellow-500" />
                   <CardTitle className="text-lg">
-                    {isEs ? "Señales de Ejecución" : "Execution Signals"}
+                    {t("executionSignals")}
                   </CardTitle>
                   <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
                     {(executionSignals.summary?.blocked || 0) + (executionSignals.summary?.at_risk || 0)}
@@ -286,7 +286,7 @@ export default function SystemPulse() {
                   to="/execution-hub" 
                   className="text-sm text-muted-foreground hover:text-yellow-500 flex items-center gap-1"
                 >
-                  {isEs ? "Ver todas las metas" : "View all goals"}
+                  {t("viewAllGoals")}
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -341,7 +341,7 @@ export default function SystemPulse() {
                   <div className="flex items-center gap-1.5 text-xs">
                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
                     <span className="text-muted-foreground">
-                      {executionSignals.summary.blocked} {isEs ? "bloqueadas" : "blocked"}
+                      {executionSignals.summary.blocked} {t("blocked")}
                     </span>
                   </div>
                 )}
@@ -349,7 +349,7 @@ export default function SystemPulse() {
                   <div className="flex items-center gap-1.5 text-xs">
                     <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
                     <span className="text-muted-foreground">
-                      {executionSignals.summary.at_risk} {isEs ? "en riesgo" : "at risk"}
+                      {executionSignals.summary.at_risk} {t("atRisk")}
                     </span>
                   </div>
                 )}
@@ -357,7 +357,7 @@ export default function SystemPulse() {
                   <div className="flex items-center gap-1.5 text-xs">
                     <div className="w-2 h-2 rounded-full bg-green-500"></div>
                     <span className="text-muted-foreground">
-                      {executionSignals.summary.completed_this_week} {isEs ? "completadas esta semana" : "completed this week"}
+                      {executionSignals.summary.completed_this_week} {t("completedThisWeek")}
                     </span>
                   </div>
                 )}
@@ -386,7 +386,7 @@ export default function SystemPulse() {
                   to="/event-orchestration" 
                   className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
                 >
-                  {isEs ? "Ver todos" : "View all"}
+                  {t("viewAll")}
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -527,7 +527,7 @@ export default function SystemPulse() {
                   <div className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-[#AED768]" />
                     <CardTitle className="text-lg">
-                      {isEs ? "Mis Pendientes" : "My Pending"}
+                      {t("myPending")}
                     </CardTitle>
                     {(executionPending.active_goals + executionPending.pending_tasks) > 0 && (
                       <Badge className="bg-[#AED768]/20 text-[#AED768] text-xs">
@@ -539,7 +539,7 @@ export default function SystemPulse() {
                     to="/execution-hub" 
                     className="text-sm text-muted-foreground hover:text-[#AED768] flex items-center gap-1"
                   >
-                    {isEs ? "Ver todo" : "View all"}
+                    {t("viewAll")}
                     <ArrowRight className="w-3 h-3" />
                   </Link>
                 </div>
@@ -553,22 +553,22 @@ export default function SystemPulse() {
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="text-center p-2 bg-blue-500/10 rounded-lg">
                     <p className="text-xl font-bold text-blue-400">{executionPending.active_goals}</p>
-                    <p className="text-xs text-muted-foreground">{isEs ? "Metas Activas" : "Active Goals"}</p>
+                    <p className="text-xs text-muted-foreground">{t("activeGoals")}</p>
                   </div>
                   <div className="text-center p-2 bg-yellow-500/10 rounded-lg">
                     <p className="text-xl font-bold text-yellow-400">{executionPending.pending_tasks}</p>
-                    <p className="text-xs text-muted-foreground">{isEs ? "Tareas" : "Tasks"}</p>
+                    <p className="text-xs text-muted-foreground">{t("tasks")}</p>
                   </div>
                   <div className="text-center p-2 bg-red-500/10 rounded-lg">
                     <p className="text-xl font-bold text-red-400">{executionPending.blocked_goals}</p>
-                    <p className="text-xs text-muted-foreground">{isEs ? "Bloqueadas" : "Blocked"}</p>
+                    <p className="text-xs text-muted-foreground">{t("blockedGoals")}</p>
                   </div>
                 </div>
                 
                 {executionPending.goals?.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground mb-1">
-                      {isEs ? "Mis Metas" : "My Goals"}
+                      {t("myGoals")}
                     </p>
                     {executionPending.goals.slice(0, 3).map((goal) => (
                       <Link
@@ -606,7 +606,7 @@ export default function SystemPulse() {
                 {executionPending.tasks?.length > 0 && (
                   <div className="space-y-2 mt-3 pt-3 border-t border-border">
                     <p className="text-xs font-medium text-muted-foreground mb-1">
-                      {isEs ? "Tareas Asignadas" : "Assigned Tasks"}
+                      {t("assignedTasks")}
                     </p>
                     {executionPending.tasks.slice(0, 3).map((task) => (
                       <Link
