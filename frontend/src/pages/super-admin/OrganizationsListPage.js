@@ -167,13 +167,13 @@ export default function OrganizationsListPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                  <TableHead className="text-slate-400">Organization</TableHead>
-                  <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400">Plan</TableHead>
-                  <TableHead className="text-slate-400">Usage</TableHead>
-                  <TableHead className="text-slate-400">Members</TableHead>
-                  <TableHead className="text-slate-400">Created</TableHead>
-                  <TableHead className="text-slate-400">Actions</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Organization</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Status</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Plan</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Usage</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Members</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Created</TableHead>
+                  <TableHead className="text-slate-200 font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
