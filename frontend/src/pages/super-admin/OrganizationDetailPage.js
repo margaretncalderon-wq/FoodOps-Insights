@@ -249,35 +249,35 @@ export default function OrganizationDetailPage() {
             {/* Org Profile */}
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-lg">Organization Profile</CardTitle>
+                <CardTitle className="text-lg text-white">Organization Profile</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Globe className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm text-slate-400">Currency</p>
-                    <p>{org?.organization?.currency || "USD"}</p>
+                    <p className="text-white">{org?.organization?.currency || "USD"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Clock className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm text-slate-400">Timezone</p>
-                    <p>{org?.organization?.timezone || "America/Santo_Domingo"}</p>
+                    <p className="text-white">{org?.organization?.timezone || "America/Santo_Domingo"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Calendar className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm text-slate-400">Created</p>
-                    <p>{new Date(org?.organization?.created_at).toLocaleDateString()}</p>
+                    <p className="text-white">{new Date(org?.organization?.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Activity className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm text-slate-400">Total Events</p>
-                    <p className="font-bold">{org?.events_count || 0}</p>
+                    <p className="font-bold text-white">{org?.events_count || 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -287,8 +287,8 @@ export default function OrganizationDetailPage() {
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Usage (Current Period)</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setResetUsageDialogOpen(true)}>
+                  <CardTitle className="text-lg text-white">Usage (Current Period)</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setResetUsageDialogOpen(true)} className="text-white hover:bg-slate-700">
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
@@ -307,12 +307,12 @@ export default function OrganizationDetailPage() {
                   return (
                     <div key={key}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-400">{label}</span>
-                        <span>{current}/{max}</span>
+                        <span className="text-slate-300">{label}</span>
+                        <span className="text-white font-medium">{current}/{max}</span>
                       </div>
                       <Progress 
                         value={percentage} 
-                        className={`h-2 ${percentage >= 80 ? "[&>div]:bg-amber-500" : ""} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
+                        className={`h-2 bg-slate-600 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
                       />
                     </div>
                   );
@@ -323,15 +323,15 @@ export default function OrganizationDetailPage() {
             {/* Internal Notes */}
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-lg">Internal Notes</CardTitle>
-                <CardDescription>Support team notes (not visible to org)</CardDescription>
+                <CardTitle className="text-lg text-white">Internal Notes</CardTitle>
+                <CardDescription className="text-slate-400">Support team notes (not visible to org)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea 
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add internal notes..."
-                  className="bg-slate-700 border-slate-600 min-h-32"
+                  className="bg-slate-700 border-slate-600 min-h-32 text-white placeholder:text-slate-400"
                 />
                 <Button onClick={saveNotes} disabled={saving} className="w-full">
                   {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
