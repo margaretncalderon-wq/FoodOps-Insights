@@ -90,8 +90,7 @@ const contextConfig = {
 
 export default function ExecutionHubPage() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
-  const isEs = language === "es";
+  const { language, t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState([]);
@@ -119,11 +118,11 @@ export default function ExecutionHubPage() {
       setUsage(usageRes.data);
     } catch (error) {
       console.error("Error fetching goals:", error);
-      toast.error(isEs ? "Error al cargar las metas" : "Error loading goals");
+      toast.error(t("errorLoadingGoals"));
     } finally {
       setLoading(false);
     }
-  }, [isEs]);
+  }, [t]);
 
   useEffect(() => {
     fetchData();
