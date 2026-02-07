@@ -568,6 +568,9 @@ export default function SystemPulse() {
                 
                 {executionPending.goals?.length > 0 && (
                   <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      {isEs ? "Mis Metas" : "My Goals"}
+                    </p>
                     {executionPending.goals.slice(0, 3).map((goal) => (
                       <Link
                         key={goal.goal_id}
@@ -595,6 +598,35 @@ export default function SystemPulse() {
                             <span className="text-sm font-medium truncate max-w-[150px]">{goal.title}</span>
                           </div>
                           <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                
+                {executionPending.tasks?.length > 0 && (
+                  <div className="space-y-2 mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      {isEs ? "Tareas Asignadas" : "Assigned Tasks"}
+                    </p>
+                    {executionPending.tasks.slice(0, 3).map((task) => (
+                      <Link
+                        key={task.task_id}
+                        to={`/execution-hub/${task.goal_id}`}
+                        className="block p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              task.status === "in_progress" ? "bg-yellow-500" : "bg-gray-500"
+                            }`}></div>
+                            <span className="text-sm truncate max-w-[180px]">{task.title}</span>
+                          </div>
+                          {task.due_date && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(task.due_date).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                       </Link>
                     ))}
