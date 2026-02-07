@@ -14,8 +14,7 @@ import {
 
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
-  const { language } = useLanguage();
-  const isEs = language === "es";
+  const { language, t } = useLanguage();
   
   const [loading, setLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState("all");
