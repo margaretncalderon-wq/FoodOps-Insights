@@ -30,13 +30,15 @@ export default function SystemPulse() {
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
     try {
-      const [eventsRes, statsRes] = await Promise.all([
+      const [eventsRes, statsRes, pendingRes] = await Promise.all([
         axios.get(`${API}/orchestration/events`, { withCredentials: true }),
-        axios.get(`${API}/dashboard/stats`, { withCredentials: true })
+        axios.get(`${API}/dashboard/stats`, { withCredentials: true }),
+        axios.get(`${API}/execution-hub/my-pending`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
 
       const events = eventsRes.data || [];
       const stats = statsRes.data || {};
+      setExecutionPending(pendingRes.data);
       
       // Process Active Events (from Event Orchestration)
       const now = new Date();
