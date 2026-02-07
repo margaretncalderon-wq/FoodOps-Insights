@@ -9,7 +9,7 @@ import { Badge } from "../components/ui/badge";
 import { 
   Activity, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight,
   FileCheck, Users, Zap, Bell, RefreshCw, ChefHat, MapPin, Building2,
-  GitBranch, Lock, Unlock
+  GitBranch, Lock, Unlock, Target
 } from "lucide-react";
 
 // ==================== SYSTEM PULSE ====================
