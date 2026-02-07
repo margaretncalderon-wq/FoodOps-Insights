@@ -269,6 +269,104 @@ export default function SystemPulse() {
           </div>
         </div>
 
+        {/* ==================== EXECUTION SIGNALS (Critical Alerts) ==================== */}
+        {executionSignals && (executionSignals.summary?.blocked > 0 || executionSignals.summary?.at_risk > 0) && (
+          <Card className="border-yellow-500/30 bg-yellow-500/5" data-testid="execution-signals-section">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-500" />
+                  <CardTitle className="text-lg">
+                    {isEs ? "Señales de Ejecución" : "Execution Signals"}
+                  </CardTitle>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+                    {(executionSignals.summary?.blocked || 0) + (executionSignals.summary?.at_risk || 0)}
+                  </Badge>
+                </div>
+                <Link 
+                  to="/execution-hub" 
+                  className="text-sm text-muted-foreground hover:text-yellow-500 flex items-center gap-1"
+                >
+                  {isEs ? "Ver todas las metas" : "View all goals"}
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {executionSignals.signals?.filter(s => s.severity !== 'success').slice(0, 5).map((signal, idx) => (
+                  <Link
+                    key={idx}
+                    to={`/execution-hub/${signal.goal_id}`}
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      signal.severity === 'critical' 
+                        ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30' 
+                        : 'bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {signal.severity === 'critical' ? (
+                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                          <AlertCircle className="w-4 h-4 text-red-400" />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                          <Clock className="w-4 h-4 text-yellow-400" />
+                        </div>
+                      )}
+                      <div>
+                        <p className={`font-medium text-sm ${
+                          signal.severity === 'critical' ? 'text-red-400' : 'text-yellow-400'
+                        }`}>
+                          {signal.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{signal.message}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {signal.target_date && (
+                        <Badge variant="outline" className="text-xs border-yellow-500/50">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date(signal.target_date).toLocaleDateString()}
+                        </Badge>
+                      )}
+                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              
+              {/* Quick Summary */}
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border">
+                {executionSignals.summary?.blocked > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-muted-foreground">
+                      {executionSignals.summary.blocked} {isEs ? "bloqueadas" : "blocked"}
+                    </span>
+                  </div>
+                )}
+                {executionSignals.summary?.at_risk > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <span className="text-muted-foreground">
+                      {executionSignals.summary.at_risk} {isEs ? "en riesgo" : "at risk"}
+                    </span>
+                  </div>
+                )}
+                {executionSignals.summary?.completed_this_week > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="text-muted-foreground">
+                      {executionSignals.summary.completed_this_week} {isEs ? "completadas esta semana" : "completed this week"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ==================== PERMANENT CORE ==================== */}
         <div className="grid lg:grid-cols-2 gap-6">
           
