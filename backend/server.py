@@ -10077,6 +10077,8 @@ async def ensure_default_plans():
 @app.on_event("startup")
 async def startup_init_plans():
     await ensure_default_plans()
+    # Initialize default addons
+    await ensure_default_addons()
     # Create database indexes for performance
     from config import create_indexes
     await create_indexes()
