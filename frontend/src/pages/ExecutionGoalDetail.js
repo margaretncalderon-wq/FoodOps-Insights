@@ -439,10 +439,10 @@ export default function ExecutionGoalDetail() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="pending">{isEs ? "Pendiente" : "Pending"}</SelectItem>
-                                  <SelectItem value="in_progress">{isEs ? "En Progreso" : "In Progress"}</SelectItem>
-                                  <SelectItem value="completed">{isEs ? "Completado" : "Completed"}</SelectItem>
-                                  <SelectItem value="blocked">{isEs ? "Bloqueado" : "Blocked"}</SelectItem>
+                                  <SelectItem value="pending">{t("pending")}</SelectItem>
+                                  <SelectItem value="in_progress">{t("inProgress")}</SelectItem>
+                                  <SelectItem value="completed">{t("completed")}</SelectItem>
+                                  <SelectItem value="blocked">{t("blocked")}</SelectItem>
                                 </SelectContent>
                               </Select>
                               <Button
@@ -472,7 +472,7 @@ export default function ExecutionGoalDetail() {
                                 </div>
                               ) : (
                                 <p className="text-sm text-muted-foreground mb-3">
-                                  {isEs ? "Sin notas aún" : "No notes yet"}
+                                  {t("noNotesYet")}
                                 </p>
                               )}
                               <div className="flex gap-2">
@@ -584,9 +584,9 @@ export default function ExecutionGoalDetail() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="pending">{isEs ? "Pendiente" : "Pending"}</SelectItem>
-                            <SelectItem value="resolved">{isEs ? "Resuelto" : "Resolved"}</SelectItem>
-                            <SelectItem value="blocked">{isEs ? "Bloqueado" : "Blocked"}</SelectItem>
+                            <SelectItem value="pending">{t("pending")}</SelectItem>
+                            <SelectItem value="resolved">{t("resolved")}</SelectItem>
+                            <SelectItem value="blocked">{t("blocked")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -652,7 +652,7 @@ export default function ExecutionGoalDetail() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Título" : "Title"} *</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("goalTitle")} *</label>
                 <Input
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
@@ -661,7 +661,7 @@ export default function ExecutionGoalDetail() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Descripción" : "Description"}</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("taskDescription")}</label>
                 <Textarea
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
@@ -670,7 +670,7 @@ export default function ExecutionGoalDetail() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Fecha Límite" : "Due Date"}</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("dueDate")}</label>
                 <Input
                   type="date"
                   value={newTask.due_date}
@@ -680,7 +680,7 @@ export default function ExecutionGoalDetail() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowTaskDialog(false)}>
-                {isEs ? "Cancelar" : "Cancel"}
+                {t("cancel")}
               </Button>
               <Button 
                 onClick={handleCreateTask}
@@ -688,7 +688,7 @@ export default function ExecutionGoalDetail() {
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
                 {creatingTask && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                {isEs ? "Crear Tarea" : "Create Task"}
+                {t("createTask")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -702,7 +702,7 @@ export default function ExecutionGoalDetail() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Decisión" : "Decision"} *</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("decisionContent")} *</label>
                 <Textarea
                   value={newDecision.decision}
                   onChange={(e) => setNewDecision({ ...newDecision, decision: e.target.value })}
@@ -712,7 +712,7 @@ export default function ExecutionGoalDetail() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Razón" : "Rationale"}</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("rationale")}</label>
                 <Textarea
                   value={newDecision.rationale}
                   onChange={(e) => setNewDecision({ ...newDecision, rationale: e.target.value })}
@@ -723,7 +723,7 @@ export default function ExecutionGoalDetail() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDecisionDialog(false)}>
-                {isEs ? "Cancelar" : "Cancel"}
+                {t("cancel")}
               </Button>
               <Button 
                 onClick={handleCreateDecision}
@@ -745,7 +745,7 @@ export default function ExecutionGoalDetail() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Título" : "Title"} *</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("goalTitle")} *</label>
                 <Input
                   value={newDependency.title}
                   onChange={(e) => setNewDependency({ ...newDependency, title: e.target.value })}
@@ -754,7 +754,7 @@ export default function ExecutionGoalDetail() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">{isEs ? "Descripción" : "Description"}</label>
+                <label className="text-sm font-medium mb-1.5 block">{t("taskDescription")}</label>
                 <Textarea
                   value={newDependency.description}
                   onChange={(e) => setNewDependency({ ...newDependency, description: e.target.value })}
@@ -765,7 +765,7 @@ export default function ExecutionGoalDetail() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDependencyDialog(false)}>
-                {isEs ? "Cancelar" : "Cancel"}
+                {t("cancel")}
               </Button>
               <Button 
                 onClick={handleCreateDependency}
