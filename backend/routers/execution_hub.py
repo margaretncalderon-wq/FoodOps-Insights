@@ -131,6 +131,30 @@ async def send_execution_notification(email: str, subject: str, body: str):
 
 # ============== EXECUTION GOALS ==============
 
+@execution_hub_router.get("/usage")
+async def get_execution_hub_usage(user: User = Depends(get_current_user)):
+    """Get usage stats for Execution Hub (goals created this month vs limit)"""
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Count goals created this month
+    current_count = await db.execution_goals.count_documents({
+        "company_id": user.company_id,
+        "created_at": {"$gte": month_start.isoformat()}
+    })
+    
+    # Get effective limit
+    limit = await get_effective_goal_limit(user.company_id)
+    
+    return {
+        "goals_created_this_month": current_count,
+        "goals_limit": limit,
+        "remaining": max(0, limit - current_count),
+        "is_unlimited": limit >= 999,
+        "can_create": current_count < limit
+    }
+
+
 @execution_hub_router.get("/goals")
 async def get_execution_goals(
     user: User = Depends(get_current_user),
