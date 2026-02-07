@@ -67,6 +67,7 @@ from routers.auth import auth_router, get_current_user, hash_password, verify_pa
 from routers.demand_studio import demand_studio_router, get_user_role, can_user_perform_action
 from routers.business_clarity import business_clarity_router
 from routers.crm import crm_router, leads_router, contacts_router, lead_forms_router
+from routers.execution_hub import execution_hub_router
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
@@ -13208,6 +13209,9 @@ async def delete_user(
 
 # Include demand_studio_router
 api_router.include_router(demand_studio_router)
+
+# Include execution_hub_router
+api_router.include_router(execution_hub_router)
 
 # Include super_admin_router
 api_router.include_router(super_admin_router)
