@@ -86,6 +86,37 @@ async def create_indexes():
         await db.delivery_notes.create_index("note_id", unique=True)
         await db.delivery_notes.create_index([("company_id", 1), ("status", 1)])
         
+        # Execution Hub indexes
+        await db.execution_goals.create_index("company_id")
+        await db.execution_goals.create_index("goal_id", unique=True)
+        await db.execution_goals.create_index("owner_id")
+        await db.execution_goals.create_index([("company_id", 1), ("status", 1)])
+        await db.execution_goals.create_index([("company_id", 1), ("created_at", -1)])
+        
+        await db.execution_tasks.create_index("goal_id")
+        await db.execution_tasks.create_index("task_id", unique=True)
+        await db.execution_tasks.create_index("assignees.user_id")
+        await db.execution_tasks.create_index([("goal_id", 1), ("status", 1)])
+        
+        await db.execution_decisions.create_index("goal_id")
+        await db.execution_decisions.create_index("decision_id", unique=True)
+        
+        await db.execution_dependencies.create_index("goal_id")
+        await db.execution_dependencies.create_index("dependency_id", unique=True)
+        
+        await db.execution_access.create_index("goal_id")
+        await db.execution_access.create_index("user_id")
+        await db.execution_access.create_index([("goal_id", 1), ("user_id", 1)])
+        
+        # Add-ons indexes
+        await db.addon_definitions.create_index("addon_id", unique=True)
+        await db.addon_definitions.create_index("is_active")
+        
+        await db.organization_addons.create_index("org_addon_id", unique=True)
+        await db.organization_addons.create_index("company_id")
+        await db.organization_addons.create_index([("company_id", 1), ("status", 1)])
+        await db.organization_addons.create_index([("company_id", 1), ("addon_type", 1)])
+        
         print("✓ Database indexes created successfully")
     except Exception as e:
         print(f"Warning: Could not create indexes: {e}")
