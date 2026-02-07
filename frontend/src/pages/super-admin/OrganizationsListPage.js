@@ -94,8 +94,8 @@ export default function OrganizationsListPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold">Organizations</h1>
-        <p className="text-slate-400">Manage all organizations on the platform</p>
+        <h1 className="text-2xl font-bold text-white">Organizations</h1>
+        <p className="text-slate-300">Manage all organizations on the platform</p>
       </div>
 
       {/* Filters */}
@@ -109,7 +109,7 @@ export default function OrganizationsListPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search organizations..."
-                  className="pl-10 bg-slate-700 border-slate-600"
+                  className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                 />
               </div>
             </div>
