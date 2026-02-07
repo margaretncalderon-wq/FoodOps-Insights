@@ -130,7 +130,7 @@ export default function ExecutionHubPage() {
 
   const handleCreateGoal = async () => {
     if (!newGoal.title || !newGoal.objective) {
-      toast.error(isEs ? "Título y objetivo son requeridos" : "Title and objective are required");
+      toast.error(t("titleObjectiveRequired"));
       return;
     }
 
@@ -141,7 +141,7 @@ export default function ExecutionHubPage() {
         target_date: newGoal.target_date || null,
       };
       await axios.post(`${API}/execution-hub/goals`, payload, { withCredentials: true });
-      toast.success(isEs ? "Meta creada exitosamente" : "Goal created successfully");
+      toast.success(t("goalCreated"));
       setShowCreateDialog(false);
       setNewGoal({
         title: "",
@@ -153,7 +153,7 @@ export default function ExecutionHubPage() {
       fetchData();
     } catch (error) {
       const detail = error.response?.data?.detail || "";
-      toast.error(detail || (isEs ? "Error al crear la meta" : "Error creating goal"));
+      toast.error(detail || t("errorCreatingGoal"));
     } finally {
       setCreating(false);
     }
