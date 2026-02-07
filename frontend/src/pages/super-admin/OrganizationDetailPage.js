@@ -198,17 +198,17 @@ export default function OrganizationDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate("/super-admin/organizations")} className="border-slate-600">
+          <Button variant="outline" size="sm" onClick={() => navigate("/super-admin/organizations")} className="border-slate-600 text-white">
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center">
-              <Building2 className="w-6 h-6" />
+              <Building2 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{org?.organization?.name}</h1>
-              <p className="text-sm text-slate-400">{org?.organization?.company_id}</p>
+              <h1 className="text-2xl font-bold text-white">{org?.organization?.name}</h1>
+              <p className="text-sm text-slate-300">{org?.organization?.company_id}</p>
             </div>
           </div>
           {getStatusBadge(org?.organization?.status)}
@@ -216,7 +216,7 @@ export default function OrganizationDetailPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleViewAs} className="border-slate-600">
+          <Button variant="outline" onClick={handleViewAs} className="border-slate-600 text-white hover:bg-slate-700">
             <Eye className="w-4 h-4 mr-2" />
             View As
           </Button>
