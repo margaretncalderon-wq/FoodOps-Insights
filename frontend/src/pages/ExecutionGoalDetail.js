@@ -316,7 +316,7 @@ export default function ExecutionGoalDetail() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  {isEs ? "Cambiar Estado" : "Change Status"}
+                  {t("changeStatus")}
                   <ChevronDown className="w-4 h-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
@@ -343,7 +343,7 @@ export default function ExecutionGoalDetail() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={handleDeleteGoal} className="text-destructive">
                   <Trash2 className="w-4 h-4 mr-2" />
-                  {isEs ? "Eliminar Meta" : "Delete Goal"}
+                  {t("deleteGoal")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -355,19 +355,19 @@ export default function ExecutionGoalDetail() {
           <TabsList className="bg-muted/50">
             <TabsTrigger value="tasks" className="data-[state=active]:bg-card">
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              {isEs ? "Tareas" : "Tasks"} ({goal.tasks?.length || 0})
+              {t("tasks")} ({goal.tasks?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="decisions" className="data-[state=active]:bg-card">
               <FileText className="w-4 h-4 mr-2" />
-              {isEs ? "Decisiones" : "Decisions"} ({goal.decisions?.length || 0})
+              {t("decisions")} ({goal.decisions?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="dependencies" className="data-[state=active]:bg-card">
               <GitBranch className="w-4 h-4 mr-2" />
-              {isEs ? "Dependencias" : "Dependencies"} ({goal.dependencies?.length || 0})
+              {t("dependencies")} ({goal.dependencies?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="notes" className="data-[state=active]:bg-card">
               <MessageSquare className="w-4 h-4 mr-2" />
-              {isEs ? "Notas" : "Notes"} ({goal.notes?.length || 0})
+              {t("notes")} ({goal.notes?.length || 0})
             </TabsTrigger>
           </TabsList>
 
@@ -376,7 +376,7 @@ export default function ExecutionGoalDetail() {
             <Card className="bg-card border-border">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg">
-                  {isEs ? "Tareas" : "Tasks"}
+                  {t("tasks")}
                 </CardTitle>
                 <Button 
                   size="sm" 
@@ -385,13 +385,13 @@ export default function ExecutionGoalDetail() {
                   data-testid="add-task-btn"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  {isEs ? "Agregar" : "Add"}
+                  {t("add")}
                 </Button>
               </CardHeader>
               <CardContent>
                 {goal.tasks?.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
-                    {isEs ? "No hay tareas aún" : "No tasks yet"}
+                    {t("noTasksYet")}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -458,7 +458,7 @@ export default function ExecutionGoalDetail() {
                           
                           {isExpanded && (
                             <div className="mt-4 pt-4 border-t border-border">
-                              <h5 className="text-sm font-medium mb-2">{isEs ? "Notas de la tarea" : "Task Notes"}</h5>
+                              <h5 className="text-sm font-medium mb-2">{t("taskNotes")}</h5>
                               {task.notes?.length > 0 ? (
                                 <div className="space-y-2 mb-3">
                                   {task.notes.map((note) => (
@@ -515,13 +515,13 @@ export default function ExecutionGoalDetail() {
                   data-testid="add-decision-btn"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  {isEs ? "Registrar" : "Record"}
+                  {t("record")}
                 </Button>
               </CardHeader>
               <CardContent>
                 {goal.decisions?.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
-                    {isEs ? "No hay decisiones registradas" : "No decisions recorded"}
+                    {t("noDecisionsRecorded")}
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -549,7 +549,7 @@ export default function ExecutionGoalDetail() {
             <Card className="bg-card border-border">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg">
-                  {isEs ? "Dependencias" : "Dependencies"}
+                  {t("dependencies")}
                 </CardTitle>
                 <Button 
                   size="sm" 
@@ -558,13 +558,13 @@ export default function ExecutionGoalDetail() {
                   data-testid="add-dependency-btn"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  {isEs ? "Agregar" : "Add"}
+                  {t("add")}
                 </Button>
               </CardHeader>
               <CardContent>
                 {goal.dependencies?.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
-                    {isEs ? "No hay dependencias" : "No dependencies"}
+                    {t("noDependencies")}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -602,7 +602,7 @@ export default function ExecutionGoalDetail() {
             <Card className="bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">
-                  {isEs ? "Notas de la Meta" : "Goal Notes"}
+                  {t("goalNotes")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -625,7 +625,7 @@ export default function ExecutionGoalDetail() {
                 
                 {goal.notes?.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
-                    {isEs ? "No hay notas aún" : "No notes yet"}
+                    {t("noNotesYet")}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -648,7 +648,7 @@ export default function ExecutionGoalDetail() {
         <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEs ? "Nueva Tarea" : "New Task"}</DialogTitle>
+              <DialogTitle>{t("newTask")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
@@ -698,7 +698,7 @@ export default function ExecutionGoalDetail() {
         <Dialog open={showDecisionDialog} onOpenChange={setShowDecisionDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEs ? "Registrar Decisión" : "Record Decision"}</DialogTitle>
+              <DialogTitle>{t("recordDecision")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
@@ -731,7 +731,7 @@ export default function ExecutionGoalDetail() {
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
                 {creatingDecision && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                {isEs ? "Registrar" : "Record"}
+                {t("record")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -741,7 +741,7 @@ export default function ExecutionGoalDetail() {
         <Dialog open={showDependencyDialog} onOpenChange={setShowDependencyDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEs ? "Nueva Dependencia" : "New Dependency"}</DialogTitle>
+              <DialogTitle>{t("newDependency")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
@@ -773,7 +773,7 @@ export default function ExecutionGoalDetail() {
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
                 {creatingDependency && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                {isEs ? "Agregar" : "Add"}
+                {t("add")}
               </Button>
             </DialogFooter>
           </DialogContent>
