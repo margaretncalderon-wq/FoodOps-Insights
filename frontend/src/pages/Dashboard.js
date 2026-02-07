@@ -26,19 +26,22 @@ export default function SystemPulse() {
     systemAlerts: []
   });
   const [executionPending, setExecutionPending] = useState(null);
+  const [executionSignals, setExecutionSignals] = useState(null);
 
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
     try {
-      const [eventsRes, statsRes, pendingRes] = await Promise.all([
+      const [eventsRes, statsRes, pendingRes, signalsRes] = await Promise.all([
         axios.get(`${API}/orchestration/events`, { withCredentials: true }),
         axios.get(`${API}/dashboard/stats`, { withCredentials: true }),
-        axios.get(`${API}/execution-hub/my-pending`, { withCredentials: true }).catch(() => ({ data: null }))
+        axios.get(`${API}/execution-hub/my-pending`, { withCredentials: true }).catch(() => ({ data: null })),
+        axios.get(`${API}/execution-hub/signals`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
 
       const events = eventsRes.data || [];
       const stats = statsRes.data || {};
       setExecutionPending(pendingRes.data);
+      setExecutionSignals(signalsRes.data);
       
       // Process Active Events (from Event Orchestration)
       const now = new Date();
