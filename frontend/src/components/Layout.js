@@ -28,6 +28,7 @@ import {
   Music4,
   Puzzle,
   Megaphone,
+  Target,
 } from "lucide-react";
 import { OrgSwitcher } from "./org";
 import NotificationBell from "./notifications/NotificationBell";
