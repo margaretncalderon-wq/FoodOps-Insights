@@ -48,49 +48,44 @@ import { toast } from "sonner";
 // Status config uses translation keys
 const statusConfig = {
   planning: { 
-    labelKey: "planning", 
-    labelEn: "Planning",
+    labelKey: "planning",
     color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
     icon: CircleDot 
   },
   in_progress: { 
-    label: "En Progreso", 
-    labelEn: "In Progress",
+    labelKey: "inProgress",
     color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
     icon: Zap 
   },
   blocked: { 
-    label: "Bloqueado", 
-    labelEn: "Blocked",
+    labelKey: "blocked",
     color: "bg-red-500/20 text-red-400 border-red-500/30",
     icon: AlertTriangle 
   },
   live: { 
-    label: "Activo", 
-    labelEn: "Live",
+    labelKey: "live",
     color: "bg-green-500/20 text-green-400 border-green-500/30",
     icon: CheckCircle2 
   },
   archived: { 
-    label: "Archivado", 
-    labelEn: "Archived",
+    labelKey: "archived",
     color: "bg-gray-500/20 text-gray-400 border-gray-500/30",
     icon: Archive 
   },
 };
 
 const impactConfig = {
-  cost: { label: "Costo", labelEn: "Cost", color: "bg-emerald-500/20 text-emerald-400" },
-  quality: { label: "Calidad", labelEn: "Quality", color: "bg-purple-500/20 text-purple-400" },
-  speed: { label: "Velocidad", labelEn: "Speed", color: "bg-orange-500/20 text-orange-400" },
-  risk: { label: "Riesgo", labelEn: "Risk", color: "bg-red-500/20 text-red-400" },
+  cost: { labelKey: "cost", color: "bg-emerald-500/20 text-emerald-400" },
+  quality: { labelKey: "quality", color: "bg-purple-500/20 text-purple-400" },
+  speed: { labelKey: "speed", color: "bg-orange-500/20 text-orange-400" },
+  risk: { labelKey: "risk", color: "bg-red-500/20 text-red-400" },
 };
 
 const contextConfig = {
-  organizational: { label: "Organizacional", labelEn: "Organizational" },
-  event: { label: "Evento", labelEn: "Event" },
-  department: { label: "Departamento", labelEn: "Department" },
-  personal: { label: "Personal", labelEn: "Personal" },
+  organizational: { labelKey: "organizational" },
+  event: { labelKey: "event" },
+  department: { labelKey: "department" },
+  personal: { labelKey: "personal" },
 };
 
 export default function ExecutionHubPage() {
