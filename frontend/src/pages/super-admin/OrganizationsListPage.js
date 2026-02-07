@@ -151,7 +151,7 @@ export default function OrganizationsListPage() {
 
       {/* Results Count */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-300">
           Showing {organizations.length} of {total} organizations
         </p>
       </div>
