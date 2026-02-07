@@ -59,32 +59,31 @@ import {
 import { toast } from "sonner";
 
 const statusConfig = {
-  planning: { label: "Planificación", labelEn: "Planning", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: CircleDot },
-  in_progress: { label: "En Progreso", labelEn: "In Progress", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", icon: Zap },
-  blocked: { label: "Bloqueado", labelEn: "Blocked", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: AlertTriangle },
-  live: { label: "Activo", labelEn: "Live", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: CheckCircle2 },
-  archived: { label: "Archivado", labelEn: "Archived", color: "bg-gray-500/20 text-gray-400 border-gray-500/30", icon: Archive },
+  planning: { labelKey: "planning", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: CircleDot },
+  in_progress: { labelKey: "inProgress", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", icon: Zap },
+  blocked: { labelKey: "blocked", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: AlertTriangle },
+  live: { labelKey: "live", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: CheckCircle2 },
+  archived: { labelKey: "archived", color: "bg-gray-500/20 text-gray-400 border-gray-500/30", icon: Archive },
 };
 
 const taskStatusConfig = {
-  pending: { label: "Pendiente", labelEn: "Pending", color: "bg-gray-500/20 text-gray-400" },
-  in_progress: { label: "En Progreso", labelEn: "In Progress", color: "bg-yellow-500/20 text-yellow-400" },
-  completed: { label: "Completado", labelEn: "Completed", color: "bg-green-500/20 text-green-400" },
-  blocked: { label: "Bloqueado", labelEn: "Blocked", color: "bg-red-500/20 text-red-400" },
+  pending: { labelKey: "pending", color: "bg-gray-500/20 text-gray-400" },
+  in_progress: { labelKey: "inProgress", color: "bg-yellow-500/20 text-yellow-400" },
+  completed: { labelKey: "completed", color: "bg-green-500/20 text-green-400" },
+  blocked: { labelKey: "blocked", color: "bg-red-500/20 text-red-400" },
 };
 
 const impactConfig = {
-  cost: { label: "Costo", labelEn: "Cost", color: "bg-emerald-500/20 text-emerald-400" },
-  quality: { label: "Calidad", labelEn: "Quality", color: "bg-purple-500/20 text-purple-400" },
-  speed: { label: "Velocidad", labelEn: "Speed", color: "bg-orange-500/20 text-orange-400" },
-  risk: { label: "Riesgo", labelEn: "Risk", color: "bg-red-500/20 text-red-400" },
+  cost: { labelKey: "cost", color: "bg-emerald-500/20 text-emerald-400" },
+  quality: { labelKey: "quality", color: "bg-purple-500/20 text-purple-400" },
+  speed: { labelKey: "speed", color: "bg-orange-500/20 text-orange-400" },
+  risk: { labelKey: "risk", color: "bg-red-500/20 text-red-400" },
 };
 
 export default function ExecutionGoalDetail() {
   const { goalId } = useParams();
   const navigate = useNavigate();
-  const { language } = useLanguage();
-  const isEs = language === "es";
+  const { language, t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [goal, setGoal] = useState(null);
