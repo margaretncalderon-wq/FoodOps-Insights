@@ -589,10 +589,10 @@ export default function SystemPulse() {
                               }`}
                             >
                               {goal.status === "blocked" 
-                                ? (isEs ? "Bloqueado" : "Blocked")
+                                ? t("blocked")
                                 : goal.status === "in_progress"
-                                ? (isEs ? "En Progreso" : "In Progress")
-                                : (isEs ? "Planificación" : "Planning")}
+                                ? t("inProgress")
+                                : t("planning")}
                             </Badge>
                             <span className="text-sm font-medium truncate max-w-[150px]">{goal.title}</span>
                           </div>
