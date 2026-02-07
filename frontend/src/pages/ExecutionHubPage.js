@@ -425,9 +425,7 @@ export default function ExecutionHubPage() {
                 {t("newExecutionGoal")}
               </DialogTitle>
               <DialogDescription>
-                {isEs 
-                  ? "Define una nueva meta operativa para tu organización" 
-                  : "Define a new operational goal for your organization"}
+                {t("defineNewGoal")}
               </DialogDescription>
             </DialogHeader>
             
@@ -439,7 +437,7 @@ export default function ExecutionHubPage() {
                 <Input
                   value={newGoal.title}
                   onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
-                  placeholder={isEs ? "Ej: Reducir costos operativos Q1" : "Ex: Reduce operational costs Q1"}
+                  placeholder={language === "es" ? "Ej: Reducir costos operativos Q1" : "Ex: Reduce operational costs Q1"}
                   data-testid="goal-title-input"
                 />
               </div>
@@ -451,7 +449,7 @@ export default function ExecutionHubPage() {
                 <Textarea
                   value={newGoal.objective}
                   onChange={(e) => setNewGoal({ ...newGoal, objective: e.target.value })}
-                  placeholder={isEs 
+                  placeholder={language === "es" 
                     ? "Describe el objetivo específico y medible..." 
                     : "Describe the specific and measurable objective..."}
                   rows={3}
