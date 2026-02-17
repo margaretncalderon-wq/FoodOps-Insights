@@ -1873,3 +1873,263 @@ function SortableTimelineItem({ activity, isLocked, onEdit, onDelete }) {
     </div>
   );
 }
+
+
+// Templates View Component
+function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate }) {
+  const [loading, setLoading] = useState(true);
+  const [templates, setTemplates] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [applyForm, setApplyForm] = useState({ venue_id: "", room_id: "" });
+  const [applying, setApplying] = useState(false);
+
+  const TEMPLATE_CATEGORIES = [
+    { value: "wedding", labelEs: "Boda", labelEn: "Wedding", icon: "💒" },
+    { value: "corporate", labelEs: "Corporativo", labelEn: "Corporate", icon: "🏢" },
+    { value: "social", labelEs: "Social", labelEn: "Social", icon: "🎉" },
+    { value: "conference", labelEs: "Conferencia", labelEn: "Conference", icon: "🎤" },
+    { value: "gala", labelEs: "Gala", labelEn: "Gala", icon: "🌟" },
+    { value: "custom", labelEs: "Personalizado", labelEn: "Custom", icon: "✨" },
+  ];
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoading(true);
+        // Seed system templates first
+        await axios.post(`${API}/orchestration/room-setup/templates/seed-system`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+        
+        const params = selectedCategory !== "all" ? `?category=${selectedCategory}` : "";
+        const res = await axios.get(`${API}/orchestration/room-setup/templates${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setTemplates(res.data || []);
+      } catch (error) {
+        console.error("Error fetching templates:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTemplates();
+  }, [token, selectedCategory]);
+
+  const handleApplyTemplate = (template) => {
+    setSelectedTemplate(template);
+    setApplyForm({ venue_id: "", room_id: "" });
+    setApplyDialogOpen(true);
+  };
+
+  const handleConfirmApply = async () => {
+    if (!applyForm.venue_id || !applyForm.room_id) {
+      toast.error(isEs ? "Selecciona sede y salón" : "Select venue and room");
+      return;
+    }
+
+    try {
+      setApplying(true);
+      await axios.post(
+        `${API}/orchestration/room-setup/templates/${selectedTemplate.template_id}/apply/${eventId}?room_id=${applyForm.room_id}&venue_id=${applyForm.venue_id}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success(isEs ? "Template aplicado exitosamente" : "Template applied successfully");
+      setApplyDialogOpen(false);
+      if (onApplyTemplate) onApplyTemplate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (isEs ? "Error al aplicar" : "Error applying"));
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const getCategoryInfo = (cat) => TEMPLATE_CATEGORIES.find(c => c.value === cat) || TEMPLATE_CATEGORIES[5];
+  const getLayoutInfo = (layout) => LAYOUT_TYPES.find(l => l.value === layout) || LAYOUT_TYPES[0];
+  const selectedVenue = venues.find(v => v.venue_id === applyForm.venue_id);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-[#3A4D3F]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Category Filter */}
+      <div className="flex items-center gap-2">
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder={isEs ? "Filtrar por categoría" : "Filter by category"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{isEs ? "Todas las categorías" : "All categories"}</SelectItem>
+            {TEMPLATE_CATEGORIES.map((cat) => (
+              <SelectItem key={cat.value} value={cat.value}>
+                {cat.icon} {isEs ? cat.labelEs : cat.labelEn}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Templates Grid */}
+      {templates.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Sparkles className="w-12 h-12 text-gray-400 mb-4" />
+            <p className="text-gray-500">{isEs ? "No hay templates disponibles" : "No templates available"}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {templates.map((template) => {
+            const catInfo = getCategoryInfo(template.category);
+            const layoutInfo = getLayoutInfo(template.layout_type);
+
+            return (
+              <Card 
+                key={template.template_id}
+                className={`hover:shadow-md transition-shadow cursor-pointer ${template.is_system_template ? "border-amber-200/50" : ""}`}
+                onClick={() => !isLocked && handleApplyTemplate(template)}
+              >
+                <CardContent className="p-4 space-y-3">
+                  {/* Header */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl">{catInfo.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold truncate">{template.name}</h4>
+                      {template.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{template.description}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Visual Layout Preview */}
+                  <div className="aspect-video bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden">
+                    <LayoutPreview layoutType={template.layout_type} diagramUrl={template.layout_diagram_url} className="w-full h-full" />
+                  </div>
+
+                  {/* Info Badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      <Layout className="w-3 h-3 mr-1" />
+                      {isEs ? layoutInfo.labelEs : layoutInfo.labelEn}
+                    </Badge>
+                    {template.default_needs?.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        <Package className="w-3 h-3 mr-1" />
+                        {template.default_needs.length}
+                      </Badge>
+                    )}
+                    {template.default_timeline?.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {template.default_timeline.length}
+                      </Badge>
+                    )}
+                    {template.is_system_template && (
+                      <Badge className="text-xs bg-amber-100 text-amber-700">Sistema</Badge>
+                    )}
+                  </div>
+
+                  {!isLocked && (
+                    <Button variant="outline" className="w-full" size="sm">
+                      <FileDown className="w-4 h-4 mr-1" />
+                      {isEs ? "Usar Template" : "Use Template"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Apply Template Dialog */}
+      <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#3A4D3F]" />
+              {isEs ? "Aplicar Template" : "Apply Template"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedTemplate && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">{getCategoryInfo(selectedTemplate.category).icon}</span>
+                  <span className="font-medium">{selectedTemplate.name}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Sede" : "Venue"} *</Label>
+                  <Select value={applyForm.venue_id} onValueChange={(v) => setApplyForm({ ...applyForm, venue_id: v, room_id: "" })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isEs ? "Seleccionar sede" : "Select venue"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {venues.map((venue) => (
+                        <SelectItem key={venue.venue_id} value={venue.venue_id}>
+                          {venue.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedVenue && selectedVenue.rooms?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>{isEs ? "Salón" : "Room"} *</Label>
+                    <Select value={applyForm.room_id} onValueChange={(v) => setApplyForm({ ...applyForm, room_id: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={isEs ? "Seleccionar salón" : "Select room"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedVenue.rooms.filter(r => r.is_active).map((room) => (
+                          <SelectItem key={room.room_id} value={room.room_id}>
+                            {room.name} ({room.capacity} cap.)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleConfirmApply} className="bg-[#3A4D3F] hover:bg-[#2d3d31]" disabled={applying}>
+              {applying ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  {isEs ? "Aplicando..." : "Applying..."}
+                </>
+              ) : (
+                <>
+                  <FileDown className="w-4 h-4 mr-1" />
+                  {isEs ? "Aplicar" : "Apply"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
