@@ -616,6 +616,20 @@ const translations = {
     contactEmail: "Email de Contacto",
     description: "Descripción",
     totalCapacity: "Capacidad Total",
+    
+    // Room Availability
+    available: "Disponible",
+    unavailable: "No Disponible",
+    booked: "Reservado",
+    conflict: "Conflicto",
+    roomAvailability: "Disponibilidad del Salón",
+    checkAvailability: "Verificar Disponibilidad",
+    roomBooked: "Salón reservado",
+    roomAvailable: "Salón disponible",
+    selectDate: "Selecciona una fecha para verificar disponibilidad",
+    bookedBy: "Reservado por",
+    bookings: "Reservas",
+    noBookings: "Sin reservas",
   },
 };
 
