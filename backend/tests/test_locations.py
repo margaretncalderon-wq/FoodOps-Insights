@@ -25,8 +25,8 @@ class TestLocationsAuth:
         )
         assert response.status_code == 200, f"Login failed: {response.text}"
         data = response.json()
-        assert "token" in data, "No token in login response"
-        return data["token"]
+        assert "access_token" in data, "No access_token in login response"
+        return data["access_token"]
     
     def test_login(self, auth_token):
         """Verify login works"""
@@ -44,7 +44,7 @@ class TestVenuesCRUD:
             f"{BASE_URL}/api/auth/login",
             json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
         )
-        return response.json().get("token")
+        return response.json().get("access_token")
     
     @pytest.fixture(scope="class")
     def headers(self, auth_token):
@@ -185,7 +185,7 @@ class TestVenueRoomsCRUD:
             f"{BASE_URL}/api/auth/login",
             json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
         )
-        return response.json().get("token")
+        return response.json().get("access_token")
     
     @pytest.fixture(scope="class")
     def headers(self, auth_token):
@@ -302,7 +302,7 @@ class TestSavedAddresses:
             f"{BASE_URL}/api/auth/login",
             json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
         )
-        return response.json().get("token")
+        return response.json().get("access_token")
     
     @pytest.fixture(scope="class")
     def headers(self, auth_token):
@@ -358,7 +358,7 @@ class TestEventLocations:
             f"{BASE_URL}/api/auth/login",
             json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
         )
-        return response.json().get("token")
+        return response.json().get("access_token")
     
     @pytest.fixture(scope="class")
     def headers(self, auth_token):
@@ -532,7 +532,7 @@ class TestLocationSearch:
             f"{BASE_URL}/api/auth/login",
             json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
         )
-        return response.json().get("token")
+        return response.json().get("access_token")
     
     @pytest.fixture(scope="class")
     def headers(self, auth_token):
