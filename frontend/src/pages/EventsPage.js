@@ -37,6 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import EventLocationSelector from "../components/EventLocationSelector";
 
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
