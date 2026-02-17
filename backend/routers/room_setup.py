@@ -683,3 +683,453 @@ async def copy_room_setup(
         "copied_needs": copy_needs,
         "copied_timeline": copy_timeline
     }
+
+
+# ============== TEMPLATES CRUD ==============
+
+@room_setup_router.get("/templates")
+async def get_templates(
+    category: Optional[str] = None,
+    user: User = Depends(get_current_user)
+) -> List[dict]:
+    """Get all templates for the company"""
+    query = {"$or": [
+        {"company_id": user.company_id},
+        {"is_system_template": True}
+    ]}
+    
+    if category:
+        query["category"] = category
+    
+    templates = await db.room_setup_templates.find(query, {"_id": 0}).sort("name", 1).to_list(100)
+    return templates
+
+
+@room_setup_router.post("/templates")
+async def create_template(
+    template: RoomSetupTemplateCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a new room setup template"""
+    now = datetime.now(timezone.utc)
+    template_id = f"tpl_{uuid.uuid4().hex[:12]}"
+    
+    # Generate IDs for needs and timeline items
+    needs_with_ids = []
+    for need in template.default_needs:
+        need_dict = need.dict() if hasattr(need, 'dict') else dict(need)
+        need_dict["item_id"] = f"need_{uuid.uuid4().hex[:8]}"
+        needs_with_ids.append(need_dict)
+    
+    timeline_with_ids = []
+    for activity in template.default_timeline:
+        act_dict = activity.dict() if hasattr(activity, 'dict') else dict(activity)
+        act_dict["activity_id"] = f"act_{uuid.uuid4().hex[:8]}"
+        timeline_with_ids.append(act_dict)
+    
+    template_doc = {
+        "template_id": template_id,
+        "company_id": user.company_id,
+        "name": template.name,
+        "description": template.description,
+        "category": template.category,
+        "layout_type": template.layout_type,
+        "custom_layout_name": template.custom_layout_name,
+        "layout_notes": template.layout_notes,
+        "layout_diagram_url": None,
+        "default_needs": needs_with_ids,
+        "default_timeline": timeline_with_ids,
+        "min_capacity": template.min_capacity,
+        "max_capacity": template.max_capacity,
+        "thumbnail_url": None,
+        "is_system_template": False,
+        "usage_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    
+    await db.room_setup_templates.insert_one(template_doc)
+    del template_doc["_id"]
+    
+    return template_doc
+
+
+@room_setup_router.get("/templates/{template_id}")
+async def get_template(
+    template_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get a specific template"""
+    template = await db.room_setup_templates.find_one(
+        {"template_id": template_id, "$or": [
+            {"company_id": user.company_id},
+            {"is_system_template": True}
+        ]},
+        {"_id": 0}
+    )
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return template
+
+
+@room_setup_router.put("/templates/{template_id}")
+async def update_template(
+    template_id: str,
+    update_data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a template"""
+    template = await db.room_setup_templates.find_one(
+        {"template_id": template_id, "company_id": user.company_id}
+    )
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found or not editable")
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.room_setup_templates.update_one(
+        {"template_id": template_id},
+        {"$set": update_data}
+    )
+    
+    updated = await db.room_setup_templates.find_one(
+        {"template_id": template_id}, {"_id": 0}
+    )
+    return updated
+
+
+@room_setup_router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete a template"""
+    result = await db.room_setup_templates.delete_one(
+        {"template_id": template_id, "company_id": user.company_id, "is_system_template": False}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found or cannot be deleted")
+    
+    return {"message": "Template deleted"}
+
+
+@room_setup_router.post("/templates/{template_id}/apply/{event_id}")
+async def apply_template_to_event(
+    template_id: str,
+    event_id: str,
+    room_id: str,
+    venue_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Apply a template to create room setup for an event"""
+    # Get template
+    template = await db.room_setup_templates.find_one(
+        {"template_id": template_id, "$or": [
+            {"company_id": user.company_id},
+            {"is_system_template": True}
+        ]},
+        {"_id": 0}
+    )
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Verify event exists
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get room info
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    venue = await db.venues.find_one({"venue_id": venue_id}, {"_id": 0})
+    
+    now = datetime.now(timezone.utc)
+    config_id = f"rsetup_{uuid.uuid4().hex[:12]}"
+    
+    # Generate new IDs for needs
+    new_needs = []
+    for need in template.get("default_needs", []):
+        new_need = {**need}
+        new_need["item_id"] = f"need_{uuid.uuid4().hex[:8]}"
+        new_needs.append(new_need)
+    
+    # Generate new IDs for timeline
+    new_timeline = []
+    for activity in template.get("default_timeline", []):
+        new_activity = {**activity}
+        new_activity["activity_id"] = f"act_{uuid.uuid4().hex[:8]}"
+        new_timeline.append(new_activity)
+    
+    # Create room setup from template
+    room_setup = {
+        "config_id": config_id,
+        "event_id": event_id,
+        "company_id": user.company_id,
+        "room_id": room_id,
+        "room_name": room.get("name") if room else None,
+        "venue_id": venue_id,
+        "venue_name": venue.get("name") if venue else None,
+        "layout_type": template.get("layout_type", "banquet"),
+        "custom_layout_name": template.get("custom_layout_name"),
+        "layout_diagram_url": template.get("layout_diagram_url"),
+        "layout_notes": template.get("layout_notes"),
+        "room_capacity": room.get("capacity", 0) if room else 0,
+        "planned_guests": event.get("guest_count", 0),
+        "needs": new_needs,
+        "timeline": new_timeline,
+        "special_instructions": "",
+        "vendor_access_notes": "",
+        "order": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "from_template_id": template_id,
+    }
+    
+    await db.room_setups.insert_one(room_setup)
+    
+    # Increment template usage count
+    await db.room_setup_templates.update_one(
+        {"template_id": template_id},
+        {"$inc": {"usage_count": 1}}
+    )
+    
+    del room_setup["_id"]
+    return room_setup
+
+
+@room_setup_router.post("/templates/create-from-room/{event_id}/{room_id}")
+async def create_template_from_room(
+    event_id: str,
+    room_id: str,
+    template_name: str,
+    template_description: Optional[str] = None,
+    category: str = "custom",
+    user: User = Depends(get_current_user)
+):
+    """Create a template from an existing room setup"""
+    room_setup = await db.room_setups.find_one(
+        {"event_id": event_id, "room_id": room_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    if not room_setup:
+        raise HTTPException(status_code=404, detail="Room setup not found")
+    
+    now = datetime.now(timezone.utc)
+    template_id = f"tpl_{uuid.uuid4().hex[:12]}"
+    
+    template_doc = {
+        "template_id": template_id,
+        "company_id": user.company_id,
+        "name": template_name,
+        "description": template_description,
+        "category": category,
+        "layout_type": room_setup.get("layout_type", "banquet"),
+        "custom_layout_name": room_setup.get("custom_layout_name"),
+        "layout_notes": room_setup.get("layout_notes"),
+        "layout_diagram_url": room_setup.get("layout_diagram_url"),
+        "default_needs": room_setup.get("needs", []),
+        "default_timeline": room_setup.get("timeline", []),
+        "min_capacity": 0,
+        "max_capacity": room_setup.get("room_capacity", 0),
+        "thumbnail_url": None,
+        "is_system_template": False,
+        "usage_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    
+    await db.room_setup_templates.insert_one(template_doc)
+    del template_doc["_id"]
+    
+    return template_doc
+
+
+# ============== VISUAL LAYOUT ==============
+
+@room_setup_router.post("/events/{event_id}/rooms/{room_id}/layout-diagram")
+async def upload_layout_diagram(
+    event_id: str,
+    room_id: str,
+    diagram_data: LayoutDiagramUpload,
+    user: User = Depends(get_current_user)
+):
+    """Upload/update visual layout diagram for a room setup"""
+    result = await db.room_setups.update_one(
+        {"event_id": event_id, "room_id": room_id, "company_id": user.company_id},
+        {"$set": {
+            "layout_diagram_url": diagram_data.diagram_url,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Room setup not found")
+    
+    return {"message": "Layout diagram updated", "diagram_url": diagram_data.diagram_url}
+
+
+@room_setup_router.delete("/events/{event_id}/rooms/{room_id}/layout-diagram")
+async def delete_layout_diagram(
+    event_id: str,
+    room_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Remove visual layout diagram from a room setup"""
+    result = await db.room_setups.update_one(
+        {"event_id": event_id, "room_id": room_id, "company_id": user.company_id},
+        {"$set": {
+            "layout_diagram_url": None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Room setup not found")
+    
+    return {"message": "Layout diagram removed"}
+
+
+@room_setup_router.post("/templates/{template_id}/layout-diagram")
+async def upload_template_layout_diagram(
+    template_id: str,
+    diagram_data: LayoutDiagramUpload,
+    user: User = Depends(get_current_user)
+):
+    """Upload/update visual layout diagram for a template"""
+    result = await db.room_setup_templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": {
+            "layout_diagram_url": diagram_data.diagram_url,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {"message": "Template layout diagram updated", "diagram_url": diagram_data.diagram_url}
+
+
+# ============== SYSTEM TEMPLATES (Seed Data) ==============
+
+@room_setup_router.post("/templates/seed-system")
+async def seed_system_templates(
+    user: User = Depends(get_current_user)
+):
+    """Seed default system templates (admin only)"""
+    # Check if already seeded
+    existing = await db.room_setup_templates.count_documents({"is_system_template": True})
+    if existing > 0:
+        return {"message": f"System templates already exist ({existing} templates)"}
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    system_templates = [
+        {
+            "template_id": f"tpl_sys_wedding",
+            "company_id": "system",
+            "name": "Boda Clásica",
+            "name_en": "Classic Wedding",
+            "description": "Configuración típica para ceremonia y recepción de boda",
+            "category": "wedding",
+            "layout_type": "banquet",
+            "layout_notes": "Mesas redondas de 10 personas, mesa principal para novios",
+            "default_needs": [
+                {"item_id": "sys_n1", "category": "furniture", "name": "Mesas redondas (10 pax)", "quantity": 15},
+                {"item_id": "sys_n2", "category": "furniture", "name": "Sillas Chiavari", "quantity": 150},
+                {"item_id": "sys_n3", "category": "av_equipment", "name": "Sistema de sonido", "quantity": 1},
+                {"item_id": "sys_n4", "category": "av_equipment", "name": "Micrófono inalámbrico", "quantity": 2},
+                {"item_id": "sys_n5", "category": "decor", "name": "Centros de mesa florales", "quantity": 15},
+            ],
+            "default_timeline": [
+                {"activity_id": "sys_t1", "title": "Montaje", "start_time": "10:00", "end_time": "16:00", "activity_type": "setup"},
+                {"activity_id": "sys_t2", "title": "Ceremonia", "start_time": "17:00", "end_time": "17:45", "activity_type": "ceremony"},
+                {"activity_id": "sys_t3", "title": "Cóctel", "start_time": "17:45", "end_time": "19:00", "activity_type": "cocktail"},
+                {"activity_id": "sys_t4", "title": "Recepción/Cena", "start_time": "19:00", "end_time": "21:00", "activity_type": "dinner"},
+                {"activity_id": "sys_t5", "title": "Fiesta/Baile", "start_time": "21:00", "end_time": "01:00", "activity_type": "entertainment"},
+                {"activity_id": "sys_t6", "title": "Desmontaje", "start_time": "01:00", "end_time": "03:00", "activity_type": "breakdown"},
+            ],
+            "min_capacity": 80,
+            "max_capacity": 200,
+            "is_system_template": True,
+            "usage_count": 0,
+            "created_at": now,
+            "updated_at": now,
+        },
+        {
+            "template_id": f"tpl_sys_corporate",
+            "company_id": "system",
+            "name": "Conferencia Corporativa",
+            "name_en": "Corporate Conference",
+            "description": "Configuración para conferencias y presentaciones empresariales",
+            "category": "corporate",
+            "layout_type": "theater",
+            "layout_notes": "Filas de sillas con pasillo central, escenario al frente",
+            "default_needs": [
+                {"item_id": "sys_cn1", "category": "furniture", "name": "Sillas teatro", "quantity": 100},
+                {"item_id": "sys_cn2", "category": "av_equipment", "name": "Proyector HD", "quantity": 1},
+                {"item_id": "sys_cn3", "category": "av_equipment", "name": "Pantalla 3x2m", "quantity": 1},
+                {"item_id": "sys_cn4", "category": "av_equipment", "name": "Podio/Atril", "quantity": 1},
+                {"item_id": "sys_cn5", "category": "av_equipment", "name": "Micrófono de solapa", "quantity": 3},
+                {"item_id": "sys_cn6", "category": "technical", "name": "Laptop presentaciones", "quantity": 1},
+            ],
+            "default_timeline": [
+                {"activity_id": "sys_ct1", "title": "Montaje técnico", "start_time": "07:00", "end_time": "08:30", "activity_type": "setup"},
+                {"activity_id": "sys_ct2", "title": "Registro asistentes", "start_time": "08:30", "end_time": "09:00", "activity_type": "general"},
+                {"activity_id": "sys_ct3", "title": "Conferencia principal", "start_time": "09:00", "end_time": "12:00", "activity_type": "general"},
+                {"activity_id": "sys_ct4", "title": "Coffee break", "start_time": "10:30", "end_time": "11:00", "activity_type": "cocktail"},
+                {"activity_id": "sys_ct5", "title": "Almuerzo networking", "start_time": "12:00", "end_time": "13:30", "activity_type": "dinner"},
+                {"activity_id": "sys_ct6", "title": "Desmontaje", "start_time": "13:30", "end_time": "14:30", "activity_type": "breakdown"},
+            ],
+            "min_capacity": 50,
+            "max_capacity": 200,
+            "is_system_template": True,
+            "usage_count": 0,
+            "created_at": now,
+            "updated_at": now,
+        },
+        {
+            "template_id": f"tpl_sys_gala",
+            "company_id": "system",
+            "name": "Gala de Premiación",
+            "name_en": "Awards Gala",
+            "description": "Configuración elegante para galas y eventos de premiación",
+            "category": "gala",
+            "layout_type": "banquet",
+            "layout_notes": "Mesas redondas con escenario, pista de baile opcional",
+            "default_needs": [
+                {"item_id": "sys_gn1", "category": "furniture", "name": "Mesas redondas (8 pax)", "quantity": 20},
+                {"item_id": "sys_gn2", "category": "furniture", "name": "Sillas doradas", "quantity": 160},
+                {"item_id": "sys_gn3", "category": "av_equipment", "name": "Pantalla LED", "quantity": 1},
+                {"item_id": "sys_gn4", "category": "av_equipment", "name": "Iluminación escénica", "quantity": 1},
+                {"item_id": "sys_gn5", "category": "decor", "name": "Alfombra roja", "quantity": 1},
+                {"item_id": "sys_gn6", "category": "decor", "name": "Centros de mesa premium", "quantity": 20},
+            ],
+            "default_timeline": [
+                {"activity_id": "sys_gt1", "title": "Montaje completo", "start_time": "12:00", "end_time": "18:00", "activity_type": "setup"},
+                {"activity_id": "sys_gt2", "title": "Llegada invitados", "start_time": "19:00", "end_time": "19:30", "activity_type": "general"},
+                {"activity_id": "sys_gt3", "title": "Cóctel de bienvenida", "start_time": "19:30", "end_time": "20:30", "activity_type": "cocktail"},
+                {"activity_id": "sys_gt4", "title": "Cena de gala", "start_time": "20:30", "end_time": "22:00", "activity_type": "dinner"},
+                {"activity_id": "sys_gt5", "title": "Ceremonia de premiación", "start_time": "22:00", "end_time": "23:00", "activity_type": "ceremony"},
+                {"activity_id": "sys_gt6", "title": "After party", "start_time": "23:00", "end_time": "02:00", "activity_type": "entertainment"},
+            ],
+            "min_capacity": 100,
+            "max_capacity": 300,
+            "is_system_template": True,
+            "usage_count": 0,
+            "created_at": now,
+            "updated_at": now,
+        },
+    ]
+    
+    await db.room_setup_templates.insert_many(system_templates)
+    
+    return {"message": f"Created {len(system_templates)} system templates"}
+
