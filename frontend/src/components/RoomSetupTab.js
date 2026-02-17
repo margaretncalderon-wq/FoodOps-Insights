@@ -1,5 +1,5 @@
 // components/RoomSetupTab.js - Room Setup & Timeline for Event Orchestration
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { API } from "../utils/api";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -51,8 +51,26 @@ import {
   Mic,
   Lightbulb,
   Armchair,
+  Move,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const LAYOUT_TYPES = [
   { value: "theater", labelEn: "Theater", labelEs: "Teatro", icon: "🎭" },
