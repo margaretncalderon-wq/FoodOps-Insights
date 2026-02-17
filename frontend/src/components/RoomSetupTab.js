@@ -573,10 +573,21 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
           </Tabs>
           
           {!isLocked && (
-            <Button onClick={handleAddRoom} className="bg-[#3A4D3F] hover:bg-[#2d3d31]">
-              <Plus className="w-4 h-4 mr-1" />
-              {isEs ? "Agregar Salón" : "Add Room"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={handleOpenCopyDialog} 
+                variant="outline"
+                className="text-sm"
+                data-testid="copy-setup-btn"
+              >
+                <Copy className="w-4 h-4 mr-1" />
+                {isEs ? "Copiar de otro evento" : "Copy from event"}
+              </Button>
+              <Button onClick={handleAddRoom} className="bg-[#3A4D3F] hover:bg-[#2d3d31]">
+                <Plus className="w-4 h-4 mr-1" />
+                {isEs ? "Agregar Salón" : "Add Room"}
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -592,12 +603,17 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                   {isEs ? "No hay salones configurados" : "No rooms configured"}
                 </p>
                 <p className="text-sm text-gray-400 mb-4">
-                  {isEs ? "Agrega salones del evento para configurar layout y necesidades" : "Add event rooms to configure layout and needs"}
+                  {isEs ? "Agrega salones o copia configuración de otro evento" : "Add rooms or copy setup from another event"}
                 </p>
                 {!isLocked && (
-                  <Button onClick={handleAddRoom} variant="outline">
-                    <Plus className="w-4 h-4 mr-1" />
-                    {isEs ? "Agregar Salón" : "Add Room"}
+                  <div className="flex gap-2">
+                    <Button onClick={handleOpenCopyDialog} variant="outline">
+                      <Copy className="w-4 h-4 mr-1" />
+                      {isEs ? "Copiar" : "Copy"}
+                    </Button>
+                    <Button onClick={handleAddRoom} variant="outline">
+                      <Plus className="w-4 h-4 mr-1" />
+                      {isEs ? "Agregar Salón" : "Add Room"}}
                   </Button>
                 )}
               </CardContent>
