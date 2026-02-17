@@ -1392,6 +1392,89 @@ function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete
           )}
         </CardContent>
       )}
+
+      {/* Save as Template Dialog */}
+      <Dialog open={saveTemplateDialogOpen} onOpenChange={setSaveTemplateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#3A4D3F]" />
+              {isEs ? "Guardar como Template" : "Save as Template"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? `Se creará un template basado en la configuración de "${setup.room_name}" incluyendo el layout, ${localNeeds.length} necesidades y ${localTimeline.length} actividades.`
+                  : `A template will be created based on "${setup.room_name}" setup including the layout, ${localNeeds.length} needs and ${localTimeline.length} activities.`
+                }
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre del Template" : "Template Name"} *</Label>
+              <Input
+                value={templateForm.name}
+                onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                placeholder={isEs ? "Ej: Mi Setup Personalizado" : "E.g., My Custom Setup"}
+                data-testid="template-name-input"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isEs ? "Descripción" : "Description"}</Label>
+              <Textarea
+                value={templateForm.description}
+                onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
+                placeholder={isEs ? "Describe el template para referencia futura..." : "Describe the template for future reference..."}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isEs ? "Categoría" : "Category"}</Label>
+              <Select value={templateForm.category} onValueChange={(v) => setTemplateForm({ ...templateForm, category: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEMPLATE_CATEGORIES_CARD.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.icon} {isEs ? cat.labelEs : cat.labelEn}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveTemplateDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleSaveAsTemplate} 
+              className="bg-[#3A4D3F] hover:bg-[#2d3d31]" 
+              disabled={savingTemplate || !templateForm.name.trim()}
+              data-testid="save-template-confirm-btn"
+            >
+              {savingTemplate ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  {isEs ? "Guardando..." : "Saving..."}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-1" />
+                  {isEs ? "Guardar Template" : "Save Template"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
