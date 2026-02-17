@@ -54,6 +54,8 @@ import {
   Move,
   Copy,
   FileDown,
+  Image,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
