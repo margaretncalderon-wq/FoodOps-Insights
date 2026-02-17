@@ -113,11 +113,16 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
   const isEs = language === "es";
   const token = localStorage.getItem("token");
 
+  // Extract event info for export
+  const eventName = event?.name || "";
+  const eventDate = event?.event_date || event?.date;
+  const guestCount = event?.guest_count || event?.guests || 0;
+
   const [loading, setLoading] = useState(true);
   const [roomSetups, setRoomSetups] = useState([]);
   const [venues, setVenues] = useState([]);
   const [masterTimeline, setMasterTimeline] = useState([]);
-  const [activeView, setActiveView] = useState("rooms"); // rooms | timeline
+  const [activeView, setActiveView] = useState("rooms"); // rooms | timeline | templates
   
   // Dialog states
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
