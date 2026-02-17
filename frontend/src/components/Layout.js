@@ -110,10 +110,17 @@ export const Layout = ({ children }) => {
           })}
         </nav>
 
-        {/* Notifications & User Section */}
+        {/* Notifications & Activity Log Section */}
         <div className="p-4 border-t border-white/10">
-          {/* Notification Bell */}
-          <div className="flex justify-end mb-3">
+          {/* Activity Log & Notification Bell */}
+          <div className="flex justify-end gap-2 mb-3">
+            <GlobalActivityLog 
+              trigger={
+                <Button variant="ghost" size="icon" className="text-white/70 hover:text-white hover:bg-white/10">
+                  <History className="w-5 h-5" />
+                </Button>
+              }
+            />
             <NotificationBell />
           </div>
           
