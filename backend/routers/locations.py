@@ -1,7 +1,7 @@
 # routers/locations.py - Venues and Event Locations Router
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 
 from config import db
@@ -9,7 +9,8 @@ from dependencies import get_current_user, User
 from models.locations import (
     VenueCreate, Venue, VenueUpdate, VenueRoomCreate, VenueRoom,
     EventLocationItemCreate, EventLocationItem, EventLocationsUpdate,
-    SavedAddressCreate, SavedAddress, LocationType
+    SavedAddressCreate, SavedAddress, LocationType,
+    RoomBookingCreate, RoomBooking, RoomAvailabilityCheck, RoomAvailabilityResponse
 )
 
 locations_router = APIRouter(prefix="/locations", tags=["Locations & Venues"])
