@@ -614,6 +614,8 @@ export default function EventsPage({ embedded = false }) {
                       clientId={formData.client_id}
                       clientAddress={clients.find(c => c.client_id === formData.client_id)?.address}
                       multiLocation={true}
+                      eventDate={formData.event_date}
+                      eventId={editingEvent?.event_id}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
