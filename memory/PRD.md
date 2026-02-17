@@ -150,12 +150,13 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - **API integration:** Changes are automatically saved to the backend
 
 #### Activity Change History (Audit Log) - COMPLETED ✅
-- **Panel de historial:** Botón "Change History" en la vista Timeline abre panel lateral
-- **Registra:** Quién hizo el cambio, qué cambió, cuándo, valores anteriores y nuevos
-- **Tipos de cambio:** Move, Resize, Update, Create, Delete
-- **Información mostrada:** Nombre de actividad, badge de tipo, tiempos antes/después, usuario, timestamp relativo
-- **Backend:** Nueva colección `activity_change_logs` en MongoDB
-- **API:** `GET /api/orchestration/room-setup/events/{event_id}/activity-logs`
+- **Global Activity Log:** Botón en sidebar abre panel con historial de TODOS los módulos
+- **Filtros:** Por módulo (CRM, Events, Room Setup, etc.) y por acción (Create, Update, Delete, etc.)
+- **Módulos con logging:** CRM (clients), Events, Execution Hub (goals), Locations (venues), Room Setup (activities)
+- **Backend genérico:** `/app/backend/utils/activity_logger.py` - función reutilizable `log_activity()`
+- **API:** `GET /api/activity-logs/` con filtros (module, entity_type, event_id, user_id, action)
+- **Colección MongoDB:** `activity_logs` (separada de `activity_change_logs` para timeline)
+- **UI Global:** `GlobalActivityLog.js` en sidebar con filtros y lista de actividades
 
 #### i18n Audit - COMPLETED ✅
 - **Execution Hub:** Kept in English (instead of "Centro de Ejecución")
