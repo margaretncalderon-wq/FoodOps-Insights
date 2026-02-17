@@ -663,6 +663,18 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
         />
       )}
 
+      {/* Templates View */}
+      {activeView === "templates" && (
+        <TemplatesView
+          token={token}
+          eventId={eventId}
+          venues={venues}
+          isEs={isEs}
+          isLocked={isLocked}
+          onApplyTemplate={fetchData}
+        />
+      )}
+
       {/* Room Dialog */}
       <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
         <DialogContent className="max-w-lg">
