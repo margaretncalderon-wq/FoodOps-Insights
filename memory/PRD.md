@@ -108,6 +108,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 | GET | /api/orchestration/room-setup/templates | Get all templates |
 | POST | /api/orchestration/room-setup/templates | Create template |
 | POST | /api/orchestration/room-setup/templates/{id}/apply/{event_id} | Apply template |
+| POST | /api/orchestration/room-setup/templates/{id}/duplicate | Duplicate template (NEW) |
 | POST | /api/orchestration/room-setup/templates/create-from-room/{event_id}/{room_id} | Create from room |
 | POST | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/layout-diagram | Upload diagram |
 | GET | /api/orchestration/room-setup/events/{event_id} | Get all room setups for event |
