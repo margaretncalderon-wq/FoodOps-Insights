@@ -58,6 +58,41 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - **Today button** and month navigation
 - **Stats summary** showing total rooms and bookings count
 
+### December 2025
+
+#### Room Setup Feature in Event Orchestration - NEW ✅
+- **New "Room Setup" tab** in Event Orchestration for configuring rooms per event
+- **Layout Configuration:** 8 preset layouts (Theater, Banquet, Cocktail, Classroom, U-Shape, Conference, Hollow Square, Custom)
+- **Room Needs Management:** Add equipment/amenities per room (A/V, Furniture, Decor, Catering, Technical)
+- **Room Timeline:** Define activities with start/end times and responsible person
+- **Visual Gantt Timeline:** Horizontal bar chart showing all room activities over time
+- **List Timeline View:** Chronological list of all activities with type badges
+- **Activity Types:** 7 types (Setup, Ceremony, Cocktail, Dinner, Entertainment, Breakdown, General) with color coding
+- **Hover Tooltips:** Activity details shown on hover in Gantt view
+- **Full bilingual support** (EN/ES)
+
+**API Endpoints - Room Setup:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/orchestration/room-setup/events/{event_id} | Get all room setups for event |
+| POST | /api/orchestration/room-setup/events/{event_id}/rooms | Create room setup |
+| PUT | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id} | Update room setup |
+| DELETE | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id} | Delete room setup |
+| POST | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/needs | Add room need |
+| DELETE | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/needs/{item_id} | Remove need |
+| POST | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline | Add activity |
+| PUT | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline/{activity_id} | Update activity |
+| DELETE | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline/{activity_id} | Delete activity |
+| GET | /api/orchestration/room-setup/events/{event_id}/master-timeline | Get consolidated timeline |
+| GET | /api/orchestration/room-setup/layout-templates | Get layout templates |
+
+**New Files:**
+- `/app/backend/models/room_setup.py` - Pydantic models for RoomSetup, RoomNeed, TimelineActivity
+- `/app/backend/routers/room_setup.py` - API endpoints for room setup
+- `/app/frontend/src/components/RoomSetupTab.js` - Main component with Gantt/List views
+
+**Test Report:** `/app/test_reports/iteration_35.json` - 27/27 tests passed (100%)
+
 ### February 7, 2026
 
 #### Execution Hub - 100% Complete ✅
