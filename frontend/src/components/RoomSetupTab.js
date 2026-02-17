@@ -911,7 +911,15 @@ function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onD
           {/* Needs Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-sm">{isEs ? "Necesidades / Requirements" : "Room Needs"}</h4>
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                {isEs ? "Necesidades / Requirements" : "Room Needs"}
+                {!isLocked && localNeeds.length > 1 && (
+                  <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
+                    <Move className="w-3 h-3" />
+                    {isEs ? "arrastra" : "drag"}
+                  </span>
+                )}
+              </h4>
               {!isLocked && (
                 <Button variant="outline" size="sm" onClick={onAddNeed}>
                   <Plus className="w-3 h-3 mr-1" />
@@ -920,29 +928,26 @@ function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onD
               )}
             </div>
             
-            {setup.needs?.length > 0 ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {setup.needs.map((need) => {
-                  const category = NEED_CATEGORIES.find(c => c.value === need.category);
-                  const Icon = category?.icon || Package;
-                  return (
-                    <div key={need.item_id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm">{need.name}</span>
-                        {need.quantity > 1 && (
-                          <Badge variant="secondary" className="text-xs">x{need.quantity}</Badge>
-                        )}
-                      </div>
-                      {!isLocked && (
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={() => onDeleteNeed(need.item_id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+            {localNeeds.length > 0 ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={(e) => setNeedsActiveId(e.active.id)}
+                onDragEnd={handleNeedsDragEnd}
+              >
+                <SortableContext items={localNeeds.map(n => n.item_id)} strategy={verticalListSortingStrategy}>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {localNeeds.map((need) => (
+                      <SortableNeedItem
+                        key={need.item_id}
+                        need={need}
+                        isLocked={isLocked}
+                        onDelete={() => onDeleteNeed(need.item_id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             ) : (
               <p className="text-sm text-gray-400 italic">{isEs ? "Sin necesidades registradas" : "No needs registered"}</p>
             )}
