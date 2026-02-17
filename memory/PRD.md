@@ -67,7 +67,10 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - **Room Timeline:** Define activities with start/end times and responsible person
 - **Visual Gantt Timeline:** Horizontal bar chart showing all room activities over time
 - **List Timeline View:** Chronological list of all activities with type badges
-- **Drag & Drop Reordering:** Drag activities in list view to reorder and auto-adjust times - NEW ✅
+- **Drag & Drop Everywhere:** ✅
+  - Timeline List view: Drag activities to reorder and auto-adjust times
+  - Room Card Needs: Drag to reorder equipment/amenities
+  - Room Card Timeline: Drag activities within room to reorder
 - **Activity Types:** 7 types (Setup, Ceremony, Cocktail, Dinner, Entertainment, Breakdown, General) with color coding
 - **Hover Tooltips:** Activity details shown on hover in Gantt view
 - **Full bilingual support** (EN/ES)
