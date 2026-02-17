@@ -1991,6 +1991,59 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
     setApplyDialogOpen(true);
   };
 
+  const handleOpenCreateDialog = () => {
+    setCreateForm({
+      name: "",
+      description: "",
+      category: "custom",
+      layout_type: "banquet",
+      layout_notes: "",
+      min_capacity: 0,
+      max_capacity: 0,
+    });
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!createForm.name.trim()) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      await axios.post(`${API}/orchestration/room-setup/templates`, createForm, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success(isEs ? "Template creado exitosamente" : "Template created successfully");
+      setCreateDialogOpen(false);
+      fetchTemplates();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (isEs ? "Error al crear template" : "Error creating template"));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (template, e) => {
+    e.stopPropagation();
+    if (template.is_system_template) {
+      toast.error(isEs ? "No se puede eliminar template del sistema" : "Cannot delete system template");
+      return;
+    }
+    if (!window.confirm(isEs ? `¿Eliminar template "${template.name}"?` : `Delete template "${template.name}"?`)) return;
+
+    try {
+      await axios.delete(`${API}/orchestration/room-setup/templates/${template.template_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success(isEs ? "Template eliminado" : "Template deleted");
+      fetchTemplates();
+    } catch (error) {
+      toast.error(isEs ? "Error al eliminar" : "Error deleting");
+    }
+  };
+
   const handleConfirmApply = async () => {
     if (!applyForm.venue_id || !applyForm.room_id) {
       toast.error(isEs ? "Selecciona sede y salón" : "Select venue and room");
