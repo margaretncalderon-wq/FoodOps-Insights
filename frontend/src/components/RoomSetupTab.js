@@ -705,6 +705,7 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
           eventId={eventId}
           isLocked={isLocked}
           onReorderActivity={handleReorderActivity}
+          onUpdateActivityTime={handleUpdateActivityTime}
         />
       )}
 
