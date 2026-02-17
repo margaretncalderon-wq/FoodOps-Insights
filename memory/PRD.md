@@ -128,9 +128,17 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - `/app/frontend/src/components/TemplatesManager.js` - Templates management UI
 - `/app/frontend/src/components/VisualLayoutEditor.js` - Visual layout diagram editor
 
-**Test Report:** `/app/test_reports/iteration_35.json` - 27/27 tests passed (100%)
+**Test Report:** `/app/test_reports/iteration_36.json` - 12/12 frontend tests passed (100%)
 
-### February 7, 2026
+### February 17, 2026 - Template Creation Feature
+
+#### Create/Save Template Functionality - COMPLETED ✅
+- **Create Template from Templates tab:** Full dialog with name, description, category, layout type, min/max capacity, layout notes
+- **Save as Template from Room Card:** Sparkles icon button opens dialog to save existing room setup as template
+- **Deduplication:** Frontend deduplicates templates by template_id to prevent React key conflicts
+- **Test Report:** `/app/test_reports/iteration_36.json` - 12/12 tests passed
+
+### December 2025
 
 #### Execution Hub - 100% Complete ✅
 - **Backend (18/18 tests):** Goals, Tasks, Decisions, Dependencies, Notes, Access Control
