@@ -56,6 +56,7 @@ import {
   FileDown,
   Image,
   Sparkles,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -67,6 +68,7 @@ import {
   useSensors,
   DragOverlay,
 } from "@dnd-kit/core";
+import { ActivityLogPanel } from "./ActivityLogPanel";
 import {
   arrayMove,
   SortableContext,
