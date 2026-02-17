@@ -2307,16 +2307,31 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
                         )}
                       </div>
                     </div>
-                    {!template.is_system_template && (
+                    <div className="flex items-center gap-1">
+                      {/* Duplicate button - available for all templates */}
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={(e) => handleDeleteTemplate(template, e)}
+                        className="h-8 w-8 p-0 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={(e) => handleOpenDuplicateDialog(template, e)}
+                        title={isEs ? "Duplicar template" : "Duplicate template"}
+                        data-testid={`duplicate-template-${template.template_id}`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Copy className="w-4 h-4" />
                       </Button>
-                    )}
+                      {/* Delete button - only for custom templates */}
+                      {!template.is_system_template && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => handleDeleteTemplate(template, e)}
+                          title={isEs ? "Eliminar template" : "Delete template"}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Visual Layout Preview */}
