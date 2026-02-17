@@ -358,6 +358,57 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
     }
   };
 
+  // Handle reorder activity from drag & drop
+  const handleReorderActivity = async (movedActivity, newIndex, prevActivity, nextActivity) => {
+    // Calculate new time based on surrounding activities
+    let newStartTime = movedActivity.start_time;
+    let newEndTime = movedActivity.end_time;
+    
+    // Get activity duration in minutes
+    const getDuration = (start, end) => {
+      if (!start || !end) return 60; // Default 1 hour
+      const [startH, startM] = start.split(":").map(Number);
+      const [endH, endM] = end.split(":").map(Number);
+      return (endH * 60 + endM) - (startH * 60 + startM);
+    };
+    
+    const duration = getDuration(movedActivity.start_time, movedActivity.end_time);
+    
+    // Calculate new start time based on position
+    if (prevActivity && prevActivity.end_time) {
+      // Start after previous activity ends
+      newStartTime = prevActivity.end_time;
+    } else if (nextActivity && nextActivity.start_time) {
+      // End before next activity starts
+      const [nextH, nextM] = nextActivity.start_time.split(":").map(Number);
+      const totalMinutes = nextH * 60 + nextM - duration;
+      newStartTime = `${Math.floor(totalMinutes / 60).toString().padStart(2, "0")}:${(totalMinutes % 60).toString().padStart(2, "0")}`;
+    }
+    
+    // Calculate new end time
+    const [newStartH, newStartM] = newStartTime.split(":").map(Number);
+    const newEndMinutes = newStartH * 60 + newStartM + duration;
+    newEndTime = `${Math.floor(newEndMinutes / 60).toString().padStart(2, "0")}:${(newEndMinutes % 60).toString().padStart(2, "0")}`;
+    
+    // Update on server
+    await axios.put(
+      `${API}/orchestration/room-setup/events/${eventId}/rooms/${movedActivity.room_id}/timeline/${movedActivity.activity_id}`,
+      {
+        title: movedActivity.title,
+        description: movedActivity.description,
+        start_time: newStartTime,
+        end_time: newEndTime,
+        activity_type: movedActivity.activity_type,
+        responsible: movedActivity.responsible,
+        notes: movedActivity.notes,
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    // Refresh data
+    fetchData();
+  };
+
   const selectedVenue = venues.find(v => v.venue_id === roomForm.venue_id);
 
   if (loading) {
