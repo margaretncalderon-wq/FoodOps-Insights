@@ -1207,6 +1207,15 @@ function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete
           <div className="flex items-center gap-2">
             {!isLocked && (
               <>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setSaveTemplateDialogOpen(true)}
+                  title={isEs ? "Guardar como Template" : "Save as Template"}
+                  data-testid="save-as-template-btn"
+                >
+                  <Sparkles className="w-4 h-4" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={onEdit}>
                   <Edit2 className="w-4 h-4" />
                 </Button>
