@@ -2082,8 +2082,8 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
 
   return (
     <div className="space-y-4">
-      {/* Category Filter */}
-      <div className="flex items-center gap-2">
+      {/* Header with Filter and Create Button */}
+      <div className="flex items-center justify-between">
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder={isEs ? "Filtrar por categoría" : "Filter by category"} />
@@ -2097,6 +2097,11 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
             ))}
           </SelectContent>
         </Select>
+
+        <Button onClick={handleOpenCreateDialog} className="bg-[#3A4D3F] hover:bg-[#2d3d31]">
+          <Plus className="w-4 h-4 mr-1" />
+          {isEs ? "Crear Template" : "Create Template"}
+        </Button>
       </div>
 
       {/* Templates Grid */}
