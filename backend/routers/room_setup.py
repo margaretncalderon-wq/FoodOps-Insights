@@ -1033,7 +1033,7 @@ async def seed_system_templates(
     
     system_templates = [
         {
-            "template_id": f"tpl_sys_wedding",
+            "template_id": "tpl_sys_wedding",
             "company_id": "system",
             "name": "Boda Clásica",
             "name_en": "Classic Wedding",
@@ -1064,7 +1064,7 @@ async def seed_system_templates(
             "updated_at": now,
         },
         {
-            "template_id": f"tpl_sys_corporate",
+            "template_id": "tpl_sys_corporate",
             "company_id": "system",
             "name": "Conferencia Corporativa",
             "name_en": "Corporate Conference",
@@ -1096,7 +1096,7 @@ async def seed_system_templates(
             "updated_at": now,
         },
         {
-            "template_id": f"tpl_sys_gala",
+            "template_id": "tpl_sys_gala",
             "company_id": "system",
             "name": "Gala de Premiación",
             "name_en": "Awards Gala",
