@@ -136,3 +136,71 @@ class EventRoomSetups(BaseModel):
     
     # Consolidated timeline across all rooms
     master_timeline: List[dict] = []  # Computed from individual room timelines
+
+
+
+# ============== TEMPLATES ==============
+
+class TemplateCategory(str, Enum):
+    WEDDING = "wedding"
+    CORPORATE = "corporate"
+    SOCIAL = "social"
+    CONFERENCE = "conference"
+    GALA = "gala"
+    CUSTOM = "custom"
+
+
+class RoomSetupTemplate(BaseModel):
+    """Reusable room setup template"""
+    template_id: Optional[str] = None
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    category: TemplateCategory = TemplateCategory.CUSTOM
+    
+    # Layout configuration
+    layout_type: LayoutType = LayoutType.BANQUET
+    custom_layout_name: Optional[str] = None
+    layout_diagram_url: Optional[str] = None  # Visual layout image
+    layout_notes: Optional[str] = None
+    
+    # Template needs (defaults)
+    default_needs: List[RoomNeedItem] = []
+    
+    # Template timeline (relative times)
+    default_timeline: List[TimelineActivity] = []
+    
+    # Typical capacity range
+    min_capacity: int = 0
+    max_capacity: int = 0
+    
+    # Visual elements
+    thumbnail_url: Optional[str] = None
+    
+    # Metadata
+    is_system_template: bool = False  # System-wide vs company-specific
+    usage_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class RoomSetupTemplateCreate(BaseModel):
+    """Create a new template"""
+    name: str
+    description: Optional[str] = None
+    category: TemplateCategory = TemplateCategory.CUSTOM
+    layout_type: LayoutType = LayoutType.BANQUET
+    custom_layout_name: Optional[str] = None
+    layout_notes: Optional[str] = None
+    default_needs: List[RoomNeedItem] = []
+    default_timeline: List[TimelineActivity] = []
+    min_capacity: int = 0
+    max_capacity: int = 0
+
+
+class LayoutDiagramUpload(BaseModel):
+    """Upload visual layout diagram"""
+    room_id: Optional[str] = None  # For room-specific
+    template_id: Optional[str] = None  # For template
+    diagram_url: str
+    diagram_type: str = "floor_plan"  # floor_plan, seating_chart, 3d_view
