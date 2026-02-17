@@ -580,23 +580,37 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
             </TabsList>
           </Tabs>
           
-          {!isLocked && activeView !== "templates" && (
-            <div className="flex items-center gap-2">
-              <Button 
-                onClick={handleOpenCopyDialog} 
-                variant="outline"
-                className="text-sm"
-                data-testid="copy-setup-btn"
-              >
-                <Copy className="w-4 h-4 mr-1" />
-                {isEs ? "Copiar de otro evento" : "Copy from event"}
-              </Button>
-              <Button onClick={handleAddRoom} className="bg-[#3A4D3F] hover:bg-[#2d3d31]">
-                <Plus className="w-4 h-4 mr-1" />
-                {isEs ? "Agregar Salón" : "Add Room"}
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Export Button - Always visible when there's data */}
+            {(roomSetups.length > 0 || masterTimeline.length > 0) && (
+              <TimelineExport
+                eventName={eventName}
+                eventDate={eventDate}
+                guestCount={guestCount}
+                roomSetups={roomSetups}
+                masterTimeline={masterTimeline}
+                venueName={roomSetups[0]?.venue_name}
+              />
+            )}
+            
+            {!isLocked && activeView !== "templates" && (
+              <>
+                <Button 
+                  onClick={handleOpenCopyDialog} 
+                  variant="outline"
+                  className="text-sm"
+                  data-testid="copy-setup-btn"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  {isEs ? "Copiar de otro evento" : "Copy from event"}
+                </Button>
+                <Button onClick={handleAddRoom} className="bg-[#3A4D3F] hover:bg-[#2d3d31]">
+                  <Plus className="w-4 h-4 mr-1" />
+                  {isEs ? "Agregar Salón" : "Add Room"}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
