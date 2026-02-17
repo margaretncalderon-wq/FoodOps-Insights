@@ -204,3 +204,41 @@ class LayoutDiagramUpload(BaseModel):
     template_id: Optional[str] = None  # For template
     diagram_url: str
     diagram_type: str = "floor_plan"  # floor_plan, seating_chart, 3d_view
+
+
+
+# ============== ACTIVITY CHANGE LOG ==============
+
+class ChangeType(str, Enum):
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    MOVE = "move"  # Drag & drop in timeline
+    RESIZE = "resize"  # Resize activity duration
+
+
+class ActivityChangeLog(BaseModel):
+    """Log of changes to activities for audit trail"""
+    log_id: Optional[str] = None
+    event_id: str
+    room_id: str
+    activity_id: str
+    activity_title: str
+    change_type: ChangeType
+    changed_by_id: str
+    changed_by_name: str
+    changed_by_email: str
+    timestamp: datetime
+    
+    # What changed
+    field_changed: Optional[str] = None  # e.g., "start_time", "end_time", "title"
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    
+    # For time changes, store both old and new times
+    old_start_time: Optional[str] = None
+    old_end_time: Optional[str] = None
+    new_start_time: Optional[str] = None
+    new_end_time: Optional[str] = None
+    
+    notes: Optional[str] = None
