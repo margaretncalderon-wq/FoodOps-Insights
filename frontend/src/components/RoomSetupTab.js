@@ -572,10 +572,14 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                 <Clock className="w-4 h-4 mr-1" />
                 Timeline
               </TabsTrigger>
+              <TabsTrigger value="templates" className="text-xs">
+                <Sparkles className="w-4 h-4 mr-1" />
+                Templates
+              </TabsTrigger>
             </TabsList>
           </Tabs>
           
-          {!isLocked && (
+          {!isLocked && activeView !== "templates" && (
             <div className="flex items-center gap-2">
               <Button 
                 onClick={handleOpenCopyDialog} 
