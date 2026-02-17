@@ -887,8 +887,11 @@ function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onD
   );
 }
 
-// Master Timeline View Component
+// Master Timeline View Component - Visual Gantt-style Timeline
 function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
+  const [hoveredActivity, setHoveredActivity] = useState(null);
+  const [viewMode, setViewMode] = useState("gantt"); // gantt | list
+
   if (roomSetups.length === 0) {
     return (
       <Card className="border-dashed">
@@ -900,71 +903,313 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
     );
   }
 
-  // Get all unique hours from timeline
-  const hours = [...new Set(masterTimeline.map(t => t.start_time?.substring(0, 2)))].sort();
-  
-  // Get color for room
-  const roomColors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500", "bg-pink-500"];
+  // Calculate time range from all activities and room schedules
+  const getTimeRange = () => {
+    let minHour = 24;
+    let maxHour = 0;
+
+    // From activities
+    masterTimeline.forEach(t => {
+      if (t.start_time) {
+        const startH = parseInt(t.start_time.split(":")[0]);
+        minHour = Math.min(minHour, startH);
+      }
+      if (t.end_time) {
+        const endH = parseInt(t.end_time.split(":")[0]) + 1;
+        maxHour = Math.max(maxHour, endH);
+      }
+    });
+
+    // From room setup times
+    roomSetups.forEach(setup => {
+      if (setup.setup_start_time) {
+        const h = parseInt(setup.setup_start_time.split(":")[0]);
+        minHour = Math.min(minHour, h);
+      }
+      if (setup.breakdown_end_time) {
+        const h = parseInt(setup.breakdown_end_time.split(":")[0]) + 1;
+        maxHour = Math.max(maxHour, h);
+      }
+    });
+
+    // Default range if no activities
+    if (minHour > maxHour) {
+      minHour = 8;
+      maxHour = 22;
+    }
+
+    return { minHour: Math.max(0, minHour - 1), maxHour: Math.min(24, maxHour + 1) };
+  };
+
+  const { minHour, maxHour } = getTimeRange();
+  const totalHours = maxHour - minHour;
+  const hours = Array.from({ length: totalHours }, (_, i) => minHour + i);
+
+  // Calculate position and width of activity bar
+  const getActivityStyle = (activity) => {
+    if (!activity.start_time || !activity.end_time) return { left: "0%", width: "0%" };
+    
+    const [startH, startM] = activity.start_time.split(":").map(Number);
+    const [endH, endM] = activity.end_time.split(":").map(Number);
+    
+    const startMinutes = (startH - minHour) * 60 + startM;
+    const endMinutes = (endH - minHour) * 60 + endM;
+    const totalMinutes = totalHours * 60;
+    
+    const left = (startMinutes / totalMinutes) * 100;
+    const width = ((endMinutes - startMinutes) / totalMinutes) * 100;
+    
+    return {
+      left: `${Math.max(0, left)}%`,
+      width: `${Math.min(100 - left, Math.max(2, width))}%`,
+    };
+  };
+
+  // Room colors for visual distinction
+  const roomColors = [
+    { bg: "bg-blue-500", border: "border-blue-600", light: "bg-blue-100", text: "text-blue-700" },
+    { bg: "bg-emerald-500", border: "border-emerald-600", light: "bg-emerald-100", text: "text-emerald-700" },
+    { bg: "bg-purple-500", border: "border-purple-600", light: "bg-purple-100", text: "text-purple-700" },
+    { bg: "bg-amber-500", border: "border-amber-600", light: "bg-amber-100", text: "text-amber-700" },
+    { bg: "bg-rose-500", border: "border-rose-600", light: "bg-rose-100", text: "text-rose-700" },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* Room Legend */}
-      <div className="flex flex-wrap gap-3">
-        {roomSetups.map((setup, idx) => (
-          <div key={setup.room_id} className="flex items-center gap-2 text-sm">
-            <div className={`w-3 h-3 rounded ${roomColors[idx % roomColors.length]}`} />
-            {setup.room_name}
-          </div>
-        ))}
+    <div className="space-y-4" data-testid="master-timeline-view">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-3">
+          {roomSetups.map((setup, idx) => {
+            const colors = roomColors[idx % roomColors.length];
+            return (
+              <div key={setup.room_id} className="flex items-center gap-2 text-sm">
+                <div className={`w-3 h-3 rounded ${colors.bg}`} />
+                <span className="font-medium">{setup.room_name}</span>
+                <span className="text-muted-foreground text-xs">
+                  ({setup.timeline?.length || 0} {isEs ? "act." : "act."})
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* View Toggle */}
+        <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+          <button
+            onClick={() => setViewMode("gantt")}
+            className={`px-3 py-1 text-xs rounded ${viewMode === "gantt" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Gantt
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={`px-3 py-1 text-xs rounded ${viewMode === "list" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {isEs ? "Lista" : "List"}
+          </button>
+        </div>
       </div>
 
-      {/* Timeline Grid */}
-      <div className="border rounded-lg overflow-hidden">
-        {/* Header - Room names */}
-        <div className="grid" style={{ gridTemplateColumns: `80px repeat(${roomSetups.length}, 1fr)` }}>
-          <div className="bg-gray-100 dark:bg-gray-800 p-2 text-sm font-medium border-r">
-            {isEs ? "Hora" : "Time"}
-          </div>
-          {roomSetups.map((setup, idx) => (
-            <div key={setup.room_id} className={`p-2 text-sm font-medium text-white ${roomColors[idx % roomColors.length]}`}>
-              {setup.room_name}
-            </div>
-          ))}
-        </div>
+      {/* Gantt View */}
+      {viewMode === "gantt" && (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <div className="min-w-[800px]">
+              {/* Time header */}
+              <div className="flex border-b bg-muted/30">
+                <div className="w-40 flex-shrink-0 p-3 font-medium text-sm border-r">
+                  {isEs ? "Salón" : "Room"}
+                </div>
+                <div className="flex-1 flex">
+                  {hours.map((hour) => (
+                    <div
+                      key={hour}
+                      className="flex-1 text-center text-xs py-2 border-r last:border-r-0 text-muted-foreground"
+                      style={{ minWidth: "60px" }}
+                    >
+                      {hour.toString().padStart(2, "0")}:00
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        {/* Timeline rows by hour */}
-        {hours.length > 0 ? hours.map((hour) => (
-          <div key={hour} className="grid border-t" style={{ gridTemplateColumns: `80px repeat(${roomSetups.length}, 1fr)` }}>
-            <div className="bg-gray-50 dark:bg-gray-800/50 p-2 text-sm font-medium border-r">
-              {hour}:00
+              {/* Room rows */}
+              {roomSetups.map((setup, roomIdx) => {
+                const colors = roomColors[roomIdx % roomColors.length];
+                const roomActivities = masterTimeline.filter(t => t.room_id === setup.room_id);
+
+                return (
+                  <div key={setup.room_id} className="flex border-b last:border-b-0 hover:bg-muted/20">
+                    {/* Room name */}
+                    <div className={`w-40 flex-shrink-0 p-3 border-r ${colors.light}`}>
+                      <div className={`font-medium text-sm ${colors.text}`}>{setup.room_name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {setup.venue_name}
+                      </div>
+                    </div>
+
+                    {/* Timeline area */}
+                    <div className="flex-1 relative" style={{ height: "80px" }}>
+                      {/* Hour grid lines */}
+                      <div className="absolute inset-0 flex pointer-events-none">
+                        {hours.map((hour) => (
+                          <div
+                            key={hour}
+                            className="flex-1 border-r border-dashed border-gray-200 dark:border-gray-700 last:border-r-0"
+                            style={{ minWidth: "60px" }}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Activity bars */}
+                      <div className="absolute inset-0 p-2">
+                        {roomActivities.map((activity, actIdx) => {
+                          const style = getActivityStyle(activity);
+                          const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type);
+                          const isHovered = hoveredActivity === activity.activity_id;
+
+                          return (
+                            <div
+                              key={activity.activity_id}
+                              className={`absolute h-10 rounded-md cursor-pointer transition-all duration-150 shadow-sm
+                                ${typeInfo?.color || colors.bg} 
+                                ${isHovered ? "ring-2 ring-offset-1 ring-black/20 shadow-md scale-[1.02] z-10" : ""}
+                              `}
+                              style={{
+                                left: style.left,
+                                width: style.width,
+                                top: `${actIdx * 44 + 4}px`,
+                              }}
+                              onMouseEnter={() => setHoveredActivity(activity.activity_id)}
+                              onMouseLeave={() => setHoveredActivity(null)}
+                              data-testid={`timeline-activity-${activity.activity_id}`}
+                            >
+                              <div className="px-2 py-1 h-full flex flex-col justify-center overflow-hidden">
+                                <div className="text-xs font-medium text-white truncate">
+                                  {activity.title}
+                                </div>
+                                <div className="text-[10px] text-white/80 truncate">
+                                  {activity.start_time} - {activity.end_time}
+                                </div>
+                              </div>
+
+                              {/* Hover tooltip */}
+                              {isHovered && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 pointer-events-none">
+                                  <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                                    <div className="font-semibold">{activity.title}</div>
+                                    <div className="text-gray-300 mt-1">
+                                      {activity.start_time} - {activity.end_time}
+                                    </div>
+                                    {activity.responsible && (
+                                      <div className="text-gray-400 mt-0.5">
+                                        {isEs ? "Responsable" : "Responsible"}: {activity.responsible}
+                                      </div>
+                                    )}
+                                    {activity.notes && (
+                                      <div className="text-gray-400 mt-0.5 max-w-[200px] truncate">
+                                        {activity.notes}
+                                      </div>
+                                    )}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {roomActivities.length === 0 && (
+                          <div className="flex items-center justify-center h-full text-xs text-muted-foreground italic">
+                            {isEs ? "Sin actividades" : "No activities"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            {roomSetups.map((setup) => {
-              const activities = masterTimeline.filter(
-                t => t.room_id === setup.room_id && t.start_time?.startsWith(hour)
-              );
-              return (
-                <div key={setup.room_id} className="p-1 min-h-[60px] border-r last:border-r-0">
-                  {activities.map((activity) => {
+          </CardContent>
+        </Card>
+      )}
+
+      {/* List View */}
+      {viewMode === "list" && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {masterTimeline.length > 0 ? (
+                masterTimeline
+                  .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""))
+                  .map((activity, idx) => {
                     const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type);
+                    const roomSetup = roomSetups.find(r => r.room_id === activity.room_id);
+                    const roomIdx = roomSetups.findIndex(r => r.room_id === activity.room_id);
+                    const colors = roomColors[roomIdx % roomColors.length] || roomColors[0];
+
                     return (
                       <div
-                        key={activity.activity_id}
-                        className={`text-xs p-1 rounded mb-1 text-white ${typeInfo?.color || "bg-gray-500"}`}
+                        key={activity.activity_id || idx}
+                        className="flex items-stretch gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors"
                       >
-                        <div className="font-medium truncate">{activity.title}</div>
-                        <div className="opacity-80">{activity.start_time}-{activity.end_time}</div>
+                        {/* Time */}
+                        <div className="w-24 flex-shrink-0 text-center">
+                          <div className="text-lg font-semibold">{activity.start_time || "--:--"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {activity.end_time ? `${isEs ? "hasta" : "to"} ${activity.end_time}` : ""}
+                          </div>
+                        </div>
+
+                        {/* Color bar */}
+                        <div className={`w-1 rounded-full ${typeInfo?.color || "bg-gray-400"}`} />
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{activity.title}</span>
+                            <Badge variant="secondary" className={`text-xs ${colors.light} ${colors.text}`}>
+                              {activity.room_name || roomSetup?.room_name}
+                            </Badge>
+                          </div>
+                          {activity.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-1">{activity.description}</p>
+                          )}
+                          {activity.responsible && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <Users className="w-3 h-3 inline mr-1" />
+                              {activity.responsible}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Type badge */}
+                        <div className="flex-shrink-0">
+                          <Badge className={`${typeInfo?.color || "bg-gray-500"} text-white text-xs`}>
+                            {isEs ? typeInfo?.labelEs : typeInfo?.labelEn}
+                          </Badge>
+                        </div>
                       </div>
                     );
-                  })}
+                  })
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  {isEs ? "No hay actividades en el timeline" : "No activities in timeline"}
                 </div>
-              );
-            })}
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Activity Type Legend */}
+      <div className="flex flex-wrap gap-2 justify-center text-xs">
+        {ACTIVITY_TYPES.map((type) => (
+          <div key={type.value} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded ${type.color}`} />
+            <span className="text-muted-foreground">{isEs ? type.labelEs : type.labelEn}</span>
           </div>
-        )) : (
-          <div className="p-8 text-center text-gray-400">
-            {isEs ? "Agrega actividades al timeline de cada salón" : "Add activities to each room's timeline"}
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );
