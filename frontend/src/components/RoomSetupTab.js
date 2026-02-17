@@ -186,6 +186,56 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
     fetchData();
   }, [fetchData]);
 
+  // Open copy dialog and fetch events with setups
+  const handleOpenCopyDialog = async () => {
+    try {
+      const res = await axios.get(`${API}/orchestration/room-setup/events-with-setups`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Filter out current event
+      const filteredEvents = (res.data || []).filter(e => e.event_id !== eventId);
+      setEventsWithSetups(filteredEvents);
+      setSelectedSourceEvent("");
+      setCopyNeeds(true);
+      setCopyTimeline(true);
+      setCopyDialogOpen(true);
+    } catch (error) {
+      toast.error(isEs ? "Error al cargar eventos" : "Error loading events");
+    }
+  };
+
+  // Copy room setup from another event
+  const handleCopyFromEvent = async () => {
+    if (!selectedSourceEvent) return;
+    
+    const confirmMessage = isEs 
+      ? "¿Estás seguro? Esto reemplazará la configuración actual de salones."
+      : "Are you sure? This will replace the current room setup configuration.";
+    
+    if (!window.confirm(confirmMessage)) return;
+    
+    try {
+      setCopying(true);
+      const res = await axios.post(
+        `${API}/orchestration/room-setup/events/${eventId}/copy-from/${selectedSourceEvent}?copy_needs=${copyNeeds}&copy_timeline=${copyTimeline}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success(
+        isEs 
+          ? `Copiado: ${res.data.copied_rooms} salón(es) desde "${res.data.source_event}"`
+          : `Copied: ${res.data.copied_rooms} room(s) from "${res.data.source_event}"`
+      );
+      setCopyDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (isEs ? "Error al copiar" : "Error copying"));
+    } finally {
+      setCopying(false);
+    }
+  };
+
   const handleAddRoom = () => {
     setSelectedRoom(null);
     setRoomForm({
