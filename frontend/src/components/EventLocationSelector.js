@@ -124,7 +124,17 @@ export default function EventLocationSelector({
     fetchVenues();
   }, [fetchVenues]);
 
+  // Check availability when room is selected
+  useEffect(() => {
+    if (locationForm.room_id && locationForm.location_type === "onsite") {
+      checkRoomAvailability(locationForm.room_id);
+    } else {
+      setRoomAvailability(null);
+    }
+  }, [locationForm.room_id, locationForm.location_type, checkRoomAvailability]);
+
   const resetForm = () => {
+    setRoomAvailability(null);
     setLocationForm({
       location_type: "onsite",
       label: "",
