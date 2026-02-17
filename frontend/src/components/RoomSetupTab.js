@@ -2064,10 +2064,13 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [applyForm, setApplyForm] = useState({ venue_id: "", room_id: "" });
   const [applying, setApplying] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [duplicateForm, setDuplicateForm] = useState({ name: "", description: "" });
   const [createForm, setCreateForm] = useState({
     name: "",
     description: "",
