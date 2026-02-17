@@ -1775,6 +1775,12 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
         
         {/* View Toggle */}
         <div className="flex items-center gap-2">
+          {!isLocked && viewMode === "gantt" && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
+              <Move className="w-3 h-3" />
+              <span>{isEs ? "Arrastra barras para ajustar" : "Drag bars to adjust"}</span>
+            </div>
+          )}
           {!isLocked && viewMode === "list" && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
               <Move className="w-3 h-3" />
