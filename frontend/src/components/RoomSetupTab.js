@@ -52,6 +52,8 @@ import {
   Lightbulb,
   Armchair,
   Move,
+  Copy,
+  FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
