@@ -214,6 +214,10 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
 - **Room:** "Salón Diamante" (capacity 100, floor 1, amenities: WiFi, Proyector, Audio)
+- **Room Setup Test Event:** "Evento Demo - Boda" (event_c35238fcb131) with:
+  - 1 room setup (Salón Diamante, Banquet layout)
+  - 3 needs (Proyector HD, Mesas redondas x15, Sistema de audio)
+  - 5 activities (Montaje 14:00-16:00, Ceremonia 17:00-17:45, Cóctel 17:45-19:00, Cena 19:00-21:00, Fiesta 21:00-23:00)
 
 ## Credentials
 - Email: margaret.n.calderon@gmail.com
