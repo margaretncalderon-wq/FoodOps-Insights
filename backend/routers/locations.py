@@ -108,6 +108,16 @@ async def create_venue(
     del venue_doc["_id"]
     venue_doc["rooms"] = []
     
+    # Log activity
+    await log_activity(
+        module="locations",
+        action="create",
+        entity_type="venue",
+        entity_id=venue_id,
+        entity_name=data.name,
+        **user_info(user)
+    )
+    
     return venue_doc
 
 
