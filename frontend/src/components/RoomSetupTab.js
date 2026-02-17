@@ -2266,6 +2266,128 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Template Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#3A4D3F]" />
+              {isEs ? "Crear Nuevo Template" : "Create New Template"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre" : "Name"} *</Label>
+              <Input
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                placeholder={isEs ? "Ej: Boda Elegante" : "E.g., Elegant Wedding"}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isEs ? "Descripción" : "Description"}</Label>
+              <Textarea
+                value={createForm.description}
+                onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                placeholder={isEs ? "Describe el template..." : "Describe the template..."}
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Categoría" : "Category"}</Label>
+                <Select value={createForm.category} onValueChange={(v) => setCreateForm({ ...createForm, category: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.icon} {isEs ? cat.labelEs : cat.labelEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{isEs ? "Tipo de Layout" : "Layout Type"}</Label>
+                <Select value={createForm.layout_type} onValueChange={(v) => setCreateForm({ ...createForm, layout_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LAYOUT_TYPES.map((layout) => (
+                      <SelectItem key={layout.value} value={layout.value}>
+                        {isEs ? layout.labelEs : layout.labelEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Capacidad Mín." : "Min Capacity"}</Label>
+                <Input
+                  type="number"
+                  value={createForm.min_capacity}
+                  onChange={(e) => setCreateForm({ ...createForm, min_capacity: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Capacidad Máx." : "Max Capacity"}</Label>
+                <Input
+                  type="number"
+                  value={createForm.max_capacity}
+                  onChange={(e) => setCreateForm({ ...createForm, max_capacity: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isEs ? "Notas del Layout" : "Layout Notes"}</Label>
+              <Textarea
+                value={createForm.layout_notes}
+                onChange={(e) => setCreateForm({ ...createForm, layout_notes: e.target.value })}
+                placeholder={isEs ? "Detalles de la disposición..." : "Layout details..."}
+                rows={2}
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {isEs 
+                ? "Tip: También puedes crear templates desde un salón existente usando 'Guardar como Template' en la tarjeta del salón."
+                : "Tip: You can also create templates from an existing room using 'Save as Template' on the room card."
+              }
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateTemplate} className="bg-[#3A4D3F] hover:bg-[#2d3d31]" disabled={creating}>
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  {isEs ? "Creando..." : "Creating..."}
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-1" />
+                  {isEs ? "Crear Template" : "Create Template"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
