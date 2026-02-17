@@ -334,40 +334,55 @@ export default function VenuesPage() {
           </Button>
         </div>
 
-        {/* Venues List */}
-        {venues.length === 0 ? (
-          <Card className="bg-white dark:bg-gray-800 border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Building2 className="w-12 h-12 text-gray-400 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400 mb-2">{t("noVenuesYet")}</p>
-              <p className="text-sm text-gray-400 mb-4">{t("createFirstVenue")}</p>
-              <Button
-                onClick={() => handleOpenVenueDialog()}
-                className="bg-[#3A4D3F] hover:bg-[#2d3d31] text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                {t("addVenue")}
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {venues.map((venue) => (
-              <Card key={venue.venue_id} className="bg-white dark:bg-gray-800" data-testid={`venue-card-${venue.venue_id}`}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-[#3A4D3F]/10 rounded-lg">
-                        <Home className="w-6 h-6 text-[#3A4D3F]" />
-                      </div>
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          {venue.name}
-                          {venue.is_primary && (
-                            <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
-                              <Star className="w-3 h-3 mr-1" />
-                              {t("isPrimary")}
-                            </Badge>
+        {/* Tabs: List / Calendar */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="list" className="flex items-center gap-2">
+              <List className="w-4 h-4" />
+              {language === "es" ? "Lista" : "List"}
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              {t("calendar")}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* List View */}
+          <TabsContent value="list" className="mt-4">
+            {/* Venues List */}
+            {venues.length === 0 ? (
+              <Card className="bg-white dark:bg-gray-800 border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Building2 className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 mb-2">{t("noVenuesYet")}</p>
+                  <p className="text-sm text-gray-400 mb-4">{t("createFirstVenue")}</p>
+                  <Button
+                    onClick={() => handleOpenVenueDialog()}
+                    className="bg-[#3A4D3F] hover:bg-[#2d3d31] text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t("addVenue")}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {venues.map((venue) => (
+                  <Card key={venue.venue_id} className="bg-white dark:bg-gray-800" data-testid={`venue-card-${venue.venue_id}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-[#3A4D3F]/10 rounded-lg">
+                            <Home className="w-6 h-6 text-[#3A4D3F]" />
+                          </div>
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              {venue.name}
+                              {venue.is_primary && (
+                                <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+                                  <Star className="w-3 h-3 mr-1" />
+                                  {t("isPrimary")}
+                                </Badge>
                           )}
                         </CardTitle>
                         <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
