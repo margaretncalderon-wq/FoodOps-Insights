@@ -2090,7 +2090,7 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      // Seed system templates first
+      // Seed system templates first (idempotent operation)
       await axios.post(`${API}/orchestration/room-setup/templates/seed-system`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
@@ -2099,7 +2099,17 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
       const res = await axios.get(`${API}/orchestration/room-setup/templates${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setTemplates(res.data || []);
+      
+      // Deduplicate templates by template_id to avoid React key conflicts
+      const templatesData = res.data || [];
+      const seen = new Set();
+      const uniqueTemplates = templatesData.filter(t => {
+        if (seen.has(t.template_id)) return false;
+        seen.add(t.template_id);
+        return true;
+      });
+      
+      setTemplates(uniqueTemplates);
     } catch (error) {
       console.error("Error fetching templates:", error);
     } finally {
