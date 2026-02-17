@@ -67,6 +67,17 @@ async def create_lead(data: LeadCreate, user: User = Depends(get_current_user)):
     del lead_doc["_id"]
     lead_doc["created_at"] = now
     lead_doc["updated_at"] = now
+    
+    # Log activity
+    await log_activity(
+        module="crm",
+        action="create",
+        entity_type="lead",
+        entity_id=lead_id,
+        entity_name=data.name or data.email or "New Lead",
+        **user_info(user)
+    )
+    
     return lead_doc
 
 
