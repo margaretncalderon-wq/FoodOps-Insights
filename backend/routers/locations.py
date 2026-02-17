@@ -400,6 +400,23 @@ async def update_event_locations(
     
     now = datetime.now(timezone.utc)
     locations = []
+    room_bookings_to_create = []
+    
+    # Get event date for room bookings
+    event_date = event.get("event_date")
+    if event_date:
+        if isinstance(event_date, str):
+            event_date_str = event_date[:10]  # YYYY-MM-DD
+        else:
+            event_date_str = event_date.strftime("%Y-%m-%d")
+    else:
+        event_date_str = None
+    
+    # Cancel existing room bookings for this event
+    await db.room_bookings.update_many(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"$set": {"status": "cancelled", "cancelled_at": now.isoformat()}}
+    )
     
     for idx, loc_data in enumerate(data.locations):
         location_id = f"loc_{uuid.uuid4().hex[:8]}"
@@ -431,6 +448,28 @@ async def update_event_locations(
                 if room:
                     location["room_id"] = loc_data.room_id
                     location["room_name"] = room.get("name")
+                    
+                    # Create room booking if event has a date
+                    if event_date_str:
+                        room_bookings_to_create.append({
+                            "booking_id": f"booking_{uuid.uuid4().hex[:12]}",
+                            "company_id": user.company_id,
+                            "room_id": loc_data.room_id,
+                            "room_name": room.get("name"),
+                            "venue_id": loc_data.venue_id,
+                            "venue_name": venue.get("name") if venue else None,
+                            "event_id": event_id,
+                            "event_name": event.get("name"),
+                            "booking_date": event_date_str,
+                            "start_time": loc_data.arrival_time,
+                            "end_time": loc_data.departure_time,
+                            "all_day": not (loc_data.arrival_time and loc_data.departure_time),
+                            "notes": loc_data.setup_notes,
+                            "booking_type": "event",
+                            "status": "confirmed",
+                            "created_at": now.isoformat(),
+                            "created_by": user.user_id
+                        })
         
         elif loc_data.location_type == LocationType.OFFSITE:
             location["address"] = loc_data.address
@@ -491,6 +530,10 @@ async def update_event_locations(
     # Sort by order
     locations.sort(key=lambda x: x.get("order", 0))
     
+    # Create room bookings
+    if room_bookings_to_create:
+        await db.room_bookings.insert_many(room_bookings_to_create)
+    
     # Update event
     # Also update legacy venue field for backwards compatibility
     primary_location = locations[0] if locations else None
@@ -507,7 +550,7 @@ async def update_event_locations(
         }
     )
     
-    return {"locations": locations}
+    return {"locations": locations, "bookings_created": len(room_bookings_to_create)}
 
 
 @locations_router.post("/events/{event_id}/locations/add")
