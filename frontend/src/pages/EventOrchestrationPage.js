@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import {
   Music4, ArrowLeft, Calendar, Users, Clock, Package,
   Palette, GitBranch, FileCheck, Star, Search, RefreshCw,
-  CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock, ExternalLink
+  CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock, ExternalLink,
+  LayoutGrid
 } from "lucide-react";
 
 // Tab Components
@@ -30,6 +31,7 @@ import EventCalendarTab from "../components/orchestration/EventCalendarTab";
 import PostEventReviewTab from "../components/orchestration/PostEventReviewTab";
 import EventBinderTab from "../components/orchestration/EventBinderTab";
 import OperationalDocumentsTab from "../components/orchestration/OperationalDocumentsTab";
+import RoomSetupTab from "../components/RoomSetupTab";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
