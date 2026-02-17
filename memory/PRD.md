@@ -87,6 +87,14 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Upload custom floor plan images (JPG, PNG, WebP up to 5MB)
   - Preview diagrams in room cards and templates
   - Fullscreen view on click
+- **PDF Export:** ✅ NEW (December 2025)
+  - Export button with dropdown menu
+  - Detailed PDF (by room): Complete report organized by room with timeline, needs
+  - Summary PDF (schedule): Master chronological schedule of all activities
+  - Visual Timeline PDF: Gantt-style visual representation in landscape
+  - Print option: Direct browser print
+  - Custom branded header with event info
+  - Color-coded activity types
 - **Activity Types:** 7 types (Setup, Ceremony, Cocktail, Dinner, Entertainment, Breakdown, General) with color coding
 - **Hover Tooltips:** Activity details shown on hover in Gantt view
 - **Full bilingual support** (EN/ES)
