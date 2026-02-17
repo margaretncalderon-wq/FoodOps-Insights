@@ -527,6 +527,84 @@ export default function VenuesPage() {
             ))}
           </div>
         )}
+          </TabsContent>
+
+          {/* Calendar View */}
+          <TabsContent value="calendar" className="mt-4">
+            {venues.length === 0 ? (
+              <Card className="bg-white dark:bg-gray-800 border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Calendar className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 mb-2">{t("noVenuesYet")}</p>
+                  <p className="text-sm text-gray-400">{t("createFirstVenue")}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* Venue Selector for Calendar */}
+                {!calendarVenue && (
+                  <Card className="bg-white dark:bg-gray-800">
+                    <CardContent className="py-6">
+                      <p className="text-center text-gray-500 mb-4">
+                        {language === "es" ? "Selecciona una sede para ver su calendario" : "Select a venue to view its calendar"}
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {venues.map((venue) => (
+                          <Button
+                            key={venue.venue_id}
+                            variant="outline"
+                            onClick={() => setCalendarVenue(venue)}
+                            className="flex items-center gap-2"
+                          >
+                            <Building2 className="w-4 h-4" />
+                            {venue.name}
+                            {venue.rooms && (
+                              <Badge variant="secondary" className="ml-1">
+                                {venue.rooms.filter(r => r.is_active).length} {t("rooms")}
+                              </Badge>
+                            )}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Selected Venue Calendar */}
+                {calendarVenue && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Button
+                        variant="ghost"
+                        onClick={() => setCalendarVenue(null)}
+                        className="text-sm"
+                      >
+                        ← {language === "es" ? "Ver todas las sedes" : "View all venues"}
+                      </Button>
+                      <div className="flex gap-2">
+                        {venues.filter(v => v.venue_id !== calendarVenue.venue_id).slice(0, 3).map((venue) => (
+                          <Button
+                            key={venue.venue_id}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCalendarVenue(venue)}
+                          >
+                            {venue.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <RoomAvailabilityCalendar
+                      venueId={calendarVenue.venue_id}
+                      venueName={calendarVenue.name}
+                      rooms={calendarVenue.rooms || []}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Venue Dialog */}
         <Dialog open={venueDialogOpen} onOpenChange={setVenueDialogOpen}>
