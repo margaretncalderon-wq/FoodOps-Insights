@@ -491,6 +491,8 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                 onAddActivity={() => handleAddActivity(setup)}
                 onEditActivity={(activity) => handleEditActivity(setup, activity)}
                 onDeleteActivity={(activityId) => handleDeleteActivity(setup.room_id, activityId)}
+                onReorderNeeds={handleReorderNeeds}
+                onReorderTimeline={handleReorderRoomTimeline}
               />
             ))
           )}
