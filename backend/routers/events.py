@@ -197,6 +197,17 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
         upsert=True
     )
     
+    # Log activity
+    await log_activity(
+        module="events",
+        action="create",
+        entity_type="event",
+        entity_id=event_id,
+        entity_name=data.name or "New Event",
+        event_id=event_id,
+        **user_info(user)
+    )
+    
     return event_doc
 
 
@@ -214,7 +225,7 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
         if event.get(field) and isinstance(event[field], str):
             try:
                 event[field] = datetime.fromisoformat(event[field])
-            except:
+            except (ValueError, TypeError):
                 event[field] = None
     
     if "documents" not in event:
@@ -226,6 +237,9 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
 @events_router.put("/{event_id}")
 async def update_event(event_id: str, data: EventUpdate, user: User = Depends(get_current_user)):
     """Update an event"""
+    # Get old event data for logging
+    old_event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    
     now = datetime.now(timezone.utc)
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     update_data["updated_at"] = now.isoformat()
@@ -242,15 +256,48 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Log activity - check for status change
+    action = "update"
+    if old_event and old_event.get("stage") != data.stage:
+        action = "status_change"
+    
+    await log_activity(
+        module="events",
+        action=action,
+        entity_type="event",
+        entity_id=event_id,
+        entity_name=data.name or old_event.get("name", "Event") if old_event else "Event",
+        event_id=event_id,
+        old_value=old_event.get("stage") if old_event and action == "status_change" else None,
+        new_value=data.stage if action == "status_change" else None,
+        **user_info(user)
+    )
+    
     return await get_event(event_id, user)
 
 
 @events_router.delete("/{event_id}")
 async def delete_event(event_id: str, user: User = Depends(get_current_user)):
     """Delete an event"""
+    # Get event name for logging
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    
     result = await db.events.delete_one({"event_id": event_id, "company_id": user.company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Log activity
+    if event:
+        await log_activity(
+            module="events",
+            action="delete",
+            entity_type="event",
+            entity_id=event_id,
+            entity_name=event.get("name", "Event"),
+            event_id=event_id,
+            **user_info(user)
+        )
+    
     return {"message": "Event deleted"}
 
 
