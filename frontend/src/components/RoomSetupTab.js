@@ -1192,6 +1192,41 @@ function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete
 
       {expanded && (
         <CardContent className="space-y-4">
+          {/* Visual Layout Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Image className="w-4 h-4 text-muted-foreground" />
+                {isEs ? "Diagrama de Layout" : "Layout Diagram"}
+              </h4>
+              {!isLocked && (
+                <Button variant="outline" size="sm" onClick={() => setShowLayoutEditor(!showLayoutEditor)}>
+                  {showLayoutEditor ? (isEs ? "Ocultar" : "Hide") : (isEs ? "Editar" : "Edit")}
+                </Button>
+              )}
+            </div>
+            
+            {showLayoutEditor ? (
+              <VisualLayoutEditor
+                eventId={eventId}
+                roomId={setup.room_id}
+                currentDiagramUrl={setup.layout_diagram_url}
+                layoutType={setup.layout_type}
+                token={token}
+                onUpdate={onLayoutUpdate}
+                readOnly={isLocked}
+              />
+            ) : (
+              <div className="aspect-[16/9] max-h-48 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden">
+                <LayoutPreview 
+                  layoutType={setup.layout_type} 
+                  diagramUrl={setup.layout_diagram_url}
+                  className="w-full h-full"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Needs Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
