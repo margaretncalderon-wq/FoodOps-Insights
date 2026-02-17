@@ -305,6 +305,20 @@ const translations = {
     contactEmail: "Contact Email",
     description: "Description",
     totalCapacity: "Total Capacity",
+    
+    // Room Availability
+    available: "Available",
+    unavailable: "Unavailable",
+    booked: "Booked",
+    conflict: "Conflict",
+    roomAvailability: "Room Availability",
+    checkAvailability: "Check Availability",
+    roomBooked: "Room is booked",
+    roomAvailable: "Room is available",
+    selectDate: "Select a date to check availability",
+    bookedBy: "Booked by",
+    bookings: "Bookings",
+    noBookings: "No bookings",
   },
   es: {
     // Navigation
