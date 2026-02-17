@@ -315,6 +315,17 @@ async def create_client(data: ClientCreate, user: User = Depends(get_current_use
     del client_doc["_id"]
     client_doc["created_at"] = now
     client_doc["updated_at"] = now
+    
+    # Log activity
+    await log_activity(
+        module="crm",
+        action="create",
+        entity_type="client",
+        entity_id=client_id,
+        entity_name=data.display_name or data.company_name or data.name or "New Client",
+        **user_info(user)
+    )
+    
     return client_doc
 
 
@@ -350,6 +361,9 @@ async def get_client(client_id: str, user: User = Depends(get_current_user)):
 @crm_router.put("/clients/{client_id}")
 async def update_client(client_id: str, data: ClientCreate, user: User = Depends(get_current_user)):
     """Update a client"""
+    # Get old data for logging
+    old_client = await db.clients.find_one({"client_id": client_id, "company_id": user.company_id}, {"_id": 0})
+    
     now = datetime.now(timezone.utc)
     result = await db.clients.update_one(
         {"client_id": client_id, "company_id": user.company_id},
@@ -357,17 +371,43 @@ async def update_client(client_id: str, data: ClientCreate, user: User = Depends
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Log activity
+    await log_activity(
+        module="crm",
+        action="update",
+        entity_type="client",
+        entity_id=client_id,
+        entity_name=data.display_name or data.company_name or data.name or old_client.get("display_name", "Client"),
+        **user_info(user)
+    )
+    
     return await get_client(client_id, user)
 
 
 @crm_router.delete("/clients/{client_id}")
 async def delete_client(client_id: str, user: User = Depends(get_current_user)):
     """Delete a client"""
+    # Get client name for logging
+    client = await db.clients.find_one({"client_id": client_id, "company_id": user.company_id}, {"_id": 0})
+    
     result = await db.clients.delete_one({"client_id": client_id, "company_id": user.company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Client not found")
     # Also delete associated contacts
     await db.contacts.delete_many({"client_id": client_id})
+    
+    # Log activity
+    if client:
+        await log_activity(
+            module="crm",
+            action="delete",
+            entity_type="client",
+            entity_id=client_id,
+            entity_name=client.get("display_name") or client.get("company_name") or client.get("name", "Client"),
+            **user_info(user)
+        )
+    
     return {"message": "Client deleted"}
 
 
