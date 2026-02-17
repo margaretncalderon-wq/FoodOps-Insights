@@ -3,12 +3,14 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import datetime, timezone
 import uuid
+import base64
 
 from config import db
 from dependencies import get_current_user, User
 from models.room_setup import (
     RoomSetupConfig, RoomSetupCreate, RoomSetupUpdate,
-    EventRoomSetups, RoomNeedItem, TimelineActivity, LayoutType
+    EventRoomSetups, RoomNeedItem, TimelineActivity, LayoutType,
+    RoomSetupTemplate, RoomSetupTemplateCreate, TemplateCategory, LayoutDiagramUpload
 )
 
 room_setup_router = APIRouter(prefix="/orchestration/room-setup", tags=["Room Setup"])
