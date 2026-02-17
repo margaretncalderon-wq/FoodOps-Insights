@@ -340,6 +340,20 @@ async def update_timeline_activity(
     user: User = Depends(get_current_user)
 ):
     """Update a timeline activity"""
+    # Get the old activity data for logging
+    old_setup = await db.room_setups.find_one(
+        {
+            "event_id": event_id,
+            "room_id": room_id,
+            "company_id": user.company_id,
+        },
+        {"_id": 0, "timeline": 1}
+    )
+    
+    old_activity = None
+    if old_setup and old_setup.get("timeline"):
+        old_activity = next((a for a in old_setup["timeline"] if a.get("activity_id") == activity_id), None)
+    
     activity_dict = activity.dict()
     activity_dict["activity_id"] = activity_id
     
@@ -361,7 +375,42 @@ async def update_timeline_activity(
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Activity not found")
     
+    # Log the change
+    if old_activity:
+        # Determine change type
+        change_type = "update"
+        if old_activity.get("start_time") != activity.start_time or old_activity.get("end_time") != activity.end_time:
+            # Time changed - could be move or resize
+            old_duration = _calculate_duration(old_activity.get("start_time"), old_activity.get("end_time"))
+            new_duration = _calculate_duration(activity.start_time, activity.end_time)
+            change_type = "resize" if old_duration != new_duration else "move"
+        
+        await create_activity_log(
+            event_id=event_id,
+            room_id=room_id,
+            activity_id=activity_id,
+            activity_title=activity.title,
+            change_type=change_type,
+            user=user,
+            old_start_time=old_activity.get("start_time"),
+            old_end_time=old_activity.get("end_time"),
+            new_start_time=activity.start_time,
+            new_end_time=activity.end_time,
+        )
+    
     return activity_dict
+
+
+def _calculate_duration(start_time: str, end_time: str) -> int:
+    """Calculate duration in minutes"""
+    if not start_time or not end_time:
+        return 0
+    try:
+        start_h, start_m = map(int, start_time.split(":"))
+        end_h, end_m = map(int, end_time.split(":"))
+        return (end_h * 60 + end_m) - (start_h * 60 + start_m)
+    except:
+        return 0
 
 
 @room_setup_router.delete("/events/{event_id}/rooms/{room_id}/timeline/{activity_id}")
