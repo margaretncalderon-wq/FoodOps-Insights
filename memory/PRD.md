@@ -76,6 +76,17 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Select source event with preview of rooms, needs, and activities count
   - Options to copy needs and/or timeline separately
   - Automatically generates new IDs for copied items
+- **Templates System:** ✅ NEW (December 2025)
+  - Predefined reusable room setup templates
+  - Categories: Wedding, Corporate, Social, Conference, Gala, Custom
+  - System templates: "Boda Clásica", "Conferencia Corporativa", "Gala de Premiación"
+  - Create custom templates from existing room setups
+  - Apply templates to events with one click
+- **Visual Layout Diagrams:** ✅ NEW (December 2025)
+  - SVG visual representations for each layout type (theater, banquet, cocktail, etc.)
+  - Upload custom floor plan images (JPG, PNG, WebP up to 5MB)
+  - Preview diagrams in room cards and templates
+  - Fullscreen view on click
 - **Activity Types:** 7 types (Setup, Ceremony, Cocktail, Dinner, Entertainment, Breakdown, General) with color coding
 - **Hover Tooltips:** Activity details shown on hover in Gantt view
 - **Full bilingual support** (EN/ES)
@@ -83,6 +94,11 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 **API Endpoints - Room Setup:**
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | /api/orchestration/room-setup/templates | Get all templates |
+| POST | /api/orchestration/room-setup/templates | Create template |
+| POST | /api/orchestration/room-setup/templates/{id}/apply/{event_id} | Apply template |
+| POST | /api/orchestration/room-setup/templates/create-from-room/{event_id}/{room_id} | Create from room |
+| POST | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/layout-diagram | Upload diagram |
 | GET | /api/orchestration/room-setup/events/{event_id} | Get all room setups for event |
 | POST | /api/orchestration/room-setup/events/{event_id}/rooms | Create room setup |
 | PUT | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id} | Update room setup |
@@ -92,15 +108,15 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 | POST | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline | Add activity |
 | PUT | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline/{activity_id} | Update activity |
 | DELETE | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline/{activity_id} | Delete activity |
-| GET | /api/orchestration/room-setup/events/{event_id}/master-timeline | Get consolidated timeline |
-| GET | /api/orchestration/room-setup/layout-templates | Get layout templates |
 | GET | /api/orchestration/room-setup/events-with-setups | Get events with room setups (for copy) |
 | POST | /api/orchestration/room-setup/events/{target}/copy-from/{source} | Copy room setup between events |
 
 **New Files:**
-- `/app/backend/models/room_setup.py` - Pydantic models for RoomSetup, RoomNeed, TimelineActivity
-- `/app/backend/routers/room_setup.py` - API endpoints for room setup
+- `/app/backend/models/room_setup.py` - Pydantic models for RoomSetup, RoomNeed, TimelineActivity, Templates
+- `/app/backend/routers/room_setup.py` - API endpoints for room setup and templates
 - `/app/frontend/src/components/RoomSetupTab.js` - Main component with Gantt/List views
+- `/app/frontend/src/components/TemplatesManager.js` - Templates management UI
+- `/app/frontend/src/components/VisualLayoutEditor.js` - Visual layout diagram editor
 
 **Test Report:** `/app/test_reports/iteration_35.json` - 27/27 tests passed (100%)
 
