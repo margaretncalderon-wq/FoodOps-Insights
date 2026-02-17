@@ -427,6 +427,27 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
     }
   };
 
+  // Handle activity time update from Gantt drag
+  const handleUpdateActivityTime = async (updatedActivity) => {
+    try {
+      await axios.put(
+        `${API}/orchestration/room-setup/events/${eventId}/rooms/${updatedActivity.room_id}/timeline/${updatedActivity.activity_id}`,
+        {
+          title: updatedActivity.title,
+          activity_type: updatedActivity.activity_type,
+          start_time: updatedActivity.start_time,
+          end_time: updatedActivity.end_time,
+          responsible: updatedActivity.responsible,
+          notes: updatedActivity.notes,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchData();
+    } catch (error) {
+      throw error;
+    }
+  };
+
   // Handle reorder activity from drag & drop
   const handleReorderActivity = async (movedActivity, newIndex, prevActivity, nextActivity) => {
     // Calculate new time based on surrounding activities
