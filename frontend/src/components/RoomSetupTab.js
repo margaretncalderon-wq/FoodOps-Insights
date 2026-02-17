@@ -2183,6 +2183,39 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
     }
   };
 
+  const handleOpenDuplicateDialog = (template, e) => {
+    e.stopPropagation();
+    setSelectedTemplate(template);
+    setDuplicateForm({
+      name: `${template.name} (${isEs ? "Copia" : "Copy"})`,
+      description: template.description || "",
+    });
+    setDuplicateDialogOpen(true);
+  };
+
+  const handleDuplicateTemplate = async () => {
+    if (!duplicateForm.name.trim()) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+
+    try {
+      setDuplicating(true);
+      await axios.post(
+        `${API}/orchestration/room-setup/templates/${selectedTemplate.template_id}/duplicate?new_name=${encodeURIComponent(duplicateForm.name)}&new_description=${encodeURIComponent(duplicateForm.description)}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(isEs ? "Template duplicado exitosamente" : "Template duplicated successfully");
+      setDuplicateDialogOpen(false);
+      fetchTemplates();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (isEs ? "Error al duplicar" : "Error duplicating"));
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   const handleConfirmApply = async () => {
     if (!applyForm.venue_id || !applyForm.room_id) {
       toast.error(isEs ? "Selecciona sede y salón" : "Select venue and room");
