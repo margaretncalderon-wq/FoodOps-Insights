@@ -929,6 +929,119 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Copy from Event Dialog */}
+      <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="w-5 h-5 text-[#3A4D3F]" />
+              {isEs ? "Copiar Configuración de Salones" : "Copy Room Setup"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {isEs 
+                ? "Selecciona un evento anterior para copiar su configuración de salones. Esto incluirá los layouts, necesidades y timeline."
+                : "Select a previous event to copy its room setup configuration. This will include layouts, needs, and timeline."
+              }
+            </p>
+
+            {eventsWithSetups.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Copy className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>{isEs ? "No hay otros eventos con configuraciones de salón" : "No other events with room setups"}</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Seleccionar Evento" : "Select Event"}</Label>
+                  <Select value={selectedSourceEvent} onValueChange={setSelectedSourceEvent}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isEs ? "Elige un evento..." : "Choose an event..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eventsWithSetups.map((evt) => (
+                        <SelectItem key={evt.event_id} value={evt.event_id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{evt.event_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {evt.room_count} {isEs ? "salón(es)" : "room(s)"} • {evt.total_needs} {isEs ? "necesidades" : "needs"} • {evt.total_activities} {isEs ? "actividades" : "activities"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedSourceEvent && (
+                  <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                    <h4 className="font-medium text-sm">{isEs ? "¿Qué copiar?" : "What to copy?"}</h4>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{isEs ? "Necesidades / Requirements" : "Room Needs"}</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={copyNeeds}
+                        onChange={(e) => setCopyNeeds(e.target.checked)}
+                        className="w-4 h-4 accent-[#3A4D3F]"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{isEs ? "Timeline / Actividades" : "Timeline / Activities"}</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={copyTimeline}
+                        onChange={(e) => setCopyTimeline(e.target.checked)}
+                        className="w-4 h-4 accent-[#3A4D3F]"
+                      />
+                    </div>
+                    
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                      ⚠️ {isEs 
+                        ? "Esto reemplazará la configuración actual de este evento."
+                        : "This will replace the current setup for this event."
+                      }
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleCopyFromEvent} 
+              className="bg-[#3A4D3F] hover:bg-[#2d3d31]" 
+              disabled={!selectedSourceEvent || copying}
+            >
+              {copying ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  {isEs ? "Copiando..." : "Copying..."}
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-1" />
+                  {isEs ? "Copiar Configuración" : "Copy Setup"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
