@@ -132,13 +132,26 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 
 **Test Report:** `/app/test_reports/iteration_36.json` - 12/12 frontend tests passed (100%)
 
-### February 17, 2026 - Template Creation Feature
+### February 17, 2026 - Template Creation & Gantt Drag Feature
 
 #### Create/Save Template Functionality - COMPLETED ✅
 - **Create Template from Templates tab:** Full dialog with name, description, category, layout type, min/max capacity, layout notes
 - **Save as Template from Room Card:** Sparkles icon button opens dialog to save existing room setup as template
+- **Duplicate Template:** Copy button (blue) on each template card to create variations quickly
 - **Deduplication:** Frontend deduplicates templates by template_id to prevent React key conflicts
 - **Test Report:** `/app/test_reports/iteration_36.json` - 12/12 tests passed
+
+#### Gantt Chart Drag & Drop - COMPLETED ✅
+- **Drag to move:** Click and drag activity bars horizontally to change start/end times
+- **Resize from edges:** Hover over left/right edges of bars to resize activities
+- **Real-time feedback:** Activity times update visually as you drag
+- **5-minute increments:** Times snap to 5-minute intervals for easier scheduling
+- **API integration:** Changes are automatically saved to the backend
+
+#### i18n Audit - COMPLETED ✅
+- **Execution Hub:** Kept in English (instead of "Centro de Ejecución")
+- **Venues:** All venue-related terms kept in English (Venue, Room, etc.)
+- **Reason:** User preference - Spanish translations sounded awkward
 
 ### December 2025
 
