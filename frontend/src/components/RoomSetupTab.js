@@ -1480,11 +1480,18 @@ function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete
 }
 
 // Master Timeline View Component - Visual Gantt-style Timeline with Drag & Drop
-function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivity, eventId, isLocked }) {
+function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivity, eventId, isLocked, onUpdateActivityTime }) {
   const [hoveredActivity, setHoveredActivity] = useState(null);
   const [viewMode, setViewMode] = useState("gantt"); // gantt | list
   const [activeId, setActiveId] = useState(null);
   const [localTimeline, setLocalTimeline] = useState([]);
+  
+  // Gantt drag state
+  const [draggingActivity, setDraggingActivity] = useState(null);
+  const [dragMode, setDragMode] = useState(null); // 'move' | 'resize-start' | 'resize-end'
+  const [dragStartX, setDragStartX] = useState(0);
+  const [originalTimes, setOriginalTimes] = useState({ start: "", end: "" });
+  const timelineRef = useRef(null);
 
   // Sync local timeline with prop
   useEffect(() => {
