@@ -1100,8 +1100,42 @@ function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete
   const [localNeeds, setLocalNeeds] = useState(setup.needs || []);
   const [localTimeline, setLocalTimeline] = useState(setup.timeline || []);
   const [showLayoutEditor, setShowLayoutEditor] = useState(false);
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateForm, setTemplateForm] = useState({ name: "", description: "", category: "custom" });
   
   const layoutInfo = LAYOUT_TYPES.find(l => l.value === setup.layout_type) || LAYOUT_TYPES[0];
+
+  const TEMPLATE_CATEGORIES_CARD = [
+    { value: "wedding", labelEs: "Boda", labelEn: "Wedding", icon: "💒" },
+    { value: "corporate", labelEs: "Corporativo", labelEn: "Corporate", icon: "🏢" },
+    { value: "social", labelEs: "Social", labelEn: "Social", icon: "🎉" },
+    { value: "gala", labelEs: "Gala", labelEn: "Gala", icon: "🌟" },
+    { value: "custom", labelEs: "Personalizado", labelEn: "Custom", icon: "✨" },
+  ];
+
+  // Save room as template
+  const handleSaveAsTemplate = async () => {
+    if (!templateForm.name.trim()) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+    try {
+      setSavingTemplate(true);
+      await axios.post(
+        `${API}/orchestration/room-setup/templates/create-from-room/${eventId}/${setup.room_id}?template_name=${encodeURIComponent(templateForm.name)}&template_description=${encodeURIComponent(templateForm.description)}&category=${templateForm.category}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(isEs ? "Template creado exitosamente" : "Template created successfully");
+      setSaveTemplateDialogOpen(false);
+      setTemplateForm({ name: "", description: "", category: "custom" });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (isEs ? "Error al crear template" : "Error creating template"));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
 
   // Sync local state with props
   useEffect(() => {
