@@ -1,62 +1,61 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to address a series of UI bugs, restore missing features (Import/Export), and add new functionality to the Operations and Asset Management modules. This included creating an Asset Value Report.
+The user's primary goal is to build a new, major module called **Execution Hub**, designed as a control center for operational goals. This includes backend implementation, frontend UI, and integration with the existing System Pulse dashboard.
 
-During the session, the user also provided a detailed Product Requirements Document (PRD) for a new, major module called **Execution Hub**. This module is designed as a control center for executing operational goals, tracking changes, and logging decisions, with a critical integration into the existing System Pulse module. It must be an additive module, respecting all existing architecture and avoiding project management terminology.
-
-Key requirements for Execution Hub:
-- A new core object: .
-- Support for related data: Tasks, Decisions Log, Notes, Dependencies, Linked Items.
-- Role-based permissions (Owner, Team Member, Collaborator, Viewer), including support for external partners.
-- Each task must have one or more assignees and an automatic change log.
-- Tasks should have their own dedicated notes/comments thread.
-- Email notifications for key events (invitations, assignments, updates).
-- Integration with System Pulse to show signals like Goal Blocked and Goal At Risk.
-- A My Pendings widget for logged-in users.
-- The module must be available in both English and Spanish.
+Additionally, the user has requested the following:
+1.  The Execution Hub's availability should be tied to subscription plans: free for Professional and Enterprise tiers, but with usage limits for the Starter tier.
+2.  An infrastructure for purchasing individual add-on features should be created.
+3.  A full internationalization (i18n) audit and fix to ensure the entire application, especially new components, correctly translates between English and Spanish without hardcoded text.
+4.  A new feature for managing event locations, allowing events to be set as onsite (selecting from predefined company rooms/venues), offsite (a new address), or using an existing client's address. It should also support multi-location events.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is in a stable state with significant improvements made during the session.
-- **Asset Value Report:** A new report has been successfully implemented in the Business Clarity module. It includes a backend endpoint to aggregate data and a new Assets tab in the frontend with summary cards, metrics, and data tables.
-- **Major Refactoring:** The monolithic  (originally over 2700 lines) has been completely refactored. Its core sections (, , , etc.) have been extracted into separate, manageable components under . The main page is now just a layout container of ~90 lines.
-- **Backend Refactoring Started:** The foundation for refactoring the monolithic  has been laid. A new  router file was created, and the  startup logic was updated to load it. The full migration of all event endpoints is pending.
-- **Bug Fixes:**
-    - The critical Google OAuth  error has been diagnosed and fixed by correcting how the callback URL is constructed in the backend.
-    - Post-refactoring blank screen JavaScript errors (, ) were found and fixed by adding missing component/icon imports.
-- **UI/UX Improvements:** The Super Admin dashboard UI was updated with higher-contrast text and element colors for better readability in the dark theme.
-- **Performance Optimizations:**
-    - **Backend:** A script to create necessary MongoDB indexes was implemented and runs on application startup to improve query performance.
-    - **Frontend:** The polling frequency for unread notifications was reduced from 30 to 60 seconds to decrease server load.
-- **Execution Hub Foundation:** The initial backend files for the new Execution Hub module ( and ) have been created.
+- **Execution Hub (Complete):** The module is fully implemented.
+    - **Backend:** All models (, , etc.), CRUD endpoints, and business logic are complete.
+    - **Frontend:** The main list page, goal detail page, and creation modals are built and functional.
+    - **System Pulse Integration:** The main dashboard now features an Execution Signals panel for Blocked or At-Risk goals and an enhanced My Pendings widget.
+- **Subscription & Add-On System (Backend Complete):** A new system for managing subscription plans (, ) and purchasing individual add-ons is fully implemented on the backend. The Execution Hub is correctly limited based on the user's plan.
+- **Internationalization (i18n) Refactor (In Progress):** A major refactor was performed on , , and  to remove hardcoded English/Spanish strings and replace them with a centralized . The core infrastructure is in place, but a full audit is required to fix remaining untranslated text.
+- **Event Locations (Foundation Laid):** The backend foundation for the new location management system has been started.
 
 **Last working item**:
-    - Last item agent was working: Kicking off the implementation of the new **Execution Hub** module. The agent had just finished creating the initial backend model and router files ( in both  and  directories) and registering the new router in .
+    - Last item agent was working: Implementing the new location management system for events. The agent created the backend Pydantic models in  (for , , ) and the initial API router file in . The agent was in the middle of registering this new router in  when the session ended.
     - Status: IN PROGRESS
     - Agent Testing Done: N
     - Which testing method agent to use? backend testing agent
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Local DB data is not persisted (P2)
-  - Issue 2: Custom Admin Subdomain () SSL/Access Issue (P3)
+  - Issue 1: Incomplete Internationalization (P1)
+  - Issue 2: Local DB data is not persisted (P2)
+  - Issue 3: Custom Admin Subdomain () SSL/Access Issue (P3)
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: A hardcoded role in  serves as a temporary workaround.
+     - Attempted fixes: A major refactor replaced most hardcoded strings in the Execution Hub and Dashboard with a  and  translation function.
      - Next debug checklist: 
-        1. Investigate the Docker/Kubernetes configuration to enable data persistence for the MongoDB service.
-        2. Create a database seeding script () to ensure essential data is always available.
-        3. Remove the hardcoded role from .
-     - Why fix this issue and what will be achieved with the fix?: Enables stable local development and testing of role-based features without data loss on restart.
+        1. Perform a full audit of  to find and replace any remaining  patterns or hardcoded strings.
+        2. Verify that all translation keys used in the UI exist in the  for both English and Spanish.
+        3. Investigate why some components do not immediately re-render with the correct language after it's changed in Settings.
+     - Why fix this issue and what will be achieved with the fix?: Fulfills the user's explicit request for a fully bilingual application and removes inconsistent UI behavior.
+     - Status:  IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix?: frontend
+     - Blocked on other issue: No
+  - Issue 2: 
+     - Attempted fixes: None in this session.
+     - Next debug checklist: 
+        1. Investigate Docker/Kubernetes configuration to enable data persistence for the MongoDB service.
+        2. Create a database seeding script () to ensure essential data is always available on startup.
+     - Why fix this issue and what will be achieved with the fix?: Enables stable local development and testing without data loss on restart.
      - Status:  NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix?: backend
      - Blocked on other issue: No
-  - Issue 2: 
-     - Attempted fixes: A previous agent instructed the user on how to configure the custom subdomain.
+  - Issue 3: 
+     - Attempted fixes: None in this session.
      - Next debug checklist:
-        1. Ask the user to confirm if they completed the setup and if  is now accessible.
+        1. Ask the user to confirm if they completed the custom subdomain setup.
      - Why fix this issue and what will be achieved with the fix?: Enables the custom super-admin login experience.
      - Status:  USER VERIFICATION PENDING
      - Is recurring issue? N
@@ -64,28 +63,29 @@ The application is in a stable state with significant improvements made during t
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1: Implement Execution Hub module (P0)
-  - Task 2: Complete the refactoring of  (P1)
+  - Task 1: Implement Event Location Management (P0)
+  - Task 2: Complete the refactoring of  (P2)
 
  Task Detail:
   - Task 1: 
-     - Where to resume: The backend foundation is laid. The next step is to flesh out the MongoDB models in  (ExecutionGoal, Task, Decision, etc.) and then build the corresponding CRUD API endpoints in , as per the agreed-upon design.
-     - What will be achieved with this?: This will build the entire backend for the new Execution Hub module, enabling frontend development to begin.
+     - Where to resume: 
+        1. Complete the registration of  in .
+        2. Update the event creation and update endpoints (likely in  or ) to replace the old  field with the new structured  model.
+        3. Implement the CRUD endpoints within  for managing Venues and Rooms.
+        4. Build the frontend UI for managing venues/rooms and selecting locations when creating/editing an event.
+     - What will be achieved with this?: A robust system for managing event locations as requested by the user.
      - Status:  IN PROGRESS
-     - Should Test frontend/backend/both after fix?: backend
+     - Should Test frontend/backend/both after fix?: both
      - Blocked on something: No
   - Task 2: 
-     - Where to resume: The file  has been created, and the router is included in . The task is to systematically move all remaining endpoints decorated with  from  into , ensuring all dependencies are correctly imported.
-     - What will be achieved with this?: Significantly reduces the size and complexity of , improving code organization and maintainability.
-     - Status:  IN PROGRESS
+     - Where to resume:  is over 13,000 lines long. The task is to systematically move the remaining API routers (e.g., , , ) from  into their own files under , following the pattern established with  and .
+     - What will be achieved with this?: Significantly improves code organization, maintainability, and modularity of the backend.
+     - Status:  NOT STARTED
      - Should Test frontend/backend/both after fix?: backend
      - Blocked on something: No
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - **P0: Implement Execution Hub - Phase 2 (Frontend):** Build the main UI, detail views, and navigation for the Execution Hub.
-    - **P0: Implement Execution Hub - Phase 3 (System Pulse):** Integrate the Execution Signals into the System Pulse dashboard.
-    - **P0: Implement Execution Hub - Phase 4 (Permissions & Polish):** Implement role-based access and external collaborator logic.
     - **P1: Social Media - Campaign Widget:** Add a read-only widget to the Campaign Workspace page showing linked social posts.
     - **P2: User Data Migration Assistance:** Be prepared to help the user with the Import/Export tool.
 
@@ -98,43 +98,37 @@ The application is in a stable state with significant improvements made during t
     - **Enhancement:** Add more email templates (e.g., password reset, notifications) using the Resend integration.
 
 **Completed work in this session**
-- **Feature: Asset Value Report:** Implemented a new, fully functional financial report in the Business Clarity module.
-- **Bugfix: Google OAuth :** Fully resolved the critical login blocker.
-- **Bugfix: Frontend Blank Screens:** Fixed JavaScript errors in the  component that were causing pages to crash after refactoring.
-- **Refactor: :** Completed a major refactor, breaking down a 2700-line monolithic page into small, reusable components.
-- **Refactor: :** Initiated the refactor by creating the  router file and establishing the new structure.
-- **UI/UX: Super Admin Readability:** Improved the contrast and legibility of the Super Admin dashboard's dark theme.
-- **Performance: Database Indexing:** Created and applied MongoDB indexes for major collections to improve backend query speed.
-- **Performance: Frontend Polling:** Reduced the frequency of notification checks to lessen server load.
+- **Feature: Execution Hub (Backend & Frontend):** A full-featured module was implemented from the ground up.
+- **Feature: Subscription Plan Limits:** Integrated Execution Hub with subscription plans, limiting features for the Starter tier.
+- **Feature: Add-on System Backend:** Built the backend infrastructure to manage and apply individual feature add-ons.
+- **Feature: System Pulse Integration:** Integrated Execution Hub signals and pending items directly into the main dashboard.
+- **Refactor: Internationalization (i18n):** Replaced hundreds of hardcoded string literals in key components with a centralized  system.
+- **Bugfix: API URL Prefix:** Fixed a recurring issue where new frontend components were making API calls without the required  prefix.
 
 **Earlier issues found/mentioned but not fixed**
-   - The local DB persistence issue and the custom admin subdomain issue are pre-existing and remain unresolved. They are tracked in the All Pending/In progress Issue list.
+   - The local DB persistence and custom admin subdomain issues are pre-existing and remain unresolved. They are tracked in the All Pending/In progress Issue list.
+   - The i18n refactor is incomplete and is tracked as a pending issue.
 
 **Known issue recurrence from previous fork**
-  - The Google OAuth  error recurred but was diagnosed at a deeper level (incorrect URL construction vs. just missing URI in GCP) and has now been fixed.
+  - None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Monolith Decomposition:** Successfully refactored a large React component () into smaller, more manageable components, improving maintainability.
-- **Backend Performance Tuning:** Implemented database indexing at application startup to improve query performance, a critical optimization for scalable applications.
-- **Advanced OAuth Debugging:** Diagnosed a subtle  error by inspecting runtime headers and correcting the server-side logic that constructed the callback URL.
-- **Frontend Error Debugging:** Used browser console logs to identify and fix runtime JavaScript errors (e.g., ) caused by missing imports after refactoring.
-- **Incremental Refactoring:** Began the process of breaking down the  monolith by creating a new router file and migrating the basic structure, providing a path forward without a complete rewrite.
+- **Subscription Plan Management:** Implemented a system in  to define plans with specific features () and usage caps (), and checking against them.
+- **Dynamic Feature Gating:** Created backend logic to check a user's subscription plan and active add-ons to grant or deny access to features, such as creating new Execution Goals.
+- **Large-scale i18n Refactoring:** Systematically replaced hardcoded conditional strings () with a centralized  function from a React Context, making the UI dynamically translatable.
+- **Monolithic Endpoint Decomposition:** Continued the process of breaking down  by creating new, domain-specific router files (, ).
 
 **key DB schema**
-- **New Collections (Proposed for Execution Hub):**
-  - **execution_goals:** 
-  - **execution_tasks:** 
-  - **execution_decisions:** 
-  - **execution_dependencies:** 
-  - **execution_notes:** 
-  - **execution_access:** 
-- **New Indexes:** Indexes have been created on fields like , , , , and various date fields across collections such as , , , , etc.
-
-**changes in tech stack**
-  - No new technologies or libraries were added.
+- **New Collections:**
+  - **addons:** 
+  - **organization_addons:** 
+  - **venues:** 
+- **Updated Collections:**
+  - **plans:** Schema updated to include  and .
+  - **events:** The  field will be replaced/updated to link to the new, structured location system.
 
 **All files of reference**
 - **New Files:**
@@ -144,53 +138,53 @@ The application is in a stable state with significant improvements made during t
     - 
     - 
     - 
-    - 
-    - 
-    - 
 - **Key Modified Files:**
-    -  (heavily refactored)
-    -  (feature added)
-    -  (bug fix)
-    -  (performance)
-    -  (performance & refactor)
-    - Super Admin pages (, ) for UI tweaks.
+    -  (plan logic, router registration)
+    -  (limit checks)
+    -  (many new translations)
+    -  (integrations, i18n)
 
 **Areas that need refactoring**:
-- ** Monolith:** This remains the highest priority for refactoring. The process has been started by creating , but the majority of endpoints across multiple domains (CRM, orchestration, culinary, etc.) still reside in .
-- ** Workaround:** The hardcoded role in  is technical debt that should be replaced by a proper database seeding solution.
+- ** Monolith:** This remains a high-priority background task. Over 13,000 lines.
+- **Internationalization in :** The file still contains hardcoded strings and needs to be fully converted to use the .
 
 **key api endpoints**
 - **NEW:**
-    - : Retrieves aggregated data for the asset value report.
-    - : Placeholder for the new module's endpoints.
-- **MODIFIED:**
-    - : Logic was fixed to correctly build the .
+    - : Creates a new execution goal (now with limit checks).
+    - : Returns the current usage vs. limits for the user.
+    - : Returns at-risk and blocked goals for the dashboard.
+    - : Lists available add-ons for purchase.
+    - : Placeholder for new venue/room management endpoints.
 
 **Critical Info for New Agent**
 - **Responde en español.**
-- **PRIORIDAD MÁXIMA:** Continuar con la implementación del nuevo módulo **Execution Hub**. La Fase 1 (Backend) está en marcha. El siguiente paso es definir los modelos de datos en  y crear los endpoints CRUD en .
-- **Google OAuth está arreglado.** El problema del  fue resuelto.
-- **El refactoring del frontend de Operations ya está completo.**  es ahora un archivo pequeño y limpio.
-- **El refactoring del backend ha comenzado.** La tarea de mover los endpoints de  de  a  está a medio hacer y es la siguiente tarea de refactorización más importante.
+- **PRIORIDAD MÁXIMA:** Continuar con la implementación de la gestión de **ubicaciones para eventos**. El backend está a medio hacer.
+- **SEGUNDA PRIORIDAD:** Finalizar la internacionalización (i18n), especialmente en el Dashboard, para eliminar todo el texto hardcodeado.
+- El módulo **Execution Hub** está completo y fue validado con el .
+- El nuevo **sistema de Planes y Add-ons** está funcionando en el backend.
 
 **documents and test reports created in this job**
--  was updated with completed tasks.
+-  (updated multiple times)
+-  (Backend: Execution Hub & Addons)
+-  (Frontend: Execution Hub)
+-  (Frontend: System Pulse Integration)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1.  **User:** Requests to implement the Execution Hub feature with a detailed PRD.
-2.  **Agent:** Asks clarifying questions about the Execution Hub design, including linked items, multi-language support, and collaborator access.
-3.  **User:** Provides clarifications: tasks need assignees and a change log, external collaborators can only update their tasks, and email notifications are required.
-4.  **Agent:** Proposes a refined, detailed design for tasks, permissions, and notifications.
-5.  **User:** Asks if each task can have its own notes.
-6.  **Agent:** Confirms and details a 2-level note structure (Goal notes and Task notes) with a UX mockup.
-7.  **User:** Approves the final design.
-8.  **User:** Confirms that the long-standing Google OAuth issue is now working.
-9.  **Agent:** Asks for confirmation to begin work on the Execution Hub.
-10. **User:** Approves to start the implementation.
+1.  **User:** (LATEST) Where did you leave off?
+2.  **User:** I want to implement a location system for events: onsite (rooms), offsite (address), and multi-location.
+3.  **User:** Continue. Also, verify that the entire system is in English and Spanish, I see some hardcoded text.
+4.  **User:** Yes, continue. (Approving System Pulse integration)
+5.  **Agent:** Finished Execution Hub (frontend + backend). Proposed System Pulse integration.
+6.  **User:** Yes, go ahead. (Approving frontend implementation)
+7.  **Agent:** Finished backend for Execution Hub & Addons. Proposed frontend work.
+8.  **User:** Agreed on the plan for Execution Hub pricing (limited for Starter, free for Pro/Enterprise) and requested add-on infrastructure.
+9.  **Agent:** Asked how to handle Execution Hub as a module (add-on vs. included in plan).
+10. **User:** Approved the initial plan but asked how modules are managed per company.
 
 **Project Health Check:**
 - **Broken:**
     - **Welcome Emails (Resend):** Still pending a user-provided .
+    - **Internationalization (i18n):** Partially broken. Some UI elements do not translate correctly.
 - **Mocked:**
     - User roles for local development are still hardcoded in .
 
@@ -201,14 +195,14 @@ The application is in a stable state with significant improvements made during t
 - **Resend:** For sending transactional emails. (Status: **Integrated, PENDING API KEY**).
 
 **Testing status**
-  - Testing agent used after significant changes: NO
+  - Testing agent used after significant changes: YES (Used successfully 3 times for backend, frontend, and integration testing).
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: None identified. The fixes and refactoring appear successful based on agent's self-testing.
+  - Known regressions: None identified.
 
 **Credentials to test flow:**
 - **Email:** 
 - **Password:** 
 
 **What agent forgot to execute**
-- The agent successfully followed the user's priorities. The remaining issues from the initial handoff (DB persistence, custom domain) were not addressed because new, higher-priority work (Asset Report, Refactoring, Execution Hub) was requested by the user.</analysis>
+- The agent correctly prioritized the user's incoming requests. The task to refactor  was requested by the user but was immediately superseded by the higher-priority request to build the event locations feature. It has been deferred, not forgotten.</analysis>
