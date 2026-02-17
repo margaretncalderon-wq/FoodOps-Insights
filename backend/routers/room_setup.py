@@ -1185,3 +1185,89 @@ async def seed_system_templates(
     
     return {"message": f"Created {len(system_templates)} system templates"}
 
+
+
+
+# ============== ACTIVITY CHANGE LOG ==============
+
+async def create_activity_log(
+    event_id: str,
+    room_id: str,
+    activity_id: str,
+    activity_title: str,
+    change_type: str,
+    user: User,
+    field_changed: str = None,
+    old_value: str = None,
+    new_value: str = None,
+    old_start_time: str = None,
+    old_end_time: str = None,
+    new_start_time: str = None,
+    new_end_time: str = None,
+    notes: str = None
+):
+    """Helper function to create activity change log"""
+    log_entry = {
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "event_id": event_id,
+        "room_id": room_id,
+        "activity_id": activity_id,
+        "activity_title": activity_title,
+        "change_type": change_type,
+        "changed_by_id": user.user_id,
+        "changed_by_name": user.name,
+        "changed_by_email": user.email,
+        "company_id": user.company_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "field_changed": field_changed,
+        "old_value": old_value,
+        "new_value": new_value,
+        "old_start_time": old_start_time,
+        "old_end_time": old_end_time,
+        "new_start_time": new_start_time,
+        "new_end_time": new_end_time,
+        "notes": notes
+    }
+    await db.activity_change_logs.insert_one(log_entry)
+    return log_entry
+
+
+@room_setup_router.get("/events/{event_id}/activity-logs")
+async def get_activity_logs(
+    event_id: str,
+    room_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+    user: User = Depends(get_current_user)
+):
+    """Get activity change logs for an event"""
+    query = {"event_id": event_id, "company_id": user.company_id}
+    
+    if room_id:
+        query["room_id"] = room_id
+    if activity_id:
+        query["activity_id"] = activity_id
+    
+    logs = await db.activity_change_logs.find(
+        query,
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    return logs
+
+
+@room_setup_router.get("/events/{event_id}/rooms/{room_id}/activity-logs")
+async def get_room_activity_logs(
+    event_id: str,
+    room_id: str,
+    limit: int = Query(50, ge=1, le=200),
+    user: User = Depends(get_current_user)
+):
+    """Get activity change logs for a specific room"""
+    logs = await db.activity_change_logs.find(
+        {"event_id": event_id, "room_id": room_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    return logs
+
