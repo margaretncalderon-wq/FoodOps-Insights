@@ -31,6 +31,10 @@ import {
   Home,
   DoorOpen,
   Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 const LOCATION_TYPES = {
@@ -45,6 +49,8 @@ export default function EventLocationSelector({
   clientId = null,
   clientAddress = null,
   multiLocation = false,
+  eventDate = null,  // Pass event date for availability check
+  eventId = null,    // Exclude current event from conflict check
 }) {
   const { t } = useLanguage();
   const token = localStorage.getItem("token");
