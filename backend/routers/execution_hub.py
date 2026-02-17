@@ -15,6 +15,7 @@ from models.execution_hub import (
     ExecutionStatus, TaskStatus, AccessRole, ExecutionContext,
     ChangeLogEntry, TaskAssignee, TaskNote, LinkedItem, MyPendingStats
 )
+from utils.activity_logger import log_activity, user_info
 
 execution_hub_router = APIRouter(prefix="/execution-hub", tags=["Execution Hub"])
 
