@@ -71,6 +71,11 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Timeline List view: Drag activities to reorder and auto-adjust times
   - Room Card Needs: Drag to reorder equipment/amenities
   - Room Card Timeline: Drag activities within room to reorder
+- **Copy Setup from Event:** ✅ NEW
+  - Button "Copy from event" to copy room configurations from previous events
+  - Select source event with preview of rooms, needs, and activities count
+  - Options to copy needs and/or timeline separately
+  - Automatically generates new IDs for copied items
 - **Activity Types:** 7 types (Setup, Ceremony, Cocktail, Dinner, Entertainment, Breakdown, General) with color coding
 - **Hover Tooltips:** Activity details shown on hover in Gantt view
 - **Full bilingual support** (EN/ES)
@@ -89,6 +94,8 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 | DELETE | /api/orchestration/room-setup/events/{event_id}/rooms/{room_id}/timeline/{activity_id} | Delete activity |
 | GET | /api/orchestration/room-setup/events/{event_id}/master-timeline | Get consolidated timeline |
 | GET | /api/orchestration/room-setup/layout-templates | Get layout templates |
+| GET | /api/orchestration/room-setup/events-with-setups | Get events with room setups (for copy) |
+| POST | /api/orchestration/room-setup/events/{target}/copy-from/{source} | Copy room setup between events |
 
 **New Files:**
 - `/app/backend/models/room_setup.py` - Pydantic models for RoomSetup, RoomNeed, TimelineActivity
