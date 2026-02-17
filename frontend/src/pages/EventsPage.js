@@ -93,6 +93,7 @@ export default function EventsPage({ embedded = false }) {
     end_time: "",
     is_booking: false,
     venue: "",
+    locations: [],
     guest_count: 0,
     budget: 0,
     notes: "",
