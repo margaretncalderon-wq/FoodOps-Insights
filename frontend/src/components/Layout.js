@@ -41,7 +41,7 @@ const navItems = [
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
   { path: "/ops-supplies", icon: Package, label: "Operations Supplies", labelEs: "Operations Supplies" },
   { path: "/venues", icon: Building2, labelKey: "venues" },
-  { path: "/execution-hub", icon: Target, label: "Execution Hub", labelEs: "Centro de Ejecución" },
+  { path: "/execution-hub", icon: Target, label: "Execution Hub", labelEs: "Execution Hub" },
   { path: "/demand-studio", icon: Megaphone, label: "Demand Studio", labelEs: "Demand Studio" },
   { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
