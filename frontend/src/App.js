@@ -90,6 +90,9 @@ const DemandStudioSettings = lazy(() => import("./pages/demand-studio/DemandStud
 const ExecutionHubPage = lazy(() => import("./pages/ExecutionHubPage"));
 const ExecutionGoalDetail = lazy(() => import("./pages/ExecutionGoalDetail"));
 
+// Venues & Locations pages
+const VenuesPage = lazy(() => import("./pages/VenuesPage"));
+
 // Super Admin pages
 const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
 const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
