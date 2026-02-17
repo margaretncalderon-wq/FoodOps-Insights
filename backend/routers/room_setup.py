@@ -817,6 +817,57 @@ async def delete_template(
     return {"message": "Template deleted"}
 
 
+@room_setup_router.post("/templates/{template_id}/duplicate")
+async def duplicate_template(
+    template_id: str,
+    new_name: str,
+    new_description: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Duplicate an existing template with a new name"""
+    # Get source template (can be system or company template)
+    source = await db.room_setup_templates.find_one(
+        {"$or": [
+            {"template_id": template_id, "company_id": user.company_id},
+            {"template_id": template_id, "is_system_template": True}
+        ]},
+        {"_id": 0}
+    )
+    
+    if not source:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    now = datetime.now(timezone.utc)
+    new_template_id = f"tpl_{uuid.uuid4().hex[:12]}"
+    
+    # Create duplicate with new name
+    new_template = {
+        "template_id": new_template_id,
+        "company_id": user.company_id,
+        "name": new_name,
+        "description": new_description or source.get("description", ""),
+        "category": source.get("category", "custom"),
+        "layout_type": source.get("layout_type", "banquet"),
+        "custom_layout_name": source.get("custom_layout_name"),
+        "layout_notes": source.get("layout_notes"),
+        "layout_diagram_url": source.get("layout_diagram_url"),
+        "default_needs": source.get("default_needs", []),
+        "default_timeline": source.get("default_timeline", []),
+        "min_capacity": source.get("min_capacity", 0),
+        "max_capacity": source.get("max_capacity", 0),
+        "thumbnail_url": source.get("thumbnail_url"),
+        "is_system_template": False,  # Duplicated templates are always user templates
+        "usage_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    
+    await db.room_setup_templates.insert_one(new_template)
+    del new_template["_id"]
+    
+    return new_template
+
+
 @room_setup_router.post("/templates/{template_id}/apply/{event_id}")
 async def apply_template_to_event(
     template_id: str,
