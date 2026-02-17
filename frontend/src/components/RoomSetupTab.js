@@ -905,10 +905,66 @@ function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onD
   );
 }
 
-// Master Timeline View Component - Visual Gantt-style Timeline
-function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
+// Master Timeline View Component - Visual Gantt-style Timeline with Drag & Drop
+function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivity, eventId, isLocked }) {
   const [hoveredActivity, setHoveredActivity] = useState(null);
   const [viewMode, setViewMode] = useState("gantt"); // gantt | list
+  const [activeId, setActiveId] = useState(null);
+  const [localTimeline, setLocalTimeline] = useState([]);
+
+  // Sync local timeline with prop
+  useEffect(() => {
+    setLocalTimeline([...masterTimeline].sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "")));
+  }, [masterTimeline]);
+
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for list view
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id || isLocked) return;
+
+    const oldIndex = localTimeline.findIndex(item => item.activity_id === active.id);
+    const newIndex = localTimeline.findIndex(item => item.activity_id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newTimeline = arrayMove(localTimeline, oldIndex, newIndex);
+      setLocalTimeline(newTimeline);
+
+      // Calculate new times based on position
+      const movedActivity = newTimeline[newIndex];
+      const prevActivity = newIndex > 0 ? newTimeline[newIndex - 1] : null;
+      const nextActivity = newIndex < newTimeline.length - 1 ? newTimeline[newIndex + 1] : null;
+
+      // Update activity order on server if callback provided
+      if (onReorderActivity) {
+        try {
+          await onReorderActivity(movedActivity, newIndex, prevActivity, nextActivity);
+          toast.success(isEs ? "Orden actualizado" : "Order updated");
+        } catch (error) {
+          // Revert on error
+          setLocalTimeline([...masterTimeline].sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "")));
+          toast.error(isEs ? "Error al reordenar" : "Error reordering");
+        }
+      }
+    }
+  };
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
 
   if (roomSetups.length === 0) {
     return (
@@ -992,6 +1048,9 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
     { bg: "bg-rose-500", border: "border-rose-600", light: "bg-rose-100", text: "text-rose-700" },
   ];
 
+  // Get active item for drag overlay
+  const activeActivity = activeId ? localTimeline.find(a => a.activity_id === activeId) : null;
+
   return (
     <div className="space-y-4" data-testid="master-timeline-view">
       {/* Header */}
@@ -1012,19 +1071,27 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
         </div>
         
         {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
-          <button
-            onClick={() => setViewMode("gantt")}
-            className={`px-3 py-1 text-xs rounded ${viewMode === "gantt" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            Gantt
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`px-3 py-1 text-xs rounded ${viewMode === "list" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {isEs ? "Lista" : "List"}
-          </button>
+        <div className="flex items-center gap-2">
+          {!isLocked && viewMode === "list" && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
+              <Move className="w-3 h-3" />
+              <span>{isEs ? "Arrastra para reordenar" : "Drag to reorder"}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode("gantt")}
+              className={`px-3 py-1 text-xs rounded ${viewMode === "gantt" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Gantt
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1 text-xs rounded ${viewMode === "list" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {isEs ? "Lista" : "List"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1152,70 +1219,53 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
         </Card>
       )}
 
-      {/* List View */}
+      {/* List View with Drag & Drop */}
       {viewMode === "list" && (
         <Card>
           <CardContent className="p-4">
-            <div className="space-y-3">
-              {masterTimeline.length > 0 ? (
-                masterTimeline
-                  .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""))
-                  .map((activity, idx) => {
-                    const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type);
-                    const roomSetup = roomSetups.find(r => r.room_id === activity.room_id);
-                    const roomIdx = roomSetups.findIndex(r => r.room_id === activity.room_id);
-                    const colors = roomColors[roomIdx % roomColors.length] || roomColors[0];
-
-                    return (
-                      <div
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={localTimeline.map(a => a.activity_id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {localTimeline.length > 0 ? (
+                    localTimeline.map((activity, idx) => (
+                      <SortableActivityItem
                         key={activity.activity_id || idx}
-                        className="flex items-stretch gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors"
-                      >
-                        {/* Time */}
-                        <div className="w-24 flex-shrink-0 text-center">
-                          <div className="text-lg font-semibold">{activity.start_time || "--:--"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {activity.end_time ? `${isEs ? "hasta" : "to"} ${activity.end_time}` : ""}
-                          </div>
-                        </div>
-
-                        {/* Color bar */}
-                        <div className={`w-1 rounded-full ${typeInfo?.color || "bg-gray-400"}`} />
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{activity.title}</span>
-                            <Badge variant="secondary" className={`text-xs ${colors.light} ${colors.text}`}>
-                              {activity.room_name || roomSetup?.room_name}
-                            </Badge>
-                          </div>
-                          {activity.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-1">{activity.description}</p>
-                          )}
-                          {activity.responsible && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              <Users className="w-3 h-3 inline mr-1" />
-                              {activity.responsible}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Type badge */}
-                        <div className="flex-shrink-0">
-                          <Badge className={`${typeInfo?.color || "bg-gray-500"} text-white text-xs`}>
-                            {isEs ? typeInfo?.labelEs : typeInfo?.labelEn}
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  {isEs ? "No hay actividades en el timeline" : "No activities in timeline"}
+                        activity={activity}
+                        roomSetups={roomSetups}
+                        roomColors={roomColors}
+                        isEs={isEs}
+                        isLocked={isLocked}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {isEs ? "No hay actividades en el timeline" : "No activities in timeline"}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </SortableContext>
+
+              {/* Drag Overlay */}
+              <DragOverlay>
+                {activeActivity ? (
+                  <ActivityItemContent
+                    activity={activeActivity}
+                    roomSetups={roomSetups}
+                    roomColors={roomColors}
+                    isEs={isEs}
+                    isDragging={true}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </CardContent>
         </Card>
       )}
@@ -1228,6 +1278,101 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs }) {
             <span className="text-muted-foreground">{isEs ? type.labelEs : type.labelEn}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Sortable Activity Item Component
+function SortableActivityItem({ activity, roomSetups, roomColors, isEs, isLocked }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: activity.activity_id, disabled: isLocked });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ActivityItemContent
+        activity={activity}
+        roomSetups={roomSetups}
+        roomColors={roomColors}
+        isEs={isEs}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        isLocked={isLocked}
+      />
+    </div>
+  );
+}
+
+// Activity Item Content (shared between sortable and overlay)
+function ActivityItemContent({ activity, roomSetups, roomColors, isEs, dragHandleProps, isLocked, isDragging }) {
+  const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type);
+  const roomSetup = roomSetups.find(r => r.room_id === activity.room_id);
+  const roomIdx = roomSetups.findIndex(r => r.room_id === activity.room_id);
+  const colors = roomColors[roomIdx % roomColors.length] || roomColors[0];
+
+  return (
+    <div
+      className={`flex items-stretch gap-3 p-3 rounded-lg border bg-background transition-colors
+        ${isDragging ? "shadow-lg ring-2 ring-primary/20" : "hover:bg-muted/30"}
+      `}
+      data-testid={`list-activity-${activity.activity_id}`}
+    >
+      {/* Drag Handle */}
+      {!isLocked && (
+        <div
+          {...dragHandleProps}
+          className="flex items-center cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+        </div>
+      )}
+
+      {/* Time */}
+      <div className="w-20 flex-shrink-0 text-center">
+        <div className="text-lg font-semibold">{activity.start_time || "--:--"}</div>
+        <div className="text-xs text-muted-foreground">
+          {activity.end_time ? `${isEs ? "hasta" : "to"} ${activity.end_time}` : ""}
+        </div>
+      </div>
+
+      {/* Color bar */}
+      <div className={`w-1 rounded-full ${typeInfo?.color || "bg-gray-400"}`} />
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-medium">{activity.title}</span>
+          <Badge variant="secondary" className={`text-xs ${colors.light} ${colors.text}`}>
+            {activity.room_name || roomSetup?.room_name}
+          </Badge>
+        </div>
+        {activity.description && (
+          <p className="text-sm text-muted-foreground line-clamp-1">{activity.description}</p>
+        )}
+        {activity.responsible && (
+          <p className="text-xs text-muted-foreground mt-1">
+            <Users className="w-3 h-3 inline mr-1" />
+            {activity.responsible}
+          </p>
+        )}
+      </div>
+
+      {/* Type badge */}
+      <div className="flex-shrink-0 self-center">
+        <Badge className={`${typeInfo?.color || "bg-gray-500"} text-white text-xs`}>
+          {isEs ? typeInfo?.labelEs : typeInfo?.labelEn}
+        </Badge>
       </div>
     </div>
   );
