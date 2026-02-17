@@ -208,3 +208,60 @@ class SavedAddress(BaseModel):
     usage_count: int = 0
     last_used: Optional[datetime] = None
     created_at: datetime
+
+
+# ============== ROOM BOOKING MODELS (Availability & Conflicts) ==============
+
+class RoomBookingCreate(BaseModel):
+    """Create a room booking/reservation"""
+    room_id: str
+    venue_id: str
+    event_id: Optional[str] = None
+    event_name: Optional[str] = None
+    booking_date: str  # YYYY-MM-DD format
+    start_time: Optional[str] = None  # HH:MM format
+    end_time: Optional[str] = None  # HH:MM format
+    all_day: bool = True  # If true, blocks entire day
+    notes: Optional[str] = None
+    booking_type: str = "event"  # event, maintenance, hold, blocked
+
+
+class RoomBooking(BaseModel):
+    """Room booking record"""
+    booking_id: str
+    company_id: str
+    room_id: str
+    room_name: Optional[str] = None
+    venue_id: str
+    venue_name: Optional[str] = None
+    event_id: Optional[str] = None
+    event_name: Optional[str] = None
+    booking_date: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    all_day: bool = True
+    notes: Optional[str] = None
+    booking_type: str = "event"
+    status: str = "confirmed"  # confirmed, tentative, cancelled
+    created_at: datetime
+    created_by: str
+
+
+class RoomAvailabilityCheck(BaseModel):
+    """Check room availability for a date range"""
+    room_id: str
+    start_date: str  # YYYY-MM-DD
+    end_date: Optional[str] = None  # YYYY-MM-DD, defaults to start_date
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+
+
+class RoomAvailabilityResponse(BaseModel):
+    """Room availability response"""
+    room_id: str
+    room_name: str
+    venue_id: str
+    venue_name: str
+    is_available: bool
+    conflicts: List[dict] = []  # List of conflicting bookings
+    capacity: int = 0
