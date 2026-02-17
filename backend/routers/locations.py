@@ -618,3 +618,304 @@ async def search_locations(
     results["saved_addresses"] = addresses
     
     return results
+
+
+# ============== ROOM BOOKINGS (Availability & Conflicts) ==============
+
+async def check_room_availability_internal(
+    room_id: str,
+    booking_date: str,
+    company_id: str,
+    exclude_event_id: str = None,
+    start_time: str = None,
+    end_time: str = None
+) -> dict:
+    """Internal helper to check room availability"""
+    query = {
+        "room_id": room_id,
+        "company_id": company_id,
+        "booking_date": booking_date,
+        "status": {"$ne": "cancelled"}
+    }
+    
+    if exclude_event_id:
+        query["event_id"] = {"$ne": exclude_event_id}
+    
+    conflicts = await db.room_bookings.find(query, {"_id": 0}).to_list(50)
+    
+    # If checking specific time slots
+    if start_time and end_time and not any(c.get("all_day") for c in conflicts):
+        time_conflicts = []
+        for c in conflicts:
+            c_start = c.get("start_time", "00:00")
+            c_end = c.get("end_time", "23:59")
+            # Check for overlap
+            if not (end_time <= c_start or start_time >= c_end):
+                time_conflicts.append(c)
+        conflicts = time_conflicts
+    
+    return {
+        "is_available": len(conflicts) == 0,
+        "conflicts": conflicts
+    }
+
+
+@locations_router.get("/rooms/{room_id}/availability")
+async def check_room_availability(
+    room_id: str,
+    date: str = Query(..., description="Date in YYYY-MM-DD format"),
+    start_time: Optional[str] = Query(None, description="Start time HH:MM"),
+    end_time: Optional[str] = Query(None, description="End time HH:MM"),
+    exclude_event_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Check if a room is available on a specific date"""
+    # Get room details
+    room = await db.venue_rooms.find_one(
+        {"room_id": room_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Get venue details
+    venue = await db.venues.find_one(
+        {"venue_id": room.get("venue_id"), "company_id": user.company_id},
+        {"_id": 0, "name": 1, "venue_id": 1}
+    )
+    
+    result = await check_room_availability_internal(
+        room_id, date, user.company_id, exclude_event_id, start_time, end_time
+    )
+    
+    return {
+        "room_id": room_id,
+        "room_name": room.get("name"),
+        "venue_id": room.get("venue_id"),
+        "venue_name": venue.get("name") if venue else None,
+        "date": date,
+        "is_available": result["is_available"],
+        "conflicts": result["conflicts"],
+        "capacity": room.get("capacity", 0)
+    }
+
+
+@locations_router.get("/rooms/{room_id}/bookings")
+async def get_room_bookings(
+    room_id: str,
+    start_date: str = Query(..., description="Start date YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
+    user: User = Depends(get_current_user)
+):
+    """Get all bookings for a room within a date range"""
+    room = await db.venue_rooms.find_one(
+        {"room_id": room_id, "company_id": user.company_id}
+    )
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    end = end_date or start_date
+    
+    bookings = await db.room_bookings.find(
+        {
+            "room_id": room_id,
+            "company_id": user.company_id,
+            "booking_date": {"$gte": start_date, "$lte": end},
+            "status": {"$ne": "cancelled"}
+        },
+        {"_id": 0}
+    ).sort("booking_date", 1).to_list(100)
+    
+    return bookings
+
+
+@locations_router.post("/rooms/{room_id}/bookings")
+async def create_room_booking(
+    room_id: str,
+    data: RoomBookingCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a room booking/reservation"""
+    # Verify room exists
+    room = await db.venue_rooms.find_one(
+        {"room_id": room_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Get venue
+    venue = await db.venues.find_one(
+        {"venue_id": data.venue_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
+    # Check availability
+    availability = await check_room_availability_internal(
+        room_id, data.booking_date, user.company_id,
+        data.event_id, data.start_time, data.end_time
+    )
+    
+    if not availability["is_available"]:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Room is not available for this date/time",
+                "conflicts": availability["conflicts"]
+            }
+        )
+    
+    now = datetime.now(timezone.utc)
+    booking_id = f"booking_{uuid.uuid4().hex[:12]}"
+    
+    booking_doc = {
+        "booking_id": booking_id,
+        "company_id": user.company_id,
+        "room_id": room_id,
+        "room_name": room.get("name"),
+        "venue_id": data.venue_id,
+        "venue_name": venue.get("name") if venue else None,
+        "event_id": data.event_id,
+        "event_name": data.event_name,
+        "booking_date": data.booking_date,
+        "start_time": data.start_time,
+        "end_time": data.end_time,
+        "all_day": data.all_day,
+        "notes": data.notes,
+        "booking_type": data.booking_type,
+        "status": "confirmed",
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    await db.room_bookings.insert_one(booking_doc)
+    del booking_doc["_id"]
+    
+    return booking_doc
+
+
+@locations_router.delete("/rooms/{room_id}/bookings/{booking_id}")
+async def cancel_room_booking(
+    room_id: str,
+    booking_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Cancel a room booking"""
+    result = await db.room_bookings.update_one(
+        {
+            "booking_id": booking_id,
+            "room_id": room_id,
+            "company_id": user.company_id
+        },
+        {
+            "$set": {
+                "status": "cancelled",
+                "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                "cancelled_by": user.user_id
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return {"message": "Booking cancelled"}
+
+
+@locations_router.get("/venues/{venue_id}/availability")
+async def get_venue_availability(
+    venue_id: str,
+    date: str = Query(..., description="Date in YYYY-MM-DD format"),
+    user: User = Depends(get_current_user)
+):
+    """Get availability for all rooms in a venue on a specific date"""
+    venue = await db.venues.find_one(
+        {"venue_id": venue_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not venue:
+        raise HTTPException(status_code=404, detail="Venue not found")
+    
+    # Get all rooms
+    rooms = await db.venue_rooms.find(
+        {"venue_id": venue_id, "company_id": user.company_id, "is_active": True},
+        {"_id": 0}
+    ).to_list(50)
+    
+    # Get all bookings for this date
+    bookings = await db.room_bookings.find(
+        {
+            "venue_id": venue_id,
+            "company_id": user.company_id,
+            "booking_date": date,
+            "status": {"$ne": "cancelled"}
+        },
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Map bookings to rooms
+    room_bookings = {}
+    for booking in bookings:
+        rid = booking.get("room_id")
+        if rid not in room_bookings:
+            room_bookings[rid] = []
+        room_bookings[rid].append(booking)
+    
+    # Build response
+    rooms_availability = []
+    for room in rooms:
+        rid = room.get("room_id")
+        room_conflicts = room_bookings.get(rid, [])
+        rooms_availability.append({
+            "room_id": rid,
+            "room_name": room.get("name"),
+            "capacity": room.get("capacity", 0),
+            "floor": room.get("floor"),
+            "is_available": len(room_conflicts) == 0,
+            "bookings": room_conflicts
+        })
+    
+    return {
+        "venue_id": venue_id,
+        "venue_name": venue.get("name"),
+        "date": date,
+        "rooms": rooms_availability,
+        "total_rooms": len(rooms),
+        "available_rooms": sum(1 for r in rooms_availability if r["is_available"])
+    }
+
+
+@locations_router.get("/calendar")
+async def get_rooms_calendar(
+    start_date: str = Query(..., description="Start date YYYY-MM-DD"),
+    end_date: str = Query(..., description="End date YYYY-MM-DD"),
+    venue_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get calendar view of all room bookings"""
+    query = {
+        "company_id": user.company_id,
+        "booking_date": {"$gte": start_date, "$lte": end_date},
+        "status": {"$ne": "cancelled"}
+    }
+    
+    if venue_id:
+        query["venue_id"] = venue_id
+    
+    bookings = await db.room_bookings.find(query, {"_id": 0}).sort("booking_date", 1).to_list(500)
+    
+    # Group by date
+    calendar = {}
+    for booking in bookings:
+        date = booking.get("booking_date")
+        if date not in calendar:
+            calendar[date] = []
+        calendar[date].append(booking)
+    
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "bookings_by_date": calendar,
+        "total_bookings": len(bookings)
+    }
+
