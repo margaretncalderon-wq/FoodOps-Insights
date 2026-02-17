@@ -413,6 +413,55 @@ export default function EventLocationSelector({
                   </div>
                 )}
 
+                {/* Room Availability Indicator */}
+                {locationForm.room_id && eventDate && (
+                  <div className="mt-2" data-testid="room-availability-indicator">
+                    {checkingAvailability ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {t("checkAvailability")}...
+                      </div>
+                    ) : roomAvailability ? (
+                      <div className={`flex items-center gap-2 p-2 rounded-lg ${
+                        roomAvailability.is_available 
+                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400" 
+                          : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+                      }`}>
+                        {roomAvailability.is_available ? (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-sm font-medium">{t("roomAvailable")}</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-4 h-4" />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium">{t("roomBooked")}</span>
+                              {roomAvailability.conflicts && roomAvailability.conflicts.length > 0 && (
+                                <div className="text-xs mt-1">
+                                  {roomAvailability.conflicts.map((c, i) => (
+                                    <div key={i}>
+                                      {t("bookedBy")}: {c.event_name || "Unknown"} 
+                                      {c.start_time && ` (${c.start_time} - ${c.end_time || "?"})`}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                
+                {locationForm.room_id && !eventDate && (
+                  <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <AlertCircle className="w-4 h-4" />
+                    {t("selectDate")}
+                  </div>
+                )}
+
                 {selectedVenue && (
                   <div className="text-sm text-gray-500 flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
