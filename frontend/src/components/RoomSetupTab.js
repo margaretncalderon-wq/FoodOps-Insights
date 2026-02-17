@@ -606,10 +606,14 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                   {isEs ? "No hay salones configurados" : "No rooms configured"}
                 </p>
                 <p className="text-sm text-gray-400 mb-4">
-                  {isEs ? "Agrega salones o copia configuración de otro evento" : "Add rooms or copy setup from another event"}
+                  {isEs ? "Agrega salones, usa un template o copia de otro evento" : "Add rooms, use a template, or copy from another event"}
                 </p>
                 {!isLocked && (
                   <div className="flex gap-2">
+                    <Button onClick={() => setActiveView("templates")} variant="outline">
+                      <Sparkles className="w-4 h-4 mr-1" />
+                      Templates
+                    </Button>
                     <Button onClick={handleOpenCopyDialog} variant="outline">
                       <Copy className="w-4 h-4 mr-1" />
                       {isEs ? "Copiar" : "Copy"}
@@ -629,6 +633,8 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                 setup={setup}
                 isEs={isEs}
                 isLocked={isLocked}
+                eventId={eventId}
+                token={token}
                 onEdit={() => handleEditRoom(setup)}
                 onDelete={() => handleDeleteRoom(setup.room_id)}
                 onAddNeed={() => handleAddNeed(setup)}
@@ -638,6 +644,7 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                 onDeleteActivity={(activityId) => handleDeleteActivity(setup.room_id, activityId)}
                 onReorderNeeds={handleReorderNeeds}
                 onReorderTimeline={handleReorderRoomTimeline}
+                onLayoutUpdate={fetchData}
               />
             ))
           )}
