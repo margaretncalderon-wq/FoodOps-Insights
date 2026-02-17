@@ -395,6 +395,18 @@ export default function VenuesPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => {
+                          setCalendarVenue(venue);
+                          setActiveTab("calendar");
+                        }}
+                        data-testid={`view-calendar-${venue.venue_id}`}
+                        title={t("roomAvailability")}
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleOpenVenueDialog(venue)}
                         data-testid={`edit-venue-${venue.venue_id}`}
                       >
