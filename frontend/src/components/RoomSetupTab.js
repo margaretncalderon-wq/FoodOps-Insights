@@ -73,6 +73,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import VisualLayoutEditor, { LayoutPreview } from "./VisualLayoutEditor";
 
 const LAYOUT_TYPES = [
   { value: "theater", labelEn: "Theater", labelEs: "Teatro", icon: "🎭" },
