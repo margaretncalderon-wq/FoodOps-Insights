@@ -1843,7 +1843,11 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
                     </div>
 
                     {/* Timeline area */}
-                    <div className="flex-1 relative" style={{ height: "80px" }}>
+                    <div 
+                      className="flex-1 relative" 
+                      style={{ height: "80px" }}
+                      ref={roomIdx === 0 ? timelineRef : null}
+                    >
                       {/* Hour grid lines */}
                       <div className="absolute inset-0 flex pointer-events-none">
                         {hours.map((hour) => (
@@ -1858,51 +1862,73 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
                       {/* Activity bars */}
                       <div className="absolute inset-0 p-2">
                         {roomActivities.map((activity, actIdx) => {
-                          const style = getActivityStyle(activity);
-                          const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type);
-                          const isHovered = hoveredActivity === activity.activity_id;
+                          // Use local timeline for real-time updates during drag
+                          const localActivity = localTimeline.find(a => a.activity_id === activity.activity_id) || activity;
+                          const style = getActivityStyle(localActivity);
+                          const typeInfo = ACTIVITY_TYPES.find(t => t.value === localActivity.activity_type);
+                          const isHovered = hoveredActivity === localActivity.activity_id;
+                          const isDragging = draggingActivity?.activity_id === localActivity.activity_id;
 
                           return (
                             <div
-                              key={activity.activity_id}
-                              className={`absolute h-10 rounded-md cursor-pointer transition-all duration-150 shadow-sm
+                              key={localActivity.activity_id}
+                              className={`absolute h-10 rounded-md transition-all shadow-sm group
                                 ${typeInfo?.color || colors.bg} 
-                                ${isHovered ? "ring-2 ring-offset-1 ring-black/20 shadow-md scale-[1.02] z-10" : ""}
+                                ${isHovered && !isDragging ? "ring-2 ring-offset-1 ring-black/20 shadow-md scale-[1.02] z-10" : ""}
+                                ${isDragging ? "ring-2 ring-offset-2 ring-white shadow-lg z-20 opacity-90" : ""}
+                                ${!isLocked ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
                               `}
                               style={{
                                 left: style.left,
                                 width: style.width,
                                 top: `${actIdx * 44 + 4}px`,
                               }}
-                              onMouseEnter={() => setHoveredActivity(activity.activity_id)}
-                              onMouseLeave={() => setHoveredActivity(null)}
-                              data-testid={`timeline-activity-${activity.activity_id}`}
+                              onMouseEnter={() => !isDragging && setHoveredActivity(localActivity.activity_id)}
+                              onMouseLeave={() => !isDragging && setHoveredActivity(null)}
+                              onMouseDown={(e) => !isLocked && handleGanttDragStart(e, localActivity, "move")}
+                              data-testid={`timeline-activity-${localActivity.activity_id}`}
                             >
+                              {/* Left resize handle */}
+                              {!isLocked && (
+                                <div
+                                  className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/30 rounded-l-md transition-opacity"
+                                  onMouseDown={(e) => handleGanttDragStart(e, localActivity, "resize-start")}
+                                />
+                              )}
+                              
                               <div className="px-2 py-1 h-full flex flex-col justify-center overflow-hidden">
                                 <div className="text-xs font-medium text-white truncate">
-                                  {activity.title}
+                                  {localActivity.title}
                                 </div>
                                 <div className="text-[10px] text-white/80 truncate">
-                                  {activity.start_time} - {activity.end_time}
+                                  {localActivity.start_time} - {localActivity.end_time}
                                 </div>
                               </div>
 
+                              {/* Right resize handle */}
+                              {!isLocked && (
+                                <div
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/30 rounded-r-md transition-opacity"
+                                  onMouseDown={(e) => handleGanttDragStart(e, localActivity, "resize-end")}
+                                />
+                              )}
+
                               {/* Hover tooltip */}
-                              {isHovered && (
+                              {isHovered && !isDragging && (
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 pointer-events-none">
                                   <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                                    <div className="font-semibold">{activity.title}</div>
+                                    <div className="font-semibold">{localActivity.title}</div>
                                     <div className="text-gray-300 mt-1">
-                                      {activity.start_time} - {activity.end_time}
+                                      {localActivity.start_time} - {localActivity.end_time}
                                     </div>
-                                    {activity.responsible && (
+                                    {localActivity.responsible && (
                                       <div className="text-gray-400 mt-0.5">
-                                        {isEs ? "Responsable" : "Responsible"}: {activity.responsible}
+                                        Responsible: {localActivity.responsible}
                                       </div>
                                     )}
-                                    {activity.notes && (
-                                      <div className="text-gray-400 mt-0.5 max-w-[200px] truncate">
-                                        {activity.notes}
+                                    {!isLocked && (
+                                      <div className="text-blue-300 mt-1 text-[10px]">
+                                        Drag to move • Edges to resize
                                       </div>
                                     )}
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
@@ -1915,7 +1941,7 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
 
                         {roomActivities.length === 0 && (
                           <div className="flex items-center justify-center h-full text-xs text-muted-foreground italic">
-                            {isEs ? "Sin actividades" : "No activities"}
+                            No activities
                           </div>
                         )}
                       </div>
