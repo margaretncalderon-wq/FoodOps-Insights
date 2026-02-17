@@ -1,5 +1,5 @@
 // components/RoomSetupTab.js - Room Setup & Timeline for Event Orchestration
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import axios from "axios";
 import { API } from "../utils/api";
 import { useLanguage } from "../contexts/LanguageContext";
