@@ -13254,6 +13254,9 @@ api_router.include_router(locations_router)
 # Include room_setup_router
 api_router.include_router(room_setup_router)
 
+# Include activity_logs_router
+api_router.include_router(activity_logs_router)
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
