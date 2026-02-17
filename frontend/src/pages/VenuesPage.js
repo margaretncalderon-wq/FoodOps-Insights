@@ -111,11 +111,11 @@ export default function VenuesPage() {
       setVenues(response.data);
     } catch (error) {
       console.error("Error fetching venues:", error);
-      toast.error(t("errorLoadingGoals"));
+      toast.error(language === "es" ? "Error al cargar las sedes" : "Error loading venues");
     } finally {
       setLoading(false);
     }
-  }, [token, t]);
+  }, [token, language]);
 
   useEffect(() => {
     fetchVenues();
