@@ -10,7 +10,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 4. **Culinary Intelligence** - Recipes, costing, food inventory
 5. **Operations Supplies** - Equipment, disposables, event supplies
 6. **Execution Hub** - ✅ Operational goals, tasks, decisions tracking
-7. **Venues & Locations** - ✅ Company venues, rooms, event locations
+7. **Venues & Locations** - ✅ Company venues, rooms, event locations, room availability
 8. **Demand Studio** - Marketing campaigns, social media
 9. **Business Clarity** - Finance, invoices, reports
 
@@ -34,6 +34,20 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Multi-location events supported (ceremony, cocktail, reception at different places)
   - Saved addresses for quick reuse
   - Full bilingual support (EN/ES)
+
+#### Room Booking & Availability System - NEW ✅
+- **Automatic room booking** when event location is set to a room
+- **Conflict detection** prevents double booking of the same room
+- **Real-time availability check** in location selector when editing events
+- **Visual indicators** show available (green) or booked (red with event name)
+- **Calendar view** for viewing all room bookings
+- **API Endpoints:**
+  - `GET /api/locations/rooms/{id}/availability?date=YYYY-MM-DD` - Check room availability
+  - `GET /api/locations/rooms/{id}/bookings?start_date=&end_date=` - Get room bookings
+  - `POST /api/locations/rooms/{id}/bookings` - Create manual booking
+  - `DELETE /api/locations/rooms/{id}/bookings/{id}` - Cancel booking
+  - `GET /api/locations/venues/{id}/availability?date=` - Check all rooms in venue
+  - `GET /api/locations/calendar?start_date=&end_date=` - Calendar view of bookings
 
 ### February 7, 2026
 
