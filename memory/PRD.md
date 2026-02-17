@@ -40,7 +40,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - **Conflict detection** prevents double booking of the same room
 - **Real-time availability check** in location selector when editing events
 - **Visual indicators** show available (green) or booked (red with event name)
-- **Calendar view** for viewing all room bookings
+- **Calendar view** for viewing all room bookings - NEW
 - **API Endpoints:**
   - `GET /api/locations/rooms/{id}/availability?date=YYYY-MM-DD` - Check room availability
   - `GET /api/locations/rooms/{id}/bookings?start_date=&end_date=` - Get room bookings
@@ -48,6 +48,15 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - `DELETE /api/locations/rooms/{id}/bookings/{id}` - Cancel booking
   - `GET /api/locations/venues/{id}/availability?date=` - Check all rooms in venue
   - `GET /api/locations/calendar?start_date=&end_date=` - Calendar view of bookings
+
+#### Visual Room Availability Calendar - NEW ✅
+- **Monthly calendar view** on Venues page showing room bookings
+- **Color-coded rooms** for easy identification
+- **Tooltip on hover** showing event name and times
+- **Room filter** to view specific room or all rooms
+- **Quick venue switching** buttons
+- **Today button** and month navigation
+- **Stats summary** showing total rooms and bookings count
 
 ### February 7, 2026
 
