@@ -409,6 +409,71 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
     fetchData();
   };
 
+  // Handle reorder needs in room card
+  const handleReorderNeeds = async (roomId, newNeeds) => {
+    try {
+      // Update all needs with new order
+      await axios.put(
+        `${API}/orchestration/room-setup/events/${eventId}/rooms/${roomId}`,
+        { needs: newNeeds },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(isEs ? "Orden actualizado" : "Order updated");
+      fetchData();
+    } catch (error) {
+      toast.error(isEs ? "Error al reordenar" : "Error reordering");
+    }
+  };
+
+  // Handle reorder timeline in room card
+  const handleReorderRoomTimeline = async (roomId, movedActivity, newIndex, prevActivity, nextActivity) => {
+    try {
+      // Calculate new times
+      let newStartTime = movedActivity.start_time;
+      let newEndTime = movedActivity.end_time;
+      
+      const getDuration = (start, end) => {
+        if (!start || !end) return 60;
+        const [startH, startM] = start.split(":").map(Number);
+        const [endH, endM] = end.split(":").map(Number);
+        return (endH * 60 + endM) - (startH * 60 + startM);
+      };
+      
+      const duration = getDuration(movedActivity.start_time, movedActivity.end_time);
+      
+      if (prevActivity && prevActivity.end_time) {
+        newStartTime = prevActivity.end_time;
+      } else if (nextActivity && nextActivity.start_time) {
+        const [nextH, nextM] = nextActivity.start_time.split(":").map(Number);
+        const totalMinutes = nextH * 60 + nextM - duration;
+        newStartTime = `${Math.floor(totalMinutes / 60).toString().padStart(2, "0")}:${(totalMinutes % 60).toString().padStart(2, "0")}`;
+      }
+      
+      const [newStartH, newStartM] = newStartTime.split(":").map(Number);
+      const newEndMinutes = newStartH * 60 + newStartM + duration;
+      newEndTime = `${Math.floor(newEndMinutes / 60).toString().padStart(2, "0")}:${(newEndMinutes % 60).toString().padStart(2, "0")}`;
+      
+      await axios.put(
+        `${API}/orchestration/room-setup/events/${eventId}/rooms/${roomId}/timeline/${movedActivity.activity_id}`,
+        {
+          title: movedActivity.title,
+          description: movedActivity.description,
+          start_time: newStartTime,
+          end_time: newEndTime,
+          activity_type: movedActivity.activity_type,
+          responsible: movedActivity.responsible,
+          notes: movedActivity.notes,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success(isEs ? "Orden actualizado" : "Order updated");
+      fetchData();
+    } catch (error) {
+      toast.error(isEs ? "Error al reordenar" : "Error reordering");
+    }
+  };
+
   const selectedVenue = venues.find(v => v.venue_id === roomForm.venue_id);
 
   if (loading) {
