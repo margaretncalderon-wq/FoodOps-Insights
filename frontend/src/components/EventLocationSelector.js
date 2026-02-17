@@ -58,6 +58,8 @@ export default function EventLocationSelector({
   const [venues, setVenues] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [roomAvailability, setRoomAvailability] = useState(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   
   const [locationForm, setLocationForm] = useState({
     location_type: "onsite",
@@ -88,6 +90,35 @@ export default function EventLocationSelector({
       console.error("Error fetching venues:", error);
     }
   }, [token]);
+
+  const checkRoomAvailability = useCallback(async (roomId) => {
+    if (!roomId || !eventDate) {
+      setRoomAvailability(null);
+      return;
+    }
+    
+    try {
+      setCheckingAvailability(true);
+      const dateStr = typeof eventDate === 'string' 
+        ? eventDate.substring(0, 10) 
+        : eventDate.toISOString().substring(0, 10);
+      
+      let url = `${API}/locations/rooms/${roomId}/availability?date=${dateStr}`;
+      if (eventId) {
+        url += `&exclude_event_id=${eventId}`;
+      }
+      
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRoomAvailability(response.data);
+    } catch (error) {
+      console.error("Error checking availability:", error);
+      setRoomAvailability(null);
+    } finally {
+      setCheckingAvailability(false);
+    }
+  }, [token, eventDate, eventId]);
 
   useEffect(() => {
     fetchVenues();
