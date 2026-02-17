@@ -7,6 +7,7 @@ import uuid
 from config import db
 from models.events import Event, EventCreate, EventUpdate
 from dependencies import get_current_user, User
+from utils.activity_logger import log_activity, user_info
 
 # Stage mapping constants (imported from server.py context)
 ENGAGEMENT_STAGES = ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review", "Committed", "Archived"]
