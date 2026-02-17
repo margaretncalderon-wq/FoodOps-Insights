@@ -1073,12 +1073,13 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
 }
 
 // Room Setup Card Component with Drag & Drop
-function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onDeleteNeed, onAddActivity, onEditActivity, onDeleteActivity, onReorderNeeds, onReorderTimeline }) {
+function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete, onAddNeed, onDeleteNeed, onAddActivity, onEditActivity, onDeleteActivity, onReorderNeeds, onReorderTimeline, onLayoutUpdate }) {
   const [expanded, setExpanded] = useState(true);
   const [needsActiveId, setNeedsActiveId] = useState(null);
   const [timelineActiveId, setTimelineActiveId] = useState(null);
   const [localNeeds, setLocalNeeds] = useState(setup.needs || []);
   const [localTimeline, setLocalTimeline] = useState(setup.timeline || []);
+  const [showLayoutEditor, setShowLayoutEditor] = useState(false);
   
   const layoutInfo = LAYOUT_TYPES.find(l => l.value === setup.layout_type) || LAYOUT_TYPES[0];
 
