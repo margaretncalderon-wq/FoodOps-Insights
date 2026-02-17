@@ -1486,3 +1486,107 @@ function ActivityItemContent({ activity, roomSetups, roomColors, isEs, dragHandl
     </div>
   );
 }
+
+
+// Sortable Need Item Component
+function SortableNeedItem({ need, isLocked, onDelete }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: need.item_id, disabled: isLocked });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const category = NEED_CATEGORIES.find(c => c.value === need.category);
+  const Icon = category?.icon || Package;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded ${isDragging ? "ring-2 ring-primary/30 shadow-md" : ""}`}
+    >
+      <div className="flex items-center gap-2">
+        {!isLocked && (
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
+            <GripVertical className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+          </div>
+        )}
+        <Icon className="w-4 h-4 text-gray-500" />
+        <span className="text-sm">{need.name}</span>
+        {need.quantity > 1 && (
+          <Badge variant="secondary" className="text-xs">x{need.quantity}</Badge>
+        )}
+      </div>
+      {!isLocked && (
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={onDelete}>
+          <Trash2 className="w-3 h-3" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// Sortable Timeline Item Component (for Room Card)
+function SortableTimelineItem({ activity, isLocked, onEdit, onDelete }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: activity.activity_id, disabled: isLocked });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type) || ACTIVITY_TYPES[6];
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 p-2 border rounded ${isDragging ? "ring-2 ring-primary/30 shadow-md bg-background" : ""}`}
+    >
+      {!isLocked && (
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
+          <GripVertical className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+        </div>
+      )}
+      <div className={`w-1 h-8 rounded ${typeInfo.color}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{activity.title}</span>
+          <span className="text-xs text-muted-foreground">
+            {activity.start_time} - {activity.end_time}
+          </span>
+        </div>
+        {activity.responsible && (
+          <p className="text-xs text-muted-foreground">{activity.responsible}</p>
+        )}
+      </div>
+      {!isLocked && (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onEdit}>
+            <Edit2 className="w-3 h-3" />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={onDelete}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
