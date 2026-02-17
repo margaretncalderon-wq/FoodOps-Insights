@@ -1937,9 +1937,20 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
   const [templates, setTemplates] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [applyForm, setApplyForm] = useState({ venue_id: "", room_id: "" });
   const [applying, setApplying] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    description: "",
+    category: "custom",
+    layout_type: "banquet",
+    layout_notes: "",
+    min_capacity: 0,
+    max_capacity: 0,
+  });
 
   const TEMPLATE_CATEGORIES = [
     { value: "wedding", labelEs: "Boda", labelEn: "Wedding", icon: "💒" },
@@ -1950,26 +1961,27 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
     { value: "custom", labelEs: "Personalizado", labelEn: "Custom", icon: "✨" },
   ];
 
+  const fetchTemplates = async () => {
+    try {
+      setLoading(true);
+      // Seed system templates first
+      await axios.post(`${API}/orchestration/room-setup/templates/seed-system`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+      
+      const params = selectedCategory !== "all" ? `?category=${selectedCategory}` : "";
+      const res = await axios.get(`${API}/orchestration/room-setup/templates${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTemplates(res.data || []);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTemplates = async () => {
-      try {
-        setLoading(true);
-        // Seed system templates first
-        await axios.post(`${API}/orchestration/room-setup/templates/seed-system`, {}, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
-        
-        const params = selectedCategory !== "all" ? `?category=${selectedCategory}` : "";
-        const res = await axios.get(`${API}/orchestration/room-setup/templates${params}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setTemplates(res.data || []);
-      } catch (error) {
-        console.error("Error fetching templates:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchTemplates();
   }, [token, selectedCategory]);
 
