@@ -613,8 +613,9 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
                     </Button>
                     <Button onClick={handleAddRoom} variant="outline">
                       <Plus className="w-4 h-4 mr-1" />
-                      {isEs ? "Agregar Salón" : "Add Room"}}
-                  </Button>
+                      {isEs ? "Agregar Salón" : "Add Room"}
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
