@@ -409,7 +409,7 @@ def _calculate_duration(start_time: str, end_time: str) -> int:
         start_h, start_m = map(int, start_time.split(":"))
         end_h, end_m = map(int, end_time.split(":"))
         return (end_h * 60 + end_m) - (start_h * 60 + start_m)
-    except:
+    except (ValueError, AttributeError):
         return 0
 
 
