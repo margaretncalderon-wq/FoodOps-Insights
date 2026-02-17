@@ -1,5 +1,5 @@
 # routers/room_setup.py - Room Setup API for Event Orchestration
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime, timezone
 import uuid
@@ -10,7 +10,8 @@ from dependencies import get_current_user, User
 from models.room_setup import (
     RoomSetupConfig, RoomSetupCreate, RoomSetupUpdate,
     EventRoomSetups, RoomNeedItem, TimelineActivity, LayoutType,
-    RoomSetupTemplate, RoomSetupTemplateCreate, TemplateCategory, LayoutDiagramUpload
+    RoomSetupTemplate, RoomSetupTemplateCreate, TemplateCategory, LayoutDiagramUpload,
+    ActivityChangeLog, ChangeType
 )
 
 room_setup_router = APIRouter(prefix="/orchestration/room-setup", tags=["Room Setup"])
