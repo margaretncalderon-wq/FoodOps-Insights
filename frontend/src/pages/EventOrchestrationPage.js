@@ -468,6 +468,9 @@ function EventDetail() {
         <TabsContent value="experience">
           <ExperienceDesignTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
+        <TabsContent value="roomsetup">
+          <RoomSetupTab eventId={eventId} event={event} isLocked={isLocked} />
+        </TabsContent>
         <TabsContent value="operational">
           <OperationalFlowTab eventId={eventId} isLocked={isLocked} />
         </TabsContent>
