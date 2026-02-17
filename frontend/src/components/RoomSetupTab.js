@@ -1662,110 +1662,109 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
     e.preventDefault();
     e.stopPropagation();
     
+    // Store drag data in ref
+    dragDataRef.current = {
+      mode,
+      startX: e.clientX,
+      originalTimes: { start: activity.start_time, end: activity.end_time },
+      activity
+    };
     setDraggingActivity(activity);
-    setDragMode(mode);
-    setDragStartX(e.clientX);
-    setOriginalTimes({ start: activity.start_time, end: activity.end_time });
     
     // Add global mouse handlers
-    document.addEventListener("mousemove", handleGanttDragMove);
-    document.addEventListener("mouseup", handleGanttDragEnd);
-  };
-
-  // Handle Gantt bar drag move
-  const handleGanttDragMove = useCallback((e) => {
-    if (!draggingActivity || !timelineRef.current) return;
-    
-    const containerRect = timelineRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const deltaX = e.clientX - dragStartX;
-    const deltaPercentage = deltaX / containerWidth;
-    const deltaMinutes = Math.round((deltaPercentage * totalHours * 60) / 5) * 5;
-    
-    // Parse original times
-    const [startH, startM] = originalTimes.start.split(":").map(Number);
-    const [endH, endM] = originalTimes.end.split(":").map(Number);
-    const originalStartMinutes = startH * 60 + startM;
-    const originalEndMinutes = endH * 60 + endM;
-    const duration = originalEndMinutes - originalStartMinutes;
-    
-    let newStartMinutes, newEndMinutes;
-    
-    if (dragMode === "move") {
-      // Move entire bar
-      newStartMinutes = originalStartMinutes + deltaMinutes;
-      newEndMinutes = originalEndMinutes + deltaMinutes;
+    const handleMove = (moveEvent) => {
+      if (!dragDataRef.current.activity || !timelineRef.current) return;
       
-      // Clamp to time range
-      if (newStartMinutes < minHour * 60) {
-        newStartMinutes = minHour * 60;
-        newEndMinutes = newStartMinutes + duration;
-      }
-      if (newEndMinutes > maxHour * 60) {
-        newEndMinutes = maxHour * 60;
-        newStartMinutes = newEndMinutes - duration;
-      }
-    } else if (dragMode === "resize-start") {
-      // Resize from start
-      newStartMinutes = Math.max(minHour * 60, Math.min(originalEndMinutes - 15, originalStartMinutes + deltaMinutes));
-      newEndMinutes = originalEndMinutes;
-    } else if (dragMode === "resize-end") {
-      // Resize from end
-      newStartMinutes = originalStartMinutes;
-      newEndMinutes = Math.min(maxHour * 60, Math.max(originalStartMinutes + 15, originalEndMinutes + deltaMinutes));
-    }
-    
-    // Convert back to time strings
-    const newStartTime = `${Math.floor(newStartMinutes / 60).toString().padStart(2, "0")}:${(newStartMinutes % 60).toString().padStart(2, "0")}`;
-    const newEndTime = `${Math.floor(newEndMinutes / 60).toString().padStart(2, "0")}:${(newEndMinutes % 60).toString().padStart(2, "0")}`;
-    
-    // Update local timeline for immediate feedback
-    setLocalTimeline(prev => prev.map(a => 
-      a.activity_id === draggingActivity.activity_id 
-        ? { ...a, start_time: newStartTime, end_time: newEndTime }
-        : a
-    ));
-  }, [draggingActivity, dragStartX, dragMode, originalTimes, minHour, maxHour, totalHours]);
-
-  // Handle Gantt bar drag end
-  const handleGanttDragEnd = useCallback(async () => {
-    document.removeEventListener("mousemove", handleGanttDragMove);
-    document.removeEventListener("mouseup", handleGanttDragEnd);
-    
-    if (!draggingActivity) return;
-    
-    // Find the updated activity from local timeline
-    const updatedActivity = localTimeline.find(a => a.activity_id === draggingActivity.activity_id);
-    
-    if (updatedActivity && (updatedActivity.start_time !== originalTimes.start || updatedActivity.end_time !== originalTimes.end)) {
-      // Call the update callback
-      if (onUpdateActivityTime) {
-        try {
-          await onUpdateActivityTime(updatedActivity);
-          toast.success(isEs ? "Tiempo actualizado" : "Time updated");
-        } catch (error) {
-          // Revert on error
-          setLocalTimeline(prev => prev.map(a => 
-            a.activity_id === draggingActivity.activity_id 
-              ? { ...a, start_time: originalTimes.start, end_time: originalTimes.end }
-              : a
-          ));
-          toast.error(isEs ? "Error al actualizar" : "Error updating");
+      const containerRect = timelineRef.current.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      const deltaX = moveEvent.clientX - dragDataRef.current.startX;
+      const deltaPercentage = deltaX / containerWidth;
+      const deltaMinutes = Math.round((deltaPercentage * totalHours * 60) / 5) * 5;
+      
+      // Parse original times
+      const [startH, startM] = dragDataRef.current.originalTimes.start.split(":").map(Number);
+      const [endH, endM] = dragDataRef.current.originalTimes.end.split(":").map(Number);
+      const originalStartMinutes = startH * 60 + startM;
+      const originalEndMinutes = endH * 60 + endM;
+      const duration = originalEndMinutes - originalStartMinutes;
+      
+      let newStartMinutes, newEndMinutes;
+      
+      if (dragDataRef.current.mode === "move") {
+        newStartMinutes = originalStartMinutes + deltaMinutes;
+        newEndMinutes = originalEndMinutes + deltaMinutes;
+        
+        if (newStartMinutes < minHour * 60) {
+          newStartMinutes = minHour * 60;
+          newEndMinutes = newStartMinutes + duration;
         }
+        if (newEndMinutes > maxHour * 60) {
+          newEndMinutes = maxHour * 60;
+          newStartMinutes = newEndMinutes - duration;
+        }
+      } else if (dragDataRef.current.mode === "resize-start") {
+        newStartMinutes = Math.max(minHour * 60, Math.min(originalEndMinutes - 15, originalStartMinutes + deltaMinutes));
+        newEndMinutes = originalEndMinutes;
+      } else if (dragDataRef.current.mode === "resize-end") {
+        newStartMinutes = originalStartMinutes;
+        newEndMinutes = Math.min(maxHour * 60, Math.max(originalStartMinutes + 15, originalEndMinutes + deltaMinutes));
       }
-    }
-    
-    setDraggingActivity(null);
-    setDragMode(null);
-  }, [draggingActivity, localTimeline, originalTimes, onUpdateActivityTime, isEs, handleGanttDragMove]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      document.removeEventListener("mousemove", handleGanttDragMove);
-      document.removeEventListener("mouseup", handleGanttDragEnd);
+      
+      const newStartTime = `${Math.floor(newStartMinutes / 60).toString().padStart(2, "0")}:${(newStartMinutes % 60).toString().padStart(2, "0")}`;
+      const newEndTime = `${Math.floor(newEndMinutes / 60).toString().padStart(2, "0")}:${(newEndMinutes % 60).toString().padStart(2, "0")}`;
+      
+      setLocalTimeline(prev => prev.map(a => 
+        a.activity_id === dragDataRef.current.activity.activity_id 
+          ? { ...a, start_time: newStartTime, end_time: newEndTime }
+          : a
+      ));
     };
-  }, [handleGanttDragMove, handleGanttDragEnd]);
+
+    const handleEnd = async () => {
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleEnd);
+      
+      const draggedActivity = dragDataRef.current.activity;
+      const origTimes = dragDataRef.current.originalTimes;
+      
+      if (!draggedActivity) {
+        setDraggingActivity(null);
+        return;
+      }
+      
+      // Find the updated activity from local timeline state
+      // We need to get the current local timeline through a callback
+      setLocalTimeline(currentTimeline => {
+        const updatedActivity = currentTimeline.find(a => a.activity_id === draggedActivity.activity_id);
+        
+        if (updatedActivity && (updatedActivity.start_time !== origTimes.start || updatedActivity.end_time !== origTimes.end)) {
+          if (onUpdateActivityTime) {
+            onUpdateActivityTime(updatedActivity)
+              .then(() => {
+                toast.success(isEs ? "Time updated" : "Time updated");
+              })
+              .catch(() => {
+                // Revert on error
+                setLocalTimeline(prev => prev.map(a => 
+                  a.activity_id === draggedActivity.activity_id 
+                    ? { ...a, start_time: origTimes.start, end_time: origTimes.end }
+                    : a
+                ));
+                toast.error(isEs ? "Error updating" : "Error updating");
+              });
+          }
+        }
+        
+        return currentTimeline;
+      });
+      
+      dragDataRef.current = { mode: null, startX: 0, originalTimes: { start: "", end: "" }, activity: null };
+      setDraggingActivity(null);
+    };
+
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleEnd);
+  };
 
   // Room colors for visual distinction
   const roomColors = [
