@@ -70,6 +70,7 @@ from routers.crm import crm_router, leads_router, contacts_router, lead_forms_ro
 from routers.execution_hub import execution_hub_router
 from routers.addons import addons_router, ensure_default_addons
 from routers.locations import locations_router
+from routers.room_setup import room_setup_router
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
