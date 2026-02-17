@@ -333,7 +333,7 @@ const translations = {
     documents: "Documentos",
     settings: "Configuración",
     logout: "Cerrar Sesión",
-    executionHub: "Centro de Ejecución",
+    executionHub: "Execution Hub",
     
     // Common
     save: "Guardar",
