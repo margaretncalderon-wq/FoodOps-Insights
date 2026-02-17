@@ -13246,6 +13246,9 @@ api_router.include_router(addons_router)
 # Include super_admin_router
 api_router.include_router(super_admin_router)
 
+# Include locations_router
+api_router.include_router(locations_router)
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
