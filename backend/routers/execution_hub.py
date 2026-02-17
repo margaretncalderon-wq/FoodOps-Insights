@@ -253,6 +253,17 @@ async def create_execution_goal(
     await db.execution_goals.insert_one(goal_doc)
     del goal_doc["_id"]
     
+    # Log activity
+    await log_activity(
+        module="execution_hub",
+        action="create",
+        entity_type="goal",
+        entity_id=goal_id,
+        entity_name=data.title,
+        event_id=data.context_id if data.context_type == ExecutionContext.EVENT else None,
+        **user_info(user)
+    )
+    
     return goal_doc
 
 
