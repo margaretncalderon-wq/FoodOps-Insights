@@ -1620,6 +1620,128 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
     };
   };
 
+  // Convert pixel position to time string
+  const pixelToTime = (pixelX, containerWidth) => {
+    const percentage = pixelX / containerWidth;
+    const totalMinutes = totalHours * 60;
+    const minutes = Math.round((percentage * totalMinutes) / 5) * 5; // Round to nearest 5 minutes
+    const adjustedMinutes = Math.max(0, Math.min(totalMinutes, minutes));
+    const hour = minHour + Math.floor(adjustedMinutes / 60);
+    const min = adjustedMinutes % 60;
+    return `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`;
+  };
+
+  // Handle Gantt bar drag start
+  const handleGanttDragStart = (e, activity, mode) => {
+    if (isLocked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setDraggingActivity(activity);
+    setDragMode(mode);
+    setDragStartX(e.clientX);
+    setOriginalTimes({ start: activity.start_time, end: activity.end_time });
+    
+    // Add global mouse handlers
+    document.addEventListener("mousemove", handleGanttDragMove);
+    document.addEventListener("mouseup", handleGanttDragEnd);
+  };
+
+  // Handle Gantt bar drag move
+  const handleGanttDragMove = useCallback((e) => {
+    if (!draggingActivity || !timelineRef.current) return;
+    
+    const containerRect = timelineRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const deltaX = e.clientX - dragStartX;
+    const deltaPercentage = deltaX / containerWidth;
+    const deltaMinutes = Math.round((deltaPercentage * totalHours * 60) / 5) * 5;
+    
+    // Parse original times
+    const [startH, startM] = originalTimes.start.split(":").map(Number);
+    const [endH, endM] = originalTimes.end.split(":").map(Number);
+    const originalStartMinutes = startH * 60 + startM;
+    const originalEndMinutes = endH * 60 + endM;
+    const duration = originalEndMinutes - originalStartMinutes;
+    
+    let newStartMinutes, newEndMinutes;
+    
+    if (dragMode === "move") {
+      // Move entire bar
+      newStartMinutes = originalStartMinutes + deltaMinutes;
+      newEndMinutes = originalEndMinutes + deltaMinutes;
+      
+      // Clamp to time range
+      if (newStartMinutes < minHour * 60) {
+        newStartMinutes = minHour * 60;
+        newEndMinutes = newStartMinutes + duration;
+      }
+      if (newEndMinutes > maxHour * 60) {
+        newEndMinutes = maxHour * 60;
+        newStartMinutes = newEndMinutes - duration;
+      }
+    } else if (dragMode === "resize-start") {
+      // Resize from start
+      newStartMinutes = Math.max(minHour * 60, Math.min(originalEndMinutes - 15, originalStartMinutes + deltaMinutes));
+      newEndMinutes = originalEndMinutes;
+    } else if (dragMode === "resize-end") {
+      // Resize from end
+      newStartMinutes = originalStartMinutes;
+      newEndMinutes = Math.min(maxHour * 60, Math.max(originalStartMinutes + 15, originalEndMinutes + deltaMinutes));
+    }
+    
+    // Convert back to time strings
+    const newStartTime = `${Math.floor(newStartMinutes / 60).toString().padStart(2, "0")}:${(newStartMinutes % 60).toString().padStart(2, "0")}`;
+    const newEndTime = `${Math.floor(newEndMinutes / 60).toString().padStart(2, "0")}:${(newEndMinutes % 60).toString().padStart(2, "0")}`;
+    
+    // Update local timeline for immediate feedback
+    setLocalTimeline(prev => prev.map(a => 
+      a.activity_id === draggingActivity.activity_id 
+        ? { ...a, start_time: newStartTime, end_time: newEndTime }
+        : a
+    ));
+  }, [draggingActivity, dragStartX, dragMode, originalTimes, minHour, maxHour, totalHours]);
+
+  // Handle Gantt bar drag end
+  const handleGanttDragEnd = useCallback(async () => {
+    document.removeEventListener("mousemove", handleGanttDragMove);
+    document.removeEventListener("mouseup", handleGanttDragEnd);
+    
+    if (!draggingActivity) return;
+    
+    // Find the updated activity from local timeline
+    const updatedActivity = localTimeline.find(a => a.activity_id === draggingActivity.activity_id);
+    
+    if (updatedActivity && (updatedActivity.start_time !== originalTimes.start || updatedActivity.end_time !== originalTimes.end)) {
+      // Call the update callback
+      if (onUpdateActivityTime) {
+        try {
+          await onUpdateActivityTime(updatedActivity);
+          toast.success(isEs ? "Tiempo actualizado" : "Time updated");
+        } catch (error) {
+          // Revert on error
+          setLocalTimeline(prev => prev.map(a => 
+            a.activity_id === draggingActivity.activity_id 
+              ? { ...a, start_time: originalTimes.start, end_time: originalTimes.end }
+              : a
+          ));
+          toast.error(isEs ? "Error al actualizar" : "Error updating");
+        }
+      }
+    }
+    
+    setDraggingActivity(null);
+    setDragMode(null);
+  }, [draggingActivity, localTimeline, originalTimes, onUpdateActivityTime, isEs, handleGanttDragMove]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("mousemove", handleGanttDragMove);
+      document.removeEventListener("mouseup", handleGanttDragEnd);
+    };
+  }, [handleGanttDragMove, handleGanttDragEnd]);
+
   // Room colors for visual distinction
   const roomColors = [
     { bg: "bg-blue-500", border: "border-blue-600", light: "bg-blue-100", text: "text-blue-700" },
