@@ -82,6 +82,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - System templates: "Boda Clásica", "Conferencia Corporativa", "Gala de Premiación"
   - **Create Template from scratch:** Button "Create Template" in Templates tab opens dialog with all fields (name, description, category, layout type, capacity, notes)
   - **Save as Template:** Sparkles button on each RoomSetupCard opens dialog to save current setup as reusable template
+  - **Duplicate Template:** Copy button (blue) on each template card to create variations quickly (NEW)
   - Apply templates to events with one click
   - Delete custom templates (system templates protected)
 - **Visual Layout Diagrams:** ✅ NEW (December 2025)
