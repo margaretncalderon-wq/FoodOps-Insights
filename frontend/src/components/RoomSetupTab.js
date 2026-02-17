@@ -2121,19 +2121,30 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
             return (
               <Card 
                 key={template.template_id}
-                className={`hover:shadow-md transition-shadow cursor-pointer ${template.is_system_template ? "border-amber-200/50" : ""}`}
-                onClick={() => !isLocked && handleApplyTemplate(template)}
+                className={`hover:shadow-md transition-shadow ${template.is_system_template ? "border-amber-200/50" : ""}`}
               >
                 <CardContent className="p-4 space-y-3">
                   {/* Header */}
-                  <div className="flex items-start gap-3">
-                    <span className="text-3xl">{catInfo.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold truncate">{template.name}</h4>
-                      {template.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{template.description}</p>
-                      )}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => !isLocked && handleApplyTemplate(template)}>
+                      <span className="text-3xl">{catInfo.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold truncate">{template.name}</h4>
+                        {template.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">{template.description}</p>
+                        )}
+                      </div>
                     </div>
+                    {!template.is_system_template && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => handleDeleteTemplate(template, e)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
 
                   {/* Visual Layout Preview */}
