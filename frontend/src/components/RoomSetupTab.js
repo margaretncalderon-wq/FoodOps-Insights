@@ -452,6 +452,9 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
           roomSetups={roomSetups}
           masterTimeline={masterTimeline}
           isEs={isEs}
+          eventId={eventId}
+          isLocked={isLocked}
+          onReorderActivity={handleReorderActivity}
         />
       )}
 
