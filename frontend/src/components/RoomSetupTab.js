@@ -2575,6 +2575,75 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Duplicate Template Dialog */}
+      <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="w-5 h-5 text-blue-500" />
+              {isEs ? "Duplicar Template" : "Duplicate Template"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedTemplate && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  {isEs 
+                    ? `Se creará una copia de "${selectedTemplate.name}" con toda su configuración (layout, ${selectedTemplate.default_needs?.length || 0} necesidades, ${selectedTemplate.default_timeline?.length || 0} actividades).`
+                    : `A copy of "${selectedTemplate.name}" will be created with all its configuration (layout, ${selectedTemplate.default_needs?.length || 0} needs, ${selectedTemplate.default_timeline?.length || 0} activities).`
+                  }
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{isEs ? "Nombre del nuevo template" : "New template name"} *</Label>
+                <Input
+                  value={duplicateForm.name}
+                  onChange={(e) => setDuplicateForm({ ...duplicateForm, name: e.target.value })}
+                  placeholder={isEs ? "Ej: Mi Boda Elegante" : "E.g., My Elegant Wedding"}
+                  data-testid="duplicate-template-name-input"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>{isEs ? "Descripción" : "Description"}</Label>
+                <Textarea
+                  value={duplicateForm.description}
+                  onChange={(e) => setDuplicateForm({ ...duplicateForm, description: e.target.value })}
+                  placeholder={isEs ? "Describe las modificaciones..." : "Describe the modifications..."}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDuplicateDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleDuplicateTemplate} 
+              className="bg-blue-500 hover:bg-blue-600" 
+              disabled={duplicating || !duplicateForm.name.trim()}
+              data-testid="duplicate-template-confirm-btn"
+            >
+              {duplicating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  {isEs ? "Duplicando..." : "Duplicating..."}
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-1" />
+                  {isEs ? "Duplicar" : "Duplicate"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
