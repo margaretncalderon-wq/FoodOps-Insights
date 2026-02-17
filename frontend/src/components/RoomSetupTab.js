@@ -1508,12 +1508,15 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
   const [activeId, setActiveId] = useState(null);
   const [localTimeline, setLocalTimeline] = useState([]);
   
-  // Gantt drag state
+  // Gantt drag state using refs for event handlers
   const [draggingActivity, setDraggingActivity] = useState(null);
-  const [dragMode, setDragMode] = useState(null); // 'move' | 'resize-start' | 'resize-end'
-  const [dragStartX, setDragStartX] = useState(0);
-  const [originalTimes, setOriginalTimes] = useState({ start: "", end: "" });
   const timelineRef = useRef(null);
+  const dragDataRef = useRef({ 
+    mode: null, 
+    startX: 0, 
+    originalTimes: { start: "", end: "" },
+    activity: null
+  });
 
   // Sync local timeline with prop
   useEffect(() => {
