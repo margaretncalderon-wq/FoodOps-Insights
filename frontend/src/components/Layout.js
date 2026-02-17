@@ -29,6 +29,7 @@ import {
   Puzzle,
   Megaphone,
   Target,
+  Building2,
 } from "lucide-react";
 import { OrgSwitcher } from "./org";
 import NotificationBell from "./notifications/NotificationBell";
