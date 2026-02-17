@@ -374,6 +374,7 @@ function EventDetail() {
   const tabs = [
     { value: "blueprint", label: isEs ? "Event Blueprint" : "Event Blueprint", icon: FileCheck },
     { value: "experience", label: isEs ? "Experience Design" : "Experience Design", icon: Palette },
+    { value: "roomsetup", label: isEs ? "Room Setup" : "Room Setup", icon: LayoutGrid },
     { value: "operational", label: isEs ? "Operational Flow" : "Operational Flow", icon: GitBranch },
     { value: "runofshow", label: isEs ? "Run of Show" : "Run of Show", icon: Clock },
     { value: "team", label: isEs ? "Team & Roles" : "Team & Roles", icon: Users },
