@@ -146,7 +146,16 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - **Resize from edges:** Hover over left/right edges of bars to resize activities
 - **Real-time feedback:** Activity times update visually as you drag
 - **5-minute increments:** Times snap to 5-minute intervals for easier scheduling
+- **Conflict detection:** Warning shown when activities overlap (NEW)
 - **API integration:** Changes are automatically saved to the backend
+
+#### Activity Change History (Audit Log) - COMPLETED ✅
+- **Panel de historial:** Botón "Change History" en la vista Timeline abre panel lateral
+- **Registra:** Quién hizo el cambio, qué cambió, cuándo, valores anteriores y nuevos
+- **Tipos de cambio:** Move, Resize, Update, Create, Delete
+- **Información mostrada:** Nombre de actividad, badge de tipo, tiempos antes/después, usuario, timestamp relativo
+- **Backend:** Nueva colección `activity_change_logs` en MongoDB
+- **API:** `GET /api/orchestration/room-setup/events/{event_id}/activity-logs`
 
 #### i18n Audit - COMPLETED ✅
 - **Execution Hub:** Kept in English (instead of "Centro de Ejecución")
