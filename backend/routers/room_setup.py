@@ -535,3 +535,149 @@ async def get_layout_templates():
             "icon": "edit"
         },
     ]
+
+
+
+# ============== COPY ROOM SETUP ==============
+
+@room_setup_router.get("/events-with-setups")
+async def get_events_with_room_setups(
+    user: User = Depends(get_current_user)
+):
+    """Get list of events that have room setups configured (for copy feature)"""
+    # Find events that have room setups
+    pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$lookup": {
+            "from": "events",
+            "localField": "event_id",
+            "foreignField": "event_id",
+            "as": "event_info"
+        }},
+        {"$unwind": "$event_info"},
+        {"$group": {
+            "_id": "$event_id",
+            "event_name": {"$first": "$event_info.name"},
+            "event_date": {"$first": "$event_info.event_date"},
+            "room_count": {"$sum": 1},
+            "total_needs": {"$sum": {"$size": {"$ifNull": ["$needs", []]}}},
+            "total_activities": {"$sum": {"$size": {"$ifNull": ["$timeline", []]}}}
+        }},
+        {"$sort": {"event_date": -1}},
+        {"$limit": 20}
+    ]
+    
+    results = await db.room_setups.aggregate(pipeline).to_list(20)
+    
+    return [
+        {
+            "event_id": r["_id"],
+            "event_name": r["event_name"],
+            "event_date": r["event_date"],
+            "room_count": r["room_count"],
+            "total_needs": r["total_needs"],
+            "total_activities": r["total_activities"]
+        }
+        for r in results
+    ]
+
+
+@room_setup_router.post("/events/{target_event_id}/copy-from/{source_event_id}")
+async def copy_room_setup(
+    target_event_id: str,
+    source_event_id: str,
+    copy_needs: bool = True,
+    copy_timeline: bool = True,
+    user: User = Depends(get_current_user)
+):
+    """Copy room setup configuration from one event to another"""
+    # Verify both events exist and belong to user's company
+    target_event = await db.events.find_one(
+        {"event_id": target_event_id, "company_id": user.company_id}
+    )
+    if not target_event:
+        raise HTTPException(status_code=404, detail="Target event not found")
+    
+    source_event = await db.events.find_one(
+        {"event_id": source_event_id, "company_id": user.company_id}
+    )
+    if not source_event:
+        raise HTTPException(status_code=404, detail="Source event not found")
+    
+    # Get source room setups
+    source_setups = await db.room_setups.find(
+        {"event_id": source_event_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(50)
+    
+    if not source_setups:
+        raise HTTPException(status_code=400, detail="Source event has no room setups to copy")
+    
+    # Delete existing setups in target event (if any)
+    await db.room_setups.delete_many({
+        "event_id": target_event_id,
+        "company_id": user.company_id
+    })
+    
+    now = datetime.now(timezone.utc)
+    copied_count = 0
+    
+    for setup in source_setups:
+        # Generate new IDs
+        new_config_id = f"rsetup_{uuid.uuid4().hex[:12]}"
+        
+        # Copy needs with new IDs
+        new_needs = []
+        if copy_needs and setup.get("needs"):
+            for need in setup["needs"]:
+                new_need = {**need}
+                new_need["item_id"] = f"need_{uuid.uuid4().hex[:8]}"
+                new_needs.append(new_need)
+        
+        # Copy timeline with new IDs
+        new_timeline = []
+        if copy_timeline and setup.get("timeline"):
+            for activity in setup["timeline"]:
+                new_activity = {**activity}
+                new_activity["activity_id"] = f"act_{uuid.uuid4().hex[:8]}"
+                new_timeline.append(new_activity)
+        
+        # Create new setup document
+        new_setup = {
+            "config_id": new_config_id,
+            "event_id": target_event_id,
+            "company_id": user.company_id,
+            "room_id": setup.get("room_id"),
+            "room_name": setup.get("room_name"),
+            "venue_id": setup.get("venue_id"),
+            "venue_name": setup.get("venue_name"),
+            "layout_type": setup.get("layout_type", "banquet"),
+            "custom_layout_name": setup.get("custom_layout_name"),
+            "layout_notes": setup.get("layout_notes"),
+            "room_capacity": setup.get("room_capacity", 0),
+            "planned_guests": setup.get("planned_guests", 0),
+            "needs": new_needs,
+            "timeline": new_timeline,
+            "setup_start_time": setup.get("setup_start_time"),
+            "event_start_time": setup.get("event_start_time"),
+            "event_end_time": setup.get("event_end_time"),
+            "breakdown_end_time": setup.get("breakdown_end_time"),
+            "special_instructions": setup.get("special_instructions"),
+            "vendor_access_notes": setup.get("vendor_access_notes"),
+            "order": setup.get("order", 0),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "copied_from_event": source_event_id,
+        }
+        
+        await db.room_setups.insert_one(new_setup)
+        copied_count += 1
+    
+    return {
+        "message": f"Successfully copied {copied_count} room setup(s)",
+        "copied_rooms": copied_count,
+        "source_event": source_event.get("name"),
+        "target_event": target_event.get("name"),
+        "copied_needs": copy_needs,
+        "copied_timeline": copy_timeline
+    }
