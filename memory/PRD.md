@@ -76,12 +76,14 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Select source event with preview of rooms, needs, and activities count
   - Options to copy needs and/or timeline separately
   - Automatically generates new IDs for copied items
-- **Templates System:** ✅ NEW (December 2025)
+- **Templates System:** ✅ COMPLETED (February 17, 2026)
   - Predefined reusable room setup templates
   - Categories: Wedding, Corporate, Social, Conference, Gala, Custom
   - System templates: "Boda Clásica", "Conferencia Corporativa", "Gala de Premiación"
-  - Create custom templates from existing room setups
+  - **Create Template from scratch:** Button "Create Template" in Templates tab opens dialog with all fields (name, description, category, layout type, capacity, notes)
+  - **Save as Template:** Sparkles button on each RoomSetupCard opens dialog to save current setup as reusable template
   - Apply templates to events with one click
+  - Delete custom templates (system templates protected)
 - **Visual Layout Diagrams:** ✅ NEW (December 2025)
   - SVG visual representations for each layout type (theater, banquet, cocktail, etc.)
   - Upload custom floor plan images (JPG, PNG, WebP up to 5MB)
