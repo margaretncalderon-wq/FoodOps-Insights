@@ -602,10 +602,18 @@ export default function EventsPage({ embedded = false }) {
                   )}
 
                   <div className="space-y-2">
-                    <Label>{t("venue")}</Label>
-                    <Input
-                      value={formData.venue}
-                      onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                    <Label>{t("eventLocations")}</Label>
+                    <EventLocationSelector
+                      value={formData.locations}
+                      onChange={(locations) => {
+                        // Update locations and legacy venue field for backwards compatibility
+                        const primaryLocation = locations[0];
+                        const venueStr = primaryLocation?.full_address || primaryLocation?.address || "";
+                        setFormData({ ...formData, locations, venue: venueStr });
+                      }}
+                      clientId={formData.client_id}
+                      clientAddress={clients.find(c => c.client_id === formData.client_id)?.address}
+                      multiLocation={true}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
