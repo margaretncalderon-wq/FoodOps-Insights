@@ -12,6 +12,7 @@ from models.crm import (
     ClientCreate, Client, CommLogCreate, CommLog,
     LeadFormCreate, LeadForm, LeadFormFieldConfig, CustomFieldConfig
 )
+from utils.activity_logger import log_activity, user_info
 
 
 # ============== ROUTERS ==============
