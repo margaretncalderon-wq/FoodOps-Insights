@@ -1,0 +1,114 @@
+{
+  "summary": "Frontend testing of Room Setup Templates feature - Create Template and Save as Template functionality. All requested features verified working: Templates tab, Create Template button/dialog, Save as Template (Sparkles) button on room cards, Save as Template dialog. Found one bug: duplicate system templates appearing in the list.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/orchestration/room-setup/templates/seed-system",
+        "issue": "Seed system templates endpoint is called on every template fetch, causing duplicate template_id entries to appear in UI (tpl_sys_wedding, tpl_sys_corporate, tpl_sys_gala appearing twice each)",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "TemplatesView",
+        "issue": "Duplicate system templates displayed (Boda Clásica x2, Conferencia Corporativa x2, Gala de Premiación x2)",
+        "selector": "Templates grid in TemplatesView",
+        "priority": "MEDIUM",
+        "cause": "React key collision - same template_id being used for multiple items"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "frontend_tests": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "tests": [
+        "Login and navigation to Event Orchestration - PASS",
+        "Navigate to Evento Demo - Boda > Room Setup tab - PASS",
+        "Templates tab navigation - PASS",
+        "Create Template button visible in Templates tab - PASS",
+        "Create Template dialog opens correctly - PASS",
+        "Create Template dialog has all required fields (Name, Description, Category, Layout Type, Min/Max Capacity, Layout Notes) - PASS",
+        "Create new template from dialog - PASS",
+        "Navigate to Rooms tab - PASS",
+        "Save as Template (Sparkles) button visible on Salón Diamante card - PASS",
+        "Save as Template dialog opens correctly - PASS",
+        "Save as Template dialog has all required fields (Template Name, Description, Category) - PASS",
+        "Save room setup as template - PASS"
+      ]
+    }
+  },
+  "features_verified": {
+    "templates_tab": {
+      "location": "Room Setup > Templates toggle button",
+      "create_template_button": "Present - top right, green button with '+' icon",
+      "category_filter": "Select dropdown with options: All categories, Wedding, Corporate, Social, Conference, Gala, Custom"
+    },
+    "create_template_dialog": {
+      "title": "Create New Template",
+      "fields": [
+        "Name * (required input)",
+        "Description (textarea)",
+        "Category (select: Custom, Wedding, Corporate, Social, Conference, Gala)",
+        "Layout Type (select: Banquet, Theater, etc.)",
+        "Min Capacity (number input)",
+        "Max Capacity (number input)",
+        "Layout Notes (textarea)"
+      ],
+      "buttons": ["Cancel", "Create Template"]
+    },
+    "save_as_template_button": {
+      "location": "Room Setup card header, next to Edit and Delete buttons",
+      "icon": "Sparkles icon",
+      "data-testid": "save-as-template-btn"
+    },
+    "save_as_template_dialog": {
+      "title": "Save as Template",
+      "info_text": "Shows room name, layout, needs count, activities count",
+      "fields": [
+        "Template Name * (required, data-testid='template-name-input')",
+        "Description (textarea)",
+        "Category (select)"
+      ],
+      "buttons": ["Cancel", "Save Template (data-testid='save-template-confirm-btn')"]
+    },
+    "delete_template": {
+      "available_on": "Custom templates only (not system templates)",
+      "icon": "Red trash icon",
+      "confirmation": "Browser confirm dialog"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [
+    "FIX BUG: System templates appearing duplicated in Templates view - need to deduplicate or prevent double-seeding",
+    "The seed-system endpoint should check for existing templates before inserting, or the frontend should deduplicate by template_id"
+  ],
+  "critical_code_review_comments": [
+    "RoomSetupTab.js line ~2094: fetchTemplates() calls seed-system endpoint on every fetch, causing duplicates",
+    "Console warning: 'Encountered two children with the same key' for tpl_sys_wedding, tpl_sys_corporate, tpl_sys_gala",
+    "Dialog components missing aria-describedby for accessibility (Warning: Missing Description for DialogContent)"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100% (12/12 tests passed)"
+  },
+  "test_credentials": {
+    "email": "margaret.n.calderon@gmail.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created and deleted test templates: 'Test Template - Playwright', 'Salón Diamante Template'",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Room Setup Templates feature is working. Main bug: duplicate system templates due to seed-system being called on each fetch. The templates API correctly returns data but UI shows duplicates due to key collision in React map rendering.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}
