@@ -1852,9 +1852,12 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
               onClick={() => setViewMode("list")}
               className={`px-3 py-1 text-xs rounded ${viewMode === "list" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
             >
-              {isEs ? "Lista" : "List"}
+              List
             </button>
           </div>
+          
+          {/* Activity Log Button */}
+          <ActivityLogPanel eventId={eventId} />
         </div>
       </div>
 
