@@ -12,6 +12,7 @@ from models.locations import (
     SavedAddressCreate, SavedAddress, LocationType,
     RoomBookingCreate, RoomBooking, RoomAvailabilityCheck, RoomAvailabilityResponse
 )
+from utils.activity_logger import log_activity, user_info
 
 locations_router = APIRouter(prefix="/locations", tags=["Locations & Venues"])
 
