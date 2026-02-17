@@ -76,6 +76,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import VisualLayoutEditor, { LayoutPreview } from "./VisualLayoutEditor";
+import TimelineExport from "./TimelineExport";
 
 const LAYOUT_TYPES = [
   { value: "theater", labelEn: "Theater", labelEs: "Teatro", icon: "🎭" },
