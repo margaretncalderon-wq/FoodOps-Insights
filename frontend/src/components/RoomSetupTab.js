@@ -789,10 +789,63 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
   );
 }
 
-// Room Setup Card Component
-function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onDeleteNeed, onAddActivity, onEditActivity, onDeleteActivity }) {
+// Room Setup Card Component with Drag & Drop
+function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onDeleteNeed, onAddActivity, onEditActivity, onDeleteActivity, onReorderNeeds, onReorderTimeline }) {
   const [expanded, setExpanded] = useState(true);
+  const [needsActiveId, setNeedsActiveId] = useState(null);
+  const [timelineActiveId, setTimelineActiveId] = useState(null);
+  const [localNeeds, setLocalNeeds] = useState(setup.needs || []);
+  const [localTimeline, setLocalTimeline] = useState(setup.timeline || []);
+  
   const layoutInfo = LAYOUT_TYPES.find(l => l.value === setup.layout_type) || LAYOUT_TYPES[0];
+
+  // Sync local state with props
+  useEffect(() => {
+    setLocalNeeds(setup.needs || []);
+    setLocalTimeline((setup.timeline || []).sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "")));
+  }, [setup.needs, setup.timeline]);
+
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // Handle needs drag end
+  const handleNeedsDragEnd = async (event) => {
+    const { active, over } = event;
+    setNeedsActiveId(null);
+    if (!over || active.id === over.id || isLocked) return;
+
+    const oldIndex = localNeeds.findIndex(item => item.item_id === active.id);
+    const newIndex = localNeeds.findIndex(item => item.item_id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newNeeds = arrayMove(localNeeds, oldIndex, newIndex);
+      setLocalNeeds(newNeeds);
+      if (onReorderNeeds) {
+        await onReorderNeeds(setup.room_id, newNeeds);
+      }
+    }
+  };
+
+  // Handle timeline drag end
+  const handleTimelineDragEnd = async (event) => {
+    const { active, over } = event;
+    setTimelineActiveId(null);
+    if (!over || active.id === over.id || isLocked) return;
+
+    const oldIndex = localTimeline.findIndex(item => item.activity_id === active.id);
+    const newIndex = localTimeline.findIndex(item => item.activity_id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newTimeline = arrayMove(localTimeline, oldIndex, newIndex);
+      setLocalTimeline(newTimeline);
+      if (onReorderTimeline) {
+        await onReorderTimeline(setup.room_id, newTimeline[newIndex], newIndex, newTimeline[newIndex - 1], newTimeline[newIndex + 1]);
+      }
+    }
+  };
 
   return (
     <Card data-testid={`room-setup-${setup.room_id}`}>
