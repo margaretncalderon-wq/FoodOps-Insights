@@ -62,7 +62,7 @@ const amenityIcons = {
 };
 
 export default function VenuesPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [venueDialogOpen, setVenueDialogOpen] = useState(false);
@@ -70,6 +70,8 @@ export default function VenuesPage() {
   const [editingVenue, setEditingVenue] = useState(null);
   const [editingRoom, setEditingRoom] = useState(null);
   const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [activeTab, setActiveTab] = useState("list");
+  const [calendarVenue, setCalendarVenue] = useState(null);
   
   const [venueForm, setVenueForm] = useState({
     name: "",
