@@ -117,9 +117,17 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [needDialogOpen, setNeedDialogOpen] = useState(false);
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [editingNeed, setEditingNeed] = useState(null);
   const [editingActivity, setEditingActivity] = useState(null);
+  
+  // Copy from event state
+  const [eventsWithSetups, setEventsWithSetups] = useState([]);
+  const [selectedSourceEvent, setSelectedSourceEvent] = useState("");
+  const [copyNeeds, setCopyNeeds] = useState(true);
+  const [copyTimeline, setCopyTimeline] = useState(true);
+  const [copying, setCopying] = useState(false);
 
   // Forms
   const [roomForm, setRoomForm] = useState({
