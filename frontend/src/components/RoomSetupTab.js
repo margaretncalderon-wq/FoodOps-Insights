@@ -956,7 +956,15 @@ function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onD
           {/* Timeline Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-sm">{isEs ? "Timeline del Salón" : "Room Timeline"}</h4>
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                {isEs ? "Timeline del Salón" : "Room Timeline"}
+                {!isLocked && localTimeline.length > 1 && (
+                  <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
+                    <Move className="w-3 h-3" />
+                    {isEs ? "arrastra" : "drag"}
+                  </span>
+                )}
+              </h4>
               {!isLocked && (
                 <Button variant="outline" size="sm" onClick={onAddActivity}>
                   <Plus className="w-3 h-3 mr-1" />
@@ -965,38 +973,27 @@ function RoomSetupCard({ setup, isEs, isLocked, onEdit, onDelete, onAddNeed, onD
               )}
             </div>
             
-            {setup.timeline?.length > 0 ? (
-              <div className="space-y-2">
-                {setup.timeline.sort((a, b) => a.start_time.localeCompare(b.start_time)).map((activity) => {
-                  const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.activity_type) || ACTIVITY_TYPES[6];
-                  return (
-                    <div key={activity.activity_id} className="flex items-center gap-3 p-2 border rounded">
-                      <div className={`w-1 h-8 rounded ${typeInfo.color}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{activity.title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {activity.start_time} - {activity.end_time}
-                          </span>
-                        </div>
-                        {activity.responsible && (
-                          <p className="text-xs text-muted-foreground">{activity.responsible}</p>
-                        )}
-                      </div>
-                      {!isLocked && (
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEditActivity(activity)}>
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={() => onDeleteActivity(activity.activity_id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+            {localTimeline.length > 0 ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={(e) => setTimelineActiveId(e.active.id)}
+                onDragEnd={handleTimelineDragEnd}
+              >
+                <SortableContext items={localTimeline.map(a => a.activity_id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {localTimeline.map((activity) => (
+                      <SortableTimelineItem
+                        key={activity.activity_id}
+                        activity={activity}
+                        isLocked={isLocked}
+                        onEdit={() => onEditActivity(activity)}
+                        onDelete={() => onDeleteActivity(activity.activity_id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             ) : (
               <p className="text-sm text-gray-400 italic">{isEs ? "Sin actividades registradas" : "No activities registered"}</p>
             )}
