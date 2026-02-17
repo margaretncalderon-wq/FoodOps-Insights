@@ -1733,15 +1733,36 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
       }
       
       // Find the updated activity from local timeline state
-      // We need to get the current local timeline through a callback
       setLocalTimeline(currentTimeline => {
         const updatedActivity = currentTimeline.find(a => a.activity_id === draggedActivity.activity_id);
         
         if (updatedActivity && (updatedActivity.start_time !== origTimes.start || updatedActivity.end_time !== origTimes.end)) {
+          // Check for conflicts with other activities in the same room
+          const conflictingActivities = currentTimeline.filter(a => {
+            if (a.activity_id === draggedActivity.activity_id) return false;
+            if (a.room_id !== draggedActivity.room_id) return false;
+            
+            // Check time overlap
+            const aStart = timeToMinutes(a.start_time);
+            const aEnd = timeToMinutes(a.end_time);
+            const newStart = timeToMinutes(updatedActivity.start_time);
+            const newEnd = timeToMinutes(updatedActivity.end_time);
+            
+            return (newStart < aEnd && newEnd > aStart);
+          });
+          
+          if (conflictingActivities.length > 0) {
+            const conflictNames = conflictingActivities.map(a => a.title).join(", ");
+            toast.warning(
+              `⚠️ Schedule conflict detected with: ${conflictNames}`,
+              { duration: 5000 }
+            );
+          }
+          
           if (onUpdateActivityTime) {
             onUpdateActivityTime(updatedActivity)
               .then(() => {
-                toast.success(isEs ? "Time updated" : "Time updated");
+                toast.success("Time updated");
               })
               .catch(() => {
                 // Revert on error
@@ -1750,7 +1771,7 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
                     ? { ...a, start_time: origTimes.start, end_time: origTimes.end }
                     : a
                 ));
-                toast.error(isEs ? "Error updating" : "Error updating");
+                toast.error("Error updating");
               });
           }
         }
@@ -1760,6 +1781,13 @@ function MasterTimelineView({ roomSetups, masterTimeline, isEs, onReorderActivit
       
       dragDataRef.current = { mode: null, startX: 0, originalTimes: { start: "", end: "" }, activity: null };
       setDraggingActivity(null);
+    };
+    
+    // Helper to convert time to minutes
+    const timeToMinutes = (time) => {
+      if (!time) return 0;
+      const [h, m] = time.split(":").map(Number);
+      return h * 60 + m;
     };
 
     document.addEventListener("mousemove", handleMove);
