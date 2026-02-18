@@ -197,6 +197,26 @@ export function BillingSection() {
 
   const monthlyCost = subscription?.monthly_cost || 0;
   const availableModules = MODULES.filter(m => !activeModules.includes(m.key));
+  
+  // Calculate trial days remaining
+  const getTrialDaysRemaining = (module) => {
+    if (!subscription?.active_modules) return 7;
+    const mod = subscription.active_modules.find(m => m.addon_id === `addon_${module.key}`);
+    if (!mod?.purchased_at) return 7;
+    const purchaseDate = new Date(mod.purchased_at);
+    const now = new Date();
+    const daysPassed = Math.floor((now - purchaseDate) / (1000 * 60 * 60 * 24));
+    return Math.max(0, 7 - daysPassed);
+  };
+
+  // Check if module is in trial
+  const isModuleInTrial = (module) => {
+    if (!subscription?.active_modules) return true;
+    const mod = subscription.active_modules.find(m => m.addon_id === `addon_${module.key}`);
+    if (!mod) return true;
+    // If price_paid is 0 and purchased recently, it's in trial
+    return mod.price_paid === 0 || getTrialDaysRemaining(module) > 0;
+  };
 
   if (loading || checkingPayment) {
     return (
