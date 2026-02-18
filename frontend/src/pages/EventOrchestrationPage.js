@@ -287,7 +287,7 @@ function EventsList() {
                   )}
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Users className="w-4 h-4" />
-                    {event.guest_count || "?"} {isEs ? "invitados" : "guests"}
+                    {event.guest_count || "?"} {guestCountLabel.toLowerCase()}
                   </div>
                   
                   {/* Orchestration Status */}
