@@ -303,6 +303,18 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Step 2: Formulario de cuenta con badge de industria seleccionada
   - Backend: industry_template guardado en company y organization_config creado automáticamente
   - Removido "Business Type" de Settings (ahora es solo admin)
+- ✅ **Registro Multi-Paso con Selección de Módulos Add-on** (December 2025) - NEW
+  - Step 1: Selección de industria (Events & Hospitality, Professional Services, General Services)
+  - Step 2: Selección de módulos add-on con pre-selección basada en industria
+    - Events & Hospitality: Pre-selecciona Event Orchestration, Culinary Intelligence, Venues
+    - Professional Services: Pre-selecciona Demand Studio
+    - General Services: Sin módulos pre-seleccionados
+  - Step 3: Creación de cuenta con Google Sign-in o email/password
+  - Resumen de pricing: Plan base gratis + costo de módulos seleccionados
+  - Badges en Step 3 mostrando industria y módulos seleccionados con total
+  - Opción "Skip" para omitir módulos
+  - Navegación "Back" entre pasos
+  - Test Report: `/app/test_reports/iteration_38.json` - 25/25 tests passed (100%)
 
 ## Upcoming Tasks
 - **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
