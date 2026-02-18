@@ -139,6 +139,18 @@ export default function OrganizationsListPage() {
               </SelectContent>
             </Select>
 
+            <Select value={industryFilter} onValueChange={setIndustryFilter}>
+              <SelectTrigger className="w-48 bg-slate-700 border-slate-600">
+                <SelectValue placeholder="Industry" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Industries</SelectItem>
+                <SelectItem value="events_hospitality">Events & Hospitality</SelectItem>
+                <SelectItem value="professional_services">Professional Services</SelectItem>
+                <SelectItem value="generic">General Services</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button type="submit" variant="secondary">
               <Filter className="w-4 h-4 mr-2" />
               Apply
