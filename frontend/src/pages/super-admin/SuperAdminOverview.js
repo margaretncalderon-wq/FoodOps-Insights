@@ -100,10 +100,10 @@ export default function SuperAdminOverview() {
 
   const getAlertStyle = (type) => {
     switch (type) {
-      case "critical": return "border-red-500/50 bg-red-900/20";
-      case "warning": return "border-amber-500/50 bg-amber-900/20";
-      case "info": return "border-blue-500/50 bg-blue-900/20";
-      default: return "border-slate-600 bg-slate-800/50";
+      case "critical": return "border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-900/20";
+      case "warning": return "border-amber-300 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-900/20";
+      case "info": return "border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-900/20";
+      default: return "border bg-muted/50";
     }
   };
 
