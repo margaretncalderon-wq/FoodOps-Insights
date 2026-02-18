@@ -307,17 +307,15 @@ async def create_payment(data: PaymentCreate, user: User = Depends(get_current_u
     
     await db.payments.insert_one(payment)
     
-    # Audit log
-    await db.audit_logs.insert_one({
-        "log_id": f"log_{uuid.uuid4().hex[:12]}",
-        "company_id": user.company_id,
-        "user_id": user.user_id,
-        "action": "payment_created",
-        "entity_type": "payment",
-        "entity_id": payment["payment_id"],
-        "details": {"amount": data.amount, "method": data.payment_method, "client_id": data.client_id},
-        "created_at": now.isoformat()
-    })
+    # Log activity
+    await log_activity(
+        module="business_clarity",
+        action="create",
+        entity_type="payment",
+        entity_id=payment["payment_id"],
+        entity_name=f"${data.amount:.2f} - {data.payment_method}",
+        **user_info(user)
+    )
     
     del payment["_id"]
     return payment
