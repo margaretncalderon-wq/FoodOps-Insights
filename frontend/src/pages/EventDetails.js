@@ -38,8 +38,9 @@ import {
   ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
   Plus, FileText, CheckCircle, PenLine, Share2, Link2, 
   MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart, Banknote,
-  ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive
+  ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive, Target, Rocket
 } from "lucide-react";
+import SendToExecutionModal from "../components/SendToExecutionModal";
 
 
 // Engagement Stages with icons and colors
