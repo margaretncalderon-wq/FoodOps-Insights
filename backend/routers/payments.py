@@ -23,26 +23,38 @@ payments_router = APIRouter(prefix="/payments", tags=["Payments"])
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "sk_test_emergent")
 
 # ============== PRICING CONFIGURATION ==============
-# Base price for all plans (monthly)
-BASE_PLAN_PRICE = 0.0  # Free tier
+# Kora Core (required subscription)
+KORA_CORE_PRICE = 69.00  # Monthly subscription
+
+# Kora Core includes these modules (no extra charge)
+KORA_CORE_MODULES = [
+    "module_system_pulse",
+    "module_execution_hub", 
+    "module_client_engagement",
+    "module_business_clarity",
+]
 
 # Add-on module prices (monthly, in USD)
 MODULE_PRICES = {
-    "module_event_orchestration": 29.00,
-    "module_culinary_intelligence": 25.00,
+    "module_event_suite": 39.00,  # Event Orchestration + Venues combined
+    "module_culinary_intelligence": 29.00,
     "module_operations_supplies": 19.00,
-    "module_venues": 15.00,
-    "module_demand_studio": 35.00,
+    "module_demand_studio": 39.00,
 }
 
 # Module display names
 MODULE_NAMES = {
-    "module_event_orchestration": "Event Orchestration",
+    "module_event_suite": "Event Suite",
     "module_culinary_intelligence": "Culinary Intelligence",
     "module_operations_supplies": "Operations Supplies",
-    "module_venues": "Venues & Locations",
     "module_demand_studio": "Demand Studio",
 }
+
+# Event Suite includes these sub-modules
+EVENT_SUITE_INCLUDES = ["module_event_orchestration", "module_venues"]
+
+# Trial period in days
+TRIAL_PERIOD_DAYS = 7
 
 
 # ============== MODELS ==============
