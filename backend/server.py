@@ -26,6 +26,7 @@ from config import (
     JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRATION_HOURS,
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
 )
+from utils.activity_logger import log_activity, user_info
 from models.auth import User, UserCreate, UserLogin, TokenResponse
 from models.demand_studio import (
     MarketingCampaignCreate, MarketingCampaign,
