@@ -474,7 +474,7 @@ function EventDetail() {
           {!isLocked && (
             <Button variant="outline" onClick={handleCloseEvent}>
               <Lock className="w-4 h-4 mr-2" />
-              {isEs ? "Cerrar Evento" : "Close Event"}
+              {isEs ? `Cerrar ${entitySingular}` : `Close ${entitySingular}`}
             </Button>
           )}
         </div>
