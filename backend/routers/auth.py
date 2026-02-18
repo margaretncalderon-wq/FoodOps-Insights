@@ -181,7 +181,6 @@ async def login(data: UserLogin, response: Response):
 
 
 # ============== DEMO ACCOUNT MODULE ACTIVATION ==============
-from dependencies import get_current_user
 
 @auth_router.post("/activate-demo-modules")
 async def activate_demo_modules(user: User = Depends(get_current_user)):
