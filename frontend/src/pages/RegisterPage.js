@@ -145,12 +145,51 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // First, register the user
       await register({
         ...formData,
-        selected_modules: formData.selected_modules, // Will be processed by backend
+        selected_modules: formData.selected_modules,
       });
       toast.success(language === "es" ? "¡Cuenta creada!" : "Account created!");
-      navigate("/dashboard");
+      
+      // If modules are selected, redirect to Stripe payment
+      if (formData.selected_modules.length > 0) {
+        try {
+          const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/payments/create-subscription-checkout`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              origin_url: window.location.origin,
+              selected_modules: formData.selected_modules,
+              industry_template: formData.industry_template,
+            }),
+          });
+          
+          const data = await response.json();
+          
+          if (data.skip_payment) {
+            // Free tier, go directly to dashboard
+            navigate("/dashboard");
+          } else if (data.checkout_url) {
+            // Redirect to Stripe
+            window.location.href = data.checkout_url;
+          } else {
+            // Fallback to dashboard
+            navigate("/dashboard");
+          }
+        } catch (paymentError) {
+          console.error("Payment setup error:", paymentError);
+          // Account created, but payment failed - user can retry from settings
+          toast.warning(language === "es" 
+            ? "Cuenta creada. Puedes agregar módulos desde Configuración."
+            : "Account created. You can add modules from Settings.");
+          navigate("/dashboard");
+        }
+      } else {
+        // No modules selected, go to dashboard
+        navigate("/dashboard");
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Registration failed");
     }
