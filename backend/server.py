@@ -12307,31 +12307,54 @@ async def get_platform_crm_stats(admin: User = Depends(get_super_admin)):
 
 @super_admin_router.get("/bi/overview")
 async def get_bi_overview(admin: User = Depends(get_super_admin)):
-    """Get business intelligence overview"""
+    """Get business intelligence overview with new pricing model"""
     now = datetime.now(timezone.utc)
     current_month = now.strftime("%Y-%m")
-    current_year = now.year
     
-    # Subscription Revenue (MRR)
-    subscriptions = await db.subscriptions.find(
-        {"status": {"$in": ["active", "trialing"]}},
-        {"_id": 0, "plan_id": 1, "billing_cycle": 1}
-    ).to_list(1000)
+    # Get pricing config
+    pricing = await db.pricing_config.find_one({"active": True}, {"_id": 0})
+    kora_core_price = pricing.get("kora_core_price", 69) if pricing else 69
+    module_prices = pricing.get("module_prices", {
+        "module_event_suite": 39,
+        "module_culinary_intelligence": 29,
+        "module_operations_supplies": 19,
+        "module_demand_studio": 39
+    }) if pricing else {}
     
-    plans_cache = {}
-    async for plan in db.plans.find({}, {"_id": 0}):
-        plans_cache[plan["plan_id"]] = plan
+    # Total organizations
+    total_orgs = await db.companies.count_documents({})
     
-    mrr = 0
-    arr = 0
-    for sub in subscriptions:
-        plan = plans_cache.get(sub.get("plan_id"), {})
-        if sub.get("billing_cycle") == "yearly":
-            arr += plan.get("price_yearly", 0)
-            mrr += plan.get("price_yearly", 0) / 12
-        else:
-            mrr += plan.get("price_monthly", 0)
-            arr += plan.get("price_monthly", 0) * 12
+    # Get organization configs to count modules
+    org_configs = await db.organization_configs.find({}, {"_id": 0, "enabled_modules": 1, "company_id": 1}).to_list(1000)
+    
+    # Count subscriptions by status
+    active_subs = await db.subscriptions.count_documents({"status": "active"})
+    trialing_subs = await db.subscriptions.count_documents({"status": "trialing"})
+    
+    # Count module usage
+    module_counts = {
+        "module_event_suite": 0,
+        "module_culinary_intelligence": 0,
+        "module_operations_supplies": 0,
+        "module_demand_studio": 0
+    }
+    
+    for config in org_configs:
+        modules = config.get("enabled_modules", [])
+        for mod in modules:
+            if mod in module_counts:
+                module_counts[mod] += 1
+            # Handle old module names mapping to new
+            if mod == "module_event_orchestration" or mod == "module_venues":
+                module_counts["module_event_suite"] += 1
+    
+    # Calculate MRR based on new model
+    # Kora Core ($69) × paying customers + Add-on modules
+    paying_customers = active_subs
+    mrr_core = paying_customers * kora_core_price
+    mrr_addons = sum(module_counts[mod] * module_prices.get(mod, 0) for mod in module_counts)
+    mrr = mrr_core + mrr_addons
+    arr = mrr * 12
     
     # Subscription transactions this month
     month_start = f"{current_month}-01"
@@ -12341,12 +12364,6 @@ async def get_bi_overview(admin: User = Depends(get_super_admin)):
     ).to_list(1000)
     
     revenue_this_month = sum(t.get("amount", 0) for t in transactions)
-    
-    # Total customers (paying)
-    paying_customers = await db.subscriptions.count_documents({
-        "status": "active",
-        "plan_id": {"$ne": "plan_starter"}
-    })
     
     # Churn - canceled this month
     canceled = await db.subscriptions.count_documents({
@@ -12359,9 +12376,18 @@ async def get_bi_overview(admin: User = Depends(get_super_admin)):
         "arr": round(arr, 2),
         "revenue_this_month": round(revenue_this_month, 2),
         "paying_customers": paying_customers,
-        "total_organizations": await db.companies.count_documents({}),
+        "trialing_customers": trialing_subs,
+        "total_organizations": total_orgs,
         "churned_this_month": canceled,
-        "period": current_month
+        "period": current_month,
+        # Module counts
+        "module_event_suite": module_counts["module_event_suite"],
+        "module_culinary_intelligence": module_counts["module_culinary_intelligence"],
+        "module_operations_supplies": module_counts["module_operations_supplies"],
+        "module_demand_studio": module_counts["module_demand_studio"],
+        # Pricing for reference
+        "kora_core_price": kora_core_price,
+        "module_prices": module_prices
     }
 
 @super_admin_router.get("/bi/payments")
