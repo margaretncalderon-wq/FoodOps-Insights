@@ -159,12 +159,14 @@ export default function EventsPage({ embedded = false }) {
     try {
       const payload = {
         ...formData,
+        engagement_type: formData.engagement_type || "event",
         event_date: formData.event_date_tbd ? null : (formData.event_date ? formData.event_date.toISOString() : null),
         end_date: formData.is_booking && formData.end_date ? formData.end_date.toISOString() : null,
         start_time: formData.start_time || null,
         end_time: formData.end_time || null,
         next_followup_date: formData.next_followup_date ? formData.next_followup_date.toISOString() : null,
         guest_count: parseInt(formData.guest_count) || 0,
+        participant_count: parseInt(formData.participant_count) || 0,
         budget: parseFloat(formData.budget) || 0,
         expected_value: formData.expected_value ? parseFloat(formData.expected_value) : null,
       };
