@@ -841,6 +841,20 @@ export default function EventsPage({ embedded = false }) {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {/* Engagement Type Badge */}
+                      {event.engagement_type && event.engagement_type !== "event" && (
+                        <Badge variant="outline" className={
+                          event.engagement_type === "project" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                          event.engagement_type === "service" ? "bg-gray-50 text-gray-700 border-gray-200" :
+                          ""
+                        }>
+                          {event.engagement_type === "project" 
+                            ? (language === "es" ? "Proyecto" : "Project")
+                            : event.engagement_type === "service"
+                            ? (language === "es" ? "Servicio" : "Service")
+                            : ""}
+                        </Badge>
+                      )}
                       <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
                       <Badge className={stageColors[event.stage || "Lead"]}>{event.stage || "Lead"}</Badge>
                       {event.is_booking && (
