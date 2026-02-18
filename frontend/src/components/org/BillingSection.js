@@ -227,7 +227,7 @@ export function BillingSection() {
 
   return (
     <div className="space-y-6" data-testid="billing-section">
-      {/* Kora Core - Always Free */}
+      {/* Kora Core - Subscription */}
       <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -238,8 +238,8 @@ export function BillingSection() {
               <div>
                 <CardTitle className="text-xl flex items-center gap-2">
                   Kora Core
-                  <Badge className="bg-emerald-500 text-white">
-                    {isEs ? "Gratis Siempre" : "Always Free"}
+                  <Badge className="bg-primary text-white">
+                    {isEs ? "Suscripción" : "Subscription"}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
@@ -250,14 +250,14 @@ export function BillingSection() {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-primary">$0</p>
+              <p className="text-3xl font-bold text-primary">${KORA_CORE.price}</p>
               <p className="text-sm text-muted-foreground">/mes</p>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {KORA_CORE_FEATURES.map((feature) => {
+            {KORA_CORE.features.map((feature) => {
               const Icon = feature.icon;
               return (
                 <div key={feature.nameEn} className="flex items-center gap-2 p-3 rounded-lg bg-background/50">
@@ -270,13 +270,13 @@ export function BillingSection() {
               );
             })}
           </div>
-          <div className="mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+          <div className="mt-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <span className="text-sm text-emerald-800 dark:text-emerald-300">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <span className="text-sm text-amber-800 dark:text-amber-300">
                 {isEs 
-                  ? "Sin límites de eventos, usuarios o funcionalidades en Kora Core"
-                  : "No limits on events, users, or features in Kora Core"}
+                  ? "7 días de prueba gratis. Cancela cuando quieras."
+                  : "7-day free trial. Cancel anytime."}
               </span>
             </div>
           </div>
