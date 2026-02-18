@@ -337,6 +337,16 @@ async def update_execution_goal(
         {"$set": update_data}
     )
     
+    # Log activity
+    await log_activity(
+        module="execution_hub",
+        action="update",
+        entity_type="goal",
+        entity_id=goal_id,
+        entity_name=update_data.get("title", goal.get("title")),
+        **user_info(user)
+    )
+    
     return await get_execution_goal(goal_id, user)
 
 
@@ -351,6 +361,16 @@ async def delete_execution_goal(goal_id: str, user: User = Depends(get_current_u
     await db.execution_decisions.delete_many({"goal_id": goal_id})
     await db.execution_dependencies.delete_many({"goal_id": goal_id})
     await db.execution_access.delete_many({"goal_id": goal_id})
+    
+    # Log activity
+    await log_activity(
+        module="execution_hub",
+        action="delete",
+        entity_type="goal",
+        entity_id=goal_id,
+        entity_name=goal.get("title"),
+        **user_info(user)
+    )
     
     return {"message": "Meta eliminada exitosamente"}
 
