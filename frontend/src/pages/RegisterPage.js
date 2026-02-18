@@ -174,14 +174,18 @@ export default function RegisterPage() {
             <span className="font-heading text-lg font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
 
-          {/* Step Indicator */}
+          {/* Step Indicator - 3 steps */}
           <div className="flex items-center gap-2 mb-6">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step >= 1 ? 'bg-[#2563EB] text-white' : 'bg-gray-200 text-gray-500'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 1 ? 'bg-[#2563EB] text-white' : 'bg-gray-200 text-gray-500'}`}>
               1
             </div>
-            <div className={`flex-1 h-1 ${step >= 2 ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step >= 2 ? 'bg-[#2563EB] text-white' : 'bg-gray-200 text-gray-500'}`}>
+            <div className={`flex-1 h-1 transition-colors ${step >= 2 ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 2 ? 'bg-[#2563EB] text-white' : 'bg-gray-200 text-gray-500'}`}>
               2
+            </div>
+            <div className={`flex-1 h-1 transition-colors ${step >= 3 ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 3 ? 'bg-[#2563EB] text-white' : 'bg-gray-200 text-gray-500'}`}>
+              3
             </div>
           </div>
 
