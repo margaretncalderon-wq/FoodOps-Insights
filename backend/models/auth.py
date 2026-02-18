@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
     password: str
     name: str
     company_name: Optional[str] = None
+    industry_template: Optional[str] = "events_hospitality"  # events_hospitality, professional_services, generic
 
 
 class UserLogin(BaseModel):
