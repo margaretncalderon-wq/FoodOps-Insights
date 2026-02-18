@@ -126,8 +126,6 @@ async def log_activity(
         logger.error(f"[ACTIVITY_LOG ERROR] {e}")
     
     return log_entry
-    
-    return log_entry
 
 
 async def get_activity_logs(
