@@ -50,9 +50,10 @@ class TestSendDocument:
         # email_status will be 'skipped' without RESEND_API_KEY
         assert data.get("email_status") in ["success", "skipped"]
     
-    def test_send_document_contract_draft(self):
-        """Test sending a contract document in draft status (doc_bfcb50ddc1fc)"""
-        doc_id = "doc_bfcb50ddc1fc"
+    def test_send_document_quote_demo_boda(self):
+        """Test sending a quote document (doc_d64a63376ae6) from Evento Demo - Boda"""
+        # This document exists and has a valid event and client
+        doc_id = "doc_d64a63376ae6"
         
         response = requests.post(
             f"{BASE_URL}/api/documents/{doc_id}/send",
@@ -69,6 +70,7 @@ class TestSendDocument:
         assert "sent_to" in data
         # email_status will be 'skipped' without RESEND_API_KEY
         assert data.get("email_status") in ["success", "skipped"]
+        assert "cliente@demo.com" in data.get("sent_to", "")
         
     def test_send_document_not_found(self):
         """Test sending a non-existent document"""
