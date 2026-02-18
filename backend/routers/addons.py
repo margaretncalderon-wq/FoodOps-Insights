@@ -736,10 +736,8 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     )
     plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
     
-    # Debug log
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"[enabled-modules] company_id={user.company_id}, subscription={subscription}, plan_id={plan_id}")
+    # Debug - print to stdout
+    print(f"[DEBUG enabled-modules] company_id={user.company_id}, subscription={subscription}, plan_id={plan_id}")
     
     # Get plan details to check if modules are included
     plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
