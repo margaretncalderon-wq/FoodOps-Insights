@@ -685,49 +685,148 @@ MODULE_ADDONS = {
 async def get_enabled_modules(user: User = Depends(get_current_user)):
     """
     Get all enabled modules for the organization.
-    Core modules are always included.
-    Add-on modules require purchase or higher tier plan.
-    Module names are customized based on organization's industry.
+    Uses centralized industry configuration for module names and settings.
     """
-    # Get organization config for industry-specific customization
+    from config.industry_config import (
+        get_industry_config, 
+        get_program_orchestration_config,
+        IndustryType
+    )
+    
+    # Get organization config
     org_config = await db.organization_configs.find_one(
         {"company_id": user.company_id}, 
-        {"_id": 0, "industry_template": 1, "terminology": 1}
+        {"_id": 0, "industry_template": 1, "industry_type": 1, "terminology": 1}
     )
-    industry = org_config.get("industry_template", "events_hospitality") if org_config else "events_hospitality"
+    
+    # Support both old industry_template and new industry_type
+    industry_type = "events"  # default
+    if org_config:
+        if org_config.get("industry_type"):
+            industry_type = org_config["industry_type"]
+        elif org_config.get("industry_template"):
+            # Map old template names to new industry types
+            template_map = {
+                "events_hospitality": "events",
+                "professional_services": "agency",
+                "generic": "generic",
+            }
+            industry_type = template_map.get(org_config["industry_template"], "events")
+    
     terminology = org_config.get("terminology", {}) if org_config else {}
     
-    # Industry-specific module name overrides
-    INDUSTRY_MODULE_NAMES = {
-        "professional_services": {
-            "module_event_orchestration": {
-                "name_en": "Project Management",
-                "name_es": "Gestión de Proyectos",
-                "icon": "folder-kanban",  # Different icon for projects
-            },
-            "module_venues": {
-                "name_en": "Locations",
-                "name_es": "Ubicaciones",
-                "icon": "map-pin",
-            },
-            "module_culinary_intelligence": None,  # Hide for this industry
-            "module_operations_supplies": {
-                "name_en": "Resource Management",
-                "name_es": "Gestión de Recursos",
-                "icon": "boxes",
-            },
-        },
-        "generic": {
-            "module_event_orchestration": {
-                "name_en": "Service Management",
-                "name_es": "Gestión de Servicios",
-                "icon": "clipboard-check",
-            },
-            "module_culinary_intelligence": None,  # Hide for this industry
-        }
-    }
+    # Get industry configuration
+    industry_config = get_industry_config(industry_type)
+    po_config = get_program_orchestration_config(industry_type)
     
-    industry_overrides = INDUSTRY_MODULE_NAMES.get(industry, {})
+    # Start with core modules
+    enabled_modules = list(CORE_MODULES)
+    
+    # Get the organization's plan
+    subscription = await db.subscriptions.find_one(
+        {"company_id": user.company_id, "status": {"$in": ["active", "trialing"]}},
+        {"_id": 0, "plan_id": 1}
+    )
+    plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
+    
+    # Get plan details
+    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
+    included_in_plan = plan.get("included_modules", []) if plan else []
+    
+    if plan_id == "plan_enterprise":
+        included_in_plan = list(MODULE_ADDONS.keys())
+    elif plan_id == "plan_professional":
+        included_in_plan = plan.get("included_modules", ["module_event_orchestration", "module_venues"])
+    
+    # Get purchased module addons
+    purchased_modules = await db.organization_addons.find({
+        "company_id": user.company_id,
+        "status": "active",
+        "addon_type": "module"
+    }, {"_id": 0, "addon_id": 1}).to_list(50)
+    
+    purchased_module_keys = []
+    for pm in purchased_modules:
+        addon_id = pm.get("addon_id", "")
+        if addon_id.startswith("addon_"):
+            module_key = addon_id.replace("addon_", "")
+            purchased_module_keys.append(module_key)
+    
+    # Get enabled modules for this industry
+    industry_enabled_modules = industry_config.get("enabled_modules", list(MODULE_ADDONS.keys()))
+    industry_module_configs = industry_config.get("modules", {})
+    
+    # Add modules that are: 1) enabled for industry, 2) included in plan or purchased
+    for module_key, module_info in MODULE_ADDONS.items():
+        # Check if module is enabled for this industry
+        if module_key not in industry_enabled_modules:
+            continue
+        
+        # Check industry-specific module config
+        module_config = industry_module_configs.get(module_key, {})
+        if module_config.get("enabled") == False:
+            continue
+        
+        # Check if included in plan or purchased
+        if module_key not in included_in_plan and module_key not in purchased_module_keys:
+            continue
+        
+        # Build module data with industry-specific overrides
+        if module_key == "module_event_orchestration":
+            # Use Program Orchestration config
+            module_data = {
+                "key": module_key,
+                "path": module_info["path"],
+                "name_en": po_config.get("name_en", module_info["name_en"]),
+                "name_es": po_config.get("name_es", module_info["name_es"]),
+                "icon": po_config.get("icon", "clipboard-list"),
+                "is_addon": True,
+                "entity_singular_en": po_config.get("entity_singular_en", "Event"),
+                "entity_singular_es": po_config.get("entity_singular_es", "Evento"),
+                "entity_plural_en": po_config.get("entity_plural_en", "Events"),
+                "entity_plural_es": po_config.get("entity_plural_es", "Eventos"),
+            }
+        else:
+            # Use module-specific config or defaults
+            module_data = {
+                "key": module_key,
+                "path": module_info["path"],
+                "name_en": module_config.get("name_en", module_info["name_en"]),
+                "name_es": module_config.get("name_es", module_info["name_es"]),
+                "icon": module_config.get("icon", module_info["icon"]),
+                "is_addon": True
+            }
+        
+        enabled_modules.append(module_data)
+    
+    # Sort modules
+    module_order = {
+        "system_pulse": 0,
+        "client_engagement": 1,
+        "module_event_orchestration": 2,
+        "module_culinary_intelligence": 3,
+        "module_operations_supplies": 4,
+        "module_venues": 5,
+        "execution_hub": 6,
+        "module_demand_studio": 7,
+        "business_clarity": 8,
+        "settings": 9,
+    }
+    enabled_modules.sort(key=lambda x: module_order.get(x["key"], 99))
+    
+    return {
+        "modules": enabled_modules,
+        "plan_id": plan_id,
+        "core_modules": [m["key"] for m in CORE_MODULES],
+        "addon_modules": list(MODULE_ADDONS.keys()),
+        "industry_type": industry_type,
+        "industry_config": {
+            "name_en": industry_config.get("name_en"),
+            "name_es": industry_config.get("name_es"),
+            "program_orchestration": po_config,
+        },
+        "terminology": terminology
+    }
     
     # Start with core modules
     enabled_modules = list(CORE_MODULES)
