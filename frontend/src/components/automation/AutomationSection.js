@@ -211,6 +211,23 @@ export default function AutomationSection() {
     );
   }
 
+  // Show Workflow Builder
+  if (showBuilder) {
+    return (
+      <div className="h-[calc(100vh-200px)] -m-6">
+        <WorkflowBuilder
+          rule={builderRule}
+          isNew={!builderRule?.rule_id}
+          onSave={handleSaveWorkflow}
+          onCancel={() => {
+            setShowBuilder(false);
+            setBuilderRule(null);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6" data-testid="automation-section">
       {/* Header */}
@@ -222,8 +239,8 @@ export default function AutomationSection() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {isEs 
-              ? "Crea reglas para automatizar tareas repetitivas"
-              : "Create rules to automate repetitive tasks"}
+              ? "Crea workflows para automatizar tareas repetitivas"
+              : "Create workflows to automate repetitive tasks"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -231,9 +248,9 @@ export default function AutomationSection() {
             <Sparkles className="w-4 h-4 mr-2" />
             {isEs ? "Plantillas" : "Templates"}
           </Button>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={handleNewWorkflow}>
             <Plus className="w-4 h-4 mr-2" />
-            {isEs ? "Nueva Regla" : "New Rule"}
+            {isEs ? "Nuevo Workflow" : "New Workflow"}
           </Button>
         </div>
       </div>
