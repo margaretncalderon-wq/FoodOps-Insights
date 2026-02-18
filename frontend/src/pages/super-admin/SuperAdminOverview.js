@@ -320,16 +320,16 @@ export default function SuperAdminOverview() {
 
       {/* Growth Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-emerald-400" />
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-slate-400">{isEs ? "Nuevas Orgs" : "New Orgs"}</p>
-                  <span className="flex items-center text-emerald-400 text-sm">
+                  <p className="text-sm text-muted-foreground">{isEs ? "Nuevas Orgs" : "New Orgs"}</p>
+                  <span className="flex items-center text-emerald-600 dark:text-emerald-400 text-sm">
                     <ArrowUpRight className="w-4 h-4" />
                     {isEs ? "este mes" : "this month"}
                   </span>
@@ -340,16 +340,16 @@ export default function SuperAdminOverview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-400" />
+              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
+                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-slate-400">{isEs ? "Nuevos Usuarios" : "New Users"}</p>
-                  <span className="flex items-center text-blue-400 text-sm">
+                  <p className="text-sm text-muted-foreground">{isEs ? "Nuevos Usuarios" : "New Users"}</p>
+                  <span className="flex items-center text-blue-600 dark:text-blue-400 text-sm">
                     <ArrowUpRight className="w-4 h-4" />
                     {isEs ? "este mes" : "this month"}
                   </span>
@@ -360,15 +360,15 @@ export default function SuperAdminOverview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                <Activity className="w-5 h-5 text-amber-400" />
+              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-slate-400">{isEs ? "Total Usuarios" : "Total Users"}</p>
+                  <p className="text-sm text-muted-foreground">{isEs ? "Total Usuarios" : "Total Users"}</p>
                 </div>
                 <p className="text-2xl font-bold">{metrics?.users?.total || 0}</p>
               </div>
