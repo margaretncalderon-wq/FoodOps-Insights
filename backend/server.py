@@ -11224,6 +11224,23 @@ async def get_organization_detail(company_id: str, admin: User = Depends(get_sup
         {"_id": 0}
     )
     
+    # Get organization config for industry
+    org_config = await db.organization_configs.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    # Get active modules
+    active_modules = await db.organization_addons.find(
+        {"company_id": company_id, "status": "active", "addon_type": "module"},
+        {"_id": 0}
+    ).to_list(20)
+    
+    active_module_keys = [
+        a.get("addon_id", "").replace("addon_", "") 
+        for a in active_modules
+    ]
+    
     return {
         "organization": org,
         "subscription": subscription,
@@ -11232,7 +11249,11 @@ async def get_organization_detail(company_id: str, admin: User = Depends(get_sup
         "current_usage": usage_history[0] if usage_history else None,
         "members_count": members_count,
         "events_count": events_count,
-        "internal_notes": internal_notes.get("notes", "") if internal_notes else ""
+        "internal_notes": internal_notes.get("notes", "") if internal_notes else "",
+        "industry_template": org.get("industry_template", "events_hospitality"),
+        "org_config": org_config,
+        "active_modules": active_modules,
+        "active_module_keys": active_module_keys
     }
 
 @super_admin_router.put("/organizations/{company_id}/notes")
