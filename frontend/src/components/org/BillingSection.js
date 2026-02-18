@@ -7,17 +7,64 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import { Label } from "../ui/label";
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from "../ui/dialog";
 import { 
-  CreditCard, Crown, Zap, Rocket, Calendar, AlertTriangle, Check, 
-  ExternalLink, Loader2, TrendingUp, Users, FileText, Package, CheckCircle2
+  CreditCard, Calendar, AlertTriangle, Check, 
+  Loader2, Users, FileText, Package, CheckCircle2, Plus, X, Sparkles
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+
+// Module configuration
+const MODULES = [
+  { 
+    key: "module_event_orchestration", 
+    nameEn: "Event Orchestration", 
+    nameEs: "Orquestación de Eventos",
+    descEn: "Full event planning with timelines, room setup, and experience design",
+    descEs: "Planificación completa de eventos con cronogramas, configuración de salas y diseño de experiencias",
+    price: 29,
+    icon: "📅"
+  },
+  { 
+    key: "module_culinary_intelligence", 
+    nameEn: "Culinary Intelligence", 
+    nameEs: "Inteligencia Culinaria",
+    descEn: "Recipes, food costing, menu engineering, and ingredient management",
+    descEs: "Recetas, costeo de alimentos, ingeniería de menús y gestión de ingredientes",
+    price: 25,
+    icon: "👨‍🍳"
+  },
+  { 
+    key: "module_operations_supplies", 
+    nameEn: "Operations Supplies", 
+    nameEs: "Suministros Operativos",
+    descEn: "Inventory tracking, supplier management, and purchase orders",
+    descEs: "Seguimiento de inventario, gestión de proveedores y órdenes de compra",
+    price: 19,
+    icon: "📦"
+  },
+  { 
+    key: "module_venues", 
+    nameEn: "Venues & Locations", 
+    nameEs: "Venues y Ubicaciones",
+    descEn: "Venue management with room layouts and capacity planning",
+    descEs: "Gestión de venues con diseños de salas y planificación de capacidad",
+    price: 15,
+    icon: "🏛️"
+  },
+  { 
+    key: "module_demand_studio", 
+    nameEn: "Demand Studio", 
+    nameEs: "Demand Studio",
+    descEn: "Lead capture, proposals, quotes, and sales pipeline",
+    descEs: "Captura de leads, propuestas, cotizaciones y pipeline de ventas",
+    price: 35,
+    icon: "📊"
+  },
+];
 
 export function BillingSection() {
   const { language } = useLanguage();
@@ -25,30 +72,34 @@ export function BillingSection() {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [loading, setLoading] = useState(true);
-  const [billingData, setBillingData] = useState(null);
+  const [subscription, setSubscription] = useState(null);
+  const [activeModules, setActiveModules] = useState([]);
   const [usage, setUsage] = useState(null);
-  const [plans, setPlans] = useState([]);
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [addModuleDialogOpen, setAddModuleDialogOpen] = useState(false);
+  const [selectedModule, setSelectedModule] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [selectedBillingCycle, setSelectedBillingCycle] = useState("monthly");
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
   const fetchBillingData = useCallback(async () => {
     try {
-      const [billingRes, usageRes, plansRes] = await Promise.all([
-        axios.get(`${API}/api/org/billing`, { withCredentials: true }),
-        axios.get(`${API}/api/org/usage`, { withCredentials: true }),
-        axios.get(`${API}/api/org/plans`, { withCredentials: true })
+      const [subRes, usageRes] = await Promise.all([
+        axios.get(`${API}/api/payments/my-subscription`, { withCredentials: true }),
+        axios.get(`${API}/api/org/usage`, { withCredentials: true })
       ]);
-      setBillingData(billingRes.data);
+      setSubscription(subRes.data);
+      setActiveModules(subRes.data.active_module_keys || []);
       setUsage(usageRes.data);
-      setPlans(plansRes.data);
     } catch (err) {
       console.error(err);
-      if (err.response?.status !== 403) {
-        toast.error("Failed to load billing data");
+      // Fallback to old billing endpoint if new one fails
+      try {
+        const oldRes = await axios.get(`${API}/api/org/billing`, { withCredentials: true });
+        setSubscription(oldRes.data);
+      } catch (e) {
+        if (e.response?.status !== 403) {
+          toast.error("Failed to load billing data");
+        }
       }
     }
     setLoading(false);
@@ -67,15 +118,14 @@ export function BillingSection() {
 
     try {
       const response = await axios.get(
-        `${API}/api/org/billing/checkout/status/${sessionId}`,
+        `${API}/api/payments/status/${sessionId}`,
         { withCredentials: true }
       );
 
-      if (response.data.payment_status === "paid" || response.data.status === "complete") {
+      if (response.data.payment_status === "paid" || response.data.status === "paid") {
         setCheckingPayment(false);
         setSuccessDialogOpen(true);
         fetchBillingData();
-        // Clean URL
         searchParams.delete("checkout");
         searchParams.delete("session_id");
         setSearchParams(searchParams);
@@ -89,7 +139,6 @@ export function BillingSection() {
         return;
       }
 
-      // Continue polling
       setTimeout(() => pollPaymentStatus(sessionId, attempts + 1), pollInterval);
     } catch (error) {
       console.error("Error checking payment status:", error);
@@ -116,39 +165,18 @@ export function BillingSection() {
     fetchBillingData();
   }, [fetchBillingData]);
 
-  const handleUpgrade = async (planId) => {
-    const selectedPlan = plans.find(p => p.plan_id === planId);
-    const price = selectedBillingCycle === "yearly" ? selectedPlan?.price_yearly : selectedPlan?.price_monthly;
-    
-    // If free plan, upgrade directly without payment
-    if (!price || price <= 0) {
-      setActionLoading(true);
-      try {
-        await axios.post(`${API}/api/org/subscription/upgrade/${planId}`, {}, { withCredentials: true });
-        toast.success(isEs ? "Plan actualizado" : "Plan upgraded");
-        setUpgradeDialogOpen(false);
-        fetchBillingData();
-      } catch (err) {
-        toast.error(err.response?.data?.detail || "Error upgrading plan");
-      }
-      setActionLoading(false);
-      return;
-    }
-
-    // Paid plan - use Stripe checkout
+  const handleAddModule = async (moduleKey) => {
     setActionLoading(true);
     try {
       const response = await axios.post(
-        `${API}/api/org/billing/checkout`,
+        `${API}/api/payments/add-addon-checkout`,
         {
-          plan_id: planId,
-          billing_cycle: selectedBillingCycle,
-          origin_url: window.location.origin
+          origin_url: window.location.origin,
+          addon_key: moduleKey
         },
         { withCredentials: true }
       );
 
-      // Redirect to Stripe checkout
       if (response.data.checkout_url) {
         window.location.href = response.data.checkout_url;
       }
@@ -158,49 +186,8 @@ export function BillingSection() {
     }
   };
 
-  const handleCancel = async () => {
-    setActionLoading(true);
-    try {
-      await axios.post(`${API}/api/org/subscription/cancel`, {}, { withCredentials: true });
-      toast.success(isEs ? "Suscripción cancelada" : "Subscription canceled");
-      setCancelDialogOpen(false);
-      fetchBillingData();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Error canceling subscription");
-    }
-    setActionLoading(false);
-  };
-
-  const handleReactivate = async () => {
-    setActionLoading(true);
-    try {
-      await axios.post(`${API}/api/org/subscription/reactivate`, {}, { withCredentials: true });
-      toast.success(isEs ? "Suscripción reactivada" : "Subscription reactivated");
-      fetchBillingData();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Error reactivating subscription");
-    }
-    setActionLoading(false);
-  };
-
-  const getPlanIcon = (planName) => {
-    switch(planName) {
-      case "starter": return <Rocket className="w-5 h-5" />;
-      case "professional": return <Zap className="w-5 h-5 text-amber-500" />;
-      case "enterprise": return <Crown className="w-5 h-5 text-purple-500" />;
-      default: return <Package className="w-5 h-5" />;
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case "active": return <Badge className="bg-green-500">{isEs ? "Activo" : "Active"}</Badge>;
-      case "trialing": return <Badge className="bg-blue-500">{isEs ? "Trial" : "Trial"}</Badge>;
-      case "past_due": return <Badge className="bg-red-500">{isEs ? "Pago Pendiente" : "Past Due"}</Badge>;
-      case "canceled": return <Badge variant="secondary">{isEs ? "Cancelado" : "Canceled"}</Badge>;
-      default: return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const monthlyCost = subscription?.monthly_cost || 0;
+  const availableModules = MODULES.filter(m => !activeModules.includes(m.key));
 
   if (loading || checkingPayment) {
     return (
@@ -215,96 +202,77 @@ export function BillingSection() {
     );
   }
 
-  const { subscription, plan, payment_method, invoices, next_invoice_date } = billingData || {};
-  const currentPlanIndex = plans.findIndex(p => p.plan_id === plan?.plan_id);
-
   return (
     <div className="space-y-6" data-testid="billing-section">
-      {/* Current Plan */}
+      {/* Active Modules Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {plan && getPlanIcon(plan.name)}
+              <Package className="w-5 h-5 text-primary" />
               <div>
                 <CardTitle className="text-lg">
-                  {isEs ? "Plan Actual" : "Current Plan"}: {plan ? (isEs ? plan.display_name_es : plan.display_name_en) : "No Plan"}
+                  {isEs ? "Mis Módulos" : "My Modules"}
                 </CardTitle>
                 <CardDescription>
-                  {plan ? (isEs ? plan.description_es : plan.description_en) : ""}
+                  {isEs 
+                    ? `${activeModules.length} módulo(s) activo(s) • $${monthlyCost}/mes`
+                    : `${activeModules.length} active module(s) • $${monthlyCost}/mo`}
                 </CardDescription>
               </div>
             </div>
-            {subscription && getStatusBadge(subscription.status)}
+            <Badge className="bg-green-500 text-white">
+              {isEs ? "Activo" : "Active"}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {subscription && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">{isEs ? "Precio" : "Price"}</p>
-                <p className="text-lg font-bold">
-                  ${subscription.billing_cycle === "yearly" ? (plan?.price_yearly / 12).toFixed(0) : plan?.price_monthly}/mo
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">{isEs ? "Ciclo" : "Cycle"}</p>
-                <p className="text-lg font-bold capitalize">{subscription.billing_cycle === "yearly" ? (isEs ? "Anual" : "Yearly") : (isEs ? "Mensual" : "Monthly")}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">{isEs ? "Próxima Renovación" : "Next Renewal"}</p>
-                <p className="text-lg font-bold">
-                  {next_invoice_date ? new Date(next_invoice_date).toLocaleDateString() : "-"}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">{isEs ? "Estado" : "Status"}</p>
-                <p className="text-lg font-bold capitalize">
-                  {subscription.cancel_at_period_end 
-                    ? (isEs ? "Cancela al final" : "Cancels at end")
-                    : subscription.status}
-                </p>
-              </div>
+          {activeModules.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{isEs ? "No tienes módulos activos" : "You have no active modules"}</p>
+              <p className="text-sm mt-1">
+                {isEs ? "Agrega módulos para desbloquear funcionalidades" : "Add modules to unlock features"}
+              </p>
             </div>
-          )}
-
-          {subscription?.cancel_at_period_end && (
-            <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-                <div>
-                  <p className="font-medium text-amber-800">
-                    {isEs ? "Suscripción cancelada" : "Subscription canceled"}
-                  </p>
-                  <p className="text-sm text-amber-600">
-                    {isEs 
-                      ? `Tu acceso termina el ${new Date(subscription.current_period_end).toLocaleDateString()}`
-                      : `Your access ends on ${new Date(subscription.current_period_end).toLocaleDateString()}`}
-                  </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {MODULES.filter(m => activeModules.includes(m.key)).map(mod => (
+                <div 
+                  key={mod.key}
+                  className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{mod.icon}</span>
+                    <div>
+                      <p className="font-medium">{isEs ? mod.nameEs : mod.nameEn}</p>
+                      <p className="text-sm text-muted-foreground">${mod.price}/mes</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
+                    <Check className="w-3 h-3 mr-1" />
+                    {isEs ? "Activo" : "Active"}
+                  </Badge>
                 </div>
-              </div>
-              <Button variant="outline" onClick={handleReactivate} disabled={actionLoading}>
-                {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                {isEs ? "Reactivar" : "Reactivate"}
-              </Button>
+              ))}
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
-            <Button onClick={() => setUpgradeDialogOpen(true)}>
-              <TrendingUp className="w-4 h-4 mr-2" />
-              {isEs ? "Cambiar Plan" : "Change Plan"}
+          {/* Monthly Cost Summary */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border">
+            <div>
+              <p className="text-sm text-muted-foreground">{isEs ? "Costo mensual total" : "Total monthly cost"}</p>
+              <p className="text-2xl font-bold">${monthlyCost}<span className="text-sm font-normal">/mes</span></p>
+            </div>
+            <Button onClick={() => setAddModuleDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {isEs ? "Agregar Módulo" : "Add Module"}
             </Button>
-            {subscription && !subscription.cancel_at_period_end && plan?.price_monthly > 0 && (
-              <Button variant="outline" onClick={() => setCancelDialogOpen(true)}>
-                {isEs ? "Cancelar Suscripción" : "Cancel Subscription"}
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Usage */}
+      {/* Usage Card */}
       {usage && (
         <Card>
           <CardHeader>
@@ -315,14 +283,16 @@ export function BillingSection() {
           </CardHeader>
           <CardContent className="space-y-4">
             {usage.warnings?.length > 0 && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  <span className="font-medium text-amber-800">{isEs ? "Advertencias de Uso" : "Usage Warnings"}</span>
+                  <span className="font-medium text-amber-800 dark:text-amber-200">
+                    {isEs ? "Advertencias de Uso" : "Usage Warnings"}
+                  </span>
                 </div>
                 <ul className="space-y-1">
                   {usage.warnings.map((w, idx) => (
-                    <li key={idx} className={`text-sm ${w.exceeded ? "text-red-600" : "text-amber-700"}`}>
+                    <li key={idx} className={`text-sm ${w.exceeded ? "text-red-600" : "text-amber-700 dark:text-amber-300"}`}>
                       {w.exceeded ? "🚫" : "⚠️"} {w.label}: {w.current}/{w.limit} ({w.percentage}%)
                     </li>
                   ))}
@@ -360,49 +330,28 @@ export function BillingSection() {
         </Card>
       )}
 
-      {/* Payment Method */}
-      {payment_method && (
+      {/* Payment History */}
+      {subscription?.payment_history?.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{isEs ? "Método de Pago" : "Payment Method"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <CreditCard className="w-8 h-8 text-muted-foreground" />
-                <div>
-                  <p className="font-medium capitalize">{payment_method.brand} •••• {payment_method.last4}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {isEs ? "Expira" : "Expires"} {payment_method.exp_month}/{payment_method.exp_year}
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                {isEs ? "Actualizar" : "Update"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Billing History */}
-      {invoices?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{isEs ? "Historial de Facturación" : "Billing History"}</CardTitle>
+            <CardTitle className="text-lg">{isEs ? "Historial de Pagos" : "Payment History"}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {invoices.map(inv => (
-                <div key={inv.invoice_id} className="flex items-center justify-between p-3 border rounded-lg">
+              {subscription.payment_history.map(tx => (
+                <div key={tx.transaction_id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
-                    <p className="font-medium">{inv.description}</p>
-                    <p className="text-sm text-muted-foreground">{inv.date}</p>
+                    <p className="font-medium">
+                      {tx.payment_type === "subscription" ? (isEs ? "Suscripción" : "Subscription") : "Add-on"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(tx.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-bold">${inv.amount}</span>
-                    <Badge className={inv.status === "paid" ? "bg-green-500" : "bg-amber-500"}>
-                      {inv.status === "paid" ? (isEs ? "Pagado" : "Paid") : inv.status}
+                    <span className="font-bold">${tx.amount?.toFixed(2)}</span>
+                    <Badge className="bg-green-500">
+                      {isEs ? "Pagado" : "Paid"}
                     </Badge>
                   </div>
                 </div>
@@ -412,126 +361,63 @@ export function BillingSection() {
         </Card>
       )}
 
-      {/* Upgrade Dialog */}
-      <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
-        <DialogContent className="max-w-3xl">
+      {/* Add Module Dialog */}
+      <Dialog open={addModuleDialogOpen} onOpenChange={setAddModuleDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{isEs ? "Cambiar Plan" : "Change Plan"}</DialogTitle>
-            <DialogDescription>
-              {isEs ? "Selecciona el plan que mejor se adapte a tus necesidades" : "Select the plan that best fits your needs"}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Billing Cycle Selection */}
-          <div className="flex justify-center mb-4">
-            <RadioGroup
-              value={selectedBillingCycle}
-              onValueChange={setSelectedBillingCycle}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="monthly" id="monthly" />
-                <Label htmlFor="monthly">{isEs ? "Mensual" : "Monthly"}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="yearly" id="yearly" />
-                <Label htmlFor="yearly" className="flex items-center gap-2">
-                  {isEs ? "Anual" : "Yearly"}
-                  <Badge className="bg-green-500 text-xs">{isEs ? "Ahorra 17%" : "Save 17%"}</Badge>
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-            {plans.map((p, idx) => {
-              const isCurrent = p.plan_id === plan?.plan_id;
-              const displayPrice = selectedBillingCycle === "yearly" 
-                ? (p.price_yearly / 12).toFixed(0) 
-                : p.price_monthly;
-              const isUpgrade = idx > currentPlanIndex;
-              const isPaid = selectedBillingCycle === "yearly" ? p.price_yearly > 0 : p.price_monthly > 0;
-              
-              return (
-                <div 
-                  key={p.plan_id}
-                  className={`relative p-4 rounded-xl border-2 ${
-                    isCurrent ? "border-primary bg-primary/5" : "border-slate-200"
-                  } ${p.highlight ? "ring-2 ring-amber-400" : ""}`}
-                >
-                  {isCurrent && (
-                    <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
-                      {isEs ? "Actual" : "Current"}
-                    </Badge>
-                  )}
-                  
-                  <div className="text-center mb-4">
-                    {getPlanIcon(p.name)}
-                    <h3 className="font-bold mt-2">{isEs ? p.display_name_es : p.display_name_en}</h3>
-                    <p className="text-2xl font-bold mt-2">
-                      ${displayPrice}
-                      <span className="text-sm font-normal">/mo</span>
-                    </p>
-                    {selectedBillingCycle === "yearly" && p.price_yearly > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        ${p.price_yearly} {isEs ? "facturado anualmente" : "billed annually"}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <ul className="space-y-2 text-sm mb-4">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500" />
-                      {p.limits.events_per_month} {isEs ? "eventos/mes" : "events/mo"}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500" />
-                      {p.limits.active_users} {isEs ? "usuarios" : "users"}
-                    </li>
-                  </ul>
-                  
-                  <Button 
-                    className="w-full" 
-                    variant={isCurrent ? "outline" : "default"}
-                    disabled={isCurrent || actionLoading}
-                    onClick={() => handleUpgrade(p.plan_id)}
-                  >
-                    {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                    {isCurrent 
-                      ? (isEs ? "Plan Actual" : "Current Plan")
-                      : isPaid && isUpgrade
-                        ? (isEs ? "Pagar y Mejorar" : "Pay & Upgrade")
-                        : isUpgrade 
-                          ? (isEs ? "Mejorar" : "Upgrade")
-                          : (isEs ? "Cambiar" : "Switch")}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cancel Dialog */}
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isEs ? "Cancelar Suscripción" : "Cancel Subscription"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              {isEs ? "Agregar Módulo" : "Add Module"}
+            </DialogTitle>
             <DialogDescription>
               {isEs 
-                ? "¿Estás seguro de que quieres cancelar? Tu acceso continuará hasta el final del período actual."
-                : "Are you sure you want to cancel? Your access will continue until the end of the current period."}
+                ? "Selecciona un módulo para agregar a tu suscripción"
+                : "Select a module to add to your subscription"}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
-              {isEs ? "No, mantener" : "No, keep it"}
-            </Button>
-            <Button variant="destructive" onClick={handleCancel} disabled={actionLoading}>
-              {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {isEs ? "Sí, cancelar" : "Yes, cancel"}
-            </Button>
-          </DialogFooter>
+          
+          <div className="space-y-3 py-4 max-h-[400px] overflow-y-auto">
+            {availableModules.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-500" />
+                <p className="font-medium">{isEs ? "¡Tienes todos los módulos!" : "You have all modules!"}</p>
+              </div>
+            ) : (
+              availableModules.map(mod => (
+                <div 
+                  key={mod.key}
+                  className="flex items-center justify-between p-4 rounded-xl border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{mod.icon}</span>
+                    <div>
+                      <p className="font-medium">{isEs ? mod.nameEs : mod.nameEn}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {isEs ? mod.descEs : mod.descEn}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-primary">${mod.price}/mes</span>
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleAddModule(mod.key)}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-1" />
+                          {isEs ? "Agregar" : "Add"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -540,17 +426,17 @@ export function BillingSection() {
         <DialogContent className="text-center">
           <DialogHeader>
             <div className="flex justify-center mb-4">
-              <div className="rounded-full bg-green-100 p-4">
+              <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-4">
                 <CheckCircle2 className="w-12 h-12 text-green-600" />
               </div>
             </div>
             <DialogTitle className="text-xl">
-              {isEs ? "¡Pago Completado!" : "Payment Successful!"}
+              {isEs ? "¡Módulo Activado!" : "Module Activated!"}
             </DialogTitle>
             <DialogDescription className="text-center">
               {isEs 
-                ? "Tu suscripción ha sido activada exitosamente. Ya puedes disfrutar de todas las funcionalidades de tu nuevo plan."
-                : "Your subscription has been activated successfully. You can now enjoy all the features of your new plan."}
+                ? "Tu nuevo módulo ha sido activado exitosamente. Ya puedes usar todas sus funcionalidades."
+                : "Your new module has been activated successfully. You can now use all its features."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="justify-center">
