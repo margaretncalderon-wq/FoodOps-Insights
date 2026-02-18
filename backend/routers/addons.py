@@ -687,7 +687,45 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     Get all enabled modules for the organization.
     Core modules are always included.
     Add-on modules require purchase or higher tier plan.
+    Module names are customized based on organization's industry.
     """
+    # Get organization config for industry-specific customization
+    org_config = await db.organization_configs.find_one(
+        {"company_id": user.company_id}, 
+        {"_id": 0, "industry_template": 1, "terminology": 1}
+    )
+    industry = org_config.get("industry_template", "events_hospitality") if org_config else "events_hospitality"
+    terminology = org_config.get("terminology", {}) if org_config else {}
+    
+    # Industry-specific module name overrides
+    INDUSTRY_MODULE_NAMES = {
+        "professional_services": {
+            "module_event_orchestration": {
+                "name_en": "Project Management",
+                "name_es": "Gestión de Proyectos",
+                "path": "/projects"  # Keep same backend, different UI path
+            },
+            "module_venues": {
+                "name_en": "Locations",
+                "name_es": "Ubicaciones"
+            },
+            "module_culinary_intelligence": None,  # Hide for this industry
+            "module_operations_supplies": {
+                "name_en": "Resource Management",
+                "name_es": "Gestión de Recursos"
+            },
+        },
+        "generic": {
+            "module_event_orchestration": {
+                "name_en": "Service Management",
+                "name_es": "Gestión de Servicios"
+            },
+            "module_culinary_intelligence": None,  # Hide for this industry
+        }
+    }
+    
+    industry_overrides = INDUSTRY_MODULE_NAMES.get(industry, {})
+    
     # Start with core modules
     enabled_modules = list(CORE_MODULES)
     
@@ -727,14 +765,21 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     # Add modules that are either included in plan or purchased
     for module_key, module_info in MODULE_ADDONS.items():
         if module_key in included_in_plan or module_key in purchased_module_keys:
-            enabled_modules.append({
+            # Check industry override
+            override = industry_overrides.get(module_key)
+            if override is None:
+                # Module is hidden for this industry
+                continue
+            
+            module_data = {
                 "key": module_key,
-                "path": module_info["path"],
-                "name_en": module_info["name_en"],
-                "name_es": module_info["name_es"],
+                "path": override.get("path", module_info["path"]) if override else module_info["path"],
+                "name_en": override.get("name_en", module_info["name_en"]) if override else module_info["name_en"],
+                "name_es": override.get("name_es", module_info["name_es"]) if override else module_info["name_es"],
                 "icon": module_info["icon"],
                 "is_addon": True
-            })
+            }
+            enabled_modules.append(module_data)
     
     # Sort modules by a logical order
     module_order = {
@@ -755,5 +800,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         "modules": enabled_modules,
         "plan_id": plan_id,
         "core_modules": [m["key"] for m in CORE_MODULES],
-        "addon_modules": list(MODULE_ADDONS.keys())
+        "addon_modules": list(MODULE_ADDONS.keys()),
+        "industry": industry,
+        "terminology": terminology
     }
