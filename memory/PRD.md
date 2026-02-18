@@ -285,6 +285,13 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - ModulesContext.js for frontend module management
   - `/api/addons/enabled-modules` endpoint
   - Backwards compatible: existing orgs have all modules grandfathered
+- ✅ **Fase 1B - Organization Config & Industry Templates** (February 18, 2026)
+  - 3 Industry templates: Events & Hospitality, Professional Services, Generic
+  - Organization config model with customizable terminology, pipeline stages, event types
+  - Settings > Business Type tab for selecting industry template
+  - OrgConfigContext.js for frontend config management
+  - `/api/org-config` endpoints for config CRUD
+  - EventCreate model updated with engagement_type field
 
 ## Upcoming Tasks
 - **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
