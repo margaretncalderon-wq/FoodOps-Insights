@@ -519,6 +519,26 @@ export default function EventDetails() {
           </Card>
         )}
       </div>
+
+      {/* Send to Execution Hub Modal */}
+      <SendToExecutionModal
+        open={executionModalOpen}
+        onClose={() => setExecutionModalOpen(false)}
+        event={event}
+        industry="events_hospitality"
+        onSuccess={(data) => {
+          // Update the event with the new execution_goal_id
+          setEvent(prev => ({ ...prev, execution_goal_id: data.goal.goal_id }));
+          toast.success(
+            language === "es" 
+              ? "¡Enviado a Execution Hub! Redirigiendo..." 
+              : "Sent to Execution Hub! Redirecting..."
+          );
+          setTimeout(() => {
+            navigate(`/execution-hub/${data.goal.goal_id}`);
+          }, 1500);
+        }}
+      />
     </Layout>
   );
 }
