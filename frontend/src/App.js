@@ -95,6 +95,10 @@ const ExecutionGoalDetail = lazy(() => import("./pages/ExecutionGoalDetail"));
 // Venues & Locations pages
 const VenuesPage = lazy(() => import("./pages/VenuesPage"));
 
+// Payment pages
+const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
+const PaymentCancelPage = lazy(() => import("./pages/PaymentCancelPage"));
+
 // Super Admin pages
 const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
 const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
