@@ -11,6 +11,17 @@ class IndustryTemplate(str, Enum):
     GENERIC = "generic"  # Any service-based business
 
 
+class DocumentTypeConfig(BaseModel):
+    """Configuration for a document type"""
+    key: str  # Internal key (e.g., "quote", "contract", "kitchen_sheet")
+    name_en: str
+    name_es: str
+    category: str  # "client_facing" or "internal"
+    requires_signature: bool = False
+    description_en: Optional[str] = None
+    description_es: Optional[str] = None
+
+
 class OrganizationConfig(BaseModel):
     """
     Configuration for an organization that controls terminology,
@@ -45,6 +56,9 @@ class OrganizationConfig(BaseModel):
     client_types: List[Dict[str, str]] = []
     # Example: [{"key": "individual", "en": "Individual", "es": "Individual"}, ...]
     
+    # Document types enabled for this org (by category)
+    enabled_document_types: List[str] = []  # List of document type keys
+    
     created_at: str
     updated_at: str
 
@@ -58,6 +72,7 @@ class OrganizationConfigCreate(BaseModel):
     pipeline_stages: List[Dict[str, str]] = []
     event_types: List[Dict[str, str]] = []
     client_types: List[Dict[str, str]] = []
+    enabled_document_types: List[str] = []
 
 
 class OrganizationConfigUpdate(BaseModel):
@@ -69,6 +84,197 @@ class OrganizationConfigUpdate(BaseModel):
     pipeline_stages: Optional[List[Dict[str, str]]] = None
     event_types: Optional[List[Dict[str, str]]] = None
     client_types: Optional[List[Dict[str, str]]] = None
+    enabled_document_types: Optional[List[str]] = None
+
+
+# ============== DOCUMENT TYPE DEFINITIONS ==============
+# Client-facing documents (standard across industries)
+CLIENT_FACING_DOCUMENTS = [
+    {
+        "key": "quote",
+        "name_en": "Proposal",
+        "name_es": "Propuesta",
+        "category": "client_facing",
+        "requires_signature": True,
+        "description_en": "Commercial proposal for the client",
+        "description_es": "Propuesta comercial para el cliente"
+    },
+    {
+        "key": "contract",
+        "name_en": "Contract",
+        "name_es": "Contrato",
+        "category": "client_facing",
+        "requires_signature": True,
+        "description_en": "Legal service agreement",
+        "description_es": "Contrato legal de servicios"
+    },
+    {
+        "key": "invoice",
+        "name_en": "Invoice",
+        "name_es": "Factura",
+        "category": "client_facing",
+        "requires_signature": False,
+        "description_en": "Payment invoice",
+        "description_es": "Factura de pago"
+    },
+]
+
+# Industry-specific internal documents
+INTERNAL_DOCUMENTS_BY_INDUSTRY = {
+    IndustryTemplate.EVENTS_HOSPITALITY: [
+        {
+            "key": "beo",
+            "name_en": "Banquet Event Order (BEO)",
+            "name_es": "Orden de Evento (BEO)",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Detailed event specifications for operations team",
+            "description_es": "Especificaciones detalladas del evento para el equipo de operaciones"
+        },
+        {
+            "key": "kitchen_sheet",
+            "name_en": "Kitchen Production Sheet",
+            "name_es": "Hoja de Producción de Cocina",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Production guide for kitchen staff",
+            "description_es": "Guía de producción para el personal de cocina"
+        },
+        {
+            "key": "menu",
+            "name_en": "Menu",
+            "name_es": "Menú",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Event menu for display or printing",
+            "description_es": "Menú del evento para mostrar o imprimir"
+        },
+        {
+            "key": "mise_en_place",
+            "name_en": "Mise en Place Checklist",
+            "name_es": "Checklist Mise en Place",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Preparation checklist for kitchen",
+            "description_es": "Checklist de preparación para cocina"
+        },
+        {
+            "key": "packing_list",
+            "name_en": "Packing/Setup List",
+            "name_es": "Lista de Empaque/Montaje",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Equipment and supplies packing list",
+            "description_es": "Lista de empaque de equipo y suministros"
+        },
+        {
+            "key": "timeline",
+            "name_en": "Event Timeline",
+            "name_es": "Timeline del Evento",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Detailed schedule of event activities",
+            "description_es": "Cronograma detallado de actividades del evento"
+        },
+    ],
+    IndustryTemplate.PROFESSIONAL_SERVICES: [
+        {
+            "key": "sow",
+            "name_en": "Statement of Work (SOW)",
+            "name_es": "Alcance de Trabajo (SOW)",
+            "category": "internal",
+            "requires_signature": True,
+            "description_en": "Detailed scope and deliverables",
+            "description_es": "Alcance detallado y entregables"
+        },
+        {
+            "key": "project_brief",
+            "name_en": "Project Brief",
+            "name_es": "Brief del Proyecto",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Project overview and objectives",
+            "description_es": "Resumen y objetivos del proyecto"
+        },
+        {
+            "key": "progress_report",
+            "name_en": "Progress Report",
+            "name_es": "Reporte de Avance",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Project status and milestone updates",
+            "description_es": "Estado del proyecto y avance de hitos"
+        },
+        {
+            "key": "deliverables_checklist",
+            "name_en": "Deliverables Checklist",
+            "name_es": "Checklist de Entregables",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "List of project deliverables and status",
+            "description_es": "Lista de entregables del proyecto y estado"
+        },
+        {
+            "key": "meeting_notes",
+            "name_en": "Meeting Notes",
+            "name_es": "Notas de Reunión",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Client meeting summary and action items",
+            "description_es": "Resumen de reunión con cliente y acciones"
+        },
+        {
+            "key": "monthly_report",
+            "name_en": "Monthly Report",
+            "name_es": "Reporte Mensual",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Monthly activity and metrics report",
+            "description_es": "Reporte mensual de actividades y métricas"
+        },
+    ],
+    IndustryTemplate.GENERIC: [
+        {
+            "key": "service_order",
+            "name_en": "Service Order",
+            "name_es": "Orden de Servicio",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Internal service work order",
+            "description_es": "Orden de trabajo de servicio interno"
+        },
+        {
+            "key": "work_checklist",
+            "name_en": "Work Checklist",
+            "name_es": "Checklist de Trabajo",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Task completion checklist",
+            "description_es": "Checklist de tareas completadas"
+        },
+        {
+            "key": "completion_report",
+            "name_en": "Completion Report",
+            "name_es": "Reporte de Finalización",
+            "category": "internal",
+            "requires_signature": False,
+            "description_en": "Service completion summary",
+            "description_es": "Resumen de finalización del servicio"
+        },
+    ],
+}
+
+
+def get_document_types_for_industry(industry: IndustryTemplate) -> List[dict]:
+    """Get all document types (client-facing + internal) for an industry"""
+    internal_docs = INTERNAL_DOCUMENTS_BY_INDUSTRY.get(industry, [])
+    return CLIENT_FACING_DOCUMENTS + internal_docs
+
+
+def get_default_enabled_documents(industry: IndustryTemplate) -> List[str]:
+    """Get default enabled document type keys for an industry"""
+    docs = get_document_types_for_industry(industry)
+    return [d["key"] for d in docs]
 
 
 # ============== INDUSTRY TEMPLATE DEFAULTS ==============
