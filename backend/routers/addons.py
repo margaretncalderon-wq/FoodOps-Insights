@@ -703,22 +703,25 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
             "module_event_orchestration": {
                 "name_en": "Project Management",
                 "name_es": "Gestión de Proyectos",
-                "path": "/projects"  # Keep same backend, different UI path
+                "icon": "folder-kanban",  # Different icon for projects
             },
             "module_venues": {
                 "name_en": "Locations",
-                "name_es": "Ubicaciones"
+                "name_es": "Ubicaciones",
+                "icon": "map-pin",
             },
             "module_culinary_intelligence": None,  # Hide for this industry
             "module_operations_supplies": {
                 "name_en": "Resource Management",
-                "name_es": "Gestión de Recursos"
+                "name_es": "Gestión de Recursos",
+                "icon": "boxes",
             },
         },
         "generic": {
             "module_event_orchestration": {
                 "name_en": "Service Management",
-                "name_es": "Gestión de Servicios"
+                "name_es": "Gestión de Servicios",
+                "icon": "clipboard-check",
             },
             "module_culinary_intelligence": None,  # Hide for this industry
         }
