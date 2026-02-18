@@ -334,21 +334,21 @@ export default function AutomationSection() {
               <CardContent className="py-12 text-center">
                 <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-semibold mb-2">
-                  {isEs ? "Sin reglas de automatización" : "No automation rules"}
+                  {isEs ? "Sin workflows de automatización" : "No automation workflows"}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   {isEs 
-                    ? "Crea tu primera regla para automatizar procesos"
-                    : "Create your first rule to automate processes"}
+                    ? "Crea tu primer workflow para automatizar procesos"
+                    : "Create your first workflow to automate processes"}
                 </p>
                 <div className="flex justify-center gap-2">
                   <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
                     <Sparkles className="w-4 h-4 mr-2" />
                     {isEs ? "Usar Plantilla" : "Use Template"}
                   </Button>
-                  <Button onClick={() => setCreateDialogOpen(true)}>
+                  <Button onClick={handleNewWorkflow}>
                     <Plus className="w-4 h-4 mr-2" />
-                    {isEs ? "Crear Regla" : "Create Rule"}
+                    {isEs ? "Crear Workflow" : "Create Workflow"}
                   </Button>
                 </div>
               </CardContent>
