@@ -764,7 +764,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         
         # Check industry-specific module config
         module_config = industry_module_configs.get(module_key, {})
-        if module_config.get("enabled") == False:
+        if module_config.get("enabled") is False:
             continue
         
         # Check if included in plan or purchased
