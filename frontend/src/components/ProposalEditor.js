@@ -116,6 +116,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [editInvoiceOpen, setEditInvoiceOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   
+  // Document types by industry
+  const [documentTypes, setDocumentTypes] = useState({ client_facing: [], internal: [], industry: "" });
+  
   // Check if event is locked (Closed)
   const isLocked = event?.operational_status === "Closed";
   
