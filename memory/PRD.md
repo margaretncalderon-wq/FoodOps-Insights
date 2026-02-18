@@ -151,12 +151,28 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 
 #### Activity Change History (Audit Log) - COMPLETED ✅
 - **Global Activity Log:** Botón en sidebar abre panel con historial de TODOS los módulos
-- **Filtros:** Por módulo (CRM, Events, Room Setup, etc.) y por acción (Create, Update, Delete, etc.)
-- **Módulos con logging:** CRM (clients), Events, Execution Hub (goals), Locations (venues), Room Setup (activities)
+- **Filtros:** Por módulo (CRM, Events, Room Setup, Locations, etc.) y por acción (Create, Update, Delete, etc.)
+- **Módulos con logging completo:**
+  - CRM (clientes): create, update, delete
+  - Events: create, update, delete
+  - Locations (venues/rooms): create, update, delete
+  - Execution Hub (goals): create, update, delete
+  - Demand Studio (campaigns): create, update, delete
+  - Business Clarity (invoices/payments): create
+  - Add-ons: create (purchase), delete (cancel)
 - **Backend genérico:** `/app/backend/utils/activity_logger.py` - función reutilizable `log_activity()`
 - **API:** `GET /api/activity-logs/` con filtros (module, entity_type, event_id, user_id, action)
-- **Colección MongoDB:** `activity_logs` (separada de `activity_change_logs` para timeline)
+- **Colección MongoDB:** `activity_logs` 
 - **UI Global:** `GlobalActivityLog.js` en sidebar con filtros y lista de actividades
+- **Formato de log:** log_id, module, action, entity_type, entity_id, entity_name, user_id, user_name, user_email, company_id, timestamp
+
+**API Endpoints - Activity Logs:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/activity-logs/ | Fetch all logs with filters (module, action, limit) |
+| GET | /api/activity-logs/entity/{entity_type}/{entity_id} | History for specific entity |
+| GET | /api/activity-logs/modules | List all modules with icons/colors |
+| GET | /api/activity-logs/actions | List all action types with icons/colors |
 
 #### i18n Audit - COMPLETED ✅
 - **Execution Hub:** Kept in English (instead of "Centro de Ejecución")
