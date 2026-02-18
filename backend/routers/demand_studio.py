@@ -197,6 +197,17 @@ async def create_campaign(data: MarketingCampaignCreate, user: User = Depends(ge
     }
     await db.marketing_campaigns.insert_one(campaign)
     del campaign["_id"]
+    
+    # Log activity
+    await log_activity(
+        module="demand_studio",
+        action="create",
+        entity_type="campaign",
+        entity_id=campaign["campaign_id"],
+        entity_name=data.name,
+        **user_info(user)
+    )
+    
     return campaign
 
 @demand_studio_router.get("/campaigns/{campaign_id}")
@@ -225,6 +236,16 @@ async def update_campaign(campaign_id: str, data: MarketingCampaignCreate, user:
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
+    # Log activity
+    await log_activity(
+        module="demand_studio",
+        action="update",
+        entity_type="campaign",
+        entity_id=campaign_id,
+        entity_name=data.name,
+        **user_info(user)
+    )
+    
     return await db.marketing_campaigns.find_one(
         {"campaign_id": campaign_id},
         {"_id": 0}
@@ -234,6 +255,13 @@ async def update_campaign(campaign_id: str, data: MarketingCampaignCreate, user:
 async def delete_campaign(campaign_id: str, user: User = Depends(get_current_user)):
     """Delete a campaign"""
     company_id = user.company_id or user.active_org_id
+    
+    # Get campaign name for logging
+    campaign = await db.marketing_campaigns.find_one(
+        {"campaign_id": campaign_id, "company_id": company_id},
+        {"_id": 0, "name": 1}
+    )
+    
     result = await db.marketing_campaigns.delete_one(
         {"campaign_id": campaign_id, "company_id": company_id}
     )
@@ -246,6 +274,17 @@ async def delete_campaign(campaign_id: str, user: User = Depends(get_current_use
     await db.campaign_assets.delete_many({"campaign_id": campaign_id})
     await db.campaign_lead_links.delete_many({"campaign_id": campaign_id})
     await db.campaign_opportunity_links.delete_many({"campaign_id": campaign_id})
+    
+    # Log activity
+    if campaign:
+        await log_activity(
+            module="demand_studio",
+            action="delete",
+            entity_type="campaign",
+            entity_id=campaign_id,
+            entity_name=campaign.get("name", "Campaign"),
+            **user_info(user)
+        )
     
     return {"success": True}
 
