@@ -278,8 +278,9 @@ class TestActivityLogging:
         assert found_log.get("action") == "create", "Log action should be 'create'"
         print(f"✓ Activity log created for event creation: {found_log.get('log_id')}")
         
-        # Cleanup - delete event
+        # Cleanup - delete event and client
         self.session.delete(f"{BASE_URL}/api/events/{event_id}")
+        self.session.delete(f"{BASE_URL}/api/crm/clients/{client_id}")
     
     def test_update_event_creates_log(self):
         """Test updating an event creates an activity log"""
