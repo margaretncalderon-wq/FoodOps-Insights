@@ -388,6 +388,9 @@ class TestActivityLogging:
         
         assert found_log is not None, f"Activity log not found for deleted event {event_id}"
         print(f"✓ Activity log created for event deletion: {found_log.get('log_id')}")
+        
+        # Cleanup - delete client
+        self.session.delete(f"{BASE_URL}/api/crm/clients/{client_id}")
     
     # ============== Locations Logging Tests ==============
     
