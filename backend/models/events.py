@@ -2,6 +2,16 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from enum import Enum
+
+
+# ============== ENGAGEMENT TYPE ENUM ==============
+
+class EngagementType(str, Enum):
+    """Types of engagements/work the organization can track"""
+    EVENT = "event"           # Full event with venue, catering, timeline (catering, weddings)
+    PROJECT = "project"       # Project-based work with deliverables (consulting, agencies)
+    SERVICE = "service"       # Simple service → invoice flow (generic services)
 
 
 # ============== EVENT CORE MODELS ==============
@@ -10,6 +20,8 @@ class EventCreate(BaseModel):
     client_id: str
     name: str
     event_type: str
+    # NEW: Engagement type determines what fields/modules are relevant
+    engagement_type: EngagementType = EngagementType.EVENT
     event_date: Optional[datetime] = None
     event_date_tbd: bool = False
     end_date: Optional[datetime] = None  # For multi-day events
@@ -18,6 +30,10 @@ class EventCreate(BaseModel):
     is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int = 0
+    # NEW: Generic fields for projects/services
+    participant_count: Optional[int] = None  # Alternative to guest_count for projects
+    deliverables: Optional[str] = None  # For projects
+    scope_summary: Optional[str] = None  # Brief scope description
     budget: float = 0.0
     notes: Optional[str] = None
     status: str = "planning"
