@@ -611,5 +611,5 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - Password: Evoque2024!
 
 ## URLs
-- Preview: https://kora-contracts.preview.emergentagent.com
+- Preview: https://industry-config.preview.emergentagent.com
 - Production: https://ourkora.com
