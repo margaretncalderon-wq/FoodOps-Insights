@@ -93,6 +93,7 @@ export default function EventsPage({ embedded = false }) {
   const [formData, setFormData] = useState({
     client_id: "",
     name: "",
+    engagement_type: "event", // NEW: event, project, or service
     event_type: "wedding",
     event_date: null,
     event_date_tbd: false,
@@ -103,6 +104,9 @@ export default function EventsPage({ embedded = false }) {
     venue: "",
     locations: [],
     guest_count: 0,
+    participant_count: 0, // NEW: for projects
+    deliverables: "", // NEW: for projects
+    scope_summary: "", // NEW: for projects/services
     budget: 0,
     notes: "",
     status: "planning",
