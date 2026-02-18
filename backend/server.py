@@ -11124,6 +11124,7 @@ async def list_all_organizations(
     search: str = None,
     status: str = None,
     plan: str = None,
+    industry: str = None,
     page: int = 1,
     limit: int = 50,
     admin: User = Depends(get_super_admin)
@@ -11135,6 +11136,8 @@ async def list_all_organizations(
         query["name"] = {"$regex": search, "$options": "i"}
     if status:
         query["status"] = status
+    if industry:
+        query["industry_template"] = industry
     
     # Get organizations
     orgs = await db.companies.find(query, {"_id": 0}).skip((page - 1) * limit).limit(limit).to_list(limit)
