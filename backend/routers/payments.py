@@ -161,7 +161,8 @@ async def create_subscription_checkout(
         "user_email": user.email,
         "payment_type": "subscription",
         "modules": ",".join(data.selected_modules),
-        "industry_template": data.industry_template or "events_hospitality"
+        "industry_template": data.industry_template or "events_hospitality",
+        "description": description
     }
     
     try:
