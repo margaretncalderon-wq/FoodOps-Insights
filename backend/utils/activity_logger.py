@@ -3,8 +3,11 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from enum import Enum
 import uuid
+import logging
 
 from config import db
+
+logger = logging.getLogger(__name__)
 
 
 class ActionType(str, Enum):
