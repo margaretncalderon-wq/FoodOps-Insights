@@ -11696,6 +11696,334 @@ async def get_dashboard_metrics(admin: User = Depends(get_super_admin)):
     }
 
 
+# ============== SUPER ADMIN: EXPORT & ALERTS ==============
+
+from fastapi.responses import StreamingResponse
+import io
+import csv
+
+@super_admin_router.get("/metrics/export/csv")
+async def export_metrics_csv(admin: User = Depends(get_super_admin)):
+    """Export dashboard metrics to CSV"""
+    # Get all metrics data
+    metrics = await get_dashboard_metrics(admin)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Summary Section
+    writer.writerow(["=== KORA OS PLATFORM METRICS REPORT ==="])
+    writer.writerow(["Generated", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")])
+    writer.writerow([])
+    
+    # KPIs
+    writer.writerow(["=== KEY PERFORMANCE INDICATORS ==="])
+    writer.writerow(["Metric", "Value"])
+    writer.writerow(["MRR (Monthly Recurring Revenue)", f"${metrics['mrr']['total']:.2f}"])
+    writer.writerow(["Total Organizations", metrics['organizations']['total']])
+    writer.writerow(["Paying Customers", metrics['organizations']['paying']])
+    writer.writerow(["Free Tier Customers", metrics['organizations']['free']])
+    writer.writerow(["Conversion Rate", f"{metrics['conversion']['rate']}%"])
+    writer.writerow(["Total Users", metrics['users']['total']])
+    writer.writerow(["New Orgs This Month", metrics['organizations']['new_this_month']])
+    writer.writerow(["New Users This Month", metrics['users']['new_this_month']])
+    writer.writerow([])
+    
+    # Organizations by Industry
+    writer.writerow(["=== ORGANIZATIONS BY INDUSTRY ==="])
+    writer.writerow(["Industry", "Count", "Percentage"])
+    total_by_industry = sum(metrics['by_industry'].values())
+    for industry, count in metrics['by_industry'].items():
+        pct = (count / total_by_industry * 100) if total_by_industry > 0 else 0
+        writer.writerow([industry.replace("_", " ").title(), count, f"{pct:.1f}%"])
+    writer.writerow([])
+    
+    # Revenue by Module
+    writer.writerow(["=== REVENUE BY MODULE ==="])
+    writer.writerow(["Module", "Active Subscriptions", "Monthly Revenue"])
+    for mod in metrics['modules']['revenue_by_module']:
+        writer.writerow([mod['name'], mod['active_subscriptions'], f"${mod['monthly_revenue']:.2f}"])
+    writer.writerow([])
+    
+    # Recent Transactions
+    writer.writerow(["=== RECENT TRANSACTIONS ==="])
+    writer.writerow(["Transaction ID", "User Email", "Amount", "Type", "Date"])
+    for tx in metrics['recent_transactions']:
+        writer.writerow([
+            tx['transaction_id'],
+            tx['user_email'],
+            f"${tx['amount']:.2f}",
+            tx['payment_type'],
+            tx['created_at'][:10] if tx.get('created_at') else ""
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=kora_metrics_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
+
+
+@super_admin_router.get("/metrics/export/excel")
+async def export_metrics_excel(admin: User = Depends(get_super_admin)):
+    """Export dashboard metrics to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    
+    # Get all metrics data
+    metrics = await get_dashboard_metrics(admin)
+    
+    wb = Workbook()
+    
+    # === Summary Sheet ===
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+    
+    # Styles
+    header_font = Font(bold=True, size=14, color="FFFFFF")
+    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+    money_font = Font(bold=True, size=16, color="22C55E")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Title
+    ws_summary['A1'] = "KORA OS PLATFORM METRICS"
+    ws_summary['A1'].font = Font(bold=True, size=18)
+    ws_summary['A2'] = f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+    
+    # KPIs
+    row = 4
+    ws_summary[f'A{row}'] = "KEY PERFORMANCE INDICATORS"
+    ws_summary[f'A{row}'].font = header_font
+    ws_summary[f'A{row}'].fill = header_fill
+    ws_summary.merge_cells(f'A{row}:C{row}')
+    
+    kpis = [
+        ("MRR", f"${metrics['mrr']['total']:.2f}"),
+        ("Total Organizations", metrics['organizations']['total']),
+        ("Paying Customers", metrics['organizations']['paying']),
+        ("Free Tier", metrics['organizations']['free']),
+        ("Conversion Rate", f"{metrics['conversion']['rate']}%"),
+        ("Total Users", metrics['users']['total']),
+        ("New Orgs (Month)", metrics['organizations']['new_this_month']),
+        ("New Users (Month)", metrics['users']['new_this_month']),
+    ]
+    
+    for i, (label, value) in enumerate(kpis):
+        ws_summary[f'A{row+1+i}'] = label
+        ws_summary[f'B{row+1+i}'] = value
+        ws_summary[f'A{row+1+i}'].border = thin_border
+        ws_summary[f'B{row+1+i}'].border = thin_border
+    
+    # Column widths
+    ws_summary.column_dimensions['A'].width = 25
+    ws_summary.column_dimensions['B'].width = 20
+    ws_summary.column_dimensions['C'].width = 15
+    
+    # === Industry Sheet ===
+    ws_industry = wb.create_sheet("By Industry")
+    ws_industry['A1'] = "Industry"
+    ws_industry['B1'] = "Count"
+    ws_industry['C1'] = "Percentage"
+    
+    for cell in ['A1', 'B1', 'C1']:
+        ws_industry[cell].font = Font(bold=True)
+        ws_industry[cell].fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
+    
+    total_by_industry = sum(metrics['by_industry'].values())
+    for i, (industry, count) in enumerate(metrics['by_industry'].items(), start=2):
+        pct = (count / total_by_industry * 100) if total_by_industry > 0 else 0
+        ws_industry[f'A{i}'] = industry.replace("_", " ").title()
+        ws_industry[f'B{i}'] = count
+        ws_industry[f'C{i}'] = f"{pct:.1f}%"
+    
+    ws_industry.column_dimensions['A'].width = 25
+    ws_industry.column_dimensions['B'].width = 10
+    ws_industry.column_dimensions['C'].width = 12
+    
+    # === Modules Sheet ===
+    ws_modules = wb.create_sheet("Revenue by Module")
+    ws_modules['A1'] = "Module"
+    ws_modules['B1'] = "Subscriptions"
+    ws_modules['C1'] = "Monthly Revenue"
+    
+    for cell in ['A1', 'B1', 'C1']:
+        ws_modules[cell].font = Font(bold=True)
+        ws_modules[cell].fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
+    
+    for i, mod in enumerate(metrics['modules']['revenue_by_module'], start=2):
+        ws_modules[f'A{i}'] = mod['name']
+        ws_modules[f'B{i}'] = mod['active_subscriptions']
+        ws_modules[f'C{i}'] = f"${mod['monthly_revenue']:.2f}"
+    
+    ws_modules.column_dimensions['A'].width = 25
+    ws_modules.column_dimensions['B'].width = 15
+    ws_modules.column_dimensions['C'].width = 15
+    
+    # === Transactions Sheet ===
+    ws_tx = wb.create_sheet("Transactions")
+    ws_tx['A1'] = "Transaction ID"
+    ws_tx['B1'] = "User Email"
+    ws_tx['C1'] = "Amount"
+    ws_tx['D1'] = "Type"
+    ws_tx['E1'] = "Date"
+    
+    for cell in ['A1', 'B1', 'C1', 'D1', 'E1']:
+        ws_tx[cell].font = Font(bold=True)
+        ws_tx[cell].fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
+    
+    for i, tx in enumerate(metrics['recent_transactions'], start=2):
+        ws_tx[f'A{i}'] = tx['transaction_id']
+        ws_tx[f'B{i}'] = tx['user_email']
+        ws_tx[f'C{i}'] = f"${tx['amount']:.2f}"
+        ws_tx[f'D{i}'] = tx['payment_type']
+        ws_tx[f'E{i}'] = tx['created_at'][:10] if tx.get('created_at') else ""
+    
+    ws_tx.column_dimensions['A'].width = 20
+    ws_tx.column_dimensions['B'].width = 30
+    ws_tx.column_dimensions['C'].width = 12
+    ws_tx.column_dimensions['D'].width = 15
+    ws_tx.column_dimensions['E'].width = 12
+    
+    # Save to buffer
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=kora_metrics_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
+
+@super_admin_router.get("/metrics/alerts")
+async def get_platform_alerts(admin: User = Depends(get_super_admin)):
+    """Get platform health alerts and anomalies"""
+    alerts = []
+    now = datetime.now(timezone.utc)
+    
+    # Get current metrics
+    metrics = await get_dashboard_metrics(admin)
+    
+    # === CONVERSION RATE ALERTS ===
+    conversion_rate = metrics['conversion']['rate']
+    if conversion_rate < 10:
+        alerts.append({
+            "type": "critical",
+            "category": "conversion",
+            "title": "Critical: Very Low Conversion Rate",
+            "message": f"Conversion rate is only {conversion_rate}%. Target is >20%.",
+            "action": "Review pricing, onboarding flow, and module value propositions."
+        })
+    elif conversion_rate < 20:
+        alerts.append({
+            "type": "warning",
+            "category": "conversion",
+            "title": "Warning: Low Conversion Rate",
+            "message": f"Conversion rate is {conversion_rate}%. Consider improving.",
+            "action": "Analyze where users drop off in the payment flow."
+        })
+    
+    # === MRR ALERTS ===
+    mrr = metrics['mrr']['total']
+    paying_customers = metrics['organizations']['paying']
+    
+    if paying_customers > 0:
+        avg_revenue_per_customer = mrr / paying_customers
+        if avg_revenue_per_customer < 25:
+            alerts.append({
+                "type": "info",
+                "category": "revenue",
+                "title": "Low Average Revenue Per Customer",
+                "message": f"ARPC is ${avg_revenue_per_customer:.2f}. Most customers have minimal modules.",
+                "action": "Consider upselling campaigns or bundle discounts."
+            })
+    
+    # === PENDING PAYMENTS ALERTS ===
+    pending = metrics['conversion']['pending_transactions']
+    if pending > 5:
+        alerts.append({
+            "type": "warning",
+            "category": "payments",
+            "title": "Multiple Pending Payments",
+            "message": f"{pending} payments are still pending.",
+            "action": "Check for payment processing issues or abandoned checkouts."
+        })
+    
+    # === INDUSTRY DISTRIBUTION ALERTS ===
+    not_set = metrics['by_industry'].get('not_set', 0)
+    total_orgs = metrics['organizations']['total']
+    if total_orgs > 0 and not_set / total_orgs > 0.5:
+        alerts.append({
+            "type": "warning",
+            "category": "data_quality",
+            "title": "Many Organizations Without Industry",
+            "message": f"{not_set} of {total_orgs} organizations ({not_set/total_orgs*100:.0f}%) have no industry set.",
+            "action": "Consider requiring industry selection during registration."
+        })
+    
+    # === MODULE ADOPTION ALERTS ===
+    modules_data = metrics['modules']['revenue_by_module']
+    if modules_data:
+        # Check for modules with 0 revenue
+        zero_revenue_modules = [m for m in modules_data if m['monthly_revenue'] == 0 and m['active_subscriptions'] > 0]
+        if zero_revenue_modules:
+            alerts.append({
+                "type": "info",
+                "category": "modules",
+                "title": "Modules with No Revenue",
+                "message": f"{len(zero_revenue_modules)} module(s) have subscriptions but $0 revenue (possibly admin-granted).",
+                "action": "Review if these should be paid or promotional."
+            })
+    
+    # === GROWTH ALERTS ===
+    new_this_month = metrics['organizations']['new_this_month']
+    if new_this_month == 0:
+        alerts.append({
+            "type": "warning",
+            "category": "growth",
+            "title": "No New Organizations This Month",
+            "message": "No new organizations have registered this month.",
+            "action": "Review marketing efforts and acquisition channels."
+        })
+    
+    # === RECENTLY CANCELED MODULES ===
+    week_ago = now - timedelta(days=7)
+    canceled_count = await db.organization_addons.count_documents({
+        "status": "canceled",
+        "canceled_at": {"$gte": week_ago.isoformat()}
+    })
+    
+    if canceled_count > 0:
+        alerts.append({
+            "type": "warning",
+            "category": "churn",
+            "title": f"{canceled_count} Module Cancellation(s) This Week",
+            "message": f"{canceled_count} module subscriptions were canceled in the last 7 days.",
+            "action": "Reach out to understand reasons for cancellation."
+        })
+    
+    # Sort by type priority
+    type_priority = {"critical": 0, "warning": 1, "info": 2}
+    alerts.sort(key=lambda x: type_priority.get(x['type'], 3))
+    
+    return {
+        "alerts": alerts,
+        "total_alerts": len(alerts),
+        "critical_count": len([a for a in alerts if a['type'] == 'critical']),
+        "warning_count": len([a for a in alerts if a['type'] == 'warning']),
+        "info_count": len([a for a in alerts if a['type'] == 'info']),
+        "checked_at": now.isoformat()
+    }
+
+
 # ---- Super Admin: Make User Super Admin (bootstrap) ----
 
 @super_admin_router.post("/grant-super-admin/{user_email}")
