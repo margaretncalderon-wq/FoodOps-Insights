@@ -91,13 +91,27 @@ class PaymentTransaction(BaseModel):
 
 # ============== HELPER FUNCTIONS ==============
 
-def calculate_subscription_total(selected_modules: List[str]) -> float:
+def calculate_subscription_total(selected_modules: List[str], include_core: bool = True) -> float:
     """Calculate total subscription amount based on selected modules"""
-    total = BASE_PLAN_PRICE
+    total = KORA_CORE_PRICE if include_core else 0.0
     for module_key in selected_modules:
         if module_key in MODULE_PRICES:
             total += MODULE_PRICES[module_key]
     return round(total, 2)
+
+
+async def get_dynamic_prices():
+    """Get prices from database if configured, otherwise use defaults"""
+    try:
+        config = await db.pricing_config.find_one({"active": True}, {"_id": 0})
+        if config:
+            return {
+                "kora_core": config.get("kora_core_price", KORA_CORE_PRICE),
+                "modules": config.get("module_prices", MODULE_PRICES)
+            }
+    except Exception:
+        pass
+    return {"kora_core": KORA_CORE_PRICE, "modules": MODULE_PRICES}
 
 
 def get_stripe_checkout(host_url: str) -> StripeCheckout:
