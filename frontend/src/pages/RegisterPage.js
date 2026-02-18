@@ -432,52 +432,55 @@ export default function RegisterPage() {
 
               {/* Pricing Summary */}
               <div className="bg-[#F7F8FA] rounded-xl p-4 mb-4">
+                {/* Kora Core */}
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#1F2937] font-medium">Kora Core</span>
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded">{isEs ? "INCLUIDO" : "INCLUDED"}</span>
-                  </div>
-                  <span className="text-emerald-600 font-semibold">{isEs ? "Gratis" : "Free"}</span>
+                  <span className="text-[#1F2937] font-medium">Kora Core</span>
+                  <span className="text-[#1F2937] font-semibold">${KORA_CORE.price}/mes</span>
                 </div>
+                
+                {/* Add-ons */}
                 {formData.selected_modules.length > 0 && (
-                  <>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-[#6B7280]">
-                        {formData.selected_modules.length} add-on(s)
-                      </span>
-                      <span className="text-[#6B7280] line-through text-xs">${addonCost}/mes</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-amber-600 text-xs flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {isEs ? "Primeros 7 días" : "First 7 days"}
-                      </span>
-                      <span className="text-amber-600 font-semibold">{isEs ? "Gratis" : "Free"}</span>
-                    </div>
-                  </>
-                )}
-                <div className="border-t border-gray-200 pt-2 mt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#1F2937]">{isEs ? "Hoy pagas" : "Pay today"}</span>
-                    <span className="font-bold text-lg text-emerald-600">$0</span>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-[#6B7280]">
+                      {formData.selected_modules.length} add-on(s)
+                    </span>
+                    <span className="text-[#1F2937]">+${addonCost}/mes</span>
                   </div>
-                  {formData.selected_modules.length > 0 && (
-                    <p className="text-xs text-[#6B7280] mt-1">
-                      {isEs 
-                        ? `Después de 7 días: $${addonCost}/mes por add-ons`
-                        : `After 7 days: $${addonCost}/mo for add-ons`}
-                    </p>
-                  )}
+                )}
+                
+                {/* Total after trial */}
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-[#1F2937]">{isEs ? "Total mensual" : "Monthly total"}</span>
+                    <span className="font-bold text-lg text-[#2563EB]">${totalCost}/mes</span>
+                  </div>
+                  
+                  {/* 7 day trial */}
+                  <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-amber-700 text-sm flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {isEs ? "7 días de prueba gratis" : "7-day free trial"}
+                      </span>
+                      <span className="font-bold text-amber-700">{isEs ? "Hoy: $0" : "Today: $0"}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="flex gap-3">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, selected_modules: [] }));
-                    setStep(3);
+                  onClick={() => setStep(3)}
+                  className="flex-1 h-12 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium"
+                  data-testid="continue-to-account-btn"
+                >
+                  {isEs ? "Continuar" : "Continue"}
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </>
+          )}
                   }}
                   className="flex-1 h-12 rounded-lg border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50"
                   data-testid="skip-modules-btn"
