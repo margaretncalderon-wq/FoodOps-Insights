@@ -317,9 +317,9 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Test Report: `/app/test_reports/iteration_38.json` - 25/25 tests passed (100%)
 
 ## Upcoming Tasks
-- **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
-- **P0:** Fase 2 - Industry Templates (Events, Professional Services, Generic)
-- **P1:** Complete i18n audit for all components
+- **P0:** Panel Super-Admin para gestionar industrias y módulos de clientes
+- **P1:** Conectar selección de add-ons con Stripe para pricing dinámico
+- **P1:** Complete i18n audit for all components (nuevos componentes de registro tienen algunos strings hardcoded)
 - **P1:** Server.py refactoring (extract remaining routers)
 - **P1:** Social Media Campaign Widget
 - **P1:** Email notifications (pending RESEND_API_KEY)
