@@ -460,11 +460,16 @@ export default function SystemPulse() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  {isProfessionalServices ? (
+                    <FolderKanban className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  ) : (
+                    <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  )}
                   <p className="text-sm">
-                    {isEs 
-                      ? "No hay eventos activos en esta ventana"
-                      : "No active events in this time window"}
+                    {isProfessionalServices
+                      ? (isEs ? "No hay proyectos activos en esta ventana" : "No active projects in this time window")
+                      : (isEs ? "No hay eventos activos en esta ventana" : "No active events in this time window")
+                    }
                   </p>
                 </div>
               )}
