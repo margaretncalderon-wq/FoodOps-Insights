@@ -52,6 +52,7 @@ class Event(BaseModel):
     client_id: str
     name: str
     event_type: str
+    engagement_type: EngagementType = EngagementType.EVENT
     event_date: Optional[datetime] = None
     event_date_tbd: bool = False
     end_date: Optional[datetime] = None  # For multi-day events
@@ -60,6 +61,9 @@ class Event(BaseModel):
     is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int
+    participant_count: Optional[int] = None
+    deliverables: Optional[str] = None
+    scope_summary: Optional[str] = None
     budget: float
     notes: Optional[str] = None
     status: str
