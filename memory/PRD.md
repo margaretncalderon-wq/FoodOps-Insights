@@ -344,7 +344,6 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 
 ## Upcoming Tasks
 - **P0:** Panel Super-Admin para gestionar industrias y módulos de clientes
-- **P1:** Conectar selección de add-ons con Stripe para pricing dinámico
 - **P1:** Complete i18n audit for all components (nuevos componentes de registro tienen algunos strings hardcoded)
 - **P1:** Server.py refactoring (extract remaining routers)
 - **P1:** Social Media Campaign Widget
