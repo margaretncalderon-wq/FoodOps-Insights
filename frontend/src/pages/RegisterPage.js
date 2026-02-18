@@ -5,7 +5,21 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft, Users, Calendar, ChefHat, Package, Sparkles, Clock } from "lucide-react";
+import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft, Users, Calendar, ChefHat, Package, Sparkles, Clock, Shield } from "lucide-react";
+
+// Kora Core - Required subscription
+const KORA_CORE = {
+  price: 69,
+  nameEn: "Kora Core",
+  nameEs: "Kora Core",
+  includes: [
+    { en: "System Pulse", es: "System Pulse" },
+    { en: "Execution Hub", es: "Execution Hub" },
+    { en: "Client Engagement", es: "Client Engagement" },
+    { en: "Business Clarity", es: "Business Clarity" },
+    { en: "1 Location", es: "1 Ubicación" },
+  ]
+};
 
 // Industry options with recommended add-ons
 const INDUSTRIES = [
@@ -18,7 +32,7 @@ const INDUSTRIES = [
     icon: Building2,
     color: "bg-purple-100 text-purple-700 border-purple-300",
     selectedColor: "bg-purple-600 text-white border-purple-600",
-    recommendedAddons: ["module_event_orchestration", "module_culinary_intelligence", "module_venues"],
+    recommendedAddons: ["module_event_suite", "module_culinary_intelligence"],
   },
   {
     key: "professional_services",
@@ -47,13 +61,13 @@ const INDUSTRIES = [
 // Available add-on modules with pricing
 const ADDON_MODULES = [
   {
-    key: "module_event_orchestration",
-    nameEn: "Event Orchestration",
-    nameEs: "Event Orchestration",
-    descEn: "Full event planning with timelines, room setup, and experience design",
-    descEs: "Planificación completa de eventos con cronogramas, montaje y diseño de experiencia",
-    price: 29,
-    icon: "🎵",
+    key: "module_event_suite",
+    nameEn: "Event Suite",
+    nameEs: "Event Suite",
+    descEn: "Event Orchestration + Venues & Locations combined",
+    descEs: "Event Orchestration + Venues & Locations combinados",
+    price: 39,
+    icon: "🎟️",
   },
   {
     key: "module_culinary_intelligence",
@@ -61,8 +75,8 @@ const ADDON_MODULES = [
     nameEs: "Inteligencia Culinaria",
     descEn: "Recipes, food costing, menu engineering, and ingredient management",
     descEs: "Recetas, costeo de alimentos, ingeniería de menús y gestión de ingredientes",
-    price: 25,
-    icon: "🍳",
+    price: 29,
+    icon: "🍽️",
   },
   {
     key: "module_operations_supplies",
@@ -74,21 +88,12 @@ const ADDON_MODULES = [
     icon: "📦",
   },
   {
-    key: "module_venues",
-    nameEn: "Venues & Locations",
-    nameEs: "Venues & Locations",
-    descEn: "Manage venues, rooms, availability calendar, and booking",
-    descEs: "Gestiona sedes, salones, calendario de disponibilidad y reservas",
-    price: 15,
-    icon: "🏢",
-  },
-  {
     key: "module_demand_studio",
     nameEn: "Demand Studio",
     nameEs: "Demand Studio",
     descEn: "Marketing campaigns, social media, and lead generation",
     descEs: "Campañas de marketing, redes sociales y generación de leads",
-    price: 35,
+    price: 39,
     icon: "📣",
   },
 ];
