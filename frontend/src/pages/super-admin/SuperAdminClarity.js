@@ -513,12 +513,12 @@ export default function SuperAdminClarity() {
 
         {/* Subscriptions Tab */}
         <TabsContent value="subscriptions" className="space-y-6">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-3xl font-bold">{overview?.total_organizations || 0}</p>
                 <p className="text-sm text-muted-foreground">
-                  {isEs ? "Total Suscriptores" : "Total Subscribers"}
+                  {isEs ? "Total Organizaciones" : "Total Organizations"}
                 </p>
               </CardContent>
             </Card>
@@ -532,37 +532,116 @@ export default function SuperAdminClarity() {
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold text-amber-500">{overview?.trialing_customers || 0}</p>
+                <p className="text-sm text-muted-foreground">
+                  {isEs ? "En Trial (7 días)" : "In Trial (7 days)"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
                 <p className="text-3xl font-bold text-muted-foreground">
-                  {(overview?.total_organizations || 0) - (overview?.paying_customers || 0)}
+                  {(overview?.total_organizations || 0) - (overview?.paying_customers || 0) - (overview?.trialing_customers || 0)}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {isEs ? "Plan Gratuito" : "Free Plan"}
+                  {isEs ? "Trial Expirado" : "Trial Expired"}
                 </p>
               </CardContent>
             </Card>
           </div>
 
+          {/* Kora Core - Required Subscription */}
+          <Card className="border-2 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-primary" />
+                Kora Core
+                <Badge className="bg-primary">{isEs ? "Suscripción Base" : "Base Subscription"}</Badge>
+              </CardTitle>
+              <CardDescription>
+                System Pulse • Execution Hub • Client Engagement • Business Clarity • 1 Location
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-primary/5">
+                <div>
+                  <p className="text-2xl font-bold">$69<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
+                  <p className="text-sm text-muted-foreground">
+                    {isEs ? "Precio actual de suscripción" : "Current subscription price"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-primary">{overview?.paying_customers || 0}</p>
+                  <p className="text-sm text-muted-foreground">{isEs ? "Suscriptores activos" : "Active subscribers"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Add-on Modules */}
           <Card>
             <CardHeader>
-              <CardTitle>{isEs ? "Distribución por Plan" : "Distribution by Plan"}</CardTitle>
+              <CardTitle>{isEs ? "Módulos Add-on" : "Add-on Modules"}</CardTitle>
+              <CardDescription>
+                {isEs ? "Módulos opcionales con 7 días de prueba gratis" : "Optional modules with 7-day free trial"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { name: "Starter", price: "$0", count: (overview?.total_organizations || 0) - (overview?.paying_customers || 0), color: "bg-slate-500" },
-                { name: "Professional", price: "$49", count: overview?.paying_customers || 0, color: "bg-blue-500" },
-                { name: "Enterprise", price: "$149", count: 0, color: "bg-purple-500" }
-              ].map(plan => (
-                <div key={plan.name} className="flex items-center justify-between p-4 rounded-lg border">
+                { name: "Event Suite", nameEs: "Event Suite", desc: "Event Orchestration + Venues", price: 39, color: "bg-purple-500", count: overview?.module_event_suite || 0 },
+                { name: "Culinary Intelligence", nameEs: "Inteligencia Culinaria", desc: isEs ? "Recetas, costeo, menús" : "Recipes, costing, menus", price: 29, color: "bg-orange-500", count: overview?.module_culinary_intelligence || 0 },
+                { name: "Operations Supplies", nameEs: "Operations Supplies", desc: isEs ? "Inventario, proveedores" : "Inventory, suppliers", price: 19, color: "bg-cyan-500", count: overview?.module_operations_supplies || 0 },
+                { name: "Demand Studio", nameEs: "Demand Studio", desc: "Marketing, leads", price: 39, color: "bg-pink-500", count: overview?.module_demand_studio || 0 }
+              ].map(module => (
+                <div key={module.name} className="flex items-center justify-between p-4 rounded-lg border">
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded ${plan.color}`} />
-                    <span>{plan.name}</span>
+                    <div className={`w-4 h-4 rounded ${module.color}`} />
+                    <div>
+                      <span className="font-medium">{isEs ? module.nameEs : module.name}</span>
+                      <p className="text-xs text-muted-foreground">{module.desc}</p>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold">{plan.count}</p>
-                    <p className="text-xs text-muted-foreground">{plan.price}/{isEs ? "mes" : "mo"}</p>
+                    <p className="font-bold">{module.count} {isEs ? "activos" : "active"}</p>
+                    <p className="text-xs text-muted-foreground">+${module.price}/{isEs ? "mes" : "mo"}</p>
                   </div>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* Revenue by Module */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{isEs ? "Ingresos por Módulo" : "Revenue by Module"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span>Kora Core ({overview?.paying_customers || 0} × $69)</span>
+                  <span className="font-bold text-green-500">${((overview?.paying_customers || 0) * 69).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Event Suite ({overview?.module_event_suite || 0} × $39)</span>
+                  <span className="font-bold">${((overview?.module_event_suite || 0) * 39).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Culinary Intelligence ({overview?.module_culinary_intelligence || 0} × $29)</span>
+                  <span className="font-bold">${((overview?.module_culinary_intelligence || 0) * 29).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Operations Supplies ({overview?.module_operations_supplies || 0} × $19)</span>
+                  <span className="font-bold">${((overview?.module_operations_supplies || 0) * 19).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Demand Studio ({overview?.module_demand_studio || 0} × $39)</span>
+                  <span className="font-bold">${((overview?.module_demand_studio || 0) * 39).toLocaleString()}</span>
+                </div>
+                <div className="pt-4 border-t flex items-center justify-between">
+                  <span className="font-semibold">{isEs ? "MRR Total Estimado" : "Estimated Total MRR"}</span>
+                  <span className="text-xl font-bold text-green-500">${overview?.mrr?.toLocaleString() || 0}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
