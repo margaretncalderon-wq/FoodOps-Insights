@@ -1458,10 +1458,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   : "Preview and print documents generated from this proposal"}
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               {/* Existing Invoices */}
               {existingInvoices.length > 0 && (
-                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <h4 className="font-medium text-amber-800 mb-2 flex items-center gap-2">
                     <DollarSign className="w-4 h-4" />
                     {language === "es" ? "Facturas Existentes" : "Existing Invoices"} ({existingInvoices.length})
@@ -1496,51 +1496,78 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </div>
               )}
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Proposal/Contract */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
-                  onClick={() => { setPreviewDocType("proposal"); setPreviewOpen(true); }}
-                  disabled={!proposal?.items?.length}
-                >
-                  <FileText className="w-8 h-8 text-blue-500" />
-                  <span className="font-medium">{language === "es" ? "Propuesta / Contrato" : "Proposal / Contract"}</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Con precios" : "With prices"}</span>
-                </Button>
+              {/* Client-Facing Documents Section */}
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                  <Send className="w-4 h-4" />
+                  {language === "es" ? "Documentos para el Cliente" : "Client-Facing Documents"}
+                </h4>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {/* Proposal/Contract */}
+                  <Button
+                    variant="outline"
+                    className="h-auto py-4 flex flex-col items-center gap-2 hover:border-primary"
+                    onClick={() => { setPreviewDocType("proposal"); setPreviewOpen(true); }}
+                    disabled={!proposal?.items?.length}
+                    data-testid="generate-proposal-btn"
+                  >
+                    <FileText className="w-6 h-6 text-blue-500" />
+                    <span className="font-medium text-sm">{language === "es" ? "Propuesta / Contrato" : "Proposal / Contract"}</span>
+                  </Button>
 
-                {/* Invoice Preview */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary"
-                  onClick={() => { setPreviewDocType("invoice"); setPreviewOpen(true); }}
-                  disabled={!proposal?.items?.length}
-                >
-                  <Eye className="w-8 h-8 text-green-500" />
-                  <span className="font-medium">{language === "es" ? "Vista Previa Factura" : "Invoice Preview"}</span>
-                  <span className="text-xs text-muted-foreground">{language === "es" ? "Solo vista" : "View only"}</span>
-                </Button>
+                  {/* Invoice Preview */}
+                  <Button
+                    variant="outline"
+                    className="h-auto py-4 flex flex-col items-center gap-2 hover:border-primary"
+                    onClick={() => { setPreviewDocType("invoice"); setPreviewOpen(true); }}
+                    disabled={!proposal?.items?.length}
+                    data-testid="preview-invoice-btn"
+                  >
+                    <Eye className="w-6 h-6 text-green-500" />
+                    <span className="font-medium text-sm">{language === "es" ? "Vista Previa Factura" : "Invoice Preview"}</span>
+                  </Button>
 
-                {/* Create Invoice - Business Clarity */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-6 flex flex-col items-center gap-3 hover:border-primary hover:bg-green-50 border-green-200"
-                  onClick={handleOpenInvoiceDialog}
-                  disabled={!proposal?.items?.length || !event?.client_id || !getInvoiceEligibility().canInvoice}
-                  data-testid="create-invoice-btn"
-                >
-                  <DollarSign className="w-8 h-8 text-green-600" />
-                  <span className="font-medium text-green-700">{language === "es" ? "Crear Factura" : "Create Invoice"}</span>
-                  <span className="text-xs text-green-600">{language === "es" ? "Business Clarity" : "Business Clarity"}</span>
-                </Button>
+                  {/* Create Invoice - Business Clarity */}
+                  <Button
+                    variant="outline"
+                    className="h-auto py-4 flex flex-col items-center gap-2 hover:border-primary hover:bg-green-50 border-green-200"
+                    onClick={handleOpenInvoiceDialog}
+                    disabled={!proposal?.items?.length || !event?.client_id || !getInvoiceEligibility().canInvoice}
+                    data-testid="create-invoice-btn"
+                  >
+                    <DollarSign className="w-6 h-6 text-green-600" />
+                    <span className="font-medium text-sm text-green-700">{language === "es" ? "Crear Factura" : "Create Invoice"}</span>
+                  </Button>
+                </div>
               </div>
 
-              {/* Note about operational documents */}
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                {language === "es" 
-                  ? "Documentos operativos (Hoja de Cocina, Lista de Montaje, Menú) disponibles en Event Orchestration"
-                  : "Operational documents (Kitchen Sheet, Packing List, Menu) available in Event Orchestration"}
-              </p>
+              {/* Internal Documents Section */}
+              {documentTypes.internal.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    {language === "es" ? "Documentos Internos / Operativos" : "Internal / Operational Documents"}
+                  </h4>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {documentTypes.internal.map((docType) => (
+                      <Button
+                        key={docType.type}
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-center gap-2 hover:border-muted-foreground/50 text-muted-foreground"
+                        onClick={() => { setPreviewDocType(docType.type); setPreviewOpen(true); }}
+                        disabled={!proposal?.items?.length}
+                        data-testid={`generate-${docType.type}-btn`}
+                      >
+                        <FileText className="w-6 h-6" />
+                        <span className="font-medium text-sm">{language === "es" ? docType.name_es : docType.name}</span>
+                        {docType.description_es && (
+                          <span className="text-xs text-center opacity-70">{language === "es" ? docType.description_es : docType.description}</span>
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {!proposal?.items?.length && (
                 <p className="text-sm text-muted-foreground text-center mt-4">
