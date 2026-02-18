@@ -802,12 +802,8 @@ export default function SettingsPage() {
           <p className="text-muted-foreground mt-1">{t("companySettings")}</p>
         </div>
 
-        <Tabs defaultValue="business-type" className="space-y-6">
+        <Tabs defaultValue="branding" className="space-y-6">
           <TabsList className="flex-wrap">
-            <TabsTrigger value="business-type" className="gap-2">
-              <Building2 className="w-4 h-4" />
-              {language === "es" ? "Tipo de Negocio" : "Business Type"}
-            </TabsTrigger>
             <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
             <TabsTrigger value="billing" className="gap-2">
               <DollarSign className="w-4 h-4" />
