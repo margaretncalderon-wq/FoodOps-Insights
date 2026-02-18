@@ -402,20 +402,25 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 | GET | /api/payments/my-subscription | Get user's subscription info |
 | POST | /api/payments/webhook/stripe | Handle Stripe webhooks |
 
-### December 18, 2025 - Kora Core & 7-Day Trial UI
+### December 18, 2025 - Modelo de Precios Actualizado
 
-#### UI Pricing Model Implementation - COMPLETED ✅
-- **RegisterPage Step 2:** Nueva UI clara para modelo de precios
-  - "Kora Core - ALWAYS FREE" badge verde con descripción
-  - "Add-on Modules" título con badge "7 days free" en amarillo
-  - Cada módulo muestra precio tachado + "7 days free"
-  - Resumen de pricing: "Kora Core INCLUDED - Free", "Pay today $0"
-  - Clarificación: "After 7 days: $X/mo for add-ons"
-- **BillingSection:** Card de Kora Core con 4 features (System Pulse, Client Engagement, Business Clarity, Execution Hub)
-  - Badge "Always Free" y precio $0/mes
-  - Banner "No limits on events, users, or features"
-  - Add-on Modules card con días de trial restantes
-- **Test Report:** `/app/test_reports/iteration_44.json` - 16/16 tests passed (100%)
+#### Nuevo Modelo de Precios - COMPLETED ✅
+- **Kora Core - $69/mes** (suscripción obligatoria)
+  - Incluye: System Pulse, Execution Hub, Client Engagement, Business Clarity, 1 Location
+- **Add-ons opcionales:**
+  - Event Suite - $39/mes (Event Orchestration + Venues combinados)
+  - Culinary Intelligence - $29/mes
+  - Operations Supplies - $19/mes
+  - Demand Studio - $39/mes
+- **Trial de 7 días** aplica a todo (Core + Add-ons)
+- **Super Admin puede editar precios** via `/api/super-admin/pricing`
+- **Test Report:** `/app/test_reports/iteration_45.json` - 28/30 tests (100%, 2 skipped por auth)
+
+#### Cambios realizados:
+- RegisterPage Step 2: "Power up your business" restaurado, Kora Core con $69 y badge INCLUDED
+- BillingSection: Kora Core como suscripción ($69), total mensual con breakdown
+- Backend: Nuevos precios, endpoint de pricing dinámico para Super Admin
+- Removido: Venues como módulo separado (ahora parte de Event Suite)
 
 ## Upcoming Tasks
 - **P1:** Post-trial workflow (notificar usuarios cuando termina el trial y prompt para agregar método de pago)
