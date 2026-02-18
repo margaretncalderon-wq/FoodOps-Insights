@@ -178,9 +178,11 @@ function EventsList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">{isEs ? "Eventos Confirmados" : "Confirmed Events"}</h2>
+          <h2 className="text-2xl font-bold">{isEs ? `${entityPlural} Confirmados` : `Confirmed ${entityPlural}`}</h2>
           <p className="text-muted-foreground">
-            {isEs ? "Solo eventos comprometidos aparecen aquí para ejecución" : "Only committed events appear here for execution"}
+            {isEs 
+              ? `Solo ${entityPlural.toLowerCase()} comprometidos aparecen aquí para ejecución` 
+              : `Only committed ${entityPlural.toLowerCase()} appear here for execution`}
           </p>
         </div>
         <div className="flex items-center gap-4">
