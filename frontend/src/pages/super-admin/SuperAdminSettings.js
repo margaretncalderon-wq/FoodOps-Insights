@@ -143,10 +143,173 @@ export default function SuperAdminSettings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="pricing">
+            <DollarSign className="w-4 h-4 mr-2" />
+            Precios
+          </TabsTrigger>
           <TabsTrigger value="leadform">Formulario de Leads</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="integrations">Integraciones</TabsTrigger>
         </TabsList>
+
+        {/* Pricing Configuration */}
+        <TabsContent value="pricing" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Kora Core Pricing */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                  Configuración de Precios
+                </CardTitle>
+                <CardDescription>
+                  Administra los precios de Kora Core y los módulos add-on
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {pricingLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Kora Core */}
+                    <div className="p-4 rounded-xl bg-primary/5 border-2 border-primary/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-semibold text-lg">Kora Core</h3>
+                          <p className="text-sm text-muted-foreground">
+                            System Pulse, Execution Hub, Client Engagement, Business Clarity, 1 Location
+                          </p>
+                        </div>
+                        <Badge className="bg-primary">Suscripción Base</Badge>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Label className="text-sm font-medium">Precio mensual:</Label>
+                        <div className="relative w-32">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={pricingConfig.kora_core_price}
+                            onChange={(e) => setPricingConfig(prev => ({
+                              ...prev,
+                              kora_core_price: parseFloat(e.target.value) || 0
+                            }))}
+                            className="pl-7"
+                          />
+                        </div>
+                        <span className="text-sm text-muted-foreground">/mes</span>
+                      </div>
+                    </div>
+
+                    {/* Add-on Modules */}
+                    <div>
+                      <h3 className="font-semibold mb-4">Módulos Add-on</h3>
+                      <div className="space-y-3">
+                        {Object.entries(MODULE_LABELS).map(([key, info]) => (
+                          <div 
+                            key={key}
+                            className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                          >
+                            <div>
+                              <p className="font-medium">{info.name}</p>
+                              <p className="text-sm text-muted-foreground">{info.desc}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="relative w-24">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={pricingConfig.module_prices[key] || 0}
+                                  onChange={(e) => updateModulePrice(key, e.target.value)}
+                                  className="pl-6 text-sm"
+                                />
+                              </div>
+                              <span className="text-sm text-muted-foreground">/mes</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Total Preview */}
+                    <div className="p-4 rounded-lg bg-muted/50 border">
+                      <p className="text-sm text-muted-foreground mb-2">Vista previa (si el cliente selecciona todo):</p>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Total mensual máximo:</span>
+                        <span className="text-2xl font-bold text-primary">
+                          ${(pricingConfig.kora_core_price + Object.values(pricingConfig.module_prices).reduce((a, b) => a + b, 0)).toFixed(0)}/mes
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <Button onClick={handleSavePricing} disabled={savingPricing} className="w-full">
+                      {savingPricing ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      Guardar Cambios
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Pricing History */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <History className="w-4 h-4" />
+                    Historial de Cambios
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={fetchPricing}>
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {pricingHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Sin cambios de precios registrados
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {pricingHistory.map((entry, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`p-3 rounded-lg border ${idx === 0 && entry.active ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-muted/30'}`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">
+                            Core: ${entry.kora_core_price}
+                          </span>
+                          {idx === 0 && entry.active && (
+                            <Badge className="bg-green-500 text-xs">Activo</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {entry.created_at ? new Date(entry.created_at).toLocaleString() : 'N/A'}
+                        </p>
+                        {entry.created_by_email && (
+                          <p className="text-xs text-muted-foreground">
+                            Por: {entry.created_by_email}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         {/* Lead Form Configuration */}
         <TabsContent value="leadform" className="space-y-6">
