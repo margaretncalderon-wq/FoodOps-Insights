@@ -596,7 +596,8 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - `/app/test_reports/iteration_43.json` - UI Unification & Module Pricing 16/16 (frontend only)
 - `/app/test_reports/iteration_44.json` - Kora Core & 7-Day Trial UI 16/16 (frontend only)
 - `/app/test_reports/iteration_45.json` - Pricing Model Update 28/30 (backend + frontend)
-- `/app/test_reports/iteration_47.json` - Send Contract to Client 11/11 (6 backend + 5 frontend) - NEW
+- `/app/test_reports/iteration_47.json` - Send Contract to Client 11/11 (6 backend + 5 frontend)
+- `/app/test_reports/iteration_49.json` - **Dynamic Terminology Refactor 15/15 (7 backend + 8 frontend)** - NEW
 
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
