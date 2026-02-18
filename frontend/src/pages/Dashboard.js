@@ -472,15 +472,16 @@ export default function SystemPulse() {
                     <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   )}
                   <p className="text-sm">
-                    {isProfessionalServices
-                      ? (isEs ? "No hay proyectos activos en esta ventana" : "No active projects in this time window")
-                      : (isEs ? "No hay eventos activos en esta ventana" : "No active events in this time window")
+                    {isEs 
+                      ? `No hay ${entityPlural.toLowerCase()} activos en esta ventana`
+                      : `No active ${entityPlural.toLowerCase()} in this time window`
                     }
                   </p>
                 </div>
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* -------------------- 2) ATTENTION REQUIRED -------------------- */}
           <Card data-testid="attention-required-section">
