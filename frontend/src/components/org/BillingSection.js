@@ -300,8 +300,8 @@ export function BillingSection() {
                 </CardTitle>
                 <CardDescription>
                   {isEs 
-                    ? `${activeModules.length} módulo(s) activo(s) • $${monthlyCost}/mes después del trial`
-                    : `${activeModules.length} active module(s) • $${monthlyCost}/mo after trial`}
+                    ? `${activeModules.length} módulo(s) activo(s) • +$${addonMonthlyCost}/mes`
+                    : `${activeModules.length} active module(s) • +$${addonMonthlyCost}/mo`}
                 </CardDescription>
               </div>
             </div>
@@ -366,8 +366,8 @@ export function BillingSection() {
                   </p>
                   <p className="text-sm text-amber-700 dark:text-amber-400">
                     {isEs 
-                      ? "Tienes 7 días para probar cada módulo. Al terminar, te notificaremos para que decidas si continuar."
-                      : "You have 7 days to try each module. When it ends, we'll notify you so you can decide whether to continue."}
+                      ? "Tienes 7 días para probar. Al terminar, te notificaremos para que decidas si continuar."
+                      : "You have 7 days to try. When it ends, we'll notify you so you can decide whether to continue."}
                   </p>
                 </div>
               </div>
@@ -378,9 +378,14 @@ export function BillingSection() {
           <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border">
             <div>
               <p className="text-sm text-muted-foreground">
-                {isEs ? "Costo mensual después del trial" : "Monthly cost after trial"}
+                {isEs ? "Costo mensual total" : "Total monthly cost"}
               </p>
-              <p className="text-2xl font-bold">${monthlyCost}<span className="text-sm font-normal">/mes</span></p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-bold">${totalMonthlyCost}<span className="text-sm font-normal">/mes</span></p>
+                <span className="text-xs text-muted-foreground">
+                  (Core ${KORA_CORE.price} + Add-ons ${addonMonthlyCost})
+                </span>
+              </div>
             </div>
             <Button onClick={() => setAddModuleDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
