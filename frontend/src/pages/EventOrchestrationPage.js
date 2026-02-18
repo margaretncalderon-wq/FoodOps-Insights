@@ -320,12 +320,12 @@ function EventsList() {
         })}
         {filteredEvents.length === 0 && (
           <div className="col-span-full text-center py-12 text-muted-foreground">
-            <Music4 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{isEs ? "No hay eventos para mostrar en esta ventana" : "No events to display in this time window"}</p>
+            <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>{isEs ? `No hay ${entityPlural.toLowerCase()} para mostrar en esta ventana` : `No ${entityPlural.toLowerCase()} to display in this time window`}</p>
             <p className="text-sm mt-2">
               {timeWindow !== "all" 
                 ? (isEs ? "Intenta cambiar el filtro de tiempo o ver 'Todos'" : "Try changing the time filter or view 'All'")
-                : (isEs ? "Los eventos deben marcarse como 'Committed' en Client Engagement" : "Events must be marked as 'Committed' in Client Engagement")}
+                : (isEs ? `Los ${entityPlural.toLowerCase()} deben marcarse como 'Committed' en Client Engagement` : `${entityPlural} must be marked as 'Committed' in Client Engagement`)}
             </p>
           </div>
         )}
@@ -339,10 +339,17 @@ function EventDetail() {
   const { eventId } = useParams();
   const { language } = useLanguage();
   const isEs = language === "es";
+  const { getProgramOrchestrationConfig, getFieldLabel, isEventsIndustry } = useModules();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("blueprint");
+
+  // Get dynamic terminology
+  const poConfig = useMemo(() => getProgramOrchestrationConfig(), [getProgramOrchestrationConfig]);
+  const entitySingular = isEs ? poConfig.entity_singular_es : poConfig.entity_singular_en;
+  const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
+  const guestCountLabel = getFieldLabel("guest_count", isEs ? "es" : "en");
 
   const fetchEvent = useCallback(async () => {
     try {
