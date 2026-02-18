@@ -91,10 +91,12 @@ async def register(data: UserCreate, response: Response):
     now = datetime.now(timezone.utc)
     
     company_name = data.company_name or f"{data.name}'s Company"
+    industry_template = data.industry_template or "events_hospitality"
     
     company_doc = {
         "company_id": company_id,
         "name": company_name,
+        "industry_template": industry_template,  # Store industry choice
         "logo_url": None,
         "primary_color": "#3A4D3F",
         "secondary_color": "#E5DCC5",
@@ -104,6 +106,28 @@ async def register(data: UserCreate, response: Response):
         "created_at": now.isoformat()
     }
     await db.companies.insert_one(company_doc)
+    
+    # Create organization config based on industry template
+    config_id = f"config_{uuid.uuid4().hex[:12]}"
+    from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
+    
+    template_enum = IndustryTemplate(industry_template) if industry_template in [e.value for e in IndustryTemplate] else IndustryTemplate.EVENTS_HOSPITALITY
+    template_data = INDUSTRY_TEMPLATES.get(template_enum, INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY])
+    
+    config_doc = {
+        "config_id": config_id,
+        "company_id": company_id,
+        "industry_template": industry_template,
+        "enabled_engagement_types": template_data["enabled_engagement_types"],
+        "default_engagement_type": template_data["default_engagement_type"],
+        "terminology": template_data.get("terminology", {}),
+        "pipeline_stages": template_data["pipeline_stages"],
+        "event_types": template_data["event_types"],
+        "client_types": template_data["client_types"],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    await db.organization_configs.insert_one(config_doc)
     
     user_doc = {
         "user_id": user_id,
