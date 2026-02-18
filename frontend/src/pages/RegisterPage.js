@@ -314,38 +314,47 @@ export default function RegisterPage() {
                 {isEs ? "Volver" : "Back"}
               </button>
 
-              {/* Kora Core - Always Free Badge */}
-              <div className="p-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-                    <Check className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-emerald-800">
-                      Kora Core <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-emerald-500 text-white rounded-full">{isEs ? "GRATIS SIEMPRE" : "ALWAYS FREE"}</span>
-                    </p>
-                    <p className="text-xs text-emerald-700">
-                      {isEs 
-                        ? "Dashboard, CRM, Reportes y Tareas — sin límites, sin costo"
-                        : "Dashboard, CRM, Reports & Tasks — no limits, no cost"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
+              {/* Title */}
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-5 h-5 text-[#2563EB]" />
                 <h1 className="font-heading text-xl lg:text-2xl font-bold text-[#1F2937]">
-                  {isEs ? "Módulos Add-on" : "Add-on Modules"}
-                  <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 border border-amber-300 rounded-full">
-                    {isEs ? "7 días gratis" : "7 days free"}
-                  </span>
+                  {isEs ? "Potencia tu negocio" : "Power up your business"}
                 </h1>
               </div>
               <p className="text-[#6B7280] mb-4 text-sm">
                 {isEs 
-                  ? "Prueba cualquier módulo por 7 días gratis. Sin compromiso."
-                  : "Try any module free for 7 days. No commitment."}
+                  ? "Prueba todo gratis por 7 días. Sin compromiso."
+                  : "Try everything free for 7 days. No commitment."}
+              </p>
+
+              {/* Kora Core - Required */}
+              <div className="p-4 mb-4 rounded-xl bg-gradient-to-r from-[#2563EB]/10 to-[#7C3AED]/10 border-2 border-[#2563EB]">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-[#2563EB] flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#1F2937] flex items-center gap-2">
+                        Kora Core
+                        <span className="px-2 py-0.5 text-xs font-medium bg-[#2563EB] text-white rounded-full">
+                          {isEs ? "INCLUIDO" : "INCLUDED"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-[#6B7280] mt-1">
+                        {KORA_CORE.includes.map(i => isEs ? i.es : i.en).join(" • ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-[#2563EB]">${KORA_CORE.price}<span className="text-xs font-normal">/mes</span></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add-ons Section */}
+              <p className="text-sm font-medium text-[#1F2937] mb-3">
+                {isEs ? "Módulos adicionales (opcionales)" : "Additional modules (optional)"}
               </p>
 
               {/* Recommended badge */}
@@ -361,7 +370,7 @@ export default function RegisterPage() {
               )}
 
               {/* Module Cards */}
-              <div className="space-y-3 mb-4 max-h-[280px] overflow-y-auto pr-1">
+              <div className="space-y-3 mb-4 max-h-[220px] overflow-y-auto pr-1">
                 {ADDON_MODULES.map((module) => {
                   const isSelected = formData.selected_modules.includes(module.key);
                   const isRecommended = getRecommendedModules().includes(module.key);
