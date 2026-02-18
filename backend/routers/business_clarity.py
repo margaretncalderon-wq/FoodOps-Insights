@@ -236,17 +236,16 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
     
     await db.invoices.insert_one(invoice)
     
-    # Audit log
-    await db.audit_logs.insert_one({
-        "log_id": f"log_{uuid.uuid4().hex[:12]}",
-        "company_id": user.company_id,
-        "user_id": user.user_id,
-        "action": "invoice_created",
-        "entity_type": "invoice",
-        "entity_id": invoice["invoice_id"],
-        "details": {"invoice_number": invoice_number, "total": total},
-        "created_at": now.isoformat()
-    })
+    # Log activity
+    await log_activity(
+        module="business_clarity",
+        action="create",
+        entity_type="invoice",
+        entity_id=invoice["invoice_id"],
+        entity_name=invoice_number,
+        event_id=data.event_id,
+        **user_info(user)
+    )
     
     del invoice["_id"]
     return invoice
