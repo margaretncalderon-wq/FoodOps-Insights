@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { Toaster } from "./components/ui/sonner";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ModulesProvider } from "./contexts/ModulesContext";
 import { Loader2 } from "lucide-react";
 
 // App version for cache busting - increment this on major updates
