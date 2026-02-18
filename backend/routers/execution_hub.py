@@ -993,3 +993,192 @@ async def get_execution_signals(user: User = Depends(get_current_user)):
             "completed_this_week": len(completed_goals)
         }
     }
+
+
+# ============== SEND TO EXECUTION HUB ==============
+
+# Default tasks by industry for execution goals
+INDUSTRY_DEFAULT_TASKS = {
+    "events_hospitality": [
+        {"title": "Confirmar venue y proveedores", "title_es": "Confirmar venue y proveedores", "order": 1},
+        {"title": "Finalizar menú y detalles de catering", "title_es": "Finalizar menú y detalles de catering", "order": 2},
+        {"title": "Coordinar logística y montaje", "title_es": "Coordinar logística y montaje", "order": 3},
+        {"title": "Reunión de pre-evento con equipo", "title_es": "Reunión de pre-evento con equipo", "order": 4},
+        {"title": "Confirmación final con cliente", "title_es": "Confirmación final con cliente", "order": 5},
+        {"title": "Ejecución del evento", "title_es": "Ejecución del evento", "order": 6},
+    ],
+    "professional_services": [
+        {"title": "Kick-off meeting con cliente", "title_es": "Kick-off meeting con cliente", "order": 1},
+        {"title": "Definir entregables y cronograma", "title_es": "Definir entregables y cronograma", "order": 2},
+        {"title": "Configuración inicial del proyecto", "title_es": "Configuración inicial del proyecto", "order": 3},
+        {"title": "Revisión de avance semanal", "title_es": "Revisión de avance semanal", "order": 4},
+        {"title": "QA y control de calidad", "title_es": "QA y control de calidad", "order": 5},
+        {"title": "Entrega final y cierre", "title_es": "Entrega final y cierre", "order": 6},
+    ],
+    "generic": [
+        {"title": "Planificación inicial", "title_es": "Planificación inicial", "order": 1},
+        {"title": "Preparación de recursos", "title_es": "Preparación de recursos", "order": 2},
+        {"title": "Ejecución del servicio", "title_es": "Ejecución del servicio", "order": 3},
+        {"title": "Control de calidad", "title_es": "Control de calidad", "order": 4},
+        {"title": "Cierre y seguimiento", "title_es": "Cierre y seguimiento", "order": 5},
+    ],
+}
+
+
+@execution_hub_router.get("/default-tasks/{industry}")
+async def get_default_tasks_for_industry(
+    industry: str,
+    user: User = Depends(get_current_user)
+):
+    """Get default tasks for an industry (used by frontend to show editable modal)"""
+    tasks = INDUSTRY_DEFAULT_TASKS.get(industry, INDUSTRY_DEFAULT_TASKS["generic"])
+    return {"industry": industry, "tasks": tasks}
+
+
+@execution_hub_router.post("/from-event/{event_id}")
+async def create_goal_from_event(
+    event_id: str,
+    data: dict,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user)
+):
+    """
+    Create an Execution Hub goal from an event/project.
+    Accepts custom tasks from the frontend modal.
+    """
+    # Check goal limit
+    can_create = await check_goal_limit(user.company_id)
+    if not can_create:
+        limit = await get_effective_goal_limit(user.company_id)
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Has alcanzado el límite de {limit} metas de ejecución este mes."
+        )
+    
+    # Get the event
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Evento/Proyecto no encontrado")
+    
+    # Check if goal already exists for this event
+    existing_goal = await db.execution_goals.find_one({
+        "context_type": "event",
+        "context_id": event_id
+    })
+    if existing_goal:
+        raise HTTPException(
+            status_code=400, 
+            detail="Ya existe una meta de ejecución para este evento/proyecto"
+        )
+    
+    now = datetime.now(timezone.utc)
+    goal_id = f"goal_{uuid.uuid4().hex[:12]}"
+    
+    # Create the goal
+    goal_doc = {
+        "goal_id": goal_id,
+        "company_id": user.company_id,
+        "title": data.get("title") or f"Ejecutar: {event['name']}",
+        "objective": data.get("objective") or f"Completar exitosamente el proyecto/evento: {event['name']}",
+        "owner_id": user.user_id,
+        "owner_name": user.name or user.email,
+        "status": ExecutionStatus.PLANNING.value,
+        "context_type": "event",
+        "context_id": event_id,
+        "context_name": event["name"],
+        "impact_areas": data.get("impact_areas", ["quality", "speed"]),
+        "start_date": now.isoformat(),
+        "target_date": event.get("event_date") or event.get("end_date"),
+        "notes": [],
+        "linked_items": [
+            {
+                "item_type": "event",
+                "item_id": event_id,
+                "item_name": event["name"],
+                "linked_at": now.isoformat(),
+                "linked_by": user.user_id
+            }
+        ],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "created_from": "event_send_to_execution"
+    }
+    
+    await db.execution_goals.insert_one(goal_doc)
+    
+    # Create tasks from the provided list
+    tasks = data.get("tasks", [])
+    created_tasks = []
+    
+    for idx, task_data in enumerate(tasks):
+        task_id = f"task_{uuid.uuid4().hex[:12]}"
+        
+        # Calculate due date based on event date and task order
+        due_date = None
+        if event.get("event_date"):
+            try:
+                event_date = datetime.fromisoformat(event["event_date"].replace("Z", "+00:00"))
+                # Distribute tasks before event date
+                days_before = max(1, (len(tasks) - idx) * 2)  # Earlier tasks have more days
+                due_date = (event_date - timedelta(days=days_before)).isoformat()
+            except:
+                pass
+        
+        task_doc = {
+            "task_id": task_id,
+            "goal_id": goal_id,
+            "company_id": user.company_id,
+            "title": task_data.get("title"),
+            "description": task_data.get("description", ""),
+            "status": "pending",
+            "assignees": [{
+                "user_id": user.user_id,
+                "name": user.name or user.email,
+                "email": user.email,
+                "role": "team_member",
+                "is_external": False,
+                "assigned_at": now.isoformat(),
+                "assigned_by": user.user_id
+            }],
+            "due_date": due_date,
+            "notes": [],
+            "change_log": [add_change_log(user.user_id, user.name or user.email, "created")],
+            "created_by": user.user_id,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "order": idx + 1
+        }
+        
+        await db.execution_tasks.insert_one(task_doc)
+        del task_doc["_id"]
+        created_tasks.append(task_doc)
+    
+    # Update event to mark it as sent to execution hub
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {
+            "execution_goal_id": goal_id,
+            "sent_to_execution_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Log activity
+    await log_activity(
+        module="execution_hub",
+        action="create_from_event",
+        entity_type="goal",
+        entity_id=goal_id,
+        entity_name=goal_doc["title"],
+        event_id=event_id,
+        metadata={"tasks_count": len(created_tasks)},
+        **user_info(user)
+    )
+    
+    del goal_doc["_id"]
+    
+    return {
+        "goal": goal_doc,
+        "tasks": created_tasks,
+        "message": "Meta de ejecución creada exitosamente"
+    }
