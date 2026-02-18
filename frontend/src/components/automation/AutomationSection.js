@@ -70,19 +70,10 @@ export default function AutomationSection() {
   const [activeTab, setActiveTab] = useState("rules");
   
   // Dialog states
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [editingRule, setEditingRule] = useState(null);
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    trigger_type: "",
-    trigger_days: 30,
-    actions: []
-  });
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [builderRule, setBuilderRule] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
