@@ -324,8 +324,10 @@ function App() {
       <AuthProvider>
         <LanguageProvider>
           <ModulesProvider>
-            <AppRouter />
-            <Toaster position="top-right" richColors />
+            <OrgConfigProvider>
+              <AppRouter />
+              <Toaster position="top-right" richColors />
+            </OrgConfigProvider>
           </ModulesProvider>
         </LanguageProvider>
       </AuthProvider>
