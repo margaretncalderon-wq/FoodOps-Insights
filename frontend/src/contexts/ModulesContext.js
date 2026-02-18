@@ -43,7 +43,8 @@ export const ModulesProvider = ({ children }) => {
         setPlanId(data.plan_id);
         setCoreModules(data.core_modules || []);
         setAddonModules(data.addon_modules || []);
-        setIndustry(data.industry || "events_hospitality");
+        setIndustry(data.industry_type || data.industry || "events");
+        setIndustryConfig(data.industry_config || null);
         setTerminology(data.terminology || {});
       }
     } catch (error) {
