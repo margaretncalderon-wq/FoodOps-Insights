@@ -13,6 +13,7 @@ export const ModulesProvider = ({ children }) => {
   const [coreModules, setCoreModules] = useState([]);
   const [addonModules, setAddonModules] = useState([]);
   const [industry, setIndustry] = useState("events_hospitality");
+  const [industryConfig, setIndustryConfig] = useState(null);
   const [terminology, setTerminology] = useState({});
 
   const fetchModules = useCallback(async () => {
