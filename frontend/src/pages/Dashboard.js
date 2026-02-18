@@ -773,10 +773,7 @@ export default function SystemPulse() {
                 )}
               </div>
               <span className="text-sm font-medium text-center">
-                {isProfessionalServices 
-                  ? (isEs ? "Nuevo Proyecto" : "New Project")
-                  : (isEs ? "Nueva Oportunidad" : "New Event Opportunity")
-                }
+                {isEs ? `Nuevo ${entitySingular}` : `New ${entitySingular}`}
               </span>
             </Link>
             <Link 
