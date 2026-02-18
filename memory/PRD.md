@@ -483,6 +483,52 @@ Sistema flexible de tipos de documentos que cambia según la industria de la org
 - Sección "Client-Facing Documents" y "Internal / Operational Documents" separadas
 - Documentos internos muestran descripción como ayuda
 
+## Send to Execution Hub (NEW - February 18, 2026) ✅
+
+### Descripción
+Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution Hub con tareas predeterminadas por industria.
+
+### Backend Endpoints
+- `GET /api/execution-hub/default-tasks/{industry}` - Obtiene tareas predeterminadas por industria
+- `POST /api/execution-hub/from-event/{event_id}` - Crea Goal con tareas desde un evento/proyecto
+
+### Tareas por Industria
+**Events & Hospitality (6 tareas):**
+1. Confirmar venue y proveedores
+2. Finalizar menú y detalles de catering
+3. Coordinar logística y montaje
+4. Reunión de pre-evento con equipo
+5. Confirmación final con cliente
+6. Ejecución del evento
+
+**Professional Services (6 tareas):**
+1. Kick-off meeting con cliente
+2. Definir entregables y cronograma
+3. Configuración inicial del proyecto
+4. Revisión de avance semanal
+5. QA y control de calidad
+6. Entrega final y cierre
+
+**Generic (5 tareas):**
+1. Planificación inicial
+2. Preparación de recursos
+3. Ejecución del servicio
+4. Control de calidad
+5. Cierre y seguimiento
+
+### Frontend
+- Botón "Send to Execution Hub" (verde con 🚀) visible cuando stage=Committed y no hay Goal existente
+- Botón "View in Execution Hub" (verde outline con 🎯) cuando ya existe Goal
+- Modal con tareas editables antes de confirmar
+- Redirección automática a Execution Hub después de crear
+
+### Automation Templates
+- **Deal Won → Execution Hub:** Trigger automático cuando deal cambia a "Committed"
+- **Project Kickoff Tasks:** Tareas automáticas al iniciar proyecto
+
+### Test Report
+- `/app/test_reports/iteration_48.json` - 17/17 tests passed (9 backend + 8 frontend)
+
 ## Automation Engine (NEW - December 18, 2025)
 
 ### Backend Endpoints
@@ -492,7 +538,7 @@ Sistema flexible de tipos de documentos que cambia según la industria de la org
 - `PUT /api/automation/rules/{rule_id}` - Update rule
 - `DELETE /api/automation/rules/{rule_id}` - Delete rule
 - `POST /api/automation/rules/{rule_id}/toggle` - Toggle active/paused
-- `GET /api/automation/templates` - 5 predefined templates
+- `GET /api/automation/templates` - 7 predefined templates (NEW: 2 execution templates)
 - `POST /api/automation/templates/{id}/create` - Create from template
 - `GET /api/automation/stats` - Statistics
 - `GET /api/automation/logs` - Execution logs
@@ -503,6 +549,8 @@ Sistema flexible de tipos de documentos que cambia según la industria de la org
 3. Inactive Client Reactivation - task when client inactive 30 days
 4. Event Preparation Reminder - tasks 7 days before event
 5. Overdue Follow-up Alert - escalate overdue follow-ups
+6. **Deal Won → Execution Hub** (NEW) - auto-create execution goal when committed
+7. **Project Kickoff Tasks** (NEW) - create kickoff tasks when project starts
 
 ### Test Report
 - `/app/test_reports/iteration_46.json` - 27/27 tests passed (100%)
