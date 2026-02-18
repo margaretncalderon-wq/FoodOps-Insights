@@ -298,6 +298,11 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Frontend: Formulario de creación con selector de tipo de trabajo
   - Frontend: Campos condicionales según engagement_type
   - Frontend: Badge de tipo en lista de eventos
+- ✅ **Registro con Selección de Industria** (February 18, 2026)
+  - Step 1: Selector de industria con 3 opciones (Events, Professional Services, Generic)
+  - Step 2: Formulario de cuenta con badge de industria seleccionada
+  - Backend: industry_template guardado en company y organization_config creado automáticamente
+  - Removido "Business Type" de Settings (ahora es solo admin)
 
 ## Upcoming Tasks
 - **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
