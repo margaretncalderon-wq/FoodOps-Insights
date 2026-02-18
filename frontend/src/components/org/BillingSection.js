@@ -12,12 +12,21 @@ import {
 } from "../ui/dialog";
 import { 
   CreditCard, Calendar, AlertTriangle, Check, 
-  Loader2, Users, FileText, Package, CheckCircle2, Plus, X, Sparkles
+  Loader2, Users, FileText, Package, CheckCircle2, Plus, X, Sparkles,
+  Clock, Zap, Shield, BarChart3, Target, Activity
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 
-// Module configuration
+// Kora Core Features (Always Free)
+const KORA_CORE_FEATURES = [
+  { icon: Activity, nameEn: "System Pulse", nameEs: "System Pulse", descEn: "Real-time dashboard", descEs: "Dashboard en tiempo real" },
+  { icon: Users, nameEn: "Client Engagement", nameEs: "Client Engagement", descEn: "CRM & client management", descEs: "CRM y gestión de clientes" },
+  { icon: BarChart3, nameEn: "Business Clarity", nameEs: "Business Clarity", descEn: "Reports & analytics", descEs: "Reportes y analíticas" },
+  { icon: Target, nameEn: "Execution Hub", nameEs: "Execution Hub", descEn: "Task & goal tracking", descEs: "Seguimiento de tareas y metas" },
+];
+
+// Module configuration (Add-ons with 7-day trial)
 const MODULES = [
   { 
     key: "module_event_orchestration", 
