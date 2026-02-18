@@ -260,6 +260,9 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+      <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/payment/cancel" element={<PaymentCancelPage />} />
+      <Route path="/payment/addon-success" element={<PaymentSuccessPage />} />
       <Route path="/portal/:documentId" element={<ClientPortal />} />
       <Route path="/portal/delivery/:eventId" element={<ClientDeliveryNote />} />
       <Route path="/portal/event/:eventId" element={<ClientEventPortal />} />
