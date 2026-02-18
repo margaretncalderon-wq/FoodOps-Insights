@@ -90,6 +90,50 @@ export default function OrganizationDetailPage() {
     }
   };
 
+  const fetchModules = async () => {
+    setLoadingModules(true);
+    try {
+      const res = await axios.get(`${API}/api/super-admin/organizations/${id}/modules`, { withCredentials: true });
+      setModules(res.data || { active_modules: [], available_modules: [], active_module_keys: [] });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load modules");
+    }
+    setLoadingModules(false);
+  };
+
+  const activateModule = async (moduleKey) => {
+    try {
+      await axios.post(`${API}/api/super-admin/organizations/${id}/modules/${moduleKey}/activate`, {}, { withCredentials: true });
+      toast.success("Module activated");
+      fetchModules();
+      fetchOrganization();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to activate module");
+    }
+  };
+
+  const deactivateModule = async (moduleKey) => {
+    try {
+      await axios.delete(`${API}/api/super-admin/organizations/${id}/modules/${moduleKey}/deactivate`, { withCredentials: true });
+      toast.success("Module deactivated");
+      fetchModules();
+      fetchOrganization();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to deactivate module");
+    }
+  };
+
+  const updateIndustry = async (industryTemplate) => {
+    try {
+      await axios.put(`${API}/api/super-admin/organizations/${id}/industry`, { industry_template: industryTemplate }, { withCredentials: true });
+      toast.success("Industry updated");
+      fetchOrganization();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to update industry");
+    }
+  };
+
   const saveNotes = async () => {
     setSaving(true);
     try {
