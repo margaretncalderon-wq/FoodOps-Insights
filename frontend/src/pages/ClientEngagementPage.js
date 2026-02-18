@@ -225,6 +225,9 @@ export default function ClientEngagementPage() {
             <Route path="crm/owners" element={<OwnerAssignmentSection />} />
             <Route path="crm/clients" element={<ClientsSection />} />
             
+            {/* Automation */}
+            <Route path="automation" element={<AutomationSection />} />
+            
             {/* Fallback */}
             <Route path="*" element={<Navigate to="calendar" replace />} />
           </Routes>
