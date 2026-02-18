@@ -393,6 +393,152 @@ export default function OrganizationDetailPage() {
           </div>
         </TabsContent>
 
+        {/* Modules Tab */}
+        <TabsContent value="modules">
+          <div className="space-y-6">
+            {/* Industry Section */}
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Briefcase className="w-5 h-5" />
+                  Industry Template
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-3 flex-wrap">
+                  {["events_hospitality", "professional_services", "generic"].map((ind) => (
+                    <Button
+                      key={ind}
+                      variant={org.industry_template === ind ? "default" : "outline"}
+                      className={org.industry_template === ind 
+                        ? "bg-blue-600 hover:bg-blue-700" 
+                        : "border-slate-600 hover:bg-slate-700"}
+                      onClick={() => updateIndustry(ind)}
+                      data-testid={`industry-btn-${ind}`}
+                    >
+                      {ind === "events_hospitality" && "Events & Hospitality"}
+                      {ind === "professional_services" && "Professional Services"}
+                      {ind === "generic" && "General Services"}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-slate-500 text-sm mt-2">
+                  Current: <span className="text-slate-300">{org.industry_template || "Not set"}</span>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Active Modules Section */}
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Active Modules ({modules.active_modules?.length || 0})
+                </CardTitle>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-slate-600"
+                  onClick={fetchModules}
+                  disabled={loadingModules}
+                >
+                  {loadingModules ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {loadingModules ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                  </div>
+                ) : modules.active_modules?.length === 0 ? (
+                  <p className="text-slate-500 text-center py-4">No active modules</p>
+                ) : (
+                  <div className="space-y-3">
+                    {modules.active_modules?.map((mod) => (
+                      <div 
+                        key={mod.org_addon_id} 
+                        className="flex items-center justify-between p-3 bg-slate-900 rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium text-slate-200">{mod.addon_name}</p>
+                          <p className="text-sm text-slate-500">
+                            ${mod.price_paid}/mes • {mod.admin_granted ? "Admin granted" : "Purchased"}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deactivateModule(mod.addon_id?.replace("addon_", ""))}
+                          data-testid={`deactivate-${mod.addon_id}`}
+                        >
+                          <Ban className="w-4 h-4 mr-1" />
+                          Deactivate
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {modules.active_modules?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-700 flex justify-between">
+                    <span className="text-slate-400">Monthly Module Cost</span>
+                    <span className="font-bold text-green-400">${modules.monthly_module_cost?.toFixed(2) || "0.00"}/mes</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Available Modules Section */}
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="w-5 h-5 text-slate-400" />
+                  Available Modules
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { key: "module_event_orchestration", name: "Event Orchestration", price: 29 },
+                    { key: "module_culinary_intelligence", name: "Culinary Intelligence", price: 25 },
+                    { key: "module_operations_supplies", name: "Operations Supplies", price: 19 },
+                    { key: "module_venues", name: "Venues & Locations", price: 15 },
+                    { key: "module_demand_studio", name: "Demand Studio", price: 35 },
+                  ].filter(m => !modules.active_module_keys?.includes(m.key)).map((mod) => (
+                    <div 
+                      key={mod.key}
+                      className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-700"
+                    >
+                      <div>
+                        <p className="font-medium text-slate-300">{mod.name}</p>
+                        <p className="text-sm text-slate-500">${mod.price}/mes</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-green-600 text-green-400 hover:bg-green-900/30"
+                        onClick={() => activateModule(mod.key)}
+                        data-testid={`activate-${mod.key}`}
+                      >
+                        <Check className="w-4 h-4 mr-1" />
+                        Activate
+                      </Button>
+                    </div>
+                  ))}
+                  {[
+                    { key: "module_event_orchestration", name: "Event Orchestration", price: 29 },
+                    { key: "module_culinary_intelligence", name: "Culinary Intelligence", price: 25 },
+                    { key: "module_operations_supplies", name: "Operations Supplies", price: 19 },
+                    { key: "module_venues", name: "Venues & Locations", price: 15 },
+                    { key: "module_demand_studio", name: "Demand Studio", price: 35 },
+                  ].filter(m => !modules.active_module_keys?.includes(m.key)).length === 0 && (
+                    <p className="text-slate-500 text-center py-4 col-span-2">All modules are active</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         {/* Members Tab */}
         <TabsContent value="members">
           <Card className="bg-slate-800 border-slate-700">
