@@ -13926,6 +13926,95 @@ async def update_org_industry(company_id: str, data: dict, admin: User = Depends
     return {"success": True, "industry_template": industry_template}
 
 
+# ============== PRICING MANAGEMENT ==============
+DEFAULT_KORA_CORE_PRICE = 69.00
+DEFAULT_MODULE_PRICES = {
+    "module_event_suite": 39.00,
+    "module_culinary_intelligence": 29.00,
+    "module_operations_supplies": 19.00,
+    "module_demand_studio": 39.00,
+}
+
+@super_admin_router.get("/pricing")
+async def get_pricing_config(admin: User = Depends(get_super_admin)):
+    """Get current pricing configuration"""
+    config = await db.pricing_config.find_one({"active": True}, {"_id": 0})
+    
+    if not config:
+        return {
+            "kora_core_price": DEFAULT_KORA_CORE_PRICE,
+            "module_prices": DEFAULT_MODULE_PRICES,
+            "is_default": True
+        }
+    
+    return {
+        "kora_core_price": config.get("kora_core_price", DEFAULT_KORA_CORE_PRICE),
+        "module_prices": config.get("module_prices", DEFAULT_MODULE_PRICES),
+        "is_default": False,
+        "created_at": config.get("created_at"),
+        "created_by": config.get("created_by")
+    }
+
+
+@super_admin_router.put("/pricing")
+async def update_pricing_config(data: dict, admin: User = Depends(get_super_admin)):
+    """Update pricing configuration (Super Admin only)"""
+    now = datetime.now(timezone.utc)
+    
+    # Get current config to merge
+    current = await db.pricing_config.find_one({"active": True})
+    current_kora = current.get("kora_core_price", DEFAULT_KORA_CORE_PRICE) if current else DEFAULT_KORA_CORE_PRICE
+    current_modules = current.get("module_prices", DEFAULT_MODULE_PRICES) if current else DEFAULT_MODULE_PRICES
+    
+    # Merge updates
+    new_kora = data.get("kora_core_price", current_kora)
+    new_modules = {**current_modules, **(data.get("module_prices") or {})}
+    
+    # Deactivate previous config
+    await db.pricing_config.update_many(
+        {"active": True},
+        {"$set": {"active": False, "deactivated_at": now.isoformat()}}
+    )
+    
+    # Create new config
+    new_config = {
+        "kora_core_price": new_kora,
+        "module_prices": new_modules,
+        "active": True,
+        "created_at": now.isoformat(),
+        "created_by": admin.user_id,
+        "created_by_email": admin.email
+    }
+    
+    await db.pricing_config.insert_one(new_config)
+    
+    # Log action
+    await log_super_admin_action(admin.user_id, "update_pricing", None, {
+        "kora_core_price": new_kora,
+        "module_prices": new_modules
+    })
+    
+    logger.info(f"Pricing updated by {admin.email}: Core=${new_kora}")
+    
+    return {
+        "success": True,
+        "message": "Pricing updated successfully",
+        "kora_core_price": new_kora,
+        "module_prices": new_modules
+    }
+
+
+@super_admin_router.get("/pricing/history")
+async def get_pricing_history(limit: int = 10, admin: User = Depends(get_super_admin)):
+    """Get pricing change history"""
+    history = await db.pricing_config.find(
+        {},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {"history": history}
+
+
 # ============== DEMAND STUDIO ENDPOINTS ==============
 # All Demand Studio endpoints moved to routers/demand_studio.py
 
