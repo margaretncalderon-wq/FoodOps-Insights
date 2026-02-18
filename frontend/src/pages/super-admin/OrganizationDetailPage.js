@@ -39,6 +39,10 @@ export default function OrganizationDetailPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   
+  // Module management
+  const [modules, setModules] = useState({ active_modules: [], available_modules: [], active_module_keys: [] });
+  const [loadingModules, setLoadingModules] = useState(false);
+  
   // Dialogs
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
