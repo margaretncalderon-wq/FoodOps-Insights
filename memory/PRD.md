@@ -455,6 +455,34 @@ Funcionalidad para enviar contratos/propuestas generados directamente al cliente
 - El envío de emails está **MOCKED** (devuelve status 'skipped') hasta que se configure RESEND_API_KEY
 - La lógica completa funciona correctamente, solo falta el API key para envío real
 
+## Document Types by Industry (NEW - February 18, 2026) ✅
+
+### Descripción
+Sistema flexible de tipos de documentos que cambia según la industria de la organización.
+
+### Categorías de Documentos
+1. **Client-Facing (Estándar para todas las industrias):**
+   - Propuesta (quote)
+   - Contrato (contract)
+   - Factura (invoice)
+
+2. **Internal Documents (Por industria):**
+   - **Events & Hospitality:**
+     - BEO, Kitchen Sheet, Menu, Mise en Place, Packing List, Timeline
+   - **Professional Services:**
+     - SOW, Project Brief, Progress Report, Deliverables Checklist, Meeting Notes, Monthly Report
+   - **Generic:**
+     - Service Order, Work Checklist, Completion Report
+
+### Backend
+- `GET /api/settings/document-types` - Devuelve tipos de documento según industria
+- Modelo actualizado en `/app/backend/models/organization_config.py`
+
+### Frontend
+- UI actualizada en `/app/frontend/src/components/ProposalEditor.js`
+- Sección "Client-Facing Documents" y "Internal / Operational Documents" separadas
+- Documentos internos muestran descripción como ayuda
+
 ## Automation Engine (NEW - December 18, 2025)
 
 ### Backend Endpoints
