@@ -422,6 +422,39 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Backend: Nuevos precios, endpoint de pricing dinámico para Super Admin
 - Removido: Venues como módulo separado (ahora parte de Event Suite)
 
+## Send Contract to Client Feature (NEW - February 18, 2026) ✅
+
+### Descripción
+Funcionalidad para enviar contratos/propuestas generados directamente al cliente via email con:
+- Link al portal del cliente donde puede ver/firmar el documento
+- Email profesional con branding de la empresa
+- Actualización automática del estado del documento a "sent"
+
+### Backend Endpoints
+- `POST /api/documents/{document_id}/send` - Enviar documento al cliente
+
+### Features
+- **Email Template:** Template profesional en español con:
+  - Branding de la empresa (nombre y color)
+  - Detalles del evento (nombre, fecha, total)
+  - Botón CTA para revisar/firmar documento
+  - Link al portal del cliente
+- **Status Update:** Documento se marca como "sent" automáticamente
+- **Activity Log:** Se registra la acción en el log de actividades
+- **Error Handling:** Validaciones para cliente sin email, documento no encontrado, etc.
+
+### Frontend UI
+- **Botón Send (verde):** Visible en la pestaña "Generate" para documentos tipo contract/quote no firmados
+- **Badge "Sent" (azul):** Se muestra para documentos enviados
+- **Toast notifications:** Confirmación de envío exitoso o errores
+
+### Test Report
+- `/app/test_reports/iteration_47.json` - 11/11 tests passed (6 backend + 5 frontend)
+
+### Notas
+- El envío de emails está **MOCKED** (devuelve status 'skipped') hasta que se configure RESEND_API_KEY
+- La lógica completa funciona correctamente, solo falta el API key para envío real
+
 ## Automation Engine (NEW - December 18, 2025)
 
 ### Backend Endpoints
@@ -447,15 +480,23 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - `/app/test_reports/iteration_46.json` - 27/27 tests passed (100%)
 
 ## Upcoming Tasks
-- **P1:** Integrar Resend para emails transaccionales (BLOQUEADO - esperando RESEND_API_KEY del usuario)
+- **P1:** Gestión de Presupuestos de Marketing por Cliente/Proyecto (integrado en Client Engagement + Execution Hub)
+  - Presupuestos por cliente/proyecto
+  - División por canales (Meta Ads, Google Ads, TikTok, etc.)
+  - Tracking gasto real vs presupuesto
+  - Integración con APIs de ads (Meta, Google) para datos automáticos
+  - Visible en Client Portal
+- **P2:** Flujo Post-Trial (notificaciones fin de trial de 7 días)
 - **P2:** Refactorizar `server.py` (mover rutas a routers separados)
 - **P2:** Completar auditoría i18n en componentes nuevos
+- **P3:** Integrar Resend para emails transaccionales (BLOQUEADO - esperando RESEND_API_KEY)
 
 ## Email Templates Preparados (Pendiente API Key)
 - Welcome Email (nuevo usuario)
 - Trial Ending Email (notificación de fin de prueba)
 - Password Reset Email
 - Payment Confirmation Email
+- **Contract/Document Send Email** (NEW - para enviar contratos a clientes)
 
 ## Future Tasks
 - Email Purchase Orders
@@ -478,7 +519,8 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - `/app/test_reports/iteration_42.json` - Super Admin Export & Alerts 35/35 (22 backend + 13 frontend)
 - `/app/test_reports/iteration_43.json` - UI Unification & Module Pricing 16/16 (frontend only)
 - `/app/test_reports/iteration_44.json` - Kora Core & 7-Day Trial UI 16/16 (frontend only)
-- `/app/test_reports/iteration_45.json` - Pricing Model Update 28/30 (backend + frontend) - NEW
+- `/app/test_reports/iteration_45.json` - Pricing Model Update 28/30 (backend + frontend)
+- `/app/test_reports/iteration_47.json` - Send Contract to Client 11/11 (6 backend + 5 frontend) - NEW
 
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
