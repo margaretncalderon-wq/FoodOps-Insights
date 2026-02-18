@@ -233,24 +233,84 @@ export function BillingSection() {
 
   return (
     <div className="space-y-6" data-testid="billing-section">
-      {/* Active Modules Card */}
+      {/* Kora Core - Always Free */}
+      <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Shield className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  Kora Core
+                  <Badge className="bg-emerald-500 text-white">
+                    {isEs ? "Gratis Siempre" : "Always Free"}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {isEs 
+                    ? "Tu base completa para gestionar tu negocio"
+                    : "Your complete foundation to manage your business"}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-primary">$0</p>
+              <p className="text-sm text-muted-foreground">/mes</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {KORA_CORE_FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div key={feature.nameEn} className="flex items-center gap-2 p-3 rounded-lg bg-background/50">
+                  <Icon className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">{isEs ? feature.nameEs : feature.nameEn}</p>
+                    <p className="text-xs text-muted-foreground">{isEs ? feature.descEs : feature.descEn}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <span className="text-sm text-emerald-800 dark:text-emerald-300">
+                {isEs 
+                  ? "Sin límites de eventos, usuarios o funcionalidades en Kora Core"
+                  : "No limits on events, users, or features in Kora Core"}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add-on Modules Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Package className="w-5 h-5 text-primary" />
               <div>
-                <CardTitle className="text-lg">
-                  {isEs ? "Mis Módulos" : "My Modules"}
+                <CardTitle className="text-lg flex items-center gap-2">
+                  {isEs ? "Módulos Add-on" : "Add-on Modules"}
+                  <Badge variant="outline" className="border-amber-400 text-amber-600">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {isEs ? "7 días gratis" : "7 days free"}
+                  </Badge>
                 </CardTitle>
                 <CardDescription>
                   {isEs 
-                    ? `${activeModules.length} módulo(s) activo(s) • $${monthlyCost}/mes`
-                    : `${activeModules.length} active module(s) • $${monthlyCost}/mo`}
+                    ? `${activeModules.length} módulo(s) activo(s) • $${monthlyCost}/mes después del trial`
+                    : `${activeModules.length} active module(s) • $${monthlyCost}/mo after trial`}
                 </CardDescription>
               </div>
             </div>
-            <Badge className="bg-green-500 text-white">
+            <Badge className="bg-primary text-white">
               {isEs ? "Activo" : "Active"}
             </Badge>
           </div>
@@ -258,39 +318,73 @@ export function BillingSection() {
         <CardContent className="space-y-4">
           {activeModules.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{isEs ? "No tienes módulos activos" : "You have no active modules"}</p>
+              <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{isEs ? "No tienes módulos add-on activos" : "You have no active add-on modules"}</p>
               <p className="text-sm mt-1">
-                {isEs ? "Agrega módulos para desbloquear funcionalidades" : "Add modules to unlock features"}
+                {isEs ? "Prueba cualquier módulo gratis por 7 días" : "Try any module free for 7 days"}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {MODULES.filter(m => activeModules.includes(m.key)).map(mod => (
-                <div 
-                  key={mod.key}
-                  className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{mod.icon}</span>
-                    <div>
-                      <p className="font-medium">{isEs ? mod.nameEs : mod.nameEn}</p>
-                      <p className="text-sm text-muted-foreground">${mod.price}/mes</p>
+              {MODULES.filter(m => activeModules.includes(m.key)).map(mod => {
+                const trialDays = getTrialDaysRemaining(mod);
+                const inTrial = isModuleInTrial(mod);
+                return (
+                  <div 
+                    key={mod.key}
+                    className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{mod.icon}</span>
+                      <div>
+                        <p className="font-medium">{isEs ? mod.nameEs : mod.nameEn}</p>
+                        <p className="text-sm text-muted-foreground">${mod.price}/mes</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {inTrial && trialDays > 0 ? (
+                        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {trialDays} {isEs ? "días" : "days"}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          <Check className="w-3 h-3 mr-1" />
+                          {isEs ? "Pagado" : "Paid"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                  <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
-                    <Check className="w-3 h-3 mr-1" />
-                    {isEs ? "Activo" : "Active"}
-                  </Badge>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Trial Info Banner */}
+          {activeModules.length > 0 && (
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-start gap-3">
+                <Zap className="w-5 h-5 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-300">
+                    {isEs ? "Período de prueba" : "Trial Period"}
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400">
+                    {isEs 
+                      ? "Tienes 7 días para probar cada módulo. Al terminar, te notificaremos para que decidas si continuar."
+                      : "You have 7 days to try each module. When it ends, we'll notify you so you can decide whether to continue."}
+                  </p>
                 </div>
-              ))}
+              </div>
             </div>
           )}
 
           {/* Monthly Cost Summary */}
           <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border">
             <div>
-              <p className="text-sm text-muted-foreground">{isEs ? "Costo mensual total" : "Total monthly cost"}</p>
+              <p className="text-sm text-muted-foreground">
+                {isEs ? "Costo mensual después del trial" : "Monthly cost after trial"}
+              </p>
               <p className="text-2xl font-bold">${monthlyCost}<span className="text-sm font-normal">/mes</span></p>
             </div>
             <Button onClick={() => setAddModuleDialogOpen(true)}>
