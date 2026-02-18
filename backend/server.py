@@ -3469,7 +3469,7 @@ async def send_document_to_client(document_id: str, user: User = Depends(get_cur
         entity_type="document",
         entity_id=document_id,
         entity_name=doc.get("title", "Document"),
-        details={"sent_to": client.get("email"), "document_type": doc.get("document_type")},
+        metadata={"sent_to": client.get("email"), "document_type": doc.get("document_type")},
         **user_info(user)
     )
     
