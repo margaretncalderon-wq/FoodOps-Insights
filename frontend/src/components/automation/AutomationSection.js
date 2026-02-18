@@ -134,42 +134,63 @@ export default function AutomationSection() {
       );
       toast.success(isEs ? "Regla creada desde plantilla" : "Rule created from template");
       setTemplateDialogOpen(false);
+      // Open the builder to edit the created rule
+      setBuilderRule(res.data);
+      setShowBuilder(true);
       fetchData();
     } catch (err) {
       toast.error(isEs ? "Error creando regla" : "Error creating rule");
     }
   };
 
-  const handleCreateRule = async () => {
-    if (!formData.name || !formData.trigger_type) {
-      toast.error(isEs ? "Nombre y trigger son requeridos" : "Name and trigger are required");
-      return;
-    }
-    
+  const handleSaveWorkflow = async (workflow) => {
     try {
-      const payload = {
-        name: formData.name,
-        description: formData.description,
-        trigger: {
-          type: formData.trigger_type,
-          conditions: [],
-          days: formData.trigger_days
-        },
-        actions: formData.actions.length > 0 ? formData.actions : [
-          { type: "send_notification", config: { message: `Automation triggered: ${formData.name}`, recipients: ["owner"] } }
-        ],
-        status: "draft"
-      };
-      
-      await axios.post(`${API}/api/automation/rules`, payload, { withCredentials: true });
-      toast.success(isEs ? "Regla creada" : "Rule created");
-      setCreateDialogOpen(false);
-      setFormData({ name: "", description: "", trigger_type: "", trigger_days: 30, actions: [] });
+      if (builderRule?.rule_id) {
+        // Update existing rule
+        await axios.put(
+          `${API}/api/automation/rules/${builderRule.rule_id}`,
+          {
+            name: workflow.name,
+            description: workflow.description,
+            trigger: workflow.trigger,
+            actions: workflow.actions,
+            status: workflow.status
+          },
+          { withCredentials: true }
+        );
+        toast.success(isEs ? "Workflow actualizado" : "Workflow updated");
+      } else {
+        // Create new rule
+        await axios.post(
+          `${API}/api/automation/rules`,
+          {
+            name: workflow.name,
+            description: workflow.description,
+            trigger: workflow.trigger,
+            actions: workflow.actions,
+            status: "draft"
+          },
+          { withCredentials: true }
+        );
+        toast.success(isEs ? "Workflow creado" : "Workflow created");
+      }
+      setShowBuilder(false);
+      setBuilderRule(null);
       fetchData();
     } catch (err) {
       console.error(err);
-      toast.error(isEs ? "Error creando regla" : "Error creating rule");
+      toast.error(isEs ? "Error guardando workflow" : "Error saving workflow");
     }
+  };
+
+  const handleEditRule = (rule) => {
+    setBuilderRule(rule);
+    setShowBuilder(true);
+  };
+
+  const handleNewWorkflow = () => {
+    setBuilderRule(null);
+    setShowBuilder(true);
   };
 
   const getStatusBadge = (status) => {
