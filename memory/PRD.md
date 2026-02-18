@@ -293,6 +293,25 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - `/api/org-config` endpoints for config CRUD
   - EventCreate model updated with engagement_type field
 - ✅ **Fase 2 - UI Adaptativa (Parcial)** (February 18, 2026)
+- ✅ **Dynamic Terminology Refactor (Phase 1)** (December 2025) - NEW
+  - **Backend:** Centralized industry configuration in `/app/backend/industry_config_module/industry_config.py`
+  - **API:** `/api/addons/enabled-modules` returns `industry_config.program_orchestration` with:
+    - Module names (`name_en`, `name_es`)
+    - Entity terminology (`entity_singular_en/es`, `entity_plural_en/es`)
+    - Field labels (`fields.date`, `fields.guest_count`, `fields.venue`, etc.)
+    - Industry-specific entity types
+  - **Frontend ModulesContext:** Added helper methods:
+    - `getProgramOrchestrationConfig()` - Returns industry config for Program Orchestration
+    - `getFieldLabel(fieldKey, lang)` - Returns localized field labels
+    - `getEntityTypes()` - Returns entity types for current industry
+    - `isEventsIndustry`, `isProfessionalServices`, `isConsulting`, `isGeneric` flags
+  - **EventOrchestrationPage.js:** Refactored to use dynamic terminology:
+    - Page header, description, entity names
+    - Search placeholder, info banners, buttons
+    - Tabs conditionally shown based on industry
+  - **Dashboard.js:** Refactored "Active Events" section to use dynamic terminology
+  - **Supported Industries:** events, agency, consulting, generic
+  - **Test Report:** `/app/test_reports/iteration_49.json` - 15/15 tests passed
   - Backend: engagement_type (event/project/service) guardado correctamente
   - Backend: Campos nuevos para projects (scope_summary, deliverables, participant_count)
   - Frontend: Formulario de creación con selector de tipo de trabajo
