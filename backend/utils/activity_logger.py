@@ -95,8 +95,6 @@ async def log_activity(
     Returns:
         The created log entry
     """
-    logger.warning(f"[ACTIVITY_LOG CALLED] {module}/{action}/{entity_type}")
-    
     log_entry = {
         "log_id": f"log_{uuid.uuid4().hex[:12]}",
         "module": module,
@@ -124,7 +122,6 @@ async def log_activity(
         await db.activity_logs.insert_one(log_entry)
         # Remove MongoDB _id before returning
         log_entry.pop("_id", None)
-        logger.info(f"[ACTIVITY_LOG] {module}/{action}/{entity_type}: {entity_name}")
     except Exception as e:
         logger.error(f"[ACTIVITY_LOG ERROR] {e}")
     
