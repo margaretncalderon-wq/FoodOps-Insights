@@ -366,51 +366,52 @@ function EventDetail() {
 
   const handleCloseEvent = async () => {
     if (!window.confirm(isEs 
-      ? "¿Estás seguro de cerrar este evento? Solo Post-Event Review quedará editable." 
-      : "Are you sure you want to close this event? Only Post-Event Review will remain editable.")) {
+      ? `¿Estás seguro de cerrar este ${entitySingular.toLowerCase()}? Solo Post-Event Review quedará editable.` 
+      : `Are you sure you want to close this ${entitySingular.toLowerCase()}? Only Post-Event Review will remain editable.`)) {
       return;
     }
     try {
       await axios.post(`${API}/api/orchestration/events/${eventId}/close`, {}, { withCredentials: true });
-      toast.success(isEs ? "Evento cerrado" : "Event closed");
+      toast.success(isEs ? `${entitySingular} cerrado` : `${entitySingular} closed`);
       fetchEvent();
     } catch (err) {
-      toast.error(err.response?.data?.detail || (isEs ? "Error al cerrar evento" : "Failed to close event"));
+      toast.error(err.response?.data?.detail || (isEs ? `Error al cerrar ${entitySingular.toLowerCase()}` : `Failed to close ${entitySingular.toLowerCase()}`));
     }
   };
 
   const handleReopenEvent = async () => {
     if (!window.confirm(isEs 
-      ? "¿Estás seguro de reabrir este evento?" 
-      : "Are you sure you want to reopen this event?")) {
+      ? `¿Estás seguro de reabrir este ${entitySingular.toLowerCase()}?` 
+      : `Are you sure you want to reopen this ${entitySingular.toLowerCase()}?`)) {
       return;
     }
     try {
       await axios.post(`${API}/api/orchestration/events/${eventId}/reopen`, {}, { withCredentials: true });
-      toast.success(isEs ? "Evento reabierto" : "Event reopened");
+      toast.success(isEs ? `${entitySingular} reabierto` : `${entitySingular} reopened`);
       fetchEvent();
     } catch (err) {
-      toast.error(err.response?.data?.detail || (isEs ? "Error al reabrir evento" : "Failed to reopen event"));
+      toast.error(err.response?.data?.detail || (isEs ? `Error al reabrir ${entitySingular.toLowerCase()}` : `Failed to reopen ${entitySingular.toLowerCase()}`));
     }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
-  if (!event) return <div className="text-center py-12">{isEs ? "Evento no encontrado" : "Event not found"}</div>;
+  if (!event) return <div className="text-center py-12">{isEs ? `${entitySingular} no encontrado` : `${entitySingular} not found`}</div>;
 
   const isLocked = event.stage === "Closed";
 
+  // Build tabs - some are industry-specific
   const tabs = [
-    { value: "blueprint", label: isEs ? "Event Blueprint" : "Event Blueprint", icon: FileCheck },
-    { value: "experience", label: isEs ? "Experience Design" : "Experience Design", icon: Palette },
-    { value: "roomsetup", label: isEs ? "Room Setup" : "Room Setup", icon: LayoutGrid },
+    { value: "blueprint", label: isEs ? `${entitySingular} Blueprint` : `${entitySingular} Blueprint`, icon: FileCheck },
+    ...(isEventsIndustry ? [{ value: "experience", label: isEs ? "Experience Design" : "Experience Design", icon: Palette }] : []),
+    ...(isEventsIndustry ? [{ value: "roomsetup", label: isEs ? "Room Setup" : "Room Setup", icon: LayoutGrid }] : []),
     { value: "operational", label: isEs ? "Operational Flow" : "Operational Flow", icon: GitBranch },
-    { value: "runofshow", label: isEs ? "Run of Show" : "Run of Show", icon: Clock },
+    ...(isEventsIndustry ? [{ value: "runofshow", label: isEs ? "Run of Show" : "Run of Show", icon: Clock }] : []),
     { value: "team", label: isEs ? "Team & Roles" : "Team & Roles", icon: Users },
     { value: "production", label: isEs ? "Production Assets" : "Production Assets", icon: Package },
     { value: "documents", label: isEs ? "Documentos" : "Documents", icon: FileText },
-    { value: "calendar", label: isEs ? "Event Calendar" : "Event Calendar", icon: Calendar },
-    { value: "review", label: isEs ? "Post-Event Review" : "Post-Event Review", icon: Star },
-    { value: "binder", label: "Event Binder", icon: FileText },
+    { value: "calendar", label: isEs ? `${entitySingular} Calendar` : `${entitySingular} Calendar`, icon: Calendar },
+    { value: "review", label: isEs ? "Post-Review" : "Post-Review", icon: Star },
+    { value: "binder", label: `${entitySingular} Binder`, icon: FileText },
   ];
 
   return (
@@ -423,11 +424,11 @@ function EventDetail() {
               <p className="text-sm text-gray-600 flex items-center gap-2">
                 <Lock className="w-4 h-4" />
                 {isEs 
-                  ? "Este evento está cerrado. Solo Post-Event Review y Event Binder están disponibles." 
-                  : "This event is closed. Only Post-Event Review and Event Binder are available."}
+                  ? `Este ${entitySingular.toLowerCase()} está cerrado. Solo Post-Review y ${entitySingular} Binder están disponibles.` 
+                  : `This ${entitySingular.toLowerCase()} is closed. Only Post-Review and ${entitySingular} Binder are available.`}
               </p>
               <Button variant="outline" size="sm" onClick={handleReopenEvent}>
-                {isEs ? "Reabrir Evento" : "Reopen Event"}
+                {isEs ? `Reabrir ${entitySingular}` : `Reopen ${entitySingular}`}
               </Button>
             </div>
           </CardContent>
