@@ -402,11 +402,27 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 | GET | /api/payments/my-subscription | Get user's subscription info |
 | POST | /api/payments/webhook/stripe | Handle Stripe webhooks |
 
+### December 18, 2025 - Kora Core & 7-Day Trial UI
+
+#### UI Pricing Model Implementation - COMPLETED ✅
+- **RegisterPage Step 2:** Nueva UI clara para modelo de precios
+  - "Kora Core - ALWAYS FREE" badge verde con descripción
+  - "Add-on Modules" título con badge "7 days free" en amarillo
+  - Cada módulo muestra precio tachado + "7 days free"
+  - Resumen de pricing: "Kora Core INCLUDED - Free", "Pay today $0"
+  - Clarificación: "After 7 days: $X/mo for add-ons"
+- **BillingSection:** Card de Kora Core con 4 features (System Pulse, Client Engagement, Business Clarity, Execution Hub)
+  - Badge "Always Free" y precio $0/mes
+  - Banner "No limits on events, users, or features"
+  - Add-on Modules card con días de trial restantes
+- **Test Report:** `/app/test_reports/iteration_44.json` - 16/16 tests passed (100%)
+
 ## Upcoming Tasks
-- **P1:** Complete i18n audit for all components (nuevos componentes de registro y super admin tienen algunos strings hardcoded)
+- **P1:** Post-trial workflow (notificar usuarios cuando termina el trial y prompt para agregar método de pago)
 - **P1:** Server.py refactoring (extract remaining routers)
-- **P1:** Social Media Campaign Widget
-- **P1:** Email notifications (pending RESEND_API_KEY)
+- **P2:** Complete i18n audit for all components
+- **P2:** Social Media Campaign Widget
+- **P3:** Email notifications (pending RESEND_API_KEY)
 
 ## Future Tasks
 - Email Purchase Orders
