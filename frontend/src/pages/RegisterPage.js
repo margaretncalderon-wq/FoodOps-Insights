@@ -97,20 +97,58 @@ export default function RegisterPage() {
   const { register, loginWithGoogle, loading } = useAuth();
   const { t, language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Industry, 2: Account details
+  const [step, setStep] = useState(1); // 1: Industry, 2: Modules, 3: Account details
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     company_name: "",
     industry_template: "",
+    selected_modules: [], // Module keys selected by user
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  // Get recommended modules based on industry
+  const getRecommendedModules = () => {
+    const industry = INDUSTRIES.find(i => i.key === formData.industry_template);
+    return industry?.recommendedAddons || [];
+  };
+
+  // Calculate total add-on cost
+  const calculateAddonCost = () => {
+    return formData.selected_modules.reduce((total, moduleKey) => {
+      const module = ADDON_MODULES.find(m => m.key === moduleKey);
+      return total + (module?.price || 0);
+    }, 0);
+  };
+
+  // Toggle module selection
+  const toggleModule = (moduleKey) => {
+    setFormData(prev => ({
+      ...prev,
+      selected_modules: prev.selected_modules.includes(moduleKey)
+        ? prev.selected_modules.filter(k => k !== moduleKey)
+        : [...prev.selected_modules, moduleKey]
+    }));
+  };
+
+  // When industry changes, pre-select recommended modules
+  const handleIndustrySelect = (industryKey) => {
+    const industry = INDUSTRIES.find(i => i.key === industryKey);
+    setFormData({
+      ...formData,
+      industry_template: industryKey,
+      selected_modules: industry?.recommendedAddons || [],
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await register(formData);
+      await register({
+        ...formData,
+        selected_modules: formData.selected_modules, // Will be processed by backend
+      });
       toast.success(language === "es" ? "¡Cuenta creada!" : "Account created!");
       navigate("/dashboard");
     } catch (error) {
@@ -120,6 +158,8 @@ export default function RegisterPage() {
 
   const isEs = language === "es";
   const selectedIndustry = INDUSTRIES.find(i => i.key === formData.industry_template);
+  const addonCost = calculateAddonCost();
+  const basePlanPrice = 0; // Free tier
 
   return (
     <div className="min-h-screen flex">
