@@ -32,6 +32,10 @@ import {
   Target,
   Building2,
   History,
+  ClipboardList,
+  ClipboardCheck,
+  FolderKanban,
+  MapPin,
 } from "lucide-react";
 import { OrgSwitcher } from "./org";
 import NotificationBell from "./notifications/NotificationBell";
