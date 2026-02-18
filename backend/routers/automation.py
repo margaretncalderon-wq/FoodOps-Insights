@@ -391,6 +391,59 @@ async def list_automation_templates(
                     "config": {"message": "Overdue follow-up for {{lead_name}}", "recipients": ["owner", "admin"]}
                 }
             ]
+        },
+        # NEW: Deal Won → Execution Hub
+        {
+            "template_id": "deal_won_execution",
+            "name": "Deal Won → Send to Execution Hub",
+            "name_es": "Deal Ganado → Enviar a Execution Hub",
+            "description": "Automatically create execution goal when deal is won/committed",
+            "description_es": "Crear automáticamente una meta de ejecución cuando el deal se gana/confirma",
+            "category": "execution",
+            "trigger": {
+                "type": "deal_won",
+                "conditions": [{"field": "engagement_stage", "operator": "equals", "value": "committed"}]
+            },
+            "actions": [
+                {
+                    "type": "create_execution_goal",
+                    "config": {
+                        "title": "Ejecutar: {{event_name}}",
+                        "objective": "Completar exitosamente: {{event_name}}",
+                        "use_industry_tasks": True
+                    }
+                },
+                {
+                    "type": "send_notification",
+                    "config": {"message": "🎯 {{event_name}} enviado a Execution Hub", "recipients": ["owner"]}
+                }
+            ]
+        },
+        {
+            "template_id": "project_kickoff",
+            "name": "Project Kickoff Tasks",
+            "name_es": "Tareas de Inicio de Proyecto",
+            "description": "Create kickoff tasks when project starts",
+            "description_es": "Crear tareas de inicio cuando comienza un proyecto",
+            "category": "execution",
+            "trigger": {
+                "type": "project_started",
+                "conditions": []
+            },
+            "actions": [
+                {
+                    "type": "create_task",
+                    "config": {"title": "Schedule kickoff meeting: {{event_name}}", "assignee": "owner", "due_days": 2}
+                },
+                {
+                    "type": "create_task",
+                    "config": {"title": "Send welcome packet to client", "assignee": "owner", "due_days": 1}
+                },
+                {
+                    "type": "send_notification",
+                    "config": {"message": "Project {{event_name}} has started!", "recipients": ["owner"]}
+                }
+            ]
         }
     ]
     
