@@ -46,6 +46,7 @@ const MODULE_INFO = {
   execution_hub: { name: "Execution Hub", icon: "🎯", color: "bg-amber-100 text-amber-700" },
   demand_studio: { name: "Demand Studio", icon: "📊", color: "bg-pink-100 text-pink-700" },
   business_clarity: { name: "Business Clarity", icon: "💰", color: "bg-emerald-100 text-emerald-700" },
+  addons: { name: "Add-ons", icon: "🧩", color: "bg-indigo-100 text-indigo-700" },
 };
 
 const ACTION_INFO = {
