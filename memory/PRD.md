@@ -378,6 +378,9 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 | DELETE | /api/super-admin/organizations/{id}/modules/{key}/deactivate | Deactivate module |
 | PUT | /api/super-admin/organizations/{id}/industry | Update industry template |
 | GET | /api/super-admin/metrics/dashboard | Get comprehensive dashboard metrics |
+| GET | /api/super-admin/metrics/export/csv | Export metrics to CSV |
+| GET | /api/super-admin/metrics/export/excel | Export metrics to Excel |
+| GET | /api/super-admin/metrics/alerts | Get platform alerts and anomalies |
 
 **API Endpoints - Payments:**
 | Method | Endpoint | Description |
