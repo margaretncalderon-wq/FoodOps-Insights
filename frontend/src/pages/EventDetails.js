@@ -64,6 +64,7 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", due_date: "" });
+  const [executionModalOpen, setExecutionModalOpen] = useState(false);
 
   useEffect(() => {
     fetchEvent();
