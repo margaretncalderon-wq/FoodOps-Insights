@@ -229,89 +229,89 @@ export default function SuperAdminOverview() {
         </Card>
       )}
 
-      {/* KPI Cards Row */}
+        {/* KPI Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* MRR Card */}
-        <Card className="bg-gradient-to-br from-green-900/50 to-green-800/30 border-green-700/50">
+        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-green-900/50 dark:to-green-800/30 border-emerald-200 dark:border-green-700/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-300/80 font-medium">MRR</p>
-                <p className="text-3xl font-bold text-green-400">
+                <p className="text-sm text-emerald-700 dark:text-green-300/80 font-medium">MRR</p>
+                <p className="text-3xl font-bold text-emerald-600 dark:text-green-400">
                   {formatCurrency(metrics?.mrr?.total || 0)}
                 </p>
-                <p className="text-xs text-green-300/60 mt-1">
+                <p className="text-xs text-emerald-600/70 dark:text-green-300/60 mt-1">
                   {isEs ? "Ingresos Mensuales Recurrentes" : "Monthly Recurring Revenue"}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-green-400" />
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-emerald-600 dark:text-green-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Paying Customers Card */}
-        <Card className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-blue-700/50">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/50 dark:to-blue-800/30 border-blue-200 dark:border-blue-700/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-300/80 font-medium">
+                <p className="text-sm text-blue-700 dark:text-blue-300/80 font-medium">
                   {isEs ? "Clientes de Pago" : "Paying Customers"}
                 </p>
-                <p className="text-3xl font-bold text-blue-400">
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                   {metrics?.organizations?.paying || 0}
                 </p>
-                <p className="text-xs text-blue-300/60 mt-1">
+                <p className="text-xs text-blue-600/70 dark:text-blue-300/60 mt-1">
                   {isEs ? `de ${metrics?.organizations?.total || 0} total` : `of ${metrics?.organizations?.total || 0} total`}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-blue-400" />
+                <CreditCard className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Conversion Rate Card */}
-        <Card className="bg-gradient-to-br from-amber-900/50 to-amber-800/30 border-amber-700/50">
+        <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/50 dark:to-amber-800/30 border-amber-200 dark:border-amber-700/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-amber-300/80 font-medium">
+                <p className="text-sm text-amber-700 dark:text-amber-300/80 font-medium">
                   {isEs ? "Tasa de Conversión" : "Conversion Rate"}
                 </p>
-                <p className="text-3xl font-bold text-amber-400">
+                <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
                   {metrics?.conversion?.rate || 0}%
                 </p>
-                <p className="text-xs text-amber-300/60 mt-1">
+                <p className="text-xs text-amber-600/70 dark:text-amber-300/60 mt-1">
                   {isEs ? "Free → Pago" : "Free → Paid"}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-amber-400" />
+                <TrendingUp className="w-6 h-6 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Active Modules Card */}
-        <Card className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-purple-700/50">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-800/30 border-purple-200 dark:border-purple-700/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-purple-300/80 font-medium">
+                <p className="text-sm text-purple-700 dark:text-purple-300/80 font-medium">
                   {isEs ? "Módulos Activos" : "Active Modules"}
                 </p>
-                <p className="text-3xl font-bold text-purple-400">
+                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
                   {metrics?.modules?.total_active_subscriptions || 0}
                 </p>
-                <p className="text-xs text-purple-300/60 mt-1">
+                <p className="text-xs text-purple-600/70 dark:text-purple-300/60 mt-1">
                   {isEs ? "Suscripciones de módulos" : "Module subscriptions"}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <Package className="w-6 h-6 text-purple-400" />
+                <Package className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </CardContent>
