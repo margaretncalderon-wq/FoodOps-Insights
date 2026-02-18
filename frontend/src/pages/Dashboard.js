@@ -143,8 +143,8 @@ export default function SystemPulse() {
           type: "culinary",
           title: isEs ? "Inventario bajo" : "Low inventory",
           description: isEs 
-            ? `${stats.low_stock_alerts} items pueden afectar próximos eventos`
-            : `${stats.low_stock_alerts} items may impact upcoming events`,
+            ? `${stats.low_stock_alerts} items pueden afectar próximos ${entityPlural.toLowerCase()}`
+            : `${stats.low_stock_alerts} items may impact upcoming ${entityPlural.toLowerCase()}`,
           link: "/food-ops/inventory"
         });
       }
