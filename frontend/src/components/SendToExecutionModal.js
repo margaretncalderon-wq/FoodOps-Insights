@@ -262,7 +262,7 @@ export default function SendToExecutionModal({
             onClick={handleSend} 
             disabled={loading || sending}
             className="bg-primary"
-            data-testid="send-to-execution-btn"
+            data-testid="confirm-send-to-execution-btn"
           >
             {sending ? (
               <>
