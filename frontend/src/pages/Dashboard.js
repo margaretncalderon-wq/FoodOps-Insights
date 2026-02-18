@@ -125,7 +125,7 @@ export default function SystemPulse() {
         recentDecisions.push({
           id: `decision-${e.event_id}`,
           type: "commitment",
-          title: isEs ? "Evento confirmado" : "Event confirmed",
+          title: isEs ? `${entitySingular} confirmado` : `${entitySingular} confirmed`,
           description: e.name,
           timestamp: e.updated_at,
           link: `/event-orchestration/${e.event_id}`
