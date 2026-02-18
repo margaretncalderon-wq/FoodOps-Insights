@@ -13267,6 +13267,183 @@ async def delete_user(
     
     return {"success": True}
 
+
+# ============== SUPER ADMIN: MODULE MANAGEMENT ==============
+
+@super_admin_router.get("/organizations/{company_id}/modules")
+async def get_org_modules(company_id: str, admin: User = Depends(get_super_admin)):
+    """Get all modules for an organization (active and available)"""
+    # Get active modules for this org
+    active_addons = await db.organization_addons.find(
+        {"company_id": company_id, "status": "active", "addon_type": "module"},
+        {"_id": 0}
+    ).to_list(50)
+    
+    # Get organization config for industry
+    org = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+    org_config = await db.organization_configs.find_one({"company_id": company_id}, {"_id": 0})
+    
+    # Get all available module definitions
+    all_modules = await db.addon_definitions.find(
+        {"type": "module", "is_active": True},
+        {"_id": 0}
+    ).sort("sort_order", 1).to_list(50)
+    
+    # Map active module keys
+    active_module_keys = [
+        a.get("addon_id", "").replace("addon_", "") 
+        for a in active_addons
+    ]
+    
+    # Calculate monthly cost
+    monthly_cost = sum(a.get("price_paid", 0) for a in active_addons)
+    
+    return {
+        "company_id": company_id,
+        "industry_template": org.get("industry_template", "events_hospitality") if org else "events_hospitality",
+        "active_modules": active_addons,
+        "active_module_keys": active_module_keys,
+        "available_modules": all_modules,
+        "monthly_module_cost": monthly_cost
+    }
+
+
+@super_admin_router.post("/organizations/{company_id}/modules/{module_key}/activate")
+async def activate_module_for_org(company_id: str, module_key: str, admin: User = Depends(get_super_admin)):
+    """Activate a module for an organization (Super Admin only - bypasses payment)"""
+    # Check org exists
+    org = await db.companies.find_one({"company_id": company_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Check module exists
+    addon_id = f"addon_{module_key}"
+    module_def = await db.addon_definitions.find_one({"addon_id": addon_id, "type": "module"})
+    if not module_def:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check if already active
+    existing = await db.organization_addons.find_one({
+        "company_id": company_id,
+        "addon_id": addon_id,
+        "status": "active"
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Module already active for this organization")
+    
+    now = datetime.now(timezone.utc)
+    billing_end = now + timedelta(days=30)
+    
+    # Create organization addon record
+    org_addon_id = f"orgaddon_{uuid.uuid4().hex[:12]}"
+    addon_doc = {
+        "org_addon_id": org_addon_id,
+        "company_id": company_id,
+        "addon_id": addon_id,
+        "addon_name": module_def.get("display_name_es", module_key),
+        "addon_type": "module",
+        "status": "active",
+        "quantity": 1,
+        "price_paid": module_def.get("price", 0),
+        "pricing_type": "monthly",
+        "currency": "USD",
+        "billing_cycle_start": now.isoformat(),
+        "billing_cycle_end": billing_end.isoformat(),
+        "next_billing_date": billing_end.isoformat(),
+        "auto_renew": True,
+        "admin_granted": True,  # Mark as granted by admin
+        "granted_by": admin.user_id,
+        "purchased_by": admin.user_id,
+        "purchased_at": now.isoformat()
+    }
+    
+    await db.organization_addons.insert_one(addon_doc)
+    
+    # Log admin action
+    await log_super_admin_action(admin.user_id, "activate_module", company_id, {"module": module_key})
+    
+    return {"success": True, "message": f"Module {module_key} activated for organization"}
+
+
+@super_admin_router.delete("/organizations/{company_id}/modules/{module_key}/deactivate")
+async def deactivate_module_for_org(company_id: str, module_key: str, admin: User = Depends(get_super_admin)):
+    """Deactivate a module for an organization (Super Admin only)"""
+    addon_id = f"addon_{module_key}"
+    
+    # Find active module
+    existing = await db.organization_addons.find_one({
+        "company_id": company_id,
+        "addon_id": addon_id,
+        "status": "active"
+    })
+    
+    if not existing:
+        raise HTTPException(status_code=404, detail="Module not active for this organization")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Deactivate module
+    await db.organization_addons.update_one(
+        {"org_addon_id": existing["org_addon_id"]},
+        {"$set": {
+            "status": "canceled",
+            "admin_canceled": True,
+            "canceled_by": admin.user_id,
+            "canceled_at": now.isoformat()
+        }}
+    )
+    
+    # Log admin action
+    await log_super_admin_action(admin.user_id, "deactivate_module", company_id, {"module": module_key})
+    
+    return {"success": True, "message": f"Module {module_key} deactivated for organization"}
+
+
+@super_admin_router.put("/organizations/{company_id}/industry")
+async def update_org_industry(company_id: str, data: dict, admin: User = Depends(get_super_admin)):
+    """Update organization's industry template (Super Admin only)"""
+    industry_template = data.get("industry_template")
+    
+    valid_industries = ["events_hospitality", "professional_services", "generic"]
+    if industry_template not in valid_industries:
+        raise HTTPException(status_code=400, detail=f"Invalid industry. Must be one of: {valid_industries}")
+    
+    # Update company
+    result = await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {"industry_template": industry_template, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Update organization config
+    from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
+    template_enum = IndustryTemplate(industry_template) if industry_template in [e.value for e in IndustryTemplate] else IndustryTemplate.EVENTS_HOSPITALITY
+    template_data = INDUSTRY_TEMPLATES.get(template_enum, INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY])
+    
+    await db.organization_configs.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "industry_template": industry_template,
+            "enabled_engagement_types": template_data["enabled_engagement_types"],
+            "default_engagement_type": template_data["default_engagement_type"],
+            "terminology": template_data.get("terminology", {}),
+            "pipeline_stages": template_data["pipeline_stages"],
+            "event_types": template_data["event_types"],
+            "client_types": template_data["client_types"],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    # Log admin action
+    await log_super_admin_action(admin.user_id, "update_industry", company_id, {"industry_template": industry_template})
+    
+    return {"success": True, "industry_template": industry_template}
+
+
 # ============== DEMAND STUDIO ENDPOINTS ==============
 # All Demand Studio endpoints moved to routers/demand_studio.py
 
