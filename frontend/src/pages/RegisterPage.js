@@ -481,24 +481,6 @@ export default function RegisterPage() {
               </div>
             </>
           )}
-                  }}
-                  className="flex-1 h-12 rounded-lg border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50"
-                  data-testid="skip-modules-btn"
-                >
-                  {isEs ? "Omitir" : "Skip"}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="flex-1 h-12 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium"
-                  data-testid="continue-to-account-btn"
-                >
-                  {isEs ? "Continuar" : "Continue"}
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </>
-          )}
 
           {/* Step 3: Account Details */}
           {step === 3 && (
