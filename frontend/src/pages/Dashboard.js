@@ -16,13 +16,16 @@ import {
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
   const { language, t } = useLanguage();
-  const { industry, isProfessionalServices, isEventsIndustry, getProgramOrchestrationConfig } = useModules();
+  const { industry, isProfessionalServices, isEventsIndustry, getProgramOrchestrationConfig, isModuleEnabled } = useModules();
   const isEs = language === "es";
   
   // Get dynamic terminology from industry config
   const poConfig = getProgramOrchestrationConfig();
   const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
   const entitySingular = isEs ? poConfig.entity_singular_es : poConfig.entity_singular_en;
+  
+  // Check if Event Orchestration module is enabled
+  const hasOrchestrationModule = isModuleEnabled("module_event_orchestration");
   
   const [loading, setLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState("all");
