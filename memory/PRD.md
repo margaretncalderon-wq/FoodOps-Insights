@@ -280,6 +280,8 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - ✅ i18n Enhancement for Execution Hub and Locations
 
 ## Upcoming Tasks
+- **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
+- **P0:** Fase 2 - Industry Templates (Events, Professional Services, Generic)
 - **P1:** Complete i18n audit for all components
 - **P1:** Server.py refactoring (extract remaining routers)
 - **P1:** Social Media Campaign Widget
