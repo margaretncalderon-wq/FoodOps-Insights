@@ -233,7 +233,7 @@ class TestExecutionHubGoalsAPI:
         """Setup: Login and get session"""
         self.session = requests.Session()
         login_res = self.session.post(
-            f"{BASE_URL}/api/auth/google/login",
+            f"{BASE_URL}/api/auth/login",
             json={"email": "margaret.n.calderon@gmail.com", "password": "Evoque2024!"},
             timeout=30
         )
