@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useModules } from "../contexts/ModulesContext";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -36,7 +37,22 @@ import { OrgSwitcher } from "./org";
 import NotificationBell from "./notifications/NotificationBell";
 import { GlobalActivityLog } from "./GlobalActivityLog";
 
-const navItems = [
+// Icon mapping for dynamic modules
+const iconMap = {
+  activity: Activity,
+  puzzle: Puzzle,
+  music: Music4,
+  utensils: UtensilsCrossed,
+  package: Package,
+  building: Building2,
+  target: Target,
+  megaphone: Megaphone,
+  briefcase: Briefcase,
+  settings: Settings,
+};
+
+// Fallback nav items (used if modules API fails)
+const fallbackNavItems = [
   { path: "/dashboard", icon: Activity, labelKey: "systemPulse" },
   { path: "/client-engagement", icon: Puzzle, label: "Client Engagement", labelEs: "Client Engagement" },
   { path: "/event-orchestration", icon: Music4, label: "Event Orchestration", labelEs: "Event Orchestration" },
@@ -52,9 +68,25 @@ const navItems = [
 export const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const { t, language, changeLanguage } = useLanguage();
+  const { modules, loading: modulesLoading } = useModules();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Build navigation items from enabled modules
+  const navItems = useMemo(() => {
+    if (!modules || modules.length === 0) {
+      return fallbackNavItems;
+    }
+
+    return modules.map((module) => ({
+      path: module.path,
+      icon: iconMap[module.icon] || Activity,
+      label: module.name_en,
+      labelEs: module.name_es,
+      isAddon: module.is_addon,
+    }));
+  }, [modules]);
 
   const handleLogout = async () => {
     await logout();
