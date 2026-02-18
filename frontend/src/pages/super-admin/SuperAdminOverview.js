@@ -380,10 +380,10 @@ export default function SuperAdminOverview() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Organizations by Industry */}
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <PieChart className="w-5 h-5 text-slate-400" />
+              <PieChart className="w-5 h-5 text-muted-foreground" />
               {isEs ? "Organizaciones por Industria" : "Organizations by Industry"}
             </CardTitle>
           </CardHeader>
@@ -396,14 +396,14 @@ export default function SuperAdminOverview() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className={`w-3 h-3 rounded-full ${getIndustryColor(industry)}`} />
-                        <span className="text-sm text-slate-300">{getIndustryName(industry)}</span>
+                        <span className="text-sm">{getIndustryName(industry)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold">{count}</span>
-                        <span className="text-xs text-slate-500">({percentage}%)</span>
+                        <span className="text-xs text-muted-foreground">({percentage}%)</span>
                       </div>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className={`h-2 rounded-full ${getIndustryColor(industry)} transition-all duration-500`}
                         style={{ width: `${percentage}%` }}
@@ -417,10 +417,10 @@ export default function SuperAdminOverview() {
         </Card>
 
         {/* Revenue by Module */}
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <BarChart3 className="w-5 h-5 text-slate-400" />
+              <BarChart3 className="w-5 h-5 text-muted-foreground" />
               {isEs ? "Ingresos por Módulo" : "Revenue by Module"}
             </CardTitle>
           </CardHeader>
@@ -429,24 +429,24 @@ export default function SuperAdminOverview() {
               {(metrics?.modules?.revenue_by_module || []).map((mod, idx) => {
                 const maxRevenue = Math.max(...(metrics?.modules?.revenue_by_module || []).map(m => m.monthly_revenue));
                 const percentage = maxRevenue > 0 ? (mod.monthly_revenue / maxRevenue * 100) : 0;
-                const colors = ["bg-green-500", "bg-blue-500", "bg-purple-500", "bg-amber-500", "bg-pink-500"];
+                const colors = ["bg-emerald-500", "bg-blue-500", "bg-purple-500", "bg-amber-500", "bg-pink-500"];
                 return (
                   <div key={mod.addon_id} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm text-slate-300">{mod.name}</span>
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{mod.name}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted-foreground">
                           {mod.active_subscriptions} {isEs ? "subs" : "subs"}
                         </span>
-                        <span className="text-sm font-bold text-green-400">
+                        <span className="text-sm font-bold text-emerald-600 dark:text-green-400">
                           {formatCurrency(mod.monthly_revenue)}/mes
                         </span>
                       </div>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className={`h-2 rounded-full ${colors[idx % colors.length]} transition-all duration-500`}
                         style={{ width: `${percentage}%` }}
@@ -456,7 +456,7 @@ export default function SuperAdminOverview() {
                 );
               })}
               {(!metrics?.modules?.revenue_by_module || metrics?.modules?.revenue_by_module.length === 0) && (
-                <p className="text-center text-slate-500 py-4">
+                <p className="text-center text-muted-foreground py-4">
                   {isEs ? "Sin módulos activos" : "No active modules"}
                 </p>
               )}
