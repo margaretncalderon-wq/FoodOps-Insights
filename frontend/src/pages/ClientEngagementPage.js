@@ -184,6 +184,21 @@ export default function ClientEngagementPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Automation Tab */}
+            <NavLink
+              to="/client-engagement/automation"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-amber-500 text-amber-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`
+              }
+            >
+              <Zap className="w-4 h-4" />
+              {isEs ? "Automatización" : "Automation"}
+            </NavLink>
           </nav>
         </div>
 
