@@ -658,3 +658,102 @@ async def get_subscription_summary(user: User = Depends(get_current_user)):
         "monthly_addon_cost": monthly_addon_cost,
         "total_monthly_cost": (plan.get("price_monthly", 0) if plan else 0) + monthly_addon_cost
     }
+
+
+# ============== ENABLED MODULES ==============
+
+# Core modules that are always available (part of base plan)
+CORE_MODULES = [
+    {"key": "system_pulse", "path": "/dashboard", "name_en": "System Pulse", "name_es": "System Pulse", "icon": "activity"},
+    {"key": "client_engagement", "path": "/client-engagement", "name_en": "Client Engagement", "name_es": "Client Engagement", "icon": "puzzle"},
+    {"key": "execution_hub", "path": "/execution-hub", "name_en": "Execution Hub", "name_es": "Execution Hub", "icon": "target"},
+    {"key": "business_clarity", "path": "/business-clarity", "name_en": "Business Clarity", "name_es": "Business Clarity", "icon": "briefcase"},
+    {"key": "settings", "path": "/settings", "name_en": "Settings", "name_es": "Configuración", "icon": "settings"},
+]
+
+# Module addons - these require purchase
+MODULE_ADDONS = {
+    "module_event_orchestration": {"path": "/event-orchestration", "name_en": "Event Orchestration", "name_es": "Event Orchestration", "icon": "music"},
+    "module_culinary_intelligence": {"path": "/food-ops", "name_en": "Culinary Intelligence", "name_es": "Inteligencia Culinaria", "icon": "utensils"},
+    "module_operations_supplies": {"path": "/ops-supplies", "name_en": "Operations Supplies", "name_es": "Operations Supplies", "icon": "package"},
+    "module_venues": {"path": "/venues", "name_en": "Venues", "name_es": "Venues", "icon": "building"},
+    "module_demand_studio": {"path": "/demand-studio", "name_en": "Demand Studio", "name_es": "Demand Studio", "icon": "megaphone"},
+}
+
+
+@addons_router.get("/enabled-modules")
+async def get_enabled_modules(user: User = Depends(get_current_user)):
+    """
+    Get all enabled modules for the organization.
+    Core modules are always included.
+    Add-on modules require purchase or higher tier plan.
+    """
+    # Start with core modules
+    enabled_modules = list(CORE_MODULES)
+    
+    # Get the organization's plan
+    subscription = await db.subscriptions.find_one(
+        {"company_id": user.company_id, "status": {"$in": ["active", "trialing"]}},
+        {"_id": 0, "plan_id": 1}
+    )
+    plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
+    
+    # Get plan details to check if modules are included
+    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
+    included_in_plan = plan.get("included_modules", []) if plan else []
+    
+    # Enterprise plan includes all modules
+    if plan_id == "plan_enterprise":
+        included_in_plan = list(MODULE_ADDONS.keys())
+    # Professional plan includes some modules
+    elif plan_id == "plan_professional":
+        included_in_plan = plan.get("included_modules", ["module_event_orchestration", "module_venues"])
+    
+    # Get purchased module addons
+    purchased_modules = await db.organization_addons.find({
+        "company_id": user.company_id,
+        "status": "active",
+        "addon_type": "module"
+    }, {"_id": 0, "addon_id": 1}).to_list(50)
+    
+    purchased_module_keys = []
+    for pm in purchased_modules:
+        # addon_id is like "addon_module_event_orchestration", extract "module_event_orchestration"
+        addon_id = pm.get("addon_id", "")
+        if addon_id.startswith("addon_"):
+            module_key = addon_id.replace("addon_", "")
+            purchased_module_keys.append(module_key)
+    
+    # Add modules that are either included in plan or purchased
+    for module_key, module_info in MODULE_ADDONS.items():
+        if module_key in included_in_plan or module_key in purchased_module_keys:
+            enabled_modules.append({
+                "key": module_key,
+                "path": module_info["path"],
+                "name_en": module_info["name_en"],
+                "name_es": module_info["name_es"],
+                "icon": module_info["icon"],
+                "is_addon": True
+            })
+    
+    # Sort modules by a logical order
+    module_order = {
+        "system_pulse": 0,
+        "client_engagement": 1,
+        "module_event_orchestration": 2,
+        "module_culinary_intelligence": 3,
+        "module_operations_supplies": 4,
+        "module_venues": 5,
+        "execution_hub": 6,
+        "module_demand_studio": 7,
+        "business_clarity": 8,
+        "settings": 9,
+    }
+    enabled_modules.sort(key=lambda x: module_order.get(x["key"], 99))
+    
+    return {
+        "modules": enabled_modules,
+        "plan_id": plan_id,
+        "core_modules": [m["key"] for m in CORE_MODULES],
+        "addon_modules": list(MODULE_ADDONS.keys())
+    }
