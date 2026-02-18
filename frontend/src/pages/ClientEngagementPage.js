@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { RefreshCw, Users, FileText, CalendarDays, 
-  UserPlus, Inbox, Clock, MessageSquare, UserCircle, ChevronDown } from "lucide-react";
+  UserPlus, Inbox, Clock, MessageSquare, UserCircle, ChevronDown, Zap } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
 
@@ -25,6 +25,9 @@ const FollowUpsSection = lazy(() => import("../components/crm/FollowUpsSection")
 const CommsLogSection = lazy(() => import("../components/crm/CommsLogSection"));
 const OwnerAssignmentSection = lazy(() => import("../components/crm/OwnerAssignmentSection"));
 const ClientsSection = lazy(() => import("../components/crm/ClientsSection"));
+
+// Lazy load Automation
+const AutomationSection = lazy(() => import("../components/automation/AutomationSection"));
 
 // Lazy load other pages
 const EventsPageContent = lazy(() => import("./EventsPage").then(mod => ({ default: (props) => <mod.default embedded={true} {...props} /> })));
