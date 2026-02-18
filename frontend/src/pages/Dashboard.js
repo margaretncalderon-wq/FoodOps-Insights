@@ -4,17 +4,19 @@ import axios from "axios";
 import { API } from "../utils/api";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useModules } from "../contexts/ModulesContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { 
   Activity, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight,
   FileCheck, Users, Zap, Bell, RefreshCw, ChefHat, MapPin, Building2,
-  GitBranch, Lock, Unlock, Target
+  GitBranch, Lock, Unlock, Target, FolderKanban
 } from "lucide-react";
 
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
   const { language, t } = useLanguage();
+  const { industry, isProfessionalServices, isEventsIndustry } = useModules();
   const isEs = language === "es";
   
   const [loading, setLoading] = useState(true);
