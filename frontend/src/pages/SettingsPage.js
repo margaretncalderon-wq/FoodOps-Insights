@@ -865,6 +865,21 @@ export default function SettingsPage() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Business Type Tab - NEW */}
+          <TabsContent value="business-type">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  {language === "es" ? "Configuración de Industria" : "Industry Configuration"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <IndustryConfigSection />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Billing Tab */}
           <TabsContent value="billing">
             <BillingSection />
