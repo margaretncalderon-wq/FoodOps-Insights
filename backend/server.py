@@ -3383,6 +3383,104 @@ async def sign_document(document_id: str, data: dict, user: User = Depends(get_c
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document signed successfully"}
 
+
+@documents_router.post("/{document_id}/send")
+async def send_document_to_client(document_id: str, user: User = Depends(get_current_user)):
+    """Send a document to the client via email with portal link and optional PDF"""
+    from services.email_service import send_contract_email, is_email_configured
+    
+    # Get the document
+    doc = await db.documents.find_one({"document_id": document_id, "company_id": user.company_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get related event
+    event = await db.events.find_one({"event_id": doc.get("event_id")}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get client with email
+    client = await db.clients.find_one({"client_id": event.get("client_id")}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    if not client.get("email"):
+        raise HTTPException(status_code=400, detail="Client does not have an email address")
+    
+    # Get company info for branding
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0})
+    company_name = company.get("name", "Kora OS") if company else "Kora OS"
+    company_color = company.get("primary_color", "#3A4D3F") if company else "#3A4D3F"
+    
+    # Build portal link
+    frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
+    portal_link = f"{frontend_url}/portal/{document_id}"
+    
+    # Get financials from document content if available
+    total_amount = 0
+    content = doc.get("content", {})
+    if content.get("financials"):
+        total_amount = content["financials"].get("total", 0)
+    
+    # Format event date
+    event_date = event.get("event_date")
+    if event_date:
+        try:
+            event_date_obj = datetime.fromisoformat(event_date.replace("Z", "+00:00")) if isinstance(event_date, str) else event_date
+            event_date = event_date_obj.strftime("%d/%m/%Y")
+        except:
+            event_date = event_date
+    else:
+        event_date = "Por confirmar"
+    
+    # Send email
+    email_result = await send_contract_email(
+        to_email=client.get("email"),
+        client_name=client.get("display_name") or client.get("name", "Cliente"),
+        event_name=event.get("name", "Evento"),
+        event_date=event_date,
+        document_type=doc.get("document_type", "contract"),
+        portal_link=portal_link,
+        company_name=company_name,
+        company_color=company_color,
+        total_amount=total_amount,
+        requires_signature=doc.get("requires_signature", True)
+    )
+    
+    now = datetime.now(timezone.utc)
+    
+    # Update document status to sent
+    await db.documents.update_one(
+        {"document_id": document_id},
+        {"$set": {
+            "status": "sent",
+            "sent_at": now.isoformat(),
+            "sent_to": client.get("email"),
+            "sent_by": user.user_id,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Log activity
+    from utils.activity_logger import log_activity, user_info
+    await log_activity(
+        module="documents",
+        action="send",
+        entity_type="document",
+        entity_id=document_id,
+        entity_name=doc.get("title", "Document"),
+        details={"sent_to": client.get("email"), "document_type": doc.get("document_type")},
+        **user_info(user)
+    )
+    
+    return {
+        "message": "Document sent successfully",
+        "email_status": email_result.get("status"),
+        "sent_to": client.get("email"),
+        "portal_link": portal_link
+    }
+
+
 @documents_router.post("/generate/{event_id}/{doc_type}")
 async def generate_document(event_id: str, doc_type: str, user: User = Depends(get_current_user)):
     """Generate a document for an event with full content including order items organized by day and type"""
