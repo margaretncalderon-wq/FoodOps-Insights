@@ -203,7 +203,7 @@ export default function RegisterPage() {
   const isEs = language === "es";
   const selectedIndustry = INDUSTRIES.find(i => i.key === formData.industry_template);
   const addonCost = calculateAddonCost();
-  const basePlanPrice = 0; // Free tier
+  const totalCost = KORA_CORE.price + addonCost;
 
   return (
     <div className="min-h-screen flex">
