@@ -12,6 +12,7 @@ from models.addons import (
     AddonStatus, AddonType, AddonPricing,
     EffectiveLimits, EffectiveFeatures, AddonUsageLog
 )
+from utils.activity_logger import log_activity, user_info
 
 addons_router = APIRouter(prefix="/addons", tags=["Add-ons"])
 

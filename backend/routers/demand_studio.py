@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import uuid
+import logging
+import os
 
 from config import db
 from models.auth import User
