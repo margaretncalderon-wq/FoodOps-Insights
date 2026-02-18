@@ -14072,6 +14072,7 @@ api_router.include_router(org_config_router)
 
 # Include payments router
 api_router.include_router(payments_router)
+api_router.include_router(automation_router)
 
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
