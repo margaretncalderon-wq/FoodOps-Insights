@@ -1,0 +1,89 @@
+{
+  "summary": "Successfully tested 'Enviar Contrato al Cliente' feature. Backend: 6/6 API tests passed. Frontend: Send button visible and working, Sent badge displayed correctly in blue for documents that have been sent.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "backend_api_tests": {
+      "total_tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        "POST /api/documents/{document_id}/send - PASS (sends document, returns portal_link and sent_to)",
+        "POST /api/documents/{document_id}/send - PASS (email_status is 'skipped' as expected without RESEND_API_KEY)",
+        "POST /api/documents/{document_id}/send with non-existent doc - PASS (returns 404)",
+        "Document status updated to 'sent' after sending - PASS",
+        "GET /api/documents?event_id={event_id} - PASS (lists documents for event)",
+        "Portal link structure validation - PASS (portal_link contains /portal/ and document_id)"
+      ]
+    },
+    "frontend_ui_tests": {
+      "total_tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        "Login with credentials - PASS",
+        "Navigate to event 'Evento Demo - Boda' - PASS",
+        "Generate tab visible with 5 generated documents - PASS",
+        "Send button (green) visible for quote document (not signed) - PASS",
+        "Sent badge (blue) displayed for sent documents - PASS"
+      ]
+    }
+  },
+  "features_verified": {
+    "backend_endpoint_post_documents_send": {
+      "endpoint": "POST /api/documents/{document_id}/send",
+      "functionality": "Sends document to client via email, updates status to 'sent', returns portal_link",
+      "response_fields": ["message", "email_status", "sent_to", "portal_link"],
+      "status_update": "Document status correctly updated to 'sent' after API call"
+    },
+    "frontend_send_button": {
+      "location": "Generate tab in event detail page",
+      "visibility": "Visible for contract/quote documents that are not signed",
+      "styling": "Green color (text-green-600 hover:text-green-700 hover:bg-green-50)",
+      "data_testid": "send-doc-{document_id}"
+    },
+    "frontend_sent_badge": {
+      "location": "Next to document type badge in generated documents list",
+      "styling": "Blue badge (bg-blue-100 text-blue-700)",
+      "icon": "Send icon with 'Sent' or 'Enviado' text"
+    },
+    "email_service": {
+      "status": "MOCKED - email_status returns 'skipped' without RESEND_API_KEY",
+      "template": "get_contract_email_html in services/email_service.py generates Spanish email with portal link"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_send_document.py",
+    "/app/test_reports/pytest/pytest_send_document.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_send_document.py"
+  ],
+  "success_rate": {
+    "backend": "100% (6/6 passed)",
+    "frontend": "100% (5/5 passed)"
+  },
+  "test_credentials": {
+    "email": "margaret.n.calderon@gmail.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "No new seed data created. Used existing document doc_d64a63376ae6 (quote) for testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Send Document feature fully functional. Backend endpoint at POST /api/documents/{document_id}/send updates status to 'sent' and returns portal_link. Frontend shows green Send button for contract/quote documents that are not signed, and blue 'Sent' badge for documents that have been sent. Email sending is MOCKED (returns 'skipped') as RESEND_API_KEY is not configured in the environment.",
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": ["Resend email API - emails return status 'skipped' without RESEND_API_KEY, but full logic works correctly"],
+    "note": "Document status updates and portal link generation work correctly. Only actual email delivery is skipped."
+  },
+  "rca_of_issue": null
+}
