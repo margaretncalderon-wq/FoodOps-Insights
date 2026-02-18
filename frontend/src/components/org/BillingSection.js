@@ -189,7 +189,8 @@ export function BillingSection() {
     }
   };
 
-  const monthlyCost = subscription?.monthly_cost || 0;
+  const addonMonthlyCost = subscription?.monthly_cost || 0;
+  const totalMonthlyCost = KORA_CORE.price + addonMonthlyCost;
   const availableModules = MODULES.filter(m => !activeModules.includes(m.key));
   
   // Calculate trial days remaining
