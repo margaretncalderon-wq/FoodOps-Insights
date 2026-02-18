@@ -262,12 +262,15 @@ class TestActivityLogging:
         # Use first event that's not a test event for cleanup
         event = events[0]
         event_id = event.get("event_id")
-        original_name = event.get("name", "Event")
+        original_guest_count = event.get("guest_count", 50)
         print(f"✓ Using existing event: {event_id}")
         
-        # Update event with a minor change
+        # Update event with all required fields + the change
         update_data = {
-            "guest_count": event.get("guest_count", 50) + 1
+            "client_id": event.get("client_id"),
+            "name": event.get("name"),
+            "event_type": event.get("event_type", "corporate"),
+            "guest_count": original_guest_count + 1
         }
         update_response = self.session.put(f"{BASE_URL}/api/events/{event_id}", json=update_data)
         assert update_response.status_code == 200, f"Failed to update event: {update_response.text}"
@@ -290,7 +293,10 @@ class TestActivityLogging:
         
         # Revert the change
         revert_data = {
-            "guest_count": event.get("guest_count", 50)
+            "client_id": event.get("client_id"),
+            "name": event.get("name"),
+            "event_type": event.get("event_type", "corporate"),
+            "guest_count": original_guest_count
         }
         self.session.put(f"{BASE_URL}/api/events/{event_id}", json=revert_data)
     
