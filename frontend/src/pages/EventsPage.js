@@ -239,6 +239,7 @@ export default function EventsPage({ embedded = false }) {
     setFormData({
       client_id: "",
       name: "",
+      engagement_type: "event",
       event_type: "wedding",
       event_date: null,
       event_date_tbd: false,
@@ -249,6 +250,9 @@ export default function EventsPage({ embedded = false }) {
       venue: "",
       locations: [],
       guest_count: 0,
+      participant_count: 0,
+      deliverables: "",
+      scope_summary: "",
       budget: 0,
       notes: "",
       status: "planning",
