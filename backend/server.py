@@ -4146,17 +4146,41 @@ async def delete_template(template_id: str, user: User = Depends(get_current_use
 
 @settings_router.get("/document-types")
 async def get_document_types(user: User = Depends(get_current_user)):
-    doc_types = [
-        {"type": "contract", "name": "Contract", "name_es": "Contrato", "requires_signature": True, "show_prices": True},
-        {"type": "quote", "name": "Proposal", "name_es": "Propuesta", "requires_signature": True, "show_prices": True},
-        {"type": "invoice", "name": "Invoice", "name_es": "Factura", "requires_signature": False, "show_prices": True},
-        {"type": "beo", "name": "Banquet Event Order", "name_es": "Orden de Evento", "requires_signature": False, "show_prices": True},
-        {"type": "kitchen_sheet", "name": "Kitchen Sheet", "name_es": "Hoja de Cocina", "requires_signature": False, "show_prices": False},
-        {"type": "packing_list", "name": "Packing/Setup List", "name_es": "Lista de Montaje", "requires_signature": False, "show_prices": False},
-        {"type": "mise_en_place", "name": "Mise en Place", "name_es": "Mise en Place", "requires_signature": False, "show_prices": False},
-        {"type": "menu", "name": "Menu", "name_es": "Menú", "requires_signature": False, "show_prices": False},
-    ]
+    """Get available document types based on organization's industry template"""
+    from models.organization_config import (
+        get_document_types_for_industry, 
+        IndustryTemplate,
+        CLIENT_FACING_DOCUMENTS,
+        INTERNAL_DOCUMENTS_BY_INDUSTRY
+    )
     
+    # Get org config to determine industry
+    org_config = await db.organization_configs.find_one({"company_id": user.company_id}, {"_id": 0})
+    industry = IndustryTemplate.EVENTS_HOSPITALITY  # default
+    if org_config and org_config.get("industry_template"):
+        try:
+            industry = IndustryTemplate(org_config["industry_template"])
+        except ValueError:
+            pass
+    
+    # Get document types for this industry
+    all_doc_types = get_document_types_for_industry(industry)
+    
+    # Format for API response
+    doc_types = []
+    for doc in all_doc_types:
+        doc_types.append({
+            "type": doc["key"],
+            "name": doc["name_en"],
+            "name_es": doc["name_es"],
+            "category": doc["category"],
+            "requires_signature": doc.get("requires_signature", False),
+            "show_prices": doc["category"] == "client_facing",
+            "description": doc.get("description_en"),
+            "description_es": doc.get("description_es"),
+        })
+    
+    # Check for custom templates
     templates = await db.templates.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
     templates_by_type = {t["type"]: t for t in templates}
     
@@ -4165,7 +4189,12 @@ async def get_document_types(user: User = Depends(get_current_user)):
             dt["custom_settings"] = templates_by_type[dt["type"]].get("settings", {})
             dt["template_id"] = templates_by_type[dt["type"]]["template_id"]
     
-    return doc_types
+    return {
+        "industry": industry.value,
+        "document_types": doc_types,
+        "client_facing": [d for d in doc_types if d["category"] == "client_facing"],
+        "internal": [d for d in doc_types if d["category"] == "internal"],
+    }
 
 # ============== CLIENT PORTAL ROUTES ==============
 
