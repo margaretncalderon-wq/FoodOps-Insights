@@ -152,8 +152,22 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchGeneratedDocs(),
       fetchEventInvoices(),
       fetchItemTypes(),
+      fetchDocumentTypes(),
     ]).finally(() => setLoading(false));
   }, [eventId]);
+
+  const fetchDocumentTypes = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/document-types`, { withCredentials: true });
+      setDocumentTypes({
+        client_facing: response.data.client_facing || [],
+        internal: response.data.internal || [],
+        industry: response.data.industry || "events_hospitality",
+      });
+    } catch (error) {
+      console.error("Failed to fetch document types:", error);
+    }
+  };
 
   const fetchItemTypes = async () => {
     try {
