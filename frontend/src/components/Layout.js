@@ -65,7 +65,7 @@ const iconMap = {
 const fallbackNavItems = [
   { path: "/dashboard", icon: Activity, labelKey: "systemPulse" },
   { path: "/client-engagement", icon: Puzzle, label: "Client Engagement", labelEs: "Client Engagement" },
-  { path: "/event-orchestration", icon: Music4, label: "Event Orchestration", labelEs: "Event Orchestration" },
+  { path: "/event-orchestration", icon: ClipboardList, label: "Event Orchestration", labelEs: "Event Orchestration" },
   { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
   { path: "/ops-supplies", icon: Package, label: "Operations Supplies", labelEs: "Operations Supplies" },
   { path: "/venues", icon: Building2, labelKey: "venues" },
