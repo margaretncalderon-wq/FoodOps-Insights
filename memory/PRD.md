@@ -358,6 +358,17 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - **Resumen footer** (Total Orgs, Active Orgs, Paid Transactions, Pending Payments)
   - Test Report: `/app/test_reports/iteration_41.json` - 28/28 tests passed (100%)
 
+- ✅ **Exportación y Sistema de Alertas para Super Admin** (December 2025) - NEW
+  - **Exportación a CSV:** Reporte completo con KPIs, industrias, módulos, transacciones
+  - **Exportación a Excel:** Archivo XLSX multi-hoja (Summary, By Industry, Revenue by Module, Transactions)
+  - **Sistema de Alertas automáticas:**
+    - 🔴 Crítico: Tasa de conversión muy baja (<10%)
+    - ⚠️ Warning: Pagos pendientes, orgs sin industria, cancelaciones de módulos
+    - ℹ️ Info: ARPC bajo, módulos sin revenue
+  - Alertas ordenadas por prioridad (crítico → warning → info)
+  - Detección automática de anomalías con acciones sugeridas
+  - Test Report: `/app/test_reports/iteration_42.json` - 35/35 tests passed (100%)
+
 **API Endpoints - Super Admin Module Management:**
 | Method | Endpoint | Description |
 |--------|----------|-------------|
