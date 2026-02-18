@@ -12,6 +12,8 @@ export const ModulesProvider = ({ children }) => {
   const [planId, setPlanId] = useState(null);
   const [coreModules, setCoreModules] = useState([]);
   const [addonModules, setAddonModules] = useState([]);
+  const [industry, setIndustry] = useState("events_hospitality");
+  const [terminology, setTerminology] = useState({});
 
   const fetchModules = useCallback(async () => {
     if (!token) {
@@ -32,6 +34,8 @@ export const ModulesProvider = ({ children }) => {
         setPlanId(data.plan_id);
         setCoreModules(data.core_modules || []);
         setAddonModules(data.addon_modules || []);
+        setIndustry(data.industry || "events_hospitality");
+        setTerminology(data.terminology || {});
       }
     } catch (error) {
       console.error("Error fetching modules:", error);
