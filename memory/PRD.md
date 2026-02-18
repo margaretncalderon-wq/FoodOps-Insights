@@ -422,6 +422,30 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Backend: Nuevos precios, endpoint de pricing dinámico para Super Admin
 - Removido: Venues como módulo separado (ahora parte de Event Suite)
 
+## Automation Engine (NEW - December 18, 2025)
+
+### Backend Endpoints
+- `GET /api/automation/rules` - List all rules
+- `POST /api/automation/rules` - Create new rule
+- `GET /api/automation/rules/{rule_id}` - Get specific rule
+- `PUT /api/automation/rules/{rule_id}` - Update rule
+- `DELETE /api/automation/rules/{rule_id}` - Delete rule
+- `POST /api/automation/rules/{rule_id}/toggle` - Toggle active/paused
+- `GET /api/automation/templates` - 5 predefined templates
+- `POST /api/automation/templates/{id}/create` - Create from template
+- `GET /api/automation/stats` - Statistics
+- `GET /api/automation/logs` - Execution logs
+
+### Predefined Templates
+1. Lead Welcome - notification + follow-up when lead created
+2. Lead Qualification Alert - notify manager for high-value proposals
+3. Inactive Client Reactivation - task when client inactive 30 days
+4. Event Preparation Reminder - tasks 7 days before event
+5. Overdue Follow-up Alert - escalate overdue follow-ups
+
+### Test Report
+- `/app/test_reports/iteration_46.json` - 27/27 tests passed (100%)
+
 ## Upcoming Tasks
 - **P1:** Integrar Resend para emails transaccionales (BLOQUEADO - esperando RESEND_API_KEY del usuario)
 - **P2:** Refactorizar `server.py` (mover rutas a routers separados)
