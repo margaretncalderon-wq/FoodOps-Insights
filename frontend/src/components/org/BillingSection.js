@@ -490,19 +490,31 @@ export function BillingSection() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              {isEs ? "Agregar Módulo" : "Add Module"}
+              {isEs ? "Agregar Módulo Add-on" : "Add Add-on Module"}
             </DialogTitle>
             <DialogDescription>
               {isEs 
-                ? "Selecciona un módulo para agregar a tu suscripción"
-                : "Select a module to add to your subscription"}
+                ? "Prueba cualquier módulo gratis por 7 días. Sin compromiso."
+                : "Try any module free for 7 days. No commitment."}
             </DialogDescription>
           </DialogHeader>
+          
+          {/* Trial Badge */}
+          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <span className="text-sm text-amber-800 dark:text-amber-300">
+                {isEs 
+                  ? "7 días de prueba gratis. Te notificaremos antes de cobrar."
+                  : "7-day free trial. We'll notify you before charging."}
+              </span>
+            </div>
+          </div>
           
           <div className="space-y-3 py-4 max-h-[400px] overflow-y-auto">
             {availableModules.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-500" />
+                <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500" />
                 <p className="font-medium">{isEs ? "¡Tienes todos los módulos!" : "You have all modules!"}</p>
               </div>
             ) : (
@@ -520,8 +532,13 @@ export function BillingSection() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-primary">${mod.price}/mes</span>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-right">
+                      <span className="text-xs text-muted-foreground line-through">${mod.price}/mes</span>
+                      <p className="font-bold text-emerald-600">
+                        {isEs ? "7 días gratis" : "7 days free"}
+                      </p>
+                    </div>
                     <Button 
                       size="sm" 
                       onClick={() => handleAddModule(mod.key)}
@@ -531,8 +548,8 @@ export function BillingSection() {
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
-                          <Plus className="w-4 h-4 mr-1" />
-                          {isEs ? "Agregar" : "Add"}
+                          <Zap className="w-4 h-4 mr-1" />
+                          {isEs ? "Probar" : "Try"}
                         </>
                       )}
                     </Button>
