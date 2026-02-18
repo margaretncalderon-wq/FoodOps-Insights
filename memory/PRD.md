@@ -289,6 +289,8 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Email Purchase Orders
 - Multi-currency support
 - Import/export data migration assistance
+- Alert notifications for negative operating margin
+- End-of-month summary email for finance team
 
 ## Test Reports
 - `/app/test_reports/iteration_31.json` - Execution Hub Backend 18/18
@@ -296,6 +298,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - `/app/test_reports/iteration_33.json` - System Pulse Integration 12/12
 - `/app/test_reports/iteration_34.json` - Locations 27/27 (15 backend + 12 frontend)
 - `/app/test_reports/iteration_35.json` - Room Setup 27/27 (frontend only)
+- `/app/test_reports/iteration_37.json` - Activity Logging 18/20 (12 backend + 6 frontend)
 
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
