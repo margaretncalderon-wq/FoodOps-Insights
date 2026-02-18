@@ -369,6 +369,16 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Detección automática de anomalías con acciones sugeridas
   - Test Report: `/app/test_reports/iteration_42.json` - 35/35 tests passed (100%)
 
+- ✅ **Unificación de UI y Modelo de Precios por Módulos** (December 2025) - NEW
+  - **Super Admin UI** actualizado para coincidir con el estilo visual de Kora OS (tema claro)
+  - **BillingSection completamente reescrito:**
+    - "My Modules" con lista de módulos activos y precios individuales
+    - Total mensual calculado automáticamente ($123/mes con 5 módulos)
+    - Botón "Add Module" para agregar módulos adicionales via Stripe
+    - Eliminados los planes antiguos (Starter $0, Professional $49, Enterprise $149)
+  - **KPI cards** con gradientes de colores pastel que funcionan en tema claro y oscuro
+  - Test Report: `/app/test_reports/iteration_43.json` - 16/16 tests passed (100%)
+
 **API Endpoints - Super Admin Module Management:**
 | Method | Endpoint | Description |
 |--------|----------|-------------|
