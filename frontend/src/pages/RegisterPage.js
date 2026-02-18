@@ -18,7 +18,7 @@ const INDUSTRIES = [
     icon: Building2,
     color: "bg-purple-100 text-purple-700 border-purple-300",
     selectedColor: "bg-purple-600 text-white border-purple-600",
-    recommendedAddons: ["Event Orchestration", "Culinary Intelligence", "Venues"],
+    recommendedAddons: ["module_event_orchestration", "module_culinary_intelligence", "module_venues"],
   },
   {
     key: "professional_services",
@@ -29,7 +29,7 @@ const INDUSTRIES = [
     icon: Briefcase,
     color: "bg-blue-100 text-blue-700 border-blue-300",
     selectedColor: "bg-blue-600 text-white border-blue-600",
-    recommendedAddons: ["Demand Studio"],
+    recommendedAddons: ["module_demand_studio"],
   },
   {
     key: "generic",
@@ -41,6 +41,55 @@ const INDUSTRIES = [
     color: "bg-gray-100 text-gray-700 border-gray-300",
     selectedColor: "bg-gray-700 text-white border-gray-700",
     recommendedAddons: [],
+  },
+];
+
+// Available add-on modules with pricing
+const ADDON_MODULES = [
+  {
+    key: "module_event_orchestration",
+    nameEn: "Event Orchestration",
+    nameEs: "Event Orchestration",
+    descEn: "Full event planning with timelines, room setup, and experience design",
+    descEs: "Planificación completa de eventos con cronogramas, montaje y diseño de experiencia",
+    price: 29,
+    icon: "🎵",
+  },
+  {
+    key: "module_culinary_intelligence",
+    nameEn: "Culinary Intelligence",
+    nameEs: "Inteligencia Culinaria",
+    descEn: "Recipes, food costing, menu engineering, and ingredient management",
+    descEs: "Recetas, costeo de alimentos, ingeniería de menús y gestión de ingredientes",
+    price: 25,
+    icon: "🍳",
+  },
+  {
+    key: "module_operations_supplies",
+    nameEn: "Operations Supplies",
+    nameEs: "Operations Supplies",
+    descEn: "Equipment, disposables, and event supplies inventory",
+    descEs: "Inventario de equipos, desechables y suministros para eventos",
+    price: 19,
+    icon: "📦",
+  },
+  {
+    key: "module_venues",
+    nameEn: "Venues & Locations",
+    nameEs: "Venues & Locations",
+    descEn: "Manage venues, rooms, availability calendar, and booking",
+    descEs: "Gestiona sedes, salones, calendario de disponibilidad y reservas",
+    price: 15,
+    icon: "🏢",
+  },
+  {
+    key: "module_demand_studio",
+    nameEn: "Demand Studio",
+    nameEs: "Demand Studio",
+    descEn: "Marketing campaigns, social media, and lead generation",
+    descEs: "Campañas de marketing, redes sociales y generación de leads",
+    price: 35,
+    icon: "📣",
   },
 ];
 
