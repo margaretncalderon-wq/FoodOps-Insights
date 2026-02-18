@@ -9,8 +9,6 @@ import { API_BASE as API } from "../../utils/api";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
 import { Switch } from "../ui/switch";
 import {
   Card,
@@ -25,15 +23,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "../ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,39 +34,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 // Icons
 import {
-  Zap, Plus, Play, Pause, Trash2, Settings, History,
+  Zap, Plus, Play, Pause, Trash2, History,
   ChevronRight, MoreVertical, Loader2, CheckCircle2,
-  AlertCircle, Clock, FileText, Users, Calendar, Sparkles,
-  Bell, Mail, Tag, UserPlus, ArrowRight, Edit, Copy
+  AlertCircle, Clock, Sparkles, Edit
 } from "lucide-react";
+
+// Workflow Builder
+import WorkflowBuilder from "./WorkflowBuilder";
 
 // Trigger type labels
 const TRIGGER_LABELS = {
-  lead_created: { en: "Lead Created", es: "Lead Creado", icon: UserPlus },
-  lead_status_changed: { en: "Lead Status Changed", es: "Estado de Lead Cambió", icon: Users },
-  lead_assigned: { en: "Lead Assigned", es: "Lead Asignado", icon: UserPlus },
-  client_created: { en: "Client Created", es: "Cliente Creado", icon: Users },
-  client_inactive_days: { en: "Client Inactive", es: "Cliente Inactivo", icon: Clock },
-  event_created: { en: "Event Created", es: "Evento Creado", icon: Calendar },
-  event_status_changed: { en: "Event Status Changed", es: "Estado de Evento Cambió", icon: Calendar },
-  event_date_approaching: { en: "Event Approaching", es: "Evento Próximo", icon: Calendar },
-  proposal_created: { en: "Proposal Created", es: "Propuesta Creada", icon: FileText },
-  proposal_amount_threshold: { en: "Proposal Amount Threshold", es: "Umbral de Monto", icon: FileText },
-  follow_up_overdue: { en: "Follow-up Overdue", es: "Seguimiento Vencido", icon: AlertCircle },
-  scheduled: { en: "Scheduled", es: "Programado", icon: Clock },
-};
-
-// Action type labels
-const ACTION_LABELS = {
-  create_task: { en: "Create Task", es: "Crear Tarea", icon: CheckCircle2 },
-  send_notification: { en: "Send Notification", es: "Enviar Notificación", icon: Bell },
-  send_email: { en: "Send Email", es: "Enviar Email", icon: Mail },
-  update_field: { en: "Update Field", es: "Actualizar Campo", icon: Edit },
-  assign_owner: { en: "Assign Owner", es: "Asignar Responsable", icon: UserPlus },
-  add_tag: { en: "Add Tag", es: "Agregar Etiqueta", icon: Tag },
-  create_follow_up: { en: "Create Follow-up", es: "Crear Seguimiento", icon: Clock },
-  move_to_stage: { en: "Move to Stage", es: "Mover a Etapa", icon: ArrowRight },
-  webhook: { en: "Webhook", es: "Webhook", icon: Zap },
+  lead_created: { en: "Lead Created", es: "Lead Creado", icon: "👤" },
+  lead_status_changed: { en: "Lead Status Changed", es: "Estado de Lead Cambió", icon: "🔄" },
+  lead_assigned: { en: "Lead Assigned", es: "Lead Asignado", icon: "👥" },
+  client_created: { en: "Client Created", es: "Cliente Creado", icon: "🏢" },
+  client_inactive_days: { en: "Client Inactive", es: "Cliente Inactivo", icon: "⏰" },
+  event_created: { en: "Event Created", es: "Evento Creado", icon: "📅" },
+  event_status_changed: { en: "Event Status Changed", es: "Estado de Evento Cambió", icon: "📊" },
+  event_date_approaching: { en: "Event Approaching", es: "Evento Próximo", icon: "🗓️" },
+  proposal_created: { en: "Proposal Created", es: "Propuesta Creada", icon: "📄" },
+  proposal_amount_threshold: { en: "Proposal Amount Threshold", es: "Umbral de Monto", icon: "💰" },
+  follow_up_overdue: { en: "Follow-up Overdue", es: "Seguimiento Vencido", icon: "⚠️" },
+  scheduled: { en: "Scheduled", es: "Programado", icon: "🕐" },
 };
 
 export default function AutomationSection() {
