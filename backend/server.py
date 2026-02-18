@@ -3029,6 +3029,12 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
 
 @events_router.put("/{event_id}")
 async def update_event(event_id: str, data: EventCreate, user: User = Depends(get_current_user)):
+    # Get event name for logging
+    old_event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
     now = datetime.now(timezone.utc)
     update_data = data.model_dump()
     update_data["event_date"] = data.event_date.isoformat() if data.event_date else None
@@ -3039,6 +3045,18 @@ async def update_event(event_id: str, data: EventCreate, user: User = Depends(ge
     result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Log activity
+    await log_activity(
+        module="events",
+        action="update",
+        entity_type="event",
+        entity_id=event_id,
+        entity_name=data.name or old_event.get("name") if old_event else "Event",
+        event_id=event_id,
+        **user_info(user)
+    )
+    
     return await get_event(event_id, user)
 
 @events_router.delete("/{event_id}")
@@ -3047,8 +3065,22 @@ async def delete_event(event_id: str, user: User = Depends(get_current_user)):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    event_name = event.get("name", "Event")
+    
     await db.events.delete_one({"event_id": event_id})
     await db.clients.update_one({"client_id": event["client_id"]}, {"$inc": {"events_count": -1}})
+    
+    # Log activity
+    await log_activity(
+        module="events",
+        action="delete",
+        entity_type="event",
+        entity_id=event_id,
+        entity_name=event_name,
+        event_id=event_id,
+        **user_info(user)
+    )
+    
     return {"message": "Event deleted"}
 
 @events_router.post("/{event_id}/tasks")
