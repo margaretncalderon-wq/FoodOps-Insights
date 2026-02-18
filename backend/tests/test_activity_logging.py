@@ -234,8 +234,21 @@ class TestActivityLogging:
     def test_create_event_creates_log(self):
         """Test creating an event creates an activity log"""
         unique_id = uuid.uuid4().hex[:8]
+        
+        # First create a client for the event (client_id is required)
+        client_data = {
+            "display_name": f"TEST_EventClient_{unique_id}",
+            "client_type": "Company",
+            "email": f"test_event_client_{unique_id}@test.com",
+            "status": "Active"
+        }
+        client_response = self.session.post(f"{BASE_URL}/api/crm/clients", json=client_data)
+        assert client_response.status_code == 200
+        client_id = client_response.json().get("client_id")
+        
         event_data = {
             "name": f"TEST_ActivityLog_Event_{unique_id}",
+            "client_id": client_id,
             "event_type": "corporate",
             "guest_count": 50,
             "stage": "Inquiry Received"
