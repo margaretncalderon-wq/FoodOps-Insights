@@ -19,6 +19,10 @@ class TriggerType(str, Enum):
     PROPOSAL_AMOUNT_THRESHOLD = "proposal_amount_threshold"
     FOLLOW_UP_OVERDUE = "follow_up_overdue"
     SCHEDULED = "scheduled"  # Cron-like scheduled trigger
+    # New triggers for deal/engagement flow
+    DEAL_WON = "deal_won"  # When engagement stage changes to "won" or "committed"
+    DEAL_LOST = "deal_lost"  # When engagement stage changes to "lost"
+    PROJECT_STARTED = "project_started"  # When project/event moves to execution phase
 
 
 class ActionType(str, Enum):
@@ -32,6 +36,8 @@ class ActionType(str, Enum):
     CREATE_FOLLOW_UP = "create_follow_up"
     MOVE_TO_STAGE = "move_to_stage"
     WEBHOOK = "webhook"
+    # New action for Execution Hub integration
+    CREATE_EXECUTION_GOAL = "create_execution_goal"  # Create goal in Execution Hub with tasks
 
 
 class AutomationStatus(str, Enum):
