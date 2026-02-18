@@ -42,6 +42,14 @@ import EventLocationSelector from "../components/EventLocationSelector";
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
 const EVENT_STATUSES = ["planning", "confirmed", "inProgress", "completed", "cancelled"];
+
+// Engagement Types - determines what fields/modules are relevant
+const ENGAGEMENT_TYPES = [
+  { value: "event", labelEn: "Event", labelEs: "Evento", description: "Full event with venue, catering, timeline" },
+  { value: "project", labelEn: "Project", labelEs: "Proyecto", description: "Project-based work with deliverables" },
+  { value: "service", labelEn: "Service", labelEs: "Servicio", description: "Simple service → invoice flow" },
+];
+
 // Event Source Options
 const EVENT_SOURCES = [
   { value: "recurrent_client", labelEn: "Recurrent Client", labelEs: "Cliente Recurrente" },
