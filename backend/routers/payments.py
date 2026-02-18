@@ -129,22 +129,25 @@ async def create_subscription_checkout(
 ):
     """
     Create a Stripe checkout session for new subscription.
-    Called after user registration to collect payment for selected modules.
+    All subscriptions include Kora Core ($69) + optional add-ons.
+    7-day trial applies to everything.
     """
-    # Calculate amount server-side (security: never trust frontend prices)
-    amount = calculate_subscription_total(data.selected_modules)
+    # Get dynamic prices (from DB or defaults)
+    prices = await get_dynamic_prices()
     
-    # If no modules selected (free tier), skip payment
-    if amount <= 0:
-        return {
-            "success": True,
-            "skip_payment": True,
-            "message": "Free tier - no payment required"
-        }
+    # Calculate amount: Kora Core + selected add-ons
+    amount = prices["kora_core"]
+    for module_key in data.selected_modules:
+        if module_key in prices["modules"]:
+            amount += prices["modules"][module_key]
+    amount = round(amount, 2)
     
-    # Build module list for description
+    # Build description
     module_names = [MODULE_NAMES.get(m, m) for m in data.selected_modules if m in MODULE_PRICES]
-    description = f"Kora OS Subscription: {', '.join(module_names)}"
+    if module_names:
+        description = f"Kora Core + {', '.join(module_names)}"
+    else:
+        description = "Kora Core"
     
     # Generate URLs dynamically from frontend origin
     origin = data.origin_url.rstrip("/")
