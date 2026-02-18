@@ -653,41 +653,112 @@ export default function EventsPage({ embedded = false }) {
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <Label>{t("eventLocations")}</Label>
-                    <EventLocationSelector
-                      value={formData.locations}
-                      onChange={(locations) => {
-                        // Update locations and legacy venue field for backwards compatibility
-                        const primaryLocation = locations[0];
-                        const venueStr = primaryLocation?.full_address || primaryLocation?.address || "";
-                        setFormData({ ...formData, locations, venue: venueStr });
-                      }}
-                      clientId={formData.client_id}
-                      clientAddress={clients.find(c => c.client_id === formData.client_id)?.address}
-                      multiLocation={true}
-                      eventDate={formData.event_date}
-                      eventId={editingEvent?.event_id}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Event Location - only for events */}
+                  {formData.engagement_type === "event" && (
                     <div className="space-y-2">
-                      <Label>{t("guestCount")}</Label>
-                      <Input
-                        type="number"
-                        value={formData.guest_count}
-                        onChange={(e) => setFormData({ ...formData, guest_count: e.target.value })}
+                      <Label>{t("eventLocations")}</Label>
+                      <EventLocationSelector
+                        value={formData.locations}
+                        onChange={(locations) => {
+                          // Update locations and legacy venue field for backwards compatibility
+                          const primaryLocation = locations[0];
+                          const venueStr = primaryLocation?.full_address || primaryLocation?.address || "";
+                          setFormData({ ...formData, locations, venue: venueStr });
+                        }}
+                        clientId={formData.client_id}
+                        clientAddress={clients.find(c => c.client_id === formData.client_id)?.address}
+                        multiLocation={true}
+                        eventDate={formData.event_date}
+                        eventId={editingEvent?.event_id}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>{t("budget")}</Label>
-                      <Input
-                        type="number"
-                        value={formData.budget}
-                        onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                      />
+                  )}
+
+                  {/* Guest Count - only for events */}
+                  {formData.engagement_type === "event" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t("guestCount")}</Label>
+                        <Input
+                          type="number"
+                          value={formData.guest_count}
+                          onChange={(e) => setFormData({ ...formData, guest_count: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("budget")}</Label>
+                        <Input
+                          type="number"
+                          value={formData.budget}
+                          onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Project-specific fields */}
+                  {formData.engagement_type === "project" && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>{language === "es" ? "Participantes" : "Participants"}</Label>
+                          <Input
+                            type="number"
+                            value={formData.participant_count}
+                            onChange={(e) => setFormData({ ...formData, participant_count: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t("budget")}</Label>
+                          <Input
+                            type="number"
+                            value={formData.budget}
+                            onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Resumen del Alcance" : "Scope Summary"}</Label>
+                        <Textarea
+                          value={formData.scope_summary}
+                          onChange={(e) => setFormData({ ...formData, scope_summary: e.target.value })}
+                          placeholder={language === "es" ? "Descripción breve del alcance del proyecto..." : "Brief description of project scope..."}
+                          rows={2}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Entregables" : "Deliverables"}</Label>
+                        <Textarea
+                          value={formData.deliverables}
+                          onChange={(e) => setFormData({ ...formData, deliverables: e.target.value })}
+                          placeholder={language === "es" ? "Lista de entregables esperados..." : "List of expected deliverables..."}
+                          rows={2}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Service-specific fields */}
+                  {formData.engagement_type === "service" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Descripción del Servicio" : "Service Description"}</Label>
+                        <Input
+                          value={formData.scope_summary}
+                          onChange={(e) => setFormData({ ...formData, scope_summary: e.target.value })}
+                          placeholder={language === "es" ? "Breve descripción..." : "Brief description..."}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("budget")}</Label>
+                        <Input
+                          type="number"
+                          value={formData.budget}
+                          onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Pipeline Stage */}
                   <div className="grid grid-cols-2 gap-4">
