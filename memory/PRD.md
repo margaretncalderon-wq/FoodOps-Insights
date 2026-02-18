@@ -423,11 +423,15 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Removido: Venues como módulo separado (ahora parte de Event Suite)
 
 ## Upcoming Tasks
-- **P1:** Post-trial workflow (notificar usuarios cuando termina el trial y prompt para agregar método de pago)
-- **P1:** Server.py refactoring (extract remaining routers)
-- **P2:** Complete i18n audit for all components
-- **P2:** Social Media Campaign Widget
-- **P3:** Email notifications (pending RESEND_API_KEY)
+- **P1:** Integrar Resend para emails transaccionales (BLOQUEADO - esperando RESEND_API_KEY del usuario)
+- **P2:** Refactorizar `server.py` (mover rutas a routers separados)
+- **P2:** Completar auditoría i18n en componentes nuevos
+
+## Email Templates Preparados (Pendiente API Key)
+- Welcome Email (nuevo usuario)
+- Trial Ending Email (notificación de fin de prueba)
+- Password Reset Email
+- Payment Confirmation Email
 
 ## Future Tasks
 - Email Purchase Orders
