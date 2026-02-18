@@ -11566,6 +11566,136 @@ async def get_platform_stats(admin: User = Depends(get_super_admin)):
         "events_this_month": events_this_month
     }
 
+
+@super_admin_router.get("/metrics/dashboard")
+async def get_dashboard_metrics(admin: User = Depends(get_super_admin)):
+    """Get comprehensive dashboard metrics for Super Admin"""
+    
+    # ========== ORGANIZATIONS BY INDUSTRY ==========
+    orgs_by_industry = {
+        "events_hospitality": await db.companies.count_documents({"industry_template": "events_hospitality"}),
+        "professional_services": await db.companies.count_documents({"industry_template": "professional_services"}),
+        "generic": await db.companies.count_documents({"industry_template": "generic"}),
+        "not_set": await db.companies.count_documents({
+            "$or": [
+                {"industry_template": {"$exists": False}},
+                {"industry_template": None}
+            ]
+        })
+    }
+    
+    # ========== REVENUE BY MODULE ==========
+    module_revenue = {}
+    module_counts = {}
+    
+    # Get all active modules
+    active_modules = await db.organization_addons.find(
+        {"status": "active", "addon_type": "module"},
+        {"_id": 0, "addon_id": 1, "addon_name": 1, "price_paid": 1}
+    ).to_list(1000)
+    
+    for mod in active_modules:
+        addon_id = mod.get("addon_id", "")
+        price = mod.get("price_paid", 0)
+        name = mod.get("addon_name", addon_id)
+        
+        if addon_id not in module_revenue:
+            module_revenue[addon_id] = 0
+            module_counts[addon_id] = 0
+        
+        module_revenue[addon_id] += price
+        module_counts[addon_id] += 1
+    
+    # Format module data
+    modules_data = []
+    for addon_id, revenue in module_revenue.items():
+        modules_data.append({
+            "addon_id": addon_id,
+            "name": addon_id.replace("addon_module_", "").replace("_", " ").title(),
+            "monthly_revenue": revenue,
+            "active_subscriptions": module_counts.get(addon_id, 0)
+        })
+    
+    # Sort by revenue
+    modules_data.sort(key=lambda x: x["monthly_revenue"], reverse=True)
+    
+    # ========== TOTAL MRR (Monthly Recurring Revenue) ==========
+    total_mrr = sum(module_revenue.values())
+    
+    # ========== CONVERSION METRICS ==========
+    # Paid transactions (successful payments)
+    paid_transactions = await db.payment_transactions.count_documents({"payment_status": "paid"})
+    pending_transactions = await db.payment_transactions.count_documents({"payment_status": "pending"})
+    
+    # Organizations with active modules (paying customers)
+    orgs_with_modules = await db.organization_addons.distinct("company_id", {"status": "active", "addon_type": "module"})
+    paying_customers = len(orgs_with_modules)
+    
+    # Total organizations
+    total_orgs = await db.companies.count_documents({})
+    
+    # Conversion rate
+    conversion_rate = (paying_customers / total_orgs * 100) if total_orgs > 0 else 0
+    
+    # ========== TOP MODULES (MOST POPULAR) ==========
+    top_modules = modules_data[:5]
+    
+    # ========== RECENT TRANSACTIONS ==========
+    recent_transactions = await db.payment_transactions.find(
+        {"payment_status": "paid"},
+        {"_id": 0, "transaction_id": 1, "amount": 1, "modules": 1, "user_email": 1, "payment_type": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    # ========== GROWTH METRICS ==========
+    # New orgs this month
+    now = datetime.now(timezone.utc)
+    first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    new_orgs_this_month = await db.companies.count_documents({
+        "created_at": {"$gte": first_of_month.isoformat()}
+    })
+    
+    # New users this month
+    new_users_this_month = await db.users.count_documents({
+        "created_at": {"$gte": first_of_month.isoformat()}
+    })
+    
+    # ========== ORGANIZATION STATS ==========
+    total_users = await db.users.count_documents({})
+    active_orgs = await db.companies.count_documents({
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    })
+    
+    return {
+        "mrr": {
+            "total": total_mrr,
+            "currency": "USD"
+        },
+        "organizations": {
+            "total": total_orgs,
+            "active": active_orgs,
+            "paying": paying_customers,
+            "free": total_orgs - paying_customers,
+            "new_this_month": new_orgs_this_month
+        },
+        "users": {
+            "total": total_users,
+            "new_this_month": new_users_this_month
+        },
+        "by_industry": orgs_by_industry,
+        "modules": {
+            "revenue_by_module": modules_data,
+            "top_modules": top_modules,
+            "total_active_subscriptions": sum(module_counts.values())
+        },
+        "conversion": {
+            "rate": round(conversion_rate, 1),
+            "paid_transactions": paid_transactions,
+            "pending_transactions": pending_transactions
+        },
+        "recent_transactions": recent_transactions
+    }
+
+
 # ---- Super Admin: Make User Super Admin (bootstrap) ----
 
 @super_admin_router.post("/grant-super-admin/{user_email}")
