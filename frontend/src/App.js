@@ -4,6 +4,7 @@ import { Toaster } from "./components/ui/sonner";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ModulesProvider } from "./contexts/ModulesContext";
+import { OrgConfigProvider } from "./contexts/OrgConfigContext";
 import { Loader2 } from "lucide-react";
 
 // App version for cache busting - increment this on major updates
