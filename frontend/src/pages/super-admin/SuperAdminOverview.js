@@ -466,10 +466,10 @@ export default function SuperAdminOverview() {
       </div>
 
       {/* Recent Transactions */}
-      <Card className="bg-slate-800/50 border-slate-700">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <CreditCard className="w-5 h-5 text-slate-400" />
+            <CreditCard className="w-5 h-5 text-muted-foreground" />
             {isEs ? "Transacciones Recientes" : "Recent Transactions"}
           </CardTitle>
         </CardHeader>
@@ -479,22 +479,22 @@ export default function SuperAdminOverview() {
               {(metrics?.recent_transactions || []).map((tx) => (
                 <div 
                   key={tx.transaction_id} 
-                  className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-green-400" />
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-green-500/20 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-emerald-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-200">{tx.user_email}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm font-medium">{tx.user_email}</p>
+                      <p className="text-xs text-muted-foreground">
                         {tx.payment_type === "subscription" ? (isEs ? "Suscripción" : "Subscription") : "Add-on"} • {(tx.modules || []).length} {isEs ? "módulo(s)" : "module(s)"}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-green-400">{formatCurrency(tx.amount)}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm font-bold text-emerald-600 dark:text-green-400">{formatCurrency(tx.amount)}</p>
+                    <p className="text-xs text-muted-foreground">
                       {new Date(tx.created_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -502,7 +502,7 @@ export default function SuperAdminOverview() {
               ))}
             </div>
           ) : (
-            <p className="text-center text-slate-500 py-8">
+            <p className="text-center text-muted-foreground py-8">
               {isEs ? "Sin transacciones recientes" : "No recent transactions"}
             </p>
           )}
@@ -511,21 +511,21 @@ export default function SuperAdminOverview() {
 
       {/* Summary Stats Footer */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-800/30 rounded-lg p-4 text-center">
-          <p className="text-2xl font-bold text-slate-200">{metrics?.organizations?.total || 0}</p>
-          <p className="text-xs text-slate-500">{isEs ? "Orgs Totales" : "Total Orgs"}</p>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold">{metrics?.organizations?.total || 0}</p>
+          <p className="text-xs text-muted-foreground">{isEs ? "Orgs Totales" : "Total Orgs"}</p>
         </div>
-        <div className="bg-slate-800/30 rounded-lg p-4 text-center">
-          <p className="text-2xl font-bold text-green-400">{metrics?.organizations?.active || 0}</p>
-          <p className="text-xs text-slate-500">{isEs ? "Orgs Activas" : "Active Orgs"}</p>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-600 dark:text-green-400">{metrics?.organizations?.active || 0}</p>
+          <p className="text-xs text-muted-foreground">{isEs ? "Orgs Activas" : "Active Orgs"}</p>
         </div>
-        <div className="bg-slate-800/30 rounded-lg p-4 text-center">
-          <p className="text-2xl font-bold text-blue-400">{metrics?.conversion?.paid_transactions || 0}</p>
-          <p className="text-xs text-slate-500">{isEs ? "Pagos Exitosos" : "Paid Transactions"}</p>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{metrics?.conversion?.paid_transactions || 0}</p>
+          <p className="text-xs text-muted-foreground">{isEs ? "Pagos Exitosos" : "Paid Transactions"}</p>
         </div>
-        <div className="bg-slate-800/30 rounded-lg p-4 text-center">
-          <p className="text-2xl font-bold text-amber-400">{metrics?.conversion?.pending_transactions || 0}</p>
-          <p className="text-xs text-slate-500">{isEs ? "Pagos Pendientes" : "Pending Payments"}</p>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{metrics?.conversion?.pending_transactions || 0}</p>
+          <p className="text-xs text-muted-foreground">{isEs ? "Pagos Pendientes" : "Pending Payments"}</p>
         </div>
       </div>
     </div>
