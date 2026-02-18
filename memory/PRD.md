@@ -338,6 +338,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - `/app/test_reports/iteration_34.json` - Locations 27/27 (15 backend + 12 frontend)
 - `/app/test_reports/iteration_35.json` - Room Setup 27/27 (frontend only)
 - `/app/test_reports/iteration_37.json` - Activity Logging 18/20 (12 backend + 6 frontend)
+- `/app/test_reports/iteration_38.json` - Registration 3-Step Flow 25/25 (frontend only) - NEW
 
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
