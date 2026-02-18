@@ -16,8 +16,12 @@ import {
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
   const { language, t } = useLanguage();
-  const { industry, isProfessionalServices, isEventsIndustry } = useModules();
+  const { industry, isProfessionalServices, isEventsIndustry, getProgramOrchestrationConfig } = useModules();
   const isEs = language === "es";
+  
+  // Get dynamic terminology from industry config
+  const poConfig = getProgramOrchestrationConfig();
+  const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
   
   const [loading, setLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState("all");
