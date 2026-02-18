@@ -19,7 +19,7 @@ import { useViewAs } from "./SuperAdminLayout";
 import { 
   Building2, ChevronLeft, Eye, Ban, Check, Users, Calendar, 
   CreditCard, Activity, AlertTriangle, Loader2, Save, RefreshCw,
-  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical
+  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
