@@ -443,7 +443,7 @@ function EventDetail() {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isEs ? "Volver a eventos" : "Back to events"}
+            {isEs ? `Volver a ${entityPlural.toLowerCase()}` : `Back to ${entityPlural.toLowerCase()}`}
           </button>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             {event.name}
@@ -456,7 +456,7 @@ function EventDetail() {
             </span>
             <span className="flex items-center gap-1">
               <Users className="w-4 h-4" />
-              {event.guest_count || "?"} {isEs ? "invitados" : "guests"}
+              {event.guest_count || "?"} {guestCountLabel.toLowerCase()}
             </span>
           </div>
         </div>
