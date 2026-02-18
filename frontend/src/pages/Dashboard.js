@@ -380,7 +380,8 @@ export default function SystemPulse() {
         {/* ==================== PERMANENT CORE ==================== */}
         <div className="grid lg:grid-cols-2 gap-6">
           
-          {/* -------------------- 1) ACTIVE EVENTS -------------------- */}
+          {/* -------------------- 1) ACTIVE EVENTS/PROJECTS -------------------- */}
+          {hasOrchestrationModule && (
           <Card className="lg:col-span-2" data-testid="active-events-section">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
