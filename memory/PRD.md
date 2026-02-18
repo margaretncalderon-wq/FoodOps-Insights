@@ -332,6 +332,25 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Endpoint para agregar add-ons adicionales después del registro
   - Test Report: `/app/test_reports/iteration_39.json` - 32/32 tests passed (100%)
 
+- ✅ **Panel Super-Admin para Gestión de Módulos** (December 2025) - NEW
+  - Vista de todas las organizaciones con filtros (Status, Plan, Industry)
+  - Detalle de organización con pestaña "Modules"
+  - Gestión de Industry Template (Events & Hospitality, Professional Services, General)
+  - Activar/Desactivar módulos para cualquier organización (admin bypass payment)
+  - Visualización de módulos activos con precio y estado (purchased/admin_granted)
+  - Cálculo y visualización del costo mensual de módulos
+  - Log de acciones de admin
+  - Test Report: `/app/test_reports/iteration_40.json` - 25/25 tests passed (100%)
+
+**API Endpoints - Super Admin Module Management:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/super-admin/organizations?industry= | List orgs with industry filter |
+| GET | /api/super-admin/organizations/{id}/modules | Get org modules |
+| POST | /api/super-admin/organizations/{id}/modules/{key}/activate | Activate module (admin bypass) |
+| DELETE | /api/super-admin/organizations/{id}/modules/{key}/deactivate | Deactivate module |
+| PUT | /api/super-admin/organizations/{id}/industry | Update industry template |
+
 **API Endpoints - Payments:**
 | Method | Endpoint | Description |
 |--------|----------|-------------|
