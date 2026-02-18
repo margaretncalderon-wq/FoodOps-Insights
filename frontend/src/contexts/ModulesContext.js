@@ -78,6 +78,21 @@ export const ModulesProvider = ({ children }) => {
     fetchModules();
   }, [fetchModules]);
 
+  // Helper to get term based on industry
+  const getTerm = useCallback(
+    (key, lang = "en") => {
+      if (terminology[key]) {
+        return terminology[key][lang] || terminology[key]["en"] || key;
+      }
+      return null;
+    },
+    [terminology]
+  );
+
+  // Check if industry is events/hospitality
+  const isEventsIndustry = industry === "events_hospitality";
+  const isProfessionalServices = industry === "professional_services";
+
   return (
     <ModulesContext.Provider
       value={{
@@ -90,6 +105,11 @@ export const ModulesProvider = ({ children }) => {
         isPathEnabled,
         getModule,
         refreshModules,
+        industry,
+        terminology,
+        getTerm,
+        isEventsIndustry,
+        isProfessionalServices,
       }}
     >
       {children}
