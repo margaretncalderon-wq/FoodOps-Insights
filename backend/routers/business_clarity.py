@@ -16,6 +16,7 @@ from models.business_clarity import (
     InvoiceCreate, InvoiceLineCreate
 )
 from routers.auth import get_current_user
+from utils.activity_logger import log_activity, user_info
 
 # Stripe integration
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest

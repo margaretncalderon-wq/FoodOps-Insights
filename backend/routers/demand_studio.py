@@ -24,6 +24,7 @@ from models.demand_studio import (
     ContentIdeaCreate, ContentIdea
 )
 from routers.auth import get_current_user
+from utils.activity_logger import log_activity, user_info
 
 demand_studio_router = APIRouter(prefix="/demand-studio", tags=["Demand Studio"])
 
