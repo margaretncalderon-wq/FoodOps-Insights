@@ -49,6 +49,12 @@ const iconMap = {
   megaphone: Megaphone,
   briefcase: Briefcase,
   settings: Settings,
+  // New icons for multi-industry support
+  "clipboard-list": ClipboardList,
+  "clipboard-check": ClipboardCheck,
+  "folder-kanban": FolderKanban,
+  "map-pin": MapPin,
+  "boxes": Package,
 };
 
 // Fallback nav items (used if modules API fails)
