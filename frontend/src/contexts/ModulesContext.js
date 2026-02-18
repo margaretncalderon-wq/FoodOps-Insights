@@ -16,17 +16,25 @@ export const ModulesProvider = ({ children }) => {
   const [terminology, setTerminology] = useState({});
 
   const fetchModules = useCallback(async () => {
-    if (!token) {
+    // If no token and no user, skip fetching
+    if (!token && !user) {
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/addons/enabled-modules`, {
-        headers: {
+      const fetchOptions = {
+        credentials: 'include', // Always include cookies
+      };
+      
+      // Add Authorization header if we have a token
+      if (token) {
+        fetchOptions.headers = {
           Authorization: `Bearer ${token}`,
-        },
-      });
+        };
+      }
+      
+      const response = await fetch(`${API_URL}/api/addons/enabled-modules`, fetchOptions);
 
       if (response.ok) {
         const data = await response.json();
@@ -42,7 +50,7 @@ export const ModulesProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user]);
 
   useEffect(() => {
     fetchModules();
