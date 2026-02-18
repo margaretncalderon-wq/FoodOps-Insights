@@ -387,10 +387,7 @@ export default function SystemPulse() {
                     <Calendar className="w-5 h-5 text-primary" />
                   )}
                   <CardTitle className="text-lg">
-                    {isProfessionalServices
-                      ? (isEs ? "Proyectos Activos" : "Active Projects")
-                      : (isEs ? "Eventos Activos" : "Active Events")
-                    }
+                    {isEs ? `${entityPlural} Activos` : `Active ${entityPlural}`}
                   </CardTitle>
                   <Badge variant="secondary" className="text-xs">
                     {filteredActiveEvents.length}
@@ -405,9 +402,9 @@ export default function SystemPulse() {
                 </Link>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {isProfessionalServices
-                  ? (isEs ? "Proyectos confirmados en ejecución o próximos" : "Confirmed projects in execution or approaching")
-                  : (isEs ? "Eventos confirmados en ejecución o próximos" : "Confirmed events in execution or approaching")
+                {isEs 
+                  ? `${entityPlural} confirmados en ejecución o próximos` 
+                  : `Confirmed ${entityPlural.toLowerCase()} in execution or approaching`
                 }
               </p>
             </CardHeader>
