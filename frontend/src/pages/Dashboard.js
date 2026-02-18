@@ -377,9 +377,16 @@ export default function SystemPulse() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary" />
+                  {isProfessionalServices ? (
+                    <FolderKanban className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Calendar className="w-5 h-5 text-primary" />
+                  )}
                   <CardTitle className="text-lg">
-                    {isEs ? "Eventos Activos" : "Active Events"}
+                    {isProfessionalServices
+                      ? (isEs ? "Proyectos Activos" : "Active Projects")
+                      : (isEs ? "Eventos Activos" : "Active Events")
+                    }
                   </CardTitle>
                   <Badge variant="secondary" className="text-xs">
                     {filteredActiveEvents.length}
@@ -394,9 +401,10 @@ export default function SystemPulse() {
                 </Link>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {isEs 
-                  ? "Eventos confirmados en ejecución o próximos"
-                  : "Confirmed events in execution or approaching"}
+                {isProfessionalServices
+                  ? (isEs ? "Proyectos confirmados en ejecución o próximos" : "Confirmed projects in execution or approaching")
+                  : (isEs ? "Eventos confirmados en ejecución o próximos" : "Confirmed events in execution or approaching")
+                }
               </p>
             </CardHeader>
             <CardContent>
