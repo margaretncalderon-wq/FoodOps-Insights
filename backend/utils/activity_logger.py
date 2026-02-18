@@ -95,6 +95,8 @@ async def log_activity(
     Returns:
         The created log entry
     """
+    logger.warning(f"[ACTIVITY_LOG CALLED] {module}/{action}/{entity_type}")
+    
     log_entry = {
         "log_id": f"log_{uuid.uuid4().hex[:12]}",
         "module": module,
