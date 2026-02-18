@@ -278,6 +278,13 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - ✅ System Pulse Integration
 - ✅ Add-ons Infrastructure
 - ✅ i18n Enhancement for Execution Hub and Locations
+- ✅ **Fase 1A - Multi-Industry Architecture** (February 18, 2026)
+  - Dynamic sidebar based on enabled modules
+  - Core modules: System Pulse, Client Engagement, Execution Hub, Business Clarity, Settings
+  - Add-on modules: Event Orchestration, Culinary Intelligence, Operations Supplies, Venues, Demand Studio
+  - ModulesContext.js for frontend module management
+  - `/api/addons/enabled-modules` endpoint
+  - Backwards compatible: existing orgs have all modules grandfathered
 
 ## Upcoming Tasks
 - **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
