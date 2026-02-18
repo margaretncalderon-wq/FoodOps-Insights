@@ -17,10 +17,14 @@ export default function SuperAdminOverview() {
   const { language } = useLanguage();
   const isEs = language === "es";
   const [metrics, setMetrics] = useState(null);
+  const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(true);
 
   useEffect(() => {
     fetchMetrics();
+    fetchAlerts();
   }, []);
 
   const fetchMetrics = async () => {
@@ -32,6 +36,75 @@ export default function SuperAdminOverview() {
       console.error(err);
     }
     setLoading(false);
+  };
+
+  const fetchAlerts = async () => {
+    try {
+      const res = await axios.get(`${API}/api/super-admin/metrics/alerts`, { withCredentials: true });
+      setAlerts(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const exportCSV = async () => {
+    setExporting(true);
+    try {
+      const response = await axios.get(`${API}/api/super-admin/metrics/export/csv`, {
+        withCredentials: true,
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `kora_metrics_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success(isEs ? "CSV exportado" : "CSV exported");
+    } catch (err) {
+      toast.error(isEs ? "Error al exportar" : "Export failed");
+    }
+    setExporting(false);
+  };
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const response = await axios.get(`${API}/api/super-admin/metrics/export/excel`, {
+        withCredentials: true,
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `kora_metrics_${new Date().toISOString().slice(0,10)}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success(isEs ? "Excel exportado" : "Excel exported");
+    } catch (err) {
+      toast.error(isEs ? "Error al exportar" : "Export failed");
+    }
+    setExporting(false);
+  };
+
+  const getAlertIcon = (type) => {
+    switch (type) {
+      case "critical": return <AlertTriangle className="w-5 h-5 text-red-400" />;
+      case "warning": return <AlertCircle className="w-5 h-5 text-amber-400" />;
+      case "info": return <Info className="w-5 h-5 text-blue-400" />;
+      default: return <Bell className="w-5 h-5 text-slate-400" />;
+    }
+  };
+
+  const getAlertStyle = (type) => {
+    switch (type) {
+      case "critical": return "border-red-500/50 bg-red-900/20";
+      case "warning": return "border-amber-500/50 bg-amber-900/20";
+      case "info": return "border-blue-500/50 bg-blue-900/20";
+      default: return "border-slate-600 bg-slate-800/50";
+    }
   };
 
   const formatCurrency = (amount) => {
