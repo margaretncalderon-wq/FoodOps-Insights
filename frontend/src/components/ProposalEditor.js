@@ -1337,6 +1337,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                 {language === "es" ? "Firmado" : "Signed"}
                               </Badge>
                             )}
+                            {doc.status === "sent" && (
+                              <Badge className="bg-blue-100 text-blue-700 text-xs">
+                                <Send className="w-3 h-3 mr-1" />
+                                {language === "es" ? "Enviado" : "Sent"}
+                              </Badge>
+                            )}
                             <span className="text-xs text-muted-foreground">
                               {new Date(doc.created_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
                             </span>
@@ -1365,6 +1371,31 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                         >
                           <Link2 className="w-4 h-4" />
                         </Button>
+                        {/* Send to Client - for contracts and quotes that are not yet signed */}
+                        {(doc.document_type === "contract" || doc.document_type === "quote") && doc.status !== "signed" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const res = await axios.post(`${API}/documents/${doc.document_id}/send`, {}, { withCredentials: true });
+                                toast.success(
+                                  language === "es" 
+                                    ? `Documento enviado a ${res.data.sent_to}` 
+                                    : `Document sent to ${res.data.sent_to}`
+                                );
+                                fetchGeneratedDocs();
+                              } catch (error) {
+                                toast.error(error.response?.data?.detail || (language === "es" ? "Error al enviar" : "Error sending"));
+                              }
+                            }}
+                            title={language === "es" ? "Enviar al cliente" : "Send to client"}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            data-testid={`send-doc-${doc.document_id}`}
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
+                        )}
                         {/* Regenerate (only if not signed) */}
                         {doc.status !== "signed" && (
                           <Button
