@@ -316,6 +316,32 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Navegación "Back" entre pasos
   - Test Report: `/app/test_reports/iteration_38.json` - 25/25 tests passed (100%)
 
+- ✅ **Integración Stripe para Pagos de Suscripción** (December 2025) - NEW
+  - Checkout de suscripción durante el registro con módulos seleccionados
+  - Cálculo de precios server-side (seguridad: nunca confiar en precios del frontend)
+  - Módulos y precios:
+    - Event Orchestration: $29/mes
+    - Culinary Intelligence: $25/mes
+    - Operations Supplies: $19/mes
+    - Venues & Locations: $15/mes
+    - Demand Studio: $35/mes
+  - Creación de transacciones en MongoDB antes del redirect a Stripe
+  - Webhook de Stripe para confirmación de pago
+  - Activación automática de módulos después del pago exitoso
+  - Páginas de éxito/cancelación de pago con polling de estado
+  - Endpoint para agregar add-ons adicionales después del registro
+  - Test Report: `/app/test_reports/iteration_39.json` - 32/32 tests passed (100%)
+
+**API Endpoints - Payments:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/payments/pricing | Get module prices |
+| POST | /api/payments/create-subscription-checkout | Create Stripe checkout for registration |
+| GET | /api/payments/status/{session_id} | Check payment status |
+| POST | /api/payments/add-addon-checkout | Create checkout for additional addon |
+| GET | /api/payments/my-subscription | Get user's subscription info |
+| POST | /api/payments/webhook/stripe | Handle Stripe webhooks |
+
 ## Upcoming Tasks
 - **P0:** Panel Super-Admin para gestionar industrias y módulos de clientes
 - **P1:** Conectar selección de add-ons con Stripe para pricing dinámico
