@@ -186,6 +186,16 @@ async def update_venue(
             {"venue_id": venue_id},
             {"$set": update_data}
         )
+        
+        # Log activity
+        await log_activity(
+            module="locations",
+            action="update",
+            entity_type="venue",
+            entity_id=venue_id,
+            entity_name=update_data.get("name", venue.get("name")),
+            **user_info(user)
+        )
     
     return await get_venue(venue_id, user)
 
@@ -196,6 +206,12 @@ async def delete_venue(
     user: User = Depends(get_current_user)
 ):
     """Delete (deactivate) a venue"""
+    # Get venue name for logging
+    venue = await db.venues.find_one(
+        {"venue_id": venue_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
     result = await db.venues.update_one(
         {"venue_id": venue_id, "company_id": user.company_id},
         {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
@@ -203,6 +219,17 @@ async def delete_venue(
     
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Venue not found")
+    
+    # Log activity
+    if venue:
+        await log_activity(
+            module="locations",
+            action="delete",
+            entity_type="venue",
+            entity_id=venue_id,
+            entity_name=venue.get("name"),
+            **user_info(user)
+        )
     
     return {"message": "Venue deactivated"}
 
