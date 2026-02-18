@@ -223,6 +223,30 @@ export default function EventDetails() {
             {language === "es" ? "Volver a Propuestas" : "Back to Proposals"}
           </Link>
           <div className="flex items-center gap-2">
+            {/* Send to Execution Hub Button - Only show if stage is Committed and no goal exists */}
+            {event?.stage === "Committed" && !event?.execution_goal_id && (
+              <Button 
+                variant="default" 
+                className="gap-2 bg-green-600 hover:bg-green-700"
+                onClick={() => setExecutionModalOpen(true)}
+                data-testid="send-to-execution-btn"
+              >
+                <Rocket className="w-4 h-4" />
+                {language === "es" ? "Enviar a Execution Hub" : "Send to Execution Hub"}
+              </Button>
+            )}
+            {/* Link to Execution Goal if exists */}
+            {event?.execution_goal_id && (
+              <Button 
+                variant="outline" 
+                className="gap-2 text-green-600 border-green-200 hover:bg-green-50"
+                onClick={() => navigate(`/execution-hub/${event.execution_goal_id}`)}
+                data-testid="view-execution-goal-btn"
+              >
+                <Target className="w-4 h-4" />
+                {language === "es" ? "Ver en Execution Hub" : "View in Execution Hub"}
+              </Button>
+            )}
             <Button 
               variant="outline" 
               className="gap-2"
