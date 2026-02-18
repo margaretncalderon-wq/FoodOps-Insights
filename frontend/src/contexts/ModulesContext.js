@@ -100,8 +100,50 @@ export const ModulesProvider = ({ children }) => {
   );
 
   // Check if industry is events/hospitality
-  const isEventsIndustry = industry === "events_hospitality";
-  const isProfessionalServices = industry === "professional_services";
+  const isEventsIndustry = industry === "events" || industry === "events_hospitality";
+  const isProfessionalServices = industry === "agency" || industry === "professional_services";
+  const isConsulting = industry === "consulting";
+  const isGeneric = industry === "generic";
+
+  // Get Program Orchestration config (dynamic module name, labels, etc.)
+  const getProgramOrchestrationConfig = useCallback(() => {
+    return industryConfig?.program_orchestration || {
+      name_en: "Event Orchestration",
+      name_es: "Event Orchestration",
+      entity_singular_en: "Event",
+      entity_singular_es: "Evento",
+      entity_plural_en: "Events",
+      entity_plural_es: "Eventos",
+      fields: {}
+    };
+  }, [industryConfig]);
+
+  // Get field label for Program Orchestration module
+  const getFieldLabel = useCallback((fieldKey, lang = "en") => {
+    const poConfig = getProgramOrchestrationConfig();
+    const fields = poConfig.fields || {};
+    const field = fields[fieldKey];
+    if (field) {
+      return field[lang] || field.en || fieldKey;
+    }
+    // Default labels
+    const defaults = {
+      name: { en: "Name", es: "Nombre" },
+      date: { en: "Date", es: "Fecha" },
+      end_date: { en: "End Date", es: "Fecha de Fin" },
+      guest_count: { en: "Guest Count", es: "Invitados" },
+      venue: { en: "Venue", es: "Ubicación" },
+      budget: { en: "Budget", es: "Presupuesto" },
+      type: { en: "Type", es: "Tipo" },
+    };
+    return defaults[fieldKey]?.[lang] || defaults[fieldKey]?.en || fieldKey;
+  }, [getProgramOrchestrationConfig]);
+
+  // Get entity types for this industry
+  const getEntityTypes = useCallback(() => {
+    const poConfig = getProgramOrchestrationConfig();
+    return poConfig.types || [];
+  }, [getProgramOrchestrationConfig]);
 
   return (
     <ModulesContext.Provider
@@ -116,10 +158,16 @@ export const ModulesProvider = ({ children }) => {
         getModule,
         refreshModules,
         industry,
+        industryConfig,
         terminology,
         getTerm,
         isEventsIndustry,
         isProfessionalServices,
+        isConsulting,
+        isGeneric,
+        getProgramOrchestrationConfig,
+        getFieldLabel,
+        getEntityTypes,
       }}
     >
       {children}
