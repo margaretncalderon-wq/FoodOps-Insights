@@ -18,24 +18,27 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 
-// Kora Core Features (Always Free)
-const KORA_CORE_FEATURES = [
-  { icon: Activity, nameEn: "System Pulse", nameEs: "System Pulse", descEn: "Real-time dashboard", descEs: "Dashboard en tiempo real" },
-  { icon: Users, nameEn: "Client Engagement", nameEs: "Client Engagement", descEn: "CRM & client management", descEs: "CRM y gestión de clientes" },
-  { icon: BarChart3, nameEn: "Business Clarity", nameEs: "Business Clarity", descEn: "Reports & analytics", descEs: "Reportes y analíticas" },
-  { icon: Target, nameEn: "Execution Hub", nameEs: "Execution Hub", descEn: "Task & goal tracking", descEs: "Seguimiento de tareas y metas" },
-];
+// Kora Core Configuration
+const KORA_CORE = {
+  price: 69,
+  features: [
+    { icon: Activity, nameEn: "System Pulse", nameEs: "System Pulse", descEn: "Real-time dashboard", descEs: "Dashboard en tiempo real" },
+    { icon: Users, nameEn: "Client Engagement", nameEs: "Client Engagement", descEn: "CRM & client management", descEs: "CRM y gestión de clientes" },
+    { icon: BarChart3, nameEn: "Business Clarity", nameEs: "Business Clarity", descEn: "Reports & analytics", descEs: "Reportes y analíticas" },
+    { icon: Target, nameEn: "Execution Hub", nameEs: "Execution Hub", descEn: "Task & goal tracking", descEs: "Seguimiento de tareas y metas" },
+  ]
+};
 
-// Module configuration (Add-ons with 7-day trial)
+// Add-on Modules (7-day trial)
 const MODULES = [
   { 
-    key: "module_event_orchestration", 
-    nameEn: "Event Orchestration", 
-    nameEs: "Orquestación de Eventos",
-    descEn: "Full event planning with timelines, room setup, and experience design",
-    descEs: "Planificación completa de eventos con cronogramas, configuración de salas y diseño de experiencias",
-    price: 29,
-    icon: "📅"
+    key: "module_event_suite", 
+    nameEn: "Event Suite", 
+    nameEs: "Event Suite",
+    descEn: "Event Orchestration + Venues & Locations combined",
+    descEs: "Event Orchestration + Venues & Locations combinados",
+    price: 39,
+    icon: "🎟️"
   },
   { 
     key: "module_culinary_intelligence", 
@@ -43,8 +46,8 @@ const MODULES = [
     nameEs: "Inteligencia Culinaria",
     descEn: "Recipes, food costing, menu engineering, and ingredient management",
     descEs: "Recetas, costeo de alimentos, ingeniería de menús y gestión de ingredientes",
-    price: 25,
-    icon: "👨‍🍳"
+    price: 29,
+    icon: "🍽️"
   },
   { 
     key: "module_operations_supplies", 
@@ -56,22 +59,13 @@ const MODULES = [
     icon: "📦"
   },
   { 
-    key: "module_venues", 
-    nameEn: "Venues & Locations", 
-    nameEs: "Venues y Ubicaciones",
-    descEn: "Venue management with room layouts and capacity planning",
-    descEs: "Gestión de venues con diseños de salas y planificación de capacidad",
-    price: 15,
-    icon: "🏛️"
-  },
-  { 
     key: "module_demand_studio", 
     nameEn: "Demand Studio", 
     nameEs: "Demand Studio",
-    descEn: "Lead capture, proposals, quotes, and sales pipeline",
-    descEs: "Captura de leads, propuestas, cotizaciones y pipeline de ventas",
-    price: 35,
-    icon: "📊"
+    descEn: "Marketing campaigns, social media, and lead generation",
+    descEs: "Campañas de marketing, redes sociales y generación de leads",
+    price: 39,
+    icon: "📣"
   },
 ];
 
