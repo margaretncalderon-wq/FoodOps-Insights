@@ -479,8 +479,8 @@ export default function AutomationSection() {
             </DialogTitle>
             <DialogDescription>
               {isEs 
-                ? "Selecciona una plantilla para crear rápidamente una regla"
-                : "Select a template to quickly create a rule"}
+                ? "Selecciona una plantilla para crear rápidamente un workflow"
+                : "Select a template to quickly create a workflow"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto">
@@ -508,82 +508,6 @@ export default function AutomationSection() {
               </Card>
             ))}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Rule Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isEs ? "Nueva Regla" : "New Rule"}</DialogTitle>
-            <DialogDescription>
-              {isEs 
-                ? "Define cuándo y qué debe suceder automáticamente"
-                : "Define when and what should happen automatically"}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label>{isEs ? "Nombre" : "Name"}</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={isEs ? "Ej: Notificar nuevo lead" : "E.g.: Notify new lead"}
-              />
-            </div>
-            
-            <div>
-              <Label>{isEs ? "Descripción (opcional)" : "Description (optional)"}</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder={isEs ? "¿Qué hace esta regla?" : "What does this rule do?"}
-                rows={2}
-              />
-            </div>
-            
-            <div>
-              <Label>{isEs ? "Disparador (Trigger)" : "Trigger"}</Label>
-              <Select
-                value={formData.trigger_type}
-                onValueChange={(v) => setFormData({ ...formData, trigger_type: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={isEs ? "Selecciona un disparador" : "Select a trigger"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TRIGGER_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {isEs ? label.es : label.en}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {(formData.trigger_type === "client_inactive_days" || formData.trigger_type === "event_date_approaching") && (
-              <div>
-                <Label>{isEs ? "Días" : "Days"}</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.trigger_days}
-                  onChange={(e) => setFormData({ ...formData, trigger_days: parseInt(e.target.value) || 30 })}
-                />
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              {isEs ? "Cancelar" : "Cancel"}
-            </Button>
-            <Button onClick={handleCreateRule}>
-              <Plus className="w-4 h-4 mr-2" />
-              {isEs ? "Crear Regla" : "Create Rule"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
