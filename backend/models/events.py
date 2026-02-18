@@ -88,6 +88,7 @@ class EventUpdate(BaseModel):
     client_id: Optional[str] = None
     name: Optional[str] = None
     event_type: Optional[str] = None
+    engagement_type: Optional[EngagementType] = None
     event_date: Optional[datetime] = None
     event_date_tbd: Optional[bool] = None
     end_date: Optional[datetime] = None
@@ -96,6 +97,9 @@ class EventUpdate(BaseModel):
     is_booking: Optional[bool] = None
     venue: Optional[str] = None
     guest_count: Optional[int] = None
+    participant_count: Optional[int] = None
+    deliverables: Optional[str] = None
+    scope_summary: Optional[str] = None
     budget: Optional[float] = None
     notes: Optional[str] = None
     status: Optional[str] = None
