@@ -356,18 +356,19 @@ export default function AutomationSection() {
           ) : (
             <div className="space-y-3">
               {rules.map((rule) => {
-                const TriggerIcon = TRIGGER_LABELS[rule.trigger?.type]?.icon || Zap;
+                const triggerLabel = TRIGGER_LABELS[rule.trigger?.type];
                 return (
                   <Card key={rule.rule_id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        <div 
+                          className="flex items-center gap-4 flex-1 cursor-pointer"
+                          onClick={() => handleEditRule(rule)}
+                        >
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${
                             rule.status === "active" ? "bg-green-100" : "bg-muted"
                           }`}>
-                            <TriggerIcon className={`w-5 h-5 ${
-                              rule.status === "active" ? "text-green-600" : "text-muted-foreground"
-                            }`} />
+                            {triggerLabel?.icon || "⚡"}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
@@ -376,8 +377,8 @@ export default function AutomationSection() {
                             </div>
                             <p className="text-sm text-muted-foreground">
                               {isEs 
-                                ? TRIGGER_LABELS[rule.trigger?.type]?.es 
-                                : TRIGGER_LABELS[rule.trigger?.type]?.en}
+                                ? triggerLabel?.es 
+                                : triggerLabel?.en}
                               <ChevronRight className="w-3 h-3 inline mx-1" />
                               {rule.actions?.length || 0} {isEs ? "acciones" : "actions"}
                             </p>
@@ -401,7 +402,7 @@ export default function AutomationSection() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setEditingRule(rule)}>
+                              <DropdownMenuItem onClick={() => handleEditRule(rule)}>
                                 <Edit className="w-4 h-4 mr-2" />
                                 {isEs ? "Editar" : "Edit"}
                               </DropdownMenuItem>
