@@ -342,6 +342,22 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - Log de acciones de admin
   - Test Report: `/app/test_reports/iteration_40.json` - 25/25 tests passed (100%)
 
+- ✅ **Dashboard de Métricas Ejecutivas para Super Admin** (December 2025) - NEW
+  - **KPIs principales con gradientes de colores:**
+    - MRR (Monthly Recurring Revenue)
+    - Clientes de pago vs. total
+    - Tasa de conversión (Free → Paid)
+    - Total de módulos activos
+  - **Estadísticas de crecimiento:**
+    - Nuevas organizaciones este mes
+    - Nuevos usuarios este mes
+    - Total de usuarios
+  - **Organizaciones por industria** (gráfico de barras con porcentajes)
+  - **Ingresos por módulo** (gráfico de barras con suscripciones y revenue)
+  - **Transacciones recientes** (últimas 10 transacciones de pago)
+  - **Resumen footer** (Total Orgs, Active Orgs, Paid Transactions, Pending Payments)
+  - Test Report: `/app/test_reports/iteration_41.json` - 28/28 tests passed (100%)
+
 **API Endpoints - Super Admin Module Management:**
 | Method | Endpoint | Description |
 |--------|----------|-------------|
