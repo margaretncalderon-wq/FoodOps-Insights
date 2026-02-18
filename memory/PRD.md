@@ -292,6 +292,12 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
   - OrgConfigContext.js for frontend config management
   - `/api/org-config` endpoints for config CRUD
   - EventCreate model updated with engagement_type field
+- ✅ **Fase 2 - UI Adaptativa (Parcial)** (February 18, 2026)
+  - Backend: engagement_type (event/project/service) guardado correctamente
+  - Backend: Campos nuevos para projects (scope_summary, deliverables, participant_count)
+  - Frontend: Formulario de creación con selector de tipo de trabajo
+  - Frontend: Campos condicionales según engagement_type
+  - Frontend: Badge de tipo en lista de eventos
 
 ## Upcoming Tasks
 - **P0:** Fase 1B - Client Engagement Genérico (engagement_type: event/project/service)
