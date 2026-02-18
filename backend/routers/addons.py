@@ -673,7 +673,7 @@ CORE_MODULES = [
 
 # Module addons - these require purchase
 MODULE_ADDONS = {
-    "module_event_orchestration": {"path": "/event-orchestration", "name_en": "Event Orchestration", "name_es": "Event Orchestration", "icon": "music"},
+    "module_event_orchestration": {"path": "/event-orchestration", "name_en": "Event Orchestration", "name_es": "Event Orchestration", "icon": "clipboard-list"},
     "module_culinary_intelligence": {"path": "/food-ops", "name_en": "Culinary Intelligence", "name_es": "Inteligencia Culinaria", "icon": "utensils"},
     "module_operations_supplies": {"path": "/ops-supplies", "name_en": "Operations Supplies", "name_es": "Operations Supplies", "icon": "package"},
     "module_venues": {"path": "/venues", "name_en": "Venues", "name_es": "Venues", "icon": "building"},
