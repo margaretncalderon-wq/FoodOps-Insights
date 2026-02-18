@@ -22,6 +22,7 @@ export default function SystemPulse() {
   // Get dynamic terminology from industry config
   const poConfig = getProgramOrchestrationConfig();
   const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
+  const entitySingular = isEs ? poConfig.entity_singular_es : poConfig.entity_singular_en;
   
   const [loading, setLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState("all");
