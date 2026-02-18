@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useModules } from "../contexts/ModulesContext";
 import { Routes, Route, NavLink, Navigate, useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ import {
   Music4, ArrowLeft, Calendar, Users, Clock, Package,
   Palette, GitBranch, FileCheck, Star, Search, RefreshCw,
   CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock, ExternalLink,
-  LayoutGrid
+  LayoutGrid, Briefcase, FolderKanban, ClipboardList
 } from "lucide-react";
 
 // Tab Components
@@ -35,15 +36,33 @@ import RoomSetupTab from "../components/RoomSetupTab";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
+// Icon mapping for dynamic industry icons
+const MODULE_ICONS = {
+  "calendar-check": Calendar,
+  "folder-kanban": FolderKanban,
+  "briefcase": Briefcase,
+  "clipboard-list": ClipboardList,
+  "music": Music4,
+};
+
 // ==================== EVENTS LIST ====================
 function EventsList() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const { getProgramOrchestrationConfig, getFieldLabel, isEventsIndustry } = useModules();
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [timeWindow, setTimeWindow] = useState("all"); // now, 7days, 30days, all
+
+  // Get dynamic terminology
+  const poConfig = useMemo(() => getProgramOrchestrationConfig(), [getProgramOrchestrationConfig]);
+  const entitySingular = isEs ? poConfig.entity_singular_es : poConfig.entity_singular_en;
+  const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
+  const dateLabel = getFieldLabel("date", isEs ? "es" : "en");
+  const guestCountLabel = getFieldLabel("guest_count", isEs ? "es" : "en");
+  const venueLabel = getFieldLabel("venue", isEs ? "es" : "en");
 
   const fetchEvents = useCallback(async () => {
     try {
