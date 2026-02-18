@@ -525,9 +525,11 @@ async def stripe_webhook(request: Request):
 
 @payments_router.get("/pricing")
 async def get_pricing_info():
-    """Get available modules and their pricing"""
+    """Get available modules and their pricing (with dynamic prices from DB)"""
+    prices = await get_dynamic_prices()
+    
     modules = []
-    for key, price in MODULE_PRICES.items():
+    for key, price in prices["modules"].items():
         modules.append({
             "key": key,
             "name": MODULE_NAMES.get(key, key),
@@ -537,10 +539,43 @@ async def get_pricing_info():
         })
     
     return {
-        "base_plan_price": BASE_PLAN_PRICE,
+        "kora_core_price": prices["kora_core"],
+        "kora_core_includes": ["System Pulse", "Execution Hub", "Client Engagement", "Business Clarity", "1 Location"],
         "modules": modules,
+        "trial_days": TRIAL_PERIOD_DAYS,
         "currency": "USD"
     }
+
+
+@payments_router.put("/pricing")
+async def update_pricing(
+    pricing_data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update pricing (Super Admin only)"""
+    if user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Deactivate previous config
+    await db.pricing_config.update_many(
+        {"active": True},
+        {"$set": {"active": False, "deactivated_at": now.isoformat()}}
+    )
+    
+    # Create new config
+    config = {
+        "kora_core_price": pricing_data.get("kora_core_price", KORA_CORE_PRICE),
+        "module_prices": pricing_data.get("module_prices", MODULE_PRICES),
+        "active": True,
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    await db.pricing_config.insert_one(config)
+    
+    return {"success": True, "message": "Pricing updated"}
 
 
 @payments_router.get("/my-subscription")
