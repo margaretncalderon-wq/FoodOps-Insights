@@ -533,11 +533,21 @@ function EventDetail() {
 export default function EventOrchestrationPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const { getProgramOrchestrationConfig, isEventsIndustry } = useModules();
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Get dynamic terminology
+  const poConfig = useMemo(() => getProgramOrchestrationConfig(), [getProgramOrchestrationConfig]);
+  const moduleName = isEs ? poConfig.name_es : poConfig.name_en;
+  const moduleDescription = isEs ? poConfig.description_es : poConfig.description_en;
+  const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
+  
+  // Get dynamic icon
+  const ModuleIcon = MODULE_ICONS[poConfig.icon] || ClipboardList;
+
   const navTabs = [
-    { path: "/event-orchestration", label: isEs ? "Eventos" : "Events", icon: Music4, end: true },
+    { path: "/event-orchestration", label: entityPlural, icon: ModuleIcon, end: true },
     { path: "/event-orchestration/calendar", label: isEs ? "Calendario" : "Calendar", icon: Calendar },
   ];
 
@@ -550,12 +560,12 @@ export default function EventOrchestrationPage() {
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-            <Music4 className="w-5 h-5 text-white" />
+            <ModuleIcon className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Event Orchestration</h1>
+            <h1 className="text-2xl font-bold">{moduleName}</h1>
             <p className="text-sm text-muted-foreground">
-              {isEs ? "Planificación y ejecución de eventos" : "Event planning & execution"}
+              {moduleDescription || (isEs ? `Planificación y ejecución de ${entityPlural.toLowerCase()}` : `${entityPlural} planning & execution`)}
             </p>
           </div>
         </div>
