@@ -336,8 +336,9 @@ class TestActivityLogging:
         assert found_log is not None, f"Activity log not found for updated event {event_id}"
         print(f"✓ Activity log created for event update: {found_log.get('log_id')} (action: {found_log.get('action')})")
         
-        # Cleanup - delete event
+        # Cleanup - delete event and client
         self.session.delete(f"{BASE_URL}/api/events/{event_id}")
+        self.session.delete(f"{BASE_URL}/api/crm/clients/{client_id}")
     
     def test_delete_event_creates_log(self):
         """Test deleting an event creates an activity log"""
