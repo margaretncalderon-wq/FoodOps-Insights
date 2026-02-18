@@ -273,6 +273,16 @@ async def create_venue_room(
     await db.venue_rooms.insert_one(room_doc)
     del room_doc["_id"]
     
+    # Log activity
+    await log_activity(
+        module="locations",
+        action="create",
+        entity_type="room",
+        entity_id=room_id,
+        entity_name=data.name,
+        **user_info(user)
+    )
+    
     return room_doc
 
 
@@ -297,6 +307,16 @@ async def update_venue_room(
     await db.venue_rooms.update_one(
         {"room_id": room_id},
         {"$set": update_data}
+    )
+    
+    # Log activity
+    await log_activity(
+        module="locations",
+        action="update",
+        entity_type="room",
+        entity_id=room_id,
+        entity_name=data.name,
+        **user_info(user)
     )
     
     return await db.venue_rooms.find_one({"room_id": room_id}, {"_id": 0})
