@@ -212,6 +212,7 @@ export default function EventsPage({ embedded = false }) {
     setFormData({
       client_id: event.client_id,
       name: event.name,
+      engagement_type: event.engagement_type || "event",
       event_type: event.event_type,
       event_date: event.event_date ? new Date(event.event_date) : null,
       event_date_tbd: event.event_date_tbd || !event.event_date,
@@ -222,6 +223,9 @@ export default function EventsPage({ embedded = false }) {
       venue: event.venue || "",
       locations: event.locations || [],
       guest_count: event.guest_count,
+      participant_count: event.participant_count || 0,
+      deliverables: event.deliverables || "",
+      scope_summary: event.scope_summary || "",
       budget: event.budget,
       notes: event.notes || "",
       status: event.status,
