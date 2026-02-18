@@ -11,15 +11,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Switch } from "../../components/ui/switch";
 import {
   Settings, Globe, FileText, Code, Copy, Check, ExternalLink,
-  Loader2, Save, Eye
+  Loader2, Save, Eye, DollarSign, History, RefreshCw
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 
 export default function SuperAdminSettings() {
-  const [activeTab, setActiveTab] = useState("leadform");
+  const [activeTab, setActiveTab] = useState("pricing");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Pricing state
+  const [pricingConfig, setPricingConfig] = useState({
+    kora_core_price: 69,
+    module_prices: {
+      module_event_suite: 39,
+      module_culinary_intelligence: 29,
+      module_operations_supplies: 19,
+      module_demand_studio: 39
+    }
+  });
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingHistory, setPricingHistory] = useState([]);
+  const [savingPricing, setSavingPricing] = useState(false);
   
   const [leadFormConfig, setLeadFormConfig] = useState({
     enabled: true,
@@ -37,6 +51,60 @@ export default function SuperAdminSettings() {
     notification_email: "",
     redirect_url: ""
   });
+
+  // Fetch pricing on mount
+  useEffect(() => {
+    fetchPricing();
+  }, []);
+
+  const fetchPricing = async () => {
+    setPricingLoading(true);
+    try {
+      const [configRes, historyRes] = await Promise.all([
+        axios.get(`${API}/api/super-admin/pricing`, { withCredentials: true }),
+        axios.get(`${API}/api/super-admin/pricing/history?limit=5`, { withCredentials: true })
+      ]);
+      setPricingConfig({
+        kora_core_price: configRes.data.kora_core_price || 69,
+        module_prices: configRes.data.module_prices || {}
+      });
+      setPricingHistory(historyRes.data.history || []);
+    } catch (err) {
+      console.error("Failed to fetch pricing:", err);
+      toast.error("Error loading pricing configuration");
+    }
+    setPricingLoading(false);
+  };
+
+  const handleSavePricing = async () => {
+    setSavingPricing(true);
+    try {
+      await axios.put(`${API}/api/super-admin/pricing`, pricingConfig, { withCredentials: true });
+      toast.success("Precios actualizados exitosamente");
+      fetchPricing(); // Refresh history
+    } catch (err) {
+      console.error("Failed to save pricing:", err);
+      toast.error("Error guardando precios");
+    }
+    setSavingPricing(false);
+  };
+
+  const updateModulePrice = (key, value) => {
+    setPricingConfig(prev => ({
+      ...prev,
+      module_prices: {
+        ...prev.module_prices,
+        [key]: parseFloat(value) || 0
+      }
+    }));
+  };
+
+  const MODULE_LABELS = {
+    module_event_suite: { name: "Event Suite", desc: "Event Orchestration + Venues" },
+    module_culinary_intelligence: { name: "Culinary Intelligence", desc: "Recetas, costeo, menús" },
+    module_operations_supplies: { name: "Operations Supplies", desc: "Inventario, proveedores" },
+    module_demand_studio: { name: "Demand Studio", desc: "Marketing, leads" }
+  };
 
   const embedCode = `<!-- Kora OS Lead Form -->
 <iframe 
