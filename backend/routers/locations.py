@@ -329,6 +329,12 @@ async def delete_venue_room(
     user: User = Depends(get_current_user)
 ):
     """Delete (deactivate) a room"""
+    # Get room name for logging
+    room = await db.venue_rooms.find_one(
+        {"room_id": room_id, "venue_id": venue_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    
     result = await db.venue_rooms.update_one(
         {"room_id": room_id, "venue_id": venue_id, "company_id": user.company_id},
         {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
@@ -336,6 +342,17 @@ async def delete_venue_room(
     
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Log activity
+    if room:
+        await log_activity(
+            module="locations",
+            action="delete",
+            entity_type="room",
+            entity_id=room_id,
+            entity_name=room.get("name"),
+            **user_info(user)
+        )
     
     return {"message": "Room deactivated"}
 
