@@ -180,6 +180,90 @@ async def login(data: UserLogin, response: Response):
     return TokenResponse(access_token=token, user=user)
 
 
+# ============== DEMO ACCOUNT MODULE ACTIVATION ==============
+from dependencies import get_current_user
+
+@auth_router.post("/activate-demo-modules")
+async def activate_demo_modules(user: User = Depends(get_current_user)):
+    """
+    Activate standard modules for demo/test accounts.
+    This allows users to test the full functionality without payment.
+    """
+    # Define modules to activate for demo
+    DEMO_MODULES = [
+        "module_event_orchestration",
+        "module_demand_studio",
+        "module_operations_supplies"
+    ]
+    
+    now = datetime.now(timezone.utc)
+    billing_end = now + timedelta(days=30)
+    
+    activated = []
+    for module_key in DEMO_MODULES:
+        addon_id = f"addon_{module_key}"
+        
+        # Check if already active
+        existing = await db.organization_addons.find_one({
+            "company_id": user.company_id,
+            "addon_id": addon_id,
+            "status": "active"
+        })
+        
+        if existing:
+            continue  # Skip if already active
+        
+        # Create organization addon record
+        org_addon_id = f"orgaddon_{uuid.uuid4().hex[:12]}"
+        addon_doc = {
+            "org_addon_id": org_addon_id,
+            "company_id": user.company_id,
+            "addon_id": addon_id,
+            "addon_name": module_key.replace("module_", "").replace("_", " ").title(),
+            "addon_type": "module",
+            "status": "active",
+            "quantity": 1,
+            "price_paid": 0,  # Free for demo
+            "pricing_type": "demo",
+            "currency": "USD",
+            "billing_cycle_start": now.isoformat(),
+            "billing_cycle_end": billing_end.isoformat(),
+            "next_billing_date": billing_end.isoformat(),
+            "auto_renew": False,
+            "demo_account": True,
+            "purchased_by": user.user_id,
+            "purchased_at": now.isoformat()
+        }
+        
+        await db.organization_addons.insert_one(addon_doc)
+        activated.append(module_key)
+    
+    # Also create a demo subscription if none exists
+    existing_sub = await db.subscriptions.find_one({
+        "company_id": user.company_id,
+        "status": {"$in": ["active", "trialing"]}
+    })
+    
+    if not existing_sub:
+        sub_doc = {
+            "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+            "company_id": user.company_id,
+            "user_id": user.user_id,
+            "plan_id": "plan_professional",
+            "status": "trialing",
+            "trial_end": (now + timedelta(days=7)).isoformat(),
+            "demo_subscription": True,
+            "created_at": now.isoformat()
+        }
+        await db.subscriptions.insert_one(sub_doc)
+    
+    return {
+        "success": True,
+        "activated_modules": activated,
+        "message": f"Activated {len(activated)} modules for demo account"
+    }
+
+
 @auth_router.post("/session")
 async def exchange_session(request: Request, response: Response):
     body = await request.json()
