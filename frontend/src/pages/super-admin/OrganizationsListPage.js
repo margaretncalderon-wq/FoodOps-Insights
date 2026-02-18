@@ -23,13 +23,14 @@ export default function OrganizationsListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
+  const [industryFilter, setIndustryFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
     fetchOrganizations();
-  }, [page, statusFilter, planFilter]);
+  }, [page, statusFilter, planFilter, industryFilter]);
 
   const fetchOrganizations = async () => {
     setLoading(true);
@@ -40,6 +41,7 @@ export default function OrganizationsListPage() {
       if (search) params.append("search", search);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (planFilter !== "all") params.append("plan", planFilter);
+      if (industryFilter !== "all") params.append("industry", industryFilter);
 
       const res = await axios.get(`${API}/api/super-admin/organizations?${params}`, { withCredentials: true });
       setOrganizations(res.data.organizations || []);
