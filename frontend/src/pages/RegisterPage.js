@@ -356,7 +356,7 @@ export default function RegisterPage() {
               )}
 
               {/* Module Cards */}
-              <div className="space-y-3 mb-4 max-h-[320px] overflow-y-auto pr-1">
+              <div className="space-y-3 mb-4 max-h-[280px] overflow-y-auto pr-1">
                 {ADDON_MODULES.map((module) => {
                   const isSelected = formData.selected_modules.includes(module.key);
                   const isRecommended = getRecommendedModules().includes(module.key);
@@ -391,9 +391,12 @@ export default function RegisterPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className={`text-sm font-semibold ${isSelected ? 'text-[#2563EB]' : 'text-[#6B7280]'}`}>
-                                ${module.price}/mes
-                              </span>
+                              <div className="text-right">
+                                <span className={`text-xs ${isSelected ? 'text-[#3B82F6]' : 'text-[#9CA3AF]'} line-through`}>
+                                  ${module.price}/mes
+                                </span>
+                                <p className="text-xs font-medium text-amber-600">{isEs ? "7 días gratis" : "7 days free"}</p>
+                              </div>
                               <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                                 isSelected 
                                   ? 'bg-[#2563EB] border-[#2563EB]' 
