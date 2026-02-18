@@ -57,6 +57,7 @@ export default function OrganizationDetailPage() {
   useEffect(() => {
     if (activeTab === "members") fetchMembers();
     if (activeTab === "audit") fetchAudit();
+    if (activeTab === "modules") fetchModules();
   }, [activeTab, id]);
 
   const fetchOrganization = async () => {
