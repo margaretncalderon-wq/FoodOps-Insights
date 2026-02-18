@@ -13295,6 +13295,9 @@ api_router.include_router(activity_logs_router)
 from routers.organization_config import org_config_router
 api_router.include_router(org_config_router)
 
+# Include payments router
+api_router.include_router(payments_router)
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
