@@ -106,7 +106,7 @@ async def create_organization_config(
         # Create new config
         await db.organization_configs.insert_one(config_doc)
     
-    del config_doc["_id"] if "_id" in config_doc else None
+    config_doc.pop("_id", None)
     
     # Log activity
     await log_activity(
