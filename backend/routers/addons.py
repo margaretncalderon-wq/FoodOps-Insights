@@ -779,7 +779,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
                 "path": override.get("path", module_info["path"]) if override else module_info["path"],
                 "name_en": override.get("name_en", module_info["name_en"]) if override else module_info["name_en"],
                 "name_es": override.get("name_es", module_info["name_es"]) if override else module_info["name_es"],
-                "icon": module_info["icon"],
+                "icon": override.get("icon", module_info["icon"]) if override else module_info["icon"],
                 "is_addon": True
             }
             enabled_modules.append(module_data)
