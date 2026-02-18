@@ -162,11 +162,72 @@ export default function SuperAdminOverview() {
             {isEs ? "Resumen ejecutivo de la plataforma" : "Executive platform summary"}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchMetrics} className="border-slate-600">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {isEs ? "Actualizar" : "Refresh"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportCSV}
+            disabled={exporting}
+            className="border-slate-600"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportExcel}
+            disabled={exporting}
+            className="border-slate-600"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { fetchMetrics(); fetchAlerts(); }} className="border-slate-600">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {isEs ? "Actualizar" : "Refresh"}
+          </Button>
+        </div>
       </div>
+
+      {/* Alerts Section */}
+      {alerts && alerts.alerts && alerts.alerts.length > 0 && showAlerts && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Bell className="w-5 h-5 text-amber-400" />
+                {isEs ? "Alertas de la Plataforma" : "Platform Alerts"}
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400">
+                  {alerts.total_alerts}
+                </span>
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowAlerts(false)} className="text-slate-500 hover:text-slate-300">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {alerts.alerts.map((alert, idx) => (
+              <div 
+                key={idx}
+                className={`p-4 rounded-lg border ${getAlertStyle(alert.type)}`}
+              >
+                <div className="flex items-start gap-3">
+                  {getAlertIcon(alert.type)}
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-200">{alert.title}</p>
+                    <p className="text-sm text-slate-400 mt-1">{alert.message}</p>
+                    <p className="text-xs text-slate-500 mt-2">
+                      <span className="text-slate-400">{isEs ? "Acción:" : "Action:"}</span> {alert.action}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
