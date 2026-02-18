@@ -687,7 +687,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     Get all enabled modules for the organization.
     Uses centralized industry configuration for module names and settings.
     """
-    from config.industry_config import (
+    from industry_config_module.industry_config import (
         get_industry_config, 
         get_program_orchestration_config,
         IndustryType
