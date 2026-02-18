@@ -397,6 +397,31 @@ export default function EventsPage({ embedded = false }) {
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Engagement Type Selector - First and prominent */}
+                  {!editingEvent && (
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Tipo de Trabajo" : "Work Type"} *</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {ENGAGEMENT_TYPES.map((type) => (
+                          <button
+                            key={type.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, engagement_type: type.value })}
+                            className={`p-3 rounded-lg border-2 text-center transition-all ${
+                              formData.engagement_type === type.value
+                                ? "border-primary bg-primary/10"
+                                : "border-muted hover:border-primary/50"
+                            }`}
+                          >
+                            <span className="block font-medium text-sm">
+                              {language === "es" ? type.labelEs : type.labelEn}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label>{t("clients")} *</Label>
                     <Select
@@ -416,7 +441,13 @@ export default function EventsPage({ embedded = false }) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("name")} *</Label>
+                    <Label>
+                      {formData.engagement_type === "project" 
+                        ? (language === "es" ? "Nombre del Proyecto" : "Project Name")
+                        : formData.engagement_type === "service"
+                        ? (language === "es" ? "Nombre del Servicio" : "Service Name")
+                        : t("name")} *
+                    </Label>
                     <Input
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -425,24 +456,27 @@ export default function EventsPage({ embedded = false }) {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t("eventType")}</Label>
-                      <Select
-                        value={formData.event_type}
-                        onValueChange={(value) => setFormData({ ...formData, event_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EVENT_TYPES.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type.charAt(0).toUpperCase() + type.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Event Type - only for events */}
+                    {formData.engagement_type === "event" && (
+                      <div className="space-y-2">
+                        <Label>{t("eventType")}</Label>
+                        <Select
+                          value={formData.event_type}
+                          onValueChange={(value) => setFormData({ ...formData, event_type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {EVENT_TYPES.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>{t("status")}</Label>
                       <Select
