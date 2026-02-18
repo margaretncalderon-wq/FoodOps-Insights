@@ -750,11 +750,18 @@ export default function SystemPulse() {
               className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 transition-all"
               data-testid="quick-action-new-event"
             >
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Calendar className="w-5 h-5 text-emerald-600" />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${isProfessionalServices ? 'bg-indigo-100' : 'bg-emerald-100'}`}>
+                {isProfessionalServices ? (
+                  <FolderKanban className="w-5 h-5 text-indigo-600" />
+                ) : (
+                  <Calendar className="w-5 h-5 text-emerald-600" />
+                )}
               </div>
               <span className="text-sm font-medium text-center">
-                {isEs ? "Nueva Oportunidad" : "New Event Opportunity"}
+                {isProfessionalServices 
+                  ? (isEs ? "Nuevo Proyecto" : "New Project")
+                  : (isEs ? "Nueva Oportunidad" : "New Event Opportunity")
+                }
               </span>
             </Link>
             <Link 
