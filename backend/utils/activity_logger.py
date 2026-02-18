@@ -115,10 +115,13 @@ async def log_activity(
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     
-    await db.activity_logs.insert_one(log_entry)
-    
-    # Remove MongoDB _id before returning
-    log_entry.pop("_id", None)
+    try:
+        await db.activity_logs.insert_one(log_entry)
+        # Remove MongoDB _id before returning
+        log_entry.pop("_id", None)
+        print(f"[ACTIVITY_LOG] {module}/{action}/{entity_type}: {entity_name}")
+    except Exception as e:
+        print(f"[ACTIVITY_LOG ERROR] {e}")
     
     return log_entry
 
