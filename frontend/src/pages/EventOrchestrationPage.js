@@ -218,8 +218,8 @@ function EventsList() {
           <p className="text-sm text-blue-700 flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
             {isEs 
-              ? "Esta es la capa de ejecución. Los eventos deben estar Committed desde Client Engagement para aparecer aquí." 
-              : "This is the execution layer. Events must be Committed from Client Engagement to appear here."}
+              ? `Esta es la capa de ejecución. Los ${entityPlural.toLowerCase()} deben estar Committed desde Client Engagement para aparecer aquí.` 
+              : `This is the execution layer. ${entityPlural} must be Committed from Client Engagement to appear here.`}
           </p>
         </CardContent>
       </Card>
@@ -228,7 +228,7 @@ function EventsList() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder={isEs ? "Buscar eventos..." : "Search events..."}
+          placeholder={isEs ? `Buscar ${entityPlural.toLowerCase()}...` : `Search ${entityPlural.toLowerCase()}...`}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-9"
