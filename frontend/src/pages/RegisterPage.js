@@ -501,19 +501,17 @@ export default function RegisterPage() {
               </h1>
               
               {/* Selected Industry & Modules Summary */}
-              <div className="flex flex-wrap items-center gap-2 mb-6">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 {selectedIndustry && (
                   <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${selectedIndustry.color}`}>
                     <selectedIndustry.icon className="w-4 h-4" />
                     {isEs ? selectedIndustry.nameEs : selectedIndustry.nameEn}
                   </div>
                 )}
-                {formData.selected_modules.length > 0 && (
-                  <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-                    <Package className="w-4 h-4" />
-                    {formData.selected_modules.length} {isEs ? "módulo(s)" : "module(s)"} • ${addonCost}/mes
-                  </div>
-                )}
+                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+                  <Clock className="w-4 h-4" />
+                  {isEs ? "7 días gratis" : "7 days free"} • ${totalCost}/mes
+                </div>
               </div>
 
               {/* Google Register */}
