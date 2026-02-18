@@ -363,6 +363,16 @@ async def purchase_addon(
         await db.organization_addons.insert_one(org_addon_doc)
         del org_addon_doc["_id"]
         
+        # Log activity
+        await log_activity(
+            module="addons",
+            action="create",
+            entity_type="addon",
+            entity_id=org_addon_id,
+            entity_name=addon_def.get("display_name_es", addon_def.get("name")),
+            **user_info(user)
+        )
+        
         return org_addon_doc
 
 
@@ -391,6 +401,16 @@ async def cancel_addon(org_addon_id: str, user: User = Depends(get_current_user)
                 "canceled_at": now.isoformat()
             }
         }
+    )
+    
+    # Log activity
+    await log_activity(
+        module="addons",
+        action="delete",
+        entity_type="addon",
+        entity_id=org_addon_id,
+        entity_name=org_addon.get("addon_name", "Add-on"),
+        **user_info(user)
     )
     
     return {"message": "Add-on cancelado. Permanecerá activo hasta el fin del período de facturación."}
