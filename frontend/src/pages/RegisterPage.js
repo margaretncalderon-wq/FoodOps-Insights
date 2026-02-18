@@ -309,16 +309,38 @@ export default function RegisterPage() {
                 {isEs ? "Volver" : "Back"}
               </button>
 
+              {/* Kora Core - Always Free Badge */}
+              <div className="p-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-emerald-800">
+                      Kora Core <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-emerald-500 text-white rounded-full">{isEs ? "GRATIS SIEMPRE" : "ALWAYS FREE"}</span>
+                    </p>
+                    <p className="text-xs text-emerald-700">
+                      {isEs 
+                        ? "Dashboard, CRM, Reportes y Tareas — sin límites, sin costo"
+                        : "Dashboard, CRM, Reports & Tasks — no limits, no cost"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-5 h-5 text-[#2563EB]" />
-                <h1 className="font-heading text-2xl lg:text-3xl font-bold text-[#1F2937]">
-                  {isEs ? "Potencia tu negocio" : "Power up your business"}
+                <h1 className="font-heading text-xl lg:text-2xl font-bold text-[#1F2937]">
+                  {isEs ? "Módulos Add-on" : "Add-on Modules"}
+                  <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 border border-amber-300 rounded-full">
+                    {isEs ? "7 días gratis" : "7 days free"}
+                  </span>
                 </h1>
               </div>
               <p className="text-[#6B7280] mb-4 text-sm">
                 {isEs 
-                  ? "Selecciona los módulos que necesitas. Puedes agregarlos después también."
-                  : "Select the modules you need. You can add them later too."}
+                  ? "Prueba cualquier módulo por 7 días gratis. Sin compromiso."
+                  : "Try any module free for 7 days. No commitment."}
               </p>
 
               {/* Recommended badge */}
@@ -394,22 +416,41 @@ export default function RegisterPage() {
               {/* Pricing Summary */}
               <div className="bg-[#F7F8FA] rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-[#6B7280]">{isEs ? "Plan base" : "Base plan"}</span>
-                  <span className="text-[#1F2937]">{isEs ? "Gratis" : "Free"}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#1F2937] font-medium">Kora Core</span>
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded">{isEs ? "INCLUIDO" : "INCLUDED"}</span>
+                  </div>
+                  <span className="text-emerald-600 font-semibold">{isEs ? "Gratis" : "Free"}</span>
                 </div>
                 {formData.selected_modules.length > 0 && (
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-[#6B7280]">
-                      {formData.selected_modules.length} {isEs ? "módulo(s) seleccionado(s)" : "module(s) selected"}
-                    </span>
-                    <span className="text-[#1F2937]">+${addonCost}/mes</span>
-                  </div>
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-[#6B7280]">
+                        {formData.selected_modules.length} add-on(s)
+                      </span>
+                      <span className="text-[#6B7280] line-through text-xs">${addonCost}/mes</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-amber-600 text-xs flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {isEs ? "Primeros 7 días" : "First 7 days"}
+                      </span>
+                      <span className="text-amber-600 font-semibold">{isEs ? "Gratis" : "Free"}</span>
+                    </div>
+                  </>
                 )}
-                <div className="border-t border-gray-200 pt-2 mt-2 flex items-center justify-between">
-                  <span className="font-semibold text-[#1F2937]">{isEs ? "Total mensual" : "Monthly total"}</span>
-                  <span className="font-bold text-lg text-[#2563EB]">
-                    ${basePlanPrice + addonCost}/mes
-                  </span>
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#1F2937]">{isEs ? "Hoy pagas" : "Pay today"}</span>
+                    <span className="font-bold text-lg text-emerald-600">$0</span>
+                  </div>
+                  {formData.selected_modules.length > 0 && (
+                    <p className="text-xs text-[#6B7280] mt-1">
+                      {isEs 
+                        ? `Después de 7 días: $${addonCost}/mes por add-ons`
+                        : `After 7 days: $${addonCost}/mo for add-ons`}
+                    </p>
+                  )}
                 </div>
               </div>
 
