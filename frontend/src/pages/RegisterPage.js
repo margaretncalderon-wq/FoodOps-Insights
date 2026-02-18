@@ -5,7 +5,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft, Users } from "lucide-react";
+import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft, Users, Calendar, ChefHat } from "lucide-react";
 
 // Industry options with recommended add-ons
 const INDUSTRIES = [
