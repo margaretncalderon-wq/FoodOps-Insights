@@ -209,7 +209,7 @@ export default function RegisterPage() {
                     <button
                       key={industry.key}
                       type="button"
-                      onClick={() => setFormData({ ...formData, industry_template: industry.key })}
+                      onClick={() => handleIndustrySelect(industry.key)}
                       className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                         isSelected ? industry.selectedColor : `${industry.color} hover:border-gray-400`
                       }`}
@@ -229,12 +229,6 @@ export default function RegisterPage() {
                           <p className={`text-sm mt-0.5 ${isSelected ? 'text-white/80' : 'opacity-70'}`}>
                             {isEs ? industry.descEs : industry.descEn}
                           </p>
-                          {industry.recommendedAddons.length > 0 && (
-                            <p className={`text-xs mt-2 ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>
-                              {isEs ? "Módulos sugeridos: " : "Suggested modules: "}
-                              {industry.recommendedAddons.join(", ")}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </button>
@@ -247,7 +241,7 @@ export default function RegisterPage() {
                 onClick={() => setStep(2)}
                 disabled={!formData.industry_template}
                 className="w-full h-12 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium"
-                data-testid="continue-to-account-btn"
+                data-testid="continue-to-modules-btn"
               >
                 {isEs ? "Continuar" : "Continue"}
                 <ChevronRight className="w-4 h-4 ml-2" />
@@ -262,7 +256,7 @@ export default function RegisterPage() {
             </>
           )}
 
-          {/* Step 2: Account Details */}
+          {/* Step 2: Module Selection */}
           {step === 2 && (
             <>
               {/* Back button */}
@@ -270,6 +264,151 @@ export default function RegisterPage() {
                 type="button"
                 onClick={() => setStep(1)}
                 className="flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1F2937] mb-4"
+                data-testid="back-to-industry-btn"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                {isEs ? "Volver" : "Back"}
+              </button>
+
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-[#2563EB]" />
+                <h1 className="font-heading text-2xl lg:text-3xl font-bold text-[#1F2937]">
+                  {isEs ? "Potencia tu negocio" : "Power up your business"}
+                </h1>
+              </div>
+              <p className="text-[#6B7280] mb-4 text-sm">
+                {isEs 
+                  ? "Selecciona los módulos que necesitas. Puedes agregarlos después también."
+                  : "Select the modules you need. You can add them later too."}
+              </p>
+
+              {/* Recommended badge */}
+              {getRecommendedModules().length > 0 && (
+                <div className="bg-[#FEF3C7] border border-[#F59E0B] rounded-lg p-3 mb-4">
+                  <p className="text-sm text-[#92400E]">
+                    <span className="font-medium">💡 {isEs ? "Recomendados para tu industria:" : "Recommended for your industry:"}</span>{" "}
+                    {isEs 
+                      ? "Los módulos pre-seleccionados son los más populares para tu tipo de negocio."
+                      : "Pre-selected modules are the most popular for your business type."}
+                  </p>
+                </div>
+              )}
+
+              {/* Module Cards */}
+              <div className="space-y-3 mb-4 max-h-[320px] overflow-y-auto pr-1">
+                {ADDON_MODULES.map((module) => {
+                  const isSelected = formData.selected_modules.includes(module.key);
+                  const isRecommended = getRecommendedModules().includes(module.key);
+                  return (
+                    <button
+                      key={module.key}
+                      type="button"
+                      onClick={() => toggleModule(module.key)}
+                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                        isSelected 
+                          ? 'border-[#2563EB] bg-[#EFF6FF] ring-1 ring-[#2563EB]' 
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                      data-testid={`module-${module.key}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                          isSelected ? 'bg-[#2563EB] text-white' : 'bg-gray-100'
+                        }`}>
+                          {module.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`font-semibold ${isSelected ? 'text-[#1E40AF]' : 'text-[#1F2937]'}`}>
+                                {isEs ? module.nameEs : module.nameEn}
+                              </span>
+                              {isRecommended && (
+                                <span className="px-2 py-0.5 bg-[#FEF3C7] text-[#92400E] text-xs font-medium rounded-full">
+                                  {isEs ? "Recomendado" : "Recommended"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className={`text-sm font-semibold ${isSelected ? 'text-[#2563EB]' : 'text-[#6B7280]'}`}>
+                                ${module.price}/mes
+                              </span>
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                isSelected 
+                                  ? 'bg-[#2563EB] border-[#2563EB]' 
+                                  : 'border-gray-300 bg-white'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                            </div>
+                          </div>
+                          <p className={`text-sm mt-1 ${isSelected ? 'text-[#3B82F6]' : 'text-[#6B7280]'}`}>
+                            {isEs ? module.descEs : module.descEn}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Pricing Summary */}
+              <div className="bg-[#F7F8FA] rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-[#6B7280]">{isEs ? "Plan base" : "Base plan"}</span>
+                  <span className="text-[#1F2937]">{isEs ? "Gratis" : "Free"}</span>
+                </div>
+                {formData.selected_modules.length > 0 && (
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-[#6B7280]">
+                      {formData.selected_modules.length} {isEs ? "módulo(s) seleccionado(s)" : "module(s) selected"}
+                    </span>
+                    <span className="text-[#1F2937]">+${addonCost}/mes</span>
+                  </div>
+                )}
+                <div className="border-t border-gray-200 pt-2 mt-2 flex items-center justify-between">
+                  <span className="font-semibold text-[#1F2937]">{isEs ? "Total mensual" : "Monthly total"}</span>
+                  <span className="font-bold text-lg text-[#2563EB]">
+                    ${basePlanPrice + addonCost}/mes
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, selected_modules: [] }));
+                    setStep(3);
+                  }}
+                  className="flex-1 h-12 rounded-lg border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50"
+                  data-testid="skip-modules-btn"
+                >
+                  {isEs ? "Omitir" : "Skip"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="flex-1 h-12 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium"
+                  data-testid="continue-to-account-btn"
+                >
+                  {isEs ? "Continuar" : "Continue"}
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Step 3: Account Details */}
+          {step === 3 && (
+            <>
+              {/* Back button */}
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1F2937] mb-4"
+                data-testid="back-to-modules-btn"
               >
                 <ChevronLeft className="w-4 h-4" />
                 {isEs ? "Volver" : "Back"}
@@ -279,13 +418,21 @@ export default function RegisterPage() {
                 {isEs ? "Crear tu cuenta" : "Create your account"}
               </h1>
               
-              {/* Selected Industry Badge */}
-              {selectedIndustry && (
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm mb-6 ${selectedIndustry.color}`}>
-                  <selectedIndustry.icon className="w-4 h-4" />
-                  {isEs ? selectedIndustry.nameEs : selectedIndustry.nameEn}
-                </div>
-              )}
+              {/* Selected Industry & Modules Summary */}
+              <div className="flex flex-wrap items-center gap-2 mb-6">
+                {selectedIndustry && (
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${selectedIndustry.color}`}>
+                    <selectedIndustry.icon className="w-4 h-4" />
+                    {isEs ? selectedIndustry.nameEs : selectedIndustry.nameEn}
+                  </div>
+                )}
+                {formData.selected_modules.length > 0 && (
+                  <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+                    <Package className="w-4 h-4" />
+                    {formData.selected_modules.length} {isEs ? "módulo(s)" : "module(s)"} • ${addonCost}/mes
+                  </div>
+                )}
+              </div>
 
               {/* Google Register */}
               <Button
