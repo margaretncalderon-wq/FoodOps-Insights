@@ -442,7 +442,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center items-center gap-10">
             {/* Gmail - M multicolor */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Gmail">
-              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/la253t1g_images-14.png" alt="Gmail" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain" />
+              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/y47hh65w_0fcf541cbe9e8a08469b9b14a1367e53.jpg" alt="Gmail" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain" />
             </div>
             {/* Google Calendar - Cuadrado multicolor con 31 */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Calendar">
