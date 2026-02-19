@@ -400,40 +400,28 @@ export default function OrganizationDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Usage */}
+            {/* Usage - Solo estadísticas sin límites */}
             <Card className="bg-white border-gray-200">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg text-gray-900">Usage (Current Period)</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setResetUsageDialogOpen(true)} className="text-gray-900 hover:bg-gray-100">
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                </div>
+                <CardTitle className="text-lg text-gray-900">Estadísticas</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {[
-                  { key: "events_created", limit: "events_per_month", label: "Events" },
-                  { key: "active_users", limit: "active_users", label: "Users" },
-                  { key: "proposals_created", limit: "proposals_per_month", label: "Proposals" },
-                  { key: "supplier_invoices", limit: "supplier_invoices_per_month", label: "Invoices" }
-                ].map(({ key, limit, label }) => {
-                  const current = usage[key] || 0;
-                  const max = limits[limit] || 999;
-                  const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0;
-                  
-                  return (
-                    <div key={key}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">{label}</span>
-                        <span className="text-gray-900 font-medium">{current}/{max}</span>
-                      </div>
-                      <Progress 
-                        value={percentage} 
-                        className={`h-2 bg-gray-200 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
-                      />
-                    </div>
-                  );
-                })}
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">Eventos creados</span>
+                  <span className="text-gray-900 font-bold text-lg">{usage.events_created || 0}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">Usuarios activos</span>
+                  <span className="text-gray-900 font-bold text-lg">{usage.active_users || 0}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">Propuestas</span>
+                  <span className="text-gray-900 font-bold text-lg">{usage.proposals_created || 0}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">Facturas</span>
+                  <span className="text-gray-900 font-bold text-lg">{usage.supplier_invoices || 0}</span>
+                </div>
               </CardContent>
             </Card>
 
