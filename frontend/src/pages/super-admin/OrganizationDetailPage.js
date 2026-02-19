@@ -761,6 +761,7 @@ export default function OrganizationDetailPage() {
                     Cambiar Contraseña (Todos)
                   </Button>
                 )}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
