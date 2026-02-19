@@ -439,10 +439,10 @@ export default function LandingPage() {
           <p className="text-[#6B7280] mb-6">
             {isEs ? "Se integra con las herramientas que ya usas" : "Integrates with tools you already use"}
           </p>
-          <div className="flex flex-wrap justify-center gap-6">
+          <div className="flex flex-wrap justify-center gap-4">
             {integrations.map((integration) => (
-              <div key={integration.name} className="w-12 h-12 bg-white rounded-xl shadow-sm border border-[#E5E7EB] flex items-center justify-center p-2.5">
-                <img src={integration.logo} alt={integration.name} className="w-full h-full object-contain" />
+              <div key={integration.name} className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-[#E5E7EB]">
+                <span className="text-sm font-medium text-[#374151]">{integration.name}</span>
               </div>
             ))}
           </div>
