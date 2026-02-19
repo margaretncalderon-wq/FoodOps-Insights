@@ -319,8 +319,8 @@ export default function OrganizationDetailPage() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-gray-900" />
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Building2 className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{org?.organization?.name}</h1>
