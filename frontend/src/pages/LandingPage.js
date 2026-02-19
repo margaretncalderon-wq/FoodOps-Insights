@@ -446,7 +446,9 @@ export default function LandingPage() {
             </div>
             {/* DocuSign */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="DocuSign">
-              <img src="https://cdn.simpleicons.org/docusign" alt="DocuSign" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#FFCD00">
+                <path d="M2.768 17.332c-.34 0-.683-.015-1.027-.045a.386.386 0 01-.35-.39v-.903c0-.192.142-.354.333-.38.9-.125 1.492-.51 1.492-1.603V9.613c0-.888-.354-1.41-1.068-1.568a.384.384 0 01-.302-.375V6.793c0-.229.199-.406.426-.385.444.04.883.06 1.315.06h9.456c.22 0 .399.178.399.399v1.31c0 .221-.178.4-.399.4h-6.34v2.308h4.86c.222 0 .402.18.402.401v1.126a.402.402 0 01-.401.401h-4.86v3.068c0 .61.268.99.81 1.132a.385.385 0 01.288.373v.947c0 .23-.2.407-.428.385a17.04 17.04 0 01-1.008-.046h-3.598zm11.064-6.59c0-2.61 1.754-4.39 4.335-4.39 2.581 0 4.334 1.78 4.334 4.39 0 2.61-1.753 4.39-4.334 4.39-2.58 0-4.335-1.78-4.335-4.39zm5.88 0c0-1.476-.61-2.424-1.545-2.424-.936 0-1.546.948-1.546 2.425s.61 2.425 1.546 2.425c.935 0 1.546-.949 1.546-2.425z"/>
+              </svg>
             </div>
             {/* Meta */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
