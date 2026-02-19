@@ -10729,6 +10729,101 @@ async def remove_member(membership_id: str, user: User = Depends(get_current_use
     
     return {"success": True}
 
+
+class DirectMemberCreate(BaseModel):
+    """Create a member directly with password (no email invitation)"""
+    email: str
+    name: str
+    password: str
+    role: str = "viewer"
+
+
+@org_router.post("/members/create-direct")
+async def create_member_direct(data: DirectMemberCreate, user: User = Depends(get_current_user)):
+    """Create a new team member directly with password (no email required)"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    # Validate role
+    if data.role not in ROLE_PERMISSIONS:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    # Check if email already exists
+    existing_user = await db.users.find_one({"email": data.email})
+    if existing_user:
+        # Check if already a member of this org
+        existing_membership = await db.memberships.find_one({
+            "user_id": existing_user["user_id"],
+            "company_id": user.company_id,
+            "status": "active"
+        })
+        if existing_membership:
+            raise HTTPException(status_code=400, detail="Este usuario ya es miembro de esta organización")
+        
+        # Add existing user to this org
+        now = datetime.now(timezone.utc)
+        membership_id = f"mem_{uuid.uuid4().hex[:12]}"
+        
+        await db.memberships.insert_one({
+            "membership_id": membership_id,
+            "user_id": existing_user["user_id"],
+            "company_id": user.company_id,
+            "role": data.role,
+            "status": "active",
+            "joined_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message": "Usuario existente agregado al equipo",
+            "user_id": existing_user["user_id"],
+            "membership_id": membership_id
+        }
+    
+    # Create new user
+    now = datetime.now(timezone.utc)
+    new_user_id = f"user_{uuid.uuid4().hex[:12]}"
+    membership_id = f"mem_{uuid.uuid4().hex[:12]}"
+    
+    # Hash password
+    password_hash = bcrypt.hashpw(data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Create user
+    user_doc = {
+        "user_id": new_user_id,
+        "email": data.email,
+        "name": data.name,
+        "password_hash": password_hash,
+        "company_id": user.company_id,
+        "role": data.role,
+        "is_super_admin": False,
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Create membership
+    membership_doc = {
+        "membership_id": membership_id,
+        "user_id": new_user_id,
+        "company_id": user.company_id,
+        "role": data.role,
+        "status": "active",
+        "joined_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.memberships.insert_one(membership_doc)
+    
+    return {
+        "success": True,
+        "message": "Usuario creado y agregado al equipo",
+        "user_id": new_user_id,
+        "membership_id": membership_id,
+        "email": data.email
+    }
+
+
 # ---- Invitation Endpoints ----
 
 @org_router.get("/invitations")
