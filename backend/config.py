@@ -64,8 +64,8 @@ async def create_indexes():
         await db.recipes.create_index("company_id")
         await db.recipes.create_index("recipe_id", unique=True)
         
-        # Organizations indexes
-        await db.organizations.create_index("company_id", unique=True)
+        # Organizations indexes (using companies collection)
+        await db.companies.create_index("company_id", unique=True)
         
         # Memberships indexes
         await db.memberships.create_index("user_id")
