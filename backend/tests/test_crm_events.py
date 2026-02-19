@@ -7,7 +7,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://kora-core-launch.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://flex-industry-app.preview.emergentagent.com').rstrip('/')
 
 class TestAuth:
     """Authentication tests"""
