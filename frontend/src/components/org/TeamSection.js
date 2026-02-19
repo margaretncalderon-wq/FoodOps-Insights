@@ -327,7 +327,7 @@ export function TeamSection() {
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEs ? "Invitar Miembro" : "Invite Member"}</DialogTitle>
+            <DialogTitle>{isEs ? "Invitar Miembro por Email" : "Invite Member by Email"}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -365,6 +365,83 @@ export function TeamSection() {
             <Button onClick={handleInvite} disabled={actionLoading} data-testid="send-invite-btn">
               {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isEs ? "Enviar Invitación" : "Send Invitation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Direct User Dialog */}
+      <Dialog open={createDirectDialogOpen} onOpenChange={setCreateDirectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Crear Usuario" : "Create User"}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>{isEs ? "Nombre" : "Name"}</Label>
+              <Input 
+                type="text"
+                value={newDirectUser.name}
+                onChange={(e) => setNewDirectUser({ ...newDirectUser, name: e.target.value })}
+                placeholder={isEs ? "Nombre completo" : "Full name"}
+                data-testid="direct-name-input"
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Email" : "Email"}</Label>
+              <Input 
+                type="email"
+                value={newDirectUser.email}
+                onChange={(e) => setNewDirectUser({ ...newDirectUser, email: e.target.value })}
+                placeholder="email@example.com"
+                data-testid="direct-email-input"
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Contraseña" : "Password"}</Label>
+              <div className="flex gap-2">
+                <Input 
+                  type="text"
+                  value={newDirectUser.password}
+                  onChange={(e) => setNewDirectUser({ ...newDirectUser, password: e.target.value })}
+                  placeholder={isEs ? "Mínimo 6 caracteres" : "Minimum 6 characters"}
+                  className="flex-1"
+                  data-testid="direct-password-input"
+                />
+                <Button type="button" variant="outline" onClick={generatePassword}>
+                  <Key className="w-4 h-4 mr-1" />
+                  {isEs ? "Generar" : "Generate"}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label>{isEs ? "Rol" : "Role"}</Label>
+              <Select value={newDirectUser.role} onValueChange={(v) => setNewDirectUser({ ...newDirectUser, role: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.filter(r => r.value !== "owner").map(role => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {isEs ? role.label_es : role.label_en}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setCreateDirectDialogOpen(false);
+              setNewDirectUser({ email: "", name: "", password: "", role: "ops" });
+            }}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateDirect} disabled={actionLoading} data-testid="create-direct-submit-btn">
+              {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {isEs ? "Crear Usuario" : "Create User"}
             </Button>
           </DialogFooter>
         </DialogContent>
