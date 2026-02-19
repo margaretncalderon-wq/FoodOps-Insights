@@ -14451,6 +14451,299 @@ async def list_demo_accounts(admin: User = Depends(get_super_admin)):
     return {"accounts": accounts, "total": len(accounts)}
 
 
+class ConvertDemoAccount(BaseModel):
+    """Convert demo account to paid"""
+    conversion_type: str  # "manual" or "stripe"
+    plan_id: str = "plan_professional"
+    extend_days: int = 30  # For manual conversion, extend by this many days
+    notes: Optional[str] = None
+
+
+@super_admin_router.post("/demo-accounts/{company_id}/convert")
+async def convert_demo_account(
+    company_id: str,
+    data: ConvertDemoAccount,
+    admin: User = Depends(get_super_admin)
+):
+    """
+    Convert a demo/influencer account to a paid account.
+    - manual: Admin directly converts to paid (no Stripe charge)
+    - stripe: Generate a checkout link for the user to pay
+    """
+    import stripe
+    
+    # Verify company exists and is a demo account
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    if company.get("account_type") not in ["demo", "influencer", "partner"]:
+        raise HTTPException(status_code=400, detail="Account is not a demo/influencer/partner account")
+    
+    now = datetime.now(timezone.utc)
+    
+    if data.conversion_type == "manual":
+        # Manual conversion - admin marks as paid without Stripe
+        new_period_end = now + timedelta(days=data.extend_days)
+        
+        await db.subscriptions.update_one(
+            {"company_id": company_id},
+            {"$set": {
+                "status": "active",
+                "is_demo_account": False,
+                "converted_from_demo": True,
+                "conversion_type": "manual",
+                "converted_by": admin.user_id,
+                "converted_at": now.isoformat(),
+                "current_period_start": now.isoformat(),
+                "current_period_end": new_period_end.isoformat(),
+                "trial_ends_at": None,
+                "admin_notes": data.notes,
+                "updated_at": now.isoformat()
+            }}
+        )
+        
+        # Update company to remove demo flag
+        await db.companies.update_one(
+            {"company_id": company_id},
+            {"$set": {
+                "account_type": "paid",
+                "converted_from": company.get("account_type"),
+                "converted_at": now.isoformat()
+            }}
+        )
+        
+        # Log action
+        await log_super_admin_action(admin.user_id, "convert_demo_to_paid_manual", company_id, {
+            "previous_type": company.get("account_type"),
+            "extend_days": data.extend_days,
+            "notes": data.notes
+        })
+        
+        return {
+            "success": True,
+            "conversion_type": "manual",
+            "message": "Account converted to paid successfully",
+            "new_period_end": new_period_end.isoformat()
+        }
+    
+    elif data.conversion_type == "stripe":
+        # Get owner user email
+        owner = await db.users.find_one(
+            {"company_id": company_id, "role": "owner"},
+            {"_id": 0, "email": 1, "name": 1, "user_id": 1}
+        )
+        if not owner:
+            raise HTTPException(status_code=404, detail="Owner user not found")
+        
+        # Create Stripe checkout session for conversion
+        stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+        if not stripe_key:
+            raise HTTPException(status_code=500, detail="Stripe not configured")
+        
+        stripe.api_key = stripe_key
+        
+        # Get the modules this account has active
+        active_modules = await db.organization_addons.find(
+            {"company_id": company_id, "status": "active", "addon_type": "module"},
+            {"_id": 0, "addon_id": 1}
+        ).to_list(20)
+        
+        # Calculate total monthly price based on modules
+        total_price = 0
+        line_items = []
+        
+        for module in active_modules:
+            addon_def = await db.addon_definitions.find_one(
+                {"addon_id": module["addon_id"]},
+                {"_id": 0, "price": 1, "display_name_en": 1, "stripe_price_id": 1}
+            )
+            if addon_def:
+                total_price += addon_def.get("price", 0)
+                if addon_def.get("stripe_price_id"):
+                    line_items.append({
+                        "price": addon_def["stripe_price_id"],
+                        "quantity": 1
+                    })
+        
+        # If no stripe price IDs, create a simple checkout
+        if not line_items:
+            # Create ad-hoc price
+            line_items = [{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": f"Kora OS - {company['name']} Subscription",
+                        "description": f"Monthly subscription with {len(active_modules)} modules"
+                    },
+                    "unit_amount": int(total_price * 100),  # Stripe uses cents
+                    "recurring": {"interval": "month"}
+                },
+                "quantity": 1
+            }]
+        
+        # Create checkout session
+        frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
+        
+        checkout_session = stripe.checkout.Session.create(
+            customer_email=owner["email"],
+            line_items=line_items,
+            mode="subscription",
+            success_url=f"{frontend_url}/settings?conversion=success&company_id={company_id}",
+            cancel_url=f"{frontend_url}/settings?conversion=cancelled",
+            metadata={
+                "company_id": company_id,
+                "conversion_from": company.get("account_type"),
+                "converted_by_admin": admin.user_id
+            },
+            subscription_data={
+                "metadata": {
+                    "company_id": company_id,
+                    "kora_plan": data.plan_id
+                }
+            }
+        )
+        
+        # Store pending conversion info
+        await db.pending_conversions.insert_one({
+            "conversion_id": f"conv_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "checkout_session_id": checkout_session.id,
+            "checkout_url": checkout_session.url,
+            "owner_email": owner["email"],
+            "created_by": admin.user_id,
+            "created_at": now.isoformat(),
+            "status": "pending",
+            "expires_at": (now + timedelta(hours=24)).isoformat()
+        })
+        
+        # Log action
+        await log_super_admin_action(admin.user_id, "convert_demo_to_paid_stripe", company_id, {
+            "previous_type": company.get("account_type"),
+            "checkout_session_id": checkout_session.id,
+            "owner_email": owner["email"]
+        })
+        
+        return {
+            "success": True,
+            "conversion_type": "stripe",
+            "checkout_url": checkout_session.url,
+            "owner_email": owner["email"],
+            "message": "Checkout link generated. Send to user or redirect them."
+        }
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid conversion type. Use 'manual' or 'stripe'")
+
+
+@super_admin_router.post("/demo-accounts/{company_id}/extend-trial")
+async def extend_demo_trial(
+    company_id: str,
+    days: int = 30,
+    admin: User = Depends(get_super_admin)
+):
+    """Extend the trial period for a demo account"""
+    subscription = await db.subscriptions.find_one({"company_id": company_id})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    current_end = datetime.fromisoformat(subscription["trial_ends_at"].replace("Z", "+00:00")) if subscription.get("trial_ends_at") else datetime.now(timezone.utc)
+    new_end = current_end + timedelta(days=days)
+    
+    await db.subscriptions.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "trial_ends_at": new_end.isoformat(),
+            "current_period_end": new_end.isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    await log_super_admin_action(admin.user_id, "extend_demo_trial", company_id, {"extended_days": days})
+    
+    return {"success": True, "new_trial_ends_at": new_end.isoformat()}
+
+
+# ============== TRIAL EXPIRATION CHECK ENDPOINT ==============
+
+@api_router.get("/subscription/trial-status")
+async def get_trial_status(user: User = Depends(get_current_user)):
+    """
+    Check if user's trial has expired or is about to expire.
+    Returns info needed to show payment modal.
+    """
+    if not user.company_id:
+        return {"has_trial": False, "expired": False}
+    
+    subscription = await db.subscriptions.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    if not subscription:
+        return {"has_trial": False, "expired": False}
+    
+    now = datetime.now(timezone.utc)
+    trial_ends_at = None
+    
+    if subscription.get("trial_ends_at"):
+        trial_ends_str = subscription["trial_ends_at"]
+        if isinstance(trial_ends_str, str):
+            trial_ends_at = datetime.fromisoformat(trial_ends_str.replace("Z", "+00:00"))
+        else:
+            trial_ends_at = trial_ends_str
+    
+    is_demo = subscription.get("is_demo_account", False) or subscription.get("account_type") in ["demo", "influencer", "partner"]
+    is_trialing = subscription.get("status") == "trialing"
+    
+    if not trial_ends_at:
+        return {
+            "has_trial": is_trialing,
+            "is_demo_account": is_demo,
+            "expired": False,
+            "days_remaining": None
+        }
+    
+    days_remaining = (trial_ends_at - now).days
+    expired = days_remaining < 0
+    expiring_soon = 0 <= days_remaining <= 7  # Warn 7 days before
+    
+    # Get company info
+    company = await db.companies.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "name": 1, "account_type": 1}
+    )
+    
+    # Get active modules for pricing
+    active_modules = await db.organization_addons.find(
+        {"company_id": user.company_id, "status": "active", "addon_type": "module"},
+        {"_id": 0, "addon_id": 1}
+    ).to_list(20)
+    
+    # Calculate monthly cost
+    monthly_cost = 0
+    for mod in active_modules:
+        addon_def = await db.addon_definitions.find_one(
+            {"addon_id": mod["addon_id"]},
+            {"_id": 0, "price": 1}
+        )
+        if addon_def:
+            monthly_cost += addon_def.get("price", 0)
+    
+    return {
+        "has_trial": is_trialing,
+        "is_demo_account": is_demo,
+        "account_type": company.get("account_type") if company else None,
+        "expired": expired,
+        "expiring_soon": expiring_soon,
+        "days_remaining": max(0, days_remaining),
+        "trial_ends_at": trial_ends_at.isoformat(),
+        "active_modules_count": len(active_modules),
+        "estimated_monthly_cost": monthly_cost,
+        "show_payment_modal": expired or expiring_soon
+    }
+
+
 # ============== DEMAND STUDIO ENDPOINTS ==============
 # All Demand Studio endpoints moved to routers/demand_studio.py
 
