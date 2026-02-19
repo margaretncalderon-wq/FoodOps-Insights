@@ -545,6 +545,9 @@ async def complete_google_registration(request: Request, response: Response):
     }
     await db.organizations.insert_one(org_doc)
     
+    # Also insert into companies for backward compatibility
+    await db.companies.insert_one(org_doc.copy())
+    
     # Create user as owner of their organization
     user_doc = {
         "user_id": user_id,
