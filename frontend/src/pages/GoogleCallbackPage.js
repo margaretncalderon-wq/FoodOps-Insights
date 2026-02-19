@@ -130,11 +130,11 @@ export default function GoogleCallbackPage() {
             <div className="bg-[#F7F8FA] rounded-xl p-4 mb-6 border border-[#E5E7EB]">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold px-2 py-1 bg-[#AED768] text-[#1F2937] rounded-full">
-                  PLAN FREE
+                  KORA CORE
                 </span>
               </div>
               <p className="text-sm text-[#6B7280]">
-                Incluye: 2 usuarios, 10 eventos, 25 clientes
+                Acceso completo a todas las funcionalidades base
               </p>
             </div>
 
