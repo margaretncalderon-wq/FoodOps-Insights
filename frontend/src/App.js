@@ -182,11 +182,14 @@ const AuthCallback = () => {
   );
 };
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
   const { user, loading, checkAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isChecking, setIsChecking] = useState(!location.state?.user);
+
+  // Check if trying to access super-admin routes
+  const isSuperAdminRoute = location.pathname.startsWith('/super-admin');
 
   useEffect(() => {
     if (location.state?.user) {
@@ -199,7 +202,12 @@ const ProtectedRoute = ({ children }) => {
         await checkAuth();
         setIsChecking(false);
       } catch {
-        navigate("/login", { replace: true });
+        // Redirect to appropriate login page
+        if (isSuperAdminRoute) {
+          navigate("/admin-login", { replace: true, state: { from: location.pathname } });
+        } else {
+          navigate("/login", { replace: true, state: { from: location.pathname } });
+        }
       }
     };
     verify();
@@ -214,7 +222,28 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!user && !location.state?.user) {
-    return <Navigate to="/login" replace />;
+    if (isSuperAdminRoute) {
+      return <Navigate to="/admin-login" replace state={{ from: location.pathname }} />;
+    }
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  // Check super admin permission for super-admin routes
+  if (isSuperAdminRoute && !user?.is_super_admin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-500 mb-2">Acceso Denegado</h1>
+          <p className="text-muted-foreground mb-4">No tienes permisos de super administrador</p>
+          <button 
+            onClick={() => navigate("/dashboard")}
+            className="px-4 py-2 bg-primary text-white rounded-md"
+          >
+            Ir al Dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return children;
