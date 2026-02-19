@@ -40,9 +40,20 @@ export function TeamSection() {
   const [members, setMembers] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [createDirectDialogOpen, setCreateDirectDialogOpen] = useState(false);
   const [newInvite, setNewInvite] = useState({ email: "", role: "ops" });
+  const [newDirectUser, setNewDirectUser] = useState({ email: "", name: "", password: "", role: "ops" });
   const [actionLoading, setActionLoading] = useState(false);
   const [permissions, setPermissions] = useState(null);
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewDirectUser(prev => ({ ...prev, password }));
+  };
 
   useEffect(() => {
     fetchData();
