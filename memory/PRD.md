@@ -685,4 +685,4 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
   - Module named "Program Orchestration" for all service industries
 
 ### Minor Remaining Item
-- "Event Date" label in Add Project modal could be "Project Date" for agencies (cosmetic only)
+- ✅ FIXED: "Event Date" → "Project Date" para usuarios de agencia en modales de creación y CRM
