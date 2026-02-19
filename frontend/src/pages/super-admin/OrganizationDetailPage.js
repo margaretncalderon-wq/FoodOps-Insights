@@ -56,10 +56,20 @@ export default function OrganizationDetailPage() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  
+  // Account type state
+  const [accountType, setAccountType] = useState("");
+  const [savingAccountType, setSavingAccountType] = useState(false);
 
   useEffect(() => {
     fetchOrganization();
   }, [id]);
+  
+  useEffect(() => {
+    if (org?.organization?.account_type) {
+      setAccountType(org.organization.account_type);
+    }
+  }, [org]);
 
   useEffect(() => {
     if (activeTab === "members") fetchMembers();
