@@ -11583,6 +11583,115 @@ async def remove_member_admin(company_id: str, membership_id: str, admin: User =
     
     return {"success": True}
 
+
+class AddMemberRequest(BaseModel):
+    """Request to add a new member to an organization"""
+    email: str
+    name: str
+    password: str
+    role: str = "viewer"
+
+
+@super_admin_router.post("/organizations/{company_id}/members")
+async def add_member_to_org(company_id: str, data: AddMemberRequest, admin: User = Depends(get_super_admin)):
+    """Add a new user to an organization (Super Admin only)"""
+    # Verify organization exists
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organización no encontrada")
+    
+    # Check if email already exists
+    existing_user = await db.users.find_one({"email": data.email})
+    if existing_user:
+        # Check if user is already a member of this org
+        existing_membership = await db.memberships.find_one({
+            "user_id": existing_user["user_id"],
+            "company_id": company_id,
+            "status": "active"
+        })
+        if existing_membership:
+            raise HTTPException(status_code=400, detail="Este usuario ya es miembro de esta organización")
+        
+        # Add existing user to org with new membership
+        now = datetime.now(timezone.utc)
+        membership_id = f"mem_{uuid.uuid4().hex[:12]}"
+        
+        await db.memberships.insert_one({
+            "membership_id": membership_id,
+            "user_id": existing_user["user_id"],
+            "company_id": company_id,
+            "role": data.role if data.role in ["owner", "admin", "ops", "finance", "viewer"] else "viewer",
+            "status": "active",
+            "joined_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        })
+        
+        await log_super_admin_action(admin.user_id, "add_member", company_id, {
+            "user_id": existing_user["user_id"],
+            "email": data.email,
+            "role": data.role,
+            "existing_user": True
+        })
+        
+        return {
+            "success": True,
+            "message": "Usuario existente agregado a la organización",
+            "user_id": existing_user["user_id"],
+            "membership_id": membership_id
+        }
+    
+    # Create new user
+    now = datetime.now(timezone.utc)
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    membership_id = f"mem_{uuid.uuid4().hex[:12]}"
+    
+    # Validate role
+    role = data.role if data.role in ["owner", "admin", "ops", "finance", "viewer"] else "viewer"
+    
+    # Hash password
+    password_hash = bcrypt.hashpw(data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Create user
+    user_doc = {
+        "user_id": user_id,
+        "email": data.email,
+        "name": data.name,
+        "password_hash": password_hash,
+        "company_id": company_id,
+        "role": role,
+        "is_super_admin": False,
+        "created_at": now.isoformat(),
+        "created_by_admin": admin.user_id
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Create membership
+    membership_doc = {
+        "membership_id": membership_id,
+        "user_id": user_id,
+        "company_id": company_id,
+        "role": role,
+        "status": "active",
+        "joined_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.memberships.insert_one(membership_doc)
+    
+    await log_super_admin_action(admin.user_id, "add_member", company_id, {
+        "user_id": user_id,
+        "email": data.email,
+        "role": role,
+        "new_user": True
+    })
+    
+    return {
+        "success": True,
+        "message": "Usuario creado y agregado a la organización",
+        "user_id": user_id,
+        "membership_id": membership_id
+    }
+
+
 # ---- Super Admin: Audit Log ----
 
 @super_admin_router.get("/organizations/{company_id}/audit")
