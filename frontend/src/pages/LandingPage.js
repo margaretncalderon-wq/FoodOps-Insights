@@ -455,7 +455,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#1F2937]">
-              {isEs ? "Un precio simple, todo incluido" : "One simple price, everything included"}
+              {isEs ? "Un precio simple para manejar el núcleo de tu negocio" : "One simple price, to run the core of your business"}
             </h2>
             <p className="mt-2 text-[#6B7280]">
               {isEs ? "Kora Core + módulos opcionales según tu industria" : "Kora Core + optional modules for your industry"}
