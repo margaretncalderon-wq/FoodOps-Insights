@@ -118,8 +118,8 @@ const pricingPlans = [
     priceEs: "Gratis",
     tagline: "See your system before you run it.",
     taglineEs: "Ve tu sistema antes de operarlo.",
-    features: ["System Pulse (read-only)", "Up to 6 clients", "2 users"],
-    featuresEs: ["System Pulse (solo lectura)", "Hasta 6 clientes", "2 usuarios"],
+    features: ["System Pulse (read-only)", "Basic dashboard", "Email support"],
+    featuresEs: ["System Pulse (solo lectura)", "Dashboard básico", "Soporte por email"],
     cta: "Start Free",
     ctaEs: "Comenzar Gratis",
     highlight: false
@@ -131,8 +131,8 @@ const pricingPlans = [
     periodEs: "/mes",
     tagline: "Run day-to-day with structure.",
     taglineEs: "Opera el día a día con estructura.",
-    features: ["All core modules", "CRM + pipelines", "Up to 5 users", "Add-ons available"],
-    featuresEs: ["Todos los módulos core", "CRM + pipelines", "Hasta 5 usuarios", "Add-ons disponibles"],
+    features: ["All core modules", "CRM + pipelines", "Unlimited users", "Add-ons available"],
+    featuresEs: ["Todos los módulos core", "CRM + pipelines", "Usuarios ilimitados", "Add-ons disponibles"],
     cta: "Get Started",
     ctaEs: "Comenzar",
     highlight: true
