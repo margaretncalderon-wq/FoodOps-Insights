@@ -758,16 +758,16 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     
     # Add modules that are: 1) enabled for industry, 2) included in plan or purchased
     for module_key, module_info in MODULE_ADDONS.items():
-        # Check if module is enabled for this industry
+        # FIRST: Check if module is enabled for this industry (industry takes priority)
         if module_key not in industry_enabled_modules:
             continue
         
-        # Check industry-specific module config
+        # Check industry-specific module config (can explicitly disable)
         module_config = industry_module_configs.get(module_key, {})
         if module_config.get("enabled") is False:
             continue
         
-        # Check if included in plan or purchased
+        # THEN: Check if included in plan or purchased
         if module_key not in included_in_plan and module_key not in purchased_module_keys:
             continue
         
