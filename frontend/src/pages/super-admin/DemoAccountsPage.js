@@ -57,8 +57,19 @@ export default function DemoAccountsPage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  
+  // Conversion form state
+  const [convertForm, setConvertForm] = useState({
+    conversion_type: "manual",
+    extend_days: 30,
+    notes: ""
+  });
+  const [extendDays, setExtendDays] = useState(30);
   
   // Form state
   const [formData, setFormData] = useState({
