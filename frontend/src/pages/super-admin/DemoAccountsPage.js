@@ -654,6 +654,192 @@ export default function DemoAccountsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Convert Account Modal */}
+      <Dialog open={showConvertModal} onOpenChange={setShowConvertModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-500" />
+              {isEs ? "Convertir a Cuenta Pagada" : "Convert to Paid Account"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedAccount?.name} - {selectedAccount?.owner?.email}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Conversion Type */}
+            <div className="space-y-3">
+              <Label>{isEs ? "Tipo de Conversión" : "Conversion Type"}</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConvertForm(prev => ({ ...prev, conversion_type: "manual" }))}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    convertForm.conversion_type === "manual"
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <RefreshCw className="w-5 h-5 mb-2 text-emerald-600" />
+                  <div className="font-medium">{isEs ? "Manual" : "Manual"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {isEs ? "Sin cobro por Stripe" : "No Stripe charge"}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConvertForm(prev => ({ ...prev, conversion_type: "stripe" }))}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    convertForm.conversion_type === "stripe"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5 mb-2 text-blue-600" />
+                  <div className="font-medium">Stripe</div>
+                  <div className="text-xs text-muted-foreground">
+                    {isEs ? "Generar link de pago" : "Generate payment link"}
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {convertForm.conversion_type === "manual" && (
+              <>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Días de Suscripción" : "Subscription Days"}</Label>
+                  <Select 
+                    value={String(convertForm.extend_days)} 
+                    onValueChange={(v) => setConvertForm(prev => ({ ...prev, extend_days: parseInt(v) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 {isEs ? "días" : "days"}</SelectItem>
+                      <SelectItem value="90">90 {isEs ? "días" : "days"}</SelectItem>
+                      <SelectItem value="180">180 {isEs ? "días" : "days"}</SelectItem>
+                      <SelectItem value="365">1 {isEs ? "año" : "year"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Notas" : "Notes"}</Label>
+                  <Textarea
+                    value={convertForm.notes}
+                    onChange={(e) => setConvertForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder={isEs ? "Razón de la conversión manual..." : "Reason for manual conversion..."}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+
+            {convertForm.conversion_type === "stripe" && (
+              <div className="p-4 bg-blue-50 rounded-lg text-sm">
+                <p className="text-blue-800">
+                  {isEs 
+                    ? "Se generará un link de Stripe Checkout. Puedes copiarlo y enviarlo al usuario, o abrirlo directamente." 
+                    : "A Stripe Checkout link will be generated. You can copy and send it to the user, or open it directly."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConvertModal(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleConvertAccount} 
+              disabled={saving}
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CreditCard className="w-4 h-4 mr-2" />
+              )}
+              {convertForm.conversion_type === "manual" 
+                ? (isEs ? "Convertir" : "Convert")
+                : (isEs ? "Generar Link" : "Generate Link")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extend Trial Modal */}
+      <Dialog open={showExtendModal} onOpenChange={setShowExtendModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarPlus className="w-5 h-5 text-amber-500" />
+              {isEs ? "Extender Trial" : "Extend Trial"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedAccount?.name} - {selectedAccount?.owner?.email}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isEs ? "Días a Extender" : "Days to Extend"}</Label>
+              <Select 
+                value={String(extendDays)} 
+                onValueChange={(v) => setExtendDays(parseInt(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="14">14 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="30">30 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="60">60 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="90">90 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="180">180 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="365">1 {isEs ? "año" : "year"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedAccount?.trial_ends_at && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{isEs ? "Trial actual expira:" : "Current trial expires:"}</span>
+                  <span className="font-medium">{new Date(selectedAccount.trial_ends_at).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-muted-foreground">{isEs ? "Nuevo vencimiento:" : "New expiration:"}</span>
+                  <span className="font-medium text-amber-600">
+                    {new Date(new Date(selectedAccount.trial_ends_at).getTime() + extendDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExtendModal(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleExtendTrial} 
+              disabled={saving}
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CalendarPlus className="w-4 h-4 mr-2" />
+              )}
+              {isEs ? "Extender" : "Extend"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
