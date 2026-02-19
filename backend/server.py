@@ -3030,18 +3030,28 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
     return event
 
 @events_router.put("/{event_id}")
-async def update_event(event_id: str, data: EventCreate, user: User = Depends(get_current_user)):
+async def update_event(event_id: str, data: EventUpdate, user: User = Depends(get_current_user)):
     # Get event name for logging
     old_event = await db.events.find_one(
         {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0, "name": 1}
+        {"_id": 0, "name": 1, "stage": 1}
     )
     
+    if not old_event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
     now = datetime.now(timezone.utc)
-    update_data = data.model_dump()
-    update_data["event_date"] = data.event_date.isoformat() if data.event_date else None
-    update_data["end_date"] = data.end_date.isoformat() if data.end_date else None
-    update_data["next_followup_date"] = data.next_followup_date.isoformat() if data.next_followup_date else None
+    # Only include non-None values in update
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # Convert dates to ISO strings if present
+    if "event_date" in update_data and update_data["event_date"]:
+        update_data["event_date"] = update_data["event_date"].isoformat()
+    if "end_date" in update_data and update_data["end_date"]:
+        update_data["end_date"] = update_data["end_date"].isoformat()
+    if "next_followup_date" in update_data and update_data["next_followup_date"]:
+        update_data["next_followup_date"] = update_data["next_followup_date"].isoformat()
+    
     update_data["updated_at"] = now.isoformat()
     
     result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$set": update_data})
