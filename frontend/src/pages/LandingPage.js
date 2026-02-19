@@ -110,45 +110,88 @@ const integrations = [
   { name: "Outlook", logo: "https://upload.wikimedia.org/wikipedia/commons/d/df/Microsoft_Office_Outlook_%282018%E2%80%93present%29.svg" }
 ];
 
-// Pricing plans (condensed)
+// Pricing plans - Updated to reflect Kora Core + Add-ons model
 const pricingPlans = [
   {
-    name: "Insight",
-    price: "Free",
-    priceEs: "Gratis",
-    tagline: "See your system before you run it.",
-    taglineEs: "Ve tu sistema antes de operarlo.",
-    features: ["System Pulse (read-only)", "Basic dashboard", "Email support"],
-    featuresEs: ["System Pulse (solo lectura)", "Dashboard básico", "Soporte por email"],
-    cta: "Start Free",
-    ctaEs: "Comenzar Gratis",
-    highlight: false
-  },
-  {
-    name: "Foundation",
-    price: "$49",
+    name: "Kora Core",
+    price: "$69",
     period: "/mo",
     periodEs: "/mes",
-    tagline: "Run day-to-day with structure.",
-    taglineEs: "Opera el día a día con estructura.",
-    features: ["All core modules", "CRM + pipelines", "Unlimited users", "Add-ons available"],
-    featuresEs: ["Todos los módulos core", "CRM + pipelines", "Usuarios ilimitados", "Add-ons disponibles"],
-    cta: "Get Started",
-    ctaEs: "Comenzar",
+    tagline: "Everything you need to run your business.",
+    taglineEs: "Todo lo que necesitas para operar tu negocio.",
+    features: ["CRM & Pipeline", "Client Management", "Proposals & Invoices", "Financial Dashboard", "Unlimited users", "All industries"],
+    featuresEs: ["CRM y Pipeline", "Gestión de Clientes", "Propuestas y Facturas", "Dashboard Financiero", "Usuarios ilimitados", "Todas las industrias"],
+    cta: "Start 7-Day Trial",
+    ctaEs: "Prueba 7 Días Gratis",
     highlight: true
+  }
+];
+
+// Add-on modules for Kora Core
+const addonModules = [
+  {
+    name: "Event Orchestration",
+    nameEs: "Orquestación de Eventos",
+    price: "$39/mo",
+    priceEs: "$39/mes",
+    description: "Event planning, timelines & production",
+    descriptionEs: "Planificación de eventos, timelines y producción",
+    icon: Calendar
   },
   {
-    name: "Scale",
-    price: "$99",
-    period: "/mo",
-    periodEs: "/mes",
-    tagline: "Scale across teams and locations.",
-    taglineEs: "Escala entre equipos y ubicaciones.",
-    features: ["Everything in Foundation", "Multi-location", "Unlimited users", "Priority support"],
-    featuresEs: ["Todo en Foundation", "Multi-ubicación", "Usuarios ilimitados", "Soporte prioritario"],
-    cta: "Contact Sales",
-    ctaEs: "Contactar",
-    highlight: false
+    name: "Culinary Intelligence",
+    nameEs: "Inteligencia Culinaria",
+    price: "$29/mo",
+    priceEs: "$29/mes",
+    description: "Recipe costing & inventory management",
+    descriptionEs: "Costeo de recetas y gestión de inventario",
+    icon: ChefHat
+  },
+  {
+    name: "Demand Studio",
+    nameEs: "Demand Studio",
+    price: "$29/mo",
+    priceEs: "$29/mes",
+    description: "Marketing campaigns & ROI tracking",
+    descriptionEs: "Campañas de marketing y seguimiento de ROI",
+    icon: Megaphone
+  },
+  {
+    name: "Resource Management",
+    nameEs: "Gestión de Recursos",
+    price: "$19/mo",
+    priceEs: "$19/mes",
+    description: "Equipment, venues & resource scheduling",
+    descriptionEs: "Equipos, venues y programación de recursos",
+    icon: Package
+  }
+];
+
+// Industries we serve
+const industries = [
+  {
+    name: "Events & Hospitality",
+    nameEs: "Eventos y Hospitalidad",
+    description: "Catering, weddings, corporate events, venues",
+    descriptionEs: "Catering, bodas, eventos corporativos, venues",
+    icon: Calendar,
+    color: "bg-purple-100 text-purple-600"
+  },
+  {
+    name: "Professional Services",
+    nameEs: "Servicios Profesionales",
+    description: "Agencies, consulting, legal, accounting",
+    descriptionEs: "Agencias, consultoría, legal, contabilidad",
+    icon: Briefcase,
+    color: "bg-blue-100 text-blue-600"
+  },
+  {
+    name: "General Services",
+    nameEs: "Servicios Generales",
+    description: "Any service-based business",
+    descriptionEs: "Cualquier negocio basado en servicios",
+    icon: Building2,
+    color: "bg-emerald-100 text-emerald-600"
   }
 ];
 
