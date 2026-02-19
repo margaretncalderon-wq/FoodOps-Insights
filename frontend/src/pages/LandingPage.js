@@ -457,24 +457,17 @@ export default function LandingPage() {
             </div>
             {/* Meta - Infinity Logo */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
-              <svg className="w-12 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 800 400">
-                <defs>
-                  <linearGradient id="metaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{stopColor:"#0081FB"}}/>
-                    <stop offset="50%" style={{stopColor:"#0064E0"}}/>
-                    <stop offset="100%" style={{stopColor:"#0082FB"}}/>
-                  </linearGradient>
-                </defs>
-                <path fill="url(#metaGrad)" d="M186.8 200c0-66.3-53.7-120-120-120S-53.2 133.7-53.2 200s53.7 120 120 120c33.1 0 63.1-13.4 84.8-35.2L400 36.5l248.4 248.3c21.7 21.8 51.7 35.2 84.8 35.2 66.3 0 120-53.7 120-120s-53.7-120-120-120c-33.1 0-63.1 13.4-84.8 35.2L400 363.5 151.6 115.2C129.9 93.4 99.9 80 66.8 80c-66.3 0-120 53.7-120 120z"/>
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 36 36">
+                <path fill="#0866FF" d="M18 2.5c-3.9 0-7.1 3.2-9.2 7.3-1.8 3.4-2.8 7.2-2.8 10.2 0 5 2.7 8 6.2 8 2.4 0 4.4-1.5 5.8-3.8 1.4 2.3 3.4 3.8 5.8 3.8 3.5 0 6.2-3 6.2-8 0-3-.9-6.8-2.8-10.2-2.1-4.1-5.3-7.3-9.2-7.3zm-5.8 22.5c-1.8 0-3.2-1.8-3.2-5 0-2.5.8-5.8 2.4-8.8 1.6-3.1 3.8-5.2 6.6-5.2s5 2.1 6.6 5.2c1.5 3 2.4 6.3 2.4 8.8 0 3.2-1.4 5-3.2 5-1.5 0-2.9-1.3-4.2-3.4l-1.6-2.6-1.6 2.6c-1.3 2.1-2.7 3.4-4.2 3.4z"/>
               </svg>
             </div>
             {/* Google Ads */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Ads">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 192 192">
-                <path fill="#FBBC04" d="M96 0L0 166.3l27.7 16L96 48z"/>
-                <path fill="#4285F4" d="M96 0l96 166.3-27.7 16L96 48z"/>
-                <path fill="#34A853" d="M27.7 182.3L96 48l27.7 16-68.3 118.3z"/>
-                <circle fill="#EA4335" cx="27.7" cy="166.3" r="27.7"/>
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 48 48">
+                <path fill="#4caf50" d="M44 24L24 44 8 28l4-4 12 12 16-16z"/>
+                <circle fill="#4caf50" cx="8" cy="28" r="5"/>
+                <path fill="#ffc107" d="M24 4L4 24l8 8L44 0z"/>
+                <path fill="#1e88e5" d="M44 24L24 4 8 20l4 4L24 12l16 16z"/>
               </svg>
             </div>
             {/* Stripe */}
