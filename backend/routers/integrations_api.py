@@ -226,19 +226,29 @@ async def trigger_integration_workflow(
     integration_id: str,
     is_sandbox: bool = False
 ):
-    """Trigger workflows configured for this integration event"""
+    """
+    Trigger automation rules configured for this integration event.
+    Uses the centralized automation service to execute rules.
+    """
+    from services.automation_service import trigger_integration_automation
     
-    # Find workflows configured for this event type
-    workflows = await db.integration_workflows.find({
+    # Execute automation rules
+    executions = await trigger_integration_automation(
+        company_id=company_id,
+        event_type=event_type,
+        payload=payload,
+        integration_id=integration_id,
+        is_sandbox=is_sandbox
+    )
+    
+    # Also check legacy integration_workflows collection for backwards compatibility
+    legacy_workflows = await db.integration_workflows.find({
         "company_id": company_id,
         "trigger_event": event_type,
         "status": "active"
     }).to_list(50)
     
-    triggered_workflows = []
-    
-    for workflow in workflows:
-        # Create workflow execution record
+    for workflow in legacy_workflows:
         execution_id = f"exec_{uuid.uuid4().hex[:12]}"
         
         await db.workflow_executions.insert_one({
@@ -253,13 +263,14 @@ async def trigger_integration_workflow(
             "created_at": datetime.now(timezone.utc).isoformat()
         })
         
-        triggered_workflows.append({
+        executions.append({
             "workflow_id": workflow["workflow_id"],
             "workflow_name": workflow.get("name"),
-            "execution_id": execution_id
+            "execution_id": execution_id,
+            "type": "legacy_workflow"
         })
     
-    return triggered_workflows
+    return executions
 
 
 # ============== ENDPOINTS ==============
