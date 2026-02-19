@@ -5,7 +5,7 @@ import axios from "axios";
 import { Button } from "../../components/ui/button";
 import { 
   Shield, BarChart3, Users, Building2, Settings, CreditCard,
-  ChevronLeft, LogOut, Eye, X, Loader2, Landmark, Sparkles
+  ChevronLeft, LogOut, Eye, X, Loader2, Landmark, Sparkles, Plug
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
