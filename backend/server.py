@@ -14548,6 +14548,7 @@ async def create_demo_account(
     org_config_doc = {
         "company_id": company_id,
         "industry_template": industry_template,
+        "industry_type": data.industry_type,  # Required for modules system
         "enabled_engagement_types": template_data["enabled_engagement_types"],
         "default_engagement_type": template_data["default_engagement_type"],
         "terminology": template_data.get("terminology", {}),
