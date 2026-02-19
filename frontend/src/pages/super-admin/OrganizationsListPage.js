@@ -38,6 +38,12 @@ export default function OrganizationsListPage() {
   const [passwordChangeType, setPasswordChangeType] = useState("all"); // "all" or "individual"
   const [orgMembers, setOrgMembers] = useState([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   useEffect(() => {
     fetchOrganizations();
