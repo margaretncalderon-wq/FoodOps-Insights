@@ -659,7 +659,7 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - is_super_admin: true
 
 ## URLs
-- Preview: https://dynamic-orches.preview.emergentagent.com
+- Preview: https://multi-tenant-core-3.preview.emergentagent.com
 - Production: https://ourkora.com
 
 ## Session Updates - February 19, 2026
