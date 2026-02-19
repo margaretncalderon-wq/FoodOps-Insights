@@ -60,6 +60,11 @@ export default function OrganizationDetailPage() {
   // Account type state
   const [accountType, setAccountType] = useState("");
   const [savingAccountType, setSavingAccountType] = useState(false);
+  
+  // Add member state
+  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
+  const [newMemberData, setNewMemberData] = useState({ email: "", name: "", password: "", role: "viewer" });
+  const [addingMember, setAddingMember] = useState(false);
 
   useEffect(() => {
     fetchOrganization();
