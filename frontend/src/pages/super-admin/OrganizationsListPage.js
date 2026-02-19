@@ -13,7 +13,7 @@ import { Progress } from "../../components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../../components/ui/dialog";
 import { 
   Building2, Search, Filter, ChevronLeft, ChevronRight, 
-  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw, Key
+  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw, Key, Trash2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
