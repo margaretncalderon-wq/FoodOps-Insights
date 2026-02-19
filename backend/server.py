@@ -14282,18 +14282,33 @@ async def create_demo_account(
     from industry_config_module.industry_config import get_industry_config
     
     # Check if email already exists
-    existing = await db.users.find_one({"email": data.email})
-    if existing:
+    existing_user = await db.users.find_one({"email": data.email})
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check if organization name already exists
+    existing_org = await db.organizations.find_one({"name": data.organization_name})
+    if existing_org:
+        raise HTTPException(status_code=400, detail=f"Organization '{data.organization_name}' already exists. Use a different name or edit the existing organization.")
     
     now = datetime.now(timezone.utc)
     company_id = f"company_{uuid.uuid4().hex[:12]}"
     user_id = f"user_{uuid.uuid4().hex[:12]}"
     
-    # Create organization
+    # Map industry_type to industry_template
+    industry_template_map = {
+        "events": "events_hospitality",
+        "agency": "professional_services", 
+        "consulting": "professional_services",
+        "generic": "generic"
+    }
+    industry_template = industry_template_map.get(data.industry_type, "generic")
+    
+    # Create organization in the correct collection
     org_doc = {
         "company_id": company_id,
         "name": data.organization_name,
+        "industry_template": industry_template,
         "primary_color": "#3A4D3F",
         "secondary_color": "#E5DCC5",
         "default_language": "es",
@@ -14303,9 +14318,14 @@ async def create_demo_account(
         "account_type": data.account_type,  # demo, influencer, partner
         "admin_notes": data.notes,
         "created_by_admin": admin.user_id,
-        "created_at": now.isoformat()
+        "created_at": now.isoformat(),
+        "settings": {
+            "currency": "USD",
+            "timezone": "America/Santo_Domingo",
+            "language": "es"
+        }
     }
-    await db.companies.insert_one(org_doc)
+    await db.organizations.insert_one(org_doc)
     
     # Create organization config with industry
     industry_config = get_industry_config(data.industry_type)
