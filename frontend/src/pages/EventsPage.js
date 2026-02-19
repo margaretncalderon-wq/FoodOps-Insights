@@ -355,16 +355,18 @@ export default function EventsPage({ embedded = false }) {
     return `${days} ${language === "es" ? "días" : "days"}`;
   };
 
-  const content = (
+  content = (
     <div className="space-y-6" data-testid="events-page">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-heading text-3xl font-bold text-foreground">
-            {embedded ? (language === "es" ? "Propuestas & Acuerdos" : "Proposals & Agreements") : t("events")}
+            {embedded ? (isEs ? "Propuestas & Acuerdos" : "Proposals & Agreements") : t("events")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {language === "es" ? "Gestiona tus eventos y reservas" : "Manage your events and bookings"}
+            {isEs 
+              ? `Gestiona tus ${entityPlural.toLowerCase()} y reservas` 
+              : `Manage your ${entityPlural.toLowerCase()} and bookings`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -377,7 +379,7 @@ export default function EventsPage({ embedded = false }) {
                 className="gap-1"
               >
                 <List className="w-4 h-4" />
-                {language === "es" ? "Lista" : "List"}
+                {isEs ? "Lista" : "List"}
               </Button>
               <Button
                 variant={viewMode === "pipeline" ? "secondary" : "ghost"}
@@ -403,7 +405,7 @@ export default function EventsPage({ embedded = false }) {
               <DialogTrigger asChild>
                 <Button className="rounded-full gap-2" data-testid="add-event-btn" onClick={() => { if (!editingEvent) resetForm(); }}>
                   <Plus className="w-4 h-4" />
-                  {t("addEvent")}
+                  {isEs ? `Agregar ${entitySingular}` : `Add ${entitySingular}`}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
