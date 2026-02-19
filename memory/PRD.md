@@ -747,3 +747,25 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
   - Regenerate keys
   - View logs and stats
   - Built-in documentation
+
+### Integration Workflows (February 19, 2026)
+- ✅ **Connected to existing Automation System** - No new system, uses existing automation_rules
+- **New Trigger Types added to `TriggerType` enum:**
+  - `integration_lead_company` - When company registers via integration
+  - `integration_lead_candidate` - When candidate registers via integration
+  - `integration_lead_contractor` - When contractor registers via integration
+  - `integration_lead_created` - Any lead from integration
+  - `integration_invoice_created` - Invoice from integration
+  - `integration_custom_event` - Custom events from integration
+- **Automation Service:** `/app/backend/services/automation_service.py`
+  - Centralized service for executing automation rules
+  - Supports all existing action types (notifications, tasks, tags, webhooks, etc.)
+  - Variable substitution with {{fieldname}} syntax
+  - Condition evaluation (equals, contains, greater_than, etc.)
+  - Round-robin assignment support
+- **Integration Templates added:**
+  - `integration_company_lead` - New company from integration
+  - `integration_candidate_lead` - New candidate from integration
+  - `integration_contractor_lead` - New contractor from integration
+  - `integration_invoice_created` - New invoice from integration
+  - `integration_high_value_lead` - High-value company alert
