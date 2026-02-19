@@ -121,12 +121,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const completeGoogleRegistration = async (tempToken, companyName) => {
+  const completeGoogleRegistration = async (tempToken, companyName, industryTemplate = "events_hospitality") => {
     setLoading(true);
     try {
       const response = await axios.post(
         `${API}/auth/google/complete-registration`,
-        { temp_token: tempToken, company_name: companyName },
+        { 
+          temp_token: tempToken, 
+          company_name: companyName,
+          industry_template: industryTemplate 
+        },
         { withCredentials: true }
       );
       setUser(response.data.user);
