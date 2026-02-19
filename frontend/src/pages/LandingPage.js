@@ -446,7 +446,7 @@ export default function LandingPage() {
             </div>
             {/* DocuSign */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="DocuSign">
-              <img src="https://cdn.simpleicons.org/docusign" alt="DocuSign" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+              <img src="https://www.docusign.com/sites/default/files/favicon_0.ico" alt="DocuSign" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
             {/* Meta */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
@@ -454,7 +454,7 @@ export default function LandingPage() {
             </div>
             {/* Google Ads */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Ads">
-              <img src="https://cdn.simpleicons.org/googleads" alt="Google Ads" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+              <img src="https://cdn.simpleicons.org/googleads/4285F4" alt="Google Ads" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
             {/* Stripe */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Stripe">
