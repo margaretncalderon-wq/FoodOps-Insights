@@ -310,7 +310,7 @@ export default function OrganizationDetailPage() {
   const limits = org?.plan?.limits || {};
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
