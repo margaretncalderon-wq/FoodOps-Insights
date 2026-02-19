@@ -206,8 +206,8 @@ INDUSTRY_CONFIG = {
         
         # Program Orchestration configuration
         "program_orchestration": {
-            "name_en": "Engagement Management",
-            "name_es": "Gestión de Compromisos",
+            "name_en": "Program Orchestration",
+            "name_es": "Program Orchestration",
             "icon": "briefcase",
             "description_en": "Manage client engagements and projects",
             "description_es": "Gestiona compromisos y proyectos de clientes",
@@ -240,7 +240,7 @@ INDUSTRY_CONFIG = {
             ],
         },
         
-        # Enabled modules for this industry
+        # Enabled modules for this industry (NO Resource Management for pure services)
         "enabled_modules": [
             "module_event_orchestration",
             "module_demand_studio",
@@ -255,7 +255,9 @@ INDUSTRY_CONFIG = {
                 "enabled": False,
             },
             "module_operations_supplies": {
-                "enabled": False,
+                "enabled": False,  # Not relevant for consulting/professional services
+                "name_en": "Resource Management",
+                "name_es": "Gestión de Recursos",
             },
         },
         
