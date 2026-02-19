@@ -310,8 +310,16 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
     - Search placeholder, info banners, buttons
     - Tabs conditionally shown based on industry
   - **Dashboard.js:** Refactored "Active Events" section to use dynamic terminology
+  - **EventsPage.js (Proposals):** FIXED - Now uses dynamic terminology for agency users
+    - Shows "Add Project" instead of "Add Event"
+    - Shows "Manage your projects and bookings"
+    - Default engagement type set based on industry
   - **Supported Industries:** events, agency, consulting, generic
   - **Test Report:** `/app/test_reports/iteration_49.json` - 15/15 tests passed
+- ✅ **Demo Account Module Activation** (December 2025) - NEW
+  - Added `/api/auth/activate-demo-modules` endpoint
+  - Allows test users to activate modules without payment
+  - Agency demo user: demo.agency@kora.com / Evoque2024!
   - Backend: engagement_type (event/project/service) guardado correctamente
   - Backend: Campos nuevos para projects (scope_summary, deliverables, participant_count)
   - Frontend: Formulario de creación con selector de tipo de trabajo
