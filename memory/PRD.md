@@ -626,7 +626,8 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - `/app/test_reports/iteration_47.json` - Send Contract to Client 11/11 (6 backend + 5 frontend)
 - `/app/test_reports/iteration_49.json` - Dynamic Terminology Refactor 15/15 (7 backend + 8 frontend)
 - `/app/test_reports/iteration_50.json` - Agency User Dynamic Terminology 8/12 (frontend) - Issues found and FIXED
-- `/app/test_reports/iteration_51.json` - **Terminology & Module Visibility 17/17 (9 backend + 8 frontend)** - NEW
+- `/app/test_reports/iteration_51.json` - Terminology & Module Visibility 17/17 (9 backend + 8 frontend)
+- `/app/test_reports/iteration_52.json` - **Lead->Proposal->Project Flow 11/12 (92%) - Routing bug FIXED**
 
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
