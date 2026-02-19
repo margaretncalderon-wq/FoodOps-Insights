@@ -1090,6 +1090,112 @@ export default function OrganizationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Member Dialog */}
+      <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
+        <DialogContent className="bg-white border-gray-200 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
+              <Users className="w-5 h-5 text-blue-600" />
+              Agregar Usuario
+            </DialogTitle>
+            <DialogDescription className="text-gray-500">
+              Crea un nuevo usuario para esta organización
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-gray-600">Nombre</Label>
+              <Input
+                type="text"
+                value={newMemberData.name}
+                onChange={(e) => setNewMemberData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nombre completo"
+                className="bg-gray-100 border-gray-300 text-gray-900 placeholder:text-slate-500"
+                data-testid="new-member-name-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-gray-600">Email</Label>
+              <Input
+                type="email"
+                value={newMemberData.email}
+                onChange={(e) => setNewMemberData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="correo@ejemplo.com"
+                className="bg-gray-100 border-gray-300 text-gray-900 placeholder:text-slate-500"
+                data-testid="new-member-email-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-gray-600">Contraseña</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={newMemberData.password}
+                  onChange={(e) => setNewMemberData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Mínimo 6 caracteres"
+                  className="flex-1 bg-gray-100 border-gray-300 text-gray-900 placeholder:text-slate-500"
+                  data-testid="new-member-password-input"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={generateMemberPassword}
+                  className="border-gray-300 text-gray-600 hover:bg-gray-100"
+                >
+                  Generar
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-gray-600">Rol</Label>
+              <Select 
+                value={newMemberData.role} 
+                onValueChange={(v) => setNewMemberData(prev => ({ ...prev, role: v }))}
+              >
+                <SelectTrigger className="bg-gray-100 border-gray-300 text-gray-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map(role => (
+                    <SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setAddMemberDialogOpen(false);
+                setNewMemberData({ email: "", name: "", password: "", role: "viewer" });
+              }}
+              className="border-gray-300 text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAddMember} 
+              disabled={addingMember || !newMemberData.email || !newMemberData.name || !newMemberData.password}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="confirm-add-member-btn"
+            >
+              {addingMember ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Users className="w-4 h-4 mr-2" />
+              )}
+              Agregar Usuario
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
