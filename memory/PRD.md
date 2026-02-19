@@ -686,3 +686,16 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 
 ### Minor Remaining Item
 - ✅ FIXED: "Event Date" → "Project Date" para usuarios de agencia en modales de creación y CRM
+
+### Demo/Influencer Accounts Feature (February 19, 2026)
+- ✅ New Super Admin feature to create demo/influencer/partner accounts without payment
+- **Backend:** `POST /api/super-admin/demo-accounts` - Creates full account with:
+  - New organization with industry type
+  - User as owner
+  - Selected modules activated (free)
+  - Extended trial period (configurable, default 1 year)
+- **Backend:** `GET /api/super-admin/demo-accounts` - Lists all demo/influencer/partner accounts
+- **Frontend:** New page `/super-admin/demo-accounts` with:
+  - Account creation form with industry, modules, trial days selection
+  - Password generator
+  - Account listing with stats
