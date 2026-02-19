@@ -720,3 +720,136 @@ async def send_contract_email(
             "status": "error",
             "error": str(e)
         }
+
+
+
+# ============== PASSWORD CHANGED NOTIFICATION EMAIL ==============
+
+def get_password_changed_notification_html(user_name: str, changed_at: str, changed_by: str = None) -> str:
+    """Generate password changed notification email HTML"""
+    changed_by_text = f"""
+        <tr>
+            <td style="padding: 8px 0;">
+                <span style="color: #991B1B; font-size: 14px;">Cambiado por</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+                <span style="color: #991B1B; font-size: 14px; font-weight: 600;">{changed_by}</span>
+            </td>
+        </tr>
+    """ if changed_by else ""
+    
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%); padding: 40px 40px 30px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                                Alerta de Seguridad
+                            </h1>
+                            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">
+                                Cambio de Contraseña
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                                Hola <strong>{user_name}</strong>,
+                            </p>
+                            
+                            <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                                Te informamos que la contraseña de tu cuenta en <strong>Kora OS</strong> ha sido modificada.
+                            </p>
+                            
+                            <!-- Details Box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #FEF2F2; border: 1px solid #DC2626; border-radius: 8px; margin: 24px 0;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="color: #991B1B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px;">
+                                            Detalles del cambio
+                                        </p>
+                                        <table width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <span style="color: #991B1B; font-size: 14px;">Fecha y hora</span>
+                                                </td>
+                                                <td style="padding: 8px 0; text-align: right;">
+                                                    <span style="color: #991B1B; font-size: 14px; font-weight: 600;">{changed_at}</span>
+                                                </td>
+                                            </tr>
+                                            {changed_by_text}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                                Si <strong>tu realizaste este cambio</strong>, puedes ignorar este mensaje.
+                            </p>
+                            
+                            <!-- Warning Box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; margin: 24px 0;">
+                                <tr>
+                                    <td style="padding: 16px;">
+                                        <p style="color: #92400E; font-size: 14px; margin: 0; line-height: 1.5;">
+                                            <strong>Si no reconoces esta actividad</strong>, contacta inmediatamente a soporte respondiendo a este email.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="https://ourkora.com/login" style="display: inline-block; background: linear-gradient(135deg, #3A4D3F 0%, #2a3d2f 100%); color: #E5DCC5; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                                            Iniciar Sesion
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8faf8; padding: 24px 40px; text-align: center;">
+                            <p style="color: #6b7a6a; font-size: 13px; margin: 0;">
+                                2026 Kora OS. Este es un mensaje automatico de seguridad.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+
+async def send_password_changed_notification(
+    to_email: str,
+    user_name: str,
+    changed_at: str,
+    changed_by: str = None
+) -> dict:
+    """Send password changed notification email"""
+    html_content = get_password_changed_notification_html(user_name, changed_at, changed_by)
+    return await send_email(
+        to_email=to_email,
+        subject="Alerta de Seguridad - Tu contraseña ha sido cambiada",
+        html_content=html_content
+    )
