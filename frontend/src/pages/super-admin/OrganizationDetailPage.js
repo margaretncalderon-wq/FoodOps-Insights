@@ -609,21 +609,32 @@ export default function OrganizationDetailPage() {
         {/* Members Tab */}
         <TabsContent value="members">
           <Card className="bg-slate-800 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2 text-white">
                 <Users className="w-5 h-5" />
-                Members ({members.length})
+                Miembros ({members.length})
               </CardTitle>
+              {members.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleChangeAllPasswords}
+                  className="border-amber-600 text-amber-400 hover:bg-amber-900/30"
+                >
+                  <Key className="w-4 h-4 mr-2" />
+                  Cambiar Contraseña (Todos)
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-700">
-                    <TableHead className="text-slate-400">User</TableHead>
-                    <TableHead className="text-slate-400">Role</TableHead>
-                    <TableHead className="text-slate-400">Status</TableHead>
-                    <TableHead className="text-slate-400">Joined</TableHead>
-                    <TableHead className="text-slate-400">Actions</TableHead>
+                    <TableHead className="text-slate-400">Usuario</TableHead>
+                    <TableHead className="text-slate-400">Rol</TableHead>
+                    <TableHead className="text-slate-400">Estado</TableHead>
+                    <TableHead className="text-slate-400">Ingreso</TableHead>
+                    <TableHead className="text-slate-400">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -633,10 +644,10 @@ export default function OrganizationDetailPage() {
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={member.picture} />
-                            <AvatarFallback>{member.name?.charAt(0) || "U"}</AvatarFallback>
+                            <AvatarFallback className="bg-slate-600 text-white">{member.name?.charAt(0) || "U"}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{member.name}</p>
+                            <p className="font-medium text-white">{member.name}</p>
                             <p className="text-sm text-slate-400">{member.email}</p>
                           </div>
                         </div>
@@ -646,7 +657,7 @@ export default function OrganizationDetailPage() {
                           value={member.role} 
                           onValueChange={(v) => handleChangeRole(member.membership_id, v)}
                         >
-                          <SelectTrigger className="w-32 bg-slate-700 border-slate-600">
+                          <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -658,23 +669,34 @@ export default function OrganizationDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={member.status === "active" ? "default" : "secondary"} className={member.status === "active" ? "bg-green-600" : ""}>
-                          {member.status}
+                          {member.status === "active" ? "Activo" : member.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-slate-400">
                         {new Date(member.joined_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        {member.role !== "owner" && (
+                        <div className="flex items-center gap-1">
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => handleRemoveMember(member.membership_id)}
-                            className="text-red-400 hover:text-red-300"
+                            onClick={() => openPasswordDialog(member)}
+                            className="text-amber-400 hover:text-amber-300 hover:bg-slate-700"
+                            data-testid={`change-pw-${member.user_id}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Key className="w-4 h-4" />
                           </Button>
-                        )}
+                          {member.role !== "owner" && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleRemoveMember(member.membership_id)}
+                              className="text-red-400 hover:text-red-300 hover:bg-slate-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
