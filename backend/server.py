@@ -47,7 +47,7 @@ from models.business_clarity import (
     PaymentCreate as BCPaymentCreate, InvoiceCreate
 )
 from models.events import (
-    EventCreate, Event, EventMenuCreate,
+    EventCreate, EventUpdate, Event, EventMenuCreate,
     EventBlueprintUpdate, ExperienceDesignCreate, OperationalFlowCreate, OperationalPhase,
     RunOfShowCreate, TimeBlock, TeamRolesCreate, EventRole,
     ProductionAssetsCreate, ProductionAsset, ChecklistItem, PostEventReviewCreate,
