@@ -788,6 +788,11 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - **Backend Endpoint:** `POST /api/super-admin/users/{user_id}/reset-password`
   - ✅ Bug Fixed: Was saving to `hashed_password` field, but login reads from `password_hash`
   - Now correctly updates `password_hash` field
+  - ✅ **Email Notification:** Sends security alert email when password is changed by admin
+    - Shows date/time of change
+    - Shows admin who made the change
+    - Warning message if user didn't request change
+    - Note: Requires `RESEND_API_KEY` to be configured for emails to send
 - **Test Report:** `/app/test_reports/iteration_55.json` - 100% success (backend and frontend)
 
 ## Upcoming Tasks
