@@ -27,7 +27,7 @@ class TestAgencyUserAuth:
         
         data = response.json()
         assert "user" in data, "No user in response"
-        assert "token" in data, "No token in response"
+        assert "access_token" in data, "No access_token in response"
         
         user = data["user"]
         print(f"User logged in: {user.get('name', user.get('email'))}")
@@ -53,7 +53,7 @@ class TestAgencyUserAuth:
         login_res = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         assert login_res.status_code == 200
         
-        token = login_res.json()["token"]
+        token = login_res.json()["access_token"]
         cookies = login_res.cookies
         
         # Get enabled modules to check industry type
@@ -77,7 +77,7 @@ class TestCRMOutreachFlow:
         response = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         assert response.status_code == 200
         
-        self.token = response.json()["token"]
+        self.token = response.json()["access_token"]
         self.cookies = response.cookies
         self.headers = {"Authorization": f"Bearer {self.token}"}
     
@@ -161,7 +161,7 @@ class TestLeadConversion:
         response = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         assert response.status_code == 200
         
-        self.token = response.json()["token"]
+        self.token = response.json()["access_token"]
         self.cookies = response.cookies
         self.headers = {"Authorization": f"Bearer {self.token}"}
     
@@ -219,7 +219,7 @@ class TestEventsProposals:
         response = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         assert response.status_code == 200
         
-        self.token = response.json()["token"]
+        self.token = response.json()["access_token"]
         self.cookies = response.cookies
         self.headers = {"Authorization": f"Bearer {self.token}"}
     
@@ -336,7 +336,7 @@ class TestProgramOrchestration:
         response = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         assert response.status_code == 200
         
-        self.token = response.json()["token"]
+        self.token = response.json()["access_token"]
         self.cookies = response.cookies
         self.headers = {"Authorization": f"Bearer {self.token}"}
     
@@ -392,7 +392,7 @@ class TestCRMStats:
         response = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         assert response.status_code == 200
         
-        self.token = response.json()["token"]
+        self.token = response.json()["access_token"]
         self.cookies = response.cookies
         self.headers = {"Authorization": f"Bearer {self.token}"}
     
@@ -425,7 +425,7 @@ class TestCleanup:
         """Login and get auth token"""
         response = requests.post(f"{BASE_URL}/api/auth/login", json=AGENCY_USER)
         if response.status_code == 200:
-            self.token = response.json()["token"]
+            self.token = response.json()["access_token"]
             self.cookies = response.cookies
             self.headers = {"Authorization": f"Bearer {self.token}"}
         else:
