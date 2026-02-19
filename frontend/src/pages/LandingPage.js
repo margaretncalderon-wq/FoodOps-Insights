@@ -441,8 +441,13 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10">
             {/* Gmail */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Gmail">
-              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/9z1683fu_Gmail_icon_%282020%29.svg.png" alt="Gmail" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+            <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Gmail">
+              <svg className="w-10 h-10" viewBox="0 0 48 48">
+                <path fill="#4285F4" d="M6 10v28c0 2.2 1.8 4 4 4h4V16l10 8 10-8v26h4c2.2 0 4-1.8 4-4V10c0-2.2-1.8-4-4-4h-2l-12 9.5L12 6h-2C7.8 6 6 7.8 6 10z"/>
+                <path fill="#EA4335" d="M24 24l-10-8V42h20V16l-10 8z"/>
+                <path fill="#FBBC05" d="M38 6l-14 11V24l14-11V6zM10 6v7l14 11v-7L10 6z"/>
+                <path fill="#34A853" d="M14 42V16l-4-3v25c0 2.2 1.8 4 4 4zM34 42c2.2 0 4-1.8 4-4V13l-4 3v26z"/>
+              </svg>
             </div>
             {/* Google Calendar */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Calendar">
