@@ -448,7 +448,7 @@ export default function OrganizationsListPage() {
               <div className="space-y-2">
                 <Label className="text-gray-700">Seleccionar Usuario</Label>
                 <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                     <SelectValue placeholder="Selecciona un usuario..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -464,21 +464,21 @@ export default function OrganizationsListPage() {
 
             {/* New Password */}
             <div className="space-y-2">
-              <Label className="text-slate-300">Nueva Contraseña</Label>
+              <Label className="text-gray-700">Nueva Contraseña</Label>
               <div className="flex gap-2">
                 <Input
                   type="text"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Ingresa la nueva contraseña"
-                  className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                  className="flex-1 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
                   data-testid="new-password-input"
                 />
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={generatePassword}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
                 >
                   Generar
                 </Button>
@@ -486,7 +486,7 @@ export default function OrganizationsListPage() {
             </div>
 
             {passwordChangeType === "all" && orgMembers.length > 0 && (
-              <div className="p-3 bg-amber-900/30 rounded-lg text-sm text-amber-300 border border-amber-700">
+              <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-700 border border-amber-200">
                 Se cambiará la contraseña para {orgMembers.length} usuario(s) de esta organización.
               </div>
             )}
@@ -496,7 +496,7 @@ export default function OrganizationsListPage() {
             <Button 
               variant="outline" 
               onClick={() => setShowPasswordModal(false)}
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
             >
               Cancelar
             </Button>
