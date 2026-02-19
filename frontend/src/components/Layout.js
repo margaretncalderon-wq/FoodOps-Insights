@@ -268,6 +268,9 @@ export const Layout = ({ children }) => {
       <main className="md:ml-64 pt-16 md:pt-0 min-h-screen">
         <div className="p-6 md:p-8 lg:p-12">{children}</div>
       </main>
+
+      {/* Trial Expiration Modal */}
+      <TrialExpirationModal />
     </div>
   );
 };
