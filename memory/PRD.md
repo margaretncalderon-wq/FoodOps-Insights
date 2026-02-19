@@ -716,3 +716,34 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
   - Shows automatically when trial expires or is expiring soon
   - Displays active modules count and estimated monthly cost
   - "Remind me later" option (session-based dismissal)
+
+### External Integrations API (February 19, 2026)
+- ✅ **Generic Integration System** for connecting external platforms (Staffdo, etc.)
+- **Backend Routers:**
+  - `/app/backend/routers/integrations_api.py` - Public API for external platforms
+  - `/app/backend/routers/integrations_admin.py` - Admin management endpoints
+- **API Endpoints for External Platforms:**
+  - `POST /api/v1/integrations/leads` - Create leads (company, candidate, contractor)
+  - `POST /api/v1/integrations/invoices` - Create invoices
+  - `POST /api/v1/integrations/events` - Trigger custom events/workflows
+  - `GET /api/v1/integrations/health` - Health check
+- **Admin Endpoints:**
+  - `POST /api/super-admin/integrations/` - Create new integration
+  - `GET /api/super-admin/integrations/` - List all integrations
+  - `GET /api/super-admin/integrations/{id}` - Get integration details & logs
+  - `POST /api/super-admin/integrations/{id}/regenerate-key` - Regenerate API key
+  - `DELETE /api/super-admin/integrations/{id}` - Revoke integration
+- **Features:**
+  - API Key authentication (X-API-Key header)
+  - Live & Test (Sandbox) keys per integration
+  - Rate limiting (100/min standard, 1000/min premium)
+  - Sandbox mode - data saved to *_sandbox collections
+  - Permissions system (leads, invoices, events)
+  - API call logging for debugging
+  - Workflow triggers by event type
+- **Frontend:** `/app/frontend/src/pages/super-admin/IntegrationsPage.js`
+  - Create/manage integrations
+  - View API keys (shown once on creation)
+  - Regenerate keys
+  - View logs and stats
+  - Built-in documentation
