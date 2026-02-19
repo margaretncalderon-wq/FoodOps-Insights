@@ -5,63 +5,61 @@ The user's initial request was to build an Execution Hub module, which evolved i
 1.  **Core & Add-on Model:** A subscription model with a mandatory Kora Core base package and optional paid add-ons with a 7-day free trial.
 2.  **Super-Admin Panel:** A comprehensive panel to manage customers, modules, pricing, and integrations.
 3.  **Demo/Influencer Accounts:** A feature for Super Admins to create free, non-expiring (or long-trial) accounts for testing and marketing purposes, with a clear path to convert them to paid accounts.
-4.  **External Integrations API:** A secure, generic, API-key-based system to allow third-party platforms (like Staffdo or Zapier) to connect to Kora. This API should be able to create leads and invoices and trigger internal workflows.
-5.  **Dynamic Workflows:** Each organization should be able to configure its own automations (workflows) that are triggered by events from the external integrations API (e.g., a new lead from Staffdo triggers a welcome email and assign to sales task).
+4.  **External Integrations API:** A secure, generic, API-key-based system to allow third-party platforms (like Staffdo or Zapier) to connect to Kora.
+5.  **Dynamic Workflows:** Each organization should be able to configure its own automations (workflows) that are triggered by events from the external integrations API.
 6.  **Dynamic Industry-Specific UI/UX:** The application's UI must change dynamically based on the user's industry.
 7.  **End-to-End Flow:** The core user journey from Lead -> Proposal -> Project must be fully functional.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a full-stack React/FastAPI/MongoDB platform. The core features a dynamic, industry-specific UI driven by a centralized backend configuration.
+The application is a full-stack React/FastAPI/MongoDB platform. In this session, the agent performed a significant refactor to unify the database schema, ensuring all organization data is stored in a single  collection, which resolved major data inconsistencies.
 
-In this session, several major features were added:
-1.  **Demo Account Management:** A full suite of features was added to the Super Admin panel to create, list, and manage demo/influencer accounts. This includes endpoints and UI to convert these accounts to paid plans (manually or by sending a payment link) and to extend their trial periods.
-2.  **External Integrations API:** A robust, secure, and generic API () was built. It uses API keys for authentication and supports both live and sandbox modes. Super Admins can create and manage integrations (e.g., for Staffdo), generate keys, and view logs.
-3.  **Workflow Integration:** The new Integrations API is fully connected to the existing automation engine. Events from external platforms (e.g., ) can now trigger customizable workflows within Kora, creating tasks, sending notifications, and adding tags.
-4.  **Super Admin Login Fix:** The login flow for the  panel was fixed to use a dedicated admin login page and correctly redirect after authentication.
-5.  **Bug Fixes & UX Improvements:** Addon prices were synced, the end-to-end user flow was verified, and several UI labels were made dynamic (e.g., Event Date vs. Project Date).
+Key features implemented or fixed in this session:
+- **Super Admin UI Overhaul:** The  list and detail pages were completely restyled from a broken dark theme to a functional light theme.
+- **Full Organization Management:** Super Admins can now change user passwords, delete organizations (and all their associated data), and change an account's type (e.g., from Normal to Demo) directly from the admin panel.
+- **Corrected Registration Flow:** The Google OAuth sign-up process was fixed. It now correctly redirects new users to the main registration page to select their industry, ensuring accounts are created with the correct configuration.
+- **Removed Hardcoded Limits:** All user-facing hardcoded plan limits (e.g., 10 events, 2 users) have been removed from the landing page, registration flow, and admin panel to align with the new flexible Kora Core model.
+- **Bug Fixes:** The testing agent identified and fixed a critical bug where password resets were saved to the wrong database field. A bug preventing industry changes from being reflected at login was also fixed.
 
 **Last working item**:
-    - Last item agent was working: The user reported that the UI on the Super Admin's Organizations page was broken (dark text on a dark background, making it unreadable) and requested that it be fixed to match the style of the other admin pages. The user also requested the ability to modify user passwords from this page. The agent was just beginning to investigate the relevant frontend file.
+    - Last item agent was working: Updating the  to reflect the new business model. This involves removing outdated pricing tiers and information about fixed plans, and replacing it with messaging about the Kora Core platform, optional add-ons, and industry-specific solutions.
     - Status: IN PROGRESS
     - Agent Testing Done: N
     - Which testing method agent to use? screenshot tool
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Fix Organizations Page UI and Add Password Modification (P0)
+  - Issue 1: Complete Landing Page Update (P0)
   - Issue 2: Incomplete Internationalization (P2)
-  - Issue 3: Event creation limit blocks testing (P3)
+  - Issue 3: Backend plan limit enforcement logic may still exist (P3)
   - Issue 4: Local DB data is not persisted (P3)
-  - Issue 5: Welcome Emails (Resend Integration) Blocked (P3)
+  - Issue 5: Email Notifications Blocked (P3)
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: Agent was about to view  to fix the styling.
+     - Attempted fixes: The agent started to rewrite  to introduce the new product messaging.
      - Next debug checklist: 
-        1. Review  and its CSS classes.
-        2. Adjust text colors and component styles to be visible on the dark background, matching the look of .
-        3. Add a Modify Password button or action to each organization/user row.
-        4. Create a backend endpoint () to allow an admin to change a user's password.
-        5. Implement a modal in the frontend to handle the password change.
-     - Why fix this issue and what will be achieved with the fix?: To make the Organizations page usable for admins and provide a requested core administrative function (password management).
+        1. Complete the rewrite of , ensuring all sections (hero, features, pricing) align with the Kora Core + Add-ons model.
+        2. Remove any remaining references to old, fixed plans.
+        3. Take a screenshot to verify the new design and content.
+     - Why fix this issue and what will be achieved with the fix?: To ensure the public-facing website accurately represents the product's current features and business model, avoiding user confusion.
      - Status:  IN PROGRESS
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix?: both
+     - Should Test frontend/backend/both after fix?: frontend
      - Blocked on other issue: No
   - Issue 2: 
-     - Attempted fixes: None in this session.
-     - Next debug checklist: Audit all newly created components (, , etc.) to replace hardcoded English strings with the  translation function.
-     - Why fix this issue and what will be achieved with the fix?: To ensure the application is fully bilingual per core requirements.
+     - Attempted fixes: None. The agent added more hardcoded Spanish strings during UI fixes.
+     - Next debug checklist: Audit all recently modified components (, , , etc.) to replace hardcoded strings with the  translation function.
+     - Why fix this issue and what will be achieved with the fix?: To ensure the application is fully bilingual per core requirements and to reduce technical debt.
      - Status:  NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix?: frontend
      - Blocked on other issue: No
   - Issue 3: 
-     - Attempted fixes: None. The focus has been on other features.
-     - Next debug checklist: Review plan limits enforcement logic, ensuring it correctly reads from the subscription/addon data in the database.
-     - Why fix this issue and what will be achieved with the fix?: Makes subscription plan limits robust and scalable.
+     - Attempted fixes: The UI displaying limits was removed. However, the original issue from the previous fork concerned the backend *enforcement* of these limits.
+     - Next debug checklist: Investigate the backend code to find and remove any logic that still enforces limits on events, users, etc., which are now meant to be unlimited in the core plan.
+     - Why fix this issue and what will be achieved with the fix?: Ensures that the backend functionality matches the new unlimited core plan model presented in the UI.
      - Status:  NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix?: backend
@@ -69,27 +67,27 @@ In this session, several major features were added:
   - Issue 4: 
      - Attempted fixes: None.
      - Next debug checklist: Investigate Docker/Kubernetes configuration for MongoDB to enable a persistent volume.
-     - Why fix this issue and what will be achieved with the fix?: Enables stable local development and testing across forks.
+     - Why fix this issue and what will be achieved with the fix?: Enables stable local development and testing across forks without data loss.
      - Status:  NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix?: backend
      - Blocked on other issue: No
   - Issue 5: 
-     - Attempted fixes: None.
-     - Next debug checklist: Ask the user for the .
-     - Why fix this issue and what will be achieved with the fix?: Enables transactional emails.
+     - Attempted fixes: None. Agent added a password reset email feature which is also affected by this blocker.
+     - Next debug checklist: Ask the user for the  and add it to the environment variables.
+     - Why fix this issue and what will be achieved with the fix?: Enables critical transactional emails for password resets and welcome messages.
      - Status:  BLOCKED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix?: backend
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1: Fix Organizations Page UI (P0)
+  - Task 1: Complete the  update (P0)
 
  Task Detail:
   - Task 1: 
-     - Where to resume: The agent has identified the file  as the source of the UI issue. The next step is to open it and correct the CSS styling.
-     - What will be achieved with this?: The page will be readable and visually consistent with the rest of the Super Admin panel.
+     - Where to resume: The agent was actively rewriting . The next step is to finalize the implementation of the new sections and content.
+     - What will be achieved with this?: The landing page will be modernized and aligned with the current Kora Core business model.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix?: frontend
      - Blocked on something: No
@@ -97,8 +95,8 @@ In this session, several major features were added:
 **Upcoming and Future Tasks**
     Upcoming Tasks:
     - **P1: Implement Org-Level Workflow Configuration:** Create the UI for each organization to configure their own workflows based on the new integration events (e.g., map  to Send Email and Create Task).
-    - **P2: Refactor :** Break down the monolithic  file into dedicated router files.
-    - **P3: API Documentation:** Create a private page in the Super Admin panel that displays auto-generated API documentation for the new Integrations API, showing the available endpoints, expected payloads, and the org-specific API key.
+    - **P2: Refactor :** Continue breaking down the monolithic  file into dedicated router files for better maintainability.
+    - **P3: API Documentation:** Create a private page in the Super Admin panel that displays auto-generated API documentation for the Integrations API.
 
     Future Tasks:
     - Social Media - Campaign Widget.
@@ -107,100 +105,94 @@ In this session, several major features were added:
     - Email Purchase Orders, Multi-currency support, Negative Margin Alerts, End-of-month summaries.
 
 **Completed work in this session**
-- **Addon Price Sync:** Successfully synced addon prices from code definitions to the database using the new super-admin endpoint.
-- **E2E Flow Verification:** Tested the complete  flow using the testing agent, which found and fixed a bug in the  endpoint.
-- **Demo Account Management:**
-  - Created backend endpoints and a new Demo Accounts page in the Super Admin panel to create, list, and manage demo/influencer accounts.
-  - Implemented features to convert demo accounts to paid plans and extend trial periods.
-- **External Integrations API:**
-  - Built a new generic API at  for third-party services.
-  - Implemented secure API Key authentication with support for both live and test keys.
-  - Created endpoints for creating leads () and invoices ().
-  - Added a API Integrations page to the Super Admin panel to manage integrations and generate keys.
-- **Workflow Engine Integration:**
-  - Extended the automation engine to be triggered by events from the new Integrations API.
-  - Created a new  to centralize workflow execution logic.
-  - Verified that an incoming lead via the API can trigger a multi-step workflow (create notification, create task, add tag).
-- **Super Admin Login Flow:** Fixed the  route to redirect to a dedicated  page and correctly return the user to the admin panel after a successful login.
-- **Dynamic UI Labels:** Updated  and  to dynamically show Project Date or Event Date based on the user's industry.
+- **Database Schema Unification:** Refactored the entire backend to use a single  collection, eliminating the  collection and resolving critical data inconsistencies.
+- **Super Admin UI/UX Overhaul:**
+  - Redesigned the Organizations list and detail pages with a clean, light theme, fixing unreadable text.
+  - Removed all hardcoded usage limit displays (e.g., 0/30 Events) from the UI.
+- **Enhanced Admin Functionality:**
+  - Implemented functionality to delete organizations and all their associated data from the admin panel.
+  - Added the ability for admins to change an account's type (Normal, Demo, Influencer, Partner).
+  - Implemented a password-change feature for users, accessible from the admin panel.
+- **Fixed Google Registration Flow:** Corrected the Google OAuth sign-up process to redirect new users to the full registration page, allowing them to select their industry before account creation.
+- **Bug Fixes:**
+    - Fixed a bug where industry changes made in the admin panel were not reflected at login.
+    - Fixed a critical bug (found by testing agent) where password resets were saved to the wrong database field.
+- **Email Notifications:** Added an email notification for password changes (currently blocked pending API key).
 
 **Known issue recurrence from previous fork**
-  - Incomplete Internationalization.
-  - Hardcoded Plan Limits.
-  - Local DB data is not persisted.
+  - **Incomplete Internationalization:** New components and text were added without using the i18n framework.
+  - **Hardcoded Plan Limits:** UI was fixed, but backend enforcement logic may still be present.
+  - **Local DB data is not persisted:** No progress was made on this.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **API Key Authentication**: The new integrations API uses a secure model where each external service gets a unique API key. The backend validates this key by comparing its hash against stored hashes, supporting both live and test environments.
-- **Event-Driven Workflows via API**: The platform can now receive external events (e.g., ) through a generic API endpoint. A central  processes these events, finds matching workflow rules for the organization, and executes the configured actions (e.g., create task, send notification).
-- **Admin-Managed Demo Lifecycle**: Super Admins have full control over the lifecycle of demo/influencer accounts, from creation (bypassing payment) to conversion into a paying customer.
-- **Conditional Redirects**: The frontend routing logic was enhanced to handle protected routes like , redirecting unauthenticated users to a specific admin login page and then returning them to their original destination.
+- **Schema Unification:** The critical decision to consolidate  and  into a single  collection to resolve data inconsistency. This was a major architectural improvement.
+- **Dynamic Registration Flow:** Modifying the Google OAuth callback to pass user data to a standard, multi-step registration page () to allow for industry selection, decoupling authentication from account creation specifics.
+- **Configuration Synchronization:** The fix to ensure that  is created/updated alongside  to keep the user-facing application state (modules, UI) in sync with admin changes.
+- **Stateful Light/Dark Theme Implementation:** Manually converting components from dark theme classes (, ) to light theme classes (, ).
 
 **key DB schema**
-  - **api_integrations:** (New) Stores configurations for third-party integrations, including name, hashed API keys (live and test), and permissions.
-  - **users:** (Modified)  flag is now correctly handled during login. Demo accounts have a  of 'trial' and an extended  date.
-  - **automation_rules:** (Modified) Added new  enums for integration events like .
+  - **companies:** (Consolidated) Now the single source of truth for all organization data. Contains , , , . It is used to store all company/organization related information.
+  - **organization_configs:** Stores the  slug for a company, which drives the dynamic UI and module loading. Now correctly created/updated whenever a company is created or its industry is changed.
 
 **All files of reference**
-- **New/Modified Backend:**
-    - 
-    - 
-    - 
-    - 
-    - 
-- **New/Modified Frontend:**
-    -  (Target for next fix)
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+-  (In Progress)
+- 
+- 
 
 **Areas that need refactoring**:
-- ** Monolith:** This file still contains many routes and is becoming increasingly large. The work to break it down into smaller, dedicated router files should continue.
+- ** Monolith:** This file still contains many routes and should be further broken down into dedicated router files.
+- **Internationalization (i18n):** Many hardcoded strings were added. These need to be moved into the translation framework.
+- **Theming:** The switch from dark to light theme was done with manual class replacement (, search/replace). A proper theming system using CSS variables would make future changes much easier.
 
 **key api endpoints**
-- : Creates a new demo/influencer account.
-- : Manually converts a demo account.
-- : Extends a demo account's trial.
-- : Creates a new API integration and returns keys.
-- : (External) Creates a lead in the CRM, requires  header.
-- : (External) Creates an invoice, requires  header.
+- : **(NEW)** Deletes an organization and all related data (users, subscriptions, configs).
+- : **(NEW)** Changes the account type (e.g., Normal, Demo).
+- : **(MODIFIED)** Now sends an email notification upon password change.
+- : **(MODIFIED)** Updated to accept  and use the unified  collection.
+- : **(MODIFIED)** Now validates against duplicate company names and correctly creates .
 
 **Critical Info for New Agent**
 - **Responde en español.**
-- **Top Priority:** Your first task is to fix the UI of the **Organizations page** in the Super Admin panel (). The text is currently unreadable. After fixing the UI, you must add the functionality for an admin to **change a user's password** from that same page.
-- **Production vs. Preview:** The user was confused about why changes weren't appearing on . Be clear that work is done in a preview environment and requires a separate Deploy action to go live.
-- **Super Admin Access:** Use  /  to access the super admin panel in the preview environment.
+- **Top Priority:** Your first task is to **finish the  rewrite** to reflect the current business model.
+- **Database Refactor:** A major refactoring was completed to unify all organization data into the  collection. All new backend code must use this collection.
+- **Google Registration Flow:** The Google sign-up flow was completely changed to redirect new users to  to choose their industry.
+- **User Confusion:** The user frequently checks the production URL () and reports that changes are not visible. Remind them that all work is in a preview environment and requires them to use the **Deploy** action to push changes to production.
+- **Admin Credentials:**  / 
 
 **documents and test reports created in this job**
 - 
--  (updated with demo accounts and integration API requirements)
+- 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1. : User confirms the super-admin login fix works in preview, but reports the UI for the Organizations page is broken and requests a fix, plus the ability to modify passwords. **(PENDING)**
-2. : User specifies the production URLs they are testing, confirming they are not using the preview link.
-3. : User reports that the super-admin login fix is not working for them.
-4. : User describes the super-admin login issue.
-5. : User asks the agent to proceed with updating the PRD.
-6. : User requests that the new integration API hooks into the existing workflow system. **(DONE)**
-7. : User initiates the discussion for external platform integration, suggesting an API.
-8. : User confirms requirements for converting demo accounts to paid accounts. **(DONE)**
-9. : User asks if demo accounts can be converted to paid accounts.
-10. : User requests the feature to create demo/influencer accounts from the admin panel. **(DONE)**
+1. : Request to update the landing page to reflect the new business model. **(IN PROGRESS)**
+2. : Request to add functionality to change an account's type (e.g., from normal to demo) from the organization details page. **(DONE)**
+3. : Request to add a delete organization feature and fix a bug where industry changes in the admin panel were not reflected for the user. **(DONE)**
+4. : User correctly suggested unifying the database schema to use the  collection to resolve inconsistencies. **(DONE)**
+5. : User pointed out a critical issue where creating demo accounts was causing data duplication and inconsistency between  and  collections. **(DONE)**
+6. : User reported that the Google sign-up flow was incorrect, automatically assigning an industry instead of letting the user choose. **(DONE)**
+7. : User provided a production URL, confused why fixes weren't visible. This highlights the preview vs. production environment confusion. **(ADDRESSED)**
+8. : User reported several UI issues: hardcoded plan limits on various pages and the organization detail page still having a dark theme. **(DONE)**
+9. : User explicitly requested to change the admin pages from a dark theme to a light theme. **(DONE)**
+10. : User reported the initial dark theme UI fix was not to their liking, which prompted the switch to a light theme. **(DONE)**
 
 **Project Health Check:**
 - **Broken:**
-    - **Super Admin Organizations UI:** The page is unusable due to styling issues.
-    - **Internationalization (i18n):** Partially broken, many new components have hardcoded text.
+    - **Internationalization (i18n):** Partially broken. Many new components have hardcoded English and Spanish text instead of using the translation framework.
 - **Mocked:**
-    - The  endpoint still exists but is now superseded by the new demo account creation flow. It should be considered for removal.
+    - The  endpoint is likely obsolete due to the new demo account creation flow and should be considered for removal.
 - **Blocked:**
-    - **Welcome Emails (Resend):** Still awaiting .
+    - **Email Functionality (Resend):** All email sending (welcome, password reset) is blocked pending the .
 
 **3rd Party Integrations**
 - **Stripe:** For recurring subscription payments.
@@ -209,10 +201,10 @@ In this session, several major features were added:
 - **reactflow:** For the visual workflow builder UI.
 
 **Testing status**
-  - Testing agent used after significant changes: YES (once, for the E2E flow)
+  - Testing agent used after significant changes: YES. Found and fixed a critical bug in the password reset logic ( vs. ).
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: None.
+  - Known regressions: None identified in this session.
 
 **Credentials to test flow:**
 - **Super Admin / Agency User:**
@@ -223,5 +215,4 @@ In this session, several major features were added:
     - **Password:** 
 
 **What agent forgot to execute**
-- The agent started to address the user's request to fix the Organizations page UI but did not complete it.
-- The agent did not start implementing the requested feature to allow password modification from the admin panel.</analysis>
+- The agent did not address the long-term technical debt items like full internationalization or refactoring , prioritizing the user's immediate feature requests and bug reports. These remain as future tasks.</analysis>
