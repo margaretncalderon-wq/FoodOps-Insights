@@ -451,9 +451,9 @@ export default function LandingPage() {
             </div>
             {/* DocuSign */}
             <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="DocuSign">
-              <svg className="w-10 h-10" viewBox="0 0 40 40">
-                <rect x="4" y="14" width="14" height="22" rx="2" fill="#4C00FF"/>
-                <path d="M18 14 C18 6, 26 0, 34 6 C42 12, 36 20, 28 20 L18 20 Z" fill="#FF5449"/>
+              <svg className="w-10 h-10" viewBox="0 0 32 32">
+                <rect x="4" y="12" width="10" height="18" rx="1.5" fill="#4C00FF"/>
+                <circle cx="14" cy="12" r="8" fill="#FF5449"/>
               </svg>
             </div>
             {/* Meta */}
