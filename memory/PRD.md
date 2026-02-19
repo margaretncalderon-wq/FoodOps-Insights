@@ -627,7 +627,15 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - `/app/test_reports/iteration_49.json` - Dynamic Terminology Refactor 15/15 (7 backend + 8 frontend)
 - `/app/test_reports/iteration_50.json` - Agency User Dynamic Terminology 8/12 (frontend) - Issues found and FIXED
 - `/app/test_reports/iteration_51.json` - Terminology & Module Visibility 17/17 (9 backend + 8 frontend)
-- `/app/test_reports/iteration_52.json` - **Lead->Proposal->Project Flow 11/12 (92%) - Routing bug FIXED**
+- `/app/test_reports/iteration_52.json` - Lead->Proposal->Project Flow 11/12 (92%) - Routing bug FIXED
+
+## Recent Changes (December 2025)
+### Resource Management Refactor
+- **Name Change**: "Operations Supplies" → "Resource Management" globally
+- **Dynamic Tabs**: Tabs now filtered based on industry
+  - **Events/Hospitality**: All tabs (Inventory, Purchasing, Delivery Notes, Asset Count, Vendor Agreements, Asset Gallery, Maintenance)
+  - **Generic**: Core tabs only (Inventory, Purchasing, Asset Count, Vendor Agreements)
+  - **Agency/Consulting**: Module NOT visible (pure services don't need inventory)
 
 ## Test Data
 - **Venue:** "Salón Principal Kora" (Primary, capacity 200)
