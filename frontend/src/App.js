@@ -268,6 +268,7 @@ function AppRouter() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<AdminLoginPage />} />
+          <Route path="/admin-login" element={<AdminLoginPage />} />
           <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
             <Route index element={<SuperAdminOverview />} />
             <Route path="crm" element={<SuperAdminCRMPage />} />
