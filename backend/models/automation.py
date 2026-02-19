@@ -23,6 +23,13 @@ class TriggerType(str, Enum):
     DEAL_WON = "deal_won"  # When engagement stage changes to "won" or "committed"
     DEAL_LOST = "deal_lost"  # When engagement stage changes to "lost"
     PROJECT_STARTED = "project_started"  # When project/event moves to execution phase
+    # Integration triggers - for external platforms like Staffdo
+    INTEGRATION_LEAD_COMPANY = "integration_lead_company"  # Lead type=company from integration
+    INTEGRATION_LEAD_CANDIDATE = "integration_lead_candidate"  # Lead type=candidate from integration
+    INTEGRATION_LEAD_CONTRACTOR = "integration_lead_contractor"  # Lead type=contractor from integration
+    INTEGRATION_LEAD_CREATED = "integration_lead_created"  # Any lead from integration
+    INTEGRATION_INVOICE_CREATED = "integration_invoice_created"  # Invoice from integration
+    INTEGRATION_CUSTOM_EVENT = "integration_custom_event"  # Custom event from integration
 
 
 class ActionType(str, Enum):
