@@ -13885,7 +13885,7 @@ async def reset_user_password(
     
     result = await db.users.update_one(
         {"user_id": user_id},
-        {"$set": {"hashed_password": hashed_password}}
+        {"$set": {"password_hash": hashed_password}}
     )
     
     if result.modified_count == 0:
