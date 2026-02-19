@@ -255,7 +255,7 @@ export default function EventsPage({ embedded = false }) {
     setFormData({
       client_id: "",
       name: "",
-      engagement_type: "event",
+      engagement_type: defaultEngagementType,
       event_type: "wedding",
       event_date: null,
       event_date_tbd: false,
