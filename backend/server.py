@@ -14287,7 +14287,7 @@ async def create_demo_account(
         raise HTTPException(status_code=400, detail="Email already registered")
     
     # Check if organization name already exists
-    existing_org = await db.organizations.find_one({"name": data.organization_name})
+    existing_org = await db.companies.find_one({"name": data.organization_name})
     if existing_org:
         raise HTTPException(status_code=400, detail=f"Organization '{data.organization_name}' already exists. Use a different name or edit the existing organization.")
     
