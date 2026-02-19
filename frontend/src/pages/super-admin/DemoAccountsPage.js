@@ -465,7 +465,6 @@ export default function DemoAccountsPage() {
                   </TableRow>
                 );})}
               </TableBody>
-              </TableBody>
             </Table>
           )}
         </CardContent>
