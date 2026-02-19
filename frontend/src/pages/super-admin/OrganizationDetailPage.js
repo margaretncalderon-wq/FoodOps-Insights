@@ -320,6 +320,43 @@ export default function OrganizationDetailPage() {
     toast.success(`Contraseña cambiada para ${successCount} usuario(s)`);
   };
 
+  // Add member functions
+  const generateMemberPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewMemberData(prev => ({ ...prev, password }));
+  };
+
+  const handleAddMember = async () => {
+    if (!newMemberData.email || !newMemberData.name || !newMemberData.password) {
+      toast.error("Por favor completa todos los campos");
+      return;
+    }
+    if (newMemberData.password.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    setAddingMember(true);
+    try {
+      await axios.post(
+        `${API}/api/super-admin/organizations/${id}/members`,
+        newMemberData,
+        { withCredentials: true }
+      );
+      toast.success("Usuario agregado exitosamente");
+      setAddMemberDialogOpen(false);
+      setNewMemberData({ email: "", name: "", password: "", role: "viewer" });
+      fetchMembers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al agregar usuario");
+    }
+    setAddingMember(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
