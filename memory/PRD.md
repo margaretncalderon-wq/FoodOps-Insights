@@ -650,5 +650,5 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
 - Password: Evoque2024!
 
 ## URLs
-- Preview: https://industry-config.preview.emergentagent.com
+- Preview: https://dynamic-orches.preview.emergentagent.com
 - Production: https://ourkora.com
