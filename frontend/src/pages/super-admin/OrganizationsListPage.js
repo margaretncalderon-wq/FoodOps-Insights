@@ -270,13 +270,13 @@ export default function OrganizationsListPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                  <TableHead className="text-slate-200 font-semibold">Organization</TableHead>
-                  <TableHead className="text-slate-200 font-semibold">Status</TableHead>
-                  <TableHead className="text-slate-200 font-semibold">Plan</TableHead>
-                  <TableHead className="text-slate-200 font-semibold">Usage</TableHead>
-                  <TableHead className="text-slate-200 font-semibold">Members</TableHead>
-                  <TableHead className="text-slate-200 font-semibold">Created</TableHead>
-                  <TableHead className="text-slate-200 font-semibold">Actions</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Organización</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Estado</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Plan</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Uso</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Miembros</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Creado</TableHead>
+                  <TableHead className="text-slate-300 font-semibold">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,6 +285,7 @@ export default function OrganizationsListPage() {
                     key={org.organization.company_id} 
                     className="border-slate-700 hover:bg-slate-700/50 cursor-pointer"
                     onClick={() => navigate(`/super-admin/organizations/${org.organization.company_id}`)}
+                    data-testid={`org-row-${org.organization.company_id}`}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -293,7 +294,7 @@ export default function OrganizationsListPage() {
                         </div>
                         <div>
                           <p className="font-medium text-white">{org.organization.name}</p>
-                          <p className="text-xs text-slate-300">{org.organization.company_id}</p>
+                          <p className="text-xs text-slate-400">{org.organization.company_id}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -301,8 +302,8 @@ export default function OrganizationsListPage() {
                       {getStatusBadge(org, org.subscription)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize border-slate-500 text-white">
-                        {org.plan?.name || "No Plan"}
+                      <Badge variant="outline" className="capitalize border-slate-500 text-slate-300">
+                        {org.plan?.name || "Sin Plan"}
                       </Badge>
                     </TableCell>
                     <TableCell className="min-w-48">
@@ -310,45 +311,60 @@ export default function OrganizationsListPage() {
                         {getUsageBar(
                           org.usage?.events_created || 0, 
                           org.limits?.events_per_month || 999,
-                          "Events"
+                          "Eventos"
                         )}
                         {getUsageBar(
                           org.usage?.active_users || 0,
                           org.limits?.active_users || 999,
-                          "Users"
+                          "Usuarios"
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-white">
-                        <Users className="w-4 h-4 text-slate-300" />
+                      <div className="flex items-center gap-2 text-slate-300">
+                        <Users className="w-4 h-4 text-slate-400" />
                         <span>{org.members_count || 0}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-200 text-sm">
+                    <TableCell className="text-slate-300 text-sm">
                       {new Date(org.organization.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="text-white hover:text-white hover:bg-slate-600"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/super-admin/organizations/${org.organization.company_id}`);
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-white hover:text-white hover:bg-slate-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/super-admin/organizations/${org.organization.company_id}`);
+                          }}
+                          data-testid={`view-org-${org.organization.company_id}`}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Ver
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-amber-400 hover:text-amber-300 hover:bg-slate-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPasswordModal(org);
+                          }}
+                          data-testid={`change-password-${org.organization.company_id}`}
+                        >
+                          <Key className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
 
                 {organizations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-300">
-                      No organizations found
+                    <TableCell colSpan={7} className="text-center py-12 text-slate-400">
+                      No se encontraron organizaciones
                     </TableCell>
                   </TableRow>
                 )}
@@ -366,24 +382,139 @@ export default function OrganizationsListPage() {
             size="sm"
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="border-slate-600 text-white"
+            className="border-slate-600 text-white hover:bg-slate-700"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm text-slate-200">
-            Page {page} of {totalPages}
+          <span className="text-sm text-slate-300">
+            Página {page} de {totalPages}
           </span>
           <Button 
             variant="outline" 
             size="sm"
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="border-slate-600 text-white"
+            className="border-slate-600 text-white hover:bg-slate-700"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       )}
+
+      {/* Password Change Modal */}
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent className="bg-slate-800 border-slate-700 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Key className="w-5 h-5 text-amber-400" />
+              Cambiar Contraseña
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {selectedOrg?.organization?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Password Change Type */}
+            <div className="space-y-2">
+              <Label className="text-slate-300">Aplicar a:</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={passwordChangeType === "all" ? "default" : "outline"}
+                  className={passwordChangeType === "all" 
+                    ? "bg-amber-600 hover:bg-amber-700" 
+                    : "border-slate-600 text-slate-300 hover:bg-slate-700"}
+                  onClick={() => setPasswordChangeType("all")}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Toda la Org
+                </Button>
+                <Button
+                  type="button"
+                  variant={passwordChangeType === "individual" ? "default" : "outline"}
+                  className={passwordChangeType === "individual" 
+                    ? "bg-amber-600 hover:bg-amber-700" 
+                    : "border-slate-600 text-slate-300 hover:bg-slate-700"}
+                  onClick={() => setPasswordChangeType("individual")}
+                >
+                  Usuario Individual
+                </Button>
+              </div>
+            </div>
+
+            {/* Individual User Select */}
+            {passwordChangeType === "individual" && (
+              <div className="space-y-2">
+                <Label className="text-slate-300">Seleccionar Usuario</Label>
+                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Selecciona un usuario..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orgMembers.map(member => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
+                        {member.name} ({member.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* New Password */}
+            <div className="space-y-2">
+              <Label className="text-slate-300">Nueva Contraseña</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Ingresa la nueva contraseña"
+                  className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                  data-testid="new-password-input"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={generatePassword}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Generar
+                </Button>
+              </div>
+            </div>
+
+            {passwordChangeType === "all" && orgMembers.length > 0 && (
+              <div className="p-3 bg-amber-900/30 rounded-lg text-sm text-amber-300 border border-amber-700">
+                Se cambiará la contraseña para {orgMembers.length} usuario(s) de esta organización.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPasswordModal(false)}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handlePasswordChange} 
+              disabled={changingPassword || !newPassword}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {changingPassword ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Key className="w-4 h-4 mr-2" />
+              )}
+              Cambiar Contraseña
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
