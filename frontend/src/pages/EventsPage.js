@@ -631,7 +631,13 @@ export default function EventsPage({ embedded = false }) {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <Label>{t("eventDate")}</Label>
+                      <Label>
+                        {formData.engagement_type === "project" 
+                          ? (language === "es" ? "Fecha del Proyecto" : "Project Date")
+                          : formData.engagement_type === "service"
+                            ? (language === "es" ? "Fecha del Servicio" : "Service Date")
+                            : t("eventDate")}
+                      </Label>
                       <Popover modal={true}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="w-full justify-start text-left font-normal">
