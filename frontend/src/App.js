@@ -110,6 +110,7 @@ const BIPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.
 const SuperAdminClarity = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminClarity })));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminSettings })));
 const UserManagementPage = lazy(() => import("./pages/super-admin/UserManagementPage"));
+const DemoAccountsPage = lazy(() => import("./pages/super-admin/DemoAccountsPage"));
 
 import "./App.css";
 
