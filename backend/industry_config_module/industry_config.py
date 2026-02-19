@@ -90,8 +90,8 @@ INDUSTRY_CONFIG = {
             },
             "module_operations_supplies": {
                 "enabled": True,
-                "name_en": "Operations Supplies",
-                "name_es": "Suministros de Operaciones",
+                "name_en": "Resource Management",
+                "name_es": "Gestión de Recursos",
                 "icon": "package",
             },
         },
