@@ -646,9 +646,42 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
   - 5 activities (Montaje 14:00-16:00, Ceremonia 17:00-17:45, Cóctel 17:45-19:00, Cena 19:00-21:00, Fiesta 21:00-23:00)
 
 ## Credentials
+### Events/Catering User
 - Email: margaret.n.calderon@gmail.com
 - Password: Evoque2024!
+- Industry: events (Events & Hospitality)
+
+### Agency User
+- Email: demo.agency@kora.com
+- Password: Evoque2024!
+- Industry: agency (Professional Services)
+- is_super_admin: true
 
 ## URLs
 - Preview: https://dynamic-orches.preview.emergentagent.com
 - Production: https://ourkora.com
+
+## Session Updates - February 19, 2026
+
+### Addon Prices Synced to Database ✅
+- Fixed bug: Login endpoint wasn't passing `is_super_admin` to User model
+- Created super-admin sync endpoint execution successful
+- **Updated Module Prices:**
+  - Program Orchestration: $39/mes
+  - Culinary Intelligence: $29/mes
+  - Resource Management: $19/mes
+  - Venues & Locations: $15/mes
+  - Demand Generation: $39/mes
+
+### Lead → Proposal → Project E2E Flow Verified ✅
+- **Test Report:** `/app/test_reports/iteration_54.json` - 29/29 tests passed (100%)
+  - Backend API: 15/15 passed
+  - Frontend UI: 14/14 passed
+- **Bug Fixed by Testing Agent:** PUT `/api/events/{event_id}` was using `EventCreate` instead of `EventUpdate` model
+- **All Terminology Dynamic:**
+  - Agency users see "Projects" everywhere (Dashboard, Sidebar, Modals)
+  - Events users see "Events" everywhere
+  - Module named "Program Orchestration" for all service industries
+
+### Minor Remaining Item
+- "Event Date" label in Add Project modal could be "Project Date" for agencies (cosmetic only)
