@@ -11,10 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Textarea } from "../../components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { 
   Users, UserPlus, Sparkles, Building2, Mail, Calendar, 
-  Loader2, Copy, CheckCircle, Gift, Star, Megaphone
+  Loader2, Copy, CheckCircle, Gift, Star, Megaphone,
+  MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
