@@ -116,14 +116,14 @@ const moduleHighlights = [
   }
 ];
 
-// Integrations - using Lucide icons for reliability
+// Integrations - using reliable CDN icons
 const integrations = [
-  { name: "Google Workspace", icon: "google" },
-  { name: "DocuSign", icon: "file-signature" },
-  { name: "Meta", icon: "meta" },
-  { name: "Google Ads", icon: "megaphone" },
-  { name: "Stripe", icon: "credit-card" },
-  { name: "WhatsApp", icon: "message-circle" }
+  { name: "Google Workspace", logo: "https://www.gstatic.com/images/branding/product/2x/hh_google_g_512dp.png" },
+  { name: "DocuSign", logo: "https://cdn.brandfetch.io/idS6L1qwUH/w/400/h/400/theme/dark/icon.png" },
+  { name: "Meta", logo: "https://cdn.brandfetch.io/idP9n85XT2/theme/dark/symbol.svg" },
+  { name: "Google Ads", logo: "https://cdn.brandfetch.io/idGBh5d47W/theme/dark/symbol.svg" },
+  { name: "Stripe", logo: "https://cdn.brandfetch.io/idxAg10C0L/theme/dark/symbol.svg" },
+  { name: "WhatsApp", logo: "https://cdn.brandfetch.io/idZvUjJPKC/theme/dark/symbol.svg" }
 ];
 
 // Pricing plans - Updated to reflect Kora Core + Add-ons model
