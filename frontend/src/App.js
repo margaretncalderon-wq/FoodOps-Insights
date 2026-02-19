@@ -317,6 +317,7 @@ function AppRouter() {
         <Route index element={<SuperAdminOverview />} />
         <Route path="crm" element={<SuperAdminCRMPage />} />
         <Route path="demo-accounts" element={<DemoAccountsPage />} />
+        <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="clarity" element={<SuperAdminClarity />} />
         <Route path="organizations" element={<OrganizationsListPage />} />
         <Route path="organizations/:id" element={<OrganizationDetailPage />} />
