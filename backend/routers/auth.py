@@ -545,6 +545,29 @@ async def complete_google_registration(request: Request, response: Response):
     }
     await db.companies.insert_one(org_doc)
     
+    # Create organization_configs record (IMPORTANT: used for industry-specific behavior)
+    from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
+    try:
+        template_enum = IndustryTemplate(industry_template)
+    except ValueError:
+        template_enum = IndustryTemplate.EVENTS_HOSPITALITY
+    
+    template_data = INDUSTRY_TEMPLATES.get(template_enum, INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY])
+    
+    org_config_doc = {
+        "company_id": company_id,
+        "industry_template": industry_template,
+        "enabled_engagement_types": template_data["enabled_engagement_types"],
+        "default_engagement_type": template_data["default_engagement_type"],
+        "terminology": template_data.get("terminology", {}),
+        "pipeline_stages": template_data["pipeline_stages"],
+        "event_types": template_data["event_types"],
+        "client_types": template_data["client_types"],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.organization_configs.insert_one(org_config_doc)
+    
     # Create user as owner of their organization
     user_doc = {
         "user_id": user_id,
