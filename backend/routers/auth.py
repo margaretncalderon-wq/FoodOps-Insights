@@ -175,6 +175,7 @@ async def login(data: UserLogin, response: Response):
         user_id=user_doc["user_id"], email=user_doc["email"], name=user_doc["name"],
         picture=user_doc.get("picture"), company_id=user_doc.get("company_id"),
         role=user_doc.get("role", "admin"),
+        is_super_admin=user_doc.get("is_super_admin", False),
         created_at=datetime.fromisoformat(user_doc["created_at"]) if isinstance(user_doc["created_at"], str) else user_doc["created_at"]
     )
     return TokenResponse(access_token=token, user=user)
