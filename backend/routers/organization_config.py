@@ -201,10 +201,19 @@ async def apply_industry_template(
     # Check if config exists
     existing = await db.organization_configs.find_one({"company_id": user.company_id})
     
+    # Map industry_template to industry_type for the modules system
+    industry_type_map = {
+        "events_hospitality": "events",
+        "professional_services": "agency",
+        "generic": "generic"
+    }
+    industry_type = industry_type_map.get(template_key, "events")
+    
     config_doc = {
         "config_id": existing["config_id"] if existing else f"config_{uuid.uuid4().hex[:12]}",
         "company_id": user.company_id,
         "industry_template": template_key,
+        "industry_type": industry_type,  # Required for modules system
         "enabled_engagement_types": template["enabled_engagement_types"],
         "default_engagement_type": template["default_engagement_type"],
         "terminology": template.get("terminology", {}),
