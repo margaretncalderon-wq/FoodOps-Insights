@@ -165,18 +165,11 @@ export default function OrganizationsListPage() {
     }
   };
 
-  const getUsageBar = (current, limit, label) => {
-    const percentage = limit > 0 ? Math.min((current / limit) * 100, 100) : 0;
+  const getUsageBar = (current, label) => {
     return (
-      <div className="space-y-1">
-        <div className="flex justify-between text-xs">
-          <span className="text-gray-500">{label}</span>
-          <span className="text-gray-700 font-medium">{current}/{limit}</span>
-        </div>
-        <Progress 
-          value={percentage} 
-          className={`h-1.5 bg-gray-200 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
-        />
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-500">{label}</span>
+        <span className="text-gray-700 font-medium">{current}</span>
       </div>
     );
   };
