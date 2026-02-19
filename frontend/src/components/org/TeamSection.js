@@ -94,6 +94,33 @@ export function TeamSection() {
     setActionLoading(false);
   };
 
+  const handleCreateDirect = async () => {
+    if (!newDirectUser.email.trim() || !newDirectUser.email.includes("@")) {
+      toast.error(isEs ? "Email inválido" : "Invalid email");
+      return;
+    }
+    if (!newDirectUser.name.trim()) {
+      toast.error(isEs ? "Nombre requerido" : "Name required");
+      return;
+    }
+    if (!newDirectUser.password || newDirectUser.password.length < 6) {
+      toast.error(isEs ? "Contraseña debe tener al menos 6 caracteres" : "Password must be at least 6 characters");
+      return;
+    }
+    
+    setActionLoading(true);
+    try {
+      await axios.post(`${API}/api/org/members/create-direct`, newDirectUser, { withCredentials: true });
+      toast.success(isEs ? "Usuario creado exitosamente" : "User created successfully");
+      setCreateDirectDialogOpen(false);
+      setNewDirectUser({ email: "", name: "", password: "", role: "ops" });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error creating user");
+    }
+    setActionLoading(false);
+  };
+
   const handleResendInvite = async (invitationId) => {
     try {
       await axios.post(`${API}/api/org/invitations/${invitationId}/resend`, {}, { withCredentials: true });
