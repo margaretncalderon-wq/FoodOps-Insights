@@ -14327,6 +14327,10 @@ async def create_demo_account(
     }
     await db.organizations.insert_one(org_doc)
     
+    # Also insert into companies for backward compatibility
+    # TODO: Migrate all code to use organizations collection
+    await db.companies.insert_one(org_doc.copy())
+    
     # Create organization config with industry
     industry_config = get_industry_config(data.industry_type)
     org_config_doc = {
