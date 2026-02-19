@@ -441,26 +441,12 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10">
             {/* Gmail - M multicolor */}
-            <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Gmail">
-              <svg className="w-10 h-10" viewBox="0 0 48 48">
-                <path fill="#4285F4" d="M8 12v24c0 2.2 1.8 4 4 4h2V12H8z"/>
-                <path fill="#EA4335" d="M14 12v28h2V18l8 6 8-6v22h2V12l-10 7.5L14 12z"/>
-                <path fill="#FBBC05" d="M34 12v28h2V12h-2z"/>
-                <path fill="#34A853" d="M36 12v28h2c2.2 0 4-1.8 4-4V12h-6z"/>
-                <path fill="#EA4335" d="M24 24l-10-7.5V12l10 7.5L34 12v4.5L24 24z"/>
-              </svg>
+            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Gmail">
+              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/la253t1g_images-14.png" alt="Gmail" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain" />
             </div>
             {/* Google Calendar - Cuadrado multicolor con 31 */}
-            <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Google Calendar">
-              <svg className="w-10 h-10" viewBox="0 0 48 48">
-                <path fill="#4285F4" d="M8 8h14v14H8z"/>
-                <path fill="#FBBC05" d="M26 8h14v14H26z"/>
-                <path fill="#34A853" d="M8 26h14v14H8z"/>
-                <path fill="#EA4335" d="M40 40l-6-6h6v6z"/>
-                <path fill="#34A853" d="M26 26h8v14h-8z"/>
-                <rect x="12" y="12" width="24" height="24" rx="2" fill="white"/>
-                <text x="24" y="32" textAnchor="middle" fill="#4285F4" fontSize="16" fontWeight="bold" fontFamily="Arial">31</text>
-              </svg>
+            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Calendar">
+              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/377mcwog_Google_Calendar_icon_%282020%29.svg.png" alt="Google Calendar" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain rounded-lg" />
             </div>
             {/* Meta */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
