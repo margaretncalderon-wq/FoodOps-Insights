@@ -274,7 +274,7 @@ export default function LandingPage() {
             <p className="mt-4 text-lg text-[#6B7280]">
               {isEs
                 ? "Clientes, eventos, inventario, marketing y finanzas. Todo conectado."
-                : "Clients, events, inventory, marketing, and finance. All connected."}
+                : "Clients, projects, events, inventory, marketing, and finance. All connected."}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link to="/register">
