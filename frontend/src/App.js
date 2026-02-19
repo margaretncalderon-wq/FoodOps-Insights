@@ -111,6 +111,7 @@ const SuperAdminClarity = lazy(() => import("./pages/super-admin").then(m => ({ 
 const SuperAdminSettings = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminSettings })));
 const UserManagementPage = lazy(() => import("./pages/super-admin/UserManagementPage"));
 const DemoAccountsPage = lazy(() => import("./pages/super-admin/DemoAccountsPage"));
+const IntegrationsPage = lazy(() => import("./pages/super-admin/IntegrationsPage"));
 
 import "./App.css";
 
