@@ -130,13 +130,22 @@ const pricingPlans = [
 // Add-on modules for Kora Core
 const addonModules = [
   {
-    name: "Event Orchestration",
-    nameEs: "Orquestación de Eventos",
+    name: "Event Suite",
+    nameEs: "Suite de Eventos",
     price: "$39/mo",
     priceEs: "$39/mes",
-    description: "Event planning, timelines & production",
-    descriptionEs: "Planificación de eventos, timelines y producción",
+    description: "Event Orchestration + Venues combined",
+    descriptionEs: "Orquestación de Eventos + Venues combinados",
     icon: Calendar
+  },
+  {
+    name: "Project Orchestration",
+    nameEs: "Orquestación de Proyectos",
+    price: "$39/mo",
+    priceEs: "$39/mes",
+    description: "Project planning, timelines & deliverables",
+    descriptionEs: "Planificación de proyectos, timelines y entregables",
+    icon: Target
   },
   {
     name: "Culinary Intelligence",
