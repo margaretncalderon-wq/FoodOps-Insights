@@ -457,17 +457,17 @@ export default function LandingPage() {
             </div>
             {/* Meta */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#0081FB">
-                <path d="M12 2.04c-5.5 0-10 4.49-10 10.02 0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89 1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 008.44-9.9c0-5.53-4.5-10.02-10-10.02z"/>
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 512 512" fill="#0081FB">
+                <path d="M256 0C114.6 0 0 114.6 0 256s114.6 256 256 256 256-114.6 256-256S397.4 0 256 0zm-47.5 326.7c-29.4 0-53.3-23.9-53.3-53.3 0-29.4 23.9-53.3 53.3-53.3 18.8 0 35.3 9.7 44.8 24.4l-22.4 12.9c-5.3-8.4-14.6-14-25.3-14-16.5 0-29.9 13.4-29.9 29.9s13.4 29.9 29.9 29.9c10.7 0 20-5.6 25.3-14l22.4 12.9c-9.5 14.8-26 24.4-44.8 24.4zm143.2 0c-29.4 0-53.3-23.9-53.3-53.3 0-29.4 23.9-53.3 53.3-53.3 18.8 0 35.3 9.7 44.8 24.4l-22.4 12.9c-5.3-8.4-14.6-14-25.3-14-16.5 0-29.9 13.4-29.9 29.9s13.4 29.9 29.9 29.9c10.7 0 20-5.6 25.3-14l22.4 12.9c-9.5 14.8-26 24.4-44.8 24.4z"/>
               </svg>
             </div>
             {/* Google Ads */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Ads">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24">
-                <path fill="#FBBC04" d="M3.2 12L12 3.2 14.4 5.6 5.6 14.4z"/>
-                <path fill="#4285F4" d="M12 3.2L20.8 12l-2.4 2.4L9.6 5.6z"/>
-                <path fill="#34A853" d="M5.6 14.4l8.8 8.8 2.4-2.4-8.8-8.8z"/>
-                <circle fill="#EA4335" cx="5.6" cy="18.4" r="3.2"/>
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 192 192">
+                <path fill="#FBBC04" d="M96 0L0 166.3l27.7 16L96 48z"/>
+                <path fill="#4285F4" d="M96 0l96 166.3-27.7 16L96 48z"/>
+                <path fill="#34A853" d="M27.7 182.3L96 48l27.7 16-68.3 118.3z"/>
+                <circle fill="#EA4335" cx="27.7" cy="166.3" r="27.7"/>
               </svg>
             </div>
             {/* Stripe */}
