@@ -411,14 +411,16 @@ export default function EventsPage({ embedded = false }) {
               <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-heading">
-                    {editingEvent ? t("edit") : t("addEvent")}
+                    {editingEvent 
+                      ? t("edit") 
+                      : (isEs ? `Agregar ${entitySingular}` : `Add ${entitySingular}`)}
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Engagement Type Selector - First and prominent */}
                   {!editingEvent && (
                     <div className="space-y-2">
-                      <Label>{language === "es" ? "Tipo de Trabajo" : "Work Type"} *</Label>
+                      <Label>{isEs ? "Tipo de Trabajo" : "Work Type"} *</Label>
                       <div className="grid grid-cols-3 gap-2">
                         {ENGAGEMENT_TYPES.map((type) => (
                           <button
