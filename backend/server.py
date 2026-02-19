@@ -14701,6 +14701,98 @@ async def extend_demo_trial(
     return {"success": True, "new_trial_ends_at": new_end.isoformat()}
 
 
+@super_admin_router.delete("/organizations/{company_id}")
+async def delete_organization(
+    company_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """
+    Permanently delete an organization and all related data.
+    This is a destructive action and cannot be undone.
+    """
+    # Verify organization exists
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Prevent deleting super admin's own organization
+    if company_id == admin.company_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own organization")
+    
+    org_name = company.get("name", company_id)
+    
+    # Delete all related data
+    deleted_counts = {}
+    
+    # Delete users
+    result = await db.users.delete_many({"company_id": company_id})
+    deleted_counts["users"] = result.deleted_count
+    
+    # Delete memberships
+    result = await db.memberships.delete_many({"company_id": company_id})
+    deleted_counts["memberships"] = result.deleted_count
+    
+    # Delete organization_members
+    result = await db.organization_members.delete_many({"company_id": company_id})
+    deleted_counts["organization_members"] = result.deleted_count
+    
+    # Delete subscriptions
+    result = await db.subscriptions.delete_many({"company_id": company_id})
+    deleted_counts["subscriptions"] = result.deleted_count
+    
+    # Delete organization_addons
+    result = await db.organization_addons.delete_many({"company_id": company_id})
+    deleted_counts["addons"] = result.deleted_count
+    
+    # Delete organization_configs
+    result = await db.organization_configs.delete_many({"company_id": company_id})
+    deleted_counts["configs"] = result.deleted_count
+    
+    # Delete events
+    result = await db.events.delete_many({"company_id": company_id})
+    deleted_counts["events"] = result.deleted_count
+    
+    # Delete leads/clients
+    result = await db.leads.delete_many({"company_id": company_id})
+    deleted_counts["leads"] = result.deleted_count
+    
+    # Delete proposals
+    result = await db.proposals.delete_many({"company_id": company_id})
+    deleted_counts["proposals"] = result.deleted_count
+    
+    # Delete invoices
+    result = await db.supplier_invoices.delete_many({"company_id": company_id})
+    deleted_counts["invoices"] = result.deleted_count
+    
+    # Delete usage meters
+    result = await db.usage_meters.delete_many({"company_id": company_id})
+    deleted_counts["usage_meters"] = result.deleted_count
+    
+    # Delete notifications
+    result = await db.notifications.delete_many({"company_id": company_id})
+    deleted_counts["notifications"] = result.deleted_count
+    
+    # Delete automation rules
+    result = await db.automation_rules.delete_many({"company_id": company_id})
+    deleted_counts["automation_rules"] = result.deleted_count
+    
+    # Finally, delete the organization itself
+    result = await db.companies.delete_one({"company_id": company_id})
+    deleted_counts["company"] = result.deleted_count
+    
+    # Log action
+    await log_super_admin_action(admin.user_id, "delete_organization", company_id, {
+        "organization_name": org_name,
+        "deleted_counts": deleted_counts
+    })
+    
+    return {
+        "success": True,
+        "message": f"Organization '{org_name}' and all related data deleted",
+        "deleted_counts": deleted_counts
+    }
+
+
 # ============== TRIAL EXPIRATION CHECK ENDPOINT ==============
 
 @api_router.get("/subscription/trial-status")
