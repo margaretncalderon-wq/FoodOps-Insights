@@ -121,8 +121,8 @@ INDUSTRY_CONFIG = {
         
         # Program Orchestration configuration
         "program_orchestration": {
-            "name_en": "Client Delivery",
-            "name_es": "Entrega a Clientes",
+            "name_en": "Program Orchestration",
+            "name_es": "Program Orchestration",
             "icon": "folder-kanban",
             "description_en": "Manage client projects and deliverables",
             "description_es": "Gestiona proyectos y entregables de clientes",
@@ -157,11 +157,12 @@ INDUSTRY_CONFIG = {
             ],
         },
         
-        # Enabled modules for this industry (NO venues, NO culinary)
+        # Enabled modules for this industry (NO venues, NO culinary, NO resource management for pure service agencies)
         "enabled_modules": [
-            "module_event_orchestration",  # Reused as Client Delivery
-            "module_operations_supplies",  # Renamed to Resource Management
+            "module_event_orchestration",  # Reused as Program Orchestration
             "module_demand_studio",
+            # NOTE: module_operations_supplies (Resource Management) is NOT enabled by default for agencies
+            # because pure service agencies don't need inventory/supplies management
         ],
         
         # Module-specific configurations
@@ -173,7 +174,7 @@ INDUSTRY_CONFIG = {
                 "enabled": False,  # Disabled for agencies
             },
             "module_operations_supplies": {
-                "enabled": True,
+                "enabled": False,  # Disabled by default for agencies (pure services don't need supplies)
                 "name_en": "Resource Management",
                 "name_es": "Gestión de Recursos",
                 "icon": "boxes",
