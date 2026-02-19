@@ -441,8 +441,14 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10">
             {/* Gmail */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Gmail">
-              <img src="https://cdn.simpleicons.org/gmail" alt="Gmail" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+            <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Gmail">
+              <svg className="w-10 h-10" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M2 6v12c0 1.1.9 2 2 2h1V6.5l7 5.25 7-5.25V20h1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2z"/>
+                <path fill="#EA4335" d="M5 20V6.5l7 5.25 7-5.25V20"/>
+                <path fill="#EA4335" d="M12 11.75L5 6.5V4h14v2.5l-7 5.25z"/>
+                <path fill="#FBBC05" d="M20 6.5V20h-1V6.5l-7 5.25V20h-1V11.75l-7-5.25V20H4V6.5"/>
+                <path fill="#34A853" d="M19 20V6.5l-7 5.25-7-5.25V20"/>
+              </svg>
             </div>
             {/* Google Calendar */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Calendar">
