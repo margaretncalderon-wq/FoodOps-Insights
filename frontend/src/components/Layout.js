@@ -38,6 +38,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { OrgSwitcher } from "./org";
+import { TrialExpirationModal } from "./TrialExpirationModal";
 import NotificationBell from "./notifications/NotificationBell";
 import { GlobalActivityLog } from "./GlobalActivityLog";
 
