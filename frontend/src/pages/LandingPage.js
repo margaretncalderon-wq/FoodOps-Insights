@@ -144,8 +144,8 @@ const pricingPlans = [
     periodEs: "/mes",
     tagline: "Scale across teams and locations.",
     taglineEs: "Escala entre equipos y ubicaciones.",
-    features: ["Everything in Foundation", "Multi-location", "Up to 15 users", "Priority support"],
-    featuresEs: ["Todo en Foundation", "Multi-ubicación", "Hasta 15 usuarios", "Soporte prioritario"],
+    features: ["Everything in Foundation", "Multi-location", "Unlimited users", "Priority support"],
+    featuresEs: ["Todo en Foundation", "Multi-ubicación", "Usuarios ilimitados", "Soporte prioritario"],
     cta: "Contact Sales",
     ctaEs: "Contactar",
     highlight: false
