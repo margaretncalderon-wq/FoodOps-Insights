@@ -11409,6 +11409,42 @@ async def update_org_internal_notes(company_id: str, data: dict, admin: User = D
     await log_super_admin_action(admin.user_id, "update_notes", company_id)
     return {"success": True}
 
+
+@super_admin_router.put("/organizations/{company_id}/account-type")
+async def update_org_account_type(company_id: str, data: dict, admin: User = Depends(get_super_admin)):
+    """Update organization account type (normal, demo, influencer, partner)"""
+    account_type = data.get("account_type", "")
+    
+    # Validate account type
+    valid_types = ["", "demo", "influencer", "partner"]
+    if account_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid account type. Must be one of: {valid_types}")
+    
+    org = await db.companies.find_one({"company_id": company_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Update or remove account_type
+    if account_type:
+        await db.companies.update_one(
+            {"company_id": company_id},
+            {"$set": {"account_type": account_type, "account_type_updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    else:
+        # Remove account_type field for "normal" accounts
+        await db.companies.update_one(
+            {"company_id": company_id},
+            {"$unset": {"account_type": ""}}
+        )
+    
+    await log_super_admin_action(admin.user_id, "change_account_type", company_id, {
+        "old_type": org.get("account_type", "normal"),
+        "new_type": account_type or "normal"
+    })
+    
+    return {"success": True, "account_type": account_type or "normal"}
+
+
 @super_admin_router.put("/organizations/{company_id}/suspend")
 async def suspend_organization(company_id: str, data: dict = None, admin: User = Depends(get_super_admin)):
     """Suspend an organization (Super Admin only)"""
