@@ -537,12 +537,14 @@ export default function EventsPage({ embedded = false }) {
                     </Select>
                   </div>
 
-                  {/* Multi-day booking toggle */}
+                  {/* Multi-day toggle */}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
-                      <Label className="font-medium">{language === "es" ? "Reserva Multi-día" : "Multi-day Booking"}</Label>
+                      <Label className="font-medium">{isEs ? "Multi-día" : "Multi-day"}</Label>
                       <p className="text-xs text-muted-foreground">
-                        {language === "es" ? "Evento con múltiples días" : "Event spanning multiple days"}
+                        {isEs 
+                          ? `${entitySingular} con múltiples días` 
+                          : `${entitySingular} spanning multiple days`}
                       </p>
                     </div>
                     <Switch
@@ -565,9 +567,9 @@ export default function EventsPage({ embedded = false }) {
                   {/* TBD Date Toggle */}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
-                      <Label className="font-medium">{language === "es" ? "Fecha Por Definir" : "Date TBD"}</Label>
+                      <Label className="font-medium">{isEs ? "Fecha Por Definir" : "Date TBD"}</Label>
                       <p className="text-xs text-muted-foreground">
-                        {language === "es" ? "La fecha aún no está confirmada" : "Date not yet confirmed"}
+                        {isEs ? "La fecha aún no está confirmada" : "Date not yet confirmed"}
                       </p>
                     </div>
                     <Switch
