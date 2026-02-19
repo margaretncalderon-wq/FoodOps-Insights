@@ -440,14 +440,20 @@ export default function LandingPage() {
             {isEs ? "Se integra con las herramientas que ya usas" : "Integrates with tools you already use"}
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10">
-            {/* Google */}
+            {/* Google Workspace */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Workspace">
-              <img src="https://cdn.simpleicons.org/google" alt="Google" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M5.26 9.76A7.08 7.08 0 0 1 12 5c1.8 0 3.43.67 4.68 1.76l3.54-3.54A11.95 11.95 0 0 0 12 0C7.39 0 3.39 2.6 1.39 6.4l3.87 3.36z"/>
+                <path fill="#FBBC05" d="M1.39 6.4A11.9 11.9 0 0 0 0 12c0 2 .5 3.89 1.36 5.55l3.9-3.34A7.05 7.05 0 0 1 5 12c0-.78.13-1.54.36-2.24L1.39 6.4z"/>
+                <path fill="#34A853" d="M12 24c4.44 0 8.16-1.46 10.88-3.97l-3.72-3.13c-1.35.98-3.2 1.66-5.16 1.66-3.63 0-6.72-2.45-7.83-5.76l-3.9 3.34C4.21 20.92 7.78 24 12 24z"/>
+                <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.72 3.13c2.18-2.01 3.7-4.98 3.7-8.95z"/>
+              </svg>
             </div>
             {/* DocuSign */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="DocuSign">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#FFCD00">
-                <path d="M22.014 12.27L11.196 22.028c-.347.333-.783.494-1.198.494-.446 0-.867-.176-1.203-.502l-1.197-1.203 8.106-8.106c.362-.347.557-.817.557-1.33 0-.515-.195-.984-.557-1.348L7.598 1.927l1.197-1.203a1.717 1.717 0 012.401.008L22.014 11.54a.502.502 0 010 .73zM.73 11.27c-.195.195-.293.45-.293.73 0 .28.098.535.293.73l4.875 4.875c.195.195.45.293.73.293.28 0 .535-.098.73-.293l4.875-4.875c.195-.195.293-.45.293-.73 0-.28-.098-.535-.293-.73L7.065 6.395c-.195-.195-.45-.293-.73-.293-.28 0-.535.098-.73.293L.73 11.27z"/>
+              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24">
+                <rect x="2" y="8" width="8" height="14" rx="1" fill="#4C00FF"/>
+                <ellipse cx="10" cy="8" rx="6" ry="6" fill="#FF5449"/>
               </svg>
             </div>
             {/* Meta */}
