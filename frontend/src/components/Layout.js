@@ -86,8 +86,13 @@ export const Layout = ({ children }) => {
 
   // Build navigation items from enabled modules
   const navItems = useMemo(() => {
+    // Only return modules from API - no hardcoded fallback
     if (!modules || modules.length === 0) {
-      return fallbackNavItems;
+      // Return minimal core modules while loading
+      return [
+        { path: "/dashboard", icon: Activity, label: "System Pulse", labelEs: "System Pulse" },
+        { path: "/settings", icon: Settings, label: "Settings", labelEs: "Configuración" },
+      ];
     }
 
     return modules.map((module) => ({
