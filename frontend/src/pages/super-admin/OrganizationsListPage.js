@@ -550,6 +550,71 @@ export default function OrganizationsListPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="bg-white border-gray-200 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Eliminar Organización
+            </DialogTitle>
+            <DialogDescription className="text-gray-500">
+              Esta acción es <strong>permanente e irreversible</strong>. Se eliminarán todos los datos asociados.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-700 font-medium mb-2">
+                Se eliminarán permanentemente:
+              </p>
+              <ul className="text-sm text-red-600 space-y-1 ml-4 list-disc">
+                <li>Todos los usuarios de la organización</li>
+                <li>Todos los eventos y datos</li>
+                <li>Todas las propuestas y facturas</li>
+                <li>Configuraciones y módulos</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-gray-700">
+                Escribe <strong className="text-red-600">"{orgToDelete?.organization?.name}"</strong> para confirmar:
+              </Label>
+              <Input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Nombre de la organización"
+                className="bg-white border-gray-300 text-gray-900"
+                data-testid="delete-confirm-input"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteModal(false)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleDeleteOrganization} 
+              disabled={deleting || deleteConfirmText !== orgToDelete?.organization?.name}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Eliminar Permanentemente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
