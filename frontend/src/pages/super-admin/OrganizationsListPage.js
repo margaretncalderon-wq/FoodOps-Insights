@@ -379,6 +379,18 @@ export default function OrganizationsListPage() {
                         >
                           <Key className="w-4 h-4" />
                         </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteModal(org);
+                          }}
+                          data-testid={`delete-org-${org.organization.company_id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
