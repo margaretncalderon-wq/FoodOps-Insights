@@ -677,7 +677,7 @@ MODULE_ADDONS = {
     "module_culinary_intelligence": {"path": "/food-ops", "name_en": "Culinary Intelligence", "name_es": "Inteligencia Culinaria", "icon": "utensils"},
     "module_operations_supplies": {"path": "/ops-supplies", "name_en": "Resource Management", "name_es": "Gestión de Recursos", "icon": "package"},
     "module_venues": {"path": "/venues", "name_en": "Venues", "name_es": "Venues", "icon": "building"},
-    "module_demand_studio": {"path": "/demand-studio", "name_en": "Demand Studio", "name_es": "Demand Studio", "icon": "megaphone"},
+    "module_demand_studio": {"path": "/demand-studio", "name_en": "Demand Generation", "name_es": "Demand Generation", "icon": "megaphone"},
 }
 
 
