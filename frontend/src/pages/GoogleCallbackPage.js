@@ -1,23 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Loader2, Building2, CheckCircle, Sparkles } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function GoogleCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { handleGoogleCallback, completeGoogleRegistration } = useAuth();
+  const { handleGoogleCallback } = useAuth();
   const hasProcessed = useRef(false);
-  
-  // Registration state
-  const [showRegistration, setShowRegistration] = useState(false);
-  const [googleData, setGoogleData] = useState(null);
-  const [tempToken, setTempToken] = useState(null);
-  const [companyName, setCompanyName] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState("processing");
 
   useEffect(() => {
     if (hasProcessed.current) return;
@@ -39,12 +31,24 @@ export default function GoogleCallbackPage() {
       handleGoogleCallback(code, redirectUri)
         .then((response) => {
           if (response.requires_registration) {
-            // New user - show registration form
-            setGoogleData(response.google_data);
-            setTempToken(response.temp_token);
-            setShowRegistration(true);
+            // New user - redirect to register page with Google data
+            const googleData = response.google_data;
+            const tempToken = response.temp_token;
+            
+            // Store Google data temporarily and redirect to register
+            sessionStorage.setItem("google_registration_data", JSON.stringify({
+              name: googleData.name,
+              email: googleData.email,
+              picture: googleData.picture,
+              temp_token: tempToken
+            }));
+            
+            setStatus("redirecting");
+            toast.success("¡Verificado! Completa tu registro");
+            navigate("/register?from=google", { replace: true });
           } else {
             // Existing user - proceed to dashboard
+            setStatus("success");
             navigate("/dashboard", { replace: true });
           }
         })
