@@ -444,6 +444,145 @@ async def list_automation_templates(
                     "config": {"message": "Project {{event_name}} has started!", "recipients": ["owner"]}
                 }
             ]
+        },
+        # INTEGRATION TEMPLATES - For external platforms like Staffdo
+        {
+            "template_id": "integration_company_lead",
+            "name": "Integration: New Company Lead",
+            "name_es": "Integración: Nuevo Lead de Empresa",
+            "description": "When a company registers via external platform (Staffdo)",
+            "description_es": "Cuando una empresa se registra via plataforma externa (Staffdo)",
+            "category": "integrations",
+            "trigger": {
+                "type": "integration_lead_company",
+                "conditions": []
+            },
+            "actions": [
+                {
+                    "type": "send_notification",
+                    "config": {"message": "🏢 Nueva empresa registrada: {{name}} desde integración", "recipients": ["owner"]}
+                },
+                {
+                    "type": "create_task",
+                    "config": {"title": "Contactar empresa: {{name}}", "assignee": "owner", "due_days": 1}
+                },
+                {
+                    "type": "move_to_stage",
+                    "config": {"stage": "new"}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "from-integration"}
+                }
+            ]
+        },
+        {
+            "template_id": "integration_candidate_lead",
+            "name": "Integration: New Candidate Lead",
+            "name_es": "Integración: Nuevo Lead de Candidato",
+            "description": "When a candidate registers via external platform",
+            "description_es": "Cuando un candidato se registra via plataforma externa",
+            "category": "integrations",
+            "trigger": {
+                "type": "integration_lead_candidate",
+                "conditions": []
+            },
+            "actions": [
+                {
+                    "type": "send_notification",
+                    "config": {"message": "👤 Nuevo candidato: {{name}} desde integración", "recipients": ["owner"]}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "candidate"}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "from-integration"}
+                }
+            ]
+        },
+        {
+            "template_id": "integration_contractor_lead",
+            "name": "Integration: New Contractor Lead",
+            "name_es": "Integración: Nuevo Lead de Contratista",
+            "description": "When a contractor registers via external platform",
+            "description_es": "Cuando un contratista se registra via plataforma externa",
+            "category": "integrations",
+            "trigger": {
+                "type": "integration_lead_contractor",
+                "conditions": []
+            },
+            "actions": [
+                {
+                    "type": "send_notification",
+                    "config": {"message": "🔧 Nuevo contratista: {{name}} desde integración", "recipients": ["owner"]}
+                },
+                {
+                    "type": "create_task",
+                    "config": {"title": "Verificar documentos de: {{name}}", "assignee": "owner", "due_days": 2}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "contractor"}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "from-integration"}
+                }
+            ]
+        },
+        {
+            "template_id": "integration_invoice_created",
+            "name": "Integration: Invoice Created",
+            "name_es": "Integración: Factura Creada",
+            "description": "When an invoice is created via external platform",
+            "description_es": "Cuando una factura se crea via plataforma externa",
+            "category": "integrations",
+            "trigger": {
+                "type": "integration_invoice_created",
+                "conditions": []
+            },
+            "actions": [
+                {
+                    "type": "send_notification",
+                    "config": {"message": "💰 Nueva factura: ${{amount}} - {{description}}", "recipients": ["owner", "admin"]}
+                },
+                {
+                    "type": "create_task",
+                    "config": {"title": "Revisar y aprobar factura #{{invoice_number}}", "assignee": "admin", "due_days": 1}
+                }
+            ]
+        },
+        {
+            "template_id": "integration_high_value_lead",
+            "name": "Integration: High-Value Company Alert",
+            "name_es": "Integración: Alerta de Empresa de Alto Valor",
+            "description": "Special handling for companies with high potential",
+            "description_es": "Manejo especial para empresas con alto potencial",
+            "category": "integrations",
+            "trigger": {
+                "type": "integration_lead_company",
+                "conditions": [{"field": "custom_fields.potential", "operator": "equals", "value": "high"}]
+            },
+            "actions": [
+                {
+                    "type": "send_notification",
+                    "config": {"message": "⭐ Empresa de ALTO VALOR: {{name}}", "recipients": ["owner", "admin"]}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "high-value"}
+                },
+                {
+                    "type": "add_tag",
+                    "config": {"tag": "priority"}
+                },
+                {
+                    "type": "create_task",
+                    "config": {"title": "URGENTE: Contactar {{name}} - Alto valor", "assignee": "owner", "due_days": 0}
+                }
+            ]
         }
     ]
     
