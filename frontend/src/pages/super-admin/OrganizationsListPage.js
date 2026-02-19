@@ -363,7 +363,7 @@ export default function OrganizationsListPage() {
 
                 {organizations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-400">
+                    <TableCell colSpan={7} className="text-center py-12 text-gray-400">
                       No se encontraron organizaciones
                     </TableCell>
                   </TableRow>
@@ -382,11 +382,11 @@ export default function OrganizationsListPage() {
             size="sm"
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="border-slate-600 text-white hover:bg-slate-700"
+            className="border-gray-300 text-gray-700 hover:bg-gray-100"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm text-slate-300">
+          <span className="text-sm text-gray-600">
             Página {page} de {totalPages}
           </span>
           <Button 
@@ -394,7 +394,7 @@ export default function OrganizationsListPage() {
             size="sm"
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="border-slate-600 text-white hover:bg-slate-700"
+            className="border-gray-300 text-gray-700 hover:bg-gray-100"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -403,13 +403,13 @@ export default function OrganizationsListPage() {
 
       {/* Password Change Modal */}
       <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
-        <DialogContent className="bg-slate-800 border-slate-700 sm:max-w-md">
+        <DialogContent className="bg-white border-gray-200 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-white">
-              <Key className="w-5 h-5 text-amber-400" />
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
+              <Key className="w-5 h-5 text-amber-600" />
               Cambiar Contraseña
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-500">
               {selectedOrg?.organization?.name}
             </DialogDescription>
           </DialogHeader>
@@ -417,14 +417,14 @@ export default function OrganizationsListPage() {
           <div className="space-y-4 py-4">
             {/* Password Change Type */}
             <div className="space-y-2">
-              <Label className="text-slate-300">Aplicar a:</Label>
+              <Label className="text-gray-700">Aplicar a:</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant={passwordChangeType === "all" ? "default" : "outline"}
                   className={passwordChangeType === "all" 
                     ? "bg-amber-600 hover:bg-amber-700" 
-                    : "border-slate-600 text-slate-300 hover:bg-slate-700"}
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"}
                   onClick={() => setPasswordChangeType("all")}
                 >
                   <Users className="w-4 h-4 mr-2" />
@@ -435,7 +435,7 @@ export default function OrganizationsListPage() {
                   variant={passwordChangeType === "individual" ? "default" : "outline"}
                   className={passwordChangeType === "individual" 
                     ? "bg-amber-600 hover:bg-amber-700" 
-                    : "border-slate-600 text-slate-300 hover:bg-slate-700"}
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"}
                   onClick={() => setPasswordChangeType("individual")}
                 >
                   Usuario Individual
@@ -446,7 +446,7 @@ export default function OrganizationsListPage() {
             {/* Individual User Select */}
             {passwordChangeType === "individual" && (
               <div className="space-y-2">
-                <Label className="text-slate-300">Seleccionar Usuario</Label>
+                <Label className="text-gray-700">Seleccionar Usuario</Label>
                 <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Selecciona un usuario..." />
