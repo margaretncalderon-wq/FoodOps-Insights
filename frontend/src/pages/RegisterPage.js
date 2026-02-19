@@ -99,10 +99,13 @@ const ADDON_MODULES = [
 ];
 
 export default function RegisterPage() {
-  const { register, loginWithGoogle, loading } = useAuth();
+  const { register, loginWithGoogle, completeGoogleRegistration, loading } = useAuth();
   const { t, language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1); // 1: Industry, 2: Modules, 3: Account details
+  const [isFromGoogle, setIsFromGoogle] = useState(false);
+  const [googleTempToken, setGoogleTempToken] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -112,6 +115,30 @@ export default function RegisterPage() {
     selected_modules: [], // Module keys selected by user
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  // Check if coming from Google OAuth
+  useEffect(() => {
+    const fromGoogle = searchParams.get("from") === "google";
+    if (fromGoogle) {
+      const googleDataStr = sessionStorage.getItem("google_registration_data");
+      if (googleDataStr) {
+        try {
+          const googleData = JSON.parse(googleDataStr);
+          setFormData(prev => ({
+            ...prev,
+            name: googleData.name || "",
+            email: googleData.email || "",
+          }));
+          setGoogleTempToken(googleData.temp_token);
+          setIsFromGoogle(true);
+          // Clear the session storage
+          sessionStorage.removeItem("google_registration_data");
+        } catch (e) {
+          console.error("Failed to parse Google data:", e);
+        }
+      }
+    }
+  }, [searchParams]);
 
   // Get recommended modules based on industry
   const getRecommendedModules = () => {
