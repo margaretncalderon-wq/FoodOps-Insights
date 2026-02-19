@@ -440,47 +440,29 @@ export default function LandingPage() {
             {isEs ? "Se integra con las herramientas que ya usas" : "Integrates with tools you already use"}
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10">
-            {/* Google Workspace */}
+            {/* Google */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Workspace">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#4285F4">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
+              <img src="https://cdn.simpleicons.org/google" alt="Google" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
             {/* DocuSign */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="DocuSign">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#FFCD00">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-7.332 7.332a.75.75 0 01-1.06 0L6.106 12.16a.75.75 0 111.06-1.06l2.866 2.865 6.802-6.803a.75.75 0 011.06 1.06z"/>
-              </svg>
+              <img src="https://cdn.simpleicons.org/docusign" alt="DocuSign" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
-            {/* Meta - Infinity Logo */}
+            {/* Meta */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 36 36">
-                <path fill="#0866FF" d="M18 2.5c-3.9 0-7.1 3.2-9.2 7.3-1.8 3.4-2.8 7.2-2.8 10.2 0 5 2.7 8 6.2 8 2.4 0 4.4-1.5 5.8-3.8 1.4 2.3 3.4 3.8 5.8 3.8 3.5 0 6.2-3 6.2-8 0-3-.9-6.8-2.8-10.2-2.1-4.1-5.3-7.3-9.2-7.3zm-5.8 22.5c-1.8 0-3.2-1.8-3.2-5 0-2.5.8-5.8 2.4-8.8 1.6-3.1 3.8-5.2 6.6-5.2s5 2.1 6.6 5.2c1.5 3 2.4 6.3 2.4 8.8 0 3.2-1.4 5-3.2 5-1.5 0-2.9-1.3-4.2-3.4l-1.6-2.6-1.6 2.6c-1.3 2.1-2.7 3.4-4.2 3.4z"/>
-              </svg>
+              <img src="https://cdn.simpleicons.org/meta" alt="Meta" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
             {/* Google Ads */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Ads">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 48 48">
-                <path fill="#4caf50" d="M44 24L24 44 8 28l4-4 12 12 16-16z"/>
-                <circle fill="#4caf50" cx="8" cy="28" r="5"/>
-                <path fill="#ffc107" d="M24 4L4 24l8 8L44 0z"/>
-                <path fill="#1e88e5" d="M44 24L24 4 8 20l4 4L24 12l16 16z"/>
-              </svg>
+              <img src="https://cdn.simpleicons.org/googleads" alt="Google Ads" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
             {/* Stripe */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Stripe">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#635BFF">
-                <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
-              </svg>
+              <img src="https://cdn.simpleicons.org/stripe" alt="Stripe" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
             {/* WhatsApp */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="WhatsApp">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24" fill="#25D366">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
+              <img src="https://cdn.simpleicons.org/whatsapp" alt="WhatsApp" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
           </div>
         </div>
