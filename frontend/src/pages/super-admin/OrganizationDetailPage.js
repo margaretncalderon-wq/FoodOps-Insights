@@ -428,6 +428,73 @@ export default function OrganizationDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Account Type Card */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Tipo de Cuenta
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant={!accountType || accountType === "" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleChangeAccountType("")}
+                    disabled={savingAccountType}
+                    className={!accountType || accountType === "" 
+                      ? "bg-gray-800 hover:bg-gray-900" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"}
+                  >
+                    Normal
+                  </Button>
+                  <Button
+                    variant={accountType === "demo" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleChangeAccountType("demo")}
+                    disabled={savingAccountType}
+                    className={accountType === "demo" 
+                      ? "bg-blue-600 hover:bg-blue-700" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"}
+                  >
+                    Demo
+                  </Button>
+                  <Button
+                    variant={accountType === "influencer" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleChangeAccountType("influencer")}
+                    disabled={savingAccountType}
+                    className={accountType === "influencer" 
+                      ? "bg-purple-600 hover:bg-purple-700" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"}
+                  >
+                    Influencer
+                  </Button>
+                  <Button
+                    variant={accountType === "partner" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleChangeAccountType("partner")}
+                    disabled={savingAccountType}
+                    className={accountType === "partner" 
+                      ? "bg-green-600 hover:bg-green-700" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"}
+                  >
+                    Partner
+                  </Button>
+                </div>
+                {savingAccountType && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Guardando...
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  Las cuentas demo/influencer/partner aparecen en la sección "Demo Accounts" del panel.
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Usage - Solo estadísticas sin límites */}
             <Card className="bg-white border-gray-200">
               <CardHeader>
