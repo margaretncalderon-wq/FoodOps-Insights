@@ -154,6 +154,38 @@ export default function OrganizationsListPage() {
     setChangingPassword(false);
   };
 
+  // Delete organization
+  const openDeleteModal = (org) => {
+    setOrgToDelete(org);
+    setDeleteConfirmText("");
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!orgToDelete) return;
+    
+    const orgName = orgToDelete.organization?.name;
+    if (deleteConfirmText !== orgName) {
+      toast.error("El nombre no coincide. Escribe el nombre exacto para confirmar.");
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await axios.delete(
+        `${API}/api/super-admin/organizations/${orgToDelete.organization.company_id}`,
+        { withCredentials: true }
+      );
+      toast.success(`Organización "${orgName}" eliminada correctamente`);
+      setShowDeleteModal(false);
+      setOrgToDelete(null);
+      fetchOrganizations(); // Refresh list
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al eliminar organización");
+    }
+    setDeleting(false);
+  };
+
   const getStatusBadge = (org, subscription) => {
     const status = org?.organization?.status || "active";
     const subStatus = subscription?.status;
