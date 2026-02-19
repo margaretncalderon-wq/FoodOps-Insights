@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
+import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Progress } from "../../components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../../components/ui/dialog";
 import { 
   Building2, Search, Filter, ChevronLeft, ChevronRight, 
-  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw
+  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw, Key
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -27,6 +29,15 @@ export default function OrganizationsListPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  
+  // Password change modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordChangeType, setPasswordChangeType] = useState("all"); // "all" or "individual"
+  const [orgMembers, setOrgMembers] = useState([]);
+  const [selectedMemberId, setSelectedMemberId] = useState("");
 
   useEffect(() => {
     fetchOrganizations();
