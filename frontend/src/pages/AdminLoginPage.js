@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -11,7 +11,11 @@ import { Loader2, Shield } from "lucide-react";
 export default function AdminLoginPage() {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({ email: "", password: "" });
+
+  // Get the redirect path from location state, default to /super-admin
+  const from = location.state?.from || "/super-admin";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,7 +23,7 @@ export default function AdminLoginPage() {
       const response = await login(formData.email, formData.password);
       if (response?.user?.is_super_admin) {
         toast.success("¡Bienvenido al Panel de Administración!");
-        navigate("/super-admin");
+        navigate(from, { replace: true });
       } else {
         toast.error("No tienes permisos de administrador");
       }
