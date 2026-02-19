@@ -592,7 +592,7 @@ async def complete_google_registration(request: Request, response: Response):
     )
     
     user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    company_data = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+    org_data = await db.organizations.find_one({"company_id": company_id}, {"_id": 0})
     
     # Send welcome email (non-blocking, doesn't fail registration if email fails)
     try:
@@ -600,7 +600,7 @@ async def complete_google_registration(request: Request, response: Response):
             to_email=email,
             user_name=name,
             company_name=company_name or f"Empresa de {name}",
-            plan_name="Free"
+            plan_name="Kora Core"
         )
     except Exception as e:
         logger.warning(f"Failed to send welcome email to {email}: {e}")
@@ -608,6 +608,6 @@ async def complete_google_registration(request: Request, response: Response):
     return {
         "success": True,
         "user": user_data,
-        "company": company_data,
-        "message": "¡Bienvenido a Kora OS! Tu cuenta con Plan Free ha sido creada."
+        "company": org_data,
+        "message": "¡Bienvenido a Kora OS!"
     }
