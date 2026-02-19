@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
+import { Label } from "../../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Progress } from "../../components/ui/progress";
@@ -19,7 +20,7 @@ import { useViewAs } from "./SuperAdminLayout";
 import { 
   Building2, ChevronLeft, Eye, Ban, Check, Users, Calendar, 
   CreditCard, Activity, AlertTriangle, Loader2, Save, RefreshCw,
-  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase
+  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase, Key
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
