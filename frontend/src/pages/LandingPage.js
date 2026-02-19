@@ -424,62 +424,109 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing - Compact */}
+      {/* Pricing - Updated to Core + Add-ons model */}
       <section className="py-16 px-6 bg-white" id="pricing">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#1F2937]">
-              {isEs ? "Precios simples, sin sorpresas" : "Simple pricing, no surprises"}
+              {isEs ? "Un precio simple, todo incluido" : "One simple price, everything included"}
             </h2>
+            <p className="mt-2 text-[#6B7280]">
+              {isEs ? "Kora Core + módulos opcionales según tu industria" : "Kora Core + optional modules for your industry"}
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {pricingPlans.map((plan) => (
-              <div 
-                key={plan.name}
-                className={`rounded-2xl p-6 ${
-                  plan.highlight 
-                    ? "bg-[#2A2F3A] text-white ring-2 ring-[#AED768] scale-105" 
-                    : "bg-[#F7F8FA] border border-[#E5E7EB]"
-                }`}
-              >
-                <h3 className={`font-heading text-lg font-bold ${plan.highlight ? "text-white" : "text-[#1F2937]"}`}>
-                  {plan.name}
-                </h3>
-                <div className="mt-2 mb-4">
-                  <span className={`text-3xl font-bold ${plan.highlight ? "text-[#AED768]" : "text-[#1F2937]"}`}>
-                    {isEs ? plan.priceEs || plan.price : plan.price}
-                  </span>
-                  {plan.period && (
-                    <span className={plan.highlight ? "text-white/60" : "text-[#6B7280]"}>
-                      {isEs ? plan.periodEs : plan.period}
-                    </span>
-                  )}
-                </div>
-                <p className={`text-sm mb-4 ${plan.highlight ? "text-white/70" : "text-[#6B7280]"}`}>
-                  {isEs ? plan.taglineEs : plan.tagline}
-                </p>
-                <ul className="space-y-2 mb-6">
-                  {(isEs ? plan.featuresEs : plan.features).map((feature, idx) => (
-                    <li key={idx} className={`flex items-center gap-2 text-sm ${plan.highlight ? "text-white/80" : "text-[#4B5563]"}`}>
-                      <Check className={`w-4 h-4 flex-shrink-0 ${plan.highlight ? "text-[#AED768]" : "text-[#AED768]"}`} />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/register">
-                  <Button 
-                    className={`w-full rounded-full ${
-                      plan.highlight 
-                        ? "bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937]" 
-                        : "bg-[#2A2F3A] hover:bg-[#3A4049] text-white"
-                    }`}
-                  >
-                    {isEs ? plan.ctaEs : plan.cta}
-                  </Button>
-                </Link>
+          {/* Main Pricing Card */}
+          <div className="max-w-lg mx-auto mb-12">
+            <div className="bg-[#2A2F3A] rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+              <div className="absolute top-4 right-4 bg-[#AED768] text-[#1F2937] text-xs font-bold px-3 py-1 rounded-full">
+                {isEs ? "7 DÍAS GRATIS" : "7 DAYS FREE"}
               </div>
-            ))}
+              <h3 className="font-heading text-2xl font-bold mb-2">Kora Core</h3>
+              <p className="text-white/70 mb-4">
+                {isEs ? "Todo lo que necesitas para operar tu negocio" : "Everything you need to run your business"}
+              </p>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-[#AED768]">$69</span>
+                <span className="text-white/60 text-lg">/{isEs ? "mes" : "mo"}</span>
+              </div>
+              <ul className="space-y-3 mb-8">
+                {[
+                  { en: "CRM & Sales Pipeline", es: "CRM y Pipeline de Ventas" },
+                  { en: "Client Management", es: "Gestión de Clientes" },
+                  { en: "Proposals & Invoicing", es: "Propuestas y Facturación" },
+                  { en: "Financial Dashboard", es: "Dashboard Financiero" },
+                  { en: "Unlimited Users", es: "Usuarios Ilimitados" },
+                  { en: "Works for any industry", es: "Funciona para cualquier industria" }
+                ].map((feature, idx) => (
+                  <li key={idx} className="flex items-center gap-3 text-white/90">
+                    <Check className="w-5 h-5 text-[#AED768] flex-shrink-0" />
+                    {isEs ? feature.es : feature.en}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/register">
+                <Button className="w-full h-12 rounded-full bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold text-lg">
+                  {isEs ? "Comenzar Prueba Gratis" : "Start Free Trial"}
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              <p className="text-center text-white/50 text-sm mt-4">
+                {isEs ? "Sin tarjeta de crédito requerida" : "No credit card required"}
+              </p>
+            </div>
+          </div>
+
+          {/* Add-on Modules */}
+          <div className="mb-12">
+            <h3 className="text-center font-heading text-xl font-bold text-[#1F2937] mb-6">
+              {isEs ? "Potencia tu operación con módulos especializados" : "Power up with specialized modules"}
+            </h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {addonModules.map((addon) => {
+                const Icon = addon.icon;
+                return (
+                  <div key={addon.name} className="bg-[#F7F8FA] rounded-xl p-5 border border-[#E5E7EB] hover:border-[#AED768] hover:shadow-md transition-all">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                        <Icon className="w-5 h-5 text-[#2A2F3A]" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-[#1F2937] text-sm">{isEs ? addon.nameEs : addon.name}</h4>
+                        <p className="text-[#AED768] text-sm font-bold">{isEs ? addon.priceEs : addon.price}</p>
+                      </div>
+                    </div>
+                    <p className="text-[#6B7280] text-xs">{isEs ? addon.descriptionEs : addon.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Industries */}
+          <div className="bg-[#F7F8FA] rounded-2xl p-8">
+            <h3 className="text-center font-heading text-xl font-bold text-[#1F2937] mb-6">
+              {isEs ? "Diseñado para tu industria" : "Designed for your industry"}
+            </h3>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {industries.map((industry) => {
+                const Icon = industry.icon;
+                return (
+                  <div key={industry.name} className="bg-white rounded-xl p-5 border border-[#E5E7EB] text-center">
+                    <div className={`w-12 h-12 ${industry.color} rounded-xl flex items-center justify-center mx-auto mb-3`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-semibold text-[#1F2937] mb-1">{isEs ? industry.nameEs : industry.name}</h4>
+                    <p className="text-[#6B7280] text-sm">{isEs ? industry.descriptionEs : industry.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-center text-[#6B7280] text-sm mt-6">
+              {isEs 
+                ? "Selecciona tu industria al registrarte y Kora se adapta automáticamente con la terminología y flujos correctos."
+                : "Select your industry when you sign up and Kora automatically adapts with the right terminology and workflows."}
+            </p>
           </div>
         </div>
       </section>
