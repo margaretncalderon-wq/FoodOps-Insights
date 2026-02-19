@@ -299,18 +299,10 @@ export default function OrganizationsListPage() {
                         {org.plan?.name || "Sin Plan"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="min-w-48">
-                      <div className="space-y-2">
-                        {getUsageBar(
-                          org.usage?.events_created || 0, 
-                          org.limits?.events_per_month || 999,
-                          "Eventos"
-                        )}
-                        {getUsageBar(
-                          org.usage?.active_users || 0,
-                          org.limits?.active_users || 999,
-                          "Usuarios"
-                        )}
+                    <TableCell className="min-w-32">
+                      <div className="space-y-1">
+                        {getUsageBar(org.usage?.events_created || 0, "Eventos")}
+                        {getUsageBar(org.usage?.active_users || 0, "Usuarios")}
                       </div>
                     </TableCell>
                     <TableCell>
