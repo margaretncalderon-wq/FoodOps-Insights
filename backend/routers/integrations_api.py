@@ -127,11 +127,20 @@ async def validate_api_key(
     # Hash the API key to compare with stored hash
     key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
     
-    # Find integration by API key hash
-    integration = await db.integrations.find_one({
-        "api_key_hash": key_hash,
-        "status": "active"
-    })
+    # Check if it's a test key
+    is_test_key = x_api_key.startswith("sk_test_")
+    
+    # Find integration by API key hash (check both live and test keys)
+    if is_test_key:
+        integration = await db.integrations.find_one({
+            "test_key_hash": key_hash,
+            "status": "active"
+        })
+    else:
+        integration = await db.integrations.find_one({
+            "api_key_hash": key_hash,
+            "status": "active"
+        })
     
     if not integration:
         # Log failed attempt
@@ -144,8 +153,8 @@ async def validate_api_key(
         })
         raise HTTPException(status_code=401, detail="Invalid API key")
     
-    # Check if integration is in sandbox mode
-    is_sandbox = x_api_key.startswith("sk_test_")
+    # Check if integration is in sandbox mode (either test key or sandbox_mode enabled)
+    is_sandbox = is_test_key or integration.get("sandbox_mode", False)
     
     # Check rate limit
     tier = integration.get("rate_limit_tier", "standard")
