@@ -187,13 +187,39 @@ async def activate_demo_modules(user: User = Depends(get_current_user)):
     """
     Activate standard modules for demo/test accounts.
     This allows users to test the full functionality without payment.
+    Modules activated depend on the organization's industry.
     """
-    # Define modules to activate for demo
-    DEMO_MODULES = [
+    from industry_config_module.industry_config import get_industry_config, IndustryType
+    
+    # Get organization's industry
+    org_config = await db.organization_configs.find_one(
+        {"company_id": user.company_id},
+        {"industry_type": 1, "industry_template": 1}
+    )
+    
+    industry_type = org_config.get("industry_type") if org_config else None
+    if not industry_type:
+        industry_template = org_config.get("industry_template", "events_hospitality") if org_config else "events_hospitality"
+        template_to_type = {
+            "events_hospitality": "events",
+            "professional_services": "agency",
+            "generic": "generic"
+        }
+        industry_type = template_to_type.get(industry_template, "events")
+    
+    # Get industry config to determine which modules to enable
+    industry_config = get_industry_config(industry_type)
+    enabled_modules_for_industry = industry_config.get("enabled_modules", [])
+    
+    # Define demo modules - only activate modules that are enabled for the industry
+    ALL_DEMO_MODULES = [
         "module_event_orchestration",
         "module_demand_studio",
-        "module_operations_supplies"
+        "module_operations_supplies"  # Resource Management - only for industries that use it
     ]
+    
+    # Filter to only modules enabled for this industry
+    DEMO_MODULES = [m for m in ALL_DEMO_MODULES if m in enabled_modules_for_industry]
     
     now = datetime.now(timezone.utc)
     billing_end = now + timedelta(days=30)
