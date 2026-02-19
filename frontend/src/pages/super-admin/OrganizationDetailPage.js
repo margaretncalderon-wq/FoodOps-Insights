@@ -217,14 +217,74 @@ export default function OrganizationDetailPage() {
   };
 
   const handleRemoveMember = async (membershipId) => {
-    if (!window.confirm("Remove this member?")) return;
+    if (!window.confirm("¿Eliminar este miembro?")) return;
     try {
       await axios.delete(`${API}/api/super-admin/organizations/${id}/members/${membershipId}`, { withCredentials: true });
-      toast.success("Member removed");
+      toast.success("Miembro eliminado");
       fetchMembers();
     } catch (err) {
-      toast.error("Failed to remove member");
+      toast.error("Error al eliminar miembro");
     }
+  };
+
+  // Password change functions
+  const openPasswordDialog = (member) => {
+    setSelectedMember(member);
+    setNewPassword("");
+    setPasswordDialogOpen(true);
+  };
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewPassword(password);
+  };
+
+  const handlePasswordChange = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await axios.post(
+        `${API}/api/super-admin/users/${selectedMember.user_id}/reset-password`,
+        { new_password: newPassword },
+        { withCredentials: true }
+      );
+      toast.success("Contraseña cambiada exitosamente");
+      setPasswordDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al cambiar contraseña");
+    }
+    setChangingPassword(false);
+  };
+
+  const handleChangeAllPasswords = async () => {
+    const password = prompt("Ingresa la nueva contraseña para TODOS los usuarios de esta organización:");
+    if (!password || password.length < 6) {
+      if (password) toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    let successCount = 0;
+    for (const member of members) {
+      try {
+        await axios.post(
+          `${API}/api/super-admin/users/${member.user_id}/reset-password`,
+          { new_password: password },
+          { withCredentials: true }
+        );
+        successCount++;
+      } catch (err) {
+        console.error(`Error cambiando contraseña para ${member.email}:`, err);
+      }
+    }
+    toast.success(`Contraseña cambiada para ${successCount} usuario(s)`);
   };
 
   if (loading) {
