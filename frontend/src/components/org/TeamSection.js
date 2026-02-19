@@ -198,10 +198,16 @@ export function TeamSection() {
               </CardDescription>
             </div>
             {canManageMembers && (
-              <Button onClick={() => setInviteDialogOpen(true)} data-testid="invite-member-btn">
-                <Plus className="w-4 h-4 mr-2" />
-                {isEs ? "Invitar" : "Invite"}
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setCreateDirectDialogOpen(true)} data-testid="create-direct-btn">
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isEs ? "Crear Usuario" : "Create User"}
+                </Button>
+                <Button variant="outline" onClick={() => setInviteDialogOpen(true)} data-testid="invite-member-btn">
+                  <Mail className="w-4 h-4 mr-2" />
+                  {isEs ? "Invitar por Email" : "Invite by Email"}
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
