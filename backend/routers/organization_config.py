@@ -80,10 +80,19 @@ async def create_organization_config(
     # Get template defaults if not specified
     template = INDUSTRY_TEMPLATES.get(data.industry_template, INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY])
     
+    # Map industry_template to industry_type for the modules system
+    industry_type_map = {
+        "events_hospitality": "events",
+        "professional_services": "agency",
+        "generic": "generic"
+    }
+    industry_type = industry_type_map.get(data.industry_template.value, "events")
+    
     config_doc = {
         "config_id": f"config_{uuid.uuid4().hex[:12]}",
         "company_id": user.company_id,
         "industry_template": data.industry_template.value,
+        "industry_type": industry_type,  # Required for modules system
         "enabled_engagement_types": data.enabled_engagement_types or template["enabled_engagement_types"],
         "default_engagement_type": data.default_engagement_type or template["default_engagement_type"],
         "terminology": data.terminology if data.terminology else template.get("terminology", {}),
