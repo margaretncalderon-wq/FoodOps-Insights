@@ -893,6 +893,67 @@ export default function OrganizationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Password Change Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Key className="w-5 h-5 text-amber-400" />
+              Cambiar Contraseña
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {selectedMember?.name} ({selectedMember?.email})
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">Nueva Contraseña</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Ingresa la nueva contraseña"
+                  className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                  data-testid="new-password-input"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={generatePassword}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Generar
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setPasswordDialogOpen(false)}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handlePasswordChange} 
+              disabled={changingPassword || !newPassword}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {changingPassword ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Key className="w-4 h-4 mr-2" />
+              )}
+              Cambiar Contraseña
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
