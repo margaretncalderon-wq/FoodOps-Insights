@@ -289,10 +289,19 @@ class TestEventsProposals:
     
     def test_update_event_stage_to_committed(self):
         """Test updating event stage to Committed (triggers appearance in Program Orchestration)"""
-        # First create an event
+        # First get a client to use
+        clients_res = requests.get(f"{BASE_URL}/api/crm/clients",
+                                   headers=self.headers,
+                                   cookies=self.cookies)
+        client_id = None
+        if clients_res.status_code == 200 and clients_res.json():
+            client_id = clients_res.json()[0].get("client_id")
+        
+        # Create an event
         event_data = {
             "name": "TEST_Stage_Update_Project",
             "event_type": "campaign",
+            "client_id": client_id or "test_client",
             "stage": "Inquiry Received"
         }
         
