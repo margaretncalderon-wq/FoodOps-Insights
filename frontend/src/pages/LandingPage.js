@@ -44,14 +44,29 @@ const moduleHighlights = [
     icon: Calendar,
     color: "from-purple-500 to-violet-500",
     bgColor: "bg-purple-500/10",
-    title: "Event Orchestration",
-    subtitle: "Events & Production",
-    subtitleEs: "Eventos y Producción",
+    title: "Event Suite",
+    subtitle: "Events & Venues",
+    subtitleEs: "Eventos y Venues",
     features: [
       { en: "Event blueprints & templates", es: "Plantillas de eventos" },
       { en: "Run of show timeline", es: "Timeline de eventos" },
-      { en: "Team & role assignments", es: "Asignación de equipos" },
+      { en: "Venue & room management", es: "Gestión de venues y salones" },
       { en: "Production documents", es: "Documentos de producción" }
+    ]
+  },
+  {
+    id: "projects",
+    icon: Target,
+    color: "from-indigo-500 to-blue-500",
+    bgColor: "bg-indigo-500/10",
+    title: "Project Orchestration",
+    subtitle: "Projects & Deliverables",
+    subtitleEs: "Proyectos y Entregables",
+    features: [
+      { en: "Project planning & milestones", es: "Planificación y hitos" },
+      { en: "Task management", es: "Gestión de tareas" },
+      { en: "Team collaboration", es: "Colaboración de equipo" },
+      { en: "Client deliverables", es: "Entregables al cliente" }
     ]
   },
   {
