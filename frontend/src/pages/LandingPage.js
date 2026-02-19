@@ -455,10 +455,17 @@ export default function LandingPage() {
                 <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-7.332 7.332a.75.75 0 01-1.06 0L6.106 12.16a.75.75 0 111.06-1.06l2.866 2.865 6.802-6.803a.75.75 0 011.06 1.06z"/>
               </svg>
             </div>
-            {/* Meta */}
+            {/* Meta - Infinity Logo */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 512 512" fill="#0081FB">
-                <path d="M256 0C114.6 0 0 114.6 0 256s114.6 256 256 256 256-114.6 256-256S397.4 0 256 0zm-47.5 326.7c-29.4 0-53.3-23.9-53.3-53.3 0-29.4 23.9-53.3 53.3-53.3 18.8 0 35.3 9.7 44.8 24.4l-22.4 12.9c-5.3-8.4-14.6-14-25.3-14-16.5 0-29.9 13.4-29.9 29.9s13.4 29.9 29.9 29.9c10.7 0 20-5.6 25.3-14l22.4 12.9c-9.5 14.8-26 24.4-44.8 24.4zm143.2 0c-29.4 0-53.3-23.9-53.3-53.3 0-29.4 23.9-53.3 53.3-53.3 18.8 0 35.3 9.7 44.8 24.4l-22.4 12.9c-5.3-8.4-14.6-14-25.3-14-16.5 0-29.9 13.4-29.9 29.9s13.4 29.9 29.9 29.9c10.7 0 20-5.6 25.3-14l22.4 12.9c-9.5 14.8-26 24.4-44.8 24.4z"/>
+              <svg className="w-12 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 800 400">
+                <defs>
+                  <linearGradient id="metaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style={{stopColor:"#0081FB"}}/>
+                    <stop offset="50%" style={{stopColor:"#0064E0"}}/>
+                    <stop offset="100%" style={{stopColor:"#0082FB"}}/>
+                  </linearGradient>
+                </defs>
+                <path fill="url(#metaGrad)" d="M186.8 200c0-66.3-53.7-120-120-120S-53.2 133.7-53.2 200s53.7 120 120 120c33.1 0 63.1-13.4 84.8-35.2L400 36.5l248.4 248.3c21.7 21.8 51.7 35.2 84.8 35.2 66.3 0 120-53.7 120-120s-53.7-120-120-120c-33.1 0-63.1 13.4-84.8 35.2L400 363.5 151.6 115.2C129.9 93.4 99.9 80 66.8 80c-66.3 0-120 53.7-120 120z"/>
               </svg>
             </div>
             {/* Google Ads */}
