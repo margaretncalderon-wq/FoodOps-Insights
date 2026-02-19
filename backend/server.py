@@ -14036,6 +14036,62 @@ async def deactivate_module_for_org(company_id: str, module_key: str, admin: Use
     return {"success": True, "message": f"Module {module_key} deactivated for organization"}
 
 
+@super_admin_router.post("/sync-addon-definitions")
+async def sync_addon_definitions(admin: User = Depends(get_super_admin)):
+    """
+    Sync addon definitions from code to database (Super Admin only).
+    Updates prices, names, and descriptions to match the latest code.
+    """
+    from routers.addons import DEFAULT_ADDONS
+    
+    updated = []
+    created = []
+    
+    for addon_data in DEFAULT_ADDONS:
+        addon_id = addon_data["addon_id"]
+        
+        # Check if exists
+        existing = await db.addon_definitions.find_one({"addon_id": addon_id})
+        
+        if existing:
+            # Update existing
+            update_fields = {
+                "price": addon_data.get("price"),
+                "display_name_en": addon_data.get("display_name_en"),
+                "display_name_es": addon_data.get("display_name_es"),
+                "description_en": addon_data.get("description_en"),
+                "description_es": addon_data.get("description_es"),
+                "icon": addon_data.get("icon"),
+                "is_active": addon_data.get("is_active", True),
+                "sort_order": addon_data.get("sort_order", 0),
+            }
+            # Remove None values
+            update_fields = {k: v for k, v in update_fields.items() if v is not None}
+            
+            await db.addon_definitions.update_one(
+                {"addon_id": addon_id},
+                {"$set": update_fields}
+            )
+            updated.append(addon_id)
+        else:
+            # Create new
+            await db.addon_definitions.insert_one(addon_data)
+            created.append(addon_id)
+    
+    await log_super_admin_action(admin.user_id, "sync_addon_definitions", None, {
+        "updated": updated,
+        "created": created
+    })
+    
+    return {
+        "success": True,
+        "updated": len(updated),
+        "created": len(created),
+        "updated_addons": updated,
+        "created_addons": created
+    }
+
+
 @super_admin_router.put("/organizations/{company_id}/industry")
 async def update_org_industry(company_id: str, data: dict, admin: User = Depends(get_super_admin)):
     """Update organization's industry template (Super Admin only)"""
