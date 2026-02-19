@@ -14450,18 +14450,10 @@ async def create_demo_account(
 async def list_demo_accounts(admin: User = Depends(get_super_admin)):
     """List all demo/influencer/partner accounts"""
     # Get organizations with demo/influencer/partner account types
-    # First try organizations collection, fallback to companies
-    orgs = await db.organizations.find(
+    orgs = await db.companies.find(
         {"account_type": {"$in": ["demo", "influencer", "partner"]}},
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
-    
-    # If empty, check companies collection for backward compatibility
-    if not orgs:
-        orgs = await db.companies.find(
-            {"account_type": {"$in": ["demo", "influencer", "partner"]}},
-            {"_id": 0}
-        ).sort("created_at", -1).to_list(100)
     
     # Enrich with user and subscription info
     accounts = []
