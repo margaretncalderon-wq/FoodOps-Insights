@@ -286,8 +286,8 @@ INDUSTRY_CONFIG = {
         
         # Program Orchestration configuration
         "program_orchestration": {
-            "name_en": "Service Management",
-            "name_es": "Gestión de Servicios",
+            "name_en": "Program Orchestration",
+            "name_es": "Program Orchestration",
             "icon": "clipboard-list",
             "description_en": "Manage services and work orders",
             "description_es": "Gestiona servicios y órdenes de trabajo",
@@ -320,7 +320,7 @@ INDUSTRY_CONFIG = {
         # Enabled modules
         "enabled_modules": [
             "module_event_orchestration",
-            "module_operations_supplies",
+            "module_operations_supplies",  # Resource Management - enabled for generic businesses
             "module_demand_studio",
         ],
         
@@ -334,8 +334,8 @@ INDUSTRY_CONFIG = {
             },
             "module_operations_supplies": {
                 "enabled": True,
-                "name_en": "Inventory",
-                "name_es": "Inventario",
+                "name_en": "Resource Management",
+                "name_es": "Gestión de Recursos",
                 "icon": "package",
             },
         },
