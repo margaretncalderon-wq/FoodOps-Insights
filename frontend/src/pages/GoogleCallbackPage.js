@@ -168,7 +168,7 @@ export default function GoogleCallbackPage() {
                     Creando cuenta...
                   </>
                 ) : (
-                  "Comenzar con Plan Free"
+                  "Comenzar con Kora"
                 )}
               </Button>
             </form>
