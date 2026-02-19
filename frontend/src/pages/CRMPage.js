@@ -374,7 +374,7 @@ export default function CRMPage() {
                         </Select>
                       </div>
                       <div>
-                        <Label>{language === "es" ? "Fecha del Evento" : "Event Date"}</Label>
+                        <Label>{dateLabel}</Label>
                         <Input
                           type="date"
                           value={leadForm.event_date}
@@ -382,7 +382,7 @@ export default function CRMPage() {
                         />
                       </div>
                       <div>
-                        <Label>{language === "es" ? "Invitados Estimados" : "Estimated Guests"}</Label>
+                        <Label>{guestLabel}</Label>
                         <Input
                           type="number"
                           value={leadForm.estimated_guest_count}
