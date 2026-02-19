@@ -14235,6 +14235,222 @@ async def get_pricing_history(limit: int = 10, admin: User = Depends(get_super_a
     return {"history": history}
 
 
+# ============== DEMO/INFLUENCER ACCOUNT CREATION ==============
+
+class DemoAccountCreate(BaseModel):
+    """Create a demo or influencer account with full access"""
+    email: EmailStr
+    name: str
+    password: str
+    organization_name: str
+    industry_type: str = "events"  # events, agency, consulting, generic
+    account_type: str = "demo"  # demo, influencer, partner
+    modules_to_activate: List[str] = []  # List of module keys to activate
+    trial_days: int = 365  # Default 1 year for demo/influencer accounts
+    notes: Optional[str] = None
+
+
+@super_admin_router.post("/demo-accounts")
+async def create_demo_account(
+    data: DemoAccountCreate,
+    admin: User = Depends(get_super_admin)
+):
+    """
+    Create a demo/influencer account with:
+    - New organization
+    - User as owner
+    - Selected modules activated (no payment required)
+    - Extended trial period
+    """
+    from industry_config_module.industry_config import get_industry_config
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    now = datetime.now(timezone.utc)
+    company_id = f"company_{uuid.uuid4().hex[:12]}"
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    
+    # Create organization
+    org_doc = {
+        "company_id": company_id,
+        "name": data.organization_name,
+        "primary_color": "#3A4D3F",
+        "secondary_color": "#E5DCC5",
+        "default_language": "es",
+        "currency": "USD",
+        "timezone": "America/Santo_Domingo",
+        "status": "active",
+        "account_type": data.account_type,  # demo, influencer, partner
+        "admin_notes": data.notes,
+        "created_by_admin": admin.user_id,
+        "created_at": now.isoformat()
+    }
+    await db.companies.insert_one(org_doc)
+    
+    # Create organization config with industry
+    industry_config = get_industry_config(data.industry_type)
+    org_config_doc = {
+        "config_id": f"cfg_{uuid.uuid4().hex[:8]}",
+        "company_id": company_id,
+        "industry_type": data.industry_type,
+        "industry_template": {
+            "events": "events_hospitality",
+            "agency": "professional_services",
+            "consulting": "professional_services",
+            "generic": "generic"
+        }.get(data.industry_type, "generic"),
+        "terminology": {},
+        "created_at": now.isoformat()
+    }
+    await db.organization_configs.insert_one(org_config_doc)
+    
+    # Create subscription with extended trial
+    trial_end = now + timedelta(days=data.trial_days)
+    subscription_doc = {
+        "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "plan_id": "plan_professional",
+        "status": "trialing",
+        "billing_cycle": "monthly",
+        "current_period_start": now.isoformat(),
+        "current_period_end": trial_end.isoformat(),
+        "trial_ends_at": trial_end.isoformat(),
+        "cancel_at_period_end": False,
+        "is_demo_account": True,
+        "account_type": data.account_type,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.subscriptions.insert_one(subscription_doc)
+    
+    # Hash password and create user
+    hashed_password = bcrypt.hashpw(data.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    user_doc = {
+        "user_id": user_id,
+        "email": data.email,
+        "name": data.name,
+        "password_hash": hashed_password,
+        "company_id": company_id,
+        "role": "owner",
+        "is_super_admin": False,
+        "is_active": True,
+        "account_type": data.account_type,
+        "created_at": now.isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Activate selected modules (admin bypass - no payment)
+    activated_modules = []
+    billing_end = trial_end
+    
+    # If no modules specified, use industry defaults
+    modules_to_activate = data.modules_to_activate
+    if not modules_to_activate:
+        modules_to_activate = industry_config.get("enabled_modules", [])
+    
+    for module_key in modules_to_activate:
+        addon_id = f"addon_{module_key}"
+        
+        # Check if module addon definition exists
+        addon_def = await db.addon_definitions.find_one({"addon_id": addon_id})
+        if not addon_def:
+            continue
+        
+        org_addon_id = f"orgaddon_{uuid.uuid4().hex[:12]}"
+        org_addon_doc = {
+            "org_addon_id": org_addon_id,
+            "company_id": company_id,
+            "addon_id": addon_id,
+            "addon_name": addon_def.get("display_name_es", module_key),
+            "addon_type": "module",
+            "status": "active",
+            "quantity": 1,
+            "price_paid": 0,  # Free for demo/influencer
+            "pricing_type": "monthly",
+            "currency": "USD",
+            "billing_cycle_start": now.isoformat(),
+            "billing_cycle_end": billing_end.isoformat(),
+            "next_billing_date": None,  # No billing for demo accounts
+            "auto_renew": False,
+            "admin_granted": True,
+            "account_type": data.account_type,
+            "purchased_by": admin.user_id,
+            "purchased_at": now.isoformat()
+        }
+        await db.organization_addons.insert_one(org_addon_doc)
+        activated_modules.append(module_key)
+    
+    # Log admin action
+    await log_super_admin_action(admin.user_id, "create_demo_account", company_id, {
+        "email": data.email,
+        "organization": data.organization_name,
+        "industry": data.industry_type,
+        "account_type": data.account_type,
+        "modules": activated_modules,
+        "trial_days": data.trial_days
+    })
+    
+    return {
+        "success": True,
+        "account": {
+            "user_id": user_id,
+            "email": data.email,
+            "name": data.name,
+            "company_id": company_id,
+            "organization_name": data.organization_name,
+            "industry_type": data.industry_type,
+            "account_type": data.account_type,
+            "trial_ends_at": trial_end.isoformat(),
+            "activated_modules": activated_modules
+        }
+    }
+
+
+@super_admin_router.get("/demo-accounts")
+async def list_demo_accounts(admin: User = Depends(get_super_admin)):
+    """List all demo/influencer/partner accounts"""
+    # Get organizations with demo/influencer/partner account types
+    orgs = await db.companies.find(
+        {"account_type": {"$in": ["demo", "influencer", "partner"]}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Enrich with user and subscription info
+    accounts = []
+    for org in orgs:
+        # Get owner user
+        owner = await db.users.find_one(
+            {"company_id": org["company_id"], "role": "owner"},
+            {"_id": 0, "user_id": 1, "email": 1, "name": 1}
+        )
+        
+        # Get subscription
+        subscription = await db.subscriptions.find_one(
+            {"company_id": org["company_id"]},
+            {"_id": 0, "status": 1, "trial_ends_at": 1}
+        )
+        
+        # Get active modules count
+        modules_count = await db.organization_addons.count_documents({
+            "company_id": org["company_id"],
+            "status": "active",
+            "addon_type": "module"
+        })
+        
+        accounts.append({
+            **org,
+            "owner": owner,
+            "subscription_status": subscription.get("status") if subscription else "none",
+            "trial_ends_at": subscription.get("trial_ends_at") if subscription else None,
+            "active_modules_count": modules_count
+        })
+    
+    return {"accounts": accounts, "total": len(accounts)}
+
+
 # ============== DEMAND STUDIO ENDPOINTS ==============
 # All Demand Studio endpoints moved to routers/demand_studio.py
 
