@@ -13878,6 +13878,11 @@ async def reset_user_password(
     if not new_password:
         raise HTTPException(status_code=400, detail="New password required")
     
+    # Get target user info before update
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     hashed_password = bcrypt.hashpw(
         new_password.encode("utf-8"),
         bcrypt.gensalt()
@@ -13890,6 +13895,18 @@ async def reset_user_password(
     
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Send notification email to the user
+    try:
+        from services.email_service import send_password_changed_notification
+        await send_password_changed_notification(
+            to_email=target_user.get("email"),
+            user_name=target_user.get("name", "Usuario"),
+            changed_at=datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC"),
+            changed_by=f"Administrador ({user.email})"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send password change notification: {e}")
     
     return {"success": True}
 
