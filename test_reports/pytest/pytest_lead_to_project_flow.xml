@@ -1,43 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="12" failures="2" skipped="0" tests="15" time="5.834" timestamp="2026-02-19T02:42:49.275535+00:00" hostname="agent-env-411a3d0d-fa7c-4638-93dd-e2755be60c4f"><testcase classname="backend.tests.test_lead_to_project_flow.TestAgencyUserAuth" name="test_agency_user_login" time="0.478"><failure message="AssertionError: No token in response&#10;assert 'token' in {'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidXNlcl8zNWQzMzc1MTA4OTQiLCJleHAiOjE3NzIwNzM3NjksImlhdCI6MTc3MTQ2ODk2OX0.2DilKl0XrmpKDJDOJAxTEX2xlzlH0m0QJeyJHquG1Wc', 'token_type': 'bearer', 'user': {'active_org_id': None, 'company_id': 'company_3ab116c0994d', 'created_at': '2026-02-18T23:44:54.080362Z', 'email': 'demo.agency@kora.com', ...}}">backend/tests/test_lead_to_project_flow.py:30: in test_agency_user_login
-    assert "token" in data, "No token in response"
-E   AssertionError: No token in response
-E   assert 'token' in {'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidXNlcl8zNWQzMzc1MTA4OTQiLCJleHAiOjE3NzIwNzM3NjksImlhdCI6MTc3MTQ2ODk2OX0.2DilKl0XrmpKDJDOJAxTEX2xlzlH0m0QJeyJHquG1Wc', 'token_type': 'bearer', 'user': {'active_org_id': None, 'company_id': 'company_3ab116c0994d', 'created_at': '2026-02-18T23:44:54.080362Z', 'email': 'demo.agency@kora.com', ...}}</failure></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestAgencyUserAuth" name="test_agency_user_is_super_admin" time="0.362" /><testcase classname="backend.tests.test_lead_to_project_flow.TestAgencyUserAuth" name="test_agency_industry_type" time="0.340"><failure message="KeyError: 'token'">backend/tests/test_lead_to_project_flow.py:56: in test_agency_industry_type
-    token = login_res.json()["token"]
-            ^^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</failure></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMOutreachFlow" name="test_get_outreach_leads" time="0.344"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:80: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMOutreachFlow" name="test_create_outreach_lead" time="0.358"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:80: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMOutreachFlow" name="test_update_outreach_status" time="0.361"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:80: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestLeadConversion" name="test_create_and_convert_lead" time="0.384"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:164: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_get_events" time="0.395"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:222: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_get_events_pipeline" time="0.391"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:222: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_create_event_project" time="0.340"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:222: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_update_event_stage_to_committed" time="0.356"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:222: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestProgramOrchestration" name="test_get_orchestration_events" time="0.359"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:339: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestProgramOrchestration" name="test_terminology_in_enabled_modules" time="0.398"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:339: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMStats" name="test_crm_stats" time="0.342"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:395: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestCleanup" name="test_cleanup_test_data" time="0.394"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_lead_to_project_flow.py:428: in setup
-    self.token = response.json()["token"]
-                 ^^^^^^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'token'</error></testcase></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="15" time="8.762" timestamp="2026-02-19T02:43:06.735283+00:00" hostname="agent-env-411a3d0d-fa7c-4638-93dd-e2755be60c4f"><testcase classname="backend.tests.test_lead_to_project_flow.TestAgencyUserAuth" name="test_agency_user_login" time="0.423" /><testcase classname="backend.tests.test_lead_to_project_flow.TestAgencyUserAuth" name="test_agency_user_is_super_admin" time="0.429" /><testcase classname="backend.tests.test_lead_to_project_flow.TestAgencyUserAuth" name="test_agency_industry_type" time="0.569" /><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMOutreachFlow" name="test_get_outreach_leads" time="0.524" /><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMOutreachFlow" name="test_create_outreach_lead" time="0.473" /><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMOutreachFlow" name="test_update_outreach_status" time="0.724" /><testcase classname="backend.tests.test_lead_to_project_flow.TestLeadConversion" name="test_create_and_convert_lead" time="0.747" /><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_get_events" time="0.532" /><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_get_events_pipeline" time="0.539" /><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_create_event_project" time="0.662" /><testcase classname="backend.tests.test_lead_to_project_flow.TestEventsProposals" name="test_update_event_stage_to_committed" time="0.438"><failure message="assert 422 == 200&#10; +  where 422 = &lt;Response [422]&gt;.status_code">backend/tests/test_lead_to_project_flow.py:303: in test_update_event_stage_to_committed
+    assert create_res.status_code == 200
+E   assert 422 == 200
+E    +  where 422 = &lt;Response [422]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_lead_to_project_flow.TestProgramOrchestration" name="test_get_orchestration_events" time="0.459" /><testcase classname="backend.tests.test_lead_to_project_flow.TestProgramOrchestration" name="test_terminology_in_enabled_modules" time="0.652" /><testcase classname="backend.tests.test_lead_to_project_flow.TestCRMStats" name="test_crm_stats" time="0.466" /><testcase classname="backend.tests.test_lead_to_project_flow.TestCleanup" name="test_cleanup_test_data" time="1.031" /></testsuite></testsuites>
