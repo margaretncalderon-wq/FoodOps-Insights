@@ -19,8 +19,9 @@ import {
 } from "../ui/dropdown-menu";
 import { 
   Users, Plus, Mail, MoreVertical, Shield, Loader2, 
-  UserMinus, RefreshCw, Clock, Check, X
+  UserMinus, RefreshCw, Clock, Check, X, Key
 } from "lucide-react";
+import { Label } from "../ui/label";
 
 import { API_BASE as API } from "../../utils/api";
 
