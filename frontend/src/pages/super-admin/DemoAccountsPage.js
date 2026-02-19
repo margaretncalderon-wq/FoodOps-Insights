@@ -171,6 +171,14 @@ export default function DemoAccountsPage() {
   };
 
   const getAccountTypeBadge = (type) => {
+    if (type === "paid") {
+      return (
+        <Badge className="bg-emerald-500 text-white">
+          <CreditCard className="w-3 h-3 mr-1" />
+          {isEs ? "Pagada" : "Paid"}
+        </Badge>
+      );
+    }
     const config = ACCOUNT_TYPES.find(t => t.value === type) || ACCOUNT_TYPES[0];
     const Icon = config.icon;
     return (
@@ -188,6 +196,102 @@ export default function DemoAccountsPage() {
         ? prev.modules_to_activate.filter(m => m !== moduleKey)
         : [...prev.modules_to_activate, moduleKey]
     }));
+  };
+
+  // Convert account to paid
+  const handleConvertAccount = async () => {
+    if (!selectedAccount) return;
+    
+    setSaving(true);
+    try {
+      const response = await axios.post(
+        `${API}/api/super-admin/demo-accounts/${selectedAccount.company_id}/convert`,
+        convertForm,
+        { withCredentials: true }
+      );
+      
+      if (convertForm.conversion_type === "manual") {
+        toast.success(isEs ? "Cuenta convertida a pagada exitosamente" : "Account converted to paid successfully");
+      } else {
+        // Stripe - show checkout URL
+        const checkoutUrl = response.data.checkout_url;
+        toast.success(
+          <div className="space-y-2">
+            <div>{isEs ? "Link de pago generado!" : "Payment link generated!"}</div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(checkoutUrl);
+                toast.success(isEs ? "Link copiado!" : "Link copied!");
+              }}
+            >
+              <Copy className="w-3 h-3 mr-1" />
+              {isEs ? "Copiar link" : "Copy link"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => window.open(checkoutUrl, '_blank')}
+            >
+              <ExternalLink className="w-3 h-3 mr-1" />
+              {isEs ? "Abrir link" : "Open link"}
+            </Button>
+          </div>,
+          { duration: 15000 }
+        );
+      }
+      
+      setShowConvertModal(false);
+      setSelectedAccount(null);
+      setConvertForm({ conversion_type: "manual", extend_days: 30, notes: "" });
+      fetchAccounts();
+    } catch (error) {
+      const msg = error.response?.data?.detail || (isEs ? "Error al convertir cuenta" : "Error converting account");
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Extend trial
+  const handleExtendTrial = async () => {
+    if (!selectedAccount) return;
+    
+    setSaving(true);
+    try {
+      await axios.post(
+        `${API}/api/super-admin/demo-accounts/${selectedAccount.company_id}/extend-trial?days=${extendDays}`,
+        {},
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? `Trial extendido ${extendDays} días` : `Trial extended ${extendDays} days`);
+      setShowExtendModal(false);
+      setSelectedAccount(null);
+      setExtendDays(30);
+      fetchAccounts();
+    } catch (error) {
+      const msg = error.response?.data?.detail || (isEs ? "Error al extender trial" : "Error extending trial");
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Check if trial is expired or expiring soon
+  const getTrialStatus = (trialEndsAt) => {
+    if (!trialEndsAt) return { status: "none", label: "-" };
+    const now = new Date();
+    const endDate = new Date(trialEndsAt);
+    const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+    
+    if (daysRemaining < 0) {
+      return { status: "expired", label: isEs ? "Expirado" : "Expired", color: "text-red-500" };
+    } else if (daysRemaining <= 7) {
+      return { status: "expiring", label: `${daysRemaining}d`, color: "text-amber-500" };
+    } else {
+      return { status: "active", label: endDate.toLocaleDateString(), color: "text-muted-foreground" };
+    }
   };
 
   if (loading) {
