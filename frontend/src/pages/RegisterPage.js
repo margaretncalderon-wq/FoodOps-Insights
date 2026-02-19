@@ -177,12 +177,19 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // First, register the user
-      await register({
-        ...formData,
-        selected_modules: formData.selected_modules,
-      });
-      toast.success(language === "es" ? "¡Cuenta creada!" : "Account created!");
+      // Handle Google registration vs normal registration
+      if (isFromGoogle && googleTempToken) {
+        // Complete Google registration with industry selection
+        await completeGoogleRegistration(googleTempToken, formData.company_name, formData.industry_template);
+        toast.success(language === "es" ? "¡Cuenta creada!" : "Account created!");
+      } else {
+        // Normal registration
+        await register({
+          ...formData,
+          selected_modules: formData.selected_modules,
+        });
+        toast.success(language === "es" ? "¡Cuenta creada!" : "Account created!");
+      }
       
       // If modules are selected, redirect to Stripe payment
       if (formData.selected_modules.length > 0) {
