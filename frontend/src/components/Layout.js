@@ -62,19 +62,8 @@ const iconMap = {
   "boxes": Package,
 };
 
-// Fallback nav items (used if modules API fails)
-const fallbackNavItems = [
-  { path: "/dashboard", icon: Activity, labelKey: "systemPulse" },
-  { path: "/client-engagement", icon: Puzzle, label: "Client Engagement", labelEs: "Client Engagement" },
-  { path: "/event-orchestration", icon: ClipboardList, label: "Event Orchestration", labelEs: "Event Orchestration" },
-  { path: "/food-ops", icon: UtensilsCrossed, label: "Culinary Intelligence", labelEs: "Inteligencia Culinaria" },
-  { path: "/ops-supplies", icon: Package, label: "Operations Supplies", labelEs: "Operations Supplies" },
-  { path: "/venues", icon: Building2, labelKey: "venues" },
-  { path: "/execution-hub", icon: Target, label: "Execution Hub", labelEs: "Execution Hub" },
-  { path: "/demand-studio", icon: Megaphone, label: "Demand Studio", labelEs: "Demand Studio" },
-  { path: "/business-clarity", icon: Briefcase, label: "Business Clarity", labelEs: "Business Clarity" },
-  { path: "/settings", icon: Settings, labelKey: "settings" },
-];
+// Minimal fallback - only shown while loading
+// Full navigation comes from ModulesContext based on industry
 
 export const Layout = ({ children }) => {
   const { user, logout } = useAuth();
