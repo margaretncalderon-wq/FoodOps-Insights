@@ -14776,6 +14776,12 @@ api_router.include_router(org_config_router)
 api_router.include_router(payments_router)
 api_router.include_router(automation_router)
 
+# Include integrations routers
+from routers.integrations_api import integrations_api_router
+from routers.integrations_admin import integrations_admin_router
+api_router.include_router(integrations_api_router)  # /api/v1/integrations/*
+api_router.include_router(integrations_admin_router, prefix="/super-admin")  # /api/super-admin/integrations/*
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
