@@ -205,6 +205,24 @@ export default function OrganizationDetailPage() {
     }
   };
 
+  // Change account type (normal, demo, influencer, partner)
+  const handleChangeAccountType = async (newType) => {
+    setSavingAccountType(true);
+    try {
+      await axios.put(
+        `${API}/api/super-admin/organizations/${id}/account-type`,
+        { account_type: newType },
+        { withCredentials: true }
+      );
+      setAccountType(newType);
+      toast.success(`Tipo de cuenta cambiado a "${newType || 'normal'}"`);
+      fetchOrganization();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al cambiar tipo de cuenta");
+    }
+    setSavingAccountType(false);
+  };
+
   const handleViewAs = async () => {
     try {
       const res = await axios.post(`${API}/api/super-admin/view-as/${id}`, {}, { withCredentials: true });
