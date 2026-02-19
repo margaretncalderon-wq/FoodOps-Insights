@@ -699,3 +699,20 @@ Funcionalidad para enviar proyectos/eventos desde Client Engagement a Execution 
   - Account creation form with industry, modules, trial days selection
   - Password generator
   - Account listing with stats
+
+### Account Conversion & Trial Management (February 19, 2026)
+- ✅ **Manual Conversion:** `POST /api/super-admin/demo-accounts/{company_id}/convert` with `conversion_type: "manual"`
+  - Admin can convert demo to paid without Stripe charge
+  - Configurable subscription period
+- ✅ **Stripe Conversion:** Same endpoint with `conversion_type: "stripe"`
+  - Generates Stripe Checkout link for user to pay
+  - Admin can copy link or open directly
+- ✅ **Extend Trial:** `POST /api/super-admin/demo-accounts/{company_id}/extend-trial?days=N`
+  - Extends trial by specified days
+- ✅ **Trial Status API:** `GET /api/subscription/trial-status`
+  - Returns expiration info, days remaining, estimated cost
+  - `show_payment_modal: true` when expired or <7 days remaining
+- ✅ **Trial Expiration Modal:** `/app/frontend/src/components/TrialExpirationModal.js`
+  - Shows automatically when trial expires or is expiring soon
+  - Displays active modules count and estimated monthly cost
+  - "Remind me later" option (session-based dismissal)
