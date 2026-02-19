@@ -67,6 +67,17 @@ const CLIENT_SOURCES = ["Website", "Instagram", "QR", "Referral", "Direct", "Oth
 
 export default function CRMPage() {
   const { t, language } = useLanguage();
+  const { isProfessionalServices, getProgramOrchestrationConfig } = useModules();
+  
+  // Get dynamic terminology
+  const poConfig = useMemo(() => getProgramOrchestrationConfig(), [getProgramOrchestrationConfig]);
+  const dateLabel = isProfessionalServices 
+    ? (language === "es" ? "Fecha del Proyecto" : "Project Date")
+    : (language === "es" ? "Fecha del Evento" : "Event Date");
+  const guestLabel = isProfessionalServices
+    ? (language === "es" ? "Participantes Estimados" : "Estimated Participants")
+    : (language === "es" ? "Invitados Estimados" : "Estimated Guests");
+  
   const [activeTab, setActiveTab] = useState("leads");
   const [leads, setLeads] = useState([]);
   const [clients, setClients] = useState([]);
