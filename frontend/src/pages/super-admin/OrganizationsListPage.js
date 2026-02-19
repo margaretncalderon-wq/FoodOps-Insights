@@ -170,43 +170,43 @@ export default function OrganizationsListPage() {
     return (
       <div className="space-y-1">
         <div className="flex justify-between text-xs">
-          <span className="text-slate-300">{label}</span>
-          <span className="text-white font-medium">{current}/{limit}</span>
+          <span className="text-gray-500">{label}</span>
+          <span className="text-gray-700 font-medium">{current}/{limit}</span>
         </div>
         <Progress 
           value={percentage} 
-          className={`h-1.5 bg-slate-600 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
+          className={`h-1.5 bg-gray-200 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
         />
       </div>
     );
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-gray-50 min-h-screen">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white" data-testid="orgs-page-title">Organizaciones</h1>
-        <p className="text-slate-400">Administra todas las organizaciones de la plataforma</p>
+        <h1 className="text-2xl font-bold text-gray-900" data-testid="orgs-page-title">Organizaciones</h1>
+        <p className="text-gray-500">Administra todas las organizaciones de la plataforma</p>
       </div>
 
       {/* Filters */}
-      <Card className="bg-slate-800 border-slate-700 mb-6">
+      <Card className="bg-white border-gray-200 mb-6 shadow-sm">
         <CardContent className="pt-6">
           <form onSubmit={handleSearch} className="flex items-center gap-4 flex-wrap">
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar organizaciones..."
-                  className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                  className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
                   data-testid="search-input"
                 />
               </div>
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-40 bg-white border-gray-300 text-gray-900">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -217,7 +217,7 @@ export default function OrganizationsListPage() {
             </Select>
 
             <Select value={planFilter} onValueChange={setPlanFilter}>
-              <SelectTrigger className="w-40 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-40 bg-white border-gray-300 text-gray-900">
                 <SelectValue placeholder="Plan" />
               </SelectTrigger>
               <SelectContent>
@@ -229,7 +229,7 @@ export default function OrganizationsListPage() {
             </Select>
 
             <Select value={industryFilter} onValueChange={setIndustryFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-48 bg-white border-gray-300 text-gray-900">
                 <SelectValue placeholder="Industria" />
               </SelectTrigger>
               <SelectContent>
@@ -240,12 +240,12 @@ export default function OrganizationsListPage() {
               </SelectContent>
             </Select>
 
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="default">
               <Filter className="w-4 h-4 mr-2" />
               Aplicar
             </Button>
 
-            <Button type="button" variant="outline" onClick={fetchOrganizations} className="border-slate-600 text-white hover:bg-slate-700">
+            <Button type="button" variant="outline" onClick={fetchOrganizations} className="border-gray-300 text-gray-700 hover:bg-gray-100">
               <RefreshCw className="w-4 h-4" />
             </Button>
           </form>
