@@ -50,6 +50,12 @@ export default function OrganizationDetailPage() {
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [resetUsageDialogOpen, setResetUsageDialogOpen] = useState(false);
+  
+  // Password change state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     fetchOrganization();
