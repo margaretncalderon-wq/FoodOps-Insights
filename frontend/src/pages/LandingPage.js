@@ -440,18 +440,27 @@ export default function LandingPage() {
             {isEs ? "Se integra con las herramientas que ya usas" : "Integrates with tools you already use"}
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10">
-            {/* Gmail */}
+            {/* Gmail - M multicolor */}
             <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Gmail">
               <svg className="w-10 h-10" viewBox="0 0 48 48">
-                <path fill="#4285F4" d="M6 10v28c0 2.2 1.8 4 4 4h4V16l10 8 10-8v26h4c2.2 0 4-1.8 4-4V10c0-2.2-1.8-4-4-4h-2l-12 9.5L12 6h-2C7.8 6 6 7.8 6 10z"/>
-                <path fill="#EA4335" d="M24 24l-10-8V42h20V16l-10 8z"/>
-                <path fill="#FBBC05" d="M38 6l-14 11V24l14-11V6zM10 6v7l14 11v-7L10 6z"/>
-                <path fill="#34A853" d="M14 42V16l-4-3v25c0 2.2 1.8 4 4 4zM34 42c2.2 0 4-1.8 4-4V13l-4 3v26z"/>
+                <path fill="#4285F4" d="M8 12v24c0 2.2 1.8 4 4 4h2V12H8z"/>
+                <path fill="#EA4335" d="M14 12v28h2V18l8 6 8-6v22h2V12l-10 7.5L14 12z"/>
+                <path fill="#FBBC05" d="M34 12v28h2V12h-2z"/>
+                <path fill="#34A853" d="M36 12v28h2c2.2 0 4-1.8 4-4V12h-6z"/>
+                <path fill="#EA4335" d="M24 24l-10-7.5V12l10 7.5L34 12v4.5L24 24z"/>
               </svg>
             </div>
-            {/* Google Calendar */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Calendar">
-              <img src="https://cdn.simpleicons.org/googlecalendar" alt="Google Calendar" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+            {/* Google Calendar - Cuadrado multicolor con 31 */}
+            <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Google Calendar">
+              <svg className="w-10 h-10" viewBox="0 0 48 48">
+                <path fill="#4285F4" d="M8 8h14v14H8z"/>
+                <path fill="#FBBC05" d="M26 8h14v14H26z"/>
+                <path fill="#34A853" d="M8 26h14v14H8z"/>
+                <path fill="#EA4335" d="M40 40l-6-6h6v6z"/>
+                <path fill="#34A853" d="M26 26h8v14h-8z"/>
+                <rect x="12" y="12" width="24" height="24" rx="2" fill="white"/>
+                <text x="24" y="32" textAnchor="middle" fill="#4285F4" fontSize="16" fontWeight="bold" fontFamily="Arial">31</text>
+              </svg>
             </div>
             {/* Meta */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
