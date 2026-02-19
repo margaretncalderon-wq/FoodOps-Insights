@@ -495,6 +495,7 @@ async def complete_google_registration(request: Request, response: Response):
     body = await request.json()
     temp_token = body.get("temp_token")
     company_name = body.get("company_name")
+    industry_template = body.get("industry_template", "events_hospitality")
     
     if not temp_token:
         raise HTTPException(status_code=400, detail="Token de registro temporal requerido")
@@ -529,42 +530,44 @@ async def complete_google_registration(request: Request, response: Response):
     company_id = f"company_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
     
-    # Create company with Free plan defaults
-    company_doc = {
+    # Create organization with industry template (new format)
+    org_doc = {
         "company_id": company_id,
         "name": company_name or f"Empresa de {name}",
-        "logo_url": None,
-        "primary_color": "#3A4D3F",
-        "secondary_color": "#E5DCC5",
-        "default_language": "es",
-        "currency": "USD",
-        "default_tax_rate": 0.0,
-        "plan": "free",
-        "plan_started_at": now.isoformat(),
-        "plan_limits": {
-            "max_users": 2,
-            "max_events": 10,
-            "max_clients": 25,
-            "max_storage_mb": 100
-        },
+        "industry_template": industry_template,
+        "status": "active",
         "created_at": now.isoformat(),
-        "settings": {}
+        "settings": {
+            "currency": "USD",
+            "timezone": "America/Santo_Domingo",
+            "language": "es"
+        }
     }
-    await db.companies.insert_one(company_doc)
+    await db.organizations.insert_one(org_doc)
     
-    # Create user as admin of their company
+    # Create user as owner of their organization
     user_doc = {
         "user_id": user_id,
         "email": email,
         "name": name,
         "picture": picture,
         "company_id": company_id,
-        "role": "admin",
+        "role": "owner",
         "is_super_admin": False,
         "auth_provider": "google",
         "created_at": now.isoformat()
     }
     await db.users.insert_one(user_doc)
+    
+    # Create membership
+    await db.organization_members.insert_one({
+        "membership_id": f"member_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "user_id": user_id,
+        "role": "owner",
+        "status": "active",
+        "joined_at": now.isoformat()
+    })
     
     # Clean up temp registration
     await db.google_temp_registrations.delete_one({"temp_token": temp_token})
