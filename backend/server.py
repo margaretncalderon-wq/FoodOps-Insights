@@ -14472,20 +14472,32 @@ async def create_demo_account(
     }
     await db.companies.insert_one(org_doc)
     
-    # Create organization config with industry
-    industry_config = get_industry_config(data.industry_type)
+    # Create organization config with industry - FULL CONFIG
+    from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
+    
+    # Map industry_type to IndustryTemplate enum
+    template_enum_map = {
+        "events": IndustryTemplate.EVENTS_HOSPITALITY,
+        "agency": IndustryTemplate.PROFESSIONAL_SERVICES,
+        "consulting": IndustryTemplate.PROFESSIONAL_SERVICES,
+        "generic": IndustryTemplate.GENERIC
+    }
+    template_enum = template_enum_map.get(data.industry_type, IndustryTemplate.GENERIC)
+    template_data = INDUSTRY_TEMPLATES.get(template_enum, INDUSTRY_TEMPLATES[IndustryTemplate.GENERIC])
+    
     org_config_doc = {
         "config_id": f"cfg_{uuid.uuid4().hex[:8]}",
         "company_id": company_id,
         "industry_type": data.industry_type,
-        "industry_template": {
-            "events": "events_hospitality",
-            "agency": "professional_services",
-            "consulting": "professional_services",
-            "generic": "generic"
-        }.get(data.industry_type, "generic"),
-        "terminology": {},
-        "created_at": now.isoformat()
+        "industry_template": industry_template,
+        "enabled_engagement_types": template_data.get("enabled_engagement_types", ["event"]),
+        "default_engagement_type": template_data.get("default_engagement_type", "event"),
+        "terminology": template_data.get("terminology", {}),
+        "pipeline_stages": template_data.get("pipeline_stages", []),
+        "event_types": template_data.get("event_types", []),
+        "client_types": template_data.get("client_types", []),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
     }
     await db.organization_configs.insert_one(org_config_doc)
     
