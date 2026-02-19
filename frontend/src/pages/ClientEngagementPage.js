@@ -209,12 +209,13 @@ export default function ClientEngagementPage() {
             <Route index element={<Navigate to="calendar" replace />} />
             
             {/* Engagement Calendar - Primary View */}
-            <Route path="calendar/*" element={<EngagementCalendar />} />
             <Route path="calendar" element={<EngagementCalendar />} />
             
             {/* Proposals & Agreements (Events) */}
-            <Route path="proposals/*" element={<EventsPageContent />} />
             <Route path="proposals" element={<EventsPageContent />} />
+            
+            {/* Backward compatibility: /events redirects to /proposals */}
+            <Route path="events" element={<Navigate to="/client-engagement/proposals" replace />} />
             
             {/* CRM Routes */}
             <Route path="crm" element={<Navigate to="crm/outreach" replace />} />
@@ -225,11 +226,14 @@ export default function ClientEngagementPage() {
             <Route path="crm/owners" element={<OwnerAssignmentSection />} />
             <Route path="crm/clients" element={<ClientsSection />} />
             
+            {/* Backward compatibility: /crm-outreach redirects to /crm/outreach */}
+            <Route path="crm-outreach" element={<Navigate to="/client-engagement/crm/outreach" replace />} />
+            
             {/* Automation */}
             <Route path="automation" element={<AutomationSection />} />
             
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="calendar" replace />} />
+            {/* Fallback - redirect to calendar */}
+            <Route path="*" element={<Navigate to="/client-engagement/calendar" replace />} />
           </Routes>
         </Suspense>
       </div>
