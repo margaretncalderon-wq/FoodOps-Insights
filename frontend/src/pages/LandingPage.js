@@ -442,7 +442,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center items-center gap-10">
             {/* Google Workspace */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Workspace">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24">
+              <svg className="w-10 h-10" viewBox="0 0 24 24" style={{filter: 'grayscale(100%)'}} onMouseEnter={(e) => e.currentTarget.style.filter = 'grayscale(0%)'} onMouseLeave={(e) => e.currentTarget.style.filter = 'grayscale(100%)'}>
                 <path fill="#EA4335" d="M5.26 9.76A7.08 7.08 0 0 1 12 5c1.8 0 3.43.67 4.68 1.76l3.54-3.54A11.95 11.95 0 0 0 12 0C7.39 0 3.39 2.6 1.39 6.4l3.87 3.36z"/>
                 <path fill="#FBBC05" d="M1.39 6.4A11.9 11.9 0 0 0 0 12c0 2 .5 3.89 1.36 5.55l3.9-3.34A7.05 7.05 0 0 1 5 12c0-.78.13-1.54.36-2.24L1.39 6.4z"/>
                 <path fill="#34A853" d="M12 24c4.44 0 8.16-1.46 10.88-3.97l-3.72-3.13c-1.35.98-3.2 1.66-5.16 1.66-3.63 0-6.72-2.45-7.83-5.76l-3.9 3.34C4.21 20.92 7.78 24 12 24z"/>
@@ -451,9 +451,9 @@ export default function LandingPage() {
             </div>
             {/* DocuSign */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="DocuSign">
-              <svg className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" viewBox="0 0 24 24">
-                <rect x="2" y="8" width="8" height="14" rx="1" fill="#4C00FF"/>
-                <ellipse cx="10" cy="8" rx="6" ry="6" fill="#FF5449"/>
+              <svg className="w-10 h-10" viewBox="0 0 40 40" style={{filter: 'grayscale(100%)'}} onMouseEnter={(e) => e.currentTarget.style.filter = 'grayscale(0%)'} onMouseLeave={(e) => e.currentTarget.style.filter = 'grayscale(100%)'}>
+                <rect x="4" y="14" width="14" height="22" rx="2" fill="#4C00FF"/>
+                <path d="M18 14 C18 6, 26 0, 34 6 C42 12, 36 20, 28 20 L18 20 Z" fill="#FF5449"/>
               </svg>
             </div>
             {/* Meta */}
