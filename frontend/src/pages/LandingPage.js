@@ -466,9 +466,13 @@ export default function LandingPage() {
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
               <img src="https://cdn.simpleicons.org/meta" alt="Meta" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
             </div>
-            {/* Google Ads */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Ads">
-              <img src="https://cdn.simpleicons.org/googleads/4285F4" alt="Google Ads" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
+            {/* Google Ads - A con barras y círculo verde */}
+            <div className="group opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer [&>svg]:grayscale [&>svg]:hover:grayscale-0 [&>svg]:transition-all [&>svg]:duration-300" title="Google Ads">
+              <svg className="w-10 h-10" viewBox="0 0 48 48">
+                <path fill="#FBBC05" d="M10 42c-3.3 0-6-2.7-6-6V12l18 30H10z"/>
+                <path fill="#4285F4" d="M44 12v24c0 3.3-2.7 6-6 6H26L44 12z"/>
+                <circle cx="10" cy="36" r="6" fill="#34A853"/>
+              </svg>
             </div>
             {/* Stripe */}
             <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Stripe">
