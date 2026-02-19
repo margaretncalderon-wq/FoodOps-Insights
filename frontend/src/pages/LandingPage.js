@@ -100,18 +100,18 @@ const moduleHighlights = [
     ]
   },
   {
-    id: "operations",
+    id: "resources",
     icon: Package,
     color: "from-slate-500 to-gray-600",
     bgColor: "bg-slate-500/10",
-    title: "Operations Supplies",
-    subtitle: "Assets & Inventory",
-    subtitleEs: "Activos e Inventario",
+    title: "Resource Management",
+    subtitle: "Assets & Scheduling",
+    subtitleEs: "Activos y Programación",
     features: [
       { en: "Equipment tracking", es: "Control de equipos" },
-      { en: "Reserved vs available stock", es: "Stock reservado vs disponible" },
+      { en: "Resource scheduling", es: "Programación de recursos" },
       { en: "Maintenance schedules", es: "Programación de mantenimiento" },
-      { en: "Rental management", es: "Gestión de alquileres" }
+      { en: "Availability management", es: "Gestión de disponibilidad" }
     ]
   }
 ];
