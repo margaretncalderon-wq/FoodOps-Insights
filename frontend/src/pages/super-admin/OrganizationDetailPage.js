@@ -739,17 +739,28 @@ export default function OrganizationDetailPage() {
                 <Users className="w-5 h-5" />
                 Miembros ({members.length})
               </CardTitle>
-              {members.length > 0 && (
+              <div className="flex items-center gap-2">
                 <Button 
-                  variant="outline" 
+                  variant="default" 
                   size="sm"
-                  onClick={handleChangeAllPasswords}
-                  className="border-amber-600 text-amber-400 hover:bg-amber-900/30"
+                  onClick={() => setAddMemberDialogOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="add-member-btn"
                 >
-                  <Key className="w-4 h-4 mr-2" />
-                  Cambiar Contraseña (Todos)
+                  <Users className="w-4 h-4 mr-2" />
+                  Agregar Usuario
                 </Button>
-              )}
+                {members.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleChangeAllPasswords}
+                    className="border-amber-600 text-amber-600 hover:bg-amber-50"
+                  >
+                    <Key className="w-4 h-4 mr-2" />
+                    Cambiar Contraseña (Todos)
+                  </Button>
+                )}
             </CardHeader>
             <CardContent className="p-0">
               <Table>
