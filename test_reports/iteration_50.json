@@ -1,0 +1,151 @@
+{
+  "summary": "Agency User Dynamic Terminology Testing - Partial Success. Dashboard, Sidebar, and Client Delivery page correctly show 'Project' terminology. However, Proposals page (EventsPage.js) does NOT use dynamic terminology - still shows 'Event' terminology for agency users.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "EventsPage.js (Proposals)",
+        "issue": "Page subtitle says 'Manage your events and bookings' instead of 'Manage your projects and bookings' for agency users",
+        "selector": "p.text-muted-foreground",
+        "priority": "HIGH",
+        "file": "/app/frontend/src/pages/EventsPage.js",
+        "line": "354-356"
+      },
+      {
+        "component": "EventsPage.js (Proposals)",
+        "issue": "Button shows '+ Add Event' instead of '+ Add Project' for agency users",
+        "selector": "[data-testid='add-event-btn']",
+        "priority": "HIGH",
+        "file": "/app/frontend/src/pages/EventsPage.js",
+        "line": "392-395"
+      },
+      {
+        "component": "EventsPage.js (Add Modal)",
+        "issue": "Modal title shows 'Add Event' instead of 'Add Project' for agency users",
+        "selector": "DialogTitle",
+        "priority": "HIGH",
+        "file": "/app/frontend/src/pages/EventsPage.js",
+        "line": "398-401"
+      },
+      {
+        "component": "EventsPage.js (Add Modal)",
+        "issue": "Date field labeled 'Event Date' instead of 'Date' for agency users",
+        "selector": "Label for event_date",
+        "priority": "MEDIUM",
+        "file": "/app/frontend/src/pages/EventsPage.js",
+        "line": "616"
+      },
+      {
+        "component": "EventsPage.js (Add Modal)",
+        "issue": "Default 'Work Type' is 'Event' instead of 'Project' for agency users",
+        "selector": "engagement_type selector",
+        "priority": "MEDIUM",
+        "file": "/app/frontend/src/pages/EventsPage.js",
+        "line": "96, 246"
+      },
+      {
+        "component": "EventsPage.js (Add Modal)",
+        "issue": "Field 'Event Locations' should not appear for 'Project' type",
+        "selector": "EventLocationSelector",
+        "priority": "LOW",
+        "file": "/app/frontend/src/pages/EventsPage.js",
+        "line": "661-678"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "frontend_ui_tests": {
+      "total_tests": 12,
+      "passed": 8,
+      "failed": 4,
+      "tests": [
+        {"test": "Login as agency user (demo.agency@kora.com)", "status": "PASS"},
+        {"test": "Sidebar shows 'Client Delivery' (not 'Event Orchestration')", "status": "PASS"},
+        {"test": "Dashboard shows 'Active Projects' (not 'Active Events')", "status": "PASS"},
+        {"test": "Dashboard Quick Actions shows 'New Project'", "status": "PASS"},
+        {"test": "Client Delivery page header shows 'Client Delivery'", "status": "PASS"},
+        {"test": "Client Delivery page shows 'Confirmed Projects'", "status": "PASS"},
+        {"test": "Client Delivery page description uses 'projects' terminology", "status": "PASS"},
+        {"test": "Client Delivery search placeholder says 'Search projects...'", "status": "PASS"},
+        {"test": "Proposals page subtitle uses 'projects' terminology", "status": "FAIL", "reason": "Shows 'events and bookings' instead of 'projects and bookings'"},
+        {"test": "Proposals page button shows 'Add Project'", "status": "FAIL", "reason": "Shows 'Add Event' instead of 'Add Project'"},
+        {"test": "Add modal title shows 'Add Project' for agency", "status": "FAIL", "reason": "Shows 'Add Event'"},
+        {"test": "Add modal default work type is 'Project' for agency", "status": "FAIL", "reason": "Default is 'Event'"}
+      ]
+    }
+  },
+  "features_verified": {
+    "working_correctly": [
+      "Dashboard 'Active Projects' section with FolderKanban icon",
+      "Dashboard Quick Actions 'New Project' button",
+      "Sidebar module name 'Client Delivery' (not 'Event Orchestration')",
+      "Client Delivery page header 'Client Delivery'",
+      "Client Delivery page subtitle 'Manage client projects and deliverables'",
+      "Client Delivery 'Confirmed Projects' title",
+      "Client Delivery 'Search projects...' placeholder",
+      "Client Delivery info banner 'Projects must be Committed from Client Engagement'",
+      "Client Delivery empty state 'No projects to display'"
+    ],
+    "not_working": [
+      "Proposals page (EventsPage.js) does not import/use useModules() for dynamic terminology",
+      "Proposals subtitle hardcoded as 'Manage your events and bookings'",
+      "Add button uses t('addEvent') which doesn't change based on industry",
+      "Modal title uses t('addEvent') instead of dynamic terminology",
+      "Default engagement_type is 'event' instead of checking industry"
+    ]
+  },
+  "root_cause_analysis": {
+    "issue": "EventsPage.js does not use dynamic terminology from ModulesContext",
+    "details": [
+      "The page uses hardcoded strings and LanguageContext translations (t() function)",
+      "It does NOT import useModules() from ModulesContext",
+      "The default engagement_type is always 'event' regardless of industry",
+      "Should use getProgramOrchestrationConfig() to get entity labels"
+    ],
+    "affected_file": "/app/frontend/src/pages/EventsPage.js",
+    "fix_required": [
+      "Import useModules from '../contexts/ModulesContext'",
+      "Use getProgramOrchestrationConfig() to get entitySingular/entityPlural",
+      "Set default engagement_type based on isProfessionalServices",
+      "Replace hardcoded 'events' text with dynamic terminology"
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "HIGH: Update /app/frontend/src/pages/EventsPage.js to use dynamic terminology from ModulesContext",
+    "HIGH: Change page subtitle from 'Manage your events and bookings' to use entityPlural from getProgramOrchestrationConfig()",
+    "HIGH: Change 'Add Event' button to show 'Add Project' for agency users",
+    "MEDIUM: Set default engagement_type to 'project' when isProfessionalServices is true",
+    "MEDIUM: Update modal title to use dynamic terminology"
+  ],
+  "critical_code_review_comments": [
+    {
+      "file": "/app/frontend/src/pages/EventsPage.js",
+      "issue": "Not using ModulesContext for dynamic terminology",
+      "priority": "HIGH",
+      "recommendation": "Import useModules and use getProgramOrchestrationConfig() like EventOrchestrationPage.js does"
+    }
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "67% (8/12 passed)"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "None - tested with existing agency user",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Agency user terminology is working correctly on Dashboard, Sidebar, and Client Delivery page. The bug is isolated to EventsPage.js (Proposals page) which doesn't use ModulesContext for dynamic terminology. Compare with EventOrchestrationPage.js to see how it should be implemented.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}
