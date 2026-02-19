@@ -832,11 +832,11 @@ export default function CRMPage() {
                     </div>
                   )}
                   <div>
-                    <Label className="text-muted-foreground">{language === "es" ? "Tipo de Evento" : "Event Type"}</Label>
+                    <Label className="text-muted-foreground">{isProfessionalServices ? (language === "es" ? "Tipo de Proyecto" : "Project Type") : (language === "es" ? "Tipo de Evento" : "Event Type")}</Label>
                     <p className="font-medium capitalize">{selectedLead.event_type}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">{language === "es" ? "Fecha del Evento" : "Event Date"}</Label>
+                    <Label className="text-muted-foreground">{dateLabel}</Label>
                     <p className="font-medium">
                       {selectedLead.event_date && selectedLead.event_date !== "TBD"
                         ? new Date(selectedLead.event_date).toLocaleDateString()
@@ -845,7 +845,7 @@ export default function CRMPage() {
                   </div>
                   {selectedLead.estimated_guest_count && (
                     <div>
-                      <Label className="text-muted-foreground">{language === "es" ? "Invitados" : "Guests"}</Label>
+                      <Label className="text-muted-foreground">{isProfessionalServices ? (language === "es" ? "Participantes" : "Participants") : (language === "es" ? "Invitados" : "Guests")}</Label>
                       <p className="font-medium">{selectedLead.estimated_guest_count}</p>
                     </div>
                   )}
