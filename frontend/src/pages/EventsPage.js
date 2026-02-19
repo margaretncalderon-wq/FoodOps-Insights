@@ -352,10 +352,10 @@ export default function EventsPage({ embedded = false }) {
     const start = new Date(event.event_date);
     const end = new Date(event.end_date);
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    return `${days} ${language === "es" ? "días" : "days"}`;
+    return `${days} ${isEs ? "días" : "days"}`;
   };
 
-  content = (
+  const content = (
     <div className="space-y-6" data-testid="events-page">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
