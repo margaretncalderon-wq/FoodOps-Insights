@@ -184,8 +184,8 @@ export default function OrganizationsListPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Organizations</h1>
-        <p className="text-slate-300">Manage all organizations on the platform</p>
+        <h1 className="text-2xl font-bold text-white" data-testid="orgs-page-title">Organizaciones</h1>
+        <p className="text-slate-400">Administra todas las organizaciones de la plataforma</p>
       </div>
 
       {/* Filters */}
@@ -198,29 +198,30 @@ export default function OrganizationsListPage() {
                 <Input 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search organizations..."
+                  placeholder="Buscar organizaciones..."
                   className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                  data-testid="search-input"
                 />
               </div>
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40 bg-slate-700 border-slate-600">
-                <SelectValue placeholder="Status" />
+              <SelectTrigger className="w-40 bg-slate-700 border-slate-600 text-white">
+                <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Activo</SelectItem>
+                <SelectItem value="suspended">Suspendido</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={planFilter} onValueChange={setPlanFilter}>
-              <SelectTrigger className="w-40 bg-slate-700 border-slate-600">
+              <SelectTrigger className="w-40 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Plan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Plans</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="plan_starter">Starter</SelectItem>
                 <SelectItem value="plan_professional">Professional</SelectItem>
                 <SelectItem value="plan_enterprise">Enterprise</SelectItem>
@@ -228,23 +229,23 @@ export default function OrganizationsListPage() {
             </Select>
 
             <Select value={industryFilter} onValueChange={setIndustryFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600">
-                <SelectValue placeholder="Industry" />
+              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+                <SelectValue placeholder="Industria" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Industries</SelectItem>
-                <SelectItem value="events_hospitality">Events & Hospitality</SelectItem>
-                <SelectItem value="professional_services">Professional Services</SelectItem>
-                <SelectItem value="generic">General Services</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="events_hospitality">Eventos & Hospitalidad</SelectItem>
+                <SelectItem value="professional_services">Servicios Profesionales</SelectItem>
+                <SelectItem value="generic">Servicios Generales</SelectItem>
               </SelectContent>
             </Select>
 
             <Button type="submit" variant="secondary">
               <Filter className="w-4 h-4 mr-2" />
-              Apply
+              Aplicar
             </Button>
 
-            <Button type="button" variant="outline" onClick={fetchOrganizations} className="border-slate-600">
+            <Button type="button" variant="outline" onClick={fetchOrganizations} className="border-slate-600 text-white hover:bg-slate-700">
               <RefreshCw className="w-4 h-4" />
             </Button>
           </form>
@@ -253,8 +254,8 @@ export default function OrganizationsListPage() {
 
       {/* Results Count */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-300">
-          Showing {organizations.length} of {total} organizations
+        <p className="text-sm text-slate-400">
+          Mostrando {organizations.length} de {total} organizaciones
         </p>
       </div>
 
