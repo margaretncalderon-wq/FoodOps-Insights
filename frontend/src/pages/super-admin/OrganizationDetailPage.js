@@ -290,7 +290,7 @@ export default function OrganizationDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
       </div>
     );
   }
@@ -314,17 +314,17 @@ export default function OrganizationDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate("/super-admin/organizations")} className="border-slate-600 text-white">
+          <Button variant="outline" size="sm" onClick={() => navigate("/super-admin/organizations")} className="border-gray-300 text-gray-900">
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <Building2 className="w-6 h-6 text-gray-900" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">{org?.organization?.name}</h1>
-              <p className="text-sm text-slate-300">{org?.organization?.company_id}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{org?.organization?.name}</h1>
+              <p className="text-sm text-gray-600">{org?.organization?.company_id}</p>
             </div>
           </div>
           {getStatusBadge(org?.organization?.status)}
@@ -332,7 +332,7 @@ export default function OrganizationDetailPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleViewAs} className="border-slate-600 text-white hover:bg-slate-700">
+          <Button variant="outline" onClick={handleViewAs} className="border-gray-300 text-gray-900 hover:bg-gray-100">
             <Eye className="w-4 h-4 mr-2" />
             View As
           </Button>
@@ -352,7 +352,7 @@ export default function OrganizationDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-800 border-slate-700 mb-6">
+        <TabsList className="bg-white border-gray-200 mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="modules">Modules</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
@@ -364,48 +364,48 @@ export default function OrganizationDetailPage() {
         <TabsContent value="overview">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Org Profile */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader>
-                <CardTitle className="text-lg text-white">Organization Profile</CardTitle>
+                <CardTitle className="text-lg text-gray-900">Organization Profile</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <Globe className="w-4 h-4 text-slate-400" />
+                  <Globe className="w-4 h-4 text-gray-500" />
                   <div>
-                    <p className="text-sm text-slate-400">Currency</p>
-                    <p className="text-white">{org?.organization?.currency || "USD"}</p>
+                    <p className="text-sm text-gray-500">Currency</p>
+                    <p className="text-gray-900">{org?.organization?.currency || "USD"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-slate-400" />
+                  <Clock className="w-4 h-4 text-gray-500" />
                   <div>
-                    <p className="text-sm text-slate-400">Timezone</p>
-                    <p className="text-white">{org?.organization?.timezone || "America/Santo_Domingo"}</p>
+                    <p className="text-sm text-gray-500">Timezone</p>
+                    <p className="text-gray-900">{org?.organization?.timezone || "America/Santo_Domingo"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 text-slate-400" />
+                  <Calendar className="w-4 h-4 text-gray-500" />
                   <div>
-                    <p className="text-sm text-slate-400">Created</p>
-                    <p className="text-white">{new Date(org?.organization?.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-500">Created</p>
+                    <p className="text-gray-900">{new Date(org?.organization?.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Activity className="w-4 h-4 text-slate-400" />
+                  <Activity className="w-4 h-4 text-gray-500" />
                   <div>
-                    <p className="text-sm text-slate-400">Total Events</p>
-                    <p className="font-bold text-white">{org?.events_count || 0}</p>
+                    <p className="text-sm text-gray-500">Total Events</p>
+                    <p className="font-bold text-gray-900">{org?.events_count || 0}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Usage */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg text-white">Usage (Current Period)</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setResetUsageDialogOpen(true)} className="text-white hover:bg-slate-700">
+                  <CardTitle className="text-lg text-gray-900">Usage (Current Period)</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setResetUsageDialogOpen(true)} className="text-gray-900 hover:bg-gray-100">
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
@@ -424,12 +424,12 @@ export default function OrganizationDetailPage() {
                   return (
                     <div key={key}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-300">{label}</span>
-                        <span className="text-white font-medium">{current}/{max}</span>
+                        <span className="text-gray-600">{label}</span>
+                        <span className="text-gray-900 font-medium">{current}/{max}</span>
                       </div>
                       <Progress 
                         value={percentage} 
-                        className={`h-2 bg-slate-600 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
+                        className={`h-2 bg-gray-200 ${percentage >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"} ${percentage >= 100 ? "[&>div]:bg-red-500" : ""}`}
                       />
                     </div>
                   );
@@ -438,17 +438,17 @@ export default function OrganizationDetailPage() {
             </Card>
 
             {/* Internal Notes */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader>
-                <CardTitle className="text-lg text-white">Internal Notes</CardTitle>
-                <CardDescription className="text-slate-400">Support team notes (not visible to org)</CardDescription>
+                <CardTitle className="text-lg text-gray-900">Internal Notes</CardTitle>
+                <CardDescription className="text-gray-500">Support team notes (not visible to org)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea 
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add internal notes..."
-                  className="bg-slate-700 border-slate-600 min-h-32 text-white placeholder:text-slate-400"
+                  className="bg-gray-100 border-gray-300 min-h-32 text-gray-900 placeholder:text-gray-500"
                 />
                 <Button onClick={saveNotes} disabled={saving} className="w-full">
                   {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
@@ -464,7 +464,7 @@ export default function OrganizationDetailPage() {
         <TabsContent value="modules">
           <div className="space-y-6">
             {/* Industry Section */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Briefcase className="w-5 h-5" />
@@ -479,7 +479,7 @@ export default function OrganizationDetailPage() {
                       variant={org.industry_template === ind ? "default" : "outline"}
                       className={org.industry_template === ind 
                         ? "bg-blue-600 hover:bg-blue-700" 
-                        : "border-slate-600 hover:bg-slate-700"}
+                        : "border-gray-300 hover:bg-gray-100"}
                       onClick={() => updateIndustry(ind)}
                       data-testid={`industry-btn-${ind}`}
                     >
@@ -490,13 +490,13 @@ export default function OrganizationDetailPage() {
                   ))}
                 </div>
                 <p className="text-slate-500 text-sm mt-2">
-                  Current: <span className="text-slate-300">{org.industry_template || "Not set"}</span>
+                  Current: <span className="text-gray-600">{org.industry_template || "Not set"}</span>
                 </p>
               </CardContent>
             </Card>
 
             {/* Active Modules Section */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Package className="w-5 h-5" />
@@ -505,7 +505,7 @@ export default function OrganizationDetailPage() {
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="border-slate-600"
+                  className="border-gray-300"
                   onClick={fetchModules}
                   disabled={loadingModules}
                 >
@@ -515,7 +515,7 @@ export default function OrganizationDetailPage() {
               <CardContent>
                 {loadingModules ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
                   </div>
                 ) : modules.active_modules?.length === 0 ? (
                   <p className="text-slate-500 text-center py-4">No active modules</p>
@@ -546,8 +546,8 @@ export default function OrganizationDetailPage() {
                   </div>
                 )}
                 {modules.active_modules?.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-700 flex justify-between">
-                    <span className="text-slate-400">Monthly Module Cost</span>
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between">
+                    <span className="text-gray-500">Monthly Module Cost</span>
                     <span className="font-bold text-green-400">${modules.monthly_module_cost?.toFixed(2) || "0.00"}/mes</span>
                   </div>
                 )}
@@ -555,10 +555,10 @@ export default function OrganizationDetailPage() {
             </Card>
 
             {/* Available Modules Section */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Package className="w-5 h-5 text-slate-400" />
+                  <Package className="w-5 h-5 text-gray-500" />
                   Available Modules
                 </CardTitle>
               </CardHeader>
@@ -573,10 +573,10 @@ export default function OrganizationDetailPage() {
                   ].filter(m => !modules.active_module_keys?.includes(m.key)).map((mod) => (
                     <div 
                       key={mod.key}
-                      className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-700"
+                      className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-gray-200"
                     >
                       <div>
-                        <p className="font-medium text-slate-300">{mod.name}</p>
+                        <p className="font-medium text-gray-600">{mod.name}</p>
                         <p className="text-sm text-slate-500">${mod.price}/mes</p>
                       </div>
                       <Button
@@ -608,9 +608,9 @@ export default function OrganizationDetailPage() {
 
         {/* Members Tab */}
         <TabsContent value="members">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2 text-white">
+              <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
                 <Users className="w-5 h-5" />
                 Miembros ({members.length})
               </CardTitle>
@@ -629,26 +629,26 @@ export default function OrganizationDetailPage() {
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-slate-700">
-                    <TableHead className="text-slate-400">Usuario</TableHead>
-                    <TableHead className="text-slate-400">Rol</TableHead>
-                    <TableHead className="text-slate-400">Estado</TableHead>
-                    <TableHead className="text-slate-400">Ingreso</TableHead>
-                    <TableHead className="text-slate-400">Acciones</TableHead>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="text-gray-500">Usuario</TableHead>
+                    <TableHead className="text-gray-500">Rol</TableHead>
+                    <TableHead className="text-gray-500">Estado</TableHead>
+                    <TableHead className="text-gray-500">Ingreso</TableHead>
+                    <TableHead className="text-gray-500">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {members.map(member => (
-                    <TableRow key={member.membership_id} className="border-slate-700">
+                    <TableRow key={member.membership_id} className="border-gray-200">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={member.picture} />
-                            <AvatarFallback className="bg-slate-600 text-white">{member.name?.charAt(0) || "U"}</AvatarFallback>
+                            <AvatarFallback className="bg-gray-200 text-gray-900">{member.name?.charAt(0) || "U"}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-white">{member.name}</p>
-                            <p className="text-sm text-slate-400">{member.email}</p>
+                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="text-sm text-gray-500">{member.email}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -657,7 +657,7 @@ export default function OrganizationDetailPage() {
                           value={member.role} 
                           onValueChange={(v) => handleChangeRole(member.membership_id, v)}
                         >
-                          <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
+                          <SelectTrigger className="w-32 bg-gray-100 border-gray-300 text-gray-900">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -672,7 +672,7 @@ export default function OrganizationDetailPage() {
                           {member.status === "active" ? "Activo" : member.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-slate-400">
+                      <TableCell className="text-gray-500">
                         {new Date(member.joined_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
@@ -681,7 +681,7 @@ export default function OrganizationDetailPage() {
                             variant="ghost" 
                             size="sm" 
                             onClick={() => openPasswordDialog(member)}
-                            className="text-amber-400 hover:text-amber-300 hover:bg-slate-700"
+                            className="text-amber-400 hover:text-amber-300 hover:bg-gray-100"
                             data-testid={`change-pw-${member.user_id}`}
                           >
                             <Key className="w-4 h-4" />
@@ -691,7 +691,7 @@ export default function OrganizationDetailPage() {
                               variant="ghost" 
                               size="sm" 
                               onClick={() => handleRemoveMember(member.membership_id)}
-                              className="text-red-400 hover:text-red-300 hover:bg-slate-700"
+                              className="text-red-400 hover:text-red-300 hover:bg-gray-100"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -709,7 +709,7 @@ export default function OrganizationDetailPage() {
         {/* Billing Tab */}
         <TabsContent value="billing">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-200">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CreditCard className="w-5 h-5" />
@@ -719,19 +719,19 @@ export default function OrganizationDetailPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-slate-400">Plan</p>
+                    <p className="text-sm text-gray-500">Plan</p>
                     <p className="font-medium capitalize">{org?.plan?.name || "No Plan"}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-400">Status</p>
+                    <p className="text-sm text-gray-500">Status</p>
                     {getStatusBadge(org?.subscription?.status)}
                   </div>
                   <div>
-                    <p className="text-sm text-slate-400">Billing Cycle</p>
+                    <p className="text-sm text-gray-500">Billing Cycle</p>
                     <p className="capitalize">{org?.subscription?.billing_cycle || "Monthly"}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-400">Next Renewal</p>
+                    <p className="text-sm text-gray-500">Next Renewal</p>
                     <p>{org?.subscription?.current_period_end ? new Date(org?.subscription?.current_period_end).toLocaleDateString() : "N/A"}</p>
                   </div>
                 </div>
@@ -739,7 +739,7 @@ export default function OrganizationDetailPage() {
             </Card>
 
             {/* Danger Zone */}
-            <Card className="bg-slate-800 border-red-900/50">
+            <Card className="bg-white border-red-900/50">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-red-400">
                   <AlertTriangle className="w-5 h-5" />
@@ -771,7 +771,7 @@ export default function OrganizationDetailPage() {
 
         {/* Audit Tab */}
         <TabsContent value="audit">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Activity className="w-5 h-5" />
@@ -781,7 +781,7 @@ export default function OrganizationDetailPage() {
             <CardContent>
               <div className="space-y-3">
                 {audit.map((entry, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-slate-700/50">
+                  <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-gray-100/50">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       entry.type === "admin_action" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"
                     }`}>
@@ -790,7 +790,7 @@ export default function OrganizationDetailPage() {
                     <div className="flex-1">
                       <p className="font-medium">{entry.action}</p>
                       {entry.details && Object.keys(entry.details).length > 0 && (
-                        <p className="text-sm text-slate-400">
+                        <p className="text-sm text-gray-500">
                           {JSON.stringify(entry.details)}
                         </p>
                       )}
@@ -802,7 +802,7 @@ export default function OrganizationDetailPage() {
                 ))}
 
                 {audit.length === 0 && (
-                  <p className="text-center text-slate-400 py-8">No activity recorded</p>
+                  <p className="text-center text-gray-500 py-8">No activity recorded</p>
                 )}
               </div>
             </CardContent>
@@ -812,10 +812,10 @@ export default function OrganizationDetailPage() {
 
       {/* Suspend Dialog */}
       <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700">
+        <DialogContent className="bg-white border-gray-200">
           <DialogHeader>
             <DialogTitle>Suspend Organization</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-500">
               This will prevent all users from accessing the organization.
             </DialogDescription>
           </DialogHeader>
@@ -825,11 +825,11 @@ export default function OrganizationDetailPage() {
               value={suspendReason}
               onChange={(e) => setSuspendReason(e.target.value)}
               placeholder="Enter reason..."
-              className="mt-2 bg-slate-700 border-slate-600"
+              className="mt-2 bg-gray-100 border-gray-300"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSuspendDialogOpen(false)} className="border-slate-600">
+            <Button variant="outline" onClick={() => setSuspendDialogOpen(false)} className="border-gray-300">
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleSuspend}>
@@ -841,17 +841,17 @@ export default function OrganizationDetailPage() {
 
       {/* Override Status Dialog */}
       <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700">
+        <DialogContent className="bg-white border-gray-200">
           <DialogHeader>
             <DialogTitle className="text-red-400">⚠️ Override Subscription Status</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-500">
               This is for testing purposes only. Changes will be logged.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <label className="text-sm font-medium">New Status</label>
             <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger className="mt-2 bg-slate-700 border-slate-600">
+              <SelectTrigger className="mt-2 bg-gray-100 border-gray-300">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
@@ -864,7 +864,7 @@ export default function OrganizationDetailPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOverrideDialogOpen(false)} className="border-slate-600">
+            <Button variant="outline" onClick={() => setOverrideDialogOpen(false)} className="border-gray-300">
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleOverrideStatus} disabled={!newStatus}>
@@ -876,15 +876,15 @@ export default function OrganizationDetailPage() {
 
       {/* Reset Usage Dialog */}
       <Dialog open={resetUsageDialogOpen} onOpenChange={setResetUsageDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700">
+        <DialogContent className="bg-white border-gray-200">
           <DialogHeader>
             <DialogTitle className="text-red-400">⚠️ Reset Usage Meter</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-500">
               This will reset all usage metrics for the current period to zero.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetUsageDialogOpen(false)} className="border-slate-600">
+            <Button variant="outline" onClick={() => setResetUsageDialogOpen(false)} className="border-gray-300">
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleResetUsage}>
@@ -896,34 +896,34 @@ export default function OrganizationDetailPage() {
 
       {/* Password Change Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 sm:max-w-md">
+        <DialogContent className="bg-white border-gray-200 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-white">
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
               <Key className="w-5 h-5 text-amber-400" />
               Cambiar Contraseña
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-gray-500">
               {selectedMember?.name} ({selectedMember?.email})
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">Nueva Contraseña</Label>
+              <Label className="text-gray-600">Nueva Contraseña</Label>
               <div className="flex gap-2">
                 <Input
                   type="text"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Ingresa la nueva contraseña"
-                  className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                  className="flex-1 bg-gray-100 border-gray-300 text-gray-900 placeholder:text-slate-500"
                   data-testid="new-password-input"
                 />
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={generatePassword}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  className="border-gray-300 text-gray-600 hover:bg-gray-100"
                 >
                   Generar
                 </Button>
@@ -935,7 +935,7 @@ export default function OrganizationDetailPage() {
             <Button 
               variant="outline" 
               onClick={() => setPasswordDialogOpen(false)}
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="border-gray-300 text-gray-600 hover:bg-gray-100"
             >
               Cancelar
             </Button>
