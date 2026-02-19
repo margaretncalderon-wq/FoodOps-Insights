@@ -254,47 +254,47 @@ export default function OrganizationsListPage() {
 
       {/* Results Count */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-gray-500">
           Mostrando {organizations.length} de {total} organizaciones
         </p>
       </div>
 
       {/* Organizations Table */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-white border-gray-200 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                  <TableHead className="text-slate-300 font-semibold">Organización</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Estado</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Plan</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Uso</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Miembros</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Creado</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Acciones</TableHead>
+                <TableRow className="border-gray-200 hover:bg-gray-50">
+                  <TableHead className="text-gray-700 font-semibold">Organización</TableHead>
+                  <TableHead className="text-gray-700 font-semibold">Estado</TableHead>
+                  <TableHead className="text-gray-700 font-semibold">Plan</TableHead>
+                  <TableHead className="text-gray-700 font-semibold">Uso</TableHead>
+                  <TableHead className="text-gray-700 font-semibold">Miembros</TableHead>
+                  <TableHead className="text-gray-700 font-semibold">Creado</TableHead>
+                  <TableHead className="text-gray-700 font-semibold">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {organizations.map(org => (
                   <TableRow 
                     key={org.organization.company_id} 
-                    className="border-slate-700 hover:bg-slate-700/50 cursor-pointer"
+                    className="border-gray-200 hover:bg-gray-50 cursor-pointer"
                     onClick={() => navigate(`/super-admin/organizations/${org.organization.company_id}`)}
                     data-testid={`org-row-${org.organization.company_id}`}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-slate-600 flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-white" />
+                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-medium text-white">{org.organization.name}</p>
-                          <p className="text-xs text-slate-400">{org.organization.company_id}</p>
+                          <p className="font-medium text-gray-900">{org.organization.name}</p>
+                          <p className="text-xs text-gray-500">{org.organization.company_id}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -302,7 +302,7 @@ export default function OrganizationsListPage() {
                       {getStatusBadge(org, org.subscription)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize border-slate-500 text-slate-300">
+                      <Badge variant="outline" className="capitalize border-gray-300 text-gray-700">
                         {org.plan?.name || "Sin Plan"}
                       </Badge>
                     </TableCell>
@@ -321,12 +321,12 @@ export default function OrganizationsListPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <Users className="w-4 h-4 text-slate-400" />
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Users className="w-4 h-4 text-gray-500" />
                         <span>{org.members_count || 0}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-300 text-sm">
+                    <TableCell className="text-gray-600 text-sm">
                       {new Date(org.organization.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
@@ -334,7 +334,7 @@ export default function OrganizationsListPage() {
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="text-white hover:text-white hover:bg-slate-600"
+                          className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/super-admin/organizations/${org.organization.company_id}`);
@@ -347,7 +347,7 @@ export default function OrganizationsListPage() {
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="text-amber-400 hover:text-amber-300 hover:bg-slate-600"
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                           onClick={(e) => {
                             e.stopPropagation();
                             openPasswordModal(org);
