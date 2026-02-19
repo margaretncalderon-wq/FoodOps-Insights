@@ -383,12 +383,14 @@ export default function DemoAccountsPage() {
                   <TableHead>{isEs ? "Usuario" : "User"}</TableHead>
                   <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
                   <TableHead>{isEs ? "Módulos" : "Modules"}</TableHead>
-                  <TableHead>{isEs ? "Expira" : "Expires"}</TableHead>
+                  <TableHead>{isEs ? "Trial" : "Trial"}</TableHead>
                   <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {accounts.map((account) => (
+                {accounts.map((account) => {
+                  const trialStatus = getTrialStatus(account.trial_ends_at);
+                  return (
                   <TableRow key={account.company_id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -414,30 +416,55 @@ export default function DemoAccountsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {account.trial_ends_at ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(account.trial_ends_at).toLocaleDateString()}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      <div className={`flex items-center gap-1 text-sm ${trialStatus.color}`}>
+                        <Calendar className="w-3 h-3" />
+                        {trialStatus.label}
+                        {trialStatus.status === "expired" && (
+                          <Badge variant="destructive" className="ml-1 text-xs">!</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyCredentials(account.owner?.email, account.owner?.email)}
-                      >
-                        {copiedId === account.owner?.email ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => copyCredentials(account.owner?.email, account.owner?.email)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            {isEs ? "Copiar email" : "Copy email"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {account.account_type !== "paid" && (
+                            <>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedAccount(account);
+                                  setShowConvertModal(true);
+                                }}
+                              >
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                {isEs ? "Convertir a Pagada" : "Convert to Paid"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedAccount(account);
+                                  setShowExtendModal(true);
+                                }}
+                              >
+                                <CalendarPlus className="w-4 h-4 mr-2" />
+                                {isEs ? "Extender Trial" : "Extend Trial"}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                );})}
+              </TableBody>
               </TableBody>
             </Table>
           )}
