@@ -71,6 +71,83 @@ export default function OrganizationsListPage() {
     fetchOrganizations();
   };
 
+  // Fetch members for an organization
+  const fetchOrgMembers = async (companyId) => {
+    try {
+      const res = await axios.get(`${API}/api/super-admin/organizations/${companyId}/members`, { withCredentials: true });
+      setOrgMembers(res.data || []);
+    } catch (err) {
+      console.error(err);
+      setOrgMembers([]);
+    }
+  };
+
+  // Open password change modal
+  const openPasswordModal = async (org) => {
+    setSelectedOrg(org);
+    setNewPassword("");
+    setPasswordChangeType("all");
+    setSelectedMemberId("");
+    await fetchOrgMembers(org.organization.company_id);
+    setShowPasswordModal(true);
+  };
+
+  // Generate random password
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewPassword(password);
+  };
+
+  // Handle password change
+  const handlePasswordChange = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      if (passwordChangeType === "all") {
+        // Change password for all members
+        let successCount = 0;
+        for (const member of orgMembers) {
+          try {
+            await axios.post(
+              `${API}/api/super-admin/users/${member.user_id}/reset-password`,
+              { new_password: newPassword },
+              { withCredentials: true }
+            );
+            successCount++;
+          } catch (err) {
+            console.error(`Failed to change password for ${member.email}:`, err);
+          }
+        }
+        toast.success(`Contraseña cambiada para ${successCount} usuario(s)`);
+      } else {
+        // Change password for individual member
+        if (!selectedMemberId) {
+          toast.error("Selecciona un usuario");
+          setChangingPassword(false);
+          return;
+        }
+        await axios.post(
+          `${API}/api/super-admin/users/${selectedMemberId}/reset-password`,
+          { new_password: newPassword },
+          { withCredentials: true }
+        );
+        toast.success("Contraseña cambiada exitosamente");
+      }
+      setShowPasswordModal(false);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al cambiar contraseña");
+    }
+    setChangingPassword(false);
+  };
+
   const getStatusBadge = (org, subscription) => {
     const status = org?.organization?.status || "active";
     const subStatus = subscription?.status;
