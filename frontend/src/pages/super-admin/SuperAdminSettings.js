@@ -620,6 +620,65 @@ export default function SuperAdminSettings() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Maintenance */}
+        <TabsContent value="maintenance" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5" />
+                Reparar Organizaciones
+              </CardTitle>
+              <CardDescription>
+                Corrige datos faltantes de todas las organizaciones: crea configuración de industria y suscripción trial si no existen.
+                Es seguro ejecutar múltiples veces.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                data-testid="repair-organizations-btn"
+                onClick={handleRepairOrganizations}
+                disabled={repairLoading}
+                className="w-full"
+              >
+                {repairLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                {repairLoading ? "Reparando..." : "Reparar Todas las Organizaciones"}
+              </Button>
+
+              {repairResult && (
+                <div className="p-4 rounded-lg border bg-muted/50 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Total organizaciones:</span>
+                    <span className="font-bold">{repairResult.total}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-green-600">Reparadas:</span>
+                    <span className="font-bold text-green-600">{repairResult.repaired}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Ya estaban bien:</span>
+                    <span className="font-bold">{repairResult.skipped}</span>
+                  </div>
+                  {repairResult.details && repairResult.details.length > 0 && (
+                    <div className="mt-3 pt-3 border-t space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Detalle de reparaciones:</p>
+                      {repairResult.details.map((item, idx) => (
+                        <div key={idx} className="text-xs flex justify-between">
+                          <span>{item.name || item.company_id}</span>
+                          <span className="text-muted-foreground">{item.fixes.join(", ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
