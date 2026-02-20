@@ -101,7 +101,7 @@ async def create_automation_rule(
 @automation_router.put("/rules/{rule_id}")
 async def update_automation_rule(
     rule_id: str,
-    data: UpdateRuleRequest,
+    data: dict,
     user: User = Depends(get_current_user)
 ):
     """Update an automation rule"""
@@ -117,18 +117,18 @@ async def update_automation_rule(
     # Build update
     update = {"updated_at": now.isoformat()}
     
-    if data.name is not None:
-        update["name"] = data.name
-    if data.description is not None:
-        update["description"] = data.description
-    if data.trigger is not None:
-        update["trigger"] = data.trigger.dict()
-    if data.actions is not None:
-        update["actions"] = [a.dict() for a in data.actions]
-    if data.status is not None:
-        update["status"] = data.status.value
-    if data.priority is not None:
-        update["priority"] = data.priority
+    if data.get("name") is not None:
+        update["name"] = data["name"]
+    if data.get("description") is not None:
+        update["description"] = data["description"]
+    if data.get("trigger") is not None:
+        update["trigger"] = data["trigger"]
+    if data.get("actions") is not None:
+        update["actions"] = data["actions"]
+    if data.get("status") is not None:
+        update["status"] = data["status"]
+    if data.get("priority") is not None:
+        update["priority"] = data["priority"]
     
     await db.automation_rules.update_one(
         {"rule_id": rule_id},
