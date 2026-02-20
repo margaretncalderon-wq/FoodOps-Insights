@@ -425,16 +425,22 @@ async def exchange_session(request: Request, response: Response):
     
     if user_doc:
         user_id = user_doc["user_id"]
+        company_id = user_doc.get("company_id")
         await db.users.update_one({"user_id": user_id}, {"$set": {"name": name, "picture": picture}})
+        # Back-fill missing data for existing users
+        await ensure_user_data_complete(company_id, user_id)
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         company_id = f"company_{uuid.uuid4().hex[:12]}"
         
-        company_doc = {"company_id": company_id, "name": f"{name}'s Company", "logo_url": None, "primary_color": "#3A4D3F", "secondary_color": "#E5DCC5", "default_language": "en", "currency": "USD", "default_tax_rate": 0.0, "created_at": now.isoformat()}
+        company_doc = {"company_id": company_id, "name": f"{name}'s Company", "industry_template": "events_hospitality", "logo_url": None, "primary_color": "#3A4D3F", "secondary_color": "#E5DCC5", "default_language": "en", "currency": "USD", "default_tax_rate": 0.0, "created_at": now.isoformat()}
         await db.companies.insert_one(company_doc)
         
         user_doc = {"user_id": user_id, "email": email, "name": name, "picture": picture, "company_id": company_id, "role": "admin", "created_at": now.isoformat()}
         await db.users.insert_one(user_doc)
+        
+        # Create organization config and subscription for new Emergent OAuth users
+        await ensure_user_data_complete(company_id, user_id)
     
     expires_at = now + timedelta(days=7)
     await db.user_sessions.delete_many({"user_id": user_id})
