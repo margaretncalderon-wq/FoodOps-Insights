@@ -15,8 +15,13 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const [token, setTokenState] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const setToken = useCallback((t) => {
+    setTokenState(t);
+    setAuthToken(t);
+  }, []);
 
   const checkAuth = useCallback(async () => {
     setLoading(true);
