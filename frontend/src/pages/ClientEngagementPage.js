@@ -226,6 +226,7 @@ export default function ClientEngagementPage() {
             <Route path="crm/inbound" element={<LeadInboundSection />} />
             <Route path="crm/follow-ups" element={<FollowUpsSection />} />
             <Route path="crm/comms" element={<CommsLogView />} />
+            <Route path="crm/sales-report" element={<SalesReportSection />} />
             <Route path="crm/owners" element={<OwnerAssignmentSection />} />
             <Route path="crm/clients" element={<ClientsSection />} />
             
