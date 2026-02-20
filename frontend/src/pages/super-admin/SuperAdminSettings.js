@@ -20,6 +20,8 @@ export default function SuperAdminSettings() {
   const [activeTab, setActiveTab] = useState("pricing");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [repairLoading, setRepairLoading] = useState(false);
+  const [repairResult, setRepairResult] = useState(null);
   
   // Pricing state
   const [pricingConfig, setPricingConfig] = useState({
