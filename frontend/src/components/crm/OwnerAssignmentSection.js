@@ -94,7 +94,21 @@ export default function OwnerAssignmentSection() {
 
   const handleAssignOwner = async (entityType, entityId, ownerId) => {
     try {
-      await axios.put(`${API}/api/crm/assign/${entityType}/${entityId}?owner_id=${ownerId}`, {}, { withCredentials: true });
+      if (entityType === "lead") {
+        // Use the new PATCH endpoint for leads
+        await axios.patch(
+          `${API}/api/crm/leads/${entityId}/owner`, 
+          { owner_id: ownerId || null }, 
+          { withCredentials: true }
+        );
+      } else {
+        // Keep existing endpoint for clients
+        await axios.put(
+          `${API}/api/crm/assign/${entityType}/${entityId}?owner_id=${ownerId}`, 
+          {}, 
+          { withCredentials: true }
+        );
+      }
       toast.success(isEs ? "Responsable asignado" : "Owner assigned");
       fetchData();
     } catch (err) {
