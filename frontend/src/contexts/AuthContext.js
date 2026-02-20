@@ -89,13 +89,8 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithGoogle = async () => {
     try {
-      // Get the Google auth URL from backend
-      const response = await axios.get(`${API}/auth/google/login`, {
-        headers: {
-          'Origin': window.location.origin
-        }
-      });
-      // Redirect to Google
+      const redirectUri = `${window.location.origin}/auth/google/callback`;
+      const response = await axios.get(`${API}/auth/google/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
       window.location.href = response.data.auth_url;
     } catch (error) {
       console.error("Failed to initiate Google login:", error);
