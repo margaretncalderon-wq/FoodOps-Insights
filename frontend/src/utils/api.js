@@ -1,5 +1,6 @@
 // Centralized API URL configuration
 // Dynamically determines API URL based on current domain
+import axios from "axios";
 
 export const getApiBaseUrl = () => {
   // Always use environment variable first, fallback to current origin
@@ -8,6 +9,20 @@ export const getApiBaseUrl = () => {
 
 export const API_BASE = getApiBaseUrl();
 export const API = `${API_BASE}/api`;
+
+// Shared token storage for axios interceptor
+let _authToken = null;
+export const setAuthToken = (token) => { _authToken = token; };
+export const getAuthToken = () => _authToken;
+
+// Global axios interceptor - adds Authorization header to all requests
+axios.interceptors.request.use((config) => {
+  config.withCredentials = true;
+  if (_authToken && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${_authToken}`;
+  }
+  return config;
+});
 
 // Simple in-memory cache for API responses
 const apiCache = new Map();
