@@ -111,7 +111,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - is_super_admin: true
 
 ## URLs
-- Preview: https://flex-industry-app.preview.emergentagent.com
+- Preview: https://kora-saas-hub.preview.emergentagent.com
 - Production: https://ourkora.com
 
 ## Pending Issues
