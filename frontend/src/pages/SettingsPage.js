@@ -868,11 +868,6 @@ export default function SettingsPage() {
             <TeamSection />
           </TabsContent>
 
-          {/* Users Tab */}
-          <TabsContent value="users">
-            <UsersSettingsSection />
-          </TabsContent>
-
           {/* Roles Tab */}
           <TabsContent value="roles">
             <RolesSettingsSection />
