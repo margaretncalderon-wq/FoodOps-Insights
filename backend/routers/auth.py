@@ -790,8 +790,11 @@ async def complete_google_registration(request: Request, response: Response):
     except Exception as e:
         logger.warning(f"Failed to send welcome email to {email}: {e}")
     
+    jwt_token = create_jwt_token(user_id)
+    
     return {
         "success": True,
+        "access_token": jwt_token,
         "user": user_data,
         "company": org_data,
         "message": "¡Bienvenido a Kora OS!"
