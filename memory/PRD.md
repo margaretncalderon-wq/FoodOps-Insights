@@ -51,12 +51,26 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Root Cause**: `CommsLogSection` required `entityType`/`entityId` but standalone mode didn't provide them → infinite spinner
 - **Fix**: Added `GET /api/crm/comms/all` endpoint, updated component for standalone mode, made entity fields optional in model
 
+### Feature: Owner Assignment & Sales Report - IMPLEMENTED (Feb 2026)
+- **Requirement**: Multi-vendor lead assignment with sales performance tracking
+- **Backend Endpoints**:
+  - `GET /api/crm/team-members` - List active team members for assignment dropdown
+  - `PATCH /api/crm/leads/{lead_id}/owner` - Assign/unassign owner with audit logging
+  - `GET /api/crm/reports/owners` - Sales report grouped by owner with filters
+- **Frontend Components**:
+  - `OwnerAssignmentSection.js` - `/client-engagement/crm/owners` - Full owner management UI
+  - `SalesReportSection.js` - `/client-engagement/crm/sales-report` - Detailed sales metrics table with export
+  - `Sales Performance Pulse` in Dashboard - Last 7 days snapshot in System Pulse
+- **Permissions**: Admin/Owner see all, Sales sees only their own data
+- **Status Metrics**: Nuevo, Contactado, Sin Respuesta, Interesado, Converted
+
 ## Pending Issues
 - P2: Incomplete internationalization (hardcoded strings in UI)
 - P3: Backend plan limit enforcement logic
 - P3: Email Notifications (blocked on RESEND_API_KEY)
 
 ## Upcoming Tasks
+- P1: Owner-specific dashboard/calendar (show scheduled communications on owner's dashboard)
 - P1: Backend workflow configuration (connect Automations UI to backend)
 - P2: Refactor server.py into dedicated routers
 - P3: API Documentation in Super Admin panel
