@@ -10,6 +10,7 @@ class UserCreate(BaseModel):
     name: str
     company_name: Optional[str] = None
     industry_template: Optional[str] = "events_hospitality"  # events_hospitality, professional_services, generic
+    industry_type: Optional[str] = None  # events, agency, generic - alternative to industry_template
 
 
 class UserLogin(BaseModel):
