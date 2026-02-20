@@ -509,6 +509,16 @@ async def complete_google_registration(request: Request, response: Response):
     temp_token = body.get("temp_token")
     company_name = body.get("company_name")
     industry_template = body.get("industry_template", "events_hospitality")
+    industry_type_input = body.get("industry_type")  # Support both formats
+    
+    # If industry_type is provided, map it to industry_template
+    if industry_type_input:
+        type_to_template = {
+            "events": "events_hospitality",
+            "agency": "professional_services",
+            "generic": "generic"
+        }
+        industry_template = type_to_template.get(industry_type_input, industry_template)
     
     if not temp_token:
         raise HTTPException(status_code=400, detail="Token de registro temporal requerido")
