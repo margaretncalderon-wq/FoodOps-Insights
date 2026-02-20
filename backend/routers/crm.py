@@ -666,6 +666,26 @@ async def complete_follow_up(entity_type: str, entity_id: str, user: User = Depe
 
 # ============== COMMUNICATION LOG ==============
 
+@crm_router.get("/comms/all")
+async def get_all_comm_logs(user: User = Depends(get_current_user)):
+    """Get all communication logs for the company"""
+    logs = await db.comm_logs.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    # Enrich with entity names
+    for log in logs:
+        if log.get("entity_type") == "lead" and log.get("entity_id"):
+            lead = await db.leads.find_one({"lead_id": log["entity_id"]}, {"_id": 0, "name": 1, "company_name": 1})
+            log["entity_name"] = (lead.get("company_name") or lead.get("name")) if lead else None
+        elif log.get("entity_type") == "client" and log.get("entity_id"):
+            client = await db.clients.find_one({"client_id": log["entity_id"]}, {"_id": 0, "name": 1, "company_name": 1})
+            log["entity_name"] = (client.get("company_name") or client.get("name")) if client else None
+
+    return logs
+
+
 @crm_router.get("/comms/{entity_type}/{entity_id}")
 async def get_comm_logs(entity_type: str, entity_id: str, user: User = Depends(get_current_user)):
     """Get communication logs for a lead or client"""
