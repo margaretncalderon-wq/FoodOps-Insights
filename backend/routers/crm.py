@@ -674,14 +674,23 @@ async def get_all_comm_logs(user: User = Depends(get_current_user)):
         {"_id": 0}
     ).sort("created_at", -1).to_list(500)
 
-    # Enrich with entity names
+    # Enrich with entity names and source
     for log in logs:
         if log.get("entity_type") == "lead" and log.get("entity_id"):
-            lead = await db.leads.find_one({"lead_id": log["entity_id"]}, {"_id": 0, "name": 1, "company_name": 1})
-            log["entity_name"] = (lead.get("company_name") or lead.get("name")) if lead else None
+            lead = await db.leads.find_one(
+                {"lead_id": log["entity_id"]},
+                {"_id": 0, "name": 1, "company_name": 1, "contact_name": 1, "source": 1}
+            )
+            if lead:
+                log["entity_name"] = lead.get("company_name") or lead.get("name") or lead.get("contact_name")
+                log["entity_source"] = lead.get("source")
         elif log.get("entity_type") == "client" and log.get("entity_id"):
-            client = await db.clients.find_one({"client_id": log["entity_id"]}, {"_id": 0, "name": 1, "company_name": 1})
-            log["entity_name"] = (client.get("company_name") or client.get("name")) if client else None
+            client = await db.clients.find_one(
+                {"client_id": log["entity_id"]},
+                {"_id": 0, "name": 1, "company_name": 1}
+            )
+            if client:
+                log["entity_name"] = client.get("company_name") or client.get("name")
 
     return logs
 
