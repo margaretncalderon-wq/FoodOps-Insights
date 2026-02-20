@@ -448,8 +448,9 @@ async def exchange_session(request: Request, response: Response):
     
     response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 3600)
     
+    jwt_token = create_jwt_token(user_id)
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    return user_doc
+    return {"access_token": jwt_token, "user": user_doc}
 
 
 @auth_router.get("/me", response_model=User)
