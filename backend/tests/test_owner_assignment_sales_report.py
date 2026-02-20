@@ -30,7 +30,7 @@ def auth_token(api_client):
         "password": TEST_PASSWORD
     })
     if response.status_code == 200:
-        return response.json().get("token")
+        return response.json().get("access_token")
     pytest.skip(f"Authentication failed - status {response.status_code}: {response.text}")
 
 @pytest.fixture(scope="module")
