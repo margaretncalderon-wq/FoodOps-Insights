@@ -460,10 +460,62 @@ async def google_callback(request: Request, response: Response):
     if existing_user:
         # Existing user - log them in
         user_id = existing_user["user_id"]
+        company_id = existing_user.get("company_id")
+        
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {"picture": picture, "name": name}}
         )
+        
+        # Ensure organization_config exists for existing users
+        if company_id:
+            org_config = await db.organization_configs.find_one({"company_id": company_id})
+            if not org_config:
+                # Create default organization config
+                from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
+                template_data = INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY]
+                await db.organization_configs.insert_one({
+                    "company_id": company_id,
+                    "industry_template": "events_hospitality",
+                    "industry_type": "events",
+                    "enabled_engagement_types": template_data["enabled_engagement_types"],
+                    "default_engagement_type": template_data["default_engagement_type"],
+                    "terminology": template_data.get("terminology", {}),
+                    "pipeline_stages": template_data["pipeline_stages"],
+                    "event_types": template_data["event_types"],
+                    "client_types": template_data["client_types"],
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                })
+            elif not org_config.get("industry_type"):
+                # Add industry_type if missing
+                template_map = {
+                    "events_hospitality": "events",
+                    "professional_services": "agency",
+                    "generic": "generic"
+                }
+                industry_type = template_map.get(org_config.get("industry_template", "events_hospitality"), "events")
+                await db.organization_configs.update_one(
+                    {"company_id": company_id},
+                    {"$set": {"industry_type": industry_type}}
+                )
+            
+            # Ensure subscription exists
+            subscription = await db.subscriptions.find_one({"company_id": company_id})
+            if not subscription:
+                now = datetime.now(timezone.utc)
+                trial_end = now + timedelta(days=7)
+                await db.subscriptions.insert_one({
+                    "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+                    "company_id": company_id,
+                    "plan_id": "plan_professional",
+                    "status": "trialing",
+                    "trial_start": now.isoformat(),
+                    "trial_end": trial_end.isoformat(),
+                    "current_period_start": now.isoformat(),
+                    "current_period_end": trial_end.isoformat(),
+                    "created_at": now.isoformat()
+                })
         
         # Create session
         session_token = f"sess_{uuid.uuid4().hex}{uuid.uuid4().hex[:16]}"
