@@ -28,21 +28,40 @@ export default function OwnerAssignmentSection() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [leadsRes, clientsRes] = await Promise.all([
-        axios.get(`${API}/api/leads`, { withCredentials: true }),
-        axios.get(`${API}/api/crm/clients`, { withCredentials: true })
+      // Fetch leads (outreach + inbound), clients, and team members
+      const [outreachRes, inboundRes, clientsRes, teamRes] = await Promise.all([
+        axios.get(`${API}/api/crm/outreach`, { withCredentials: true }),
+        axios.get(`${API}/api/crm/inbound`, { withCredentials: true }),
+        axios.get(`${API}/api/crm/clients`, { withCredentials: true }),
+        axios.get(`${API}/api/crm/team-members`, { withCredentials: true })
       ]);
-      setLeads(leadsRes.data);
-      setClients(clientsRes.data);
       
-      // Extract unique owners and calculate stats
+      const allLeads = [
+        ...(outreachRes.data || []).map(l => ({ ...l, _source: "Outreach" })),
+        ...(inboundRes.data || []).map(l => ({ ...l, _source: "Inbound" }))
+      ];
+      setLeads(allLeads);
+      setClients(clientsRes.data || []);
+      
+      // Build team members with stats
+      const teamMembers = teamRes.data || [];
       const ownerStats = {};
       
-      leadsRes.data.forEach(l => {
-        if (l.owner_id) {
-          if (!ownerStats[l.owner_id]) {
-            ownerStats[l.owner_id] = { leads: 0, converted: 0, clients: 0 };
-          }
+      // Initialize stats for all team members
+      teamMembers.forEach(u => {
+        ownerStats[u.user_id] = {
+          user_id: u.user_id,
+          name: u.name || u.email || u.user_id,
+          email: u.email,
+          leads: 0,
+          converted: 0,
+          clients: 0
+        };
+      });
+      
+      // Count leads and conversions per owner
+      allLeads.forEach(l => {
+        if (l.owner_id && ownerStats[l.owner_id]) {
           ownerStats[l.owner_id].leads++;
           if (l.status === "Converted") {
             ownerStats[l.owner_id].converted++;
@@ -50,28 +69,26 @@ export default function OwnerAssignmentSection() {
         }
       });
       
-      clientsRes.data.forEach(c => {
-        if (c.owner_id) {
-          if (!ownerStats[c.owner_id]) {
-            ownerStats[c.owner_id] = { leads: 0, converted: 0, clients: 0 };
-          }
+      // Count clients per owner
+      (clientsRes.data || []).forEach(c => {
+        if (c.owner_id && ownerStats[c.owner_id]) {
           ownerStats[c.owner_id].clients++;
         }
       });
       
-      const uniqueOwners = Object.entries(ownerStats).map(([id, stats]) => ({
-        user_id: id,
-        name: id.replace("user_", "User ").slice(0, 20),
+      // Calculate conversion rates and convert to array
+      const usersWithStats = Object.values(ownerStats).map(stats => ({
         ...stats,
         conversionRate: stats.leads > 0 ? Math.round((stats.converted / stats.leads) * 100) : 0
       }));
       
-      setUsers(uniqueOwners);
+      setUsers(usersWithStats);
     } catch (err) {
       console.error(err);
+      toast.error(isEs ? "Error cargando datos" : "Error loading data");
     }
     setLoading(false);
-  }, []);
+  }, [isEs]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
