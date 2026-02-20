@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="14" time="1.907" timestamp="2026-02-20T23:23:40.863794+00:00" hostname="agent-env-128e1ff5-0ab9-4b50-9a6a-c8d551487cfc"><testcase classname="backend.tests.test_owner_assignment_sales_report.TestTeamMembers" name="test_get_team_members_success" time="0.584"><failure message="AssertionError: Expected 200, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:50: in test_get_team_members_success
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+E   AssertionError: Expected 200, got 401: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestTeamMembers" name="test_team_members_requires_auth" time="0.137" /><testcase classname="backend.tests.test_owner_assignment_sales_report.TestLeadOwnerAssignment" name="test_get_leads_to_find_test_lead" time="0.092"><failure message="AssertionError: Failed to get leads: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:80: in test_get_leads_to_find_test_lead
+    assert response.status_code == 200, f"Failed to get leads: {response.text}"
+E   AssertionError: Failed to get leads: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestLeadOwnerAssignment" name="test_assign_owner_to_lead" time="0.079"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:96: in test_assign_owner_to_lead
+    assert team_response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestLeadOwnerAssignment" name="test_unassign_owner_from_lead" time="0.070"><failure message="AttributeError: 'str' object has no attribute 'get'">backend/tests/test_owner_assignment_sales_report.py:153: in test_unassign_owner_from_lead
+    if lead.get("status") != "Converted" and lead.get("owner_id"):
+       ^^^^^^^^
+E   AttributeError: 'str' object has no attribute 'get'</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestLeadOwnerAssignment" name="test_assign_owner_invalid_lead" time="0.090"><failure message="AssertionError: Expected 404, got 401&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:183: in test_assign_owner_invalid_lead
+    assert response.status_code == 404, f"Expected 404, got {response.status_code}"
+E   AssertionError: Expected 404, got 401
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestLeadOwnerAssignment" name="test_assign_invalid_owner_id" time="0.074"><failure message="AttributeError: 'str' object has no attribute 'get'">backend/tests/test_owner_assignment_sales_report.py:193: in test_assign_invalid_owner_id
+    if lead.get("status") != "Converted":
+       ^^^^^^^^
+E   AttributeError: 'str' object has no attribute 'get'</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestSalesReport" name="test_get_sales_report_basic" time="0.062"><failure message="AssertionError: Expected 200, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:217: in test_get_sales_report_basic
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+E   AssertionError: Expected 200, got 401: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestSalesReport" name="test_sales_report_with_date_filters" time="0.062"><failure message="AssertionError: Failed with date filters: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:266: in test_sales_report_with_date_filters
+    assert response.status_code == 200, f"Failed with date filters: {response.text}"
+E   AssertionError: Failed with date filters: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestSalesReport" name="test_sales_report_with_owner_filter" time="0.056"><failure message="KeyError: 0">backend/tests/test_owner_assignment_sales_report.py:283: in test_sales_report_with_owner_filter
+    owner_id = team_members[0].get("user_id")
+               ^^^^^^^^^^^^^^^
+E   KeyError: 0</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestSalesReport" name="test_sales_report_exclude_unassigned" time="0.069"><failure message="AssertionError: Failed: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:302: in test_sales_report_exclude_unassigned
+    assert response.status_code == 200, f"Failed: {response.text}"
+E   AssertionError: Failed: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestSalesReport" name="test_sales_report_include_unassigned" time="0.079"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_owner_assignment_sales_report.py:320: in test_sales_report_include_unassigned
+    assert response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_owner_assignment_sales_report.TestSalesReport" name="test_sales_report_requires_auth" time="0.137" /><testcase classname="backend.tests.test_owner_assignment_sales_report.TestIntegrationOwnerAssignmentAndReport" name="test_assign_owner_reflects_in_report" time="0.120"><failure message="AttributeError: 'str' object has no attribute 'get'">backend/tests/test_owner_assignment_sales_report.py:357: in test_assign_owner_reflects_in_report
+    if lead.get("status") != "Converted" and not lead.get("owner_id"):
+       ^^^^^^^^
+E   AttributeError: 'str' object has no attribute 'get'</failure></testcase></testsuite></testsuites>
