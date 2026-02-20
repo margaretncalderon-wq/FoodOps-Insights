@@ -29,6 +29,80 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 
+async def ensure_user_data_complete(company_id: str, user_id: str = None):
+    """
+    Back-fill missing organization_config and subscription for a company.
+    Called on every login/session to ensure data integrity for existing users.
+    """
+    if not company_id:
+        return
+
+    from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
+
+    template_to_type = {
+        "events_hospitality": "events",
+        "professional_services": "agency",
+        "generic": "generic",
+    }
+
+    # 1. Ensure organization_config exists and has industry_type
+    org_config = await db.organization_configs.find_one({"company_id": company_id})
+    if not org_config:
+        # Get company's industry_template if available
+        company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "industry_template": 1})
+        industry_template = (company.get("industry_template") if company else None) or "events_hospitality"
+        industry_type = template_to_type.get(industry_template, "events")
+
+        try:
+            template_enum = IndustryTemplate(industry_template)
+        except ValueError:
+            template_enum = IndustryTemplate.EVENTS_HOSPITALITY
+
+        template_data = INDUSTRY_TEMPLATES.get(template_enum, INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY])
+        now = datetime.now(timezone.utc).isoformat()
+        await db.organization_configs.insert_one({
+            "config_id": f"config_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "industry_template": industry_template,
+            "industry_type": industry_type,
+            "enabled_engagement_types": template_data["enabled_engagement_types"],
+            "default_engagement_type": template_data["default_engagement_type"],
+            "terminology": template_data.get("terminology", {}),
+            "pipeline_stages": template_data["pipeline_stages"],
+            "event_types": template_data["event_types"],
+            "client_types": template_data["client_types"],
+            "created_at": now,
+            "updated_at": now,
+        })
+    elif not org_config.get("industry_type"):
+        industry_template = org_config.get("industry_template", "events_hospitality")
+        industry_type = template_to_type.get(industry_template, "events")
+        await db.organization_configs.update_one(
+            {"company_id": company_id},
+            {"$set": {"industry_type": industry_type, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+
+    # 2. Ensure active/trialing subscription exists
+    active_sub = await db.subscriptions.find_one({
+        "company_id": company_id,
+        "status": {"$in": ["active", "trialing"]}
+    })
+    if not active_sub:
+        now = datetime.now(timezone.utc)
+        trial_end = now + timedelta(days=7)
+        await db.subscriptions.insert_one({
+            "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "plan_id": "plan_professional",
+            "status": "trialing",
+            "trial_start": now.isoformat(),
+            "trial_end": trial_end.isoformat(),
+            "current_period_start": now.isoformat(),
+            "current_period_end": trial_end.isoformat(),
+            "created_at": now.isoformat(),
+        })
+
+
 def create_jwt_token(user_id: str) -> str:
     payload = {
         "user_id": user_id,
