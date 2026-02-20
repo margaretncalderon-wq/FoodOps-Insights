@@ -1215,7 +1215,6 @@ async def get_owners_sales_report(
     STATUS_SIN_RESPUESTA = "Sin Respuesta"
     STATUS_INTERESADO = "Interesado"
     STATUS_CONVERTIDO = "Converted"
-    WORKED_STATUSES = [STATUS_CONTACTADO, STATUS_SIN_RESPUESTA, STATUS_INTERESADO]
     
     # Group by owner
     owner_stats = {}
