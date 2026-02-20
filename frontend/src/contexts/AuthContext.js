@@ -20,8 +20,13 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = useCallback(async () => {
     setLoading(true);
     try {
+      const headers = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       const response = await axios.get(`${API}/auth/me`, {
         withCredentials: true,
+        headers,
       });
       setUser(response.data);
       return response.data;
@@ -32,7 +37,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   const login = async (email, password) => {
     setLoading(true);
