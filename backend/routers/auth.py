@@ -179,6 +179,13 @@ async def register(data: UserCreate, response: Response):
         industry_type = data.industry_type
     else:
         industry_template = data.industry_template or "events_hospitality"
+        # Set industry_type from template to avoid NameError
+        type_from_template = {
+            "events_hospitality": "events",
+            "professional_services": "agency",
+            "generic": "generic"
+        }
+        industry_type = type_from_template.get(industry_template, "events")
     company_doc = {
         "company_id": company_id,
         "name": company_name,
