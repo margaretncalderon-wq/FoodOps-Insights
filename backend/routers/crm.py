@@ -1,5 +1,5 @@
 # routers/crm.py - CRM module routes
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from datetime import datetime, timezone
 from typing import Optional
 import uuid
@@ -13,6 +13,7 @@ from models.crm import (
     LeadFormCreate, LeadForm, LeadFormFieldConfig, CustomFieldConfig
 )
 from utils.activity_logger import log_activity, user_info
+from utils.email_service import send_lead_assignment_notification
 
 
 # ============== ROUTERS ==============
