@@ -733,10 +733,14 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
     included_in_plan = plan.get("included_modules", []) if plan else []
     
-    if plan_id == "plan_enterprise":
+    # If no plan or no modules defined, include all modules by default
+    # This ensures users always see industry-appropriate modules
+    if not included_in_plan:
+        included_in_plan = list(MODULE_ADDONS.keys())
+    elif plan_id == "plan_enterprise":
         included_in_plan = list(MODULE_ADDONS.keys())
     elif plan_id == "plan_professional":
-        included_in_plan = plan.get("included_modules", ["module_event_orchestration", "module_venues"])
+        included_in_plan = list(MODULE_ADDONS.keys())
     
     # Get purchased module addons
     purchased_modules = await db.organization_addons.find({
