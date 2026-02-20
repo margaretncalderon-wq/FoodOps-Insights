@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
+import logging
 
 from config import db
 from dependencies import get_current_user, User
@@ -13,6 +14,8 @@ from models.addons import (
     EffectiveLimits, EffectiveFeatures, AddonUsageLog
 )
 from utils.activity_logger import log_activity, user_info
+
+logger = logging.getLogger(__name__)
 
 addons_router = APIRouter(prefix="/addons", tags=["Add-ons"])
 
