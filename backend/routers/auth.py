@@ -472,22 +472,12 @@ async def logout(request: Request, response: Response):
 @auth_router.get("/google/login")
 async def google_login(request: Request):
     """Initiate Google OAuth flow"""
-    # Determine the correct frontend URL for the redirect_uri
-    # Priority: query param > Host header > FRONTEND_URL env var
+    # Priority: query param from frontend > FRONTEND_URL env var
     redirect_uri_override = request.query_params.get("redirect_uri")
     if redirect_uri_override:
         redirect_uri = redirect_uri_override
     else:
-        # Use the Host header which Kubernetes ingress forwards correctly
-        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-        scheme = request.headers.get("x-forwarded-proto") or "https"
-
-        if host and host != "localhost:8001":
-            frontend_url = f"{scheme}://{host}"
-        else:
-            frontend_url = FRONTEND_URL
-
-        redirect_uri = f"{frontend_url}/auth/google/callback"
+        redirect_uri = f"{FRONTEND_URL}/auth/google/callback"
     
     google_auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -498,7 +488,7 @@ async def google_login(request: Request):
         "&access_type=offline"
         "&prompt=consent"
     )
-    return {"auth_url": google_auth_url}
+    return {"auth_url": google_auth_url, "redirect_uri": redirect_uri}
 
 
 @auth_router.post("/google/callback")
