@@ -104,10 +104,10 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Production: https://ourkora.com
 
 ## Pending Issues
-1. **P1:** Org-Level Workflow Configuration UI
+1. **P2:** Complete i18n audit for new components (hardcoded strings)
 2. **P2:** Refactor server.py into smaller router modules
-3. **P2:** Complete i18n audit for new components
-4. **P3:** API Documentation page for Super Admin
+3. **P3:** API Documentation page for Super Admin
+4. **P3:** Backend plan limit enforcement logic may still exist
 
 ## Blocked Items
 - **Email Functionality:** Awaiting `RESEND_API_KEY` for transactional emails
