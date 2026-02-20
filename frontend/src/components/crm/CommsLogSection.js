@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { API } from "../../utils/api";
-import { Phone, Mail, Video, FileText, MessageSquare, Plus, Search } from "lucide-react";
+import { Phone, Mail, Video, FileText, MessageSquare, Plus, Search, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -24,16 +24,18 @@ const DIRECTIONS = [
 
 export default function CommsLogSection({ entityType, entityId, entityName, standalone = false }) {
   const [logs, setLogs] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [filterSource, setFilterSource] = useState("all");
   const [form, setForm] = useState({
     comm_type: "call",
     direction: "outbound",
     subject: "",
     content: "",
-    entity_type: entityType || "",
+    entity_type: entityType || "lead",
     entity_id: entityId || "",
   });
 
@@ -44,10 +46,7 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
       if (standalone) {
         url = `${API}/crm/comms/all`;
       } else {
-        if (!entityType || !entityId) {
-          setLoading(false);
-          return;
-        }
+        if (!entityType || !entityId) { setLoading(false); return; }
         url = `${API}/crm/comms/${entityType}/${entityId}`;
       }
       const res = await axios.get(url);
@@ -58,29 +57,35 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     setLoading(false);
   }, [entityType, entityId, standalone]);
 
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+  const fetchLeads = useCallback(async () => {
+    if (!standalone) return;
+    try {
+      const [outRes, inRes] = await Promise.all([
+        axios.get(`${API}/crm/outreach`),
+        axios.get(`${API}/crm/inbound`),
+      ]);
+      const outreach = (outRes.data || []).map(l => ({ ...l, _source: "Outreach" }));
+      const inbound = (inRes.data || []).map(l => ({ ...l, _source: "Inbound" }));
+      setLeads([...outreach, ...inbound]);
+    } catch (err) {
+      console.error("Error fetching leads:", err);
+    }
+  }, [standalone]);
+
+  useEffect(() => { fetchLogs(); fetchLeads(); }, [fetchLogs, fetchLeads]);
 
   const handleSubmit = async () => {
-    if (!form.subject.trim()) {
-      toast.error("Agrega un asunto");
-      return;
-    }
-    if (standalone && (!form.entity_type || !form.entity_id)) {
-      toast.error("Selecciona un cliente o lead");
-      return;
-    }
+    if (!form.subject.trim()) { toast.error("Agrega un asunto"); return; }
+    if (!form.entity_id) { toast.error("Selecciona un lead"); return; }
     try {
-      const payload = {
+      await axios.post(`${API}/crm/comms`, {
         ...form,
-        entity_type: form.entity_type || entityType,
-        entity_id: form.entity_id || entityId,
-      };
-      await axios.post(`${API}/crm/comms`, payload);
+        entity_type: "lead",
+        entity_id: form.entity_id,
+      });
       toast.success("Registro guardado");
       setShowNew(false);
-      setForm({ comm_type: "call", direction: "outbound", subject: "", content: "", entity_type: entityType || "", entity_id: entityId || "" });
+      setForm({ comm_type: "call", direction: "outbound", subject: "", content: "", entity_type: "lead", entity_id: entityId || "" });
       fetchLogs();
     } catch (err) {
       toast.error("Error al guardar");
@@ -92,13 +97,26 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     return found ? <found.icon className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />;
   };
 
+  const getLeadName = (log) => {
+    if (log.entity_name) return log.entity_name;
+    const lead = leads.find(l => l.lead_id === log.entity_id);
+    return lead ? (lead.company_name || lead.name || lead.contact_name) : null;
+  };
+
+  const getLeadSource = (log) => {
+    if (log.entity_source) return log.entity_source;
+    const lead = leads.find(l => l.lead_id === log.entity_id);
+    return lead?._source || lead?.source || null;
+  };
+
   const filtered = logs.filter(log => {
-    const matchSearch = !search || 
+    const matchSearch = !search ||
       (log.subject || "").toLowerCase().includes(search.toLowerCase()) ||
       (log.content || "").toLowerCase().includes(search.toLowerCase()) ||
-      (log.entity_name || "").toLowerCase().includes(search.toLowerCase());
+      (getLeadName(log) || "").toLowerCase().includes(search.toLowerCase());
     const matchType = filterType === "all" || log.comm_type === filterType;
-    return matchSearch && matchType;
+    const matchSource = filterSource === "all" || getLeadSource(log)?.toLowerCase() === filterSource.toLowerCase();
+    return matchSearch && matchType && matchSource;
   });
 
   if (loading) {
@@ -108,6 +126,8 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
       </div>
     );
   }
+
+  const selectedLead = leads.find(l => l.lead_id === form.entity_id);
 
   return (
     <div className="space-y-4" data-testid="comms-log-section">
@@ -129,12 +149,24 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="all">Todos los tipos</SelectItem>
               {COMM_TYPES.map(t => (
                 <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {standalone && (
+            <Select value={filterSource} onValueChange={setFilterSource}>
+              <SelectTrigger className="w-[140px]" data-testid="comms-filter-source">
+                <SelectValue placeholder="Fuente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los leads</SelectItem>
+                <SelectItem value="outreach">Outreach</SelectItem>
+                <SelectItem value="inbound">Inbound</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -148,13 +180,61 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
               <DialogTitle>Registrar Interacción</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Lead selector - only in standalone mode */}
+              {standalone && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Lead asociado</label>
+                  <Select value={form.entity_id} onValueChange={v => setForm(f => ({...f, entity_id: v}))}>
+                    <SelectTrigger data-testid="comm-lead-select">
+                      <SelectValue placeholder="Selecciona un lead..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {leads.filter(l => l._source === "Outreach").length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Outreach</div>
+                          {leads.filter(l => l._source === "Outreach").map(l => (
+                            <SelectItem key={l.lead_id} value={l.lead_id}>
+                              {l.company_name || l.name || l.contact_name || l.lead_id}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {leads.filter(l => l._source === "Inbound").length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Inbound</div>
+                          {leads.filter(l => l._source === "Inbound").map(l => (
+                            <SelectItem key={l.lead_id} value={l.lead_id}>
+                              {l.company_name || l.name || l.contact_name || l.lead_id}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {leads.length === 0 && (
+                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">No hay leads disponibles</div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {selectedLead && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Fuente: {selectedLead._source} {selectedLead.contact_name ? `| Contacto: ${selectedLead.contact_name}` : ""}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Entity name display when not standalone */}
+              {!standalone && entityName && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{entityName}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium mb-1 block">Tipo</label>
                   <Select value={form.comm_type} onValueChange={v => setForm(f => ({...f, comm_type: v}))}>
-                    <SelectTrigger data-testid="comm-type-select">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger data-testid="comm-type-select"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {COMM_TYPES.map(t => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -165,9 +245,7 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
                 <div>
                   <label className="text-sm font-medium mb-1 block">Dirección</label>
                   <Select value={form.direction} onValueChange={v => setForm(f => ({...f, direction: v}))}>
-                    <SelectTrigger data-testid="comm-direction-select">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger data-testid="comm-direction-select"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {DIRECTIONS.map(d => (
                         <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
@@ -213,43 +291,57 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
         </div>
       ) : (
         <div className="space-y-2" data-testid="comms-list">
-          {filtered.map(log => (
-            <div
-              key={log.log_id}
-              className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-              data-testid={`comm-item-${log.log_id}`}
-            >
-              <div className={`p-2 rounded-lg ${
-                log.comm_type === "call" ? "bg-blue-100 text-blue-600" :
-                log.comm_type === "email" ? "bg-amber-100 text-amber-600" :
-                log.comm_type === "meeting" ? "bg-purple-100 text-purple-600" :
-                log.comm_type === "note" ? "bg-green-100 text-green-600" :
-                "bg-gray-100 text-gray-600"
-              }`}>
-                {getIcon(log.comm_type)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{log.subject || "Sin asunto"}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    log.direction === "inbound" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                  }`}>
-                    {log.direction === "inbound" ? "Entrante" : "Saliente"}
-                  </span>
+          {filtered.map(log => {
+            const leadName = getLeadName(log);
+            const leadSource = getLeadSource(log);
+            return (
+              <div
+                key={log.log_id}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                data-testid={`comm-item-${log.log_id}`}
+              >
+                <div className={`p-2 rounded-lg shrink-0 ${
+                  log.comm_type === "call" ? "bg-blue-100 text-blue-600" :
+                  log.comm_type === "email" ? "bg-amber-100 text-amber-600" :
+                  log.comm_type === "meeting" ? "bg-purple-100 text-purple-600" :
+                  log.comm_type === "note" ? "bg-green-100 text-green-600" :
+                  "bg-gray-100 text-gray-600"
+                }`}>
+                  {getIcon(log.comm_type)}
                 </div>
-                {log.content && (
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{log.content}</p>
-                )}
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                  {standalone && log.entity_name && (
-                    <span className="font-medium text-foreground">{log.entity_name}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{log.subject || "Sin asunto"}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      log.direction === "inbound" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {log.direction === "inbound" ? "Entrante" : "Saliente"}
+                    </span>
+                  </div>
+                  {log.content && (
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{log.content}</p>
                   )}
-                  {log.owner_name && <span>Por: {log.owner_name}</span>}
-                  <span>{new Date(log.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                    {leadName && (
+                      <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                        <User className="w-3 h-3" />
+                        {leadName}
+                      </span>
+                    )}
+                    {leadSource && (
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${
+                        leadSource === "Outreach" ? "bg-violet-100 text-violet-700" : "bg-teal-100 text-teal-700"
+                      }`}>
+                        {leadSource}
+                      </span>
+                    )}
+                    {log.owner_name && <span>Por: {log.owner_name}</span>}
+                    <span>{new Date(log.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
