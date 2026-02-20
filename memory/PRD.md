@@ -26,15 +26,22 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - Workflow Builder UI (Automations tab in Settings)
 - Google OAuth + Emergent OAuth login
 - Demo/Influencer account creation
+- Bulk repair endpoint for Super Admin
 
-## Recent Fix (Feb 2026)
-### P0: Module Loading Regression - FIXED & VERIFIED
-- **Root Cause**: Existing users (especially Google login) were missing `organization_config` and/or `subscription` records, causing `enabled-modules` endpoint to return minimal modules.
-- **Fix**: Created `ensure_user_data_complete()` helper in `auth.py` that back-fills missing `organization_config` (with `industry_type`) and `subscription` (with `plan_professional` trial) on every login/session.
-- **Applied to**: Password login, Emergent session exchange, Google OAuth callback
-- **Also fixed**: Potential `NameError` in register endpoint when `industry_type` not provided
-- **Bulk Repair Endpoint**: `POST /api/super-admin/repair-all-organizations` — fixes ALL companies in one call (Super Admin only). Tested: repaired 25/36 orgs in preview.
-- **Testing**: 17/17 backend tests passed
+## Recent Fixes (Feb 2026)
+
+### P0 Fix 1: Module Loading Regression - FIXED & VERIFIED
+- **Root Cause**: Existing users missing `organization_config` and/or `subscription` records
+- **Fix**: `ensure_user_data_complete()` helper in `auth.py` back-fills on every login/session
+- **Bulk Repair**: `POST /api/super-admin/repair-all-organizations`
+
+### P0 Fix 2: Google Login redirect_uri_mismatch - FIXED & VERIFIED
+- **Root Cause**: Backend used Origin header (stripped by K8s proxy) to build redirect_uri
+- **Fix**: Frontend sends `redirect_uri` as query param from `window.location.origin`
+
+### P0 Fix 3: Modules 401 after Google Login - FIXED & VERIFIED
+- **Root Cause**: TWO different `get_current_user` functions (`auth.py` vs `dependencies.py`). `dependencies.py` only handled JWT, not session UUIDs from Google login
+- **Fix**: Updated `dependencies.py` to check `user_sessions` table first, then JWT decode. Also added JWT `access_token` to all Google auth responses and stored in AuthContext.
 
 ## Pending Issues
 - P2: Incomplete internationalization (hardcoded strings in UI)
