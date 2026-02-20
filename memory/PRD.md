@@ -33,6 +33,7 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Fix**: Created `ensure_user_data_complete()` helper in `auth.py` that back-fills missing `organization_config` (with `industry_type`) and `subscription` (with `plan_professional` trial) on every login/session.
 - **Applied to**: Password login, Emergent session exchange, Google OAuth callback
 - **Also fixed**: Potential `NameError` in register endpoint when `industry_type` not provided
+- **Bulk Repair Endpoint**: `POST /api/super-admin/repair-all-organizations` — fixes ALL companies in one call (Super Admin only). Tested: repaired 25/36 orgs in preview.
 - **Testing**: 17/17 backend tests passed
 
 ## Pending Issues
