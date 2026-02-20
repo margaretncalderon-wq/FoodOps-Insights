@@ -1108,6 +1108,7 @@ async def get_team_members(user: User = Depends(get_current_user)):
 async def patch_lead_owner(
     lead_id: str,
     data: dict,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user)
 ):
     """
@@ -1117,6 +1118,8 @@ async def patch_lead_owner(
     Permissions:
     - Admin/Owner: Can assign anyone
     - Sales: Can only assign self or unassign (null)
+    
+    Sends email notification to the new owner.
     """
     owner_id = data.get("owner_id")
     
@@ -1126,6 +1129,7 @@ async def patch_lead_owner(
         raise HTTPException(status_code=404, detail="Lead not found")
     
     # Validate owner_id if provided
+    target_user = None
     if owner_id:
         target_user = await db.users.find_one({
             "user_id": owner_id, 
@@ -1165,7 +1169,32 @@ async def patch_lead_owner(
         "created_at": now.isoformat()
     })
     
-    return {"success": True, "lead_id": lead_id, "owner_id": owner_id}
+    # Send email notification to new owner (in background)
+    if owner_id and target_user and target_user.get("email"):
+        # Get assigner name
+        assigner_name = user.name if hasattr(user, 'name') and user.name else user.email
+        
+        # Get company name
+        company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0, "name": 1})
+        company_name = company.get("name", "Kora OS") if company else "Kora OS"
+        
+        # Lead info
+        lead_name = lead.get("company_name") or lead.get("name") or lead.get("contact_name") or lead.get("lead_name") or "Nuevo Lead"
+        lead_source = lead.get("source") or lead.get("lead_type", "").title() or "CRM"
+        
+        background_tasks.add_task(
+            send_lead_assignment_notification,
+            owner_email=target_user.get("email"),
+            owner_name=target_user.get("name", target_user.get("email")),
+            lead_name=lead_name,
+            lead_email=lead.get("email"),
+            lead_phone=lead.get("phone"),
+            lead_source=lead_source,
+            assigned_by=assigner_name,
+            company_name=company_name
+        )
+    
+    return {"success": True, "lead_id": lead_id, "owner_id": owner_id, "notification_sent": bool(owner_id and target_user)}
 
 
 # ============== SALES REPORT ENDPOINT ==============
