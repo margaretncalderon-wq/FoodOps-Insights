@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { RefreshCw, Users, FileText, CalendarDays, 
-  UserPlus, Inbox, Clock, MessageSquare, UserCircle, ChevronDown, Zap } from "lucide-react";
+  UserPlus, Inbox, Clock, MessageSquare, UserCircle, ChevronDown, Zap, BarChart3 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
 
