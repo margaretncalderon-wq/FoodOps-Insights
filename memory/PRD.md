@@ -43,7 +43,13 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 
 ## Recent Changes (February 19, 2026)
 
-### Add Users to Organizations from Admin Panel - NEW ✅
+### Landing Page Integration Logos - COMPLETED ✅
+- Updated integration logos section with official brand logos
+- Logos: Gmail, Google Calendar, Meta, Google Ads, Stripe, WhatsApp
+- Styling: Grayscale 60% opacity by default, full color on hover with scale effect
+- All logos are now official and recognizable
+
+### Add Users to Organizations from Admin Panel ✅
 - **Backend:** `POST /api/super-admin/organizations/{company_id}/members`
   - Creates new user with email, name, password, and role
   - Can add existing user to another organization
