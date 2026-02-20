@@ -37,21 +37,31 @@ export default function SystemPulse() {
   });
   const [executionPending, setExecutionPending] = useState(null);
   const [executionSignals, setExecutionSignals] = useState(null);
+  const [salesPerformance, setSalesPerformance] = useState(null);
 
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
     try {
-      const [eventsRes, statsRes, pendingRes, signalsRes] = await Promise.all([
+      // Calculate date range for last 7 days
+      const today = new Date();
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const dateFrom = weekAgo.toISOString().split('T')[0];
+      const dateTo = today.toISOString().split('T')[0];
+      
+      const [eventsRes, statsRes, pendingRes, signalsRes, salesRes] = await Promise.all([
         axios.get(`${API}/orchestration/events`, { withCredentials: true }),
         axios.get(`${API}/dashboard/stats`, { withCredentials: true }),
         axios.get(`${API}/execution-hub/my-pending`, { withCredentials: true }).catch(() => ({ data: null })),
-        axios.get(`${API}/execution-hub/signals`, { withCredentials: true }).catch(() => ({ data: null }))
+        axios.get(`${API}/execution-hub/signals`, { withCredentials: true }).catch(() => ({ data: null })),
+        axios.get(`${API}/crm/reports/owners?date_from=${dateFrom}&date_to=${dateTo}&include_unassigned=true`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
 
       const events = eventsRes.data || [];
       const stats = statsRes.data || {};
       setExecutionPending(pendingRes.data);
       setExecutionSignals(signalsRes.data);
+      setSalesPerformance(salesRes.data);
       
       // Process Active Events (from Event Orchestration)
       const now = new Date();
