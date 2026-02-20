@@ -615,6 +615,21 @@ async def complete_google_registration(request: Request, response: Response):
     }
     await db.organization_configs.insert_one(org_config_doc)
     
+    # Create subscription with 7-day free trial
+    trial_end = now + timedelta(days=7)
+    subscription_doc = {
+        "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "plan_id": "plan_professional",  # Start with professional plan trial
+        "status": "trialing",
+        "trial_start": now.isoformat(),
+        "trial_end": trial_end.isoformat(),
+        "current_period_start": now.isoformat(),
+        "current_period_end": trial_end.isoformat(),
+        "created_at": now.isoformat()
+    }
+    await db.subscriptions.insert_one(subscription_doc)
+    
     # Create user as owner of their organization
     user_doc = {
         "user_id": user_id,
