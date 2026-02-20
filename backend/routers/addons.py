@@ -693,11 +693,15 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         IndustryType
     )
     
+    logger.info(f"Getting enabled modules for user {user.email}, company {user.company_id}")
+    
     # Get organization config
     org_config = await db.organization_configs.find_one(
         {"company_id": user.company_id}, 
         {"_id": 0, "industry_template": 1, "industry_type": 1, "terminology": 1}
     )
+    
+    logger.info(f"Org config found: {org_config}")
     
     # Support both old industry_template and new industry_type
     industry_type = "events"  # default
@@ -712,6 +716,11 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
                 "generic": "generic",
             }
             industry_type = template_map.get(org_config["industry_template"], "events")
+    else:
+        # No org config found - create one with default industry
+        logger.warning(f"No org_config found for company {user.company_id}, using default 'events'")
+    
+    logger.info(f"Using industry_type: {industry_type}")
     
     terminology = org_config.get("terminology", {}) if org_config else {}
     
