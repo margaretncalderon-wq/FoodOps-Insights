@@ -471,21 +471,22 @@ async def logout(request: Request, response: Response):
 @auth_router.get("/google/login")
 async def google_login(request: Request):
     """Initiate Google OAuth flow"""
-    frontend_url = FRONTEND_URL
-    origin = request.headers.get("origin") or request.headers.get("referer") or ""
-    
-    # Clean the origin - remove any path components
-    if origin:
-        from urllib.parse import urlparse
-        parsed = urlparse(origin)
-        origin = f"{parsed.scheme}://{parsed.netloc}"
-    
-    if "localhost" in origin:
-        frontend_url = "http://localhost:3000"
-    elif origin and ("ourkora.com" in origin or "emergentagent.com" in origin or "emergent.host" in origin):
-        frontend_url = origin.rstrip("/")
-    
-    redirect_uri = f"{frontend_url}/auth/google/callback"
+    # Determine the correct frontend URL for the redirect_uri
+    # Priority: query param > Host header > FRONTEND_URL env var
+    redirect_uri_override = request.query_params.get("redirect_uri")
+    if redirect_uri_override:
+        redirect_uri = redirect_uri_override
+    else:
+        # Use the Host header which Kubernetes ingress forwards correctly
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        scheme = request.headers.get("x-forwarded-proto") or "https"
+
+        if host and host != "localhost:8001":
+            frontend_url = f"{scheme}://{host}"
+        else:
+            frontend_url = FRONTEND_URL
+
+        redirect_uri = f"{frontend_url}/auth/google/callback"
     
     google_auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
