@@ -14,6 +14,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const checkAuth = useCallback(async () => {
@@ -26,6 +27,7 @@ export const AuthProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       setUser(null);
+      setToken(null);
       throw error;
     } finally {
       setLoading(false);
@@ -40,6 +42,7 @@ export const AuthProvider = ({ children }) => {
         { email, password },
         { withCredentials: true }
       );
+      setToken(response.data.access_token);
       setUser(response.data.user);
       return response.data;
     } finally {
@@ -55,6 +58,7 @@ export const AuthProvider = ({ children }) => {
         data,
         { withCredentials: true }
       );
+      setToken(response.data.access_token);
       setUser(response.data.user);
       return response.data;
     } finally {
@@ -70,7 +74,10 @@ export const AuthProvider = ({ children }) => {
         { session_id: sessionId },
         { withCredentials: true }
       );
-      setUser(response.data);
+      if (response.data.access_token) {
+        setToken(response.data.access_token);
+      }
+      setUser(response.data.user || response.data);
       return response.data;
     } finally {
       setLoading(false);
@@ -84,6 +91,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Logout error:", error);
     } finally {
       setUser(null);
+      setToken(null);
     }
   };
 
@@ -105,9 +113,11 @@ export const AuthProvider = ({ children }) => {
         { code, redirect_uri: redirectUri },
         { withCredentials: true }
       );
-      // Check if this is a new user requiring registration
       if (response.data.requires_registration) {
-        return response.data; // Return without setting user - needs registration
+        return response.data;
+      }
+      if (response.data.access_token) {
+        setToken(response.data.access_token);
       }
       setUser(response.data.user);
       return response.data;
@@ -128,6 +138,9 @@ export const AuthProvider = ({ children }) => {
         },
         { withCredentials: true }
       );
+      if (response.data.access_token) {
+        setToken(response.data.access_token);
+      }
       setUser(response.data.user);
       return response.data;
     } finally {
@@ -139,6 +152,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        token,
         loading,
         login,
         register,
