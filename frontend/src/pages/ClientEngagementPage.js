@@ -24,6 +24,7 @@ const LeadInboundSection = lazy(() => import("../components/crm/LeadInboundSecti
 const FollowUpsSection = lazy(() => import("../components/crm/FollowUpsSection"));
 const CommsLogSection = lazy(() => import("../components/crm/CommsLogSection"));
 const OwnerAssignmentSection = lazy(() => import("../components/crm/OwnerAssignmentSection"));
+const SalesReportSection = lazy(() => import("../components/crm/SalesReportSection"));
 const ClientsSection = lazy(() => import("../components/crm/ClientsSection"));
 
 // Lazy load Automation
