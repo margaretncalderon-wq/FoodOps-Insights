@@ -769,6 +769,126 @@ export default function SystemPulse() {
           </Card>
         )}
 
+        {/* -------------------- 5) SALES PERFORMANCE PULSE -------------------- */}
+        {salesPerformance && salesPerformance.owners && salesPerformance.owners.length > 0 && (
+          <Card data-testid="sales-performance-pulse-section">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-emerald-600" />
+                  <CardTitle className="text-lg">
+                    {isEs ? "Sales Performance Pulse" : "Sales Performance Pulse"}
+                  </CardTitle>
+                  <Badge variant="secondary" className="text-xs">
+                    {isEs ? "Últimos 7 días" : "Last 7 days"}
+                  </Badge>
+                </div>
+                <Link 
+                  to="/client-engagement/crm/sales-report" 
+                  className="text-sm text-muted-foreground hover:text-emerald-600 flex items-center gap-1"
+                >
+                  {isEs ? "Ver reporte completo" : "View full report"}
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs 
+                  ? "Snapshot de actividad y conversiones por vendedor"
+                  : "Quick snapshot of activity and conversions by salesperson"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {/* Summary Stats */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="text-center p-2 bg-blue-50 rounded-lg">
+                  <p className="text-xl font-bold text-blue-600">{salesPerformance.totals?.total_leads || 0}</p>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Leads" : "Leads"}</p>
+                </div>
+                <div className="text-center p-2 bg-amber-50 rounded-lg">
+                  <p className="text-xl font-bold text-amber-600">{salesPerformance.totals?.trabajados || 0}</p>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Trabajados" : "Worked"}</p>
+                </div>
+                <div className="text-center p-2 bg-purple-50 rounded-lg">
+                  <p className="text-xl font-bold text-purple-600">{salesPerformance.totals?.interesados || 0}</p>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Interesados" : "Interested"}</p>
+                </div>
+                <div className="text-center p-2 bg-green-50 rounded-lg">
+                  <p className="text-xl font-bold text-green-600">{salesPerformance.totals?.convertidos || 0}</p>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Convertidos" : "Converted"}</p>
+                </div>
+              </div>
+              
+              {/* Owner List - Sorted by conversions */}
+              <div className="space-y-2 max-h-[240px] overflow-y-auto">
+                {salesPerformance.owners.slice(0, 8).map((owner, idx) => (
+                  <Link
+                    key={owner.owner_id || `unassigned-${idx}`}
+                    to={`/client-engagement/crm/sales-report`}
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      !owner.owner_id 
+                        ? 'bg-yellow-50/50 hover:bg-yellow-50 border border-yellow-200' 
+                        : 'bg-muted/30 hover:bg-muted/50'
+                    }`}
+                    data-testid={`sales-pulse-${owner.owner_id || 'unassigned'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        owner.convertidos > 0 ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        <UserCircle className={`w-4 h-4 ${owner.convertidos > 0 ? 'text-green-600' : 'text-gray-500'}`} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {owner.owner_name || (isEs ? "Sin Asignar" : "Unassigned")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {owner.nuevos} {isEs ? "nuevos" : "new"} · {owner.trabajados} {isEs ? "trabajados" : "worked"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          <span className="text-purple-600">{owner.interesados}</span>
+                          <span className="text-muted-foreground mx-1">/</span>
+                          <span className="text-green-600">{owner.convertidos}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {isEs ? "Int/Conv" : "Int/Conv"}
+                        </p>
+                      </div>
+                      <div className="text-right min-w-[50px]">
+                        <p className={`text-sm font-bold ${
+                          owner.tasa_conversion >= 10 ? 'text-green-600' : 
+                          owner.tasa_conversion > 0 ? 'text-amber-600' : 'text-muted-foreground'
+                        }`}>
+                          {owner.tasa_conversion}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">{isEs ? "Conv" : "Conv"}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              
+              {/* Global Conversion Rate Footer */}
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>{isEs ? "Tasa de conversión global" : "Global conversion rate"}</span>
+                </div>
+                <Badge className={`${
+                  (salesPerformance.totals?.tasa_conversion || 0) >= 10 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {salesPerformance.totals?.tasa_conversion || 0}%
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ==================== QUICK ACTIONS ==================== */}
         <div className="pt-6 border-t">
           <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide">
