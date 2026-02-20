@@ -105,14 +105,6 @@ async def register(data: UserCreate, response: Response):
         industry_type = data.industry_type
     else:
         industry_template = data.industry_template or "events_hospitality"
-        # Map industry_template to industry_type
-        template_to_type = {
-            "events_hospitality": "events",
-            "professional_services": "agency",
-            "generic": "generic"
-        }
-        industry_type = template_to_type.get(industry_template, "events")
-    
     company_doc = {
         "company_id": company_id,
         "name": company_name,
@@ -133,14 +125,6 @@ async def register(data: UserCreate, response: Response):
     
     template_enum = IndustryTemplate(industry_template) if industry_template in [e.value for e in IndustryTemplate] else IndustryTemplate.EVENTS_HOSPITALITY
     template_data = INDUSTRY_TEMPLATES.get(template_enum, INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY])
-    
-    # Map industry_template to industry_type for the modules system
-    industry_type_map = {
-        "events_hospitality": "events",
-        "professional_services": "agency",
-        "generic": "generic"
-    }
-    industry_type = industry_type_map.get(industry_template, "events")
     
     config_doc = {
         "config_id": config_id,
