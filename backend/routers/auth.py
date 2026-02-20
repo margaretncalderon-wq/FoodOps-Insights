@@ -506,6 +506,8 @@ async def google_callback(request: Request, response: Response):
             
             # Ensure subscription exists
             subscription = await db.subscriptions.find_one({"company_id": company_id})
+            print(f"[GOOGLE LOGIN] subscription found: {subscription is not None}")
+            
             if not subscription:
                 now = datetime.now(timezone.utc)
                 trial_end = now + timedelta(days=7)
