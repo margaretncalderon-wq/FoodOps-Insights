@@ -33,15 +33,23 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 ### P0 Fix 1: Module Loading Regression - FIXED & VERIFIED
 - **Root Cause**: Existing users missing `organization_config` and/or `subscription` records
 - **Fix**: `ensure_user_data_complete()` helper in `auth.py` back-fills on every login/session
-- **Bulk Repair**: `POST /api/super-admin/repair-all-organizations`
+- **Bulk Repair**: `POST /api/super-admin/repair-all-organizations` + UI button in Super Admin → Maintenance tab
 
 ### P0 Fix 2: Google Login redirect_uri_mismatch - FIXED & VERIFIED
 - **Root Cause**: Backend used Origin header (stripped by K8s proxy) to build redirect_uri
 - **Fix**: Frontend sends `redirect_uri` as query param from `window.location.origin`
 
 ### P0 Fix 3: Modules 401 after Google Login - FIXED & VERIFIED
-- **Root Cause**: TWO different `get_current_user` functions (`auth.py` vs `dependencies.py`). `dependencies.py` only handled JWT, not session UUIDs from Google login
-- **Fix**: Updated `dependencies.py` to check `user_sessions` table first, then JWT decode. Also added JWT `access_token` to all Google auth responses and stored in AuthContext.
+- **Root Cause**: TWO different `get_current_user` functions. `dependencies.py` only handled JWT, not session UUIDs
+- **Fix**: Updated `dependencies.py` to check `user_sessions` table first. Added JWT `access_token` to all auth responses. Global axios interceptor sends token automatically.
+
+### P0 Fix 4: Login redirect loop (Rep. Dom. users) - FIXED & VERIFIED
+- **Root Cause**: `ProtectedRoute` re-verified auth via cookie-only `checkAuth` causing race condition
+- **Fix**: Skip re-verification if user already in context. `checkAuth` now uses stored JWT token.
+
+### Feature: CRM Comms Section - FIXED & WORKING
+- **Root Cause**: `CommsLogSection` required `entityType`/`entityId` but standalone mode didn't provide them → infinite spinner
+- **Fix**: Added `GET /api/crm/comms/all` endpoint, updated component for standalone mode, made entity fields optional in model
 
 ## Pending Issues
 - P2: Incomplete internationalization (hardcoded strings in UI)
