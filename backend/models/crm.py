@@ -145,9 +145,9 @@ class Client(BaseModel):
 # ============== COMMUNICATION LOG MODELS ==============
 
 class CommLogCreate(BaseModel):
-    entity_type: str  # lead, client
-    entity_id: str  # lead_id or client_id
-    comm_type: str  # call, email, meeting, note
+    entity_type: Optional[str] = None  # lead, client, or None for general
+    entity_id: Optional[str] = None  # lead_id or client_id
+    comm_type: str  # call, email, meeting, note, message
     subject: Optional[str] = None
     content: str
     direction: str = "outbound"  # inbound, outbound
