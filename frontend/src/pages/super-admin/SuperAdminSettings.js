@@ -166,6 +166,10 @@ export default function SuperAdminSettings() {
           <TabsTrigger value="leadform">Formulario de Leads</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="integrations">Integraciones</TabsTrigger>
+          <TabsTrigger value="maintenance">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Mantenimiento
+          </TabsTrigger>
         </TabsList>
 
         {/* Pricing Configuration */}
