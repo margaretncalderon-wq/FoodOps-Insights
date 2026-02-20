@@ -135,6 +135,20 @@ export default function SuperAdminSettings() {
     setLoading(false);
   };
 
+  const handleRepairOrganizations = async () => {
+    setRepairLoading(true);
+    setRepairResult(null);
+    try {
+      const res = await axios.post(`${API}/api/super-admin/repair-all-organizations`, {}, { withCredentials: true });
+      setRepairResult(res.data);
+      toast.success(`Reparadas ${res.data.repaired} de ${res.data.total} organizaciones`);
+    } catch (err) {
+      console.error("Repair failed:", err);
+      toast.error("Error al reparar organizaciones");
+    }
+    setRepairLoading(false);
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
