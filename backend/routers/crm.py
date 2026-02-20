@@ -1087,3 +1087,258 @@ async def submit_lead_form(form_id: str, data: dict):
         "message": form.get("thank_you_message", "Thank you for your inquiry!"),
         "lead_id": lead_id
     }
+
+
+# ============== TEAM MEMBERS FOR ASSIGNMENT ==============
+
+@crm_router.get("/team-members")
+async def get_team_members(user: User = Depends(get_current_user)):
+    """Get all active team members for owner assignment dropdown"""
+    users = await db.users.find(
+        {"company_id": user.company_id, "is_active": {"$ne": False}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role_id": 1}
+    ).to_list(100)
+    return users
+
+
+# ============== LEAD OWNER ASSIGNMENT (New Endpoint per spec) ==============
+
+@crm_router.patch("/leads/{lead_id}/owner")
+async def patch_lead_owner(
+    lead_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Assign or unassign owner to a lead.
+    Body: { owner_id: string | null }
+    
+    Permissions:
+    - Admin/Owner: Can assign anyone
+    - Sales: Can only assign self or unassign (null)
+    """
+    owner_id = data.get("owner_id")
+    
+    # Find the lead
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Validate owner_id if provided
+    if owner_id:
+        target_user = await db.users.find_one({
+            "user_id": owner_id, 
+            "company_id": user.company_id,
+            "is_active": {"$ne": False}
+        })
+        if not target_user:
+            raise HTTPException(status_code=400, detail="Invalid owner_id or user not active")
+        
+        # Permission check for Sales role
+        user_role = user.role_id if hasattr(user, 'role_id') else None
+        if user_role == "sales" and owner_id != user.user_id:
+            raise HTTPException(status_code=403, detail="Sales users can only assign leads to themselves")
+    
+    # Get previous owner for audit
+    previous_owner_id = lead.get("owner_id")
+    
+    # Update lead
+    now = datetime.now(timezone.utc)
+    await db.leads.update_one(
+        {"lead_id": lead_id},
+        {"$set": {"owner_id": owner_id, "updated_at": now.isoformat()}}
+    )
+    
+    # Audit log
+    await db.audit_logs.insert_one({
+        "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "action": "lead_owner_assigned",
+        "entity_type": "lead",
+        "entity_id": lead_id,
+        "meta": {
+            "from_owner_id": previous_owner_id,
+            "to_owner_id": owner_id
+        },
+        "created_at": now.isoformat()
+    })
+    
+    return {"success": True, "lead_id": lead_id, "owner_id": owner_id}
+
+
+# ============== SALES REPORT ENDPOINT ==============
+
+@crm_router.get("/reports/owners")
+async def get_owners_sales_report(
+    user: User = Depends(get_current_user),
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    owner_id: Optional[str] = None,
+    include_unassigned: bool = True
+):
+    """
+    Sales performance report grouped by owner.
+    
+    Filters:
+    - date_from, date_to: Filter by lead created_at
+    - owner_id: Filter by specific owner (Sales can only see their own)
+    - include_unassigned: Include leads without owner (default true)
+    
+    Returns metrics per owner:
+    - total_leads, nuevos, trabajados, contactados, sin_respuesta, interesados, convertidos
+    - tasa_contacto, tasa_conversion
+    """
+    # Permission check - Sales users can only see their own data
+    user_role = getattr(user, 'role_id', None)
+    if user_role == "sales":
+        owner_id = user.user_id  # Force filter to self
+    
+    # Build base query
+    query = {"company_id": user.company_id}
+    
+    # Date filters
+    if date_from or date_to:
+        date_filter = {}
+        if date_from:
+            date_filter["$gte"] = date_from
+        if date_to:
+            date_filter["$lte"] = date_to + "T23:59:59"
+        query["created_at"] = date_filter
+    
+    # Fetch all leads matching criteria
+    leads = await db.leads.find(query, {"_id": 0}).to_list(10000)
+    
+    # Define CRM statuses as per spec
+    STATUS_NUEVO = "Nuevo"
+    STATUS_CONTACTADO = "Contactado"
+    STATUS_SIN_RESPUESTA = "Sin Respuesta"
+    STATUS_INTERESADO = "Interesado"
+    STATUS_CONVERTIDO = "Converted"
+    WORKED_STATUSES = [STATUS_CONTACTADO, STATUS_SIN_RESPUESTA, STATUS_INTERESADO]
+    
+    # Group by owner
+    owner_stats = {}
+    
+    for lead in leads:
+        lead_owner = lead.get("owner_id") or "__unassigned__"
+        
+        # Skip unassigned if not included
+        if lead_owner == "__unassigned__" and not include_unassigned:
+            continue
+        
+        # Skip if filtering by specific owner
+        if owner_id and lead_owner != owner_id and lead_owner != "__unassigned__":
+            continue
+        
+        if lead_owner not in owner_stats:
+            owner_stats[lead_owner] = {
+                "owner_id": lead_owner if lead_owner != "__unassigned__" else None,
+                "owner_name": None,
+                "total_leads": 0,
+                "nuevos": 0,
+                "trabajados": 0,
+                "contactados": 0,
+                "sin_respuesta": 0,
+                "interesados": 0,
+                "convertidos": 0
+            }
+        
+        stats = owner_stats[lead_owner]
+        stats["total_leads"] += 1
+        
+        status = lead.get("status", "")
+        
+        if status == STATUS_NUEVO:
+            stats["nuevos"] += 1
+        elif status == STATUS_CONTACTADO:
+            stats["contactados"] += 1
+            stats["trabajados"] += 1
+        elif status == STATUS_SIN_RESPUESTA:
+            stats["sin_respuesta"] += 1
+            stats["trabajados"] += 1
+        elif status == STATUS_INTERESADO:
+            stats["interesados"] += 1
+            stats["trabajados"] += 1
+        elif status == STATUS_CONVERTIDO:
+            stats["convertidos"] += 1
+    
+    # Fetch owner names
+    owner_ids = [oid for oid in owner_stats.keys() if oid != "__unassigned__"]
+    if owner_ids:
+        users_data = await db.users.find(
+            {"user_id": {"$in": owner_ids}},
+            {"_id": 0, "user_id": 1, "name": 1}
+        ).to_list(100)
+        user_names = {u["user_id"]: u.get("name", u["user_id"]) for u in users_data}
+        
+        for oid in owner_stats:
+            if oid != "__unassigned__":
+                owner_stats[oid]["owner_name"] = user_names.get(oid, oid)
+    
+    # Set name for unassigned
+    if "__unassigned__" in owner_stats:
+        owner_stats["__unassigned__"]["owner_name"] = "Sin Asignar"
+    
+    # Calculate derived metrics
+    result = []
+    for stats in owner_stats.values():
+        total = stats["total_leads"]
+        stats["tasa_contacto"] = round((stats["contactados"] / total * 100), 1) if total > 0 else 0
+        stats["tasa_conversion"] = round((stats["convertidos"] / total * 100), 1) if total > 0 else 0
+        result.append(stats)
+    
+    # Sort by convertidos desc, then interesados desc
+    result.sort(key=lambda x: (-x["convertidos"], -x["interesados"]))
+    
+    # Calculate totals
+    totals = {
+        "total_leads": sum(r["total_leads"] for r in result),
+        "nuevos": sum(r["nuevos"] for r in result),
+        "trabajados": sum(r["trabajados"] for r in result),
+        "contactados": sum(r["contactados"] for r in result),
+        "sin_respuesta": sum(r["sin_respuesta"] for r in result),
+        "interesados": sum(r["interesados"] for r in result),
+        "convertidos": sum(r["convertidos"] for r in result)
+    }
+    totals["tasa_contacto"] = round((totals["contactados"] / totals["total_leads"] * 100), 1) if totals["total_leads"] > 0 else 0
+    totals["tasa_conversion"] = round((totals["convertidos"] / totals["total_leads"] * 100), 1) if totals["total_leads"] > 0 else 0
+    
+    return {
+        "owners": result,
+        "totals": totals
+    }
+
+
+# ============== LEADS FOR COMMS DROPDOWN ==============
+
+@crm_router.get("/leads-for-comms")
+async def get_leads_for_comms(user: User = Depends(get_current_user)):
+    """Get simplified list of leads for comms dropdown selection"""
+    # Get outreach leads
+    outreach = await db.leads.find(
+        {"company_id": user.company_id, "lead_type": "outreach"},
+        {"_id": 0, "lead_id": 1, "name": 1, "company_name": 1, "contact_name": 1, "lead_type": 1}
+    ).sort("created_at", -1).to_list(200)
+    
+    # Get inbound leads
+    inbound = await db.leads.find(
+        {"company_id": user.company_id, "lead_type": {"$ne": "outreach"}},
+        {"_id": 0, "lead_id": 1, "name": 1, "company_name": 1, "contact_name": 1, "lead_type": 1}
+    ).sort("created_at", -1).to_list(200)
+    
+    result = []
+    for lead in outreach:
+        result.append({
+            "lead_id": lead["lead_id"],
+            "name": lead.get("company_name") or lead.get("name") or lead.get("contact_name") or lead["lead_id"],
+            "source": "Outreach"
+        })
+    for lead in inbound:
+        result.append({
+            "lead_id": lead["lead_id"],
+            "name": lead.get("company_name") or lead.get("name") or lead.get("contact_name") or lead["lead_id"],
+            "source": "Inbound"
+        })
+    
+    return result
