@@ -270,6 +270,9 @@ async def login(data: UserLogin, response: Response):
     if not verify_password(data.password, user_doc.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Back-fill missing data for existing users
+    await ensure_user_data_complete(user_doc.get("company_id"), user_doc["user_id"])
+
     token = create_jwt_token(user_doc["user_id"])
     response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
     
