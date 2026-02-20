@@ -142,6 +142,21 @@ async def register(data: UserCreate, response: Response):
     }
     await db.organization_configs.insert_one(config_doc)
     
+    # Create subscription with 7-day free trial
+    trial_end = now + timedelta(days=7)
+    subscription_doc = {
+        "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "plan_id": "plan_professional",  # Start with professional plan trial
+        "status": "trialing",
+        "trial_start": now.isoformat(),
+        "trial_end": trial_end.isoformat(),
+        "current_period_start": now.isoformat(),
+        "current_period_end": trial_end.isoformat(),
+        "created_at": now.isoformat()
+    }
+    await db.subscriptions.insert_one(subscription_doc)
+    
     user_doc = {
         "user_id": user_id,
         "email": data.email,
