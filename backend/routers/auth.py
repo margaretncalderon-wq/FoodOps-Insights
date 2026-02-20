@@ -462,6 +462,8 @@ async def google_callback(request: Request, response: Response):
         user_id = existing_user["user_id"]
         company_id = existing_user.get("company_id")
         
+        print(f"[GOOGLE LOGIN] Existing user {email}, company_id: {company_id}")
+        
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {"picture": picture, "name": name}}
@@ -470,6 +472,8 @@ async def google_callback(request: Request, response: Response):
         # Ensure organization_config exists for existing users
         if company_id:
             org_config = await db.organization_configs.find_one({"company_id": company_id})
+            print(f"[GOOGLE LOGIN] org_config found: {org_config is not None}, has industry_type: {org_config.get('industry_type') if org_config else 'N/A'}")
+            
             if not org_config:
                 # Create default organization config
                 from models.organization_config import INDUSTRY_TEMPLATES, IndustryTemplate
