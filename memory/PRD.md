@@ -57,6 +57,17 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Eliminated user confusion from having two user management interfaces
 - Files modified: `/app/frontend/src/pages/SettingsPage.js`
 
+### Org-Level Workflow Configuration (P2) - COMPLETED ✅
+- Implemented visual workflow management UI in Settings > Automations tab
+- Features:
+  - "My Workflows" sub-tab showing org's configured workflows
+  - "Templates" sub-tab with 12 pre-built automation templates
+  - Workflow cards with status toggle, edit and delete buttons
+  - Integration with WorkflowBuilder component for visual editing
+- Templates include: Lead Welcome, Lead Qualification, Event Reminder, Deal Won → Execution Hub, and 5 integration templates for external platforms (Staffdo)
+- Backend APIs fully functional: `/api/automation/rules`, `/api/automation/templates`
+- Files modified: `/app/frontend/src/components/settings/AutomationsSettingsSection.js`, `/app/backend/routers/automation.py`
+
 ### Add Users to Organizations from Admin Panel ✅
 - **Backend:** `POST /api/super-admin/organizations/{company_id}/members`
   - Creates new user with email, name, password, and role
