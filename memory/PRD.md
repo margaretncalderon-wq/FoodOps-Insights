@@ -119,6 +119,7 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 2. **P2:** Refactor server.py into smaller router modules
 3. **P3:** API Documentation page for Super Admin
 4. **P3:** Backend plan limit enforcement logic may still exist
+5. **P3:** Minor - /api/inventory returns 404 (unrelated to workflows)
 
 ## Blocked Items
 - **Email Functionality:** Awaiting `RESEND_API_KEY` for transactional emails
