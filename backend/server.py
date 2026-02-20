@@ -15045,6 +15045,63 @@ async def delete_organization(
     }
 
 
+# ============== BULK DATA REPAIR ==============
+
+@super_admin_router.post("/repair-all-organizations")
+async def repair_all_organizations(admin: User = Depends(get_super_admin)):
+    """
+    Bulk repair: ensures every company has a valid organization_config
+    (with industry_type) and an active/trialing subscription.
+    Safe to run multiple times — skips companies that are already complete.
+    """
+    from routers.auth import ensure_user_data_complete
+
+    companies = await db.companies.find({}, {"_id": 0, "company_id": 1, "name": 1}).to_list(5000)
+    repaired = []
+    skipped = 0
+
+    for company in companies:
+        cid = company["company_id"]
+
+        # Check current state
+        org_config = await db.organization_configs.find_one({"company_id": cid})
+        has_industry = bool(org_config and org_config.get("industry_type"))
+
+        active_sub = await db.subscriptions.find_one({
+            "company_id": cid,
+            "status": {"$in": ["active", "trialing"]}
+        })
+
+        if has_industry and active_sub:
+            skipped += 1
+            continue
+
+        # Repair
+        await ensure_user_data_complete(cid)
+        fixes = []
+        if not org_config:
+            fixes.append("created_org_config")
+        elif not has_industry:
+            fixes.append("added_industry_type")
+        if not active_sub:
+            fixes.append("created_trial_subscription")
+
+        repaired.append({"company_id": cid, "name": company.get("name", ""), "fixes": fixes})
+
+    await log_super_admin_action(admin.user_id, "repair_all_organizations", details={
+        "repaired_count": len(repaired),
+        "skipped_count": skipped,
+    })
+
+    return {
+        "success": True,
+        "repaired": len(repaired),
+        "skipped": skipped,
+        "total": len(companies),
+        "details": repaired,
+    }
+
+
 # ============== TRIAL EXPIRATION CHECK ENDPOINT ==============
 
 @api_router.get("/subscription/trial-status")
