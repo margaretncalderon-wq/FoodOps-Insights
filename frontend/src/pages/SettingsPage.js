@@ -813,10 +813,6 @@ export default function SettingsPage() {
               <Users className="w-4 h-4" />
               {language === "es" ? "Equipo" : "Team"}
             </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="w-4 h-4" />
-              {language === "es" ? "Usuarios" : "Users"}
-            </TabsTrigger>
             <TabsTrigger value="roles" className="gap-2">
               <Shield className="w-4 h-4" />
               {language === "es" ? "Roles" : "Roles"}
