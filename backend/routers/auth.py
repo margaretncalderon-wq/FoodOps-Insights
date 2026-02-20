@@ -580,11 +580,15 @@ async def google_callback(request: Request, response: Response):
             path="/"
         )
         
+        # Also create a JWT for immediate use by the frontend
+        jwt_token = create_jwt_token(user_id)
+        
         user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
         
         return {
             "success": True,
             "is_new_user": False,
+            "access_token": jwt_token,
             "user": user_data
         }
     else:
