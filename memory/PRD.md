@@ -49,6 +49,14 @@ Kora OS is a comprehensive business management SaaS for event and hospitality bu
 - Styling: Grayscale 60% opacity by default, full color on hover with scale effect
 - All logos are now official and recognizable
 
+### Consolidated Settings User Management (P1) - COMPLETED ✅
+- Removed redundant "Users" tab from Settings page
+- Kept "Team" tab which has both:
+  - "Crear Usuario" (create directly with password)
+  - "Invitar por Email" (send email invitation - blocked pending RESEND_API_KEY)
+- Eliminated user confusion from having two user management interfaces
+- Files modified: `/app/frontend/src/pages/SettingsPage.js`
+
 ### Add Users to Organizations from Admin Panel ✅
 - **Backend:** `POST /api/super-admin/organizations/{company_id}/members`
   - Creates new user with email, name, password, and role
