@@ -91,7 +91,27 @@ async def register(data: UserCreate, response: Response):
     now = datetime.now(timezone.utc)
     
     company_name = data.company_name or f"{data.name}'s Company"
-    industry_template = data.industry_template or "events_hospitality"
+    
+    # Support both industry_type (new) and industry_template (legacy)
+    # industry_type takes precedence if provided
+    if data.industry_type:
+        # Map industry_type to industry_template
+        type_to_template = {
+            "events": "events_hospitality",
+            "agency": "professional_services",
+            "generic": "generic"
+        }
+        industry_template = type_to_template.get(data.industry_type, "events_hospitality")
+        industry_type = data.industry_type
+    else:
+        industry_template = data.industry_template or "events_hospitality"
+        # Map industry_template to industry_type
+        template_to_type = {
+            "events_hospitality": "events",
+            "professional_services": "agency",
+            "generic": "generic"
+        }
+        industry_type = template_to_type.get(industry_template, "events")
     
     company_doc = {
         "company_id": company_id,
