@@ -61,21 +61,27 @@ async def get_automation_rule(
 
 @automation_router.post("/rules")
 async def create_automation_rule(
-    data: CreateRuleRequest,
+    data: dict,
     user: User = Depends(get_current_user)
 ):
     """Create a new automation rule"""
     now = datetime.now(timezone.utc)
     
+    # Validate required fields
+    if not data.get("name"):
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not data.get("trigger"):
+        raise HTTPException(status_code=400, detail="Trigger is required")
+    
     rule = {
         "rule_id": f"rule_{uuid.uuid4().hex[:12]}",
         "organization_id": user.company_id,
-        "name": data.name,
-        "description": data.description,
-        "trigger": data.trigger.dict(),
-        "actions": [a.dict() for a in data.actions],
-        "status": data.status.value,
-        "priority": 0,
+        "name": data.get("name"),
+        "description": data.get("description", ""),
+        "trigger": data.get("trigger", {}),
+        "actions": data.get("actions", []),
+        "status": data.get("status", "draft"),
+        "priority": data.get("priority", 0),
         "created_by": user.user_id,
         "created_at": now.isoformat(),
         "updated_at": None,
