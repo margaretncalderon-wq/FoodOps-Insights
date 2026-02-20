@@ -1,215 +1,257 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
-import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { API } from "../../utils/api";
+import { Phone, Mail, Video, FileText, MessageSquare, Plus, Search } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { ScrollArea } from "../ui/scroll-area";
-import { 
-  RefreshCw, Phone, Mail, MessageSquare, User, Plus,
-  Clock, ArrowUpRight, ArrowDownLeft, FileText
-} from "lucide-react";
-
-import { API_BASE as API } from "../../utils/api";
+import { toast } from "sonner";
 
 const COMM_TYPES = [
-  { value: "call", labelEn: "Call", labelEs: "Llamada", icon: Phone },
-  { value: "email", labelEn: "Email", labelEs: "Email", icon: Mail },
-  { value: "meeting", labelEn: "Meeting", labelEs: "Reunión", icon: User },
-  { value: "note", labelEn: "Note", labelEs: "Nota", icon: FileText }
+  { value: "call", label: "Llamada", icon: Phone },
+  { value: "email", label: "Email", icon: Mail },
+  { value: "meeting", label: "Reunión", icon: Video },
+  { value: "note", label: "Nota", icon: FileText },
+  { value: "message", label: "Mensaje", icon: MessageSquare },
 ];
 
-export default function CommsLogSection({ entityType, entityId, entityName }) {
-  const { language } = useLanguage();
-  const isEs = language === "es";
+const DIRECTIONS = [
+  { value: "outbound", label: "Saliente" },
+  { value: "inbound", label: "Entrante" },
+];
+
+export default function CommsLogSection({ entityType, entityId, entityName, standalone = false }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all");
   const [form, setForm] = useState({
     comm_type: "call",
+    direction: "outbound",
     subject: "",
     content: "",
-    direction: "outbound"
+    entity_type: entityType || "",
+    entity_id: entityId || "",
   });
 
   const fetchLogs = useCallback(async () => {
-    if (!entityType || !entityId) return;
+    setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/crm/comms/${entityType}/${entityId}`, { withCredentials: true });
+      let url;
+      if (standalone) {
+        url = `${API}/crm/comms/all`;
+      } else {
+        if (!entityType || !entityId) {
+          setLoading(false);
+          return;
+        }
+        url = `${API}/crm/comms/${entityType}/${entityId}`;
+      }
+      const res = await axios.get(url);
       setLogs(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching comms:", err);
     }
     setLoading(false);
-  }, [entityType, entityId]);
+  }, [entityType, entityId, standalone]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    if (!form.subject.trim()) {
+      toast.error("Agrega un asunto");
+      return;
+    }
+    if (standalone && (!form.entity_type || !form.entity_id)) {
+      toast.error("Selecciona un cliente o lead");
+      return;
+    }
     try {
-      await axios.post(`${API}/api/crm/comms`, {
-        entity_type: entityType,
-        entity_id: entityId,
-        ...form
-      }, { withCredentials: true });
-      toast.success(isEs ? "Registro agregado" : "Log added");
+      const payload = {
+        ...form,
+        entity_type: form.entity_type || entityType,
+        entity_id: form.entity_id || entityId,
+      };
+      await axios.post(`${API}/crm/comms`, payload);
+      toast.success("Registro guardado");
+      setShowNew(false);
+      setForm({ comm_type: "call", direction: "outbound", subject: "", content: "", entity_type: entityType || "", entity_id: entityId || "" });
       fetchLogs();
-      setDialogOpen(false);
-      setForm({ comm_type: "call", subject: "", content: "", direction: "outbound" });
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Error");
+      toast.error("Error al guardar");
     }
   };
 
-  const getTypeIcon = (type) => {
-    const t = COMM_TYPES.find(ct => ct.value === type) || COMM_TYPES[0];
-    return <t.icon className="w-4 h-4" />;
+  const getIcon = (type) => {
+    const found = COMM_TYPES.find(c => c.value === type);
+    return found ? <found.icon className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />;
   };
 
-  const getDirectionIcon = (direction) => {
-    return direction === "inbound" 
-      ? <ArrowDownLeft className="w-3 h-3 text-green-600" />
-      : <ArrowUpRight className="w-3 h-3 text-blue-600" />;
-  };
+  const filtered = logs.filter(log => {
+    const matchSearch = !search || 
+      (log.subject || "").toLowerCase().includes(search.toLowerCase()) ||
+      (log.content || "").toLowerCase().includes(search.toLowerCase()) ||
+      (log.entity_name || "").toLowerCase().includes(search.toLowerCase());
+    const matchType = filterType === "all" || log.comm_type === filterType;
+    return matchSearch && matchType;
+  });
 
-  if (loading) return <div className="flex items-center justify-center h-32"><RefreshCw className="w-6 h-6 animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4" data-testid="comms-log-section">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" />
-          {isEs ? "Historial de Comunicación" : "Communication History"}
-          {entityName && <span className="text-muted-foreground font-normal">- {entityName}</span>}
-        </h3>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-1" />
-          {isEs ? "Agregar" : "Add"}
-        </Button>
-      </div>
-
-      {/* Logs */}
-      <ScrollArea className="h-[400px]">
-        <div className="space-y-3 pr-4">
-          {logs.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>{isEs ? "Sin comunicaciones registradas" : "No communications logged"}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            logs.map((log) => (
-              <Card key={log.log_id}>
-                <CardContent className="pt-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      {getTypeIcon(log.comm_type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          {COMM_TYPES.find(t => t.value === log.comm_type)?.[isEs ? "labelEs" : "labelEn"] || log.comm_type}
-                        </Badge>
-                        {getDirectionIcon(log.direction)}
-                        <span className="text-xs text-muted-foreground">
-                          {log.direction === "inbound" ? (isEs ? "Entrante" : "Inbound") : (isEs ? "Saliente" : "Outbound")}
-                        </span>
-                      </div>
-                      {log.subject && (
-                        <p className="font-medium text-sm mb-1">{log.subject}</p>
-                      )}
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{log.content}</p>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        {new Date(log.created_at).toLocaleString()}
-                        {log.owner_name && (
-                          <>
-                            <span>•</span>
-                            <User className="w-3 h-3" />
-                            {log.owner_name}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              data-testid="comms-search"
+              placeholder="Buscar comunicaciones..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[140px]" data-testid="comms-filter-type">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {COMM_TYPES.map(t => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </ScrollArea>
 
-      {/* Create Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isEs ? "Nueva Comunicación" : "New Communication"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{isEs ? "Tipo" : "Type"}</Label>
-                <Select value={form.comm_type} onValueChange={(v) => setForm({ ...form, comm_type: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COMM_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {isEs ? type.labelEs : type.labelEn}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <Dialog open={showNew} onOpenChange={setShowNew}>
+          <DialogTrigger asChild>
+            <Button data-testid="new-comm-btn">
+              <Plus className="w-4 h-4 mr-2" /> Nueva Interacción
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Registrar Interacción</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Tipo</label>
+                  <Select value={form.comm_type} onValueChange={v => setForm(f => ({...f, comm_type: v}))}>
+                    <SelectTrigger data-testid="comm-type-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMM_TYPES.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Dirección</label>
+                  <Select value={form.direction} onValueChange={v => setForm(f => ({...f, direction: v}))}>
+                    <SelectTrigger data-testid="comm-direction-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DIRECTIONS.map(d => (
+                        <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
-                <Label>{isEs ? "Dirección" : "Direction"}</Label>
-                <Select value={form.direction} onValueChange={(v) => setForm({ ...form, direction: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="outbound">{isEs ? "Saliente" : "Outbound"}</SelectItem>
-                    <SelectItem value="inbound">{isEs ? "Entrante" : "Inbound"}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium mb-1 block">Asunto</label>
+                <Input
+                  data-testid="comm-subject"
+                  value={form.subject}
+                  onChange={e => setForm(f => ({...f, subject: e.target.value}))}
+                  placeholder="Ej: Llamada de seguimiento, Reunión de propuesta..."
+                />
               </div>
-            </div>
-            <div>
-              <Label>{isEs ? "Asunto" : "Subject"}</Label>
-              <Input
-                value={form.subject}
-                onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                placeholder={isEs ? "Opcional" : "Optional"}
-              />
-            </div>
-            <div>
-              <Label>{isEs ? "Contenido" : "Content"} *</Label>
-              <Textarea
-                value={form.content}
-                onChange={(e) => setForm({ ...form, content: e.target.value })}
-                rows={4}
-                required
-              />
+              <div>
+                <label className="text-sm font-medium mb-1 block">Notas / Apuntes</label>
+                <Textarea
+                  data-testid="comm-content"
+                  value={form.content}
+                  onChange={e => setForm(f => ({...f, content: e.target.value}))}
+                  placeholder="Detalles de la interacción, acuerdos, próximos pasos..."
+                  rows={4}
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                {isEs ? "Cancelar" : "Cancel"}
-              </Button>
-              <Button type="submit">{isEs ? "Agregar" : "Add"}</Button>
+              <Button variant="outline" onClick={() => setShowNew(false)}>Cancelar</Button>
+              <Button data-testid="save-comm-btn" onClick={handleSubmit}>Guardar</Button>
             </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* List */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground" data-testid="comms-empty">
+          <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Sin comunicaciones registradas</p>
+          <p className="text-sm mt-1">Haz clic en "Nueva Interacción" para registrar una</p>
+        </div>
+      ) : (
+        <div className="space-y-2" data-testid="comms-list">
+          {filtered.map(log => (
+            <div
+              key={log.log_id}
+              className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+              data-testid={`comm-item-${log.log_id}`}
+            >
+              <div className={`p-2 rounded-lg ${
+                log.comm_type === "call" ? "bg-blue-100 text-blue-600" :
+                log.comm_type === "email" ? "bg-amber-100 text-amber-600" :
+                log.comm_type === "meeting" ? "bg-purple-100 text-purple-600" :
+                log.comm_type === "note" ? "bg-green-100 text-green-600" :
+                "bg-gray-100 text-gray-600"
+              }`}>
+                {getIcon(log.comm_type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{log.subject || "Sin asunto"}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    log.direction === "inbound" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                  }`}>
+                    {log.direction === "inbound" ? "Entrante" : "Saliente"}
+                  </span>
+                </div>
+                {log.content && (
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{log.content}</p>
+                )}
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                  {standalone && log.entity_name && (
+                    <span className="font-medium text-foreground">{log.entity_name}</span>
+                  )}
+                  {log.owner_name && <span>Por: {log.owner_name}</span>}
+                  <span>{new Date(log.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
