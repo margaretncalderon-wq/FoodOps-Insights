@@ -738,14 +738,28 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     )
     plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
     
+    logger.info(f"Subscription: {subscription}, plan_id: {plan_id}")
+    
     # Get plan details
     plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
-    included_in_plan = plan.get("included_modules", []) if plan else []
     
+    # Default modules for starter plan if plan doesn't exist
+    default_starter_modules = ["module_event_orchestration", "module_demand_studio"]
+    
+    included_in_plan = plan.get("included_modules", default_starter_modules) if plan else default_starter_modules
+    
+    # Override for specific plans
     if plan_id == "plan_enterprise":
         included_in_plan = list(MODULE_ADDONS.keys())
     elif plan_id == "plan_professional":
-        included_in_plan = plan.get("included_modules", ["module_event_orchestration", "module_venues"])
+        included_in_plan = plan.get("included_modules", default_starter_modules) if plan else default_starter_modules
+        # Professional should have all modules
+        included_in_plan = list(MODULE_ADDONS.keys())
+    elif plan_id == "plan_starter" or not plan:
+        # Starter plan gets basic modules
+        included_in_plan = default_starter_modules
+    
+    logger.info(f"Plan: {plan}, included_in_plan: {included_in_plan}")
     
     # Get purchased module addons
     purchased_modules = await db.organization_addons.find({
