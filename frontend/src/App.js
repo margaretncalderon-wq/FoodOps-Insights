@@ -186,13 +186,15 @@ const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
   const { user, loading, checkAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isChecking, setIsChecking] = useState(!location.state?.user);
+  // Skip checking if user is already authenticated from login
+  const [isChecking, setIsChecking] = useState(!user && !location.state?.user);
 
   // Check if trying to access super-admin routes
   const isSuperAdminRoute = location.pathname.startsWith('/super-admin');
 
   useEffect(() => {
-    if (location.state?.user) {
+    // If user already exists in context (from login), skip re-verification
+    if (user || location.state?.user) {
       setIsChecking(false);
       return;
     }
