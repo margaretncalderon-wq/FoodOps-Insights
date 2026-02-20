@@ -35,7 +35,6 @@ import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 
 // New Settings Sections
-import UsersSettingsSection from "../components/settings/UsersSettingsSection";
 import RolesSettingsSection from "../components/settings/RolesSettingsSection";
 import AutomationsSettingsSection from "../components/settings/AutomationsSettingsSection";
 import IntegrationsSettingsSection from "../components/settings/IntegrationsSettingsSection";
