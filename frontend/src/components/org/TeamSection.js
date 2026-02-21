@@ -414,7 +414,7 @@ export function TeamSection() {
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuContent align="end" className="w-64">
                         {/* Edit */}
                         <DropdownMenuItem onClick={() => openEditDialog(member)}>
                           <Pencil className="w-4 h-4 mr-2" />
@@ -423,21 +423,68 @@ export function TeamSection() {
                         
                         <DropdownMenuSeparator />
                         
-                        {/* Change Role */}
-                        {availableRoles.map(role => (
+                        {/* Section: System Roles */}
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
+                          {isEs ? "Roles del Sistema" : "System Roles"}
+                        </div>
+                        {availableRoles.filter(r => r.is_system).map(role => (
                           <DropdownMenuItem 
                             key={role.role_id}
                             onClick={() => handleChangeRole(member.membership_id, role.role_id)}
                             disabled={member.role === role.role_id}
+                            className="flex items-center justify-between"
                           >
-                            <Shield className="w-4 h-4 mr-2" />
-                            {isEs ? `Cambiar a ${role.name_es || role.name}` : `Change to ${role.name}`}
-                            {member.role === role.role_id && <Check className="w-4 h-4 ml-auto" />}
+                            <div className="flex items-center">
+                              <Shield className="w-4 h-4 mr-2 text-blue-500" />
+                              <span>{isEs ? (role.name_es || role.name) : role.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {member.role === role.role_id && <Check className="w-4 h-4 text-green-500" />}
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); openViewRoleDialog(role); }}
+                                className="p-1 hover:bg-muted rounded"
+                              >
+                                <Eye className="w-3 h-3 text-muted-foreground" />
+                              </button>
+                            </div>
                           </DropdownMenuItem>
                         ))}
                         
+                        {/* Section: Custom Roles */}
+                        {availableRoles.filter(r => !r.is_system).length > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
+                              {isEs ? "Roles Personalizados" : "Custom Roles"}
+                            </div>
+                            {availableRoles.filter(r => !r.is_system).map(role => (
+                              <DropdownMenuItem 
+                                key={role.role_id}
+                                onClick={() => handleChangeRole(member.membership_id, role.role_id)}
+                                disabled={member.role === role.role_id}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center">
+                                  <Shield className="w-4 h-4 mr-2 text-purple-500" />
+                                  <span>{isEs ? (role.name_es || role.name) : role.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {member.role === role.role_id && <Check className="w-4 h-4 text-green-500" />}
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); openViewRoleDialog(role); }}
+                                    className="p-1 hover:bg-muted rounded"
+                                  >
+                                    <Eye className="w-3 h-3 text-muted-foreground" />
+                                  </button>
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                        
                         {member.role !== "owner" && (
                           <>
+                            <DropdownMenuSeparator />
                             <DropdownMenuSeparator />
                             
                             {/* Suspend/Activate */}
