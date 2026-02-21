@@ -18,6 +18,7 @@ import {
   ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
+import CommunicationsTimeline from "./CommunicationsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
