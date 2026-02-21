@@ -37,15 +37,12 @@ const PAYMENT_TERMS = [
 
 export default function ClientsSection() {
   const { language } = useLanguage();
-  const { term, industryKey } = useTerminology();
+  const { term, industryKey, isLoading: terminologyLoading } = useTerminology();
   const isEs = language === "es";
   
-  // Dynamic terminology
+  // Dynamic terminology - will update when config loads
   const clientLabel = term("events", "client");
   const clientsLabel = term("events", "clients");
-  
-  // Debug log - remove later
-  console.log("[ClientsSection] Industry:", industryKey, "| Client:", clientLabel, "| Clients:", clientsLabel);
   
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
