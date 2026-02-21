@@ -30,16 +30,16 @@ export const OrgConfigProvider = ({ children }) => {
   const [terminology, setTerminology] = useState({});
 
   const fetchConfig = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
+    // Always try to fetch, using credentials (cookies) instead of requiring token
     try {
+      const headers = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${API_URL}/api/org-config`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
+        credentials: "include",
       });
 
       if (response.ok) {
