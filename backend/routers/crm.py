@@ -149,6 +149,20 @@ async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
     if lead.get("status") == "Converted":
         raise HTTPException(status_code=400, detail="Lead already converted")
     
+    # OWNER ENFORCEMENT: Block conversion if no owner assigned
+    lead_owner_id = lead.get("owner_id")
+    if not lead_owner_id:
+        raise HTTPException(
+            status_code=400, 
+            detail="Assign a salesperson before converting. / Asigna un vendedor antes de convertir."
+        )
+    
+    # Get owner name for the client
+    owner_name = None
+    if lead_owner_id:
+        owner_doc = await db.users.find_one({"user_id": lead_owner_id}, {"_id": 0, "name": 1})
+        owner_name = owner_doc.get("name") if owner_doc else None
+    
     now = datetime.now(timezone.utc)
     
     # Check for existing client by email or company name
@@ -160,8 +174,14 @@ async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
     
     if existing_client:
         client_id = existing_client["client_id"]
+        # Update existing client with owner if not set
+        if not existing_client.get("owner_id"):
+            await db.clients.update_one(
+                {"client_id": client_id},
+                {"$set": {"owner_id": lead_owner_id, "owner_name": owner_name, "updated_at": now.isoformat()}}
+            )
     else:
-        # Create new client
+        # Create new client with inherited owner
         client_id = f"client_{uuid.uuid4().hex[:12]}"
         client_type = "Company" if lead.get("company_name") else "Individual"
         display_name = lead.get("company_name") or lead.get("lead_name")
@@ -174,6 +194,9 @@ async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
             "email": lead.get("email"),
             "phone": lead.get("phone"),
             "source": lead.get("source", "Website"),
+            "source_lead_id": lead_id,  # Link back to original lead
+            "owner_id": lead_owner_id,  # Inherit owner from lead
+            "owner_name": owner_name,
             "tags": [],
             "notes": lead.get("message"),
             "status": "Active",
