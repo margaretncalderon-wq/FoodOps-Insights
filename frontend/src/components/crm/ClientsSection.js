@@ -156,7 +156,13 @@ export default function ClientsSection() {
       tags: client.tags || [],
       has_credit: client.has_credit || false,
       credit_limit: client.credit_limit || 0,
-      payment_terms: client.payment_terms || "immediate"
+      payment_terms: client.payment_terms || "immediate",
+      // Business profile fields
+      website: client.website || "",
+      industry: client.industry || "",
+      description: client.description || "",
+      social_linkedin: client.social_linkedin || "",
+      social_instagram: client.social_instagram || ""
     });
     setEditOpen(true);
   };
@@ -175,7 +181,13 @@ export default function ClientsSection() {
       tags: [],
       has_credit: false,
       credit_limit: 0,
-      payment_terms: "immediate"
+      payment_terms: "immediate",
+      // Business profile fields
+      website: "",
+      industry: "",
+      description: "",
+      social_linkedin: "",
+      social_instagram: ""
     });
     setCreateOpen(true);
   };
