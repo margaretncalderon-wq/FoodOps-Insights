@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Layout } from "../components/Layout";
 import axios from "axios";
 
