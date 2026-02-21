@@ -10660,25 +10660,44 @@ async def check_usage_for_action(metric: str, user: User = Depends(get_current_u
 # ---- Team/Membership Endpoints ----
 
 @org_router.get("/members")
-async def get_members(user: User = Depends(get_current_user)):
+async def get_members(user: User = Depends(get_current_user), include_suspended: bool = False):
     """Get all members of the organization"""
+    status_filter = {"$in": ["active", "suspended"]} if include_suspended else "active"
     memberships = await db.memberships.find(
-        {"company_id": user.company_id, "status": "active"},
+        {"company_id": user.company_id, "status": status_filter},
         {"_id": 0}
     ).to_list(100)
+    
+    # Get custom roles for this company to resolve role names
+    custom_roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    custom_roles_map = {r["role_id"]: r for r in custom_roles}
     
     # Enrich with user data
     members = []
     for mem in memberships:
         user_data = await db.users.find_one({"user_id": mem["user_id"]}, {"_id": 0})
         if user_data:
+            # Resolve role name
+            role_id = mem["role"]
+            role_name = role_id  # Default to role_id
+            role_name_es = role_id
+            
+            # Check if it's a custom role
+            if role_id in custom_roles_map:
+                role_name = custom_roles_map[role_id].get("name", role_id)
+                role_name_es = custom_roles_map[role_id].get("name_es", role_name)
+            
             members.append({
                 "membership_id": mem["membership_id"],
                 "user_id": mem["user_id"],
                 "email": user_data.get("email"),
                 "name": user_data.get("name"),
+                "phone": user_data.get("phone"),
                 "picture": user_data.get("picture"),
-                "role": mem["role"],
+                "role": role_id,
+                "role_name": role_name,
+                "role_name_es": role_name_es,
+                "status": mem.get("status", "active"),
                 "joined_at": mem["joined_at"],
                 "is_current_user": mem["user_id"] == user.user_id
             })
