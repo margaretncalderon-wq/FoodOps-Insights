@@ -15,7 +15,7 @@ import {
  * Hook that provides industry-specific terminology based on the organization's configuration.
  * 
  * Usage:
- * const { term, terms, industryInfo, availableIndustries } = useTerminology();
+ * const { term, terms, industryInfo, availableIndustries, isLoading } = useTerminology();
  * 
  * // Get a single term
  * const clientLabel = term("events", "client"); // Returns "Patient" for healthcare, "Client" for events
@@ -24,7 +24,7 @@ import {
  * const crmTerms = terms("crm"); // Returns { pipeline: "Patient Journey", deal: "Case", ... }
  */
 export function useTerminology() {
-  const { industryTemplate } = useOrgConfig();
+  const { industryTemplate, loading: configLoading } = useOrgConfig();
   const { language } = useLanguage();
   
   // Map backend industry_template to frontend terminology key
