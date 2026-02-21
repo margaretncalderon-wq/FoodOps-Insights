@@ -84,9 +84,14 @@ async def create_organization_config(
     industry_type_map = {
         "events_hospitality": "events",
         "professional_services": "agency",
+        "healthcare": "healthcare",
+        "real_estate": "real_estate",
+        "education": "education",
+        "fitness": "fitness",
+        "consulting": "consulting",
         "generic": "generic"
     }
-    industry_type = industry_type_map.get(data.industry_template.value, "events")
+    industry_type = industry_type_map.get(data.industry_template.value, "generic")
     
     config_doc = {
         "config_id": f"config_{uuid.uuid4().hex[:12]}",
