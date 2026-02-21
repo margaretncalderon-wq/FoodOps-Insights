@@ -810,7 +810,7 @@ export default function SystemPulse() {
               <div className="grid grid-cols-4 gap-3 mb-4">
                 <div className="text-center p-2 bg-blue-50 rounded-lg">
                   <p className="text-xl font-bold text-blue-600">{salesPerformance.totals?.total_leads || 0}</p>
-                  <p className="text-xs text-muted-foreground">{isEs ? "Leads" : "Leads"}</p>
+                  <p className="text-xs text-muted-foreground">{leadsLabel}</p>
                 </div>
                 <div className="text-center p-2 bg-amber-50 rounded-lg">
                   <p className="text-xl font-bold text-amber-600">{salesPerformance.totals?.trabajados || 0}</p>
