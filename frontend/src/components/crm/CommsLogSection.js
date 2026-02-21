@@ -25,6 +25,7 @@ const DIRECTIONS = [
 export default function CommsLogSection({ entityType, entityId, entityName, standalone = false }) {
   const [logs, setLogs] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
@@ -50,29 +51,33 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
         url = `${API}/crm/comms/${entityType}/${entityId}`;
       }
       const res = await axios.get(url);
-      setLogs(res.data);
+      // Filter out entries without entity association
+      const filtered = standalone ? res.data.filter(l => l.entity_id) : res.data;
+      setLogs(filtered);
     } catch (err) {
       console.error("Error fetching comms:", err);
     }
     setLoading(false);
   }, [entityType, entityId, standalone]);
 
-  const fetchLeads = useCallback(async () => {
+  const fetchEntities = useCallback(async () => {
     if (!standalone) return;
     try {
-      const [outRes, inRes] = await Promise.all([
+      const [outRes, inRes, clientsRes] = await Promise.all([
         axios.get(`${API}/crm/outreach`),
         axios.get(`${API}/crm/inbound`),
+        axios.get(`${API}/crm/clients`),
       ]);
-      const outreach = (outRes.data || []).map(l => ({ ...l, _source: "Outreach" }));
-      const inbound = (inRes.data || []).map(l => ({ ...l, _source: "Inbound" }));
+      const outreach = (outRes.data || []).map(l => ({ ...l, _source: "Outreach", _type: "lead" }));
+      const inbound = (inRes.data || []).map(l => ({ ...l, _source: "Inbound", _type: "lead" }));
       setLeads([...outreach, ...inbound]);
+      setClients((clientsRes.data || []).map(c => ({ ...c, _type: "client" })));
     } catch (err) {
-      console.error("Error fetching leads:", err);
+      console.error("Error fetching entities:", err);
     }
   }, [standalone]);
 
-  useEffect(() => { fetchLogs(); fetchLeads(); }, [fetchLogs, fetchLeads]);
+  useEffect(() => { fetchLogs(); fetchEntities(); }, [fetchLogs, fetchEntities]);
 
   const handleSubmit = async () => {
     if (!form.subject.trim()) { toast.error("Agrega un asunto"); return; }
