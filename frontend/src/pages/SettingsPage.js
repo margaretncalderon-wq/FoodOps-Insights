@@ -3,6 +3,7 @@ import { API } from "../utils/api";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
