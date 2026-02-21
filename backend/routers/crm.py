@@ -700,6 +700,18 @@ async def update_follow_up(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} not found")
     
+    # Auto-sync to Google Calendar (if configured)
+    try:
+        from routers.google_calendar import auto_sync_follow_up
+        if entity_type == "lead":
+            entity = await db.leads.find_one({"lead_id": entity_id, "company_id": user.company_id}, {"_id": 0})
+        else:
+            entity = await db.clients.find_one({"client_id": entity_id, "company_id": user.company_id}, {"_id": 0})
+        if entity:
+            await auto_sync_follow_up(user.company_id, entity_type, entity_id, entity)
+    except Exception as e:
+        print(f"Calendar sync failed (non-blocking): {e}")
+    
     return {"message": "Follow-up updated"}
 
 
