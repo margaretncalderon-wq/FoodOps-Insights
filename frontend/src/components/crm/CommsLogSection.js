@@ -352,8 +352,8 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
       ) : (
         <div className="space-y-2" data-testid="comms-list">
           {filtered.map(log => {
-            const leadName = getLeadName(log);
-            const leadSource = getLeadSource(log);
+            const entityName = getEntityName(log);
+            const entitySource = getEntitySource(log);
             return (
               <div
                 key={log.log_id}
@@ -382,17 +382,19 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{log.content}</p>
                   )}
                   <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
-                    {leadName && (
+                    {entityName && (
                       <span className="inline-flex items-center gap-1 font-medium text-foreground">
                         <User className="w-3 h-3" />
-                        {leadName}
+                        {entityName}
                       </span>
                     )}
-                    {leadSource && (
+                    {entitySource && (
                       <span className={`px-1.5 py-0.5 rounded text-xs ${
-                        leadSource === "Outreach" ? "bg-violet-100 text-violet-700" : "bg-teal-100 text-teal-700"
+                        entitySource === "Outreach" ? "bg-violet-100 text-violet-700" : 
+                        entitySource === "Cliente" ? "bg-emerald-100 text-emerald-700" :
+                        "bg-teal-100 text-teal-700"
                       }`}>
-                        {leadSource}
+                        {entitySource}
                       </span>
                     )}
                     {log.owner_name && <span>Por: {log.owner_name}</span>}
