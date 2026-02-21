@@ -868,6 +868,11 @@ export default function SettingsPage() {
             <BillingSection />
           </TabsContent>
 
+          {/* Terminology Tab */}
+          <TabsContent value="terminology">
+            <TerminologySettingsSection />
+          </TabsContent>
+
           {/* Team Tab */}
           <TabsContent value="team">
             <TeamSection />
