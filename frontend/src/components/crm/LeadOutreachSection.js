@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent } from "../ui/card";
