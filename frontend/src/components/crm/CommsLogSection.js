@@ -152,8 +152,8 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     <div className="space-y-4" data-testid="comms-log-section">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex items-center gap-2 flex-1 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               data-testid="comms-search"
@@ -164,28 +164,43 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
             />
           </div>
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[140px]" data-testid="comms-filter-type">
+            <SelectTrigger className="w-[130px]" data-testid="comms-filter-type">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los tipos</SelectItem>
+              <SelectItem value="all">Todos tipos</SelectItem>
               {COMM_TYPES.map(t => (
                 <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           {standalone && (
-            <Select value={filterSource} onValueChange={setFilterSource}>
-              <SelectTrigger className="w-[140px]" data-testid="comms-filter-source">
-                <SelectValue placeholder="Fuente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="outreach">Outreach</SelectItem>
-                <SelectItem value="inbound">Inbound</SelectItem>
-                <SelectItem value="client">Clientes</SelectItem>
-              </SelectContent>
-            </Select>
+            <>
+              <Select value={filterSource} onValueChange={setFilterSource}>
+                <SelectTrigger className="w-[120px]" data-testid="comms-filter-source">
+                  <SelectValue placeholder="Fuente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="outreach">Outreach</SelectItem>
+                  <SelectItem value="inbound">Inbound</SelectItem>
+                  <SelectItem value="client">Clientes</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterOwner} onValueChange={setFilterOwner}>
+                <SelectTrigger className="w-[140px]" data-testid="comms-filter-owner">
+                  <SelectValue placeholder="Vendedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos vendedores</SelectItem>
+                  {teamMembers.map(u => (
+                    <SelectItem key={u.user_id} value={u.user_id}>
+                      {u.name || u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
           )}
         </div>
 
