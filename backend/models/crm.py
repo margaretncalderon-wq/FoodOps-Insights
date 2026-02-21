@@ -138,6 +138,12 @@ class Client(BaseModel):
     credit_limit: float = 0.0
     credit_used: float = 0.0  # Amount of credit currently used
     payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
+    # Business profile fields
+    website: Optional[str] = None  # Client's website URL
+    industry: Optional[str] = None  # Client's industry/sector
+    description: Optional[str] = None  # Description of what they do
+    social_linkedin: Optional[str] = None  # LinkedIn profile/company page
+    social_instagram: Optional[str] = None  # Instagram handle
     created_at: datetime
     updated_at: datetime
     # CRM Enhancement fields (additive)
