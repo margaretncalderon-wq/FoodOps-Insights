@@ -1,87 +1,101 @@
 <analysis>**original_problem_statement:**
-The user's initial request was to build an Execution Hub module, which evolved into a major architectural refactoring of the Kora application into a flexible, multi-industry, modular SaaS platform. The core goal is a multi-tenant SaaS where the terminology, available modules, and features dynamically adapt based on the organization's industry.
+The user's initial request was to build an Execution Hub module, which evolved into a major architectural refactoring of the Kora application into a flexible, multi-industry, modular SaaS platform.
 
-**PRODUCT REQUIREMENTS (Consolidated & Updated):**
-1.  **Core & Add-on Model:** A subscription model with a mandatory Kora Core base package and optional paid add-ons with a 7-day free trial.
-2.  **Super-Admin Panel:** A comprehensive panel to manage customers, modules, pricing, and integrations.
-3.  **Demo/Influencer Accounts:** A feature for Super Admins to create free, non-expiring accounts.
-4.  **External Integrations API:** A secure, API-key-based system for third-party connections.
-5.  **Dynamic Workflows:** Organization-specific automations triggered by API events.
-6.  **Dynamic Industry-Specific UI/UX:** The application's UI must change dynamically based on the user's industry.
-7.  **End-to-End Flow:** The core user journey from Lead -> Proposal -> Project must be fully functional, including CRM communications and lead ownership.
+In this session, the user provided a detailed specification to fix and enhance the CRM, focusing on a complete and logical end-to-end user journey.
+
+**PRODUCT REQUIREMENTS (This Session):**
+1.  **Stable Lead Owner Assignment:** Implement a robust way to assign sales representatives (owners) to leads.
+2.  **Sales Report:** Create a new report in the CRM to show sales performance metrics (total leads, worked, converted, etc.) grouped by owner.
+3.  **Sales Performance Pulse:** Add a compact version of the sales report to the main dashboard (System Pulse).
+4.  **End-to-End Comms:**
+    *   Fix the main Comms view to require association with a Lead or Client.
+    *   Add a communications timeline inside each Lead and Client's detail view.
+    *   Ensure historical communications from a Lead are visible on the Client's record after conversion.
+5.  **UI/UX Improvements:**
+    *   Implement a rich text editor for writing communications.
+    *   Unify the UI of the Lead detail view to match the tabbed layout of the Client view.
+    *   Improve the layout of detail dialogs to be more compact and scrollable.
+6.  **Email Notifications:** Send an email to a salesperson when they are assigned a new lead.
+7.  **Dashboard by Owner:** Create a dashboard/view showing scheduled communications (follow-ups) for each salesperson.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a full-stack React/FastAPI/MongoDB platform. The previous session successfully resolved several critical production-blocking issues and added new functionality to the CRM.
-
-- **Authentication System Overhaul:** All authentication flows (password, Google, session refresh) have been unified. They now use a robust data back-filling mechanism to ensure all users have the necessary  and  records. A JWT-based approach using an Axios interceptor on the frontend has resolved previous race conditions and unauthorized errors.
-- **Google Login Fixed:** The  error has been resolved by dynamically generating the URI and instructing the user on the correct Google Console configuration.
-- **Super Admin Repair Tool:** A Maintenance tab was added to the Super Admin panel with a button to trigger a bulk repair process (), fixing data for all existing users in one click. The user has confirmed this was executed successfully in production.
-- **CRM Communications (Comms) Fixed & Enhanced:** The Comms tab in the CRM, previously stuck on a loading spinner, is now fully functional. It allows creating general communications and, as a recent enhancement, associating them with specific Outreach or Inbound leads.
+The agent successfully implemented a large portion of the user's requirements for the CRM module.
+- **Lead Owner Assignment:** The previously broken owner assignment feature has been fixed. A new backend endpoint () was created, and the frontend UI () was updated to allow assigning owners to leads.
+- **Sales Report & Pulse:** A new Sales Report tab was added to Client Engagement, showing detailed sales metrics per owner. This is powered by a new backend aggregation endpoint (). A compact version, Sales Performance Pulse, was also added to the main dashboard, reusing the same endpoint.
+- **Communications End-to-End:** The communications system was overhauled.
+    - It now supports associating logs with both Leads and Clients.
+    - A timeline view of communications has been embedded directly within the detail dialogs for Leads.
+    - The backend logic now ensures that a Client's communication history includes all interactions from its original source Lead.
+    - A filter to view communications by salesperson was added to the global Comms view.
+- **UI/UX Enhancements:**
+    - A reusable rich text editor component was created and integrated for composing communications.
+    - The Lead detail dialogs were redesigned to use a tabbed layout (Info, Comms), mirroring the Client detail view for a consistent user experience.
+- **Email Notifications (Demo Mode):** An email notification system using Resend was implemented. It triggers an email when a lead is assigned. It currently operates in demo mode, logging to the console, as it's awaiting a  from the user.
 
 **Last working item**:
-- **Last item agent was working**: Following the successful enhancement of the CRM Comms feature, the user asked how to assign owners to leads so that scheduled communications would appear on the respective owner's dashboard (y donde se asignan los owners de los leads? para que esas comunicaciones calendarizadas les salga en su dashboard). The agent investigated the existing Owners tab within the CRM () and discovered it was completely broken.
-- **Status**: IN PROGRESS
-- **Agent Testing Done**: N (Investigation only)
-- **Which testing method agent to use?**: both. The frontend testing agent should be used to verify the UI for viewing and assigning lead owners. The backend testing agent should verify the API endpoints for fetching team members, fetching leads, and assigning an owner to a lead.
+- **Last item agent was working**: The user requested a Dashboard por owner con comunicaciones programadas (Dashboard by owner with scheduled communications). The agent started investigating the existing  to understand how to implement this. The user then asked que tenemos pendiente?? (what is pending??), and the session ended before the agent could respond and formulate a plan for the new dashboard.
+- **Status**: NOT STARTED
+- **Agent Testing Done**: N
+- **Which testing method agent to use?**: both. The frontend testing agent to verify the new dashboard UI and filtering capabilities. The backend testing agent to verify the API endpoint that fetches and filters the scheduled communications by owner.
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Broken Owners assignment feature in CRM (P0)
-  - Issue 2: Incomplete Internationalization (P2)
-  - Issue 3: Backend plan limit enforcement logic may still exist (P3)
-  - Issue 4: Local DB data is not persisted (P3)
-  - Issue 5: Email Notifications Blocked (P3)
+  - Issue 1: Implement Dashboard for Scheduled Communications by Owner (P0)
+  - Issue 2: Enable Production Email Notifications (P1)
+  - Issue 3: Incomplete Internationalization (P2)
+  - Issue 4: Backend plan limit enforcement logic may still exist (P3)
+  - Issue 5: Local DB data is not persisted (P3)
   
   **Issues Detail**:
-  - **Issue 1: Broken Owners assignment feature in CRM (P0)**
-     - **Attempted fixes**: None. The agent only investigated and identified the root causes.
+  - **Issue 1: Implement Dashboard for Scheduled Communications by Owner (P0)**
+     - **Attempted fixes**: None. Investigation just started.
      - **Next debug checklist**:
-        1.  **Fix API Calls:** The component in  calls a non-existent  endpoint. This must be replaced with parallel calls to  and  to fetch all leads.
-        2.  **Fix User Data Fetching:** The view does not correctly fetch and display the names of team members. It needs to call an endpoint like  to get a list of all users in the organization to populate the assignment dropdown.
-        3.  **Implement Assignment Logic:** Create or update a backend endpoint (e.g., ) that allows assigning a  as the owner of a specific lead.
-        4.  **Update UI:** The UI dropdown for assigning an owner should be populated with the list of team members. The view should correctly display the current owner for each lead.
-     - **Why fix this issue and what will be achieved with the fix?**: This is the next logical step in building out the CRM functionality and directly addresses the user's latest request. It will enable accountability and prepare for features like owner-specific dashboards.
-     - **Status**: IN PROGRESS
+        1. Respond to the user's question que tenemos pendiente??.
+        2. Formulate a plan to create the owner-specific dashboard for scheduled communications.
+        3. Determine if the existing endpoint for follow-ups can be extended with an  filter or if a new endpoint is needed.
+        4. Modify  or create a new component to display the filtered data.
+        5. Ensure the UI allows admins to see all owners and sales reps to see only their own tasks.
+     - **Why fix this issue and what will be achieved with the fix?**: This is the user's latest explicit request and a crucial feature for sales team management, allowing them to see their scheduled tasks in one place.
+     - **Status**: NOT STARTED
      - **Is recurring issue?**: N
      - **Should Test frontend/backend/both after fix?**: both
      - **Blocked on other issue**: No
 
-  - **Issue 2: Incomplete Internationalization (P2)**
-     - **Next debug checklist**: Audit new components (, , ) for hardcoded strings and replace them with the  function.
-     - **Why fix this issue and what will be achieved with the fix?**: To maintain the application's bilingual requirement.
+  - **Issue 2: Enable Production Email Notifications (P1)**
+     - **Why fix this issue and what will be achieved with the fix?**: The logic is implemented but works in demo mode. Getting the API key will enable real-time email notifications for lead assignments.
+     - **Next debug checklist**: 
+        1. Remind the user about the pending  in the next  plan.
+        2. Once provided, add the key to the  file.
+        3. Test the email sending functionality.
+     - **Status**: BLOCKED (on user providing )
+     - **Is recurring issue?**: Y
+
+  - **Issue 3: Incomplete Internationalization (P2)**
+     - **Next debug checklist**: Audit new components (, , etc.) for hardcoded English/Spanish strings and replace them with the  function.
+     - **Why fix this issue and what will be achieved with the fix?**: Maintains the application's bilingual requirement.
      - **Status**: NOT STARTED
      - **Is recurring issue?**: Y
      - **Should Test frontend/backend/both after fix?**: frontend
 
-  - **Issue 3: Backend plan limit enforcement logic may still exist (P3)**
+  - **Issue 4: Backend plan limit enforcement logic may still exist (P3)**
      - **Why fix this issue and what will be achieved with the fix?**: Ensures backend logic aligns with the unlimited UI.
      - **Status**: NOT STARTED
      - **Is recurring issue?**: Y
 
-  - **Issue 4: Local DB data is not persisted (P3)**
+  - **Issue 5: Local DB data is not persisted (P3)**
      - **Why fix this issue and what will be achieved with the fix?**: Enables stable local development without data loss.
      - **Status**: NOT STARTED
      - **Is recurring issue?**: Y
 
-  - **Issue 5: Email Notifications Blocked (P3)**
-     - **Why fix this issue and what will be achieved with the fix?**: Enables critical user-facing email features.
-     - **Status**: BLOCKED (on user providing )
-     - **Is recurring issue?**: Y
-
 **In progress Task List**:
-  - **Task 1: Fix and Implement Lead Owner Assignment (P0)**
-     - **Where to resume**: The agent needs to start by modifying the frontend component  to fix the broken API calls and UI logic as outlined in Issue 1.
-     - **What will be achieved with this?**: A functional UI where users can see all leads (Outreach and Inbound) and assign a team member as the owner for each one.
-     - **Status**: IN PROGRESS
-     - **Should Test frontend/backend/both after fix?**: both
+- None. The previous tasks were completed. The new user request is captured in the issue list.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - **P1: Implement Owner-Specific Dashboard/Calendar:** Once owners can be assigned, implement the user's request to show scheduled communications on the owner's dashboard.
-    - **P2: Implement Org-Level Workflow Configuration (Backend):** Connect the existing UI to the backend to save and execute workflows.
-    - **P3: Refactor :** Continue modularizing the main backend file.
+    - **P1: Fully normalize lead statuses:** Ensure  is used everywhere (frontend filters, menus, backend validation) to prevent discrepancies between displayed and stored statuses.
+    - **P2: UI enhancements inspired by Monday.com:** The user expressed interest in a more visual, card-based (Kanban) view for leads. This could be proposed as a next step to improve CRM usability.
 
     Future Tasks:
     - Social Media - Campaign Widget.
@@ -91,37 +105,36 @@ The application is a full-stack React/FastAPI/MongoDB platform. The previous ses
     - Email Purchase Orders, Multi-currency support, Negative Margin Alerts, End-of-month summaries.
 
 **Completed work in this session**
-- **Resolved P0 Production Bugs:** Fixed critical module loading and Google Login () regressions. User confirmed production is now working correctly.
-- **Resolved P0 Login Redirect Loop:** Fixed a frontend routing bug that trapped users in a login loop.
-- **Implemented Super Admin Repair Tool:** Added a UI button for the super admin to bulk-fix data for all existing users, which the user has successfully run in production.
-- **Fixed & Enhanced CRM Comms Section:** Repaired the Comms tab, implemented a standalone view, and added the ability to associate communications with specific leads.
-- **Implemented Global Axios Interceptor:** Refactored frontend API calls to automatically include the JWT token, fixing authentication issues across the entire application.
-
-**Earlier issues found/mentioned but not fixed**
-- All mentioned issues from this session have been captured in the .
+- **Lead Owner Assignment:** Fixed the feature, allowing assignment via UI and a new PATCH endpoint.
+- **Sales Report & Pulse:** Implemented a new sales report with metrics per owner and a corresponding dashboard widget.
+- **End-to-End Communications Logic:**
+    - Enabled associating comms with clients.
+    - Added a communication timeline to lead/client detail views.
+    - Ensured client comms history includes the original lead's history.
+    - Added a salesperson filter to the global comms view.
+- **UI/UX Enhancements:**
+    - Integrated a rich text editor for creating communications.
+    - Re-designed lead detail dialogs with a tabbed interface for consistency with the client view.
+- **Email Notifications (Demo Mode):** Implemented the logic to send emails on lead assignment, currently logging to console pending an API key.
+- **Testing:** Successfully passed a full test suite using the testing agent after major changes.
 
 **Known issue recurrence from previous fork**
-  - **Module Loading / Industry Assignment:** RESOLVED. The issue was a top priority and has been fixed with a robust, multi-layered solution.
-  - **Incomplete Internationalization:** Status: NOT STARTED. Remains a recurring point of technical debt.
-  - **Email Service Blocked:** Status: BLOCKED. Still waiting for the user to provide the .
+  - **Incomplete Internationalization:** Status: NOT STARTED. Remains a recurring point of technical debt as new components were added.
+  - **Email Service Blocked:** Status: BLOCKED. The agent implemented a demo mode but is still waiting for the user to provide the .
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Unified Authentication:** The app now uses a consistent JWT-first approach for all authentication, falling back to session cookies. An Axios interceptor ensures all frontend requests are correctly authenticated.
-- **On-the-fly Data Repair (Back-filling):** A  helper function in the backend automatically creates missing configuration and subscription records for users upon login, ensuring data integrity.
-- **Bulk Data Repair:** A dedicated super-admin endpoint () allows for proactive correction of data across the entire user base.
+- **Backend Aggregation:** The sales report endpoint () uses a MongoDB aggregation pipeline for efficient data crunching.
+- **Conditional Service (Demo Mode):**  checks for the existence of an API key to decide whether to send a real email or log the action to the console, allowing development to proceed without credentials.
+- **UI Unification:** The lead detail dialog was refactored to use the same  component and layout pattern as the client detail page, creating a consistent user experience.
+- **Componentization:** Created reusable components like  and  to avoid code duplication and simplify maintenance.
+- **Combined Data Queries:** The endpoint to fetch client communications () intelligently queries for communications linked to both the client ID and the original source lead ID, presenting a complete history.
 
 **key DB schema**
-  - **users:** {user_id, company_id, name, email}
-  - **companies:** {company_id, name}
-  - **organization_configs:** {company_id, industry_type}
-  - **subscriptions:** {company_id, plan_id, status, trial_end}
-  - **comms:** {comm_id, company_id, user_id, type, subject, notes, **entity_type**, **entity_id**} -  links to a lead.
-  - **outreach_leads:** {lead_id, company_id, name, **owner_id**}
-  - **inbound_leads:** {lead_id, company_id, name, **owner_id**}
-  - **user_sessions:** {session_id, user_id}
+  - **clients:** Added  to link back to the original lead upon conversion.
+  - **comms:** The  and  fields are now used to link communications to both leads (, ) and .
 
 **All files of reference**
 - 
@@ -134,57 +147,58 @@ The application is a full-stack React/FastAPI/MongoDB platform. The previous ses
 - 
 
 **Areas that need refactoring**:
--  is non-functional and requires a complete rewrite of its data fetching and state management logic to correctly assign lead owners.
+- The user has explicitly requested **not** to perform major refactoring. However,  and  contain large dialog components that could be further broken down into smaller, more manageable pieces in the future.
 
 **key api endpoints**
-- : (New) Triggers a bulk data repair for all companies.
-- : (New) Fetches all communication logs for an organization.
-- : (Modified) Now supports associating a communication with a lead via .
-- : (New) Fetches a list of leads to populate the dropdown in the comms dialog.
-- : (Modified) Returns a JWT  and performs data back-filling.
-- : (Modified) Returns a JWT  and performs data back-filling.
+- : Assigns an owner to a lead.
+- : Generates sales report metrics using an aggregation pipeline.
+- : Fetches communications for a specific lead.
+- : Fetches all communications for a client, including the history from the source lead.
+-  (Modified): Enforces owner assignment before conversion and links the new client to the .
+-  (Modified): Now supports associating communications with  in addition to leads.
 
 **Critical Info for New Agent**
 - **Responde en español.**
-- The critical production-blocking bugs (module loading, Google login) from the previous session are **FIXED and VERIFIED** by the user. Do not revisit them.
-- Your immediate and highest priority task (P0) is to **fix the Lead Owners assignment feature**.
-- The user wants to assign owners to leads so that scheduled tasks/communications can appear on the owners' respective dashboards.
-- Start by fixing the broken component: . It needs to fetch all leads (outreach & inbound) and all team members, and then provide a UI to assign a team member to a lead.
+- Your immediate priority is the user's latest request: **Dashboard por owner con comunicaciones programadas** (a dashboard for scheduled communications by owner). Start by responding to que tenemos pendiente?? and then present your plan.
+- The user is highly focused on **additive, non-breaking changes**. Do not refactor, rename, or re-architect existing code. Reuse existing components and patterns where possible.
+- The email notification feature is **blocked** pending the . Include a reminder for the user about this in your initial plan.
+- The user has shown interest in a **Monday.com-style UI** for leads (e.g., Kanban/card view). This is a good potential enhancement to suggest after completing the current task.
 
 **documents and test reports created in this job**
 - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-10. : User requested to fix the Comms section in the CRM. (Completed)
-9. : User requested to associate communications with specific leads. (Completed)
-8. : User asked how to assign owners to leads, kicking off the current task. (In Progress)
-7. : Agent confirms the Owners section is broken and outlines the problems. (In Progress)
-6. : User asked for an explanation of the repair endpoint. (Resolved)
-5. : User didn't know how to run the repair script in the browser console. (Resolved, agent created a UI button instead).
-4. : User couldn't find the new Maintenance tab in production. (Resolved, agent explained they need to deploy the latest code).
-3. : User confirms they have successfully run the repair tool in production. (Resolved)
-2. : User confirms that modules are now visible after Google login in production. (Resolved)
-1. : User confirms modules work but reports a new login issue for users in the Dominican Republic. (Resolved, it was the login redirect loop).
+10.  - User asked for feedback on Monday.com screenshots.
+9.  - User liked the rich text editor idea from the Monday.com example.
+8.  - User approved implementing the rich text editor but warned against breaking changes and suggested reusing the client UI pattern.
+7.  - User reported an error and asked for a plan to unify the Lead UI with the Client UI without breaking anything.
+6.  - User approved the plan to unify the UI.
+5.  - User requested a new feature: a dashboard for scheduled communications filtered by owner. (Current task)
+4.  - User asked for a summary of pending tasks. (This is the immediate pending message to respond to).
+3.  - User confirmation, likely related to a previous step.
+2.  - User asked to fix communications. (Completed).
+1.  - User provided detailed requirements for fixing communications. (Completed).
 
 **Project Health Check:**
 - **Broken:**
-    - The lead owner assignment feature () is non-functional.
+    - None. All previously implemented features are functional.
 - **Mocked:**
-    - None.
+    - **Email Notifications:** The  logs to the console instead of sending real emails.
 - **Blocked:**
-    - Email Notifications: Still blocked, awaiting the  from the user.
+    - **Email Notifications:** Awaiting  from the user to enable production functionality.
 
 **3rd Party Integrations**
 - **Stripe:** For payments.
 - **Custom Google OAuth:** For social login.
 - **Resend:** For transactional emails (Status: **Integrated, BLOCKED - PENDING API KEY**).
 - **reactflow:** For the visual workflow builder UI.
+- **react-quill:** (New) For the rich text editor.
 
 **Testing status**
-  - Testing agent used after significant changes: YES. A full suite of 17 tests passed, verifying the P0 bug fixes.
+  - Testing agent used after significant changes: YES. A suite of 10 tests passed with 100% success after the Sales Report and Owner Assignment features were implemented.
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: All major regressions from the previous fork have been resolved. No new known regressions.
+  - Known regressions: None.
 
 **Credentials to test flow:**
 - **Super Admin / Agency User:**
@@ -193,4 +207,4 @@ The application is a full-stack React/FastAPI/MongoDB platform. The previous ses
     - **Note:** Use these credentials in the preview environment to test CRM functionality.
 
 **What agent forgot to execute**
-- The agent was in the process of investigating the broken Lead Owners feature when the session ended. The immediate next step is to begin implementing the fix for that feature.</analysis>
+- The agent did not get a chance to respond to the user's question, que tenemos pendiente?? (what is pending?). The next action should be to provide a summary of pending items and then outline the plan for the user's latest request for a dashboard by owner.</analysis>
