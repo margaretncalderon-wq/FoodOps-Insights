@@ -477,10 +477,12 @@ export const getIndustryTerminology = (industry) => {
 
 // Get industry info (name, description, icon)
 export const getIndustryInfo = (industry, lang = "en") => {
-  const terminology = getIndustryTerminology(industry);
+  // Handle aliases (e.g., agency -> professional_services)
+  const resolvedIndustry = INDUSTRY_ALIASES[industry] || industry;
+  const terminology = getIndustryTerminology(resolvedIndustry);
   return {
-    id: terminology.id || industry,
-    name: terminology.name?.[lang] || terminology.name?.en || industry,
+    id: terminology.id || resolvedIndustry,
+    name: terminology.name?.[lang] || terminology.name?.en || resolvedIndustry,
     description: terminology.description?.[lang] || terminology.description?.en || "",
     icon: terminology.icon || "briefcase"
   };
