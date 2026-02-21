@@ -49,10 +49,16 @@ const LoadingSpinner = () => (
 
 export default function ClientEngagementPage() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const location = useLocation();
   const navigate = useNavigate();
   const [stats, setStats] = useState({});
+
+  // Get terminology-aware labels
+  const clientsLabel = term("events", "clients");
+  const leadsLabel = term("events", "leads");
+  const pipelineLabel = term("crm", "pipeline");
 
   const fetchStats = useCallback(async () => {
     try {
