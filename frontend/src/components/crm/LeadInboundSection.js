@@ -17,6 +17,7 @@ import {
   Clock, Star, CalendarPlus, UserCheck, Users, FileText,
   MessageCircle, ExternalLink, DollarSign
 } from "lucide-react";
+import CommunicationsTimeline from "./CommunicationsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
