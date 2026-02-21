@@ -272,7 +272,11 @@ export function TeamSection() {
     return null;
   };
 
-  const canManageMembers = permissions?.permissions?.manage_members;
+  const canManageMembers = permissions?.permissions?.manage_members || 
+    permissions?.role === "owner" || 
+    permissions?.role === "admin" ||
+    members.find(m => m.is_current_user)?.role === "owner" ||
+    members.find(m => m.is_current_user)?.role === "admin";
 
   // Filter members based on showSuspended
   const filteredMembers = showSuspended 
