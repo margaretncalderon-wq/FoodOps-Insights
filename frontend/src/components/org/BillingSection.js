@@ -688,6 +688,53 @@ export function BillingSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Module Confirmation Dialog */}
+      <Dialog open={cancelModuleDialogOpen} onOpenChange={setCancelModuleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Desactivar Módulo" : "Deactivate Module"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs 
+                ? `¿Estás seguro de que deseas desactivar ${moduleToCancel?.nameEs || moduleToCancel?.nameEn}?`
+                : `Are you sure you want to deactivate ${moduleToCancel?.nameEn}?`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+              <div className="text-sm text-amber-800 dark:text-amber-300">
+                {isEs 
+                  ? "Al desactivar este módulo, perderás acceso a sus funcionalidades. Tus datos se conservarán por 30 días."
+                  : "By deactivating this module, you'll lose access to its features. Your data will be kept for 30 days."}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCancelModuleDialogOpen(false);
+                setModuleToCancel(null);
+              }}
+            >
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              variant="destructive"
+              disabled={actionLoading}
+              onClick={() => moduleToCancel && handleCancelModule(moduleToCancel)}
+            >
+              {actionLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
+              {isEs ? "Desactivar" : "Deactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
