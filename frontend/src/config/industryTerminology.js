@@ -58,8 +58,9 @@ export const INDUSTRY_TERMINOLOGY = {
   },
 
   // Agency / Professional Services
-  agency: {
-    id: "agency",
+  // Note: "professional_services" is the backend key, "agency" is kept for backwards compatibility
+  professional_services: {
+    id: "professional_services",
     name: { en: "Professional Services", es: "Servicios Profesionales" },
     description: { 
       en: "For agencies, marketing firms, and professional service providers", 
