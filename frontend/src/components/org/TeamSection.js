@@ -406,32 +406,36 @@ export function TeamSection() {
                         {member.role !== "owner" && (
                           <>
                             <DropdownMenuSeparator />
-                        {member.status === "active" ? (
-                          <DropdownMenuItem 
-                            onClick={() => handleSuspendMember(member.membership_id)}
-                            className="text-orange-600"
-                          >
-                            <UserX className="w-4 h-4 mr-2" />
-                            {isEs ? "Suspender" : "Suspend"}
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem 
-                            onClick={() => handleActivateMember(member.membership_id)}
-                            className="text-green-600"
-                          >
-                            <UserCheck className="w-4 h-4 mr-2" />
-                            {isEs ? "Activar" : "Activate"}
-                          </DropdownMenuItem>
+                            
+                            {/* Suspend/Activate */}
+                            {member.status === "active" ? (
+                              <DropdownMenuItem 
+                                onClick={() => handleSuspendMember(member.membership_id)}
+                                className="text-orange-600"
+                              >
+                                <UserX className="w-4 h-4 mr-2" />
+                                {isEs ? "Suspender" : "Suspend"}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                onClick={() => handleActivateMember(member.membership_id)}
+                                className="text-green-600"
+                              >
+                                <UserCheck className="w-4 h-4 mr-2" />
+                                {isEs ? "Activar" : "Activate"}
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {/* Remove */}
+                            <DropdownMenuItem 
+                              onClick={() => handleRemoveMember(member.membership_id)}
+                              className="text-red-600"
+                            >
+                              <UserMinus className="w-4 h-4 mr-2" />
+                              {isEs ? "Remover" : "Remove"}
+                            </DropdownMenuItem>
+                          </>
                         )}
-                        
-                        {/* Remove */}
-                        <DropdownMenuItem 
-                          onClick={() => handleRemoveMember(member.membership_id)}
-                          className="text-red-600"
-                        >
-                          <UserMinus className="w-4 h-4 mr-2" />
-                          {isEs ? "Remover" : "Remove"}
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
