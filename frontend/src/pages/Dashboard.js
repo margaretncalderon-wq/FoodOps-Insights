@@ -5,6 +5,7 @@ import { API } from "../utils/api";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useModules } from "../contexts/ModulesContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { 
