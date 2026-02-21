@@ -345,12 +345,12 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Notas / Apuntes</label>
-                <Textarea
-                  data-testid="comm-content"
+                <RichTextEditor
                   value={form.content}
-                  onChange={e => setForm(f => ({...f, content: e.target.value}))}
+                  onChange={v => setForm(f => ({...f, content: v}))}
                   placeholder="Detalles de la interacción, acuerdos, próximos pasos..."
-                  rows={4}
+                  minHeight="120px"
+                  showAttachments={true}
                 />
               </div>
             </div>
