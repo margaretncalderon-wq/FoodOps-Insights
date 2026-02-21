@@ -302,9 +302,13 @@ export function BillingSection() {
                   </Badge>
                 </CardTitle>
                 <CardDescription>
-                  {isEs 
-                    ? `${activeModules.length} módulo(s) activo(s) • +$${addonMonthlyCost}/mes`
-                    : `${activeModules.length} active module(s) • +$${addonMonthlyCost}/mo`}
+                  {isInTrialPeriod 
+                    ? (isEs 
+                        ? `${activeModules.length} módulo(s) en prueba • $0/mes (después: $${addonCostAfterTrial}/mes)`
+                        : `${activeModules.length} module(s) on trial • $0/mo (after: $${addonCostAfterTrial}/mo)`)
+                    : (isEs 
+                        ? `${activeModules.length} módulo(s) activo(s) • +$${addonMonthlyCost}/mes`
+                        : `${activeModules.length} active module(s) • +$${addonMonthlyCost}/mo`)}
                 </CardDescription>
               </div>
             </div>
