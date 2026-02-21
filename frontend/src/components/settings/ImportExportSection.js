@@ -146,9 +146,17 @@ export default function ImportExportSection({ filter }) {
 
   const handleDownloadTemplate = async (type) => {
     try {
+      // Add timestamp to prevent browser/CDN caching
+      const cacheBuster = Date.now();
       const response = await axios.get(
-        `${API}/api/import-export/templates/${type}?format=${exportFormat}`,
-        { responseType: 'blob' }
+        `${API}/api/import-export/templates/${type}?format=${exportFormat}&_t=${cacheBuster}`,
+        { 
+          responseType: 'blob',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }
       );
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
