@@ -384,11 +384,29 @@ export function BillingSection() {
                 {isEs ? "Costo mensual total" : "Total monthly cost"}
               </p>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold">${totalMonthlyCost}<span className="text-sm font-normal">/mes</span></p>
-                <span className="text-xs text-muted-foreground">
-                  (Core ${KORA_CORE.price} + Add-ons ${addonMonthlyCost})
-                </span>
+                {isInTrialPeriod ? (
+                  <>
+                    <p className="text-2xl font-bold text-emerald-600">$0<span className="text-sm font-normal">/mes</span></p>
+                    <span className="text-xs text-muted-foreground">
+                      ({isEs ? "En período de prueba" : "In trial period"})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold">${totalMonthlyCost}<span className="text-sm font-normal">/mes</span></p>
+                    <span className="text-xs text-muted-foreground">
+                      (Core ${KORA_CORE.price} + Add-ons ${addonMonthlyCost})
+                    </span>
+                  </>
+                )}
               </div>
+              {isInTrialPeriod && addonCostAfterTrial > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs 
+                    ? `Después del trial: $${totalCostAfterTrial}/mes (Core $${KORA_CORE.price} + Add-ons $${addonCostAfterTrial})`
+                    : `After trial: $${totalCostAfterTrial}/mo (Core $${KORA_CORE.price} + Add-ons $${addonCostAfterTrial})`}
+                </p>
+              )}
             </div>
             <Button onClick={() => setAddModuleDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
