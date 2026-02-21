@@ -5354,17 +5354,19 @@ async def get_roles(user: User = Depends(get_current_user)):
     """Get all roles for the company"""
     roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
     
-    # If no roles exist, return defaults
-    if not roles:
-        # Create default roles
-        for role in DEFAULT_ROLES:
+    # Ensure all system roles exist (add missing ones without affecting existing)
+    existing_role_ids = {r["role_id"] for r in roles}
+    for role in DEFAULT_ROLES:
+        if role["role_id"] not in existing_role_ids:
             role_doc = {**role, "company_id": user.company_id}
             await db.roles.update_one(
                 {"role_id": role["role_id"], "company_id": user.company_id},
                 {"$setOnInsert": role_doc},
                 upsert=True
             )
-        roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
+    
+    # Re-fetch to include newly added roles
+    roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
     
     return roles
 
