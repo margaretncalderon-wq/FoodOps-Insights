@@ -55,11 +55,14 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - `TerminologySettingsSection.js` - UI in Settings > Terminology tab
   - `useTerminology.js` hook - Access industry-specific terms throughout app
   - `industryTerminology.js` - Complete terminology configuration
-- **CRM Integration (NEW)**: Terminology now reflects dynamically in CRM pages
+- **CRM Integration**: Terminology now reflects dynamically in CRM pages
   - `ClientsSection.js` - Uses dynamic terminology for "Clients/Patients" labels
   - `LeadInboundSection.js` - Uses dynamic terminology for "Leads" labels
   - `LeadOutreachSection.js` - Uses dynamic terminology for "Leads" labels
   - `ClientEngagementPage.js` - CRM menu shows dynamic terminology
+- **Dashboard Integration**: Sales Performance Pulse shows "New Patients" for Healthcare
+- **Proposals Integration**: Client-facing labels adapt to industry terminology
+- **Settings Integration**: Categories description adapts (e.g., "appointments orders" for Healthcare)
 - **Backend Endpoints**:
   - `GET /api/org-config/templates` - Returns all 8 industry templates
   - `POST /api/org-config/apply-template/{template_key}` - Apply new industry
