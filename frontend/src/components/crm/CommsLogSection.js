@@ -4,10 +4,10 @@ import { API } from "../../utils/api";
 import { Phone, Mail, Video, FileText, MessageSquare, Plus, Search, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { toast } from "sonner";
+import RichTextEditor from "../ui/RichTextEditor";
 
 const COMM_TYPES = [
   { value: "call", label: "Llamada", icon: Phone },
