@@ -14312,6 +14312,13 @@ async def get_import_template(
     template = templates[type]
     df = pd.DataFrame(template["sample"], columns=template["columns"])
     
+    # No-cache headers to ensure fresh templates are always downloaded
+    no_cache_headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    
     if format == "excel":
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -14320,7 +14327,10 @@ async def get_import_template(
         return StreamingResponse(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=template_{type}.xlsx"}
+            headers={
+                "Content-Disposition": f"attachment; filename=template_{type}.xlsx",
+                **no_cache_headers
+            }
         )
     else:
         output = io.StringIO()
@@ -14329,7 +14339,10 @@ async def get_import_template(
         return StreamingResponse(
             io.BytesIO(output.getvalue().encode('utf-8')),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=template_{type}.csv"}
+            headers={
+                "Content-Disposition": f"attachment; filename=template_{type}.csv",
+                **no_cache_headers
+            }
         )
 
 # Include import_export_router
