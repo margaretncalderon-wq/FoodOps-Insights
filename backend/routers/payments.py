@@ -50,8 +50,11 @@ MODULE_NAMES = {
     "module_demand_studio": "Demand Studio",
 }
 
-# Event Suite includes these sub-modules
-EVENT_SUITE_INCLUDES = ["module_event_orchestration", "module_venues"]
+# Module key aliases (map old/sub-module keys to billing keys)
+MODULE_KEY_ALIASES = {
+    "module_event_orchestration": "module_event_suite",
+    "module_venues": "module_event_suite",
+}
 
 # Trial period in days
 TRIAL_PERIOD_DAYS = 7
