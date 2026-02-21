@@ -123,9 +123,11 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     const matchSearch = !search ||
       (log.subject || "").toLowerCase().includes(search.toLowerCase()) ||
       (log.content || "").toLowerCase().includes(search.toLowerCase()) ||
-      (getLeadName(log) || "").toLowerCase().includes(search.toLowerCase());
+      (getEntityName(log) || "").toLowerCase().includes(search.toLowerCase());
     const matchType = filterType === "all" || log.comm_type === filterType;
-    const matchSource = filterSource === "all" || getLeadSource(log)?.toLowerCase() === filterSource.toLowerCase();
+    const matchSource = filterSource === "all" || 
+      (filterSource === "client" && log.entity_type === "client") ||
+      (filterSource !== "client" && getEntitySource(log)?.toLowerCase() === filterSource.toLowerCase());
     return matchSearch && matchType && matchSource;
   });
 
