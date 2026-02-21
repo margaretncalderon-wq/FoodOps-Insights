@@ -8,6 +8,11 @@ class IndustryTemplate(str, Enum):
     """Pre-defined industry templates"""
     EVENTS_HOSPITALITY = "events_hospitality"  # Catering, weddings, corporate events
     PROFESSIONAL_SERVICES = "professional_services"  # Consulting, agencies, legal
+    HEALTHCARE = "healthcare"  # Medical practices, clinics
+    REAL_ESTATE = "real_estate"  # Property sales, rentals
+    EDUCATION = "education"  # Schools, training centers
+    FITNESS = "fitness"  # Gyms, wellness centers
+    CONSULTING = "consulting"  # Business consulting
     GENERIC = "generic"  # Any service-based business
 
 
