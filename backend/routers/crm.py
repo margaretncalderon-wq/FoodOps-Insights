@@ -560,47 +560,80 @@ async def get_inbound_leads(user: User = Depends(get_current_user)):
 
 
 @crm_router.get("/follow-ups")
-async def get_follow_ups(user: User = Depends(get_current_user)):
-    """Get unified follow-up view across leads and clients"""
+async def get_follow_ups(
+    user: User = Depends(get_current_user),
+    owner_id: Optional[str] = None
+):
+    """
+    Get unified follow-up view across leads and clients.
+    
+    Filters:
+    - owner_id: Filter by specific owner. Use '__unassigned__' for unassigned items.
+    
+    Permissions:
+    - Sales users can only see their own follow-ups (enforced server-side).
+    """
+    # Permission check - Sales users can only see their own data
+    user_role = getattr(user, 'role_id', None)
+    if user_role == "sales":
+        owner_id = user.user_id  # Force filter to self
+    
+    # Build lead query
+    lead_query = {
+        "company_id": user.company_id,
+        "next_follow_up_date": {"$ne": None},
+        "status": {"$nin": ["Converted", "Discarded"]}
+    }
+    
+    # Build client query
+    client_query = {
+        "company_id": user.company_id,
+        "next_follow_up_date": {"$ne": None}
+    }
+    
+    # Apply owner filter
+    if owner_id:
+        if owner_id == "__unassigned__":
+            lead_query["$or"] = [{"owner_id": None}, {"owner_id": {"$exists": False}}]
+            client_query["$or"] = [{"owner_id": None}, {"owner_id": {"$exists": False}}]
+        else:
+            lead_query["owner_id"] = owner_id
+            client_query["owner_id"] = owner_id
+    
     # Get leads with follow-ups
-    lead_follow_ups = await db.leads.find(
-        {
-            "company_id": user.company_id,
-            "next_follow_up_date": {"$ne": None},
-            "status": {"$nin": ["Converted", "Discarded"]}
-        },
-        {"_id": 0}
-    ).sort("next_follow_up_date", 1).to_list(200)
+    lead_follow_ups = await db.leads.find(lead_query, {"_id": 0}).sort("next_follow_up_date", 1).to_list(200)
     
     # Get clients with follow-ups
-    client_follow_ups = await db.clients.find(
-        {
-            "company_id": user.company_id,
-            "next_follow_up_date": {"$ne": None}
-        },
-        {"_id": 0}
-    ).sort("next_follow_up_date", 1).to_list(200)
+    client_follow_ups = await db.clients.find(client_query, {"_id": 0}).sort("next_follow_up_date", 1).to_list(200)
     
     # Combine and normalize
     follow_ups = []
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
+    # Collect unique owner_ids for name resolution
+    owner_ids_set = set()
+    
     for lead in lead_follow_ups:
+        if lead.get("owner_id"):
+            owner_ids_set.add(lead["owner_id"])
         follow_ups.append({
             "entity_type": "lead",
             "entity_id": lead["lead_id"],
-            "name": lead.get("lead_name"),
+            "name": lead.get("lead_name") or lead.get("company_name") or lead.get("contact_name"),
             "email": lead.get("email"),
             "phone": lead.get("phone"),
             "follow_up_date": lead.get("next_follow_up_date"),
             "follow_up_type": lead.get("follow_up_type", "Call"),
             "owner_id": lead.get("owner_id"),
+            "owner_name": None,  # Will be filled below
             "status": "overdue" if lead.get("next_follow_up_date", "") < today else "pending",
             "source": lead.get("source"),
             "lead_status": lead.get("status")
         })
     
     for client in client_follow_ups:
+        if client.get("owner_id"):
+            owner_ids_set.add(client["owner_id"])
         follow_ups.append({
             "entity_type": "client",
             "entity_id": client["client_id"],
@@ -610,10 +643,23 @@ async def get_follow_ups(user: User = Depends(get_current_user)):
             "follow_up_date": client.get("next_follow_up_date"),
             "follow_up_type": client.get("follow_up_type", "CheckIn"),
             "owner_id": client.get("owner_id"),
+            "owner_name": None,  # Will be filled below
             "status": "overdue" if client.get("next_follow_up_date", "") < today else "pending",
             "source": "Client",
             "client_status": client.get("status")
         })
+    
+    # Resolve owner names
+    if owner_ids_set:
+        owners_data = await db.users.find(
+            {"user_id": {"$in": list(owner_ids_set)}},
+            {"_id": 0, "user_id": 1, "name": 1}
+        ).to_list(100)
+        owner_names_map = {o["user_id"]: o.get("name", o["user_id"]) for o in owners_data}
+        
+        for fu in follow_ups:
+            if fu.get("owner_id") and fu["owner_id"] in owner_names_map:
+                fu["owner_name"] = owner_names_map[fu["owner_id"]]
     
     # Sort by date
     follow_ups.sort(key=lambda x: x.get("follow_up_date", "9999-12-31"))
