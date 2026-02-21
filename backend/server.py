@@ -11506,6 +11506,24 @@ async def get_my_permissions(user: User = Depends(get_current_user)):
             # Fallback to viewer permissions
             permissions = ROLE_PERMISSIONS["viewer"]
     
+    # Check if user is the organization creator/owner - always grant manage_members
+    company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0, "created_by": 1, "owner_id": 1})
+    if company:
+        is_org_owner = (company.get("created_by") == user.user_id or 
+                        company.get("owner_id") == user.user_id)
+        if is_org_owner:
+            # Organization creator always has full permissions
+            permissions = dict(permissions)  # Make a copy
+            permissions["manage_members"] = True
+            permissions["manage_settings"] = True
+            permissions["manage_billing"] = True
+    
+    # Also check if this is the only member (likely the creator)
+    member_count = await db.memberships.count_documents({"company_id": user.company_id, "status": "active"})
+    if member_count == 1:
+        permissions = dict(permissions)
+        permissions["manage_members"] = True
+    
     return {
         "role": role,
         "permissions": permissions
