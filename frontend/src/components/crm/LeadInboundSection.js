@@ -42,8 +42,15 @@ const STATUS_FILTERS = [
 
 export default function LeadInboundSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const navigate = useNavigate();
+  
+  // Dynamic terminology
+  const leadLabel = term("events", "lead");
+  const leadsLabel = term("events", "leads");
+  const clientLabel = term("events", "client");
+  
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
