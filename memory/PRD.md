@@ -54,7 +54,7 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Frontend Components (NEW)**:
   - `TerminologySettingsSection.js` - UI in Settings > Terminology tab
   - `useTerminology.js` hook - Access industry-specific terms throughout app
-  - `industryTerminology.js` - Complete terminology configuration
+  - `industryTerminology.js` - Complete terminology configuration with INDUSTRY_ALIASES support
 - **CRM Integration**: Terminology now reflects dynamically in CRM pages
   - `ClientsSection.js` - Uses dynamic terminology for "Clients/Patients" labels
   - `LeadInboundSection.js` - Uses dynamic terminology for "Leads" labels
@@ -73,7 +73,12 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - Preview changes before applying (comparison table)
   - Apply terminology changes with confirmation
   - **Dynamic CRM labels**: All CRM labels update based on selected industry
-- **Status**: TESTED & WORKING (Backend: 9/9 tests passed, Frontend verified with Healthcare terminology showing "Patients")
+  - **Default Terminology on Registration**: New users automatically get industry-specific terminology based on their selection during signup (Events & Hospitality, Professional Services, or General Services)
+- **Bug Fixes (Feb 21, 2026)**:
+  - Fixed "Professional Services" selection error - Key mismatch between `professional_services` (backend) and `agency` (frontend) resolved with INDUSTRY_ALIASES
+  - Updated `industryTerminology.js` to use `professional_services` as primary key
+  - Added alias support in `getIndustryTerminology()` and `getIndustryInfo()` functions
+- **Status**: TESTED & WORKING (All 8 industries verified, registration flow tested)
 
 ### Feature: Owner Assignment & Sales Report - IMPLEMENTED (Feb 2026)
 - **Requirement**: Multi-vendor lead assignment with sales performance tracking
