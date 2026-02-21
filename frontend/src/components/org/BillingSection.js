@@ -100,7 +100,11 @@ export function BillingSection() {
         axios.get(`${API}/api/org/usage`, { withCredentials: true })
       ]);
       setSubscription(subRes.data);
-      setActiveModules(subRes.data.active_module_keys || []);
+      // Resolve module key aliases and deduplicate
+      const resolvedKeys = [...new Set(
+        (subRes.data.active_module_keys || []).map(resolveModuleKey)
+      )];
+      setActiveModules(resolvedKeys);
       setUsage(usageRes.data);
     } catch (err) {
       console.error(err);
