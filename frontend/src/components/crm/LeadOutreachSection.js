@@ -12,10 +12,11 @@ import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { 
   Plus, Search, Phone, Mail, Building2, RefreshCw, User, 
   MoreHorizontal, CheckCircle, Eye, Clock, CalendarPlus,
-  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink
+  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
