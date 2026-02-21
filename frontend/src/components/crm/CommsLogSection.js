@@ -194,44 +194,89 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
               <DialogTitle>Registrar Interacción</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {/* Lead selector - only in standalone mode */}
+              {/* Lead/Client selector - only in standalone mode */}
               {standalone && (
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Lead asociado</label>
-                  <Select value={form.entity_id} onValueChange={v => setForm(f => ({...f, entity_id: v}))}>
-                    <SelectTrigger data-testid="comm-lead-select">
-                      <SelectValue placeholder="Selecciona un lead..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {leads.filter(l => l._source === "Outreach").length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Outreach</div>
-                          {leads.filter(l => l._source === "Outreach").map(l => (
-                            <SelectItem key={l.lead_id} value={l.lead_id}>
-                              {l.company_name || l.name || l.contact_name || l.lead_id}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Tipo de asociación</label>
+                    <Select 
+                      value={form.entity_type} 
+                      onValueChange={v => setForm(f => ({...f, entity_type: v, entity_id: ""}))}
+                    >
+                      <SelectTrigger data-testid="comm-entity-type-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">Lead</SelectItem>
+                        <SelectItem value="client">Cliente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {form.entity_type === "lead" && (
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Lead asociado</label>
+                      <Select value={form.entity_id} onValueChange={v => setForm(f => ({...f, entity_id: v}))}>
+                        <SelectTrigger data-testid="comm-lead-select">
+                          <SelectValue placeholder="Selecciona un lead..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leads.filter(l => l._source === "Outreach").length > 0 && (
+                            <>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Outreach</div>
+                              {leads.filter(l => l._source === "Outreach").map(l => (
+                                <SelectItem key={l.lead_id} value={l.lead_id}>
+                                  {l.company_name || l.name || l.contact_name || l.lead_id}
+                                </SelectItem>
+                              ))}
+                            </>
+                          )}
+                          {leads.filter(l => l._source === "Inbound").length > 0 && (
+                            <>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Inbound</div>
+                              {leads.filter(l => l._source === "Inbound").map(l => (
+                                <SelectItem key={l.lead_id} value={l.lead_id}>
+                                  {l.company_name || l.name || l.contact_name || l.lead_id}
+                                </SelectItem>
+                              ))}
+                            </>
+                          )}
+                          {leads.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-muted-foreground text-center">No hay leads disponibles</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedEntity && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fuente: {selectedEntity._source} {selectedEntity.contact_name ? `| Contacto: ${selectedEntity.contact_name}` : ""}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {form.entity_type === "client" && (
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Cliente asociado</label>
+                      <Select value={form.entity_id} onValueChange={v => setForm(f => ({...f, entity_id: v}))}>
+                        <SelectTrigger data-testid="comm-client-select">
+                          <SelectValue placeholder="Selecciona un cliente..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.length > 0 ? clients.map(c => (
+                            <SelectItem key={c.client_id} value={c.client_id}>
+                              {c.display_name || c.email || c.client_id}
                             </SelectItem>
-                          ))}
-                        </>
+                          )) : (
+                            <div className="px-2 py-3 text-sm text-muted-foreground text-center">No hay clientes disponibles</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedEntity && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {selectedEntity.email || "Sin email"}
+                        </p>
                       )}
-                      {leads.filter(l => l._source === "Inbound").length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Inbound</div>
-                          {leads.filter(l => l._source === "Inbound").map(l => (
-                            <SelectItem key={l.lead_id} value={l.lead_id}>
-                              {l.company_name || l.name || l.contact_name || l.lead_id}
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                      {leads.length === 0 && (
-                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">No hay leads disponibles</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {selectedLead && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Fuente: {selectedLead._source} {selectedLead.contact_name ? `| Contacto: ${selectedLead.contact_name}` : ""}
-                    </p>
+                    </div>
                   )}
                 </div>
               )}
