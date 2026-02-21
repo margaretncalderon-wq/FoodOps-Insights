@@ -153,6 +153,22 @@ export default function FollowUpsSection() {
               <span className={item.status === "overdue" ? "text-red-600 font-medium" : ""}>
                 {new Date(item.follow_up_date).toLocaleDateString()}
               </span>
+              {/* Owner Badge */}
+              {item.owner_name && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <UserCircle className="w-3 h-3 text-blue-500" />
+                  <span className="text-blue-600 text-xs">{item.owner_name}</span>
+                </>
+              )}
+              {!item.owner_id && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                    {isEs ? "Sin asignar" : "Unassigned"}
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
