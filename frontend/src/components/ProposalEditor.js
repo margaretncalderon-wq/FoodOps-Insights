@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import DocumentPreview from "./DocumentPreview";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
