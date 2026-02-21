@@ -18,6 +18,15 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 
+// Module key aliases (map legacy/sub-module keys to display keys)
+const MODULE_KEY_ALIASES = {
+  "module_event_orchestration": "module_event_suite",
+  "module_venues": "module_event_suite",
+};
+
+// Resolve module key to display key
+const resolveModuleKey = (key) => MODULE_KEY_ALIASES[key] || key;
+
 // Kora Core Configuration
 const KORA_CORE = {
   price: 69,
