@@ -65,6 +65,16 @@ const DEFAULT_FORM_FIELDS = [
 
 export default function SettingsPage() {
   const { t, language, changeLanguage } = useLanguage();
+  const { term } = useTerminology();
+  
+  // Dynamic terminology
+  const clientLabel = term("events", "client");
+  const clientsLabel = term("events", "clients");
+  const eventLabel = term("events", "entity_singular");
+  const eventsLabel = term("events", "entity_plural");
+  const guestsLabel = term("events", "guests");
+  const venueLabel = term("events", "venue");
+  
   const [company, setCompany] = useState(null);
   const [documentTypes, setDocumentTypes] = useState([]);
   const [categories, setCategories] = useState([]);
