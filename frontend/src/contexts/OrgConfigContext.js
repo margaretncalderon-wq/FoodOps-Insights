@@ -44,7 +44,6 @@ export const OrgConfigProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[OrgConfigContext] Loaded config - industry_template:", data.industry_template);
         setConfig(data);
         
         // Build terminology map from config
