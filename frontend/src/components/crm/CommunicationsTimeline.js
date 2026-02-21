@@ -150,13 +150,13 @@ export default function CommunicationsTimeline({ entityType, entityId, entityNam
         </Button>
       )}
 
-      {/* New Communication Dialog - Compact */}
+      {/* New Communication Dialog - With Rich Editor */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm">Nueva Interacción</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] font-medium mb-0.5 block">Tipo</label>
@@ -191,13 +191,13 @@ export default function CommunicationsTimeline({ entityType, entityId, entityNam
               />
             </div>
             <div>
-              <label className="text-[10px] font-medium mb-0.5 block">Notas</label>
-              <Textarea
-                className="text-xs min-h-[60px]"
+              <label className="text-[10px] font-medium mb-0.5 block">Detalles</label>
+              <RichTextEditor
                 value={form.content}
-                onChange={e => setForm(f => ({...f, content: e.target.value}))}
-                placeholder="Detalles..."
-                rows={2}
+                onChange={v => setForm(f => ({...f, content: v}))}
+                placeholder="Escribe los detalles de la interacción..."
+                minHeight="100px"
+                showAttachments={true}
               />
             </div>
           </div>
