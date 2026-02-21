@@ -21,7 +21,7 @@ import {
 import { 
   Users, Plus, Mail, MoreVertical, Shield, Loader2, 
   UserMinus, RefreshCw, Clock, Check, X, Key, Pencil,
-  UserX, UserCheck, AlertTriangle
+  UserX, UserCheck, AlertTriangle, Eye, Info
 } from "lucide-react";
 import { Label } from "../ui/label";
 
