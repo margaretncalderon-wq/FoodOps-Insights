@@ -10735,6 +10735,79 @@ async def remove_member(membership_id: str, user: User = Depends(get_current_use
     return {"success": True}
 
 
+class MemberUpdate(BaseModel):
+    """Update member details"""
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@org_router.put("/members/{membership_id}")
+async def update_member(membership_id: str, data: MemberUpdate, user: User = Depends(get_current_user)):
+    """Update a member's details (name, phone, etc.)"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    membership = await db.memberships.find_one({"membership_id": membership_id})
+    if not membership or membership["company_id"] != user.company_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Update the user record
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if data.name:
+        update_data["name"] = data.name
+    if data.phone is not None:
+        update_data["phone"] = data.phone
+    
+    await db.users.update_one(
+        {"user_id": membership["user_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"success": True}
+
+
+@org_router.put("/members/{membership_id}/suspend")
+async def suspend_member(membership_id: str, user: User = Depends(get_current_user)):
+    """Suspend a member (they cannot log in but data is preserved)"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    membership = await db.memberships.find_one({"membership_id": membership_id})
+    if not membership or membership["company_id"] != user.company_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    if membership["role"] == "owner":
+        raise HTTPException(status_code=400, detail="Cannot suspend owner")
+    
+    if membership["user_id"] == user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot suspend yourself")
+    
+    await db.memberships.update_one(
+        {"membership_id": membership_id},
+        {"$set": {"status": "suspended", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True}
+
+
+@org_router.put("/members/{membership_id}/activate")
+async def activate_member(membership_id: str, user: User = Depends(get_current_user)):
+    """Reactivate a suspended member"""
+    if not await check_permission(user, "manage_members"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    membership = await db.memberships.find_one({"membership_id": membership_id})
+    if not membership or membership["company_id"] != user.company_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    await db.memberships.update_one(
+        {"membership_id": membership_id},
+        {"$set": {"status": "active", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True}
+
+
 class DirectMemberCreate(BaseModel):
     """Create a member directly with password (no email invitation)"""
     email: str
