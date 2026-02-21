@@ -521,6 +521,16 @@ export default function LeadInboundSection() {
                 </div>
               )}
 
+              {/* Communications Timeline */}
+              <div className="border-t pt-4">
+                <CommunicationsTimeline 
+                  entityType="lead" 
+                  entityId={selectedLead.lead_id}
+                  entityName={selectedLead.lead_name || selectedLead.company_name || "Lead"}
+                  maxVisible={3}
+                />
+              </div>
+
               {/* Follow-up info */}
               {selectedLead.next_follow_up_date ? (
                 <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
