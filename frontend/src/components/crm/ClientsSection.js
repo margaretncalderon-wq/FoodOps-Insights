@@ -68,7 +68,13 @@ export default function ClientsSection() {
     tags: [],
     has_credit: false,
     credit_limit: 0,
-    payment_terms: "immediate"
+    payment_terms: "immediate",
+    // Business profile fields
+    website: "",
+    industry: "",
+    description: "",
+    social_linkedin: "",
+    social_instagram: ""
   });
   const [contactForm, setContactForm] = useState({
     name: "",
