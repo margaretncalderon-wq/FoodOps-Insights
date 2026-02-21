@@ -158,7 +158,7 @@ export default function ClientsSection() {
   const handleSave = async () => {
     try {
       await axios.put(`${API}/api/crm/clients/${selectedClient.client_id}`, editForm, { withCredentials: true });
-      toast.success(isEs ? "Cliente actualizado" : "Client updated");
+      toast.success(isEs ? `${clientLabel} actualizado` : `${clientLabel} updated`);
       setEditOpen(false);
       fetchClients();
       if (detailOpen) {
@@ -176,7 +176,7 @@ export default function ClientsSection() {
     }
     try {
       await axios.post(`${API}/api/crm/clients`, editForm, { withCredentials: true });
-      toast.success(isEs ? "Cliente creado" : "Client created");
+      toast.success(isEs ? `${clientLabel} creado` : `${clientLabel} created`);
       setCreateOpen(false);
       fetchClients();
     } catch (err) {
@@ -187,7 +187,7 @@ export default function ClientsSection() {
   const handleDelete = async () => {
     try {
       await axios.delete(`${API}/api/crm/clients/${selectedClient.client_id}`, { withCredentials: true });
-      toast.success(isEs ? "Cliente eliminado" : "Client deleted");
+      toast.success(isEs ? `${clientLabel} eliminado` : `${clientLabel} deleted`);
       setDeleteConfirmOpen(false);
       setDetailOpen(false);
       setEditOpen(false);
