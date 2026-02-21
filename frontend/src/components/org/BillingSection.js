@@ -190,8 +190,11 @@ export function BillingSection() {
   };
 
   const addonMonthlyCost = subscription?.monthly_cost || 0;
+  const addonCostAfterTrial = subscription?.monthly_cost_after_trial || 0;
   const totalMonthlyCost = KORA_CORE.price + addonMonthlyCost;
+  const totalCostAfterTrial = KORA_CORE.price + addonCostAfterTrial;
   const availableModules = MODULES.filter(m => !activeModules.includes(m.key));
+  const isInTrialPeriod = addonMonthlyCost === 0 && addonCostAfterTrial > 0;
   
   // Calculate trial days remaining
   const getTrialDaysRemaining = (module) => {
