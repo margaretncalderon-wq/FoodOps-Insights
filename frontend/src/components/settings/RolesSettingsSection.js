@@ -350,7 +350,6 @@ export default function RolesSettingsSection() {
                             <Checkbox
                               checked={roleForm.permissions.includes(perm.key)}
                               onCheckedChange={() => togglePermission(perm.key)}
-                              disabled={editingRole?.is_system}
                             />
                             <span className="text-sm">{isEs ? perm.labelEs : perm.label}</span>
                           </div>
