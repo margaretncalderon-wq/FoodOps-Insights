@@ -339,7 +339,6 @@ export default function RolesSettingsSection() {
                           variant="ghost"
                           size="sm"
                           onClick={() => toggleAllInGroup(group)}
-                          disabled={editingRole?.is_system}
                         >
                           {allSelected ? (isEs ? "Quitar todos" : "Remove all") : (isEs ? "Seleccionar todos" : "Select all")}
                         </Button>
