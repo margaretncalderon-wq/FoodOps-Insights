@@ -204,6 +204,41 @@ export function BillingSection() {
     }
   };
 
+  // Handle module cancellation
+  const handleCancelModule = async (module) => {
+    setActionLoading(true);
+    try {
+      // Find the org_addon_id for this module (check aliases too)
+      const aliasedKeys = Object.entries(MODULE_KEY_ALIASES)
+        .filter(([_, v]) => v === module.key)
+        .map(([k, _]) => k);
+      const keysToCheck = [module.key, ...aliasedKeys];
+      
+      const orgAddon = subscription?.active_modules?.find(m => 
+        keysToCheck.some(k => m.addon_id === `addon_${k}`)
+      );
+      
+      if (!orgAddon) {
+        toast.error(isEs ? "Módulo no encontrado" : "Module not found");
+        setActionLoading(false);
+        return;
+      }
+      
+      await axios.delete(
+        `${API}/api/addons/cancel/${orgAddon.org_addon_id}`,
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? "Módulo desactivado exitosamente" : "Module deactivated successfully");
+      setCancelModuleDialogOpen(false);
+      setModuleToCancel(null);
+      fetchBillingData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al desactivar módulo" : "Error deactivating module"));
+    }
+    setActionLoading(false);
+  };
+
   const addonMonthlyCost = subscription?.monthly_cost || 0;
   const addonCostAfterTrial = subscription?.monthly_cost_after_trial || 0;
   const totalMonthlyCost = KORA_CORE.price + addonMonthlyCost;
