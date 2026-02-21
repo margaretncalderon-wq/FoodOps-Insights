@@ -295,6 +295,11 @@ export default function RolesSettingsSection() {
                   onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
                   disabled={editingRole?.is_system}
                 />
+                {editingRole?.is_system && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isEs ? "El nombre de roles del sistema no se puede cambiar" : "System role names cannot be changed"}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>{isEs ? "Nombre (ES)" : "Name (ES)"}</Label>
@@ -309,7 +314,6 @@ export default function RolesSettingsSection() {
                 <Input
                   value={roleForm.description}
                   onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                  disabled={editingRole?.is_system}
                 />
               </div>
             </div>
