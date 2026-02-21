@@ -55,6 +55,11 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - `TerminologySettingsSection.js` - UI in Settings > Terminology tab
   - `useTerminology.js` hook - Access industry-specific terms throughout app
   - `industryTerminology.js` - Complete terminology configuration
+- **CRM Integration (NEW)**: Terminology now reflects dynamically in CRM pages
+  - `ClientsSection.js` - Uses dynamic terminology for "Clients/Patients" labels
+  - `LeadInboundSection.js` - Uses dynamic terminology for "Leads" labels
+  - `LeadOutreachSection.js` - Uses dynamic terminology for "Leads" labels
+  - `ClientEngagementPage.js` - CRM menu shows dynamic terminology
 - **Backend Endpoints**:
   - `GET /api/org-config/templates` - Returns all 8 industry templates
   - `POST /api/org-config/apply-template/{template_key}` - Apply new industry
@@ -64,7 +69,8 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - Select from 8 industries with icons and descriptions
   - Preview changes before applying (comparison table)
   - Apply terminology changes with confirmation
-- **Status**: TESTED & WORKING (Backend: 9/9 tests passed, Frontend: 6/6 features verified)
+  - **Dynamic CRM labels**: All CRM labels update based on selected industry
+- **Status**: TESTED & WORKING (Backend: 9/9 tests passed, Frontend verified with Healthcare terminology showing "Patients")
 
 ### Feature: Owner Assignment & Sales Report - IMPLEMENTED (Feb 2026)
 - **Requirement**: Multi-vendor lead assignment with sales performance tracking
