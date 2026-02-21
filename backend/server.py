@@ -1541,6 +1541,28 @@ async def get_supplier_items_for_ingredient(ingredient_id: str, user: User = Dep
 
 # ============== INVENTORY ROUTES - Enhanced ==============
 
+@inventory_router.get("")
+async def get_inventory_summary(user: User = Depends(get_current_user)):
+    """Get inventory summary - returns all ingredients"""
+    ingredients = await db.ingredients.find(
+        {"company_id": user.company_id}, 
+        {"_id": 0}
+    ).sort("name", 1).to_list(1000)
+    
+    for i in ingredients:
+        for field in ["created_at", "updated_at"]:
+            if i.get(field) and isinstance(i[field], str):
+                try:
+                    i[field] = datetime.fromisoformat(i[field])
+                except:
+                    pass
+        # Set defaults for new fields
+        for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
+            if field not in i:
+                i[field] = default
+    return ingredients
+
+
 @inventory_router.get("/ingredients", response_model=List[Ingredient])
 async def get_ingredients(inventory_type: Optional[str] = None, user: User = Depends(get_current_user)):
     query = {"company_id": user.company_id}
