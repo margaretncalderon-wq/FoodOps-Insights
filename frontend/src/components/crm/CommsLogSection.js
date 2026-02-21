@@ -81,16 +81,16 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
 
   const handleSubmit = async () => {
     if (!form.subject.trim()) { toast.error("Agrega un asunto"); return; }
-    if (!form.entity_id) { toast.error("Selecciona un lead"); return; }
+    if (!form.entity_id) { toast.error("Selecciona un lead o cliente"); return; }
     try {
       await axios.post(`${API}/crm/comms`, {
         ...form,
-        entity_type: "lead",
+        entity_type: form.entity_type,
         entity_id: form.entity_id,
       });
       toast.success("Registro guardado");
       setShowNew(false);
-      setForm({ comm_type: "call", direction: "outbound", subject: "", content: "", entity_type: "lead", entity_id: entityId || "" });
+      setForm({ comm_type: "call", direction: "outbound", subject: "", content: "", entity_type: entityType || "lead", entity_id: entityId || "" });
       fetchLogs();
     } catch (err) {
       toast.error("Error al guardar");
@@ -102,13 +102,18 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     return found ? <found.icon className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />;
   };
 
-  const getLeadName = (log) => {
+  const getEntityName = (log) => {
     if (log.entity_name) return log.entity_name;
+    if (log.entity_type === "client") {
+      const client = clients.find(c => c.client_id === log.entity_id);
+      return client ? client.display_name : null;
+    }
     const lead = leads.find(l => l.lead_id === log.entity_id);
     return lead ? (lead.company_name || lead.name || lead.contact_name) : null;
   };
 
-  const getLeadSource = (log) => {
+  const getEntitySource = (log) => {
+    if (log.entity_type === "client") return "Cliente";
     if (log.entity_source) return log.entity_source;
     const lead = leads.find(l => l.lead_id === log.entity_id);
     return lead?._source || lead?.source || null;
