@@ -109,6 +109,12 @@ class ClientCreate(BaseModel):
     has_credit: bool = False
     credit_limit: float = 0.0
     payment_terms: str = "immediate"  # immediate, net_7, net_15, net_30, custom
+    # New business profile fields
+    website: Optional[str] = None  # Client's website URL
+    industry: Optional[str] = None  # Client's industry/sector
+    description: Optional[str] = None  # Description of what they do
+    social_linkedin: Optional[str] = None  # LinkedIn profile/company page
+    social_instagram: Optional[str] = None  # Instagram handle
 
 
 class Client(BaseModel):
