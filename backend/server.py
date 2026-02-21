@@ -5290,6 +5290,15 @@ DEFAULT_ROLES = [
         "is_system": True
     },
     {
+        "role_id": "sales",
+        "name": "Sales",
+        "name_es": "Ventas",
+        "description": "Access to CRM and lead management",
+        "description_es": "Acceso al CRM y gestión de leads",
+        "permissions": ["crm.view", "crm.create", "crm.edit", "leads.view", "leads.manage", "clients.view"],
+        "is_system": True
+    },
+    {
         "role_id": "finance",
         "name": "Finance",
         "name_es": "Finanzas",
@@ -5305,6 +5314,15 @@ DEFAULT_ROLES = [
         "description": "Access to Events and Culinary Intelligence",
         "description_es": "Acceso a Eventos e Inteligencia Culinaria",
         "permissions": ["events.view", "events.create", "events.edit", "crm.view", "culinary.view", "culinary.manage", "culinary.purchases"],
+        "is_system": True
+    },
+    {
+        "role_id": "viewer",
+        "name": "Viewer",
+        "name_es": "Visor",
+        "description": "Read-only access to basic features",
+        "description_es": "Acceso de solo lectura a funciones básicas",
+        "permissions": ["events.view", "crm.view"],
         "is_system": True
     }
 ]
