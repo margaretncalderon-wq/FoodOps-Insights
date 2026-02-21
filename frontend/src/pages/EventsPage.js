@@ -84,6 +84,7 @@ const LEGACY_STAGE_MAP = {
 export default function EventsPage({ embedded = false }) {
   const { t, language } = useLanguage();
   const { isProfessionalServices, isEventsIndustry, getProgramOrchestrationConfig } = useModules();
+  const { term } = useTerminology();
   const [searchParams, setSearchParams] = useSearchParams();
   const isEs = language === "es";
   
@@ -91,6 +92,12 @@ export default function EventsPage({ embedded = false }) {
   const poConfig = useMemo(() => getProgramOrchestrationConfig(), [getProgramOrchestrationConfig]);
   const entitySingular = isEs ? poConfig.entity_singular_es : poConfig.entity_singular_en;
   const entityPlural = isEs ? poConfig.entity_plural_es : poConfig.entity_plural_en;
+  
+  // Dynamic client terminology
+  const clientLabel = term("events", "client");
+  const clientsLabel = term("events", "clients");
+  const venueLabel = term("events", "venue");
+  const guestsLabel = term("events", "guests");
   
   // Determine default engagement type based on industry
   const defaultEngagementType = isProfessionalServices ? "project" : "event";
