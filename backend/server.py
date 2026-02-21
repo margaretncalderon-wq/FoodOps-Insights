@@ -11455,9 +11455,38 @@ async def get_my_permissions(user: User = Depends(get_current_user)):
     membership = await get_user_membership(user.user_id, user.company_id)
     role = membership.get("role", "owner") if membership else "owner"
     
+    # Check if it's a system role
+    if role in ROLE_PERMISSIONS:
+        permissions = ROLE_PERMISSIONS[role]
+    else:
+        # It's a custom role - fetch from database
+        custom_role = await db.roles.find_one(
+            {"role_id": role, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if custom_role:
+            # Convert custom role permissions array to dict format
+            role_perms = custom_role.get("permissions", [])
+            permissions = {
+                "manage_billing": "settings.billing" in role_perms or "settings.manage" in role_perms,
+                "manage_plans": "settings.plans" in role_perms or "settings.manage" in role_perms,
+                "manage_members": "settings.users" in role_perms or "settings.manage" in role_perms,
+                "manage_settings": "settings.manage" in role_perms,
+                "manage_events": "events.edit" in role_perms or "events.create" in role_perms,
+                "manage_inventory": "culinary.manage" in role_perms,
+                "view_business_clarity": "finance.view" in role_perms,
+                "manage_business_clarity": "finance.reports" in role_perms,
+                "view_all": True,
+                "view_crm": "crm.view" in role_perms,
+                "manage_crm": "crm.edit" in role_perms or "crm.create" in role_perms
+            }
+        else:
+            # Fallback to viewer permissions
+            permissions = ROLE_PERMISSIONS["viewer"]
+    
     return {
         "role": role,
-        "permissions": ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["viewer"])
+        "permissions": permissions
     }
 
 # Include org_router after all endpoints are defined
