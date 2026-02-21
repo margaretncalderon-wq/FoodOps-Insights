@@ -1,0 +1,95 @@
+{
+  "summary": "Backend testing of Organization Member Management and Custom Roles completed successfully. All 13 pytest tests passed (100%). Verified: GET /api/org/members with include_suspended param, role_name/role_name_es resolution, GET /api/settings/roles returns custom roles, PUT /api/org/members/{id}/role accepts custom roles, PUT /api/org/members/{id} updates name/phone, PUT /api/org/members/{id}/suspend, PUT /api/org/members/{id}/activate, and POST /api/org/members/create-direct accepts custom roles.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "features_verified": {
+    "GET /api/org/members": {
+      "status": "WORKING",
+      "description": "Returns list of org members with role_name and role_name_es resolved"
+    },
+    "GET /api/org/members?include_suspended=true": {
+      "status": "WORKING",
+      "description": "Includes both active and suspended members"
+    },
+    "GET /api/settings/roles": {
+      "status": "WORKING",
+      "description": "Returns system roles and custom roles for the company"
+    },
+    "POST /api/settings/roles": {
+      "status": "WORKING",
+      "description": "Creates custom roles with permissions"
+    },
+    "PUT /api/org/members/{membership_id}/role": {
+      "status": "WORKING",
+      "description": "Updates member role, accepts both system and custom role_ids"
+    },
+    "PUT /api/org/members/{membership_id}": {
+      "status": "WORKING",
+      "description": "Updates member name and phone"
+    },
+    "PUT /api/org/members/{membership_id}/suspend": {
+      "status": "WORKING",
+      "description": "Suspends member (status=suspended), prevents owner/self suspension"
+    },
+    "PUT /api/org/members/{membership_id}/activate": {
+      "status": "WORKING",
+      "description": "Reactivates suspended member (status=active)"
+    },
+    "POST /api/org/members/create-direct": {
+      "status": "WORKING",
+      "description": "Creates new user with password and role (accepts system and custom roles)"
+    }
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_org_members_roles.py",
+    "/app/test_reports/pytest/pytest_org_members_roles.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "All endpoints correctly validate custom roles against db.roles collection",
+    "role_name and role_name_es are properly resolved from custom_roles_map",
+    "Suspend/activate endpoints have proper permission checks and prevent owner/self suspension",
+    "include_suspended query param correctly uses $in filter for ['active', 'suspended']",
+    "Invalid roles are rejected with 400 status code",
+    "The 'sales' role was confirmed present in ROLE_PERMISSIONS"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_org_members_roles.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "Not tested (backend only request)"
+  },
+  
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  
+  "seed_data_creation": "Created test users with custom and system roles, all cleaned up in final test",
+  
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Org member management and custom roles feature verified. Endpoints: GET /api/org/members (accepts ?include_suspended=true), GET /api/settings/roles, POST /api/settings/roles, PUT /api/org/members/{id}/role (query param role=), PUT /api/org/members/{id} (JSON body with name/phone), PUT /api/org/members/{id}/suspend, PUT /api/org/members/{id}/activate, POST /api/org/members/create-direct. Custom roles are stored in db.roles collection with role_id. System roles are: admin, sales, finance, operations, viewer, marketing_partner, owner.",
+  
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}
