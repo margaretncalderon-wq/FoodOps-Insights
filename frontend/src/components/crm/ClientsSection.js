@@ -277,9 +277,9 @@ export default function ClientsSection() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">{isEs ? "Clientes" : "Clients"}</h2>
+          <h2 className="text-xl font-bold">{clientsLabel}</h2>
           <p className="text-muted-foreground text-sm">
-            {isEs ? "Gestiona tu cartera de clientes" : "Manage your client portfolio"}
+            {isEs ? `Gestiona tu cartera de ${clientsLabel.toLowerCase()}` : `Manage your ${clientsLabel.toLowerCase()} portfolio`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -289,7 +289,7 @@ export default function ClientsSection() {
           </Button>
           <Button onClick={openCreate} data-testid="create-client-btn">
             <UserPlus className="w-4 h-4 mr-2" />
-            {isEs ? "Nuevo Cliente" : "New Client"}
+            {isEs ? `Nuevo ${clientLabel}` : `New ${clientLabel}`}
           </Button>
         </div>
       </div>
@@ -300,7 +300,7 @@ export default function ClientsSection() {
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
               <Users className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm">{isEs ? "Total Clientes" : "Total Clients"}</span>
+              <span className="text-sm">{isEs ? `Total ${clientsLabel}` : `Total ${clientsLabel}`}</span>
             </div>
             <div className="text-3xl font-bold">{clients.length}</div>
           </CardContent>
