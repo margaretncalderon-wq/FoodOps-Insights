@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { 
   RefreshCw, Phone, Mail, Calendar, User, Building2,
-  Clock, CheckCircle, AlertTriangle, CalendarDays
+  Clock, CheckCircle, AlertTriangle, CalendarDays, Users, UserCircle
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -34,18 +34,42 @@ export default function FollowUpsSection() {
     next_follow_up_date: "",
     follow_up_type: "Call"
   });
+  
+  // Owner filter state
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState("all");
+
+  // Fetch team members for filter dropdown
+  const fetchTeamMembers = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/team-members`, { withCredentials: true });
+      setTeamMembers(res.data || []);
+    } catch (err) {
+      console.error("Error fetching team members:", err);
+    }
+  }, []);
 
   const fetchFollowUps = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/crm/follow-ups`, { withCredentials: true });
+      let url = `${API}/api/crm/follow-ups`;
+      if (selectedOwnerId && selectedOwnerId !== "all") {
+        url += `?owner_id=${selectedOwnerId}`;
+      }
+      const res = await axios.get(url, { withCredentials: true });
       setFollowUps(res.data);
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  }, []);
+  }, [selectedOwnerId]);
 
-  useEffect(() => { fetchFollowUps(); }, [fetchFollowUps]);
+  useEffect(() => { 
+    fetchTeamMembers();
+  }, [fetchTeamMembers]);
+  
+  useEffect(() => { 
+    fetchFollowUps(); 
+  }, [fetchFollowUps]);
 
   const handleComplete = async (item) => {
     try {
