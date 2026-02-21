@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 
@@ -41,6 +41,7 @@ import IntegrationsSettingsSection from "../components/settings/IntegrationsSett
 import GoogleCalendarSettingsSection from "../components/settings/GoogleCalendarSettingsSection";
 import ImportExportSection from "../components/settings/ImportExportSection";
 import IndustryConfigSection from "../components/settings/IndustryConfigSection";
+import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
