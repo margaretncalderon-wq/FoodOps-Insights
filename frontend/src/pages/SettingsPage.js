@@ -38,6 +38,7 @@ import { Badge } from "../components/ui/badge";
 import RolesSettingsSection from "../components/settings/RolesSettingsSection";
 import AutomationsSettingsSection from "../components/settings/AutomationsSettingsSection";
 import IntegrationsSettingsSection from "../components/settings/IntegrationsSettingsSection";
+import GoogleCalendarSettingsSection from "../components/settings/GoogleCalendarSettingsSection";
 import ImportExportSection from "../components/settings/ImportExportSection";
 import IndustryConfigSection from "../components/settings/IndustryConfigSection";
 import { BillingSection, TeamSection } from "../components/org";
