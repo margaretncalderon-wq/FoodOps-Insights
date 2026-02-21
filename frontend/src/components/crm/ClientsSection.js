@@ -1141,6 +1141,66 @@ export default function ClientsSection() {
               )}
             </div>
 
+            {/* Business Profile Section */}
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="font-medium text-sm text-muted-foreground">
+                {isEs ? "Perfil de Negocio" : "Business Profile"}
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{isEs ? "Página Web" : "Website"}</Label>
+                  <Input
+                    type="url"
+                    placeholder="https://..."
+                    value={editForm.website || ""}
+                    onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>{isEs ? "Industria" : "Industry"}</Label>
+                  <Select value={editForm.industry || ""} onValueChange={(v) => setEditForm({ ...editForm, industry: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_INDUSTRIES.map(ind => (
+                        <SelectItem key={ind.value} value={ind.value}>
+                          {isEs ? ind.labelEs : ind.labelEn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>{isEs ? "Descripción del Negocio" : "Business Description"}</Label>
+                <Textarea
+                  placeholder={isEs ? "¿A qué se dedica este cliente?" : "What does this client do?"}
+                  value={editForm.description || ""}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>LinkedIn</Label>
+                  <Input
+                    placeholder="https://linkedin.com/..."
+                    value={editForm.social_linkedin || ""}
+                    onChange={(e) => setEditForm({ ...editForm, social_linkedin: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Instagram</Label>
+                  <Input
+                    placeholder="@username"
+                    value={editForm.social_instagram || ""}
+                    onChange={(e) => setEditForm({ ...editForm, social_instagram: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
             <div>
               <Label>{isEs ? "Notas" : "Notes"}</Label>
               <Textarea
