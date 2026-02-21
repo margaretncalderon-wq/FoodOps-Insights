@@ -378,7 +378,7 @@ export default function LeadInboundSection() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog - Enhanced with Request Form Data */}
+      {/* Detail Dialog - Enhanced with Tabs */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -391,199 +391,214 @@ export default function LeadInboundSection() {
             </DialogTitle>
           </DialogHeader>
           {selectedLead && (
-            <div className="space-y-4">
-              {/* Quick Contact Links */}
-              <div className="flex flex-wrap gap-2">
-                {selectedLead.whatsapp && (
-                  <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      WhatsApp
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
-                )}
-                {selectedLead.email && (
-                  <a href={`mailto:${selectedLead.email}`}>
-                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                      <Mail className="w-4 h-4 mr-2" />
-                      Email
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
-                )}
-                {selectedLead.phone && (
-                  <a href={`tel:${selectedLead.phone}`}>
-                    <Button variant="outline" size="sm">
-                      <Phone className="w-4 h-4 mr-2" />
-                      {isEs ? "Llamar" : "Call"}
-                    </Button>
-                  </a>
-                )}
-              </div>
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="info" className="text-xs">
+                  <Info className="w-3 h-3 mr-1" /> Info
+                </TabsTrigger>
+                <TabsTrigger value="comms" className="text-xs">
+                  <MessageCircle className="w-3 h-3 mr-1" /> Comms
+                </TabsTrigger>
+              </TabsList>
 
-              {/* Source & Form Info */}
-              <Card className="bg-muted/50">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <FileText className="w-4 h-4" />
-                    <span className="font-medium text-sm">{isEs ? "Datos del Formulario" : "Form Data"}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">{isEs ? "Fuente" : "Source"}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {getSourceIcon(selectedLead.source)}
-                        <span className="font-medium">{selectedLead.source}</span>
-                      </div>
+              {/* Info Tab */}
+              <TabsContent value="info" className="space-y-4 mt-0">
+                {/* Quick Contact Links */}
+                <div className="flex flex-wrap gap-2">
+                  {selectedLead.whatsapp && (
+                    <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        WhatsApp
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedLead.email && (
+                    <a href={`mailto:${selectedLead.email}`}>
+                      <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedLead.phone && (
+                    <a href={`tel:${selectedLead.phone}`}>
+                      <Button variant="outline" size="sm">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {isEs ? "Llamar" : "Call"}
+                      </Button>
+                    </a>
+                  )}
+                </div>
+
+                {/* Source & Form Info */}
+                <Card className="bg-muted/50">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-3 h-3" />
+                      <span className="font-medium text-xs">{isEs ? "Datos del Formulario" : "Form Data"}</span>
                     </div>
-                    {selectedLead.form_name && (
+                    <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <p className="text-muted-foreground">{isEs ? "Formulario" : "Form"}</p>
-                        <p className="font-medium">{selectedLead.form_name}</p>
+                        <p className="text-muted-foreground">{isEs ? "Fuente" : "Source"}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {getSourceIcon(selectedLead.source)}
+                          <span className="font-medium">{selectedLead.source}</span>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-muted-foreground">{isEs ? "Recibido" : "Received"}</p>
-                      <p className="font-medium">{new Date(selectedLead.created_at).toLocaleString()}</p>
+                      <div>
+                        <p className="text-muted-foreground">{isEs ? "Recibido" : "Received"}</p>
+                        <p className="font-medium">{new Date(selectedLead.created_at).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Contact Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{selectedLead.email || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</p>
-                  <p className="font-medium">{selectedLead.phone || "-"}</p>
-                </div>
-                {selectedLead.whatsapp && (
+                {/* Contact Info */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-sm text-muted-foreground">WhatsApp</p>
-                    <p className="font-medium">{selectedLead.whatsapp}</p>
+                    <p className="text-muted-foreground text-xs">Email</p>
+                    <p className="font-medium truncate">{selectedLead.email || "-"}</p>
                   </div>
-                )}
-                {selectedLead.company_name && (
                   <div>
-                    <p className="text-sm text-muted-foreground">{isEs ? "Empresa" : "Company"}</p>
-                    <p className="font-medium flex items-center gap-2">
-                      <Building2 className="w-4 h-4" />
-                      {selectedLead.company_name}
-                    </p>
+                    <p className="text-muted-foreground text-xs">{isEs ? "Teléfono" : "Phone"}</p>
+                    <p className="font-medium">{selectedLead.phone || "-"}</p>
                   </div>
-                )}
-              </div>
-
-              {/* Event Request Details */}
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-sm">{isEs ? "Solicitud de Evento" : "Event Request"}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  {selectedLead.whatsapp && (
                     <div>
-                      <p className="text-sm text-muted-foreground">{isEs ? "Tipo de Evento" : "Event Type"}</p>
-                      <p className="font-medium">{selectedLead.event_type}</p>
+                      <p className="text-muted-foreground text-xs">WhatsApp</p>
+                      <p className="font-medium">{selectedLead.whatsapp}</p>
                     </div>
+                  )}
+                  {selectedLead.company_name && (
                     <div>
-                      <p className="text-sm text-muted-foreground">{isEs ? "Fecha" : "Date"}</p>
-                      <p className="font-medium">{selectedLead.event_date || "TBD"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">{isEs ? "Invitados" : "Guests"}</p>
+                      <p className="text-muted-foreground text-xs">{isEs ? "Empresa" : "Company"}</p>
                       <p className="font-medium flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        {selectedLead.estimated_guest_count || "-"}
-                      </p>
-                    </div>
-                  </div>
-                  {selectedLead.budget_range && (
-                    <div className="mt-3">
-                      <p className="text-sm text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <DollarSign className="w-4 h-4" />
-                        {selectedLead.budget_range}
+                        <Building2 className="w-3 h-3" />
+                        {selectedLead.company_name}
                       </p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-
-              {/* Message */}
-              {selectedLead.message && (
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Mensaje del Cliente" : "Client Message"}</p>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">{selectedLead.message}</p>
                 </div>
-              )}
 
-              {/* Communications Timeline */}
-              <div className="border-t pt-4">
+                {/* Event Request Details - Only show if event data exists */}
+                {(selectedLead.event_type || selectedLead.event_date || selectedLead.estimated_guest_count) && (
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardContent className="pt-3 pb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-3 h-3 text-primary" />
+                        <span className="font-medium text-xs">{isEs ? "Solicitud de Evento" : "Event Request"}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        {selectedLead.event_type && (
+                          <div>
+                            <p className="text-muted-foreground">{isEs ? "Tipo" : "Type"}</p>
+                            <p className="font-medium">{selectedLead.event_type}</p>
+                          </div>
+                        )}
+                        {selectedLead.event_date && (
+                          <div>
+                            <p className="text-muted-foreground">{isEs ? "Fecha" : "Date"}</p>
+                            <p className="font-medium">{selectedLead.event_date}</p>
+                          </div>
+                        )}
+                        {selectedLead.estimated_guest_count && (
+                          <div>
+                            <p className="text-muted-foreground">{isEs ? "Invitados" : "Guests"}</p>
+                            <p className="font-medium flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {selectedLead.estimated_guest_count}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      {selectedLead.budget_range && (
+                        <div className="mt-2 text-xs">
+                          <p className="text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
+                          <p className="font-medium flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            {selectedLead.budget_range}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Message */}
+                {selectedLead.message && (
+                  <div className="text-sm">
+                    <p className="text-muted-foreground text-xs">{isEs ? "Mensaje del Cliente" : "Client Message"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded text-xs whitespace-pre-wrap">{selectedLead.message}</p>
+                  </div>
+                )}
+
+                {/* Follow-up info */}
+                {selectedLead.next_follow_up_date ? (
+                  <div className="p-2 bg-yellow-50 rounded border border-yellow-200 text-sm">
+                    <p className="font-medium text-yellow-800 flex items-center gap-2 text-xs">
+                      <Clock className="w-3 h-3" />
+                      {isEs ? "Seguimiento programado" : "Follow-up scheduled"}
+                    </p>
+                    <p className="text-yellow-700 text-xs mt-1">
+                      {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => { setDetailOpen(false); openFollowUp(selectedLead); }}>
+                    <CalendarPlus className="w-3 h-3 mr-2" />
+                    {isEs ? "Programar Seguimiento" : "Schedule Follow-up"}
+                  </Button>
+                )}
+
+                {/* Convert Button */}
+                {selectedLead.status !== "Converted" && (
+                  <div className="pt-3 border-t">
+                    <Button 
+                      className="w-full" 
+                      size="sm"
+                      onClick={() => { setDetailOpen(false); openConvert(selectedLead); }}
+                      data-testid="convert-inbound-detail-btn"
+                    >
+                      <ArrowRight className="w-3 h-3 mr-2" />
+                      {isEs ? "Convertir a Cliente" : "Convert to Client"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Already Converted */}
+                {selectedLead.status === "Converted" && (
+                  <div className="p-2 bg-green-50 rounded border border-green-200">
+                    <p className="text-xs font-medium text-green-800 flex items-center gap-2">
+                      <UserCheck className="w-3 h-3" />
+                      {isEs ? "Lead convertido" : "Lead converted"}
+                    </p>
+                    {selectedLead.converted_client_id && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2 h-7 text-xs"
+                        onClick={() => navigate(`/crm/clients`)}
+                      >
+                        {isEs ? "Ver Cliente" : "View Client"}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Comms Tab */}
+              <TabsContent value="comms" className="mt-0">
                 <CommunicationsTimeline 
                   entityType="lead" 
                   entityId={selectedLead.lead_id}
                   entityName={selectedLead.lead_name || selectedLead.company_name || "Lead"}
-                  maxVisible={3}
+                  maxVisible={10}
                 />
-              </div>
-
-              {/* Follow-up info */}
-              {selectedLead.next_follow_up_date ? (
-                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    {isEs ? "Seguimiento programado" : "Follow-up scheduled"}
-                  </p>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
-                  </p>
-                </div>
-              ) : (
-                <Button variant="outline" className="w-full" onClick={() => { setDetailOpen(false); openFollowUp(selectedLead); }}>
-                  <CalendarPlus className="w-4 h-4 mr-2" />
-                  {isEs ? "Programar Seguimiento" : "Schedule Follow-up"}
-                </Button>
-              )}
-
-              {/* Convert Button */}
-              {selectedLead.status !== "Converted" && (
-                <div className="pt-4 border-t">
-                  <Button 
-                    className="w-full" 
-                    onClick={() => { setDetailOpen(false); openConvert(selectedLead); }}
-                    data-testid="convert-inbound-detail-btn"
-                  >
-                    <ArrowRight className="w-4 h-4 mr-2" />
-                    {isEs ? "Convertir a Cliente" : "Convert to Client"}
-                  </Button>
-                </div>
-              )}
-
-              {/* Already Converted */}
-              {selectedLead.status === "Converted" && (
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-sm font-medium text-green-800 flex items-center gap-2">
-                    <UserCheck className="w-4 h-4" />
-                    {isEs ? "Lead convertido" : "Lead converted"}
-                  </p>
-                  {selectedLead.converted_client_id && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => navigate(`/crm/clients`)}
-                    >
-                      {isEs ? "Ver Cliente" : "View Client"}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
