@@ -33,23 +33,10 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 ### P0 Fix 1: Module Loading Regression - FIXED & VERIFIED
 - **Root Cause**: Existing users missing `organization_config` and/or `subscription` records
 - **Fix**: `ensure_user_data_complete()` helper in `auth.py` back-fills on every login/session
-- **Bulk Repair**: `POST /api/super-admin/repair-all-organizations` + UI button in Super Admin → Maintenance tab
 
 ### P0 Fix 2: Google Login redirect_uri_mismatch - FIXED & VERIFIED
 - **Root Cause**: Backend used Origin header (stripped by K8s proxy) to build redirect_uri
 - **Fix**: Frontend sends `redirect_uri` as query param from `window.location.origin`
-
-### P0 Fix 3: Modules 401 after Google Login - FIXED & VERIFIED
-- **Root Cause**: TWO different `get_current_user` functions. `dependencies.py` only handled JWT, not session UUIDs
-- **Fix**: Updated `dependencies.py` to check `user_sessions` table first. Added JWT `access_token` to all auth responses. Global axios interceptor sends token automatically.
-
-### P0 Fix 4: Login redirect loop (Rep. Dom. users) - FIXED & VERIFIED
-- **Root Cause**: `ProtectedRoute` re-verified auth via cookie-only `checkAuth` causing race condition
-- **Fix**: Skip re-verification if user already in context. `checkAuth` now uses stored JWT token.
-
-### Feature: CRM Comms Section - FIXED & WORKING
-- **Root Cause**: `CommsLogSection` required `entityType`/`entityId` but standalone mode didn't provide them → infinite spinner
-- **Fix**: Added `GET /api/crm/comms/all` endpoint, updated component for standalone mode, made entity fields optional in model
 
 ### Feature: Owner Assignment & Sales Report - IMPLEMENTED (Feb 2026)
 - **Requirement**: Multi-vendor lead assignment with sales performance tracking
@@ -59,10 +46,21 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - `GET /api/crm/reports/owners` - Sales report grouped by owner with filters
 - **Frontend Components**:
   - `OwnerAssignmentSection.js` - `/client-engagement/crm/owners` - Full owner management UI
-  - `SalesReportSection.js` - `/client-engagement/crm/sales-report` - Detailed sales metrics table with export
+  - `SalesReportSection.js` - `/client-engagement/crm/sales-report` - Detailed sales metrics table
   - `Sales Performance Pulse` in Dashboard - Last 7 days snapshot in System Pulse
-- **Permissions**: Admin/Owner see all, Sales sees only their own data
-- **Status Metrics**: Nuevo, Contactado, Sin Respuesta, Interesado, Converted
+
+### Feature: Follow-ups Dashboard by Owner - IMPLEMENTED (Feb 2026)
+- **Requirement**: Dashboard to view scheduled communications filtered by salesperson
+- **Backend Changes**:
+  - `GET /api/crm/follow-ups` now accepts optional `?owner_id=<user_id>` parameter
+  - Special value `__unassigned__` filters for items without owner
+  - Response now includes `owner_name` resolved from user_id
+  - Sales role automatically sees only their own follow-ups (server-enforced)
+- **Frontend Changes**:
+  - `FollowUpsSection.js` updated with owner filter dropdown
+  - Team members loaded for dropdown via `/api/crm/team-members`
+  - Each follow-up card shows owner name or "Sin asignar" badge
+- **Status**: TESTED & WORKING (9/9 backend tests passed)
 
 ## Pending Issues
 - P2: Incomplete internationalization (hardcoded strings in UI)
@@ -70,9 +68,8 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - P3: Email Notifications (blocked on RESEND_API_KEY)
 
 ## Upcoming Tasks
-- P1: Owner-specific dashboard/calendar (show scheduled communications on owner's dashboard)
-- P1: Backend workflow configuration (connect Automations UI to backend)
-- P2: Refactor server.py into dedicated routers
+- P1: Vista Kanban estilo Monday.com para leads
+- P2: Backend workflow configuration (connect Automations UI to backend)
 - P3: API Documentation in Super Admin panel
 
 ## Future/Backlog
