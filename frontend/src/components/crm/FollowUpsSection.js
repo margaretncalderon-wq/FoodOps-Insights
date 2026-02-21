@@ -191,17 +191,41 @@ export default function FollowUpsSection() {
   return (
     <div className="space-y-6" data-testid="follow-ups-section">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">{isEs ? "Seguimientos" : "Follow-ups"}</h2>
           <p className="text-muted-foreground text-sm">
             {isEs ? "Vista unificada de seguimientos de leads y clientes" : "Unified view of lead and client follow-ups"}
           </p>
         </div>
-        <Button variant="outline" onClick={fetchFollowUps}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {isEs ? "Actualizar" : "Refresh"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Owner Filter */}
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+              <SelectTrigger className="w-[180px]" data-testid="owner-filter-select">
+                <SelectValue placeholder={isEs ? "Filtrar por vendedor" : "Filter by owner"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {isEs ? "Todos los vendedores" : "All salespeople"}
+                </SelectItem>
+                <SelectItem value="__unassigned__">
+                  {isEs ? "Sin asignar" : "Unassigned"}
+                </SelectItem>
+                {teamMembers.map((member) => (
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    {member.name || member.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" onClick={fetchFollowUps} data-testid="refresh-followups-btn">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {isEs ? "Actualizar" : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
