@@ -14286,30 +14286,6 @@ async def get_import_template(
     
     # Get templates with industry-specific terminology
     templates = get_industry_templates(industry)
-            "columns": ["nombre", "email", "telefono", "empresa", "tipo", "direccion", "notas"],
-            "sample": [["Juan Pérez", "juan@email.com", "555-1234", "Empresa ABC", "corporate", "Calle 123", "Cliente VIP"]]
-        },
-        "inventory": {
-            "columns": ["nombre", "categoria", "unidad", "costo_por_unidad", "stock_actual", "stock_minimo", "proveedor", "ubicacion", "notas"],
-            "sample": [["Tomate", "Vegetales", "kg", 2.50, 100, 20, "Proveedor XYZ", "Bodega A", ""]]
-        },
-        "recipes": {
-            "columns": ["nombre", "categoria", "porciones", "tiempo_preparacion", "ingredientes", "instrucciones", "notas"],
-            "sample": [["Ensalada César", "Ensaladas", 4, "15 min", "Lechuga: 200 g; Pollo: 300 g; Aderezo: 50 ml", "1. Lavar lechuga...", ""]]
-        },
-        "quotes": {
-            "columns": ["cliente", "fecha", "fecha_evento", "estado", "items", "subtotal", "impuestos", "total", "notas"],
-            "sample": [["Empresa ABC", "2026-01-15", "2026-02-01", "sent", "Catering: 50 x $150; Decoración: 1 x $500", 8000, 1280, 9280, "Evento corporativo"]]
-        },
-        "events": {
-            "columns": ["nombre_evento", "cliente", "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "ubicacion", "tipo_evento", "num_invitados", "estado", "presupuesto", "notas"],
-            "sample": [["Boda García-López", "Juan García", "2026-02-14", "2026-02-14", "16:00", "23:00", "Jardín Las Palmas", "wedding", 150, "confirmed", 50000, "Incluye catering"]]
-        },
-        "leads": {
-            "columns": ["nombre", "email", "telefono", "empresa", "fuente", "estado", "valor_estimado", "tipo_evento", "fecha_evento", "num_invitados", "notas"],
-            "sample": [["María García", "maria@email.com", "555-9876", "Empresa XYZ", "website", "new", 15000, "corporate", "2026-03-15", 100, "Interesado en catering"]]
-        }
-    }
     
     if type not in templates:
         raise HTTPException(status_code=400, detail="Tipo inválido. Use: clients, inventory, recipes, quotes, events, leads")
