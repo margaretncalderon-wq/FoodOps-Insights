@@ -139,7 +139,9 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     );
   }
 
-  const selectedLead = leads.find(l => l.lead_id === form.entity_id);
+  const selectedEntity = form.entity_type === "client" 
+    ? clients.find(c => c.client_id === form.entity_id)
+    : leads.find(l => l.lead_id === form.entity_id);
 
   return (
     <div className="space-y-4" data-testid="comms-log-section">
