@@ -10691,8 +10691,13 @@ async def update_member_role(membership_id: str, role: str, user: User = Depends
     if not await check_permission(user, "manage_members"):
         raise HTTPException(status_code=403, detail="Permission denied")
     
-    if role not in ROLE_PERMISSIONS:
-        raise HTTPException(status_code=400, detail="Invalid role")
+    # Check if role is a system role or a custom role
+    is_valid_role = role in ROLE_PERMISSIONS
+    if not is_valid_role:
+        # Check if it's a custom role for this company
+        custom_role = await db.roles.find_one({"role_id": role, "company_id": user.company_id})
+        if not custom_role:
+            raise HTTPException(status_code=400, detail="Invalid role")
     
     membership = await db.memberships.find_one({"membership_id": membership_id})
     if not membership or membership["company_id"] != user.company_id:
