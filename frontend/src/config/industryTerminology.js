@@ -454,7 +454,7 @@ export const INDUSTRY_TERMINOLOGY = {
 // List of available industries for UI selection
 export const AVAILABLE_INDUSTRIES = [
   "events_hospitality",
-  "agency",
+  "professional_services",
   "healthcare",
   "real_estate",
   "education",
@@ -462,6 +462,11 @@ export const AVAILABLE_INDUSTRIES = [
   "consulting",
   "generic"
 ];
+
+// Alias for backwards compatibility (agency -> professional_services)
+export const INDUSTRY_ALIASES = {
+  "agency": "professional_services"
+};
 
 // Fallback to generic if industry not found
 export const getIndustryTerminology = (industry) => {
