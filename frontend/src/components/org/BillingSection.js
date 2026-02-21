@@ -88,7 +88,9 @@ export function BillingSection() {
   const [activeModules, setActiveModules] = useState([]);
   const [usage, setUsage] = useState(null);
   const [addModuleDialogOpen, setAddModuleDialogOpen] = useState(false);
+  const [cancelModuleDialogOpen, setCancelModuleDialogOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState(null);
+  const [moduleToCancel, setModuleToCancel] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
