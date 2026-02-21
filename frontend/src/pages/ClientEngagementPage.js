@@ -85,7 +85,7 @@ export default function ClientEngagementPage() {
     if (path.includes("comms")) return isEs ? "Comunicaciones" : "Comms";
     if (path.includes("sales-report")) return isEs ? "Reporte Ventas" : "Sales Report";
     if (path.includes("owners")) return isEs ? "Responsables" : "Owners";
-    if (path.includes("clients")) return isEs ? "Clientes" : "Clients";
+    if (path.includes("clients")) return clientsLabel;
     return null; // No sub-section active
   };
 
