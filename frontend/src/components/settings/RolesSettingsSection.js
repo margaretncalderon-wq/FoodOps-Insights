@@ -364,11 +364,9 @@ export default function RolesSettingsSection() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            {!editingRole?.is_system && (
-              <Button onClick={handleSaveRole}>
-                {isEs ? "Guardar" : "Save"}
-              </Button>
-            )}
+            <Button onClick={handleSaveRole}>
+              {isEs ? "Guardar" : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
