@@ -15220,6 +15220,10 @@ from routers.integrations_admin import integrations_admin_router
 api_router.include_router(integrations_api_router)  # /api/v1/integrations/*
 api_router.include_router(integrations_admin_router, prefix="/super-admin")  # /api/super-admin/integrations/*
 
+# Include Google Calendar router
+from routers.google_calendar import router as google_calendar_router
+api_router.include_router(google_calendar_router)  # /api/oauth/calendar/*
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
