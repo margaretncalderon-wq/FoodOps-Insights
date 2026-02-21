@@ -8,7 +8,8 @@ import {
   getCategoryTerms,
   getIndustryInfo,
   AVAILABLE_INDUSTRIES,
-  INDUSTRY_TERMINOLOGY
+  INDUSTRY_TERMINOLOGY,
+  INDUSTRY_ALIASES
 } from "../config/industryTerminology";
 
 /**
@@ -27,21 +28,11 @@ export function useTerminology() {
   const { industryTemplate, loading: configLoading } = useOrgConfig();
   const { language } = useLanguage();
   
-  // Map backend industry_template to frontend terminology key
+  // Resolve industry key (handle aliases like agency -> professional_services)
   const industryKey = useMemo(() => {
-    const templateMap = {
-      "events_hospitality": "events_hospitality",
-      "professional_services": "agency",
-      "generic": "generic",
-      // Direct mappings for new industries
-      "healthcare": "healthcare",
-      "real_estate": "real_estate",
-      "education": "education",
-      "fitness": "fitness",
-      "consulting": "consulting",
-      "agency": "agency",
-    };
-    return templateMap[industryTemplate] || "generic";
+    const rawKey = industryTemplate || "generic";
+    // Handle aliases
+    return INDUSTRY_ALIASES[rawKey] || rawKey;
   }, [industryTemplate]);
   
   // Get a single term
