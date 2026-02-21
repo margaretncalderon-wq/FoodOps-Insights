@@ -97,7 +97,7 @@ export default function ClientEngagementPage() {
     { path: "/client-engagement/crm/comms", label: isEs ? "Comunicaciones" : "Comms", icon: MessageSquare },
     { path: "/client-engagement/crm/sales-report", label: isEs ? "Reporte Ventas" : "Sales Report", icon: BarChart3 },
     { path: "/client-engagement/crm/owners", label: isEs ? "Responsables" : "Owners", icon: UserCircle },
-    { path: "/client-engagement/crm/clients", label: isEs ? "Clientes" : "Clients", icon: Users, badge: stats.active_clients },
+    { path: "/client-engagement/crm/clients", label: clientsLabel, icon: Users, badge: stats.active_clients },
   ];
 
   // Calculate total CRM badges
