@@ -247,6 +247,11 @@ export default function RolesSettingsSection() {
                     </Button>
                   </div>
                 )}
+                {role.is_system && (
+                  <Button variant="ghost" size="icon" onClick={() => handleEditRole(role)} title={isEs ? "Editar permisos" : "Edit permissions"}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
