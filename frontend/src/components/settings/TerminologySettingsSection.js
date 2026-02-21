@@ -100,11 +100,11 @@ export default function TerminologySettingsSection() {
       if (response.ok) {
         toast.success(
           language === "es"
-            ? "Terminología actualizada. Los cambios se reflejarán en toda la aplicación."
-            : "Terminology updated. Changes will reflect throughout the application."
+            ? "Terminología actualizada correctamente"
+            : "Terminology updated successfully"
         );
-        // Force a page reload to ensure all components pick up the new terminology
-        window.location.reload();
+        refreshConfig();
+        setSelectedPreview(null);
       } else {
         const error = await response.json();
         toast.error(error.detail || (language === "es" ? "Error al actualizar" : "Update failed"));
