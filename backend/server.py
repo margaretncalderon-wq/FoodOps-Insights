@@ -14244,8 +14244,8 @@ def get_industry_templates(industry: str, lang: str = "es"):
     
     return {
         "clients": {
-            "columns": ["nombre", "email", "telefono", "empresa", "tipo", "direccion", "notas"],
-            "sample": [["Juan Pérez", "juan@email.com", "555-1234", "Empresa ABC", "corporate", "Calle 123", "Cliente VIP"]]
+            "columns": ["nombre", "email", "telefono", "empresa", "tipo", "direccion", "pagina_web", "industria", "descripcion", "linkedin", "instagram", "notas"],
+            "sample": [["Juan Pérez", "juan@email.com", "555-1234", "Empresa ABC", "corporate", "Calle 123", "https://empresa.com", "technology", "Desarrollo de software empresarial", "https://linkedin.com/company/empresa", "@empresa_abc", "Cliente VIP"]]
         },
         "inventory": {
             "columns": ["nombre", "categoria", "unidad", "costo_por_unidad", "stock_actual", "stock_minimo", "proveedor", "ubicacion", "notas"],
