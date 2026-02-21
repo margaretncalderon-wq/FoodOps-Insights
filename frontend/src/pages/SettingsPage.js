@@ -1624,7 +1624,9 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  {language === "es" ? "Categorías para agrupar ítems en las órdenes de evento (Comida, Bebidas, Alquiler, etc.)" : "Categories to group items in event orders (Food, Drinks, Rentals, etc.)"}
+                  {language === "es" 
+                    ? `Categorías para agrupar ítems en las órdenes de ${eventsLabel.toLowerCase()} (Comida, Bebidas, Alquiler, etc.)` 
+                    : `Categories to group items in ${eventsLabel.toLowerCase()} orders (Food, Drinks, Rentals, etc.)`}
                 </p>
                 <div className="space-y-2">
                   {categories.map(cat => (
