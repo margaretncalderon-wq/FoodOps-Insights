@@ -26,11 +26,13 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
   const [logs, setLogs] = useState([]);
   const [leads, setLeads] = useState([]);
   const [clients, setClients] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterSource, setFilterSource] = useState("all");
+  const [filterOwner, setFilterOwner] = useState("all");
   const [form, setForm] = useState({
     comm_type: "call",
     direction: "outbound",
@@ -63,15 +65,17 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
   const fetchEntities = useCallback(async () => {
     if (!standalone) return;
     try {
-      const [outRes, inRes, clientsRes] = await Promise.all([
+      const [outRes, inRes, clientsRes, teamRes] = await Promise.all([
         axios.get(`${API}/crm/outreach`),
         axios.get(`${API}/crm/inbound`),
         axios.get(`${API}/crm/clients`),
+        axios.get(`${API}/crm/team-members`),
       ]);
       const outreach = (outRes.data || []).map(l => ({ ...l, _source: "Outreach", _type: "lead" }));
       const inbound = (inRes.data || []).map(l => ({ ...l, _source: "Inbound", _type: "lead" }));
       setLeads([...outreach, ...inbound]);
       setClients((clientsRes.data || []).map(c => ({ ...c, _type: "client" })));
+      setTeamMembers(teamRes.data || []);
     } catch (err) {
       console.error("Error fetching entities:", err);
     }
