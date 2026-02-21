@@ -14163,11 +14163,129 @@ async def import_events(
 
 # --- TEMPLATES ---
 
-@import_export_router.get("/templates/{type}")
-async def get_import_template(type: str, format: str = "csv"):
-    """Get import template for clients, inventory, recipes, quotes, or events"""
-    templates = {
+# Industry-specific terminology for import/export
+INDUSTRY_IMPORT_TERMINOLOGY = {
+    "events_hospitality": {
+        "main_entity": {"en": "event", "es": "evento"},
+        "client": {"en": "client", "es": "cliente"},
+        "event_type": {"en": "event_type", "es": "tipo_evento"},
+        "event_date": {"en": "event_date", "es": "fecha_evento"},
+        "guests": {"en": "guests", "es": "invitados"},
+        "booking": {"en": "booking", "es": "reserva"},
+    },
+    "professional_services": {
+        "main_entity": {"en": "project", "es": "proyecto"},
+        "client": {"en": "client", "es": "cliente"},
+        "event_type": {"en": "project_type", "es": "tipo_proyecto"},
+        "event_date": {"en": "start_date", "es": "fecha_inicio"},
+        "guests": {"en": "stakeholders", "es": "involucrados"},
+        "booking": {"en": "engagement", "es": "compromiso"},
+    },
+    "healthcare": {
+        "main_entity": {"en": "appointment", "es": "cita"},
+        "client": {"en": "patient", "es": "paciente"},
+        "event_type": {"en": "treatment_type", "es": "tipo_tratamiento"},
+        "event_date": {"en": "appointment_date", "es": "fecha_cita"},
+        "guests": {"en": "family_members", "es": "familiares"},
+        "booking": {"en": "appointment", "es": "cita"},
+    },
+    "real_estate": {
+        "main_entity": {"en": "showing", "es": "visita"},
+        "client": {"en": "buyer_seller", "es": "comprador_vendedor"},
+        "event_type": {"en": "property_type", "es": "tipo_propiedad"},
+        "event_date": {"en": "showing_date", "es": "fecha_visita"},
+        "guests": {"en": "viewers", "es": "visitantes"},
+        "booking": {"en": "listing", "es": "listado"},
+    },
+    "education": {
+        "main_entity": {"en": "course", "es": "curso"},
+        "client": {"en": "student", "es": "estudiante"},
+        "event_type": {"en": "course_type", "es": "tipo_curso"},
+        "event_date": {"en": "start_date", "es": "fecha_inicio"},
+        "guests": {"en": "participants", "es": "participantes"},
+        "booking": {"en": "enrollment", "es": "inscripcion"},
+    },
+    "fitness": {
+        "main_entity": {"en": "session", "es": "sesion"},
+        "client": {"en": "member", "es": "miembro"},
+        "event_type": {"en": "session_type", "es": "tipo_sesion"},
+        "event_date": {"en": "session_date", "es": "fecha_sesion"},
+        "guests": {"en": "participants", "es": "participantes"},
+        "booking": {"en": "membership", "es": "membresia"},
+    },
+    "consulting": {
+        "main_entity": {"en": "engagement", "es": "compromiso"},
+        "client": {"en": "client", "es": "cliente"},
+        "event_type": {"en": "engagement_type", "es": "tipo_compromiso"},
+        "event_date": {"en": "start_date", "es": "fecha_inicio"},
+        "guests": {"en": "participants", "es": "participantes"},
+        "booking": {"en": "contract", "es": "contrato"},
+    },
+    "generic": {
+        "main_entity": {"en": "service", "es": "servicio"},
+        "client": {"en": "client", "es": "cliente"},
+        "event_type": {"en": "service_type", "es": "tipo_servicio"},
+        "event_date": {"en": "service_date", "es": "fecha_servicio"},
+        "guests": {"en": "contacts", "es": "contactos"},
+        "booking": {"en": "booking", "es": "reserva"},
+    },
+}
+
+def get_industry_templates(industry: str, lang: str = "es"):
+    """Get import/export templates with industry-specific terminology"""
+    terms = INDUSTRY_IMPORT_TERMINOLOGY.get(industry, INDUSTRY_IMPORT_TERMINOLOGY["events_hospitality"])
+    
+    # Build column names based on industry
+    event_type_col = terms["event_type"][lang]
+    event_date_col = terms["event_date"][lang]
+    guests_col = f"num_{terms['guests'][lang]}"
+    client_col = terms["client"][lang]
+    main_entity_col = f"nombre_{terms['main_entity'][lang]}"
+    
+    return {
         "clients": {
+            "columns": ["nombre", "email", "telefono", "empresa", "tipo", "direccion", "notas"],
+            "sample": [["Juan Pérez", "juan@email.com", "555-1234", "Empresa ABC", "corporate", "Calle 123", "Cliente VIP"]]
+        },
+        "inventory": {
+            "columns": ["nombre", "categoria", "unidad", "costo_por_unidad", "stock_actual", "stock_minimo", "proveedor", "ubicacion", "notas"],
+            "sample": [["Tomate", "Vegetales", "kg", 2.50, 100, 20, "Proveedor XYZ", "Bodega A", ""]]
+        },
+        "recipes": {
+            "columns": ["nombre", "categoria", "porciones", "tiempo_preparacion", "ingredientes", "instrucciones", "notas"],
+            "sample": [["Ensalada César", "Ensaladas", 4, "15 min", "Lechuga: 200 g; Pollo: 300 g; Aderezo: 50 ml", "1. Lavar lechuga...", ""]]
+        },
+        "quotes": {
+            "columns": [client_col, "fecha", event_date_col, "estado", "items", "subtotal", "impuestos", "total", "notas"],
+            "sample": [["Empresa ABC", "2026-01-15", "2026-02-01", "sent", "Servicio: 50 x $150; Extra: 1 x $500", 8000, 1280, 9280, "Proyecto corporativo"]]
+        },
+        "events": {
+            "columns": [main_entity_col, client_col, "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "ubicacion", event_type_col, guests_col, "estado", "presupuesto", "notas"],
+            "sample": [["Proyecto García", "Juan García", "2026-02-14", "2026-02-14", "16:00", "23:00", "Oficina Principal", "corporate", 10, "confirmed", 50000, "Incluye todos los servicios"]]
+        },
+        "leads": {
+            "columns": ["nombre", "email", "telefono", "empresa", "fuente", "estado", "valor_estimado", event_type_col, event_date_col, guests_col, "notas"],
+            "sample": [["María García", "maria@email.com", "555-9876", "Empresa XYZ", "website", "new", 15000, "corporate", "2026-03-15", 100, "Interesado en nuestros servicios"]]
+        }
+    }
+
+@import_export_router.get("/templates/{type}")
+async def get_import_template(
+    type: str, 
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Get import template for clients, inventory, recipes, quotes, or events - with industry-specific terminology"""
+    
+    # Get user's industry
+    org_config = await db.organization_configs.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "industry_template": 1}
+    )
+    industry = org_config.get("industry_template", "events_hospitality") if org_config else "events_hospitality"
+    
+    # Get templates with industry-specific terminology
+    templates = get_industry_templates(industry)
             "columns": ["nombre", "email", "telefono", "empresa", "tipo", "direccion", "notas"],
             "sample": [["Juan Pérez", "juan@email.com", "555-1234", "Empresa ABC", "corporate", "Calle 123", "Cliente VIP"]]
         },
