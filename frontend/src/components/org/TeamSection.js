@@ -366,7 +366,15 @@ export function TeamSection() {
                 <div className="flex items-center gap-2">
                   {getRoleBadge(member)}
                   
-                  {canManageMembers && !member.is_current_user && member.role !== "owner" && (
+                  {/* Self-edit button for current user */}
+                  {member.is_current_user && (
+                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(member)} data-testid="edit-self-btn">
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  )}
+                  
+                  {/* Full actions menu for other users */}
+                  {canManageMembers && !member.is_current_user && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" data-testid={`member-actions-${member.membership_id}`}>
@@ -395,9 +403,9 @@ export function TeamSection() {
                           </DropdownMenuItem>
                         ))}
                         
-                        <DropdownMenuSeparator />
-                        
-                        {/* Suspend/Activate */}
+                        {member.role !== "owner" && (
+                          <>
+                            <DropdownMenuSeparator />
                         {member.status === "active" ? (
                           <DropdownMenuItem 
                             onClick={() => handleSuspendMember(member.membership_id)}
