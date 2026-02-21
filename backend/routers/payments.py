@@ -605,12 +605,23 @@ async def get_my_subscription(user: User = Depends(get_current_user)):
         for a in active_addons
     ]
     
-    monthly_cost = calculate_subscription_total(active_module_keys)
+    # Calculate actual monthly cost (what user is paying now)
+    # Only count non-demo/non-trial modules
+    current_cost = 0.0
+    for addon in active_addons:
+        if addon.get("pricing_type") != "demo" and addon.get("price_paid", 0) > 0:
+            module_key = addon.get("addon_id", "").replace("addon_", "")
+            if module_key in MODULE_PRICES:
+                current_cost += MODULE_PRICES[module_key]
+    
+    # Calculate cost after trial (what user will pay after trial ends)
+    full_price_cost = calculate_subscription_total(active_module_keys, include_core=False)
     
     return {
         "subscription": subscription,
         "active_modules": active_addons,
         "active_module_keys": active_module_keys,
-        "monthly_cost": monthly_cost,
+        "monthly_cost": current_cost,  # What user is paying NOW
+        "monthly_cost_after_trial": full_price_cost,  # What user will pay after trial
         "payment_history": transactions
     }
