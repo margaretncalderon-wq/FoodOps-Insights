@@ -768,10 +768,11 @@ export default function ClientsSection() {
 
               {/* Comms Tab */}
               <TabsContent value="comms">
-                <CommsLogSection 
+                <CommunicationsTimeline 
                   entityType="client" 
                   entityId={selectedClient.client_id}
                   entityName={selectedClient.display_name}
+                  maxVisible={10}
                 />
               </TabsContent>
             </Tabs>
