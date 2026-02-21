@@ -132,7 +132,8 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
     const matchSource = filterSource === "all" || 
       (filterSource === "client" && log.entity_type === "client") ||
       (filterSource !== "client" && getEntitySource(log)?.toLowerCase() === filterSource.toLowerCase());
-    return matchSearch && matchType && matchSource;
+    const matchOwner = filterOwner === "all" || log.owner_id === filterOwner;
+    return matchSearch && matchType && matchSource && matchOwner;
   });
 
   if (loading) {
