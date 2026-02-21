@@ -203,11 +203,7 @@ export const OrgConfigProvider = ({ children }) => {
         getClientTypes,
         applyTemplate,
         refreshConfig,
-        industryTemplate: (() => {
-          const val = config?.industry_template || "events_hospitality";
-          console.log("[OrgConfigContext] Providing industryTemplate:", val, "| config exists:", !!config);
-          return val;
-        })(),
+        industryTemplate: config?.industry_template || "events_hospitality",
       }}
     >
       {children}
