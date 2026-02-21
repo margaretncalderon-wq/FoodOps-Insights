@@ -175,9 +175,10 @@ export default function CommsLogSection({ entityType, entityId, entityName, stan
                 <SelectValue placeholder="Fuente" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los leads</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="outreach">Outreach</SelectItem>
                 <SelectItem value="inbound">Inbound</SelectItem>
+                <SelectItem value="client">Clientes</SelectItem>
               </SelectContent>
             </Select>
           )}
