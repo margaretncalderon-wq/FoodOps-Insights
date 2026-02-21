@@ -2804,8 +2804,8 @@ Mantel Blanco, , 10, 3`}
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="Client-facing">Client</SelectItem>
-                                    <SelectItem value="Internal">Internal</SelectItem>
+                                    <SelectItem value="Client-facing">{clientLabel}</SelectItem>
+                                    <SelectItem value="Internal">{language === "es" ? "Interno" : "Internal"}</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 <div className="flex items-center gap-1">
