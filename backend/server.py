@@ -377,6 +377,20 @@ ROLE_PERMISSIONS = {
         "view_assigned_campaigns": True,
         "edit_assigned_campaigns": True,
         "view_financial_data": False
+    },
+    "sales": {
+        "manage_billing": False,
+        "manage_plans": False,
+        "manage_members": False,
+        "manage_settings": False,
+        "manage_events": False,
+        "manage_inventory": False,
+        "view_business_clarity": False,
+        "manage_business_clarity": False,
+        "view_all": False,
+        "view_crm": True,
+        "manage_crm": True,
+        "view_assigned_leads": True
     }
 }
 
