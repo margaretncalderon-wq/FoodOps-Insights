@@ -80,6 +80,20 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Production URL**: `https://ourkora.com/api/oauth/calendar/callback`
 - **Status**: IMPLEMENTED, READY FOR TESTING
 
+### Feature: Team Management & Custom Roles - IMPLEMENTED (Feb 2026)
+- **Requirement**: Completar gestión de equipo con roles personalizados, edición y suspensión de usuarios
+- **Backend Endpoints (NEW/MODIFIED)**:
+  - `GET /api/org/members?include_suspended=true` - Ahora incluye role_name, role_name_es y status
+  - `PUT /api/org/members/{id}` - Editar nombre y teléfono del usuario
+  - `PUT /api/org/members/{id}/suspend` - Suspender usuario (no puede iniciar sesión)
+  - `PUT /api/org/members/{id}/activate` - Reactivar usuario suspendido
+  - `PUT /api/org/members/{id}/role` - Ahora acepta roles personalizados
+  - `POST /api/org/members/create-direct` - Ahora acepta roles personalizados
+- **Frontend Components (UPDATED)**:
+  - `TeamSection.js` - Carga roles del API, incluye opciones de editar, suspender/activar
+- **Roles del sistema**: admin, sales, finance, operations, viewer, marketing_partner
+- **Status**: TESTED & WORKING (13/13 backend tests passed)
+
 ## Pending Issues
 - P2: Incomplete internationalization (hardcoded strings in UI)
 - P3: Backend plan limit enforcement logic
