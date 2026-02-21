@@ -256,6 +256,11 @@ export function TeamSection() {
     setEditDialogOpen(true);
   };
 
+  const openViewRoleDialog = (role) => {
+    setSelectedRoleToView(role);
+    setViewRoleDialogOpen(true);
+  };
+
   const handleEditMember = async () => {
     if (!editForm.name.trim()) {
       toast.error(isEs ? "Nombre requerido" : "Name required");
