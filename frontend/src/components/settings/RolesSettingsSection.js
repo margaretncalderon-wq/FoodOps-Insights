@@ -134,10 +134,11 @@ export default function RolesSettingsSection() {
       return toast.error(isEs ? "Ingrese un nombre" : "Enter a name");
     }
     try {
-      if (editingRole && !editingRole.is_system) {
+      if (editingRole) {
+        // Both system and custom roles can be updated
         await axios.put(`${API}/api/settings/roles/${editingRole.role_id}`, roleForm, { withCredentials: true });
         toast.success(isEs ? "Rol actualizado" : "Role updated");
-      } else if (!editingRole) {
+      } else {
         await axios.post(`${API}/api/settings/roles`, roleForm, { withCredentials: true });
         toast.success(isEs ? "Rol creado" : "Role created");
       }
