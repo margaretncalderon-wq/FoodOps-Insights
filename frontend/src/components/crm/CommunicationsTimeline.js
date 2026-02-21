@@ -79,40 +79,40 @@ export default function CommunicationsTimeline({ entityType, entityId, entityNam
 
   if (loading) {
     return (
-      <div className="text-center py-4 text-muted-foreground text-sm">
-        Cargando comunicaciones...
+      <div className="text-center py-2 text-muted-foreground text-xs">
+        Cargando...
       </div>
     );
   }
 
   return (
-    <div className="space-y-3" data-testid="communications-timeline">
-      {/* Header */}
+    <div className="space-y-2" data-testid="communications-timeline">
+      {/* Header - Compact */}
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" />
+        <h4 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground">
+          <MessageSquare className="w-3.5 h-3.5" />
           Comunicaciones ({logs.length})
         </h4>
-        <Button size="sm" variant="outline" onClick={() => setShowNew(true)}>
+        <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setShowNew(true)}>
           <Plus className="w-3 h-3 mr-1" /> Nueva
         </Button>
       </div>
 
-      {/* Timeline */}
+      {/* Timeline - Compact with max height */}
       {logs.length === 0 ? (
-        <div className="text-center py-4 text-muted-foreground text-sm border rounded-lg bg-muted/30">
-          Sin comunicaciones registradas
+        <div className="text-center py-3 text-muted-foreground text-xs border rounded bg-muted/20">
+          Sin comunicaciones
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
           {visibleLogs.map(log => (
             <div 
               key={log.log_id} 
-              className={`flex items-start gap-2 p-2 rounded-lg border text-sm ${
-                log.from_source_lead ? "bg-amber-50/50 border-amber-200" : "bg-card"
+              className={`flex items-start gap-1.5 p-1.5 rounded border text-xs ${
+                log.from_source_lead ? "bg-amber-50/50 border-amber-200" : "bg-muted/30"
               }`}
             >
-              <div className={`p-1.5 rounded shrink-0 ${
+              <div className={`p-1 rounded shrink-0 ${
                 log.comm_type === "call" ? "bg-blue-100 text-blue-600" :
                 log.comm_type === "email" ? "bg-amber-100 text-amber-600" :
                 log.comm_type === "meeting" ? "bg-purple-100 text-purple-600" :
@@ -121,99 +121,89 @@ export default function CommunicationsTimeline({ entityType, entityId, entityNam
                 {getIcon(log.comm_type)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-xs">{log.subject || "Sin asunto"}</span>
-                  <span className={`text-[10px] px-1 py-0.5 rounded ${
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="font-medium text-[11px] truncate">{log.subject || "Sin asunto"}</span>
+                  <span className={`text-[9px] px-1 rounded ${
                     log.direction === "inbound" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                   }`}>
                     {log.direction === "inbound" ? "Ent" : "Sal"}
                   </span>
-                  {log.from_source_lead && (
-                    <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">
-                      Lead
-                    </span>
-                  )}
                 </div>
-                {log.content && (
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{log.content}</p>
-                )}
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[10px] text-muted-foreground">
                   {log.owner_name && `${log.owner_name} · `}
                   {new Date(log.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
                 </p>
               </div>
             </div>
           ))}
-          
-          {hasMore && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full text-xs" 
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? (
-                <><ChevronUp className="w-3 h-3 mr-1" /> Mostrar menos</>
-              ) : (
-                <><ChevronDown className="w-3 h-3 mr-1" /> Ver {logs.length - maxVisible} más</>
-              )}
-            </Button>
-          )}
         </div>
       )}
+      
+      {hasMore && !showAll && (
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="w-full text-[10px] h-6" 
+          onClick={() => setShowAll(true)}
+        >
+          <ChevronDown className="w-3 h-3 mr-1" /> Ver {logs.length - maxVisible} más
+        </Button>
+      )}
 
-      {/* New Communication Dialog */}
+      {/* New Communication Dialog - Compact */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Nueva Interacción - {entityName}</DialogTitle>
+            <DialogTitle className="text-sm">Nueva Interacción</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-medium mb-1 block">Tipo</label>
+                <label className="text-[10px] font-medium mb-0.5 block">Tipo</label>
                 <Select value={form.comm_type} onValueChange={v => setForm(f => ({...f, comm_type: v}))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {COMM_TYPES.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block">Dirección</label>
+                <label className="text-[10px] font-medium mb-0.5 block">Dirección</label>
                 <Select value={form.direction} onValueChange={v => setForm(f => ({...f, direction: v}))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DIRECTIONS.map(d => (
-                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                      <SelectItem key={d.value} value={d.value} className="text-xs">{d.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block">Asunto</label>
+              <label className="text-[10px] font-medium mb-0.5 block">Asunto</label>
               <Input
+                className="h-8 text-xs"
                 value={form.subject}
                 onChange={e => setForm(f => ({...f, subject: e.target.value}))}
                 placeholder="Ej: Llamada de seguimiento"
               />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block">Notas</label>
+              <label className="text-[10px] font-medium mb-0.5 block">Notas</label>
               <Textarea
+                className="text-xs min-h-[60px]"
                 value={form.content}
                 onChange={e => setForm(f => ({...f, content: e.target.value}))}
-                placeholder="Detalles de la interacción..."
-                rows={3}
+                placeholder="Detalles..."
+                rows={2}
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNew(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit}>Guardar</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowNew(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSubmit}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
