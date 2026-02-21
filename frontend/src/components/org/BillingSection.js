@@ -409,7 +409,7 @@ export function BillingSection() {
                         <p className="text-sm text-muted-foreground">${mod.price}/mes</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-center gap-2">
                       {inTrial && trialDays > 0 ? (
                         <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">
                           <Clock className="w-3 h-3 mr-1" />
@@ -421,6 +421,17 @@ export function BillingSection() {
                           {isEs ? "Pagado" : "Paid"}
                         </Badge>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          setModuleToCancel(mod);
+                          setCancelModuleDialogOpen(true);
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 );
