@@ -12,7 +12,7 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Calendar**: Google Calendar API (NEW)
 
 ## What's Been Implemented
-- Multi-industry support (events, agency, consulting, generic)
+- Multi-industry support (8 industries: Events & Hospitality, Professional Services, Healthcare, Real Estate, Education, Fitness, Consulting, Generic)
 - Dynamic module system with industry-specific filtering
 - Subscription plans (starter, professional, enterprise)
 - Add-on marketplace with module add-ons
@@ -28,6 +28,7 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - Google OAuth + Emergent OAuth login
 - Demo/Influencer account creation
 - Bulk repair endpoint for Super Admin
+- **Inclusive Language by Industry** (NEW - Feb 2026)
 
 ## Recent Fixes (Feb 2026)
 
@@ -38,6 +39,32 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 ### P0 Fix 2: Google Login redirect_uri_mismatch - FIXED & VERIFIED
 - **Root Cause**: Backend used Origin header (stripped by K8s proxy) to build redirect_uri
 - **Fix**: Frontend sends `redirect_uri` as query param from `window.location.origin`
+
+### Feature: Inclusive Language by Industry - IMPLEMENTED (Feb 2026)
+- **Requirement**: Adapt application terminology based on organization's industry (e.g., "Client" → "Patient" for Healthcare)
+- **Industries Supported**: 8 industries with complete terminology mappings
+  - Events & Hospitality: Event, Client, Guest, Venue, Booking, Quote
+  - Professional Services: Project, Client, Stakeholder, Location, Engagement, Proposal
+  - Healthcare: Appointment, Patient, Family Member, Clinic, Treatment, Medical Bill
+  - Real Estate: Showing, Buyer/Seller, Viewer, Property, Listing, Commission
+  - Education: Course, Student, Parent/Guardian, Campus, Enrollment, Tuition
+  - Fitness: Session, Member, Guest Pass, Facility, Membership, Joining Fee
+  - Consulting: Engagement, Client, Participant, Site, Contract, Statement of Work
+  - Generic: Service, Client, Contact, Location, Booking, Quote
+- **Frontend Components (NEW)**:
+  - `TerminologySettingsSection.js` - UI in Settings > Terminology tab
+  - `useTerminology.js` hook - Access industry-specific terms throughout app
+  - `industryTerminology.js` - Complete terminology configuration
+- **Backend Endpoints**:
+  - `GET /api/org-config/templates` - Returns all 8 industry templates
+  - `POST /api/org-config/apply-template/{template_key}` - Apply new industry
+  - `GET /api/org-config/terminology` - Get terminology map for current org
+- **Features**:
+  - View current terminology preview
+  - Select from 8 industries with icons and descriptions
+  - Preview changes before applying (comparison table)
+  - Apply terminology changes with confirmation
+- **Status**: TESTED & WORKING (Backend: 9/9 tests passed, Frontend: 6/6 features verified)
 
 ### Feature: Owner Assignment & Sales Report - IMPLEMENTED (Feb 2026)
 - **Requirement**: Multi-vendor lead assignment with sales performance tracking
@@ -95,9 +122,10 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Status**: TESTED & WORKING (13/13 backend tests passed)
 
 ## Pending Issues
+- P1: Email Notifications (blocked on RESEND_API_KEY)
+- P1: Google Calendar Production OAuth (requires user action post-deploy)
 - P2: Incomplete internationalization (hardcoded strings in UI)
 - P3: Backend plan limit enforcement logic
-- P3: Email Notifications (blocked on RESEND_API_KEY)
 
 ## Upcoming Tasks
 - P1: Vista Kanban estilo Monday.com para leads
