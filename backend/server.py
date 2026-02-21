@@ -10822,9 +10822,12 @@ async def create_member_direct(data: DirectMemberCreate, user: User = Depends(ge
     if not await check_permission(user, "manage_members"):
         raise HTTPException(status_code=403, detail="Permission denied")
     
-    # Validate role
-    if data.role not in ROLE_PERMISSIONS:
-        raise HTTPException(status_code=400, detail="Invalid role")
+    # Validate role - check system roles and custom roles
+    is_valid_role = data.role in ROLE_PERMISSIONS
+    if not is_valid_role:
+        custom_role = await db.roles.find_one({"role_id": data.role, "company_id": user.company_id})
+        if not custom_role:
+            raise HTTPException(status_code=400, detail="Invalid role")
     
     # Check if email already exists
     existing_user = await db.users.find_one({"email": data.email})
