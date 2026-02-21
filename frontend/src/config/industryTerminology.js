@@ -470,7 +470,9 @@ export const INDUSTRY_ALIASES = {
 
 // Fallback to generic if industry not found
 export const getIndustryTerminology = (industry) => {
-  return INDUSTRY_TERMINOLOGY[industry] || INDUSTRY_TERMINOLOGY.generic;
+  // Handle aliases (e.g., agency -> professional_services)
+  const resolvedIndustry = INDUSTRY_ALIASES[industry] || industry;
+  return INDUSTRY_TERMINOLOGY[resolvedIndustry] || INDUSTRY_TERMINOLOGY.generic;
 };
 
 // Get industry info (name, description, icon)
