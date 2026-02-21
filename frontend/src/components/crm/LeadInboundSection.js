@@ -11,11 +11,12 @@ import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { 
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
   Globe, Instagram, MessageSquare, UserPlus, Eye, ArrowRight,
   Clock, Star, CalendarPlus, UserCheck, Users, FileText,
-  MessageCircle, ExternalLink, DollarSign
+  MessageCircle, ExternalLink, DollarSign, Info
 } from "lucide-react";
 import CommunicationsTimeline from "./CommunicationsTimeline";
 
