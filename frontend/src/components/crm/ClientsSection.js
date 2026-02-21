@@ -27,6 +27,25 @@ import CommunicationsTimeline from "./CommunicationsTimeline";
 import { API_BASE as API } from "../../utils/api";
 
 const CLIENT_SOURCES = ["Website", "Instagram", "QR", "Referral", "Direct", "Other"];
+const CLIENT_INDUSTRIES = [
+  { value: "technology", labelEn: "Technology", labelEs: "Tecnología" },
+  { value: "healthcare", labelEn: "Healthcare", labelEs: "Salud" },
+  { value: "finance", labelEn: "Finance & Banking", labelEs: "Finanzas y Banca" },
+  { value: "retail", labelEn: "Retail & E-commerce", labelEs: "Retail y E-commerce" },
+  { value: "manufacturing", labelEn: "Manufacturing", labelEs: "Manufactura" },
+  { value: "real_estate", labelEn: "Real Estate", labelEs: "Bienes Raíces" },
+  { value: "hospitality", labelEn: "Hospitality & Tourism", labelEs: "Hospitalidad y Turismo" },
+  { value: "education", labelEn: "Education", labelEs: "Educación" },
+  { value: "media", labelEn: "Media & Entertainment", labelEs: "Medios y Entretenimiento" },
+  { value: "nonprofit", labelEn: "Non-Profit", labelEs: "Sin Fines de Lucro" },
+  { value: "government", labelEn: "Government", labelEs: "Gobierno" },
+  { value: "legal", labelEn: "Legal Services", labelEs: "Servicios Legales" },
+  { value: "consulting", labelEn: "Consulting", labelEs: "Consultoría" },
+  { value: "construction", labelEn: "Construction", labelEs: "Construcción" },
+  { value: "automotive", labelEn: "Automotive", labelEs: "Automotriz" },
+  { value: "food_beverage", labelEn: "Food & Beverage", labelEs: "Alimentos y Bebidas" },
+  { value: "other", labelEn: "Other", labelEs: "Otro" }
+];
 const PAYMENT_TERMS = [
   { value: "immediate", label: "Inmediato" },
   { value: "net_7", label: "Net 7" },
