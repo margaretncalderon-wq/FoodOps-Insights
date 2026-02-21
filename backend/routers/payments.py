@@ -97,9 +97,16 @@ class PaymentTransaction(BaseModel):
 def calculate_subscription_total(selected_modules: List[str], include_core: bool = True) -> float:
     """Calculate total subscription amount based on selected modules"""
     total = KORA_CORE_PRICE if include_core else 0.0
+    counted_modules = set()  # Avoid double-counting aliased modules
+    
     for module_key in selected_modules:
-        if module_key in MODULE_PRICES:
-            total += MODULE_PRICES[module_key]
+        # Resolve alias if exists
+        billing_key = MODULE_KEY_ALIASES.get(module_key, module_key)
+        
+        if billing_key in MODULE_PRICES and billing_key not in counted_modules:
+            total += MODULE_PRICES[billing_key]
+            counted_modules.add(billing_key)
+    
     return round(total, 2)
 
 
