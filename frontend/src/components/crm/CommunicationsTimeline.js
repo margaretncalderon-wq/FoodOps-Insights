@@ -3,11 +3,11 @@ import axios from "axios";
 import { Phone, Mail, Video, FileText, MessageSquare, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
+import RichTextEditor from "../ui/RichTextEditor";
 
 const COMM_TYPES = [
   { value: "call", label: "Llamada", icon: Phone },
