@@ -13305,12 +13305,17 @@ async def export_clients(
     export_data = []
     for c in clients:
         export_data.append({
-            "nombre": c.get("name", ""),
+            "nombre": c.get("display_name") or c.get("name", ""),
             "email": c.get("email", ""),
             "telefono": c.get("phone", ""),
             "empresa": c.get("company", ""),
-            "tipo": c.get("type", "individual"),
+            "tipo": c.get("client_type") or c.get("type", "Individual"),
             "direccion": c.get("address", ""),
+            "pagina_web": c.get("website", ""),
+            "industria": c.get("industry", ""),
+            "descripcion": c.get("description", ""),
+            "linkedin": c.get("social_linkedin", ""),
+            "instagram": c.get("social_instagram", ""),
             "notas": c.get("notes", ""),
             "etiquetas": ", ".join(c.get("tags", [])) if c.get("tags") else ""
         })
