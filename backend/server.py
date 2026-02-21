@@ -13490,10 +13490,16 @@ async def import_clients(
                         {"client_id": existing["client_id"]},
                         {"$set": {
                             "name": name or existing.get("name"),
+                            "display_name": name or existing.get("display_name"),
                             "email": email or existing.get("email"),
                             "phone": phone or existing.get("phone"),
                             "company": company or existing.get("company"),
                             "address": row.get('direccion') or row.get('address') or existing.get("address", ""),
+                            "website": row.get('pagina_web') or row.get('website') or existing.get("website", ""),
+                            "industry": row.get('industria') or row.get('industry') or existing.get("industry", ""),
+                            "description": row.get('descripcion') or row.get('description') or existing.get("description", ""),
+                            "social_linkedin": row.get('linkedin') or existing.get("social_linkedin", ""),
+                            "social_instagram": row.get('instagram') or existing.get("social_instagram", ""),
                             "notes": row.get('notas') or row.get('notes') or existing.get("notes", ""),
                             "updated_at": datetime.now(timezone.utc).isoformat()
                         }}
@@ -13504,13 +13510,21 @@ async def import_clients(
                         "client_id": f"client_{uuid.uuid4().hex[:12]}",
                         "company_id": user.company_id,
                         "name": name,
+                        "display_name": name,
                         "email": email,
                         "phone": phone,
                         "company": company,
                         "type": row.get('tipo') or row.get('type') or "individual",
+                        "client_type": row.get('tipo') or row.get('type') or "Individual",
                         "address": row.get('direccion') or row.get('address') or "",
+                        "website": row.get('pagina_web') or row.get('website') or "",
+                        "industry": row.get('industria') or row.get('industry') or "",
+                        "description": row.get('descripcion') or row.get('description') or "",
+                        "social_linkedin": row.get('linkedin') or "",
+                        "social_instagram": row.get('instagram') or "",
                         "notes": row.get('notas') or row.get('notes') or "",
                         "tags": [],
+                        "status": "Active",
                         "created_at": datetime.now(timezone.utc).isoformat()
                     })
                 
