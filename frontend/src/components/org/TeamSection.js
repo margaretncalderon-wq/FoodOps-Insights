@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
@@ -15,22 +15,31 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { 
   Users, Plus, Mail, MoreVertical, Shield, Loader2, 
-  UserMinus, RefreshCw, Clock, Check, X, Key
+  UserMinus, RefreshCw, Clock, Check, X, Key, Pencil,
+  UserX, UserCheck, AlertTriangle
 } from "lucide-react";
 import { Label } from "../ui/label";
 
 import { API_BASE as API } from "../../utils/api";
 
-const ROLES = [
-  { value: "owner", label_en: "Owner", label_es: "Propietario", color: "bg-purple-500" },
-  { value: "admin", label_en: "Admin", label_es: "Administrador", color: "bg-blue-500" },
-  { value: "ops", label_en: "Operations", label_es: "Operaciones", color: "bg-green-500" },
-  { value: "finance", label_en: "Finance", label_es: "Finanzas", color: "bg-amber-500" },
-  { value: "viewer", label_en: "Viewer", label_es: "Visor", color: "bg-slate-500" },
+// Default system roles (fallback)
+const DEFAULT_ROLES = [
+  { role_id: "owner", name: "Owner", name_es: "Propietario", color: "bg-purple-500", is_system: true },
+  { role_id: "admin", name: "Admin", name_es: "Administrador", color: "bg-blue-500", is_system: true },
+  { role_id: "ops", name: "Operations", name_es: "Operaciones", color: "bg-green-500", is_system: true },
+  { role_id: "finance", name: "Finance", name_es: "Finanzas", color: "bg-amber-500", is_system: true },
+  { role_id: "sales", name: "Sales", name_es: "Ventas", color: "bg-cyan-500", is_system: true },
+  { role_id: "viewer", name: "Viewer", name_es: "Visor", color: "bg-slate-500", is_system: true },
+];
+
+const ROLE_COLORS = [
+  "bg-purple-500", "bg-blue-500", "bg-green-500", "bg-amber-500", 
+  "bg-cyan-500", "bg-rose-500", "bg-indigo-500", "bg-teal-500"
 ];
 
 export function TeamSection() {
@@ -40,12 +49,17 @@ export function TeamSection() {
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState([]);
   const [invitations, setInvitations] = useState([]);
+  const [roles, setRoles] = useState(DEFAULT_ROLES);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [createDirectDialogOpen, setCreateDirectDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
   const [newInvite, setNewInvite] = useState({ email: "", role: "ops" });
   const [newDirectUser, setNewDirectUser] = useState({ email: "", name: "", password: "", role: "ops" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "" });
   const [actionLoading, setActionLoading] = useState(false);
   const [permissions, setPermissions] = useState(null);
+  const [showSuspended, setShowSuspended] = useState(true);
 
   const generatePassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
@@ -56,14 +70,28 @@ export function TeamSection() {
     setNewDirectUser(prev => ({ ...prev, password }));
   };
 
-  useEffect(() => {
-    fetchData();
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/settings/roles`, { withCredentials: true });
+      if (res.data && res.data.length > 0) {
+        // Merge with default roles and add colors
+        const fetchedRoles = res.data.map((role, idx) => ({
+          ...role,
+          role_id: role.role_id || role.value,
+          color: role.color || ROLE_COLORS[idx % ROLE_COLORS.length]
+        }));
+        setRoles(fetchedRoles);
+      }
+    } catch (err) {
+      console.error("Error fetching roles:", err);
+      // Keep default roles
+    }
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [membersRes, invitationsRes, permissionsRes] = await Promise.all([
-        axios.get(`${API}/api/org/members`, { withCredentials: true }),
+        axios.get(`${API}/api/org/members?include_suspended=true`, { withCredentials: true }),
         axios.get(`${API}/api/org/invitations`, { withCredentials: true }),
         axios.get(`${API}/api/org/permissions`, { withCredentials: true })
       ]);
@@ -74,7 +102,12 @@ export function TeamSection() {
       console.error(err);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchRoles();
+    fetchData();
+  }, [fetchRoles, fetchData]);
 
   const handleInvite = async () => {
     if (!newInvite.email.trim() || !newInvite.email.includes("@")) {
@@ -153,7 +186,7 @@ export function TeamSection() {
   };
 
   const handleRemoveMember = async (membershipId) => {
-    if (!window.confirm(isEs ? "¿Remover este miembro?" : "Remove this member?")) return;
+    if (!window.confirm(isEs ? "¿Remover este miembro permanentemente?" : "Remove this member permanently?")) return;
     
     try {
       await axios.delete(`${API}/api/org/members/${membershipId}`, { withCredentials: true });
@@ -164,16 +197,90 @@ export function TeamSection() {
     }
   };
 
-  const getRoleBadge = (roleValue) => {
-    const role = ROLES.find(r => r.value === roleValue);
+  const handleSuspendMember = async (membershipId) => {
+    if (!window.confirm(isEs ? "¿Suspender este miembro? No podrá iniciar sesión." : "Suspend this member? They won't be able to log in.")) return;
+    
+    try {
+      await axios.put(`${API}/api/org/members/${membershipId}/suspend`, {}, { withCredentials: true });
+      toast.success(isEs ? "Miembro suspendido" : "Member suspended");
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error suspending member");
+    }
+  };
+
+  const handleActivateMember = async (membershipId) => {
+    try {
+      await axios.put(`${API}/api/org/members/${membershipId}/activate`, {}, { withCredentials: true });
+      toast.success(isEs ? "Miembro activado" : "Member activated");
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error activating member");
+    }
+  };
+
+  const openEditDialog = (member) => {
+    setSelectedMember(member);
+    setEditForm({
+      name: member.name || "",
+      phone: member.phone || ""
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditMember = async () => {
+    if (!editForm.name.trim()) {
+      toast.error(isEs ? "Nombre requerido" : "Name required");
+      return;
+    }
+    
+    setActionLoading(true);
+    try {
+      await axios.put(`${API}/api/org/members/${selectedMember.membership_id}`, editForm, { withCredentials: true });
+      toast.success(isEs ? "Usuario actualizado" : "User updated");
+      setEditDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error updating user");
+    }
+    setActionLoading(false);
+  };
+
+  const getRoleBadge = (member) => {
+    const roleId = member.role;
+    const role = roles.find(r => r.role_id === roleId);
+    const displayName = isEs 
+      ? (member.role_name_es || role?.name_es || roleId) 
+      : (member.role_name || role?.name || roleId);
+    
     return (
       <Badge className={`${role?.color || "bg-slate-500"}`}>
-        {isEs ? role?.label_es : role?.label_en}
+        {displayName}
       </Badge>
     );
   };
 
+  const getStatusBadge = (status) => {
+    if (status === "suspended") {
+      return (
+        <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+          <UserX className="w-3 h-3 mr-1" />
+          {isEs ? "Suspendido" : "Suspended"}
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   const canManageMembers = permissions?.permissions?.manage_members;
+
+  // Filter members based on showSuspended
+  const filteredMembers = showSuspended 
+    ? members 
+    : members.filter(m => m.status === "active");
+
+  // Get available roles for dropdowns (exclude owner for new users)
+  const availableRoles = roles.filter(r => r.role_id !== "owner");
 
   if (loading) {
     return (
@@ -195,7 +302,12 @@ export function TeamSection() {
                 {isEs ? "Miembros del Equipo" : "Team Members"}
               </CardTitle>
               <CardDescription>
-                {members.length} {isEs ? "miembros activos" : "active members"}
+                {members.filter(m => m.status === "active").length} {isEs ? "miembros activos" : "active members"}
+                {members.filter(m => m.status === "suspended").length > 0 && (
+                  <span className="text-orange-600 ml-2">
+                    ({members.filter(m => m.status === "suspended").length} {isEs ? "suspendidos" : "suspended"})
+                  </span>
+                )}
               </CardDescription>
             </div>
             {canManageMembers && (
@@ -214,13 +326,15 @@ export function TeamSection() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {members.map(member => (
+            {filteredMembers.map(member => (
               <div 
                 key={member.membership_id} 
-                className="flex items-center justify-between p-3 border rounded-lg"
+                className={`flex items-center justify-between p-3 border rounded-lg ${
+                  member.status === "suspended" ? "bg-orange-50/50 border-orange-200" : ""
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <Avatar>
+                  <Avatar className={member.status === "suspended" ? "opacity-50" : ""}>
                     <AvatarImage src={member.picture} />
                     <AvatarFallback>{member.name?.charAt(0) || "U"}</AvatarFallback>
                   </Avatar>
@@ -230,33 +344,69 @@ export function TeamSection() {
                       {member.is_current_user && (
                         <Badge variant="outline" className="text-xs">{isEs ? "Tú" : "You"}</Badge>
                       )}
+                      {getStatusBadge(member.status)}
                     </p>
                     <p className="text-sm text-muted-foreground">{member.email}</p>
+                    {member.phone && (
+                      <p className="text-xs text-muted-foreground">{member.phone}</p>
+                    )}
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {getRoleBadge(member.role)}
+                  {getRoleBadge(member)}
                   
                   {canManageMembers && !member.is_current_user && member.role !== "owner" && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" data-testid={`member-actions-${member.membership_id}`}>
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {ROLES.filter(r => r.value !== "owner").map(role => (
+                      <DropdownMenuContent align="end" className="w-56">
+                        {/* Edit */}
+                        <DropdownMenuItem onClick={() => openEditDialog(member)}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          {isEs ? "Editar" : "Edit"}
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuSeparator />
+                        
+                        {/* Change Role */}
+                        {availableRoles.map(role => (
                           <DropdownMenuItem 
-                            key={role.value}
-                            onClick={() => handleChangeRole(member.membership_id, role.value)}
-                            disabled={member.role === role.value}
+                            key={role.role_id}
+                            onClick={() => handleChangeRole(member.membership_id, role.role_id)}
+                            disabled={member.role === role.role_id}
                           >
                             <Shield className="w-4 h-4 mr-2" />
-                            {isEs ? `Cambiar a ${role.label_es}` : `Change to ${role.label_en}`}
-                            {member.role === role.value && <Check className="w-4 h-4 ml-2" />}
+                            {isEs ? `Cambiar a ${role.name_es || role.name}` : `Change to ${role.name}`}
+                            {member.role === role.role_id && <Check className="w-4 h-4 ml-auto" />}
                           </DropdownMenuItem>
                         ))}
+                        
+                        <DropdownMenuSeparator />
+                        
+                        {/* Suspend/Activate */}
+                        {member.status === "active" ? (
+                          <DropdownMenuItem 
+                            onClick={() => handleSuspendMember(member.membership_id)}
+                            className="text-orange-600"
+                          >
+                            <UserX className="w-4 h-4 mr-2" />
+                            {isEs ? "Suspender" : "Suspend"}
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem 
+                            onClick={() => handleActivateMember(member.membership_id)}
+                            className="text-green-600"
+                          >
+                            <UserCheck className="w-4 h-4 mr-2" />
+                            {isEs ? "Activar" : "Activate"}
+                          </DropdownMenuItem>
+                        )}
+                        
+                        {/* Remove */}
                         <DropdownMenuItem 
                           onClick={() => handleRemoveMember(member.membership_id)}
                           className="text-red-600"
@@ -303,7 +453,12 @@ export function TeamSection() {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    {getRoleBadge(inv.role)}
+                    <Badge className="bg-slate-500">
+                      {isEs 
+                        ? (roles.find(r => r.role_id === inv.role)?.name_es || inv.role)
+                        : (roles.find(r => r.role_id === inv.role)?.name || inv.role)
+                      }
+                    </Badge>
                     
                     {canManageMembers && (
                       <>
@@ -332,7 +487,7 @@ export function TeamSection() {
           
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">{isEs ? "Email" : "Email"}</label>
+              <Label>{isEs ? "Email" : "Email"}</Label>
               <Input 
                 type="email"
                 value={newInvite.email}
@@ -342,15 +497,15 @@ export function TeamSection() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Rol" : "Role"}</label>
+              <Label>{isEs ? "Rol" : "Role"}</Label>
               <Select value={newInvite.role} onValueChange={(v) => setNewInvite({ ...newInvite, role: v })}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="invite-role-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.filter(r => r.value !== "owner").map(role => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {isEs ? role.label_es : role.label_en}
+                  {availableRoles.map(role => (
+                    <SelectItem key={role.role_id} value={role.role_id}>
+                      {isEs ? (role.name_es || role.name) : role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -418,13 +573,13 @@ export function TeamSection() {
             <div>
               <Label>{isEs ? "Rol" : "Role"}</Label>
               <Select value={newDirectUser.role} onValueChange={(v) => setNewDirectUser({ ...newDirectUser, role: v })}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="direct-role-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.filter(r => r.value !== "owner").map(role => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {isEs ? role.label_es : role.label_en}
+                  {availableRoles.map(role => (
+                    <SelectItem key={role.role_id} value={role.role_id}>
+                      {isEs ? (role.name_es || role.name) : role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -442,6 +597,56 @@ export function TeamSection() {
             <Button onClick={handleCreateDirect} disabled={actionLoading} data-testid="create-direct-submit-btn">
               {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isEs ? "Crear Usuario" : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Member Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Usuario" : "Edit User"}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>{isEs ? "Nombre" : "Name"}</Label>
+              <Input 
+                type="text"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                placeholder={isEs ? "Nombre completo" : "Full name"}
+                data-testid="edit-name-input"
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+              <Input 
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                placeholder="+1 234 567 890"
+                data-testid="edit-phone-input"
+              />
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <AlertTriangle className="w-4 h-4 inline mr-1" />
+                {isEs 
+                  ? "El email no se puede cambiar. Para cambiar el email, elimina el usuario y crea uno nuevo." 
+                  : "Email cannot be changed. To change email, remove the user and create a new one."}
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleEditMember} disabled={actionLoading} data-testid="edit-submit-btn">
+              {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
