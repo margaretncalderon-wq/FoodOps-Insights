@@ -1,210 +1,185 @@
 <analysis>**original_problem_statement:**
-The user's initial request was to build an Execution Hub module, which evolved into a major architectural refactoring of the Kora application into a flexible, multi-industry, modular SaaS platform.
+The user's primary goal was to finalize the CRM module by addressing critical issues in the roles and permissions system. Specifically, users were unable to be edited or suspended, custom roles were not appearing in selection menus, and system roles could not be modified.
 
-In this session, the user provided a detailed specification to fix and enhance the CRM, focusing on a complete and logical end-to-end user journey.
-
-**PRODUCT REQUIREMENTS (This Session):**
-1.  **Stable Lead Owner Assignment:** Implement a robust way to assign sales representatives (owners) to leads.
-2.  **Sales Report:** Create a new report in the CRM to show sales performance metrics (total leads, worked, converted, etc.) grouped by owner.
-3.  **Sales Performance Pulse:** Add a compact version of the sales report to the main dashboard (System Pulse).
-4.  **End-to-End Comms:**
-    *   Fix the main Comms view to require association with a Lead or Client.
-    *   Add a communications timeline inside each Lead and Client's detail view.
-    *   Ensure historical communications from a Lead are visible on the Client's record after conversion.
-5.  **UI/UX Improvements:**
-    *   Implement a rich text editor for writing communications.
-    *   Unify the UI of the Lead detail view to match the tabbed layout of the Client view.
-    *   Improve the layout of detail dialogs to be more compact and scrollable.
-6.  **Email Notifications:** Send an email to a salesperson when they are assigned a new lead.
-7.  **Dashboard by Owner:** Create a dashboard/view showing scheduled communications (follow-ups) for each salesperson.
+After resolving the CRM issues, the user requested a new feature: the implementation of inclusive language by industry within the application's Settings section. This feature would allow terminology throughout the app (e.g., Clients vs. Patients) to adapt based on the industry selected for the organization.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The agent successfully implemented a large portion of the user's requirements for the CRM module.
-- **Lead Owner Assignment:** The previously broken owner assignment feature has been fixed. A new backend endpoint () was created, and the frontend UI () was updated to allow assigning owners to leads.
-- **Sales Report & Pulse:** A new Sales Report tab was added to Client Engagement, showing detailed sales metrics per owner. This is powered by a new backend aggregation endpoint (). A compact version, Sales Performance Pulse, was also added to the main dashboard, reusing the same endpoint.
-- **Communications End-to-End:** The communications system was overhauled.
-    - It now supports associating logs with both Leads and Clients.
-    - A timeline view of communications has been embedded directly within the detail dialogs for Leads.
-    - The backend logic now ensures that a Client's communication history includes all interactions from its original source Lead.
-    - A filter to view communications by salesperson was added to the global Comms view.
-- **UI/UX Enhancements:**
-    - A reusable rich text editor component was created and integrated for composing communications.
-    - The Lead detail dialogs were redesigned to use a tabbed layout (Info, Comms), mirroring the Client detail view for a consistent user experience.
-- **Email Notifications (Demo Mode):** An email notification system using Resend was implemented. It triggers an email when a lead is assigned. It currently operates in demo mode, logging to the console, as it's awaiting a  from the user.
+The agent successfully completed a major overhaul of the application's user and role management system, addressing all the user's concerns. This included adding functionality to edit, suspend, and remove users, ensuring custom roles are loaded from the API and displayed correctly, and enabling the modification of system role permissions. The backend was refactored to handle these permissions dynamically and safely, ensuring existing user access is not disrupted.
+
+Additionally, the agent implemented a dashboard for scheduled communications filtered by owner and integrated Google Calendar for bidirectional follow-up synchronization.
+
+The application is now in a state where the CRM and Team Management modules are functionally complete according to the user's requests. The codebase has been prepared for deployment.
 
 **Last working item**:
-- **Last item agent was working**: The user requested a Dashboard por owner con comunicaciones programadas (Dashboard by owner with scheduled communications). The agent started investigating the existing  to understand how to implement this. The user then asked que tenemos pendiente?? (what is pending??), and the session ended before the agent could respond and formulate a plan for the new dashboard.
+- **Last item agent was working**: The user requested the implementation of Lenguaje inclusivo por industria en Settings (Inclusive language by industry in Settings). The agent began an initial investigation into the existing terminology-related code, such as , to formulate a plan.
 - **Status**: NOT STARTED
 - **Agent Testing Done**: N
-- **Which testing method agent to use?**: both. The frontend testing agent to verify the new dashboard UI and filtering capabilities. The backend testing agent to verify the API endpoint that fetches and filters the scheduled communications by owner.
+- **Which testing method agent to use?**: frontend testing agent. The agent should verify that UI labels and text in the Settings section dynamically change when the organization's industry is updated.
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Implement Dashboard for Scheduled Communications by Owner (P0)
-  - Issue 2: Enable Production Email Notifications (P1)
-  - Issue 3: Incomplete Internationalization (P2)
-  - Issue 4: Backend plan limit enforcement logic may still exist (P3)
-  - Issue 5: Local DB data is not persisted (P3)
-  
-  **Issues Detail**:
-  - **Issue 1: Implement Dashboard for Scheduled Communications by Owner (P0)**
-     - **Attempted fixes**: None. Investigation just started.
-     - **Next debug checklist**:
-        1. Respond to the user's question que tenemos pendiente??.
-        2. Formulate a plan to create the owner-specific dashboard for scheduled communications.
-        3. Determine if the existing endpoint for follow-ups can be extended with an  filter or if a new endpoint is needed.
-        4. Modify  or create a new component to display the filtered data.
-        5. Ensure the UI allows admins to see all owners and sales reps to see only their own tasks.
-     - **Why fix this issue and what will be achieved with the fix?**: This is the user's latest explicit request and a crucial feature for sales team management, allowing them to see their scheduled tasks in one place.
-     - **Status**: NOT STARTED
-     - **Is recurring issue?**: N
-     - **Should Test frontend/backend/both after fix?**: both
-     - **Blocked on other issue**: No
+- **Issue 1**: Implement Inclusive Language by Industry in Settings (P0)
+- **Issue 2**: Enable Production Email Notifications (P1)
+- **Issue 3**: Complete Google Calendar Production OAuth (P1)
+- **Issue 4**: Incomplete Internationalization (P2)
+- **Issue 5**: Backend plan limit enforcement logic may still exist (P3)
+- **Issue 6**: Local DB data is not persisted (P3)
 
-  - **Issue 2: Enable Production Email Notifications (P1)**
-     - **Why fix this issue and what will be achieved with the fix?**: The logic is implemented but works in demo mode. Getting the API key will enable real-time email notifications for lead assignments.
-     - **Next debug checklist**: 
-        1. Remind the user about the pending  in the next  plan.
-        2. Once provided, add the key to the  file.
-        3. Test the email sending functionality.
-     - **Status**: BLOCKED (on user providing )
-     - **Is recurring issue?**: Y
+**Issues Detail**:
+- **Issue 1: Implement Inclusive Language by Industry in Settings (P0)**
+    - **Attempted fixes**: None. Initial code exploration was performed.
+    - **Next debug checklist**:
+        1. Create a centralized terminology configuration file mapping generic terms (e.g., 'client', 'lead') to industry-specific ones (e.g., 'Patient', 'Prospect').
+        2. Refactor the  hook or create a new  hook to provide these terms throughout the application.
+        3. Update components within the  directory to consume this hook and replace hardcoded labels.
+        4. Ensure the terminology updates dynamically when the industry is changed in the company settings.
+    - **Why fix this issue and what will be achieved with the fix?**: This is the user's next requested feature, which will enhance the platform's flexibility and user experience by tailoring the language to specific business domains.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: frontend
+    - **Blocked on other issue**: No
 
-  - **Issue 3: Incomplete Internationalization (P2)**
-     - **Next debug checklist**: Audit new components (, , etc.) for hardcoded English/Spanish strings and replace them with the  function.
-     - **Why fix this issue and what will be achieved with the fix?**: Maintains the application's bilingual requirement.
-     - **Status**: NOT STARTED
-     - **Is recurring issue?**: Y
-     - **Should Test frontend/backend/both after fix?**: frontend
+- **Issue 2: Enable Production Email Notifications (P1)**
+    - **Why fix this issue and what will be achieved with the fix?**: The logic is implemented in demo mode. Getting the API key will enable real-time email notifications for lead assignments.
+    - **Next debug checklist**:
+        1. Remind the user about the pending  in the next plan.
+        2. Once provided, add the key to the  file and restart the backend.
+    - **Status**: BLOCKED (on user providing )
+    - **Is recurring issue?**: Y
 
-  - **Issue 4: Backend plan limit enforcement logic may still exist (P3)**
-     - **Why fix this issue and what will be achieved with the fix?**: Ensures backend logic aligns with the unlimited UI.
-     - **Status**: NOT STARTED
-     - **Is recurring issue?**: Y
+- **Issue 3: Complete Google Calendar Production OAuth (P1)**
+    - **Why fix this issue and what will be achieved with the fix?**: The integration is coded but requires a one-time admin action in the production environment to grant consent for the application to access the calendar.
+    - **Next debug checklist**:
+        1. After deployment, guide the user to navigate to .
+        2. Instruct them to click the Connect Google Calendar button and complete the Google OAuth consent screen.
+    - **Status**: BLOCKED (on user action post-deployment)
+    - **Is recurring issue?**: N
 
-  - **Issue 5: Local DB data is not persisted (P3)**
-     - **Why fix this issue and what will be achieved with the fix?**: Enables stable local development without data loss.
-     - **Status**: NOT STARTED
-     - **Is recurring issue?**: Y
+- **Issue 4: Incomplete Internationalization (P2)**
+    - **Next debug checklist**: Audit new and modified components (, , ) for hardcoded strings and replace them with the  function.
+    - **Why fix this issue and what will be achieved with the fix?**: Maintains the application's bilingual requirement.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: frontend
+
+- **Issue 5: Backend plan limit enforcement logic may still exist (P3)**
+    - **Why fix this issue and what will be achieved with the fix?**: Ensures backend logic aligns with the unlimited UI.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: Y
+
+- **Issue 6: Local DB data is not persisted (P3)**
+    - **Why fix this issue and what will be achieved with the fix?**: Enables stable local development without data loss.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: Y
 
 **In progress Task List**:
-- None. The previous tasks were completed. The new user request is captured in the issue list.
+- None.
 
 **Upcoming and Future Tasks**
-    Upcoming Tasks:
-    - **P1: Fully normalize lead statuses:** Ensure  is used everywhere (frontend filters, menus, backend validation) to prevent discrepancies between displayed and stored statuses.
-    - **P2: UI enhancements inspired by Monday.com:** The user expressed interest in a more visual, card-based (Kanban) view for leads. This could be proposed as a next step to improve CRM usability.
+Upcoming Tasks:
+- **P1: Fully normalize lead statuses:** Ensure  is used for all status-related logic to prevent discrepancies.
+- **P2: UI enhancements inspired by Monday.com:** Propose a Kanban-style view for leads to improve CRM usability.
 
-    Future Tasks:
-    - Social Media - Campaign Widget.
-    - User Data Migration Assistance.
-    - Marketing Budget Management feature.
-    - API Documentation page.
-    - Email Purchase Orders, Multi-currency support, Negative Margin Alerts, End-of-month summaries.
+Future Tasks:
+- Social Media - Campaign Widget.
+- User Data Migration Assistance.
+- Marketing Budget Management feature.
+- API Documentation page.
+- Email Purchase Orders, Multi-currency support, Negative Margin Alerts, End-of-month summaries.
 
 **Completed work in this session**
-- **Lead Owner Assignment:** Fixed the feature, allowing assignment via UI and a new PATCH endpoint.
-- **Sales Report & Pulse:** Implemented a new sales report with metrics per owner and a corresponding dashboard widget.
-- **End-to-End Communications Logic:**
-    - Enabled associating comms with clients.
-    - Added a communication timeline to lead/client detail views.
-    - Ensured client comms history includes the original lead's history.
-    - Added a salesperson filter to the global comms view.
-- **UI/UX Enhancements:**
-    - Integrated a rich text editor for creating communications.
-    - Re-designed lead detail dialogs with a tabbed interface for consistency with the client view.
-- **Email Notifications (Demo Mode):** Implemented the logic to send emails on lead assignment, currently logging to console pending an API key.
-- **Testing:** Successfully passed a full test suite using the testing agent after major changes.
+- **Roles & Permissions Overhaul**:
+    - Implemented Edit, Suspend/Activate, and Remove functionality for team members.
+    - Fixed the UI to correctly load and display custom roles from the API.
+    - Enabled the editing of permissions for both system and custom roles.
+    - Added a UI to view the specific permissions associated with each role.
+    - Corrected backend permission checks to account for custom roles and grant full access to organization owners.
+    - Implemented a safe role synchronization mechanism to add new system roles (e.g., Sales) to existing organizations without affecting user-created roles.
+- **Google Calendar Integration**:
+    - Implemented backend OAuth flow and frontend settings UI to connect a Google Calendar.
+    - Enabled automatic, bidirectional synchronization of CRM follow-ups with calendar events.
+- **Dashboard for Scheduled Communications**:
+    - Added an owner filter to the follow-ups section, allowing managers to see tasks per salesperson.
+- **Deployment Readiness**:
+    - Fixed a missing  endpoint that was causing 404 errors.
+    - Conducted multiple health checks and confirmed the application is ready for production deployment.
 
 **Known issue recurrence from previous fork**
-  - **Incomplete Internationalization:** Status: NOT STARTED. Remains a recurring point of technical debt as new components were added.
-  - **Email Service Blocked:** Status: BLOCKED. The agent implemented a demo mode but is still waiting for the user to provide the .
+- **Incomplete Internationalization:** Status: NOT STARTED. Remains a recurring point of technical debt.
+- **Email Service Blocked:** Status: BLOCKED. Still waiting for the .
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend Aggregation:** The sales report endpoint () uses a MongoDB aggregation pipeline for efficient data crunching.
-- **Conditional Service (Demo Mode):**  checks for the existence of an API key to decide whether to send a real email or log the action to the console, allowing development to proceed without credentials.
-- **UI Unification:** The lead detail dialog was refactored to use the same  component and layout pattern as the client detail page, creating a consistent user experience.
-- **Componentization:** Created reusable components like  and  to avoid code duplication and simplify maintenance.
-- **Combined Data Queries:** The endpoint to fetch client communications () intelligently queries for communications linked to both the client ID and the original source lead ID, presenting a complete history.
+- **Dynamic Permissions System**: The backend was refactored to validate user actions against permissions stored in the database for custom roles, rather than relying solely on a hardcoded dictionary. Special privileges are now programmatically granted to organization creators.
+- **Safe Data Synchronization**: A function () was improved to add missing default roles to an organization's database collection on startup without overwriting or deleting user-created custom roles, ensuring safe updates.
+- **Conditional UI Rendering**: The frontend now heavily uses React state and permissions data to conditionally render UI elements (buttons, menus, icons) based on a user's permissions, their identity (), and role type ().
+- **OAuth 2.0 Flow**: Implemented the full server-side flow for Google Calendar integration using a client ID/secret, handling the redirect URI, and exchanging the authorization code for access/refresh tokens.
 
 **key DB schema**
-  - **clients:** Added  to link back to the original lead upon conversion.
-  - **comms:** The  and  fields are now used to link communications to both leads (, ) and .
+- **users**: Now utilizes a  field ('active', 'suspended'). The  and creation order are used to determine the organization's founder for permission grants.
+- **roles**: The  object within each role document is now the source of truth for custom role authorization. The  flag differentiates default roles from user-created ones.
 
 **All files of reference**
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-
-**Areas that need refactoring**:
-- The user has explicitly requested **not** to perform major refactoring. However,  and  contain large dialog components that could be further broken down into smaller, more manageable pieces in the future.
-
-**key api endpoints**
-- : Assigns an owner to a lead.
-- : Generates sales report metrics using an aggregation pipeline.
-- : Fetches communications for a specific lead.
-- : Fetches all communications for a client, including the history from the source lead.
--  (Modified): Enforces owner assignment before conversion and links the new client to the .
--  (Modified): Now supports associating communications with  in addition to leads.
+-  (Main file for user management UI)
+-  (Main file for role management UI)
+-  (Backend logic for user management and permissions)
+-  (Backend logic for role management)
+-  (Google Calendar integration logic)
+-  (Starting point for the next task)
 
 **Critical Info for New Agent**
 - **Responde en español.**
-- Your immediate priority is the user's latest request: **Dashboard por owner con comunicaciones programadas** (a dashboard for scheduled communications by owner). Start by responding to que tenemos pendiente?? and then present your plan.
-- The user is highly focused on **additive, non-breaking changes**. Do not refactor, rename, or re-architect existing code. Reuse existing components and patterns where possible.
-- The email notification feature is **blocked** pending the . Include a reminder for the user about this in your initial plan.
-- The user has shown interest in a **Monday.com-style UI** for leads (e.g., Kanban/card view). This is a good potential enhancement to suggest after completing the current task.
+- Your immediate priority is to implement **Lenguaje inclusivo por industria en Settings**. The user wants the app's terminology to adapt based on the selected industry. Start by examining .
+- The Roles & Permissions system has undergone a major, sensitive refactoring. Be extremely cautious with any changes in this area to avoid regressions.
+- The user often confuses the **preview environment** with their **production environment ()**. Be very clear about where changes are being applied and tested. The work from this session is **not yet deployed**.
+- The Google Calendar integration is implemented but requires the user to perform the OAuth consent flow in production after deployment.
+- The Resend email integration is still blocked pending the . Remind the user about this.
 
 **documents and test reports created in this job**
 - 
+- 
+-  (Updated)
 
-**Last 10 User Messages and any pending HUMAN messages** 
-10.  - User asked for feedback on Monday.com screenshots.
-9.  - User liked the rich text editor idea from the Monday.com example.
-8.  - User approved implementing the rich text editor but warned against breaking changes and suggested reusing the client UI pattern.
-7.  - User reported an error and asked for a plan to unify the Lead UI with the Client UI without breaking anything.
-6.  - User approved the plan to unify the UI.
-5.  - User requested a new feature: a dashboard for scheduled communications filtered by owner. (Current task)
-4.  - User asked for a summary of pending tasks. (This is the immediate pending message to respond to).
-3.  - User confirmation, likely related to a previous step.
-2.  - User asked to fix communications. (Completed).
-1.  - User provided detailed requirements for fixing communications. (Completed).
+**Last 10 User Messages and any pending HUMAN messages**
+10. : User reported that custom roles were not appearing in the role change dropdown menu. (Completed)
+9. : User reported they couldn't see custom roles or view the permissions of system roles. (Completed)
+8. : User approved deployment after the role permission viewer was added, stressing the importance of not affecting existing users. (Completed)
+7. : User asked how to edit system roles after finding the section. (Completed)
+6. : User reported that the UI was preventing them from editing system roles. (Completed)
+5. : User confirmed the role editing fix was satisfactory and immediately requested the next major feature: industry-specific terminology. (This is the current task).
+4.  (No further messages from the user)
 
 **Project Health Check:**
-- **Broken:**
-    - None. All previously implemented features are functional.
+- **Broken:** None.
 - **Mocked:**
-    - **Email Notifications:** The  logs to the console instead of sending real emails.
+    - **Email Notifications:**  logs to the console as it awaits a .
 - **Blocked:**
-    - **Email Notifications:** Awaiting  from the user to enable production functionality.
+    - **Email Notifications:** Awaiting  from the user.
+    - **Google Calendar:** Awaiting user to perform the OAuth consent flow in the production environment post-deployment.
 
 **3rd Party Integrations**
+- **Resend:** For transactional emails (Status: **Integrated, BLOCKED - PENDING API KEY**).
+- **Google Calendar API:** For calendar synchronization (Status: **Integrated, BLOCKED - PENDING USER OAUTH IN PROD**).
 - **Stripe:** For payments.
 - **Custom Google OAuth:** For social login.
-- **Resend:** For transactional emails (Status: **Integrated, BLOCKED - PENDING API KEY**).
 - **reactflow:** For the visual workflow builder UI.
-- **react-quill:** (New) For the rich text editor.
+- **react-quill:** For the rich text editor.
 
 **Testing status**
-  - Testing agent used after significant changes: YES. A suite of 10 tests passed with 100% success after the Sales Report and Owner Assignment features were implemented.
-  - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: []
-  - Known regressions: None.
+- **Testing agent used after significant changes**: YES. The agent was used successfully to validate the backend changes for roles and permissions, passing a suite of 13 tests. It was also used for the CRM dashboard feature.
+- **Troubleshoot agent used after agent stuck in loop**: NO
+- **Test files created**: []
+- **Known regressions**: None.
 
 **Credentials to test flow:**
 - **Super Admin / Agency User:**
     - **Email:** 
     - **Password:** 
-    - **Note:** Use these credentials in the preview environment to test CRM functionality.
+    - **Note:** This user has administrative privileges in the preview environment. The user also tests with their personal account, which helped uncover permission issues for non-admin creators.
 
 **What agent forgot to execute**
-- The agent did not get a chance to respond to the user's question, que tenemos pendiente?? (what is pending?). The next action should be to provide a summary of pending items and then outline the plan for the user's latest request for a dashboard by owner.</analysis>
+- The agent successfully addressed all user requests and feedback during the session. The next task is clearly defined and ready to be started.</analysis>
