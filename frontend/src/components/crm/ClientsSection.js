@@ -361,7 +361,7 @@ export default function ClientsSection() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{isEs ? "Cliente" : "Client"}</TableHead>
+                <TableHead>{clientLabel}</TableHead>
                 <TableHead>RNC</TableHead>
                 <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
                 <TableHead>{isEs ? "Crédito" : "Credit"}</TableHead>
@@ -374,7 +374,7 @@ export default function ClientsSection() {
               {filteredClients.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {isEs ? "No hay clientes" : "No clients"}
+                    {isEs ? `No hay ${clientsLabel.toLowerCase()}` : `No ${clientsLabel.toLowerCase()}`}
                   </TableCell>
                 </TableRow>
               ) : (
