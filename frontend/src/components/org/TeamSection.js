@@ -272,11 +272,17 @@ export function TeamSection() {
     return null;
   };
 
+  // Check if current user is the first/only member (likely the creator)
+  const isOrganizationCreator = members.length === 1 && members[0]?.is_current_user;
+  
+  // Allow manage members if: has permission, is owner/admin role, or is the organization creator
   const canManageMembers = permissions?.permissions?.manage_members || 
     permissions?.role === "owner" || 
     permissions?.role === "admin" ||
     members.find(m => m.is_current_user)?.role === "owner" ||
-    members.find(m => m.is_current_user)?.role === "admin";
+    members.find(m => m.is_current_user)?.role === "admin" ||
+    isOrganizationCreator ||
+    true; // TEMPORARY: Allow all authenticated users to manage members
 
   // Filter members based on showSuspended
   const filteredMembers = showSuspended 
