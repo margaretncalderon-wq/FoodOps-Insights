@@ -60,6 +60,34 @@ export function TeamSection() {
   const [actionLoading, setActionLoading] = useState(false);
   const [permissions, setPermissions] = useState(null);
   const [showSuspended, setShowSuspended] = useState(true);
+  const [viewRoleDialogOpen, setViewRoleDialogOpen] = useState(false);
+  const [selectedRoleToView, setSelectedRoleToView] = useState(null);
+
+  // Permission labels for display
+  const PERMISSION_LABELS = {
+    "events.view": { en: "View Events", es: "Ver Eventos" },
+    "events.create": { en: "Create Events", es: "Crear Eventos" },
+    "events.edit": { en: "Edit Events", es: "Editar Eventos" },
+    "events.delete": { en: "Delete Events", es: "Eliminar Eventos" },
+    "crm.view": { en: "View CRM", es: "Ver CRM" },
+    "crm.create": { en: "Create CRM Records", es: "Crear Registros CRM" },
+    "crm.edit": { en: "Edit CRM Records", es: "Editar Registros CRM" },
+    "crm.delete": { en: "Delete CRM Records", es: "Eliminar Registros CRM" },
+    "leads.view": { en: "View Leads", es: "Ver Leads" },
+    "leads.manage": { en: "Manage Leads", es: "Gestionar Leads" },
+    "clients.view": { en: "View Clients", es: "Ver Clientes" },
+    "culinary.view": { en: "View Culinary", es: "Ver Culinario" },
+    "culinary.manage": { en: "Manage Culinary", es: "Gestionar Culinario" },
+    "culinary.purchases": { en: "Manage Purchases", es: "Gestionar Compras" },
+    "finance.view": { en: "View Finance", es: "Ver Finanzas" },
+    "finance.invoices": { en: "Manage Invoices", es: "Gestionar Facturas" },
+    "finance.payments": { en: "Manage Payments", es: "Gestionar Pagos" },
+    "finance.reports": { en: "View Reports", es: "Ver Reportes" },
+    "settings.view": { en: "View Settings", es: "Ver Configuración" },
+    "settings.manage": { en: "Manage Settings", es: "Gestionar Configuración" },
+    "settings.users": { en: "Manage Users", es: "Gestionar Usuarios" },
+    "settings.billing": { en: "Manage Billing", es: "Gestionar Facturación" }
+  };
 
   const generatePassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
