@@ -77,6 +77,11 @@ const STATUS_COLORS = {
 
 export default function ProposalEditor({ eventId, event, onDocumentGenerated }) {
   const { t, language } = useLanguage();
+  const { term } = useTerminology();
+  
+  // Dynamic terminology
+  const clientLabel = term("events", "client");
+  
   const [proposal, setProposal] = useState(null);
   const [categories, setCategories] = useState([]);
   const [taxRates, setTaxRates] = useState([]);
