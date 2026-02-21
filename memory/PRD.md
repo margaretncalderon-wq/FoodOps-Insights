@@ -9,6 +9,7 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Auth**: Custom Google OAuth + Emergent Session Exchange + JWT/Password
 - **Payments**: Stripe
 - **Email**: Resend (BLOCKED - pending API key)
+- **Calendar**: Google Calendar API (NEW)
 
 ## What's Been Implemented
 - Multi-industry support (events, agency, consulting, generic)
@@ -62,6 +63,23 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - Each follow-up card shows owner name or "Sin asignar" badge
 - **Status**: TESTED & WORKING (9/9 backend tests passed)
 
+### Feature: Google Calendar Integration - IMPLEMENTED (Feb 2026)
+- **Requirement**: Sync CRM follow-ups with Google Calendar (shared company calendar)
+- **Backend Endpoints (NEW)**:
+  - `GET /api/oauth/calendar/connect` - Start OAuth flow
+  - `GET /api/oauth/calendar/callback` - Handle OAuth callback
+  - `GET /api/oauth/calendar/status` - Check connection status
+  - `DELETE /api/oauth/calendar/disconnect` - Disconnect calendar
+  - `GET /api/oauth/calendar/calendars` - List available calendars
+  - `POST /api/oauth/calendar/calendars/select` - Select shared calendar
+  - `POST /api/oauth/calendar/calendars/create` - Create new shared calendar
+  - `POST /api/oauth/calendar/sync/follow-up` - Manual sync
+- **Frontend Components (NEW)**:
+  - `GoogleCalendarSettingsSection.js` - Calendar configuration in Settings > Integrations
+- **Auto-sync**: When follow-ups are created/updated/completed, events auto-sync to Google Calendar
+- **Production URL**: `https://ourkora.com/api/oauth/calendar/callback`
+- **Status**: IMPLEMENTED, READY FOR TESTING
+
 ## Pending Issues
 - P2: Incomplete internationalization (hardcoded strings in UI)
 - P3: Backend plan limit enforcement logic
@@ -81,3 +99,7 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 
 ## Key Credentials (Preview)
 - Demo: demo.agency@kora.com / Evoque2024!
+
+## Google Calendar Config
+- Client ID: 628586294944-i8evug9fjdn7ir81s33a01mkn50k5ek4.apps.googleusercontent.com
+- Redirect URI: https://ourkora.com/api/oauth/calendar/callback
