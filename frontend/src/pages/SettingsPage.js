@@ -810,6 +810,10 @@ export default function SettingsPage() {
               <DollarSign className="w-4 h-4" />
               {language === "es" ? "Facturación" : "Billing"}
             </TabsTrigger>
+            <TabsTrigger value="terminology" className="gap-2" data-testid="terminology-tab">
+              <Languages className="w-4 h-4" />
+              {language === "es" ? "Terminología" : "Terminology"}
+            </TabsTrigger>
             <TabsTrigger value="team" className="gap-2">
               <Users className="w-4 h-4" />
               {language === "es" ? "Equipo" : "Team"}
