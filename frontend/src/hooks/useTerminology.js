@@ -84,6 +84,8 @@ export function useTerminology() {
   }, [language]);
   
   return {
+    // Whether config is still loading
+    isLoading: configLoading,
     // Current industry key
     industryKey,
     // Get single term: term("events", "client") -> "Patient"
