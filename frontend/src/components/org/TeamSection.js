@@ -753,6 +753,67 @@ export function TeamSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View Role Permissions Dialog */}
+      <Dialog open={viewRoleDialogOpen} onOpenChange={setViewRoleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className={`w-5 h-5 ${selectedRoleToView?.is_system ? 'text-blue-500' : 'text-purple-500'}`} />
+              {selectedRoleToView && (isEs ? (selectedRoleToView.name_es || selectedRoleToView.name) : selectedRoleToView.name)}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Description */}
+            {selectedRoleToView?.description && (
+              <p className="text-sm text-muted-foreground">
+                {isEs ? (selectedRoleToView.description_es || selectedRoleToView.description) : selectedRoleToView.description}
+              </p>
+            )}
+            
+            {/* Role Type Badge */}
+            <div>
+              <Badge variant={selectedRoleToView?.is_system ? "default" : "secondary"}>
+                {selectedRoleToView?.is_system 
+                  ? (isEs ? "Rol del Sistema" : "System Role")
+                  : (isEs ? "Rol Personalizado" : "Custom Role")
+                }
+              </Badge>
+            </div>
+            
+            {/* Permissions List */}
+            <div>
+              <h4 className="font-medium mb-2">{isEs ? "Permisos" : "Permissions"}</h4>
+              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                {selectedRoleToView?.permissions && selectedRoleToView.permissions.length > 0 ? (
+                  selectedRoleToView.permissions.map((perm, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 bg-muted/50 rounded text-sm">
+                      <Check className="w-4 h-4 text-green-500" />
+                      <span>
+                        {PERMISSION_LABELS[perm] 
+                          ? (isEs ? PERMISSION_LABELS[perm].es : PERMISSION_LABELS[perm].en)
+                          : perm
+                        }
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    {isEs ? "Este rol tiene acceso completo o permisos básicos" : "This role has full access or basic permissions"}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewRoleDialogOpen(false)}>
+              {isEs ? "Cerrar" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
