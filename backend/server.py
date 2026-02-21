@@ -5401,19 +5401,26 @@ async def update_role(role_id: str, data: dict, user: User = Depends(get_current
         raise HTTPException(status_code=404, detail="Role not found")
     
     if role.get("is_system"):
-        raise HTTPException(status_code=400, detail="Cannot modify system role")
+        # System roles: only allow updating permissions and description, not the name
+        update_data = {
+            "description": data.get("description", role.get("description")),
+            "description_es": data.get("description_es", role.get("description_es")),
+            "permissions": data.get("permissions", role.get("permissions", [])),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+    else:
+        # Custom roles: allow updating everything
+        update_data = {
+            "name": data.get("name", role.get("name")),
+            "name_es": data.get("name_es", role.get("name_es")),
+            "description": data.get("description", role.get("description")),
+            "description_es": data.get("description_es", role.get("description_es")),
+            "permissions": data.get("permissions", role.get("permissions", [])),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
     
-    update_data = {
-        "name": data.get("name", role.get("name")),
-        "name_es": data.get("name_es", role.get("name_es")),
-        "description": data.get("description", role.get("description")),
-        "description_es": data.get("description_es", role.get("description_es")),
-        "permissions": data.get("permissions", role.get("permissions", [])),
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.roles.update_one({"role_id": role_id}, {"$set": update_data})
-    updated = await db.roles.find_one({"role_id": role_id}, {"_id": 0})
+    await db.roles.update_one({"role_id": role_id, "company_id": user.company_id}, {"$set": update_data})
+    updated = await db.roles.find_one({"role_id": role_id, "company_id": user.company_id}, {"_id": 0})
     return updated
 
 @settings_router.delete("/roles/{role_id}")
