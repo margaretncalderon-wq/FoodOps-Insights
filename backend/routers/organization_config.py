@@ -210,9 +210,14 @@ async def apply_industry_template(
     industry_type_map = {
         "events_hospitality": "events",
         "professional_services": "agency",
+        "healthcare": "healthcare",
+        "real_estate": "real_estate",
+        "education": "education",
+        "fitness": "fitness",
+        "consulting": "consulting",
         "generic": "generic"
     }
-    industry_type = industry_type_map.get(template_key, "events")
+    industry_type = industry_type_map.get(template_key, "generic")
     
     config_doc = {
         "config_id": existing["config_id"] if existing else f"config_{uuid.uuid4().hex[:12]}",
