@@ -838,7 +838,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           <CreditCard className="w-5 h-5 text-blue-600" />
           <div className="flex-1">
             <p className="font-medium text-blue-700">
-              {language === "es" ? "Cliente con Línea de Crédito" : "Client with Credit Line"}
+              {language === "es" ? `${clientLabel} con Línea de Crédito` : `${clientLabel} with Credit Line`}
             </p>
             <p className="text-sm text-muted-foreground">
               {language === "es" 
@@ -1197,7 +1197,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 {/* Client Notes */}
                 <div className="border-t pt-4">
                   <Label className="mb-2 block">
-                    {language === "es" ? "Notas para el Cliente" : "Client Notes"}
+                    {language === "es" ? `Notas para el ${clientLabel}` : `${clientLabel} Notes`}
                   </Label>
                   <Textarea
                     placeholder={language === "es" ? "Notas visibles en propuestas y facturas..." : "Notes visible on proposals and invoices..."}
@@ -1497,7 +1497,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
                   <Send className="w-4 h-4" />
-                  {language === "es" ? "Documentos para el Cliente" : "Client-Facing Documents"}
+                  {language === "es" ? `Documentos para el ${clientLabel}` : `${clientLabel}-Facing Documents`}
                 </h4>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {/* Proposal/Contract */}
@@ -1736,7 +1736,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 <Textarea
                   value={newItem.description}
                   onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                  placeholder={language === "es" ? "Descripción visible al cliente" : "Client-facing description"}
+                  placeholder={language === "es" ? `Descripción visible al ${clientLabel.toLowerCase()}` : `${clientLabel}-facing description`}
                   rows={2}
                   required
                   data-testid="item-description-input"
