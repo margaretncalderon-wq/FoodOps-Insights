@@ -880,7 +880,10 @@ export default function SettingsPage() {
 
           {/* Integrations Tab */}
           <TabsContent value="integrations">
-            <IntegrationsSettingsSection />
+            <div className="space-y-6">
+              <GoogleCalendarSettingsSection />
+              <IntegrationsSettingsSection />
+            </div>
           </TabsContent>
 
           {/* Feature Flags Tab */}
