@@ -564,137 +564,142 @@ export default function LeadOutreachSection() {
             </DialogTitle>
           </DialogHeader>
           {selectedLead && (
-            <div className="space-y-4">
-              {/* Quick Contact Links */}
-              <div className="flex flex-wrap gap-2">
-                {selectedLead.whatsapp && (
-                  <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      WhatsApp
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="info" className="text-xs">
+                  <Info className="w-3 h-3 mr-1" /> Info
+                </TabsTrigger>
+                <TabsTrigger value="comms" className="text-xs">
+                  <MessageCircle className="w-3 h-3 mr-1" /> Comms
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Info Tab */}
+              <TabsContent value="info" className="space-y-4 mt-0">
+                {/* Quick Contact Links */}
+                <div className="flex flex-wrap gap-2">
+                  {selectedLead.whatsapp && (
+                    <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        WhatsApp
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedLead.email && (
+                    <a href={`mailto:${selectedLead.email}`}>
+                      <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedLead.phone && (
+                    <a href={`tel:${selectedLead.phone}`}>
+                      <Button variant="outline" size="sm">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {isEs ? "Llamar" : "Call"}
+                      </Button>
+                    </a>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Email</p>
+                    <p className="font-medium truncate">{selectedLead.email || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">{isEs ? "Teléfono" : "Phone"}</p>
+                    <p className="font-medium">{selectedLead.phone || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">WhatsApp</p>
+                    <p className="font-medium">{selectedLead.whatsapp || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">RNC</p>
+                    <p className="font-medium font-mono">{selectedLead.rnc || "-"}</p>
+                  </div>
+                </div>
+
+                {selectedLead.company_name && (
+                  <div className="text-sm">
+                    <p className="text-muted-foreground text-xs">{isEs ? "Empresa" : "Company"}</p>
+                    <p className="font-medium flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      {selectedLead.company_name}
+                    </p>
+                  </div>
                 )}
-                {selectedLead.email && (
-                  <a href={`mailto:${selectedLead.email}`}>
-                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                      <Mail className="w-4 h-4 mr-2" />
-                      Email
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">{isEs ? "Último Contacto" : "Last Contact"}</p>
+                    <p className="font-medium">
+                      {selectedLead.last_contact_date 
+                        ? new Date(selectedLead.last_contact_date).toLocaleDateString()
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Owner</p>
+                    <p className="font-medium">
+                      {selectedLead.owner_id 
+                        ? selectedLead.owner_id.replace("user_", "").slice(0, 8)
+                        : (isEs ? "Sin asignar" : "Unassigned")}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedLead.message && (
+                  <div className="text-sm">
+                    <p className="text-muted-foreground text-xs">{isEs ? "Notas" : "Notes"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded text-xs">{selectedLead.message}</p>
+                  </div>
                 )}
-                {selectedLead.phone && (
-                  <a href={`tel:${selectedLead.phone}`}>
-                    <Button variant="outline" size="sm">
-                      <Phone className="w-4 h-4 mr-2" />
-                      {isEs ? "Llamar" : "Call"}
-                    </Button>
-                  </a>
+
+                {/* Follow-up info */}
+                {selectedLead.next_follow_up_date ? (
+                  <div className="p-2 bg-yellow-50 rounded border border-yellow-200 text-sm">
+                    <p className="font-medium text-yellow-800 flex items-center gap-2 text-xs">
+                      <Clock className="w-3 h-3" />
+                      {isEs ? "Seguimiento programado" : "Follow-up scheduled"}
+                    </p>
+                    <p className="text-yellow-700 text-xs mt-1">
+                      {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => { setDetailOpen(false); openFollowUp(selectedLead); }}>
+                    <CalendarPlus className="w-3 h-3 mr-2" />
+                    {isEs ? "Programar Seguimiento" : "Schedule Follow-up"}
+                  </Button>
                 )}
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{selectedLead.email || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</p>
-                  <p className="font-medium">{selectedLead.phone || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">WhatsApp</p>
-                  <p className="font-medium">{selectedLead.whatsapp || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">RNC</p>
-                  <p className="font-medium font-mono">{selectedLead.rnc || "-"}</p>
-                </div>
-              </div>
-
-              {selectedLead.company_name && (
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Empresa" : "Company"}</p>
-                  <p className="font-medium flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    {selectedLead.company_name}
+                <div className="pt-3 border-t">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {isEs ? "Creado" : "Created"}: {new Date(selectedLead.created_at).toLocaleString()}
                   </p>
+                  <Button className="w-full" size="sm" onClick={() => openConvert(selectedLead)} data-testid="convert-outreach-btn">
+                    <ArrowRight className="w-3 h-3 mr-2" />
+                    {isEs ? "Convertir a Cliente" : "Convert to Client"}
+                  </Button>
                 </div>
-              )}
+              </TabsContent>
 
-              {selectedLead.address && (
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Dirección" : "Address"}</p>
-                  <p className="font-medium">{selectedLead.address}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Último Contacto" : "Last Contact"}</p>
-                  <p className="font-medium">
-                    {selectedLead.last_contact_date 
-                      ? new Date(selectedLead.last_contact_date).toLocaleDateString()
-                      : "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Owner</p>
-                  <p className="font-medium">
-                    {selectedLead.owner_id 
-                      ? selectedLead.owner_id.replace("user_", "").slice(0, 8)
-                      : (isEs ? "Sin asignar" : "Unassigned")}
-                  </p>
-                </div>
-              </div>
-
-              {selectedLead.message && (
-                <div>
-                  <p className="text-sm text-muted-foreground">{isEs ? "Notas" : "Notes"}</p>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{selectedLead.message}</p>
-                </div>
-              )}
-
-              {/* Communications Timeline */}
-              <div className="border-t pt-4">
+              {/* Comms Tab */}
+              <TabsContent value="comms" className="mt-0">
                 <CommunicationsTimeline 
                   entityType="lead" 
                   entityId={selectedLead.lead_id}
                   entityName={selectedLead.lead_name || selectedLead.company_name || "Lead"}
-                  maxVisible={3}
+                  maxVisible={10}
                 />
-              </div>
-
-              {/* Follow-up info */}
-              {selectedLead.next_follow_up_date ? (
-                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    {isEs ? "Seguimiento programado" : "Follow-up scheduled"}
-                  </p>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
-                  </p>
-                </div>
-              ) : (
-                <Button variant="outline" className="w-full" onClick={() => { setDetailOpen(false); openFollowUp(selectedLead); }}>
-                  <CalendarPlus className="w-4 h-4 mr-2" />
-                  {isEs ? "Programar Seguimiento" : "Schedule Follow-up"}
-                </Button>
-              )}
-
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-3">
-                  {isEs ? "Creado" : "Created"}: {new Date(selectedLead.created_at).toLocaleString()}
-                </p>
-                <Button className="w-full" onClick={() => openConvert(selectedLead)} data-testid="convert-outreach-btn">
-                  <ArrowRight className="w-4 h-4 mr-2" />
-                  {isEs ? "Convertir a Cliente" : "Convert to Client"}
-                </Button>
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
