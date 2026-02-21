@@ -13972,16 +13972,20 @@ async def import_leads(
                 
                 lead_data = {
                     "name": name,
+                    "lead_name": name,  # For CRM UI compatibility
                     "email": email,
                     "phone": str(row.get('telefono') or row.get('phone') or ""),
                     "company": row.get('empresa') or row.get('company') or "",
+                    "company_name": row.get('empresa') or row.get('company') or "",  # For CRM UI
                     "source": row.get('fuente') or row.get('source') or "import",
                     "status": row.get('estado') or row.get('status') or "new",
                     "estimated_value": float(estimated_value),
                     "event_type": row.get('tipo_evento') or row.get('event_type') or "",
                     "event_date": str(row.get('fecha_evento') or row.get('event_date') or ""),
                     "guest_count": int(guest_count),
+                    "estimated_guest_count": int(guest_count),  # For CRM UI
                     "notes": row.get('notas') or row.get('notes') or "",
+                    "lead_type": "inbound",  # Default to inbound for imported leads
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
                 
