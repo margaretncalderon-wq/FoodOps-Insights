@@ -730,6 +730,73 @@ async def get_comm_logs(entity_type: str, entity_id: str, user: User = Depends(g
     return logs
 
 
+# ============== COMMUNICATIONS TIMELINE (Lead/Client specific with history) ==============
+
+@crm_router.get("/leads/{lead_id}/communications")
+async def get_lead_communications(lead_id: str, user: User = Depends(get_current_user)):
+    """Get all communications for a specific lead"""
+    # Verify lead belongs to org
+    lead = await db.leads.find_one(
+        {"lead_id": lead_id, "company_id": user.company_id},
+        {"_id": 0, "lead_id": 1}
+    )
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    logs = await db.comm_logs.find(
+        {"company_id": user.company_id, "entity_type": "lead", "entity_id": lead_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    
+    return logs
+
+
+@crm_router.get("/clients/{client_id}/communications")
+async def get_client_communications(client_id: str, user: User = Depends(get_current_user)):
+    """
+    Get all communications for a client, INCLUDING historical lead communications
+    if the client was converted from a lead.
+    """
+    # Get client with source_lead_id
+    client = await db.clients.find_one(
+        {"client_id": client_id, "company_id": user.company_id},
+        {"_id": 0, "client_id": 1, "source_lead_id": 1, "display_name": 1}
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    source_lead_id = client.get("source_lead_id")
+    
+    # Build query to get client comms AND lead comms if source_lead exists
+    if source_lead_id:
+        query = {
+            "company_id": user.company_id,
+            "$or": [
+                {"entity_type": "client", "entity_id": client_id},
+                {"entity_type": "lead", "entity_id": source_lead_id}
+            ]
+        }
+    else:
+        query = {
+            "company_id": user.company_id,
+            "entity_type": "client",
+            "entity_id": client_id
+        }
+    
+    logs = await db.comm_logs.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Add source info to response
+    for log in logs:
+        if log.get("entity_type") == "lead":
+            log["from_source_lead"] = True
+    
+    return {
+        "communications": logs,
+        "source_lead_id": source_lead_id,
+        "client_id": client_id
+    }
+
+
 @crm_router.post("/comms")
 async def create_comm_log(data: CommLogCreate, user: User = Depends(get_current_user)):
     """Create a communication log entry"""
