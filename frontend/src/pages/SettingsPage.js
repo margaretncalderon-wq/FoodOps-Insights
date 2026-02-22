@@ -263,6 +263,13 @@ export default function SettingsPage() {
         terms_contract_es: response.data.terms_contract_es || "",
         terms_contract_en: response.data.terms_contract_en || "",
         payment_terms_default: response.data.payment_terms_default || "",
+        // Bank Account
+        bank_name: response.data.bank_name || "",
+        bank_account_number: response.data.bank_account_number || "",
+        bank_account_type: response.data.bank_account_type || "",
+        bank_routing_number: response.data.bank_routing_number || "",
+        bank_beneficiary: response.data.bank_beneficiary || "",
+        bank_notes: response.data.bank_notes || "",
       });
     } catch (error) {
       console.error("Failed to fetch company:", error);
