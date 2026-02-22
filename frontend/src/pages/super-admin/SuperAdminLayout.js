@@ -114,6 +114,7 @@ export default function SuperAdminLayout() {
     { path: "/super-admin/clarity", label: "Business Clarity", icon: Landmark },
     { path: "/super-admin/organizations", label: isEs ? "Organizaciones" : "Organizations", icon: Building2 },
     { path: "/super-admin/users", label: isEs ? "Usuarios" : "Users", icon: Users },
+    { path: "/super-admin/diagnostics", label: isEs ? "Diagnóstico Datos" : "Data Diagnostics", icon: Database },
     { path: "/super-admin/settings", label: isEs ? "Configuración" : "Settings", icon: Settings },
   ];
 
