@@ -3696,6 +3696,17 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
         content["terms_and_conditions"] = company.get(terms_key, "")
         content["payment_terms"] = company.get("payment_terms_default", "")
     
+    # Add bank account information for invoices and quotes
+    if company and doc_type in ["quote", "proposal", "invoice"]:
+        content["bank_info"] = {
+            "bank_name": company.get("bank_name", ""),
+            "account_number": company.get("bank_account_number", ""),
+            "account_type": company.get("bank_account_type", ""),
+            "routing_number": company.get("bank_routing_number", ""),
+            "beneficiary": company.get("bank_beneficiary", ""),
+            "notes": company.get("bank_notes", "")
+        }
+    
     titles = {
         "contract": "Contract", "beo": "Banquet Event Order", "kitchen_sheet": "Kitchen Production Sheet",
         "packing_list": "Packing/Setup List", "mise_en_place": "Mise en Place Checklist",
