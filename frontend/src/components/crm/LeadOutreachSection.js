@@ -574,7 +574,7 @@ export default function LeadOutreachSection() {
                 <User className="w-5 h-5 text-purple-600" />
               )}
               {selectedLead?.lead_name}
-              {selectedLead && getStatusBadge(selectedLead.outreach_status || "New")}
+              {selectedLead && getStatusBadge(getEffectiveStatus(selectedLead))}
             </DialogTitle>
           </DialogHeader>
           {selectedLead && (
