@@ -170,7 +170,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-[#2A2F3A] relative overflow-hidden items-center justify-center p-12 min-h-screen">
         {/* Background decorative elements */}
         <div className="absolute top-20 right-20 w-32 h-32 bg-[#AED768] rounded-full opacity-20" />
-        <div className="absolute bottom-32 left-16 w-24 h-24 bg-[#AED768] rounded-full opacity-30" />
+        <div className="absolute bottom-24 left-16 w-20 h-20 bg-[#AED768] rounded-full opacity-30" />
         <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-[#AED768] rounded-full opacity-25" />
         
         {/* Main illustration card */}
