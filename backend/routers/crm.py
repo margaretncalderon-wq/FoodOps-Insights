@@ -169,7 +169,7 @@ async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current
     # Fields that can be updated
     allowed_fields = [
         "lead_name", "name", "email", "phone", "whatsapp", "company_name", "company",
-        "client_type", "rnc", "address", "message", "notes", "owner_id", "event_type",
+        "client_type", "rnc", "address", "city", "country", "message", "notes", "owner_id", "event_type",
         "estimated_value", "budget_range", "guest_count", "event_date", "source"
     ]
     
