@@ -292,7 +292,7 @@ export default function CRMPage() {
     Discarded: "bg-gray-100 text-gray-800"
   };
 
-  const newLeadsCount = leads.filter(l => l.status === "New").length;
+  const newLeadsCount = leads.filter(l => l.status?.toLowerCase() === "new").length;
 
   if (loading) {
     return (
