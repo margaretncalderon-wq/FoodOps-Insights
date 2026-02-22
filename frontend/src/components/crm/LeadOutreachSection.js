@@ -267,7 +267,7 @@ export default function LeadOutreachSection() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {OUTREACH_STATUSES.map(status => {
-          const count = leads.filter(l => l.outreach_status === status.value).length;
+          const count = leads.filter(l => getEffectiveStatus(l).toLowerCase() === status.value.toLowerCase()).length;
           return (
             <Card 
               key={status.value} 
