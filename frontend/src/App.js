@@ -225,9 +225,6 @@ const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
   return children;
 };
 
-  return children;
-};
-
 function AppRouter() {
   const location = useLocation();
 
