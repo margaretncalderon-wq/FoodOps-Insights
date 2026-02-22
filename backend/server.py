@@ -4227,7 +4227,10 @@ async def update_company_settings(data: dict, user: User = Depends(get_current_u
         "tax_regime", "industry_sector", "employee_count", "decimal_precision", "decimal_separator",
         # Terms & Conditions
         "terms_proposal_es", "terms_proposal_en", "terms_invoice_es", "terms_invoice_en",
-        "terms_contract_es", "terms_contract_en", "payment_terms_default"
+        "terms_contract_es", "terms_contract_en", "payment_terms_default",
+        # Bank Account Information
+        "bank_name", "bank_account_number", "bank_account_type", "bank_routing_number",
+        "bank_beneficiary", "bank_notes"
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
     
