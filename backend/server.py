@@ -14107,7 +14107,7 @@ async def import_leads(
                     "address": row.get('direccion') or row.get('address') or "",
                     "rnc": str(row.get('rnc') or ""),
                     "source": row.get('fuente') or row.get('source') or "import",
-                    "status": row.get('estado') or row.get('status') or "new",
+                    "status": (row.get('estado') or row.get('status') or "New").strip().title(),  # Normalize to "New", "Contacted", etc.
                     "estimated_value": float(estimated_value),
                     "budget_range": row.get('rango_presupuesto') or row.get('budget_range') or "",
                     "event_type": row.get('tipo_evento') or row.get('tipo_proyecto') or row.get('event_type') or "",
