@@ -247,6 +247,14 @@ export default function SettingsPage() {
         employee_count: response.data.employee_count || "",
         decimal_precision: response.data.decimal_precision || 2,
         decimal_separator: response.data.decimal_separator || ".",
+        // Terms & Conditions
+        terms_proposal_es: response.data.terms_proposal_es || "",
+        terms_proposal_en: response.data.terms_proposal_en || "",
+        terms_invoice_es: response.data.terms_invoice_es || "",
+        terms_invoice_en: response.data.terms_invoice_en || "",
+        terms_contract_es: response.data.terms_contract_es || "",
+        terms_contract_en: response.data.terms_contract_en || "",
+        payment_terms_default: response.data.payment_terms_default || "",
       });
     } catch (error) {
       console.error("Failed to fetch company:", error);
