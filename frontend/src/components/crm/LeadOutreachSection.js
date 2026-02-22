@@ -230,6 +230,55 @@ export default function LeadOutreachSection() {
     setDetailOpen(true);
   };
 
+  const openEdit = (lead) => {
+    setSelectedLead(lead);
+    setEditForm({
+      lead_name: lead.lead_name || lead.name || "",
+      email: lead.email || "",
+      phone: lead.phone || "",
+      whatsapp: lead.whatsapp || "",
+      company_name: lead.company_name || lead.company || "",
+      client_type: lead.client_type || "Individual",
+      rnc: lead.rnc || "",
+      address: lead.address || "",
+      message: lead.message || lead.notes || "",
+      owner_id: lead.owner_id || "",
+      event_type: lead.event_type || ""
+    });
+    setEditOpen(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!selectedLead) return;
+    
+    try {
+      await axios.put(`${API}/api/crm/leads/${selectedLead.lead_id}`, {
+        lead_name: editForm.lead_name,
+        name: editForm.lead_name,
+        email: editForm.email,
+        phone: editForm.phone,
+        whatsapp: editForm.whatsapp,
+        company_name: editForm.company_name,
+        company: editForm.company_name,
+        client_type: editForm.client_type,
+        rnc: editForm.rnc,
+        address: editForm.address,
+        message: editForm.message,
+        notes: editForm.message,
+        owner_id: editForm.owner_id || null,
+        event_type: editForm.event_type
+      }, { withCredentials: true });
+      
+      toast.success(isEs ? "Lead actualizado" : "Lead updated");
+      setEditOpen(false);
+      setDetailOpen(false);
+      fetchLeads();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al actualizar");
+    }
+  };
+
   const openConvert = (lead) => {
     setSelectedLead(lead);
     setConvertOpen(true);
