@@ -1630,27 +1630,192 @@ export default function SettingsPage() {
 
           {/* Branding Tab */}
           <TabsContent value="branding">
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Logo & Basic Info Card */}
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
                     <Building2 className="w-5 h-5" />
-                    {language === "es" ? "Información de la Empresa" : "Company Information"}
+                    {language === "es" ? "Datos Generales" : "General Information"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid sm:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label>{t("companyName")}</Label>
-                      <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="company-name-input" />
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Logo Upload Section */}
+                    <div className="lg:col-span-1">
+                      <Label className="mb-2 block">{language === "es" ? "Logo de la Empresa" : "Company Logo"}</Label>
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
+                        {formData.logo_url ? (
+                          <div className="space-y-3">
+                            <img 
+                              src={formData.logo_url.startsWith('/api') ? `${API.replace('/api', '')}${formData.logo_url}` : formData.logo_url} 
+                              alt="Logo" 
+                              className="max-h-24 mx-auto object-contain"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <label className="cursor-pointer">
+                              <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                              <span className="text-sm text-primary hover:underline flex items-center justify-center gap-1">
+                                {uploadingLogo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Edit className="w-3 h-3" />}
+                                {language === "es" ? "Cambiar logo" : "Change logo"}
+                              </span>
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block py-4">
+                            <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                            <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                            <span className="text-sm text-muted-foreground">
+                              {uploadingLogo ? (
+                                <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{language === "es" ? "Subiendo..." : "Uploading..."}</span>
+                              ) : (
+                                language === "es" ? "Haz clic para subir logo" : "Click to upload logo"
+                              )}
+                            </span>
+                            <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP, SVG (máx 5MB)</p>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Basic Info */}
+                    <div className="lg:col-span-2 grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Razón Social *" : "Legal Name *"}</Label>
+                        <Input value={formData.legal_name} onChange={(e) => setFormData({ ...formData, legal_name: e.target.value })} placeholder="Mi Empresa SRL" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "RNC o Cédula" : "Tax ID"}</Label>
+                        <Input value={formData.tax_id} onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })} placeholder="123456789" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Nombre Comercial" : "Trade Name"}</Label>
+                        <Input value={formData.trade_name || formData.name} onChange={(e) => setFormData({ ...formData, trade_name: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Correo Electrónico" : "Email"}</Label>
+                        <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contacto@empresa.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Sitio Web" : "Website"}</Label>
+                        <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.empresa.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "es" ? "Teléfono *" : "Phone *"}</Label>
+                        <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+1 809-555-1234" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Location Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    {language === "es" ? "Datos de Ubicación" : "Location Information"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-2 space-y-2">
+                      <Label>{language === "es" ? "Dirección" : "Address"}</Label>
+                      <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Calle Principal No. 123" />
                     </div>
                     <div className="space-y-2">
-                      <Label>{t("logoUrl")}</Label>
-                      <Input value={formData.logo_url} onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })} placeholder="https://..." />
+                      <Label>{language === "es" ? "Código Postal" : "Postal Code"}</Label>
+                      <Input value={formData.postal_code} onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })} placeholder="10101" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Municipio" : "City"}</Label>
+                      <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder="Santo Domingo" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Provincia/Estado" : "State/Province"}</Label>
+                      <Input value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} placeholder="Distrito Nacional" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "País" : "Country"}</Label>
+                      <Input value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} placeholder="República Dominicana" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Additional Data & Branding Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    {language === "es" ? "Datos Adicionales" : "Additional Information"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Régimen Fiscal" : "Tax Regime"}</Label>
+                      <Select value={formData.tax_regime} onValueChange={(v) => setFormData({ ...formData, tax_regime: v })}>
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="general">{language === "es" ? "Régimen General" : "General Regime"}</SelectItem>
+                          <SelectItem value="simplified">{language === "es" ? "Régimen Simplificado" : "Simplified Regime"}</SelectItem>
+                          <SelectItem value="special">{language === "es" ? "Régimen Especial" : "Special Regime"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Sector" : "Industry Sector"}</Label>
+                      <Input value={formData.industry_sector} onChange={(e) => setFormData({ ...formData, industry_sector: e.target.value })} placeholder={language === "es" ? "Alimentación / Gastronomía" : "Food / Gastronomy"} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Número de Empleados" : "Number of Employees"}</Label>
+                      <Select value={formData.employee_count} onValueChange={(v) => setFormData({ ...formData, employee_count: v })}>
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1-10">1 - 10</SelectItem>
+                          <SelectItem value="11-50">11 - 50</SelectItem>
+                          <SelectItem value="51-200">51 - 200</SelectItem>
+                          <SelectItem value="201-500">201 - 500</SelectItem>
+                          <SelectItem value="500+">500+</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Moneda *" : "Currency *"}</Label>
+                      <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Precisión Decimal" : "Decimal Precision"}</Label>
+                      <Select value={String(formData.decimal_precision)} onValueChange={(v) => setFormData({ ...formData, decimal_precision: parseInt(v) })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4">4</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Separador Decimal" : "Decimal Separator"}</Label>
+                      <Select value={formData.decimal_separator} onValueChange={(v) => setFormData({ ...formData, decimal_separator: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value=".">{language === "es" ? ". (Punto)" : ". (Period)"}</SelectItem>
+                          <SelectItem value=",">{language === "es" ? ", (Coma)" : ", (Comma)"}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  {/* Brand Colors */}
+                  <div className="pt-4 border-t space-y-4">
                     <h3 className="font-medium flex items-center gap-2">
                       <Palette className="w-4 h-4" />
                       {language === "es" ? "Colores de Marca" : "Brand Colors"}
@@ -1672,15 +1837,15 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={saving} data-testid="save-settings-btn">
-                      {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                      {t("save")}
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
+
+              <div className="flex justify-end">
+                <Button type="submit" disabled={saving} data-testid="save-settings-btn">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  {t("save")}
+                </Button>
+              </div>
             </form>
           </TabsContent>
 
