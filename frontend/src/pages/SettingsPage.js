@@ -3675,8 +3675,8 @@ function DataAdminSection({ language }) {
   const fetchStats = async () => {
     try {
       const [clientsRes, statsRes] = await Promise.all([
-        axios.get(`${API}/api/clients`, { withCredentials: true }),
-        axios.get(`${API}/api/crm/stats`, { withCredentials: true })
+        axios.get(`${API}/clients`, { withCredentials: true }),
+        axios.get(`${API}/crm/stats`, { withCredentials: true })
       ]);
       setStats({
         clients: clientsRes.data?.length || 0,
@@ -3685,7 +3685,7 @@ function DataAdminSection({ language }) {
         inbound: statsRes.data?.total - (statsRes.data?.outreach_leads || 0) || 0
       });
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching stats:", err);
     }
   };
 
