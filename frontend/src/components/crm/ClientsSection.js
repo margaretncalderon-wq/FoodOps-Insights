@@ -126,14 +126,20 @@ export default function ClientsSection() {
   const totalLifetimeValue = clients.reduce((sum, c) => sum + (c.lifetime_value || 0), 0);
   const totalEvents = clients.reduce((sum, c) => sum + (c.events_count || 0), 0);
 
+  // Get unique industries from clients
+  const industries = [...new Set(clients.map(c => c.industry).filter(Boolean))];
+
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.rnc?.toLowerCase().includes(searchTerm.toLowerCase());
+      client.rnc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.industry?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === "all" || 
       (filterType === "corporate" && client.client_type === "Company") ||
       (filterType === "individual" && client.client_type === "Individual");
-    return matchesSearch && matchesType;
+    const matchesIndustry = filterIndustry === "all" || client.industry === filterIndustry;
+    return matchesSearch && matchesType && matchesIndustry;
   });
 
   const viewClient = (client) => {
