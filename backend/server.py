@@ -220,6 +220,14 @@ class Company(BaseModel):
     employee_count: Optional[str] = None  # Número de empleados
     decimal_precision: int = 2  # Precisión decimal
     decimal_separator: str = "."  # Separador decimal
+    # Terms & Conditions Templates
+    terms_proposal_es: Optional[str] = None  # Términos para propuestas (español)
+    terms_proposal_en: Optional[str] = None  # Terms for proposals (english)
+    terms_invoice_es: Optional[str] = None  # Términos para facturas (español)
+    terms_invoice_en: Optional[str] = None  # Terms for invoices (english)
+    terms_contract_es: Optional[str] = None  # Términos para contratos (español)
+    terms_contract_en: Optional[str] = None  # Terms for contracts (english)
+    payment_terms_default: Optional[str] = None  # Default payment terms
 
 # ============== SAAS MULTI-TENANT MODELS ==============
 
