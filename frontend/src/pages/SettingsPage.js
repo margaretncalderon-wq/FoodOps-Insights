@@ -3694,7 +3694,7 @@ function DataAdminSection({ language }) {
     
     setDeleting("clients");
     try {
-      const res = await axios.delete(`${API}/api/crm/clients/bulk-delete`, { withCredentials: true });
+      const res = await axios.delete(`${API}/crm/clients/bulk-delete`, { withCredentials: true });
       toast.success(isEs ? `${res.data.deleted} clientes borrados` : `${res.data.deleted} clients deleted`);
       fetchStats();
     } catch (err) {
