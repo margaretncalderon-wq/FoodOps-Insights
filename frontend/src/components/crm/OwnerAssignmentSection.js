@@ -131,7 +131,7 @@ export default function OwnerAssignmentSection() {
 
   // Global stats
   const totalLeads = leads.length;
-  const convertedLeads = leads.filter(l => l.status === "Converted").length;
+  const convertedLeads = leads.filter(l => l.status?.toLowerCase() === "converted").length;
   const globalConversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
   const unassignedCount = [...leads, ...clients].filter(item => !item.owner_id).length;
 
