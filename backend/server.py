@@ -4159,6 +4159,33 @@ async def get_company_settings(user: User = Depends(get_current_user)):
         ]
     return Company(**company)
 
+@settings_router.post("/company/logo")
+async def upload_company_logo(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload company logo"""
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Use JPEG, PNG, WebP or SVG")
+    
+    # Generate unique filename
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    filename = f"logo_{user.company_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = UPLOADS_DIR / filename
+    
+    # Save file
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+    
+    # Update company logo_url
+    logo_url = f"/api/uploads/{filename}"
+    await db.companies.update_one(
+        {"company_id": user.company_id},
+        {"$set": {"logo_url": logo_url}}
+    )
+    
+    return {"logo_url": logo_url}
+
 @settings_router.put("/company")
 async def update_company_settings(data: dict, user: User = Depends(get_current_user)):
     allowed_fields = [
