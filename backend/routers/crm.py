@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from datetime import datetime, timezone
 from typing import Optional
 import uuid
+import math
 
 from config import db
 from dependencies import get_current_user
@@ -14,6 +15,18 @@ from models.crm import (
 )
 from utils.activity_logger import log_activity, user_info
 from utils.email_service import send_lead_assignment_notification
+
+
+def sanitize_float(value, default=0):
+    """Convert non-JSON-compliant floats (inf, -inf, nan) to default value"""
+    if value is None:
+        return default
+    try:
+        if math.isnan(value) or math.isinf(value):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 # ============== ROUTERS ==============
