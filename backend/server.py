@@ -201,6 +201,25 @@ class Company(BaseModel):
     billing_email: Optional[str] = None
     onboarding_completed: bool = False
     created_at: datetime
+    # Business Information Fields (for invoices, proposals, etc.)
+    legal_name: Optional[str] = None  # Razón social
+    trade_name: Optional[str] = None  # Nombre comercial
+    tax_id: Optional[str] = None  # RNC o Cédula
+    email: Optional[str] = None  # Correo electrónico
+    phone: Optional[str] = None  # Teléfono
+    website: Optional[str] = None  # Sitio web
+    # Location Information
+    address: Optional[str] = None  # Dirección
+    city: Optional[str] = None  # Municipio
+    state: Optional[str] = None  # Provincia
+    country: Optional[str] = None  # País
+    postal_code: Optional[str] = None  # Código postal
+    # Additional Business Data
+    tax_regime: Optional[str] = None  # Régimen fiscal
+    industry_sector: Optional[str] = None  # Sector
+    employee_count: Optional[str] = None  # Número de empleados
+    decimal_precision: int = 2  # Precisión decimal
+    decimal_separator: str = "."  # Separador decimal
 
 # ============== SAAS MULTI-TENANT MODELS ==============
 
