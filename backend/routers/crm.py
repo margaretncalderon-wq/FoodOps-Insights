@@ -699,10 +699,17 @@ async def get_crm_stats(user: User = Depends(get_current_user)):
         # Debug info
         "debug": {
             "your_company_id": user.company_id,
+            "your_company_id_repr": repr(user.company_id),
             "your_email": user.email,
             "total_clients_all_companies": all_clients,
             "total_leads_all_companies": all_leads,
-            "clients_by_company": clients_by_company
+            "clients_by_company": clients_by_company,
+            "top_company_id": top_company_id,
+            "top_company_id_repr": repr(top_company_id) if top_company_id else None,
+            "company_ids_match": user.company_id == top_company_id if top_company_id else False,
+            "total_with_top_company": total_with_top,
+            "user_cid_bytes": list(user_cid_bytes) if user_cid_bytes else None,
+            "top_cid_bytes": list(top_cid_bytes) if top_cid_bytes else None
         }
     }
 
