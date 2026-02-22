@@ -14007,6 +14007,55 @@ async def import_quotes(
 
 # --- LEADS EXPORT/IMPORT ---
 
+@import_export_router.get("/leads/template")
+async def download_leads_template(
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Download leads import template with correct headers"""
+    template_data = [{
+        "nombre": "Ejemplo Lead",
+        "email": "ejemplo@empresa.com",
+        "telefono": "+1 809 555 1234",
+        "whatsapp": "+1 809 555 1234",
+        "empresa": "Empresa Ejemplo SRL",
+        "tipo_cliente": "Company",  # Company o Individual
+        "direccion": "Av. Principal #123",
+        "rnc": "123-45678-9",
+        "fuente": "import",
+        "estado": "New",  # New, Contacted, NoResponse, Engaged, Qualified, Negotiation, Won, Lost
+        "outreach_status": "New",  # Para leads de outreach
+        "valor_estimado": 50000,
+        "rango_presupuesto": "25000-75000",
+        "tipo_evento": "Corporativo",
+        "fecha_evento": "2026-03-15",
+        "num_invitados": 100,
+        "tipo_lead": "outreach",  # inbound o outreach
+        "notas": "Notas adicionales sobre el lead"
+    }]
+    
+    df = pd.DataFrame(template_data)
+    
+    if format == "excel":
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Template')
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=leads_template.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=leads_template.csv"}
+        )
+
 @import_export_router.get("/leads/export")
 async def export_leads(
     format: str = "csv",
