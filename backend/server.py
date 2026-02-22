@@ -14143,6 +14143,24 @@ async def import_leads(
                 else:
                     phone = ""
                 
+                # Handle status - normalize to Title case
+                raw_status = row.get('estado') or row.get('status') or row.get('outreach_status') or "New"
+                if pd.isna(raw_status): raw_status = "New"
+                normalized_status = str(raw_status).strip().title()
+                
+                # Map common status values to CRM statuses
+                status_map = {
+                    "nuevo": "New", "new": "New",
+                    "contactado": "Contacted", "contacted": "Contacted",
+                    "sin respuesta": "NoResponse", "noresponse": "NoResponse", "no response": "NoResponse",
+                    "interesado": "Engaged", "engaged": "Engaged",
+                    "qualified": "Qualified", "calificado": "Qualified",
+                    "negotiation": "Negotiation", "negociacion": "Negotiation", "negociación": "Negotiation",
+                    "won": "Won", "ganado": "Won",
+                    "lost": "Lost", "perdido": "Lost"
+                }
+                final_status = status_map.get(normalized_status.lower(), normalized_status)
+                
                 lead_data = {
                     "name": name,
                     "lead_name": name,  # For CRM UI compatibility
@@ -14155,7 +14173,7 @@ async def import_leads(
                     "address": str(row.get('direccion') or row.get('address') or "") if not pd.isna(row.get('direccion') or row.get('address')) else "",
                     "rnc": str(row.get('rnc') or ""),
                     "source": row.get('fuente') or row.get('source') or "import",
-                    "status": (str(row.get('estado') or row.get('status') or "New")).strip().title() if not pd.isna(row.get('estado') or row.get('status')) else "New",
+                    "status": final_status,
                     "estimated_value": float(estimated_value) if estimated_value else 0,
                     "budget_range": row.get('rango_presupuesto') or row.get('budget_range') or "",
                     "event_type": row.get('tipo_evento') or row.get('tipo_proyecto') or row.get('event_type') or "",
@@ -14167,6 +14185,10 @@ async def import_leads(
                     "lead_type": lead_type,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
+                
+                # For outreach leads, also set outreach_status for compatibility with CRM UI
+                if lead_type == "outreach":
+                    lead_data["outreach_status"] = final_status
                 
                 if existing:
                     await db.leads.update_one(
