@@ -3667,20 +3667,34 @@ function DataAdminSection({ language }) {
   const [deleting, setDeleting] = useState(null);
   const [stats, setStats] = useState({ clients: 0, leads: 0, outreach: 0, inbound: 0 });
   const [debugInfo, setDebugInfo] = useState(null);
+  const [debugError, setDebugError] = useState(null);
+  const [debugLoading, setDebugLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const isEs = language === "es";
 
   useEffect(() => {
     fetchStats();
-    fetchDebugInfo();
   }, []);
 
   const fetchDebugInfo = async () => {
+    setDebugLoading(true);
+    setDebugError(null);
     try {
       const res = await axios.get(`${API}/crm/debug-info`, { withCredentials: true });
       setDebugInfo(res.data);
     } catch (err) {
       console.error("Error fetching debug info:", err);
+      setDebugError(err.response?.data?.detail || err.message || "Error al cargar diagnóstico");
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  const handleShowDebug = () => {
+    const newShow = !showDebug;
+    setShowDebug(newShow);
+    if (newShow && !debugInfo) {
+      fetchDebugInfo();
     }
   };
 
