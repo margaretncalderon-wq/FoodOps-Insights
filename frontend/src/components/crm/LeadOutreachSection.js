@@ -379,7 +379,7 @@ export default function LeadOutreachSection() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>{getStatusBadge(lead.outreach_status || "New")}</TableCell>
+                    <TableCell>{getStatusBadge(getEffectiveStatus(lead))}</TableCell>
                     <TableCell>
                       {lead.next_follow_up_date ? (
                         <div className="flex items-center gap-1 text-sm">
