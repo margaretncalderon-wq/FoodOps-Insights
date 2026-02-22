@@ -24,14 +24,30 @@ import CommunicationsTimeline from "./CommunicationsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
-// Common cities in Dominican Republic and nearby
-const CITIES = [
-  "Santo Domingo", "Santiago", "San Pedro de Macorís", "La Romana", "San Cristóbal",
-  "Puerto Plata", "San Francisco de Macorís", "Higüey", "La Vega", "Moca",
-  "Bonao", "Azua", "Baní", "Barahona", "Mao", "Cotuí", "Nagua", "Samaná",
-  "Punta Cana", "Bávaro", "Boca Chica", "Juan Dolio", "Cabarete", "Sosúa",
-  "Miami", "New York", "San Juan", "Bogotá", "Ciudad de México", "Madrid"
-];
+// Cities by country
+const CITIES_BY_COUNTRY = {
+  "República Dominicana": [
+    "Santo Domingo", "Santiago", "San Pedro de Macorís", "La Romana", "San Cristóbal",
+    "Puerto Plata", "San Francisco de Macorís", "Higüey", "La Vega", "Moca",
+    "Bonao", "Azua", "Baní", "Barahona", "Mao", "Cotuí", "Nagua", "Samaná",
+    "Punta Cana", "Bávaro", "Boca Chica", "Juan Dolio", "Cabarete", "Sosúa"
+  ],
+  "Estados Unidos": [
+    "Miami", "New York", "Los Angeles", "Houston", "Chicago", "Phoenix", "Orlando", "Tampa"
+  ],
+  "Puerto Rico": ["San Juan", "Ponce", "Mayagüez", "Bayamón", "Carolina"],
+  "España": ["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao"],
+  "México": ["Ciudad de México", "Guadalajara", "Monterrey", "Cancún", "Tijuana"],
+  "Colombia": ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena"],
+  "Panamá": ["Ciudad de Panamá", "Colón", "David"],
+  "Venezuela": ["Caracas", "Maracaibo", "Valencia", "Barquisimeto"]
+};
+
+// Helper to get cities based on country
+const getCitiesForCountry = (country) => {
+  if (!country) return CITIES_BY_COUNTRY["República Dominicana"];
+  return CITIES_BY_COUNTRY[country] || [];
+};
 
 const COUNTRIES = [
   "República Dominicana", "Estados Unidos", "Puerto Rico", "España", "México",
