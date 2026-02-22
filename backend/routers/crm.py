@@ -570,6 +570,29 @@ async def create_outreach_lead(data: LeadCreate, user: User = Depends(get_curren
     return lead_data
 
 
+@crm_router.delete("/clients/bulk-delete")
+async def bulk_delete_clients(user: User = Depends(get_current_user)):
+    """Delete all clients for this company - use with caution!"""
+    result = await db.clients.delete_many({"company_id": user.company_id})
+    return {"message": f"Deleted {result.deleted_count} clients", "deleted": result.deleted_count}
+
+
+@crm_router.delete("/leads/bulk-delete")
+async def bulk_delete_leads(lead_type: str = "all", user: User = Depends(get_current_user)):
+    """Delete leads by type - use with caution!
+    lead_type: 'outreach', 'inbound', or 'all'
+    """
+    query = {"company_id": user.company_id}
+    if lead_type == "outreach":
+        query["lead_type"] = "outreach"
+    elif lead_type == "inbound":
+        query["lead_type"] = {"$ne": "outreach"}
+    # 'all' deletes everything
+    
+    result = await db.leads.delete_many(query)
+    return {"message": f"Deleted {result.deleted_count} leads", "deleted": result.deleted_count}
+
+
 @crm_router.post("/cleanup-nan-values")
 async def cleanup_nan_values(user: User = Depends(get_current_user)):
     """Clean up 'nan' string values from all leads - one-time migration endpoint"""
