@@ -385,16 +385,32 @@ export default function ClientsSection() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder={isEs ? "Buscar por nombre, email o RNC..." : "Search by name, email or RNC..."}
+            placeholder={isEs ? "Buscar por nombre, email, RNC, ciudad o industria..." : "Search by name, email, RNC, city or industry..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
             data-testid="client-search-input"
           />
         </div>
-        {filterType !== "all" && (
-          <Button variant="outline" onClick={() => setFilterType("all")} size="sm">
-            {isEs ? "Limpiar filtro" : "Clear filter"}
+        
+        {/* Industry filter */}
+        {industries.length > 0 && (
+          <Select value={filterIndustry} onValueChange={setFilterIndustry}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder={isEs ? "Industria" : "Industry"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isEs ? "Todas las industrias" : "All industries"}</SelectItem>
+              {industries.map(ind => (
+                <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        
+        {(filterType !== "all" || filterIndustry !== "all") && (
+          <Button variant="outline" onClick={() => { setFilterType("all"); setFilterIndustry("all"); }} size="sm">
+            {isEs ? "Limpiar filtros" : "Clear filters"}
           </Button>
         )}
       </div>
@@ -408,7 +424,8 @@ export default function ClientsSection() {
                 <TableHead>{clientLabel}</TableHead>
                 <TableHead>RNC</TableHead>
                 <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead>{isEs ? "Crédito" : "Credit"}</TableHead>
+                <TableHead>{isEs ? "Ciudad" : "City"}</TableHead>
+                <TableHead>{isEs ? "Industria" : "Industry"}</TableHead>
                 <TableHead>{isEs ? "Eventos" : "Events"}</TableHead>
                 <TableHead>{isEs ? "Valor Lifetime" : "Lifetime Value"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
@@ -417,7 +434,7 @@ export default function ClientsSection() {
             <TableBody>
               {filteredClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {isEs ? `No hay ${clientsLabel.toLowerCase()}` : `No ${clientsLabel.toLowerCase()}`}
                   </TableCell>
                 </TableRow>
