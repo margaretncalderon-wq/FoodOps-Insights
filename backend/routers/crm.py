@@ -597,6 +597,18 @@ async def get_crm_stats(user: User = Depends(get_current_user)):
         "next_follow_up_date": {"$lte": today}
     })
     
+    # Add debug info to help diagnose data issues
+    all_clients = await db.clients.count_documents({})
+    all_leads = await db.leads.count_documents({})
+    
+    # Count clients per company_id (top 5)
+    pipeline = [
+        {"$group": {"_id": "$company_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    clients_by_company = await db.clients.aggregate(pipeline).to_list(5)
+    
     return {
         "total_clients": total_clients,
         "active_clients": active_clients,
@@ -604,7 +616,15 @@ async def get_crm_stats(user: User = Depends(get_current_user)):
         "new_leads": new_leads,
         "outreach_leads": outreach_leads,
         "inbound_leads": inbound_leads,
-        "follow_ups_due": follow_ups_due + client_follow_ups_due
+        "follow_ups_due": follow_ups_due + client_follow_ups_due,
+        # Debug info
+        "debug": {
+            "your_company_id": user.company_id,
+            "your_email": user.email,
+            "total_clients_all_companies": all_clients,
+            "total_leads_all_companies": all_leads,
+            "clients_by_company": clients_by_company
+        }
     }
 
 
