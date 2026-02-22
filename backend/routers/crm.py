@@ -1240,13 +1240,29 @@ async def get_by_owner(owner_id: str, user: User = Depends(get_current_user)):
 @crm_router.get("/clients-with-events")
 async def get_clients_with_events(user: User = Depends(get_current_user)):
     """Get clients with their event history, contacts and credit info"""
+    # Don't filter by status - get all clients for this company
     clients = await db.clients.find(
-        {"company_id": user.company_id, "status": "Active"},
+        {"company_id": user.company_id},
         {"_id": 0}
     ).sort("updated_at", -1).to_list(500)
     
+    # Sanitize all clients first
+    clients = [sanitize_document(c) for c in clients]
+    
     # Enrich with event data, contacts, and credit calculations
     for client in clients:
+        # Ensure status field exists
+        if "status" not in client:
+            client["status"] = "Active"
+        
+        # Ensure display_name exists
+        if not client.get("display_name"):
+            client["display_name"] = client.get("name") or client.get("company_name") or client.get("client_name") or ""
+        
+        # Ensure client_type exists
+        if not client.get("client_type"):
+            client["client_type"] = "Company" if client.get("company_name") else "Individual"
+        
         # Get events with more detail
         events = await db.events.find(
             {"client_id": client["client_id"], "company_id": user.company_id},
