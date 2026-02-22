@@ -75,11 +75,13 @@ async def get_leads(
         query["event_type"] = event_type
     
     leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    # Sanitize all leads to ensure JSON compliance
+    sanitized_leads = []
     for lead in leads:
-        for field in ["created_at", "updated_at"]:
-            if lead.get(field) and isinstance(lead[field], str):
-                lead[field] = datetime.fromisoformat(lead[field])
-    return leads
+        sanitized_leads.append(sanitize_document(lead))
+    
+    return sanitized_leads
 
 
 @leads_router.post("")
