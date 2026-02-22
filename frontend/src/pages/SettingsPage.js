@@ -523,6 +523,42 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(language === "es" ? "Tipo de archivo no válido. Use JPEG, PNG, WebP o SVG" : "Invalid file type. Use JPEG, PNG, WebP or SVG");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(language === "es" ? "El archivo es muy grande. Máximo 5MB" : "File too large. Max 5MB");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+
+      const response = await axios.post(`${API}/settings/company/logo`, formDataUpload, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      setFormData({ ...formData, logo_url: response.data.logo_url });
+      toast.success(language === "es" ? "Logo subido correctamente" : "Logo uploaded successfully");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (language === "es" ? "Error al subir logo" : "Failed to upload logo"));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleTemplateSettingChange = async (docType, setting, value) => {
     const typeIndex = documentTypes.findIndex(dt => dt.type === docType);
     if (typeIndex === -1) return;
