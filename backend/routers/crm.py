@@ -41,7 +41,7 @@ def sanitize_document(doc):
     elif isinstance(doc, list):
         return [sanitize_document(item) for item in doc]
     elif isinstance(doc, float):
-        if math.isnan(value) or math.isinf(value):
+        if math.isnan(doc) or math.isinf(doc):
             return 0
         return doc
     else:
