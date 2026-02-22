@@ -504,17 +504,13 @@ async def get_outreach_leads(user: User = Depends(get_current_user)):
         {"_id": 0}
     ).sort("created_at", -1).to_list(500)
     
+    # Sanitize all leads to ensure JSON compliance
+    sanitized_leads = []
     for lead in leads:
-        for field in ["created_at", "updated_at"]:
-            if lead.get(field) and isinstance(lead[field], str):
-                lead[field] = datetime.fromisoformat(lead[field])
-        # Sanitize float fields
-        if "estimated_value" in lead:
-            lead["estimated_value"] = sanitize_float(lead.get("estimated_value"), 0)
-        if "guest_count" in lead:
-            lead["guest_count"] = int(sanitize_float(lead.get("guest_count"), 0))
+        sanitized_lead = sanitize_document(lead)
+        sanitized_leads.append(sanitized_lead)
     
-    return leads
+    return sanitized_leads
 
 
 @crm_router.post("/outreach")
