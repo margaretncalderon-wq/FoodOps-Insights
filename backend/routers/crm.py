@@ -419,25 +419,52 @@ async def get_clients_diagnostic(user: User = Depends(get_current_user)):
 
 
 @crm_router.get("/clients")
-async def get_clients(user: User = Depends(get_current_user), status: Optional[str] = None):
+async def get_clients(user: User = Depends(get_current_user), status: Optional[str] = None, include_all: bool = False):
     """Get all clients (qualified accounts)"""
-    query = {"company_id": user.company_id}
-    if status:
-        query["status"] = status
-    
-    clients = await db.clients.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    for c in clients:
-        for field in ["created_at", "updated_at"]:
-            if c.get(field) and isinstance(c[field], str):
-                c[field] = datetime.fromisoformat(c[field])
-        # Ensure new fields have defaults
-        if "display_name" not in c:
-            c["display_name"] = c.get("name", c.get("company_name", ""))
-        if "client_type" not in c:
-            c["client_type"] = "Company" if c.get("company_name") else "Individual"
-        if "status" not in c:
-            c["status"] = "Active"
-    return clients
+    try:
+        query = {"company_id": user.company_id}
+        if status:
+            query["status"] = status
+        
+        clients = await db.clients.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+        
+        # If no clients found with company_id, try without filter (for debugging)
+        if len(clients) == 0 and include_all:
+            clients = await db.clients.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+        
+        # Sanitize and process clients
+        result = []
+        for c in clients:
+            try:
+                # Sanitize the document first
+                c = sanitize_document(c)
+                
+                for field in ["created_at", "updated_at"]:
+                    val = c.get(field)
+                    if val and isinstance(val, str):
+                        try:
+                            c[field] = datetime.fromisoformat(val.replace('Z', '+00:00'))
+                        except:
+                            c[field] = None
+                
+                # Ensure new fields have defaults
+                if "display_name" not in c or not c.get("display_name"):
+                    c["display_name"] = c.get("name") or c.get("company_name") or c.get("client_name") or ""
+                if "client_type" not in c:
+                    c["client_type"] = "Company" if c.get("company_name") else "Individual"
+                if "status" not in c:
+                    c["status"] = "Active"
+                    
+                result.append(c)
+            except Exception as e:
+                # Skip problematic clients but log
+                print(f"Error processing client: {e}")
+                continue
+        
+        return result
+    except Exception as e:
+        print(f"Error in get_clients: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @crm_router.post("/clients")
