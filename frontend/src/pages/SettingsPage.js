@@ -3679,9 +3679,9 @@ function DataAdminSection({ language }) {
       
       setStats({
         clients: Array.isArray(clientsRes.data) ? clientsRes.data.length : 0,
-        leads: statsRes.data?.total || 0,
+        leads: statsRes.data?.total_leads || 0,
         outreach: statsRes.data?.outreach_leads || 0,
-        inbound: (statsRes.data?.total || 0) - (statsRes.data?.outreach_leads || 0)
+        inbound: statsRes.data?.inbound_leads || 0
       });
     } catch (err) {
       console.error("Error fetching stats:", err);
@@ -3690,9 +3690,9 @@ function DataAdminSection({ language }) {
         const statsRes = await axios.get(`${API}/crm/stats`, { withCredentials: true });
         setStats(prev => ({
           ...prev,
-          leads: statsRes.data?.total || 0,
+          leads: statsRes.data?.total_leads || 0,
           outreach: statsRes.data?.outreach_leads || 0,
-          inbound: (statsRes.data?.total || 0) - (statsRes.data?.outreach_leads || 0)
+          inbound: statsRes.data?.inbound_leads || 0
         }));
       } catch (e) {
         console.error("Could not fetch any stats");
