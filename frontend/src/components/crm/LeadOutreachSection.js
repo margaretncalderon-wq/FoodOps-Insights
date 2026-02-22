@@ -229,6 +229,7 @@ export default function LeadOutreachSection() {
 
   // Helper to get the effective status - prioritize outreach_status, fallback to status
   const getEffectiveStatus = (lead) => {
+    if (!lead) return "New";
     return lead.outreach_status || lead.status || "New";
   };
 
