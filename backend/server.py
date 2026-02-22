@@ -14097,6 +14097,8 @@ async def export_leads(
             "empresa": l.get("company") or l.get("company_name", ""),
             "tipo_cliente": l.get("client_type", "Individual"),
             "direccion": l.get("address", ""),
+            "ciudad": l.get("city", ""),
+            "pais": l.get("country", ""),
             "rnc": l.get("rnc", ""),
             "fuente": l.get("source", ""),
             "estado": effective_status,
