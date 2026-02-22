@@ -148,23 +148,48 @@ export default function DocumentPreview() {
       </div>
 
       {/* Document Content */}
-      <div className="bg-white shadow-md max-w-[210mm] mx-auto p-12 border-t-4 border-primary my-8 print:shadow-none print:border-0">
+      <div className="bg-white shadow-md max-w-[210mm] mx-auto p-12 border-t-4 border-primary my-8 print:shadow-none print:border-0" style={{ borderColor: company.primary_color || "#3A4D3F" }}>
         {/* Company Header */}
         <div className="flex items-start justify-between mb-8 pb-8 border-b">
-          <div>
+          <div className="flex gap-4 items-start">
             {company.logo_url && (
-              <img src={company.logo_url} alt={company.name} className="h-12 mb-2" />
+              <img 
+                src={company.logo_url.startsWith('/api') ? `${API.replace('/api', '')}${company.logo_url}` : company.logo_url} 
+                alt={company.legal_name || company.name} 
+                className="h-16 object-contain"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
             )}
-            <h2 className="font-heading text-2xl font-bold" style={{ color: company.primary_color || "#3A4D3F" }}>
-              {company.name || "Company Name"}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <div>
+              <h2 className="font-heading text-xl font-bold" style={{ color: company.primary_color || "#3A4D3F" }}>
+                {company.legal_name || company.trade_name || company.name || ""}
+              </h2>
+              {company.tax_id && (
+                <p className="text-xs text-muted-foreground">RNC: {company.tax_id}</p>
+              )}
+              {(company.address || company.city) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {[company.address, company.city, company.state].filter(Boolean).join(", ")}
+                </p>
+              )}
+              {(company.phone || company.email) && (
+                <p className="text-xs text-muted-foreground">
+                  {[company.phone, company.email].filter(Boolean).join(" | ")}
+                </p>
+              )}
+              {company.website && (
+                <p className="text-xs text-muted-foreground">{company.website}</p>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="font-heading font-semibold text-lg" style={{ color: company.primary_color || "#3A4D3F" }}>
               {getDocTypeLabel()}
             </p>
-          </div>
-          <div className="text-right text-sm text-muted-foreground">
-            <p>{language === "es" ? "Fecha" : "Date"}: {new Date(content.generated_at || document?.created_at).toLocaleDateString()}</p>
-            <p>#{document?.document_id?.slice(-8)}</p>
+            <p className="text-sm text-muted-foreground mt-1">#{document?.document_id?.slice(-8)}</p>
+            <p className="text-sm text-muted-foreground">
+              {language === "es" ? "Fecha" : "Date"}: {new Date(content.generated_at || document?.created_at).toLocaleDateString()}
+            </p>
           </div>
         </div>
 
