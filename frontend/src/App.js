@@ -281,6 +281,7 @@ function AppRouter() {
           <Route path="organizations" element={<OrganizationsListPage />} />
           <Route path="organizations/:id" element={<OrganizationDetailPage />} />
           <Route path="users" element={<UserManagementPage />} />
+          <Route path="diagnostics" element={<DataDiagnosticsPage />} />
           <Route path="settings" element={<SuperAdminSettings />} />
         </Route>
         {/* Redirect all other routes to Super Admin */}
