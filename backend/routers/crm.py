@@ -633,7 +633,29 @@ async def get_debug_info(user: User = Depends(get_current_user)):
 @crm_router.get("/stats")
 async def get_crm_stats(user: User = Depends(get_current_user)):
     """Get CRM statistics"""
+    # Debug: Find the company_id that has the most clients
+    pipeline = [
+        {"$group": {"_id": "$company_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 1}
+    ]
+    top_company = await db.clients.aggregate(pipeline).to_list(1)
+    top_company_id = top_company[0]["_id"] if top_company else None
+    
+    # Check if user's company_id matches the top one
+    user_cid = user.company_id
+    user_cid_bytes = user_cid.encode('utf-8') if user_cid else None
+    top_cid_bytes = top_company_id.encode('utf-8') if top_company_id else None
+    
+    # Try exact match
     total_clients = await db.clients.count_documents({"company_id": user.company_id})
+    
+    # If zero, try the top company_id directly
+    if total_clients == 0 and top_company_id:
+        total_with_top = await db.clients.count_documents({"company_id": top_company_id})
+    else:
+        total_with_top = total_clients
+    
     active_clients = await db.clients.count_documents({"company_id": user.company_id, "status": "Active"})
     total_leads = await db.leads.count_documents({"company_id": user.company_id})
     new_leads = await db.leads.count_documents({"company_id": user.company_id, "status": "New"})
