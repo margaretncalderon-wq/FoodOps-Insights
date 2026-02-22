@@ -273,6 +273,8 @@ export default function LeadOutreachSection() {
       client_type: lead.client_type || "Individual",
       rnc: lead.rnc || "",
       address: lead.address || "",
+      city: lead.city || "",
+      country: lead.country || "",
       message: lead.message || lead.notes || "",
       owner_id: lead.owner_id || "",
       event_type: lead.event_type || ""
@@ -293,6 +295,8 @@ export default function LeadOutreachSection() {
         whatsapp: editForm.whatsapp,
         company_name: editForm.company_name,
         company: editForm.company_name,
+        city: editForm.city,
+        country: editForm.country,
         client_type: editForm.client_type,
         rnc: editForm.rnc,
         address: editForm.address,
