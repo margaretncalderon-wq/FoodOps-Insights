@@ -139,19 +139,37 @@ export default function LeadOutreachSection() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      // Fetch actual team members from the organization
+      // Try to fetch team members from the organization
       const res = await axios.get(`${API}/api/org/members`, { withCredentials: true });
-      if (res.data && Array.isArray(res.data)) {
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         setUsers(res.data.map(member => ({
           user_id: member.user_id,
           name: member.name || member.email || member.user_id.replace("user_", "User ")
         })));
+        return;
       }
     } catch (err) {
-      console.error("Error loading users:", err);
-      // Fallback: extract unique owner_ids from leads
-      const ownerIds = new Set();
-      leads.forEach(l => l.owner_id && ownerIds.add(l.owner_id));
+      console.error("Error loading org members:", err);
+    }
+    
+    // Fallback: try settings/team endpoint
+    try {
+      const teamRes = await axios.get(`${API}/api/settings/team`, { withCredentials: true });
+      if (teamRes.data && Array.isArray(teamRes.data) && teamRes.data.length > 0) {
+        setUsers(teamRes.data.map(member => ({
+          user_id: member.user_id,
+          name: member.name || member.email || member.user_id.replace("user_", "User ")
+        })));
+        return;
+      }
+    } catch (err) {
+      console.error("Error loading team:", err);
+    }
+    
+    // Last fallback: extract from leads
+    const ownerIds = new Set();
+    leads.forEach(l => l.owner_id && ownerIds.add(l.owner_id));
+    if (ownerIds.size > 0) {
       setUsers(Array.from(ownerIds).map(id => ({ user_id: id, name: id.replace("user_", "User ") })));
     }
   }, [leads]);
