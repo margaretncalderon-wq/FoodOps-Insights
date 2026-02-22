@@ -374,6 +374,27 @@ export default function DocumentPreview() {
           </div>
         )}
 
+        {/* Bank Information */}
+        {content.bank_info && content.bank_info.bank_name && (
+          <div className="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="font-medium text-sm mb-2">{language === "es" ? "Información para Pago" : "Payment Information"}:</p>
+            <div className="grid sm:grid-cols-2 gap-2 text-sm">
+              <p><span className="text-muted-foreground">{language === "es" ? "Banco" : "Bank"}:</span> {content.bank_info.bank_name}</p>
+              <p><span className="text-muted-foreground">{language === "es" ? "Cuenta" : "Account"}:</span> {content.bank_info.account_number}</p>
+              {content.bank_info.account_type && (
+                <p><span className="text-muted-foreground">{language === "es" ? "Tipo" : "Type"}:</span> {content.bank_info.account_type === "checking" ? (language === "es" ? "Corriente" : "Checking") : (language === "es" ? "Ahorro" : "Savings")}</p>
+              )}
+              {content.bank_info.beneficiary && (
+                <p><span className="text-muted-foreground">{language === "es" ? "Beneficiario" : "Beneficiary"}:</span> {content.bank_info.beneficiary}</p>
+              )}
+              {content.bank_info.routing_number && (
+                <p><span className="text-muted-foreground">SWIFT:</span> {content.bank_info.routing_number}</p>
+              )}
+            </div>
+            {content.bank_info.notes && <p className="text-xs text-muted-foreground mt-2">{content.bank_info.notes}</p>}
+          </div>
+        )}
+
         {/* Terms & Conditions */}
         {content.terms_and_conditions && (
           <div className="mb-8 p-4 border rounded-lg">
