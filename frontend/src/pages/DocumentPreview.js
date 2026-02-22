@@ -362,7 +362,7 @@ export default function DocumentPreview() {
             {content.payment_terms && (
               <div className="mb-3">
                 <p className="font-medium text-sm">{language === "es" ? "Términos de Pago" : "Payment Terms"}:</p>
-                <p className="text-sm text-muted-foreground">{content.payment_terms}</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">{content.payment_terms}</p>
               </div>
             )}
             {content.client_notes && (
@@ -371,6 +371,14 @@ export default function DocumentPreview() {
                 <p className="text-sm text-muted-foreground">{content.client_notes}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Terms & Conditions */}
+        {content.terms_and_conditions && (
+          <div className="mb-8 p-4 border rounded-lg">
+            <p className="font-medium text-sm mb-2">{language === "es" ? "Términos y Condiciones" : "Terms & Conditions"}:</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-line">{content.terms_and_conditions}</p>
           </div>
         )}
 
