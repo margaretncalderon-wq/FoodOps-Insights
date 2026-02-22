@@ -14104,28 +14104,54 @@ async def import_leads(
                 guest_count = row.get('num_invitados') or row.get('guest_count') or 0
                 if pd.isna(guest_count): guest_count = 0
                 
+                # Handle 'tipo' column from client format -> lead_type
+                lead_type_raw = row.get('tipo_lead') or row.get('lead_type') or row.get('tipo') or "inbound"
+                if pd.isna(lead_type_raw): lead_type_raw = "inbound"
+                lead_type = str(lead_type_raw).lower().strip()
+                if lead_type not in ["inbound", "outreach"]:
+                    lead_type = "outreach" if "outreach" in lead_type.lower() else "inbound"
+                
+                # Build notes from multiple fields (for client format)
+                notes_parts = []
+                if row.get('notas') and not pd.isna(row.get('notas')): notes_parts.append(str(row.get('notas')))
+                if row.get('descripcion') and not pd.isna(row.get('descripcion')): notes_parts.append(f"Descripción: {row.get('descripcion')}")
+                if row.get('industria') and not pd.isna(row.get('industria')): notes_parts.append(f"Industria: {row.get('industria')}")
+                if row.get('pagina_web') and not pd.isna(row.get('pagina_web')): notes_parts.append(f"Web: {row.get('pagina_web')}")
+                if row.get('linkedin') and not pd.isna(row.get('linkedin')): notes_parts.append(f"LinkedIn: {row.get('linkedin')}")
+                if row.get('instagram') and not pd.isna(row.get('instagram')): notes_parts.append(f"Instagram: {row.get('instagram')}")
+                combined_notes = " | ".join(notes_parts) if notes_parts else ""
+                
+                # Handle phone - convert scientific notation to string
+                phone_raw = row.get('telefono') or row.get('phone') or ""
+                if not pd.isna(phone_raw):
+                    if isinstance(phone_raw, float):
+                        phone_raw = str(int(phone_raw))
+                    phone = str(phone_raw)
+                else:
+                    phone = ""
+                
                 lead_data = {
                     "name": name,
                     "lead_name": name,  # For CRM UI compatibility
-                    "email": email,
-                    "phone": str(row.get('telefono') or row.get('phone') or ""),
+                    "email": email if not pd.isna(email) else "",
+                    "phone": phone,
                     "whatsapp": str(row.get('whatsapp') or ""),
-                    "company": row.get('empresa') or row.get('company') or "",
-                    "company_name": row.get('empresa') or row.get('company') or "",  # For CRM UI
-                    "client_type": row.get('tipo_cliente') or row.get('client_type') or "Individual",
-                    "address": row.get('direccion') or row.get('address') or "",
+                    "company": company,
+                    "company_name": company,  # For CRM UI
+                    "client_type": row.get('tipo_cliente') or row.get('client_type') or "Company" if is_client_format else "Individual",
+                    "address": str(row.get('direccion') or row.get('address') or "") if not pd.isna(row.get('direccion') or row.get('address')) else "",
                     "rnc": str(row.get('rnc') or ""),
                     "source": row.get('fuente') or row.get('source') or "import",
-                    "status": (row.get('estado') or row.get('status') or "New").strip().title(),  # Normalize to "New", "Contacted", etc.
-                    "estimated_value": float(estimated_value),
+                    "status": (str(row.get('estado') or row.get('status') or "New")).strip().title() if not pd.isna(row.get('estado') or row.get('status')) else "New",
+                    "estimated_value": float(estimated_value) if estimated_value else 0,
                     "budget_range": row.get('rango_presupuesto') or row.get('budget_range') or "",
                     "event_type": row.get('tipo_evento') or row.get('tipo_proyecto') or row.get('event_type') or "",
                     "event_date": str(row.get('fecha_evento') or row.get('fecha_inicio') or row.get('event_date') or ""),
-                    "guest_count": int(guest_count),
-                    "estimated_guest_count": int(guest_count),  # For CRM UI
-                    "notes": row.get('notas') or row.get('notes') or "",
-                    "message": row.get('notas') or row.get('notes') or "",  # For CRM UI
-                    "lead_type": row.get('tipo_lead') or row.get('lead_type') or "inbound",
+                    "guest_count": int(guest_count) if guest_count else 0,
+                    "estimated_guest_count": int(guest_count) if guest_count else 0,
+                    "notes": combined_notes,
+                    "message": combined_notes,  # For CRM UI
+                    "lead_type": lead_type,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
                 
