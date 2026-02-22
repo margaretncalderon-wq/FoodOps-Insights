@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { 
   Plus, Search, Phone, Mail, Building2, RefreshCw, User, 
   MoreHorizontal, CheckCircle, Eye, Clock, CalendarPlus,
-  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info
+  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info, Edit
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
