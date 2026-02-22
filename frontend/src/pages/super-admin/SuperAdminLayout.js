@@ -34,6 +34,7 @@ export default function SuperAdminLayout() {
   const [authorized, setAuthorized] = useState(false);
   const [stats, setStats] = useState(null);
   const [viewAsStatus, setViewAsStatus] = useState({ active: false, org_id: null, org_name: null });
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     checkAccess();
@@ -45,11 +46,22 @@ export default function SuperAdminLayout() {
       const res = await axios.get(`${API}/api/super-admin/stats`, { withCredentials: true });
       setStats(res.data);
       setAuthorized(true);
+      setLoading(false);
     } catch (err) {
-      console.error("Super admin access denied:", err);
-      setAuthorized(false);
+      console.error("Super admin access check failed:", err);
+      // If it's a 401/403, retry once after a short delay (cookie might not be ready)
+      if (retryCount < 2 && (err.response?.status === 401 || err.response?.status === 403 || !err.response)) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          checkAccess();
+        }, 500);
+      } else {
+        setAuthorized(false);
+        setLoading(false);
+        // Redirect to admin login
+        navigate("/admin-login", { replace: true });
+      }
     }
-    setLoading(false);
   };
 
   const checkViewAsStatus = async () => {
