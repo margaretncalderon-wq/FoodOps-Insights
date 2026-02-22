@@ -76,6 +76,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const [costHistory, setCostHistory] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [company, setCompany] = useState({});
   
   // Dialogs
   const [costHistoryOpen, setCostHistoryOpen] = useState(false);
