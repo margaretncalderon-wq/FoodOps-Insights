@@ -3676,6 +3676,19 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
         "generated_at": now.isoformat()
     }
     
+    # Add terms and conditions based on document type and language
+    lang = company.get("default_language", "en") if company else "en"
+    terms_key_map = {
+        "quote": f"terms_proposal_{lang}",
+        "proposal": f"terms_proposal_{lang}",
+        "invoice": f"terms_invoice_{lang}",
+        "contract": f"terms_contract_{lang}",
+    }
+    terms_key = terms_key_map.get(doc_type)
+    if terms_key and company:
+        content["terms_and_conditions"] = company.get(terms_key, "")
+        content["payment_terms"] = company.get("payment_terms_default", "")
+    
     titles = {
         "contract": "Contract", "beo": "Banquet Event Order", "kitchen_sheet": "Kitchen Production Sheet",
         "packing_list": "Packing/Setup List", "mise_en_place": "Mise en Place Checklist",
