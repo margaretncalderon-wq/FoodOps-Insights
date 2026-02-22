@@ -3667,36 +3667,12 @@ function DataAdminSection({ language }) {
   const [deleting, setDeleting] = useState(null);
   const [stats, setStats] = useState({ clients: 0, leads: 0, outreach: 0, inbound: 0 });
   const [debugInfo, setDebugInfo] = useState(null);
-  const [debugError, setDebugError] = useState(null);
-  const [debugLoading, setDebugLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const isEs = language === "es";
 
   useEffect(() => {
     fetchStats();
   }, []);
-
-  const fetchDebugInfo = async () => {
-    setDebugLoading(true);
-    setDebugError(null);
-    try {
-      const res = await axios.get(`${API}/crm/debug-info`, { withCredentials: true });
-      setDebugInfo(res.data);
-    } catch (err) {
-      console.error("Error fetching debug info:", err);
-      setDebugError(err.response?.data?.detail || err.message || "Error al cargar diagnóstico");
-    } finally {
-      setDebugLoading(false);
-    }
-  };
-
-  const handleShowDebug = () => {
-    const newShow = !showDebug;
-    setShowDebug(newShow);
-    if (newShow && !debugInfo) {
-      fetchDebugInfo();
-    }
-  };
 
   const fetchStats = async () => {
     try {
@@ -3709,20 +3685,21 @@ function DataAdminSection({ language }) {
         outreach: statsRes.data?.outreach_leads || 0,
         inbound: statsRes.data?.inbound_leads || 0
       });
+      
+      // Set debug info from stats response
+      if (statsRes.data?.debug) {
+        setDebugInfo({
+          your_email: statsRes.data.debug.your_email,
+          your_company_id: statsRes.data.debug.your_company_id,
+          your_clients_count: statsRes.data.total_clients,
+          your_leads_count: statsRes.data.total_leads,
+          total_clients_all_companies: statsRes.data.debug.total_clients_all_companies,
+          total_leads_all_companies: statsRes.data.debug.total_leads_all_companies,
+          clients_count_by_company: statsRes.data.debug.clients_by_company
+        });
+      }
     } catch (err) {
       console.error("Error fetching stats:", err);
-      // Try to at least get stats
-      try {
-        const statsRes = await axios.get(`${API}/crm/stats`, { withCredentials: true });
-        setStats(prev => ({
-          ...prev,
-          leads: statsRes.data?.total_leads || 0,
-          outreach: statsRes.data?.outreach_leads || 0,
-          inbound: statsRes.data?.inbound_leads || 0
-        }));
-      } catch (e) {
-        console.error("Could not fetch any stats");
-      }
     }
   };
 
