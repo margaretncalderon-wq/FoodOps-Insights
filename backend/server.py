@@ -14058,7 +14058,7 @@ async def import_leads(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user)
 ):
-    """Import leads from CSV or Excel"""
+    """Import leads from CSV or Excel - supports both lead format and client format"""
     try:
         content = await file.read()
         
@@ -14069,13 +14069,22 @@ async def import_leads(
         
         df.columns = df.columns.str.lower().str.strip()
         
+        # Detect if this is a client-format file (has 'tipo' or 'pagina_web' columns but no 'estado' or 'valor_estimado')
+        is_client_format = ('tipo' in df.columns or 'pagina_web' in df.columns) and 'estado' not in df.columns and 'valor_estimado' not in df.columns
+        
         imported = 0
         errors = []
         
         for idx, row in df.iterrows():
             try:
+                # Handle both formats for name
                 name = row.get('nombre') or row.get('name') or ""
                 email = row.get('email') or ""
+                company = row.get('empresa') or row.get('company') or ""
+                
+                # If no name but has company, use company as name
+                if not name and company:
+                    name = company
                 
                 if not name and not email:
                     errors.append(f"Fila {idx+2}: Nombre o email requerido")
