@@ -191,25 +191,6 @@ async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current
     return sanitize_document(updated_lead)
 
 
-@leads_router.put("/{lead_id}")
-async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current_user)):
-    """Update a lead"""
-    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id})
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    
-    # Don't allow updates to converted leads
-    if lead.get("status") == "Converted":
-        raise HTTPException(status_code=400, detail="Cannot update a converted lead")
-    
-    now = datetime.now(timezone.utc)
-    update_data = {k: v for k, v in data.items() if k not in ["lead_id", "company_id", "created_at"]}
-    update_data["updated_at"] = now.isoformat()
-    
-    await db.leads.update_one({"lead_id": lead_id}, {"$set": update_data})
-    return await get_lead(lead_id, user)
-
-
 @leads_router.post("/{lead_id}/convert")
 async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
     """Convert a lead to Client + Contact + Event"""
