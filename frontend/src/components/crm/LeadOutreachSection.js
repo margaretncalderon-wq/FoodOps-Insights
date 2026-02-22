@@ -902,6 +902,124 @@ export default function LeadOutreachSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Lead" : "Edit Lead"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>{isEs ? "Nombre" : "Name"} *</Label>
+                <Input
+                  value={editForm.lead_name}
+                  onChange={(e) => setEditForm({ ...editForm, lead_name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Tipo" : "Type"}</Label>
+                <Select value={editForm.client_type} onValueChange={(v) => setEditForm({ ...editForm, client_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_TYPES.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {isEs ? type.labelEs : type.labelEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>RNC</Label>
+                <Input
+                  value={editForm.rnc}
+                  onChange={(e) => setEditForm({ ...editForm, rnc: e.target.value })}
+                  placeholder="000-00000-0"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>WhatsApp</Label>
+              <Input
+                value={editForm.whatsapp}
+                onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })}
+                placeholder="+1 809 555 1234"
+              />
+            </div>
+
+            <div>
+              <Label>{isEs ? "Empresa" : "Company"}</Label>
+              <Input
+                value={editForm.company_name}
+                onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label>{isEs ? "Dirección" : "Address"}</Label>
+              <Input
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label>{isEs ? "Asignar a" : "Assign to"}</Label>
+              <Select value={editForm.owner_id || "unassigned"} onValueChange={(v) => setEditForm({ ...editForm, owner_id: v === "unassigned" ? "" : v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar owner" : "Select owner"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                  {users.map(user => (
+                    <SelectItem key={user.user_id} value={user.user_id}>{user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>{isEs ? "Notas" : "Notes"}</Label>
+              <Textarea
+                value={editForm.message}
+                onChange={(e) => setEditForm({ ...editForm, message: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                {isEs ? "Cancelar" : "Cancel"}
+              </Button>
+              <Button type="submit">{isEs ? "Guardar" : "Save"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
