@@ -195,6 +195,15 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Files Modified**: `/app/frontend/src/components/crm/LeadOutreachSection.js`
 - **Status**: FIXED - PENDING USER VERIFICATION IN PRODUCTION
 
+### Fix: JSON Serialization Error (ValueError float) - FIXED (Feb 22, 2026)
+- **Issue**: Deployment failing with `ValueError: Out of range float values are not JSON compliant` on `/api/crm/outreach` endpoint
+- **Root Cause**: Imported leads contained NaN or infinity values in numeric fields that cannot be serialized to JSON
+- **Fix**: 
+  - Added `sanitize_document()` function that recursively sanitizes all numeric fields in a document
+  - Applied sanitization to `/api/crm/outreach`, `/api/crm/inbound`, and `/api/leads` endpoints
+- **Files Modified**: `/app/backend/routers/crm.py`
+- **Status**: FIXED - READY FOR DEPLOYMENT
+
 ## Pending Issues
 - P1: Email Notifications (blocked on RESEND_API_KEY)
 - P1: Google Calendar Production OAuth (requires user action post-deploy)
