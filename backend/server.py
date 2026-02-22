@@ -10120,6 +10120,18 @@ async def get_event_packing_list_supplies(event_id: str, user: User = Depends(ge
     # For now, return available supplies that could be added to the event
     return supplies
 
+
+# Direct /clients endpoint (alias to /crm/clients for backward compatibility)
+@api_router.get("/clients")
+async def get_clients_direct(user: User = Depends(get_current_user)):
+    """Get all clients for this company - direct endpoint"""
+    clients = await db.clients.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("display_name", 1).to_list(1000)
+    return clients
+
+
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
