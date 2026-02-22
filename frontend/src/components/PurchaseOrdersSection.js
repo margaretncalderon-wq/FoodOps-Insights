@@ -118,14 +118,16 @@ export default function PurchaseOrdersSection() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [posRes, suppliersRes, inventoryRes] = await Promise.all([
+      const [posRes, suppliersRes, inventoryRes, companyRes] = await Promise.all([
         axios.get(`${API}/api/purchase-orders`, { withCredentials: true }),
         axios.get(`${API}/api/suppliers`, { withCredentials: true }),
-        axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true })
+        axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
+        axios.get(`${API}/api/settings/company`, { withCredentials: true })
       ]);
       setPOs(posRes.data);
       setSuppliers(suppliersRes.data);
       setInventory(inventoryRes.data);
+      setCompany(companyRes.data || {});
     } catch (error) {
       toast.error("Error loading data");
     }
