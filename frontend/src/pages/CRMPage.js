@@ -544,7 +544,7 @@ export default function CRMPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "es" ? "Convertidos" : "Converted"}</p>
-                  <p className="text-2xl font-bold">{leads.filter(l => l.status === "Converted").length}</p>
+                  <p className="text-2xl font-bold">{leads.filter(l => l.status?.toLowerCase() === "converted").length}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
                   <CheckCircle className="h-6 w-6 text-emerald-600" />
