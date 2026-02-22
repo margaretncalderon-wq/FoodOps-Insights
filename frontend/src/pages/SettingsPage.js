@@ -136,9 +136,17 @@ export default function SettingsPage() {
     terms_contract_es: "",
     terms_contract_en: "",
     payment_terms_default: "",
+    // Bank Account
+    bank_name: "",
+    bank_account_number: "",
+    bank_account_type: "",
+    bank_routing_number: "",
+    bank_beneficiary: "",
+    bank_notes: "",
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [activeTermsTab, setActiveTermsTab] = useState("proposal");
+  const [showDocPreview, setShowDocPreview] = useState(false);
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
   const [newPicklist, setNewPicklist] = useState({ 
