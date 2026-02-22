@@ -83,9 +83,11 @@ export default function LeadOutreachSection() {
     client_type: "Individual",
     rnc: "",
     address: "",
+    city: "",
+    country: "República Dominicana",
     message: "",
     owner_id: "",
-    event_type: "corporate"
+    event_type: ""
   });
   const [editForm, setEditForm] = useState({
     lead_name: "",
