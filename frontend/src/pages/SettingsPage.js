@@ -1990,13 +1990,207 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end">
+              {/* Bank Account Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg flex items-center gap-2">
+                    <Landmark className="w-5 h-5" />
+                    {language === "es" ? "Información Bancaria" : "Bank Account Information"}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "es" 
+                      ? "Esta información aparecerá en facturas y propuestas para facilitar el pago" 
+                      : "This information will appear in invoices and proposals for easy payment"}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Nombre del Banco" : "Bank Name"}</Label>
+                      <Input 
+                        value={formData.bank_name} 
+                        onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                        placeholder="Banco Popular Dominicano"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Número de Cuenta" : "Account Number"}</Label>
+                      <Input 
+                        value={formData.bank_account_number} 
+                        onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                        placeholder="123-456789-0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Tipo de Cuenta" : "Account Type"}</Label>
+                      <Select value={formData.bank_account_type} onValueChange={(v) => setFormData({ ...formData, bank_account_type: v })}>
+                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="checking">{language === "es" ? "Corriente" : "Checking"}</SelectItem>
+                          <SelectItem value="savings">{language === "es" ? "Ahorro" : "Savings"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "SWIFT / Número de Ruta" : "SWIFT / Routing Number"}</Label>
+                      <Input 
+                        value={formData.bank_routing_number} 
+                        onChange={(e) => setFormData({ ...formData, bank_routing_number: e.target.value })}
+                        placeholder="BPOPDOMX"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Beneficiario" : "Beneficiary"}</Label>
+                      <Input 
+                        value={formData.bank_beneficiary} 
+                        onChange={(e) => setFormData({ ...formData, bank_beneficiary: e.target.value })}
+                        placeholder={formData.legal_name || (language === "es" ? "Nombre de la empresa" : "Company name")}
+                      />
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-1 space-y-2">
+                      <Label>{language === "es" ? "Notas Adicionales" : "Additional Notes"}</Label>
+                      <Input 
+                        value={formData.bank_notes} 
+                        onChange={(e) => setFormData({ ...formData, bank_notes: e.target.value })}
+                        placeholder={language === "es" ? "Ej: Referencia: número de factura" : "E.g.: Reference: invoice number"}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Preview & Save Actions */}
+              <div className="flex justify-between items-center">
+                <Button type="button" variant="outline" onClick={() => setShowDocPreview(true)} className="gap-2">
+                  <Eye className="w-4 h-4" />
+                  {language === "es" ? "Vista Previa de Documento" : "Document Preview"}
+                </Button>
                 <Button type="submit" disabled={saving} data-testid="save-settings-btn">
                   {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                   {t("save")}
                 </Button>
               </div>
             </form>
+
+            {/* Document Preview Dialog */}
+            <Dialog open={showDocPreview} onOpenChange={setShowDocPreview}>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-heading flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    {language === "es" ? "Vista Previa de Documento" : "Document Preview"}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                {/* Sample Document Preview */}
+                <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderTopColor: formData.primary_color, borderTopWidth: "4px" }}>
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-6 pb-6 border-b">
+                    <div className="flex gap-4 items-start">
+                      {formData.logo_url && (
+                        <img 
+                          src={formData.logo_url.startsWith('/api') ? `${API.replace('/api', '')}${formData.logo_url}` : formData.logo_url} 
+                          alt="Logo" 
+                          className="h-14 object-contain"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      <div>
+                        <h2 className="text-lg font-bold" style={{ color: formData.primary_color }}>
+                          {formData.legal_name || formData.trade_name || formData.name || (language === "es" ? "Nombre de Empresa" : "Company Name")}
+                        </h2>
+                        {formData.tax_id && <p className="text-xs text-muted-foreground">RNC: {formData.tax_id}</p>}
+                        {(formData.address || formData.city) && (
+                          <p className="text-xs text-muted-foreground">{[formData.address, formData.city, formData.state].filter(Boolean).join(", ")}</p>
+                        )}
+                        {(formData.phone || formData.email) && (
+                          <p className="text-xs text-muted-foreground">{[formData.phone, formData.email].filter(Boolean).join(" | ")}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold" style={{ color: formData.primary_color }}>{language === "es" ? "Propuesta" : "Proposal"}</p>
+                      <p className="text-sm text-muted-foreground">#SAMPLE-001</p>
+                      <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Sample Event & Client */}
+                  <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <h3 className="font-semibold mb-2 text-sm">{language === "es" ? "Detalles del Evento" : "Event Details"}</h3>
+                      <p className="font-medium">{language === "es" ? "Boda de Ejemplo" : "Sample Wedding"}</p>
+                      <p className="text-sm text-muted-foreground">📅 {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+                      <p className="text-sm text-muted-foreground">👥 150 {language === "es" ? "invitados" : "guests"}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-2 text-sm">{language === "es" ? "Cliente" : "Client"}</h3>
+                      <p className="font-medium">Juan Pérez</p>
+                      <p className="text-sm text-muted-foreground">cliente@ejemplo.com</p>
+                    </div>
+                  </div>
+
+                  {/* Sample Items */}
+                  <div className="mb-6 p-4 bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground text-center">{language === "es" ? "[ Aquí aparecerían los ítems del evento ]" : "[ Event items would appear here ]"}</p>
+                  </div>
+
+                  {/* Payment Terms */}
+                  {formData.payment_terms_default && (
+                    <div className="mb-4 p-4 bg-muted/30 rounded-lg">
+                      <p className="font-medium text-sm mb-1">{language === "es" ? "Términos de Pago" : "Payment Terms"}:</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">{formData.payment_terms_default}</p>
+                    </div>
+                  )}
+
+                  {/* Bank Info */}
+                  {formData.bank_name && (
+                    <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="font-medium text-sm mb-2 flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        {language === "es" ? "Información para Pago" : "Payment Information"}
+                      </p>
+                      <div className="grid sm:grid-cols-2 gap-2 text-sm">
+                        <p><span className="text-muted-foreground">{language === "es" ? "Banco" : "Bank"}:</span> {formData.bank_name}</p>
+                        <p><span className="text-muted-foreground">{language === "es" ? "Cuenta" : "Account"}:</span> {formData.bank_account_number}</p>
+                        {formData.bank_account_type && <p><span className="text-muted-foreground">{language === "es" ? "Tipo" : "Type"}:</span> {formData.bank_account_type === "checking" ? (language === "es" ? "Corriente" : "Checking") : (language === "es" ? "Ahorro" : "Savings")}</p>}
+                        {formData.bank_beneficiary && <p><span className="text-muted-foreground">{language === "es" ? "Beneficiario" : "Beneficiary"}:</span> {formData.bank_beneficiary}</p>}
+                        {formData.bank_routing_number && <p><span className="text-muted-foreground">SWIFT:</span> {formData.bank_routing_number}</p>}
+                      </div>
+                      {formData.bank_notes && <p className="text-xs text-muted-foreground mt-2">{formData.bank_notes}</p>}
+                    </div>
+                  )}
+
+                  {/* Terms & Conditions */}
+                  {(formData.terms_proposal_es || formData.terms_proposal_en) && (
+                    <div className="p-4 border rounded-lg">
+                      <p className="font-medium text-sm mb-2">{language === "es" ? "Términos y Condiciones" : "Terms & Conditions"}:</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        {language === "es" ? formData.terms_proposal_es : formData.terms_proposal_en}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Signature Line */}
+                  <div className="mt-8 pt-6 border-t flex justify-between">
+                    <div className="w-48">
+                      <div className="border-b border-dashed border-gray-400 mb-2 h-10"></div>
+                      <p className="text-xs text-muted-foreground">{language === "es" ? "Firma del Cliente" : "Client Signature"}</p>
+                    </div>
+                    <div className="w-32">
+                      <div className="border-b border-dashed border-gray-400 mb-2 h-10"></div>
+                      <p className="text-xs text-muted-foreground">{language === "es" ? "Fecha" : "Date"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                  {language === "es" 
+                    ? "Esta es una vista previa. Los documentos reales incluirán los datos específicos de cada evento." 
+                    : "This is a preview. Actual documents will include specific event data."}
+                </p>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Categories Tab */}
