@@ -480,6 +480,11 @@ export default function LeadOutreachSection() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit(lead)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              {isEs ? "Editar" : "Edit"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {OUTREACH_STATUSES.map(status => (
                               <DropdownMenuItem 
                                 key={status.value}
