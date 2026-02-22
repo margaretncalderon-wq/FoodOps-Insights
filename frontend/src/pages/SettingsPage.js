@@ -3689,9 +3689,9 @@ function DataAdminSection({ language }) {
       errors.push(`Stats: ${err.message}`);
     }
     
-    // Try to get clients
+    // Try to get clients - use /crm/clients endpoint
     try {
-      const clientsRes = await axios.get(`${API}/clients`, { withCredentials: true });
+      const clientsRes = await axios.get(`${API}/crm/clients`, { withCredentials: true });
       clientsData = clientsRes.data;
     } catch (err) {
       errors.push(`Clients: ${err.message}`);
