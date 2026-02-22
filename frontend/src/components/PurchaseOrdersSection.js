@@ -776,7 +776,8 @@ export default function PurchaseOrdersSection() {
             <div id="print-po-content" className="border rounded-lg p-6 bg-white">
               <div className="flex justify-between items-start border-b pb-4 mb-4">
                 <div>
-                  <p className="text-xl font-bold">Kora OS</p>
+                  <p className="text-xl font-bold">{company.legal_name || company.trade_name || company.name || ''}</p>
+                  {company.tax_id && <p className="text-xs text-muted-foreground">RNC: {company.tax_id}</p>}
                   <p className="text-sm text-muted-foreground">{language === "es" ? "Orden de Compra" : "Purchase Order"}</p>
                 </div>
                 <div className="text-right">
