@@ -416,6 +416,34 @@ async def create_client(data: ClientCreate, user: User = Depends(get_current_use
     return client_doc
 
 
+# === BULK DELETE ROUTES - MUST be before parametrized routes to avoid path collision ===
+
+@crm_router.delete("/clients/bulk-delete")
+async def bulk_delete_clients(user: User = Depends(get_current_user)):
+    """Delete all clients for this company - use with caution!"""
+    result = await db.clients.delete_many({"company_id": user.company_id})
+    return {"message": f"Deleted {result.deleted_count} clients", "deleted": result.deleted_count}
+
+
+@crm_router.delete("/leads/bulk-delete")
+async def bulk_delete_leads(lead_type: str = "all", user: User = Depends(get_current_user)):
+    """Delete leads by type - use with caution!
+    lead_type: 'outreach', 'inbound', or 'all'
+    """
+    query = {"company_id": user.company_id}
+    if lead_type == "outreach":
+        query["lead_type"] = "outreach"
+    elif lead_type == "inbound":
+        query["lead_type"] = {"$ne": "outreach"}
+    # 'all' deletes everything
+    
+    result = await db.leads.delete_many(query)
+    return {"message": f"Deleted {result.deleted_count} leads", "deleted": result.deleted_count}
+
+
+# === END BULK DELETE ROUTES ===
+
+
 @crm_router.get("/clients/{client_id}")
 async def get_client(client_id: str, user: User = Depends(get_current_user)):
     """Get a specific client with contacts"""
