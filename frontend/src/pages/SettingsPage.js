@@ -3710,7 +3710,7 @@ function DataAdminSection({ language }) {
     
     setDeleting(`leads-${type}`);
     try {
-      const res = await axios.delete(`${API}/api/crm/leads/bulk-delete?lead_type=${type}`, { withCredentials: true });
+      const res = await axios.delete(`${API}/crm/leads/bulk-delete?lead_type=${type}`, { withCredentials: true });
       toast.success(isEs ? `${res.data.deleted} leads borrados` : `${res.data.deleted} leads deleted`);
       fetchStats();
     } catch (err) {
