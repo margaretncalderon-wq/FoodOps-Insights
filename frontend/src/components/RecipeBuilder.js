@@ -102,17 +102,21 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
 
   const [instructionText, setInstructionText] = useState("");
 
-  // Fetch allergens
+  // Fetch allergens and company
   useEffect(() => {
-    const fetchAllergens = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await axios.get(`${API}/api/allergens`, { withCredentials: true });
-        setAllergens(res.data);
+        const [allergensRes, companyRes] = await Promise.all([
+          axios.get(`${API}/api/allergens`, { withCredentials: true }),
+          axios.get(`${API}/api/settings/company`, { withCredentials: true })
+        ]);
+        setAllergens(allergensRes.data);
+        setCompany(companyRes.data || {});
       } catch (error) {
-        console.error("Error loading allergens", error);
+        console.error("Error loading initial data", error);
       }
     };
-    fetchAllergens();
+    fetchInitialData();
   }, []);
 
   // Fetch portion and packaging formats if editing
