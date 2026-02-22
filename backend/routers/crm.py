@@ -166,6 +166,38 @@ async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
+    # Fields that can be updated
+    allowed_fields = [
+        "lead_name", "name", "email", "phone", "whatsapp", "company_name", "company",
+        "client_type", "rnc", "address", "message", "notes", "owner_id", "event_type",
+        "estimated_value", "budget_range", "guest_count", "event_date", "source"
+    ]
+    
+    updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    for field in allowed_fields:
+        if field in data:
+            # Clean nan values
+            value = data[field]
+            if isinstance(value, str) and value.lower() in ["nan", "none", "null"]:
+                value = ""
+            updates[field] = value
+    
+    await db.leads.update_one(
+        {"lead_id": lead_id, "company_id": user.company_id},
+        {"$set": updates}
+    )
+    
+    updated_lead = await db.leads.find_one({"lead_id": lead_id}, {"_id": 0})
+    return sanitize_document(updated_lead)
+
+
+@leads_router.put("/{lead_id}")
+async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update a lead"""
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
     # Don't allow updates to converted leads
     if lead.get("status") == "Converted":
         raise HTTPException(status_code=400, detail="Cannot update a converted lead")
