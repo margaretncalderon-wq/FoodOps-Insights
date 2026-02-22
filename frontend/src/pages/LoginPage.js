@@ -33,9 +33,9 @@ export default function LoginPage() {
   const isEs = language === "es";
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-hidden">
       {/* Left Side - Form (White) */}
-      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 xl:px-24 bg-white">
+      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 xl:px-24 bg-white min-h-screen overflow-y-auto">
         <div className="w-full max-w-md mx-auto">
           {/* Logo */}
           <Link to="/" className="inline-flex items-center gap-2 mb-12">
