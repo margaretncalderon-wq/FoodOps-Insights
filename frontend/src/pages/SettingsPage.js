@@ -3859,16 +3859,28 @@ function DataAdminSection({ language }) {
               <div className="bg-gray-50 p-4 rounded-lg text-sm font-mono space-y-2">
                 {!statsLoaded ? (
                   <p className="text-gray-500">⏳ Cargando datos...</p>
-                ) : debugInfo ? (
+                ) : (
                   <>
-                    <p><strong>Tu Email:</strong> {debugInfo.your_email}</p>
-                    <p><strong>Tu Company ID:</strong> {debugInfo.your_company_id}</p>
-                    <p><strong>Tus Clientes:</strong> {debugInfo.your_clients_count}</p>
-                    <p><strong>Tus Leads:</strong> {debugInfo.your_leads_count}</p>
-                    <hr className="my-2" />
-                    <p><strong>Total Clientes (todas las empresas):</strong> {debugInfo.total_clients_all_companies}</p>
-                    <p><strong>Total Leads (todas las empresas):</strong> {debugInfo.total_leads_all_companies}</p>
-                    {debugInfo.clients_count_by_company && (
+                    {fetchError && (
+                      <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
+                        <strong>Errores:</strong> {fetchError}
+                      </div>
+                    )}
+                    
+                    <p><strong>Tu Email:</strong> {debugInfo?.your_email || "N/A"}</p>
+                    <p><strong>Tu Company ID:</strong> {debugInfo?.your_company_id || "N/A"}</p>
+                    <p><strong>Tus Clientes:</strong> {stats.clients}</p>
+                    <p><strong>Tus Leads:</strong> {stats.leads} (Outreach: {stats.outreach}, Inbound: {stats.inbound})</p>
+                    
+                    {debugInfo?.total_clients_all_companies && debugInfo.total_clients_all_companies !== "N/A" && (
+                      <>
+                        <hr className="my-2" />
+                        <p><strong>Total Clientes (todas las empresas):</strong> {debugInfo.total_clients_all_companies}</p>
+                        <p><strong>Total Leads (todas las empresas):</strong> {debugInfo.total_leads_all_companies}</p>
+                      </>
+                    )}
+                    
+                    {debugInfo?.clients_count_by_company && (
                       <>
                         <hr className="my-2" />
                         <p><strong>Clientes por Company ID (Top 5):</strong></p>
@@ -3881,14 +3893,14 @@ function DataAdminSection({ language }) {
                         </ul>
                       </>
                     )}
-                    {!debugInfo.clients_count_by_company && debugInfo.your_clients_count === 0 && (
+                    
+                    {stats.clients === 0 && (
                       <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-                        <strong>⚠️ Posible problema:</strong> Si importaste clientes pero ves 0, es probable que los datos estén asociados a otra cuenta/empresa. Contacta soporte para migrar los datos.
+                        <strong>⚠️ Si importaste clientes pero ves 0:</strong><br/>
+                        Los datos pueden estar asociados a otra cuenta. Despliega el backend para ver el diagnóstico completo.
                       </div>
                     )}
                   </>
-                ) : (
-                  <p className="text-red-500">Error al cargar datos de diagnóstico</p>
                 )}
               </div>
             )}
