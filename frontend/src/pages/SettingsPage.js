@@ -109,7 +109,27 @@ export default function SettingsPage() {
     default_language: "en",
     currency: "USD",
     time_format: "24h",
+    // Business Information
+    legal_name: "",
+    trade_name: "",
+    tax_id: "",
+    email: "",
+    phone: "",
+    website: "",
+    // Location
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    postal_code: "",
+    // Additional
+    tax_regime: "",
+    industry_sector: "",
+    employee_count: "",
+    decimal_precision: 2,
+    decimal_separator: ".",
   });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
   const [newPicklist, setNewPicklist] = useState({ 
