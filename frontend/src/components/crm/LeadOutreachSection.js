@@ -89,15 +89,33 @@ export default function LeadOutreachSection() {
     follow_up_type: "Call"
   });
 
+  // Helper to clean "nan" string values from lead data
+  const cleanNanValues = useCallback((lead) => {
+    if (!lead) return lead;
+    const cleaned = { ...lead };
+    const fieldsToClean = ['lead_name', 'name', 'email', 'phone', 'whatsapp', 'company_name', 'company', 'address', 'rnc', 'notes', 'message'];
+    fieldsToClean.forEach(field => {
+      if (cleaned[field] && typeof cleaned[field] === 'string') {
+        const val = cleaned[field].toLowerCase();
+        if (val === 'nan' || val === 'none' || val === 'null') {
+          cleaned[field] = '';
+        }
+      }
+    });
+    return cleaned;
+  }, []);
+
   const fetchLeads = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/crm/outreach`, { withCredentials: true });
-      setLeads(res.data);
+      // Clean nan values from all leads
+      const cleanedLeads = res.data.map(lead => cleanNanValues(lead));
+      setLeads(cleanedLeads);
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  }, []);
+  }, [cleanNanValues]);
 
   const fetchUsers = useCallback(async () => {
     try {
