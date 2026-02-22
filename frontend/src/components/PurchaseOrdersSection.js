@@ -322,7 +322,13 @@ export default function PurchaseOrdersSection() {
       </head>
       <body>
         <div class="header">
-          <div class="company-info">Kora OS</div>
+          <div class="company-info">
+            <strong>${company.legal_name || company.trade_name || company.name || ''}</strong>
+            ${company.tax_id ? '<br/>RNC: ' + company.tax_id : ''}
+            ${company.address ? '<br/>' + company.address : ''}
+            ${company.city || company.state ? '<br/>' + [company.city, company.state].filter(Boolean).join(', ') : ''}
+            ${company.phone ? '<br/>Tel: ' + company.phone : ''}
+          </div>
           <div class="po-info">
             <div class="po-number">${selectedPO?.po_number || ''}</div>
             <div>Fecha: ${selectedPO?.created_at ? new Date(selectedPO.created_at).toLocaleDateString() : ''}</div>
