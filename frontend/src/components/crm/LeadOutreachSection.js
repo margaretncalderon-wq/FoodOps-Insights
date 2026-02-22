@@ -234,9 +234,13 @@ export default function LeadOutreachSection() {
   };
 
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const leadName = lead.lead_name || lead.name || "";
+    const email = lead.email || "";
+    const companyName = lead.company_name || lead.company || "";
+    
+    const matchesSearch = leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         companyName.toLowerCase().includes(searchTerm.toLowerCase());
     const effectiveStatus = getEffectiveStatus(lead);
     const matchesStatus = statusFilter === "all" || effectiveStatus.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
