@@ -1058,19 +1058,35 @@ export default function LeadOutreachSection() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{isEs ? "Ciudad" : "City"}</Label>
-                <Input
-                  value={editForm.city}
-                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                  placeholder={isEs ? "Santo Domingo" : "City name"}
-                />
+                <div className="relative">
+                  <Input
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    placeholder={isEs ? "Santo Domingo" : "City name"}
+                    list="city-list"
+                  />
+                  <datalist id="city-list">
+                    {CITIES.filter(c => c.toLowerCase().includes((editForm.city || "").toLowerCase())).map(city => (
+                      <option key={city} value={city} />
+                    ))}
+                  </datalist>
+                </div>
               </div>
               <div>
                 <Label>{isEs ? "País" : "Country"}</Label>
-                <Input
-                  value={editForm.country}
-                  onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                  placeholder={isEs ? "República Dominicana" : "Country"}
-                />
+                <div className="relative">
+                  <Input
+                    value={editForm.country}
+                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                    placeholder={isEs ? "República Dominicana" : "Country"}
+                    list="country-list"
+                  />
+                  <datalist id="country-list">
+                    {COUNTRIES.filter(c => c.toLowerCase().includes((editForm.country || "").toLowerCase())).map(country => (
+                      <option key={country} value={country} />
+                    ))}
+                  </datalist>
+                </div>
               </div>
             </div>
 
