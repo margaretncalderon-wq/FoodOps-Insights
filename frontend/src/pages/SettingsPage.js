@@ -212,13 +212,32 @@ export default function SettingsPage() {
       const response = await axios.get(`${API}/settings/company`, { withCredentials: true });
       setCompany(response.data);
       setFormData({
-        name: response.data.name,
+        name: response.data.name || "",
         logo_url: response.data.logo_url || "",
-        primary_color: response.data.primary_color,
-        secondary_color: response.data.secondary_color,
-        default_language: response.data.default_language,
-        currency: response.data.currency,
+        primary_color: response.data.primary_color || "#3A4D3F",
+        secondary_color: response.data.secondary_color || "#E5DCC5",
+        default_language: response.data.default_language || "en",
+        currency: response.data.currency || "USD",
         time_format: response.data.time_format || "24h",
+        // Business Information
+        legal_name: response.data.legal_name || "",
+        trade_name: response.data.trade_name || "",
+        tax_id: response.data.tax_id || "",
+        email: response.data.email || "",
+        phone: response.data.phone || "",
+        website: response.data.website || "",
+        // Location
+        address: response.data.address || "",
+        city: response.data.city || "",
+        state: response.data.state || "",
+        country: response.data.country || "",
+        postal_code: response.data.postal_code || "",
+        // Additional
+        tax_regime: response.data.tax_regime || "",
+        industry_sector: response.data.industry_sector || "",
+        employee_count: response.data.employee_count || "",
+        decimal_precision: response.data.decimal_precision || 2,
+        decimal_separator: response.data.decimal_separator || ".",
       });
     } catch (error) {
       console.error("Failed to fetch company:", error);
