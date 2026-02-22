@@ -128,8 +128,17 @@ export default function SettingsPage() {
     employee_count: "",
     decimal_precision: 2,
     decimal_separator: ".",
+    // Terms & Conditions
+    terms_proposal_es: "",
+    terms_proposal_en: "",
+    terms_invoice_es: "",
+    terms_invoice_en: "",
+    terms_contract_es: "",
+    terms_contract_en: "",
+    payment_terms_default: "",
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [activeTermsTab, setActiveTermsTab] = useState("proposal");
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
   const [newPicklist, setNewPicklist] = useState({ 
