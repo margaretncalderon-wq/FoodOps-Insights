@@ -30,7 +30,7 @@ def sanitize_float(value, default=0):
 
 
 def sanitize_document(doc):
-    """Recursively sanitize a document to ensure JSON compliance"""
+    """Recursively sanitize a document to ensure JSON compliance and clean 'nan' strings"""
     if doc is None:
         return None
     if isinstance(doc, dict):
@@ -43,6 +43,11 @@ def sanitize_document(doc):
     elif isinstance(doc, float):
         if math.isnan(doc) or math.isinf(doc):
             return 0
+        return doc
+    elif isinstance(doc, str):
+        # Clean "nan" and "None" strings that come from pandas
+        if doc.lower() in ["nan", "none", "null"]:
+            return ""
         return doc
     else:
         return doc
