@@ -976,6 +976,10 @@ export default function SettingsPage() {
               <FileStack className="w-4 h-4" />
               {language === "es" ? "Importar/Exportar" : "Import/Export"}
             </TabsTrigger>
+            <TabsTrigger value="data-admin" className="gap-2 text-red-600">
+              <Trash2 className="w-4 h-4" />
+              {language === "es" ? "Admin Datos" : "Data Admin"}
+            </TabsTrigger>
             <TabsTrigger value="preferences">
               {language === "es" ? "Preferencias" : "Preferences"}
             </TabsTrigger>
