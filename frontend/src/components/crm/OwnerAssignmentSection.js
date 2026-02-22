@@ -63,7 +63,7 @@ export default function OwnerAssignmentSection() {
       allLeads.forEach(l => {
         if (l.owner_id && ownerStats[l.owner_id]) {
           ownerStats[l.owner_id].leads++;
-          if (l.status === "Converted") {
+          if (l.status?.toLowerCase() === "converted") {
             ownerStats[l.owner_id].converted++;
           }
         }
