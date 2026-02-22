@@ -3651,8 +3651,152 @@ Mantel Blanco, , 10, 3`}
           <TabsContent value="import-export">
             <ImportExportSection filter="business" />
           </TabsContent>
+
+          {/* Data Admin Tab */}
+          <TabsContent value="data-admin">
+            <DataAdminSection language={language} />
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
+  );
+}
+
+// Data Admin Section Component
+function DataAdminSection({ language }) {
+  const [deleting, setDeleting] = useState(null);
+  const [stats, setStats] = useState({ clients: 0, leads: 0, outreach: 0, inbound: 0 });
+  const isEs = language === "es";
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const [clientsRes, statsRes] = await Promise.all([
+        axios.get(`${API}/clients`, { withCredentials: true }),
+        axios.get(`${API}/crm/stats`, { withCredentials: true })
+      ]);
+      setStats({
+        clients: clientsRes.data?.length || 0,
+        leads: statsRes.data?.total || 0,
+        outreach: statsRes.data?.outreach_leads || 0,
+        inbound: statsRes.data?.total - (statsRes.data?.outreach_leads || 0) || 0
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteClients = async () => {
+    if (!window.confirm(isEs ? "¿Estás seguro de borrar TODOS los clientes? Esta acción no se puede deshacer." : "Are you sure you want to delete ALL clients? This action cannot be undone.")) return;
+    
+    setDeleting("clients");
+    try {
+      const res = await axios.delete(`${API}/crm/clients/bulk-delete`, { withCredentials: true });
+      toast.success(isEs ? `${res.data.deleted} clientes borrados` : `${res.data.deleted} clients deleted`);
+      fetchStats();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleDeleteLeads = async (type) => {
+    const typeLabel = type === "outreach" ? "outreach" : type === "inbound" ? "inbound" : (isEs ? "TODOS los" : "ALL");
+    if (!window.confirm(isEs ? `¿Estás seguro de borrar ${typeLabel} leads? Esta acción no se puede deshacer.` : `Are you sure you want to delete ${typeLabel} leads? This action cannot be undone.`)) return;
+    
+    setDeleting(`leads-${type}`);
+    try {
+      const res = await axios.delete(`${API}/crm/leads/bulk-delete?lead_type=${type}`, { withCredentials: true });
+      toast.success(isEs ? `${res.data.deleted} leads borrados` : `${res.data.deleted} leads deleted`);
+      fetchStats();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="text-red-600 flex items-center gap-2">
+            <Trash2 className="w-5 h-5" />
+            {isEs ? "Zona de Peligro - Borrar Datos" : "Danger Zone - Delete Data"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            {isEs 
+              ? "⚠️ Estas acciones son permanentes y no se pueden deshacer. Usa con precaución."
+              : "⚠️ These actions are permanent and cannot be undone. Use with caution."}
+          </p>
+
+          {/* Clients Section */}
+          <div className="p-4 border border-red-200 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold">{isEs ? "Clientes" : "Clients"}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {isEs ? `${stats.clients} clientes en el sistema` : `${stats.clients} clients in the system`}
+                </p>
+              </div>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteClients}
+                disabled={deleting === "clients" || stats.clients === 0}
+              >
+                {deleting === "clients" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {isEs ? "Borrar Todos" : "Delete All"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Leads Section */}
+          <div className="p-4 border border-red-200 rounded-lg space-y-4">
+            <div>
+              <h3 className="font-semibold">{isEs ? "Leads" : "Leads"}</h3>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? `${stats.leads} leads totales (${stats.outreach} outreach, ${stats.inbound} inbound)`
+                  : `${stats.leads} total leads (${stats.outreach} outreach, ${stats.inbound} inbound)`}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+                onClick={() => handleDeleteLeads("outreach")}
+                disabled={deleting?.startsWith("leads") || stats.outreach === 0}
+              >
+                {deleting === "leads-outreach" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {isEs ? `Borrar Outreach (${stats.outreach})` : `Delete Outreach (${stats.outreach})`}
+              </Button>
+              <Button 
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+                onClick={() => handleDeleteLeads("inbound")}
+                disabled={deleting?.startsWith("leads") || stats.inbound === 0}
+              >
+                {deleting === "leads-inbound" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {isEs ? `Borrar Inbound (${stats.inbound})` : `Delete Inbound (${stats.inbound})`}
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => handleDeleteLeads("all")}
+                disabled={deleting?.startsWith("leads") || stats.leads === 0}
+              >
+                {deleting === "leads-all" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {isEs ? "Borrar TODOS los Leads" : "Delete ALL Leads"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
