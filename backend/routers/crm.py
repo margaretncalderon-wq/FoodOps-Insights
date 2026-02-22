@@ -367,8 +367,17 @@ async def get_clients_diagnostic(user: User = Depends(get_current_user)):
     # Get user's company_id
     user_company_id = user.company_id
     
-    # Count with exact match
+    # Count with exact match in main clients collection
     exact_count = await db.clients.count_documents({"company_id": user_company_id})
+    
+    # Check if there's a clients_sandbox collection with data
+    sandbox_count = 0
+    sandbox_sample = None
+    try:
+        sandbox_count = await db.db["clients_sandbox"].count_documents({"company_id": user_company_id})
+        sandbox_sample = await db.db["clients_sandbox"].find_one({"company_id": user_company_id}, {"_id": 0, "client_id": 1, "company_id": 1, "display_name": 1, "name": 1})
+    except:
+        pass
     
     # Get a sample client from the database (any client)
     sample_any = await db.clients.find_one({}, {"_id": 0, "client_id": 1, "company_id": 1, "display_name": 1})
@@ -386,20 +395,26 @@ async def get_clients_diagnostic(user: User = Depends(get_current_user)):
     company_id_exists = user_company_id in unique_company_ids
     
     # Find similar company_ids (for debugging typos/whitespace)
-    similar_ids = [cid for cid in unique_company_ids if user_company_id.lower() in cid.lower() or cid.lower() in user_company_id.lower()]
+    similar_ids = [cid for cid in unique_company_ids if user_company_id.lower() in str(cid).lower() or str(cid).lower() in user_company_id.lower()]
+    
+    # Check all collections in the database
+    collections = await db.db.list_collection_names()
+    client_related_collections = [c for c in collections if "client" in c.lower()]
     
     return {
         "user_company_id": user_company_id,
         "user_company_id_repr": repr(user_company_id),
-        "user_company_id_length": len(user_company_id),
         "exact_match_count": exact_count,
         "regex_match_count": regex_count,
+        "sandbox_count": sandbox_count,
+        "sandbox_sample": sandbox_sample,
         "company_id_in_unique_list": company_id_exists,
         "sample_any_client": sample_any,
         "sample_user_client": sample_user,
         "unique_company_ids_count": len(unique_company_ids),
         "similar_company_ids": similar_ids[:5],
-        "all_company_ids": unique_company_ids[:10]
+        "all_company_ids": unique_company_ids[:10],
+        "client_related_collections": client_related_collections
     }
 
 
