@@ -184,39 +184,14 @@ const AuthCallback = () => {
 };
 
 const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
-  const { user, loading, checkAuth } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-  // Skip checking if user is already authenticated from login
-  const [isChecking, setIsChecking] = useState(!user && !location.state?.user);
 
   // Check if trying to access super-admin routes
   const isSuperAdminRoute = location.pathname.startsWith('/super-admin');
 
-  useEffect(() => {
-    // If user already exists in context (from login), skip re-verification
-    if (user || location.state?.user) {
-      setIsChecking(false);
-      return;
-    }
-
-    const verify = async () => {
-      try {
-        await checkAuth();
-        setIsChecking(false);
-      } catch {
-        // Redirect to appropriate login page
-        if (isSuperAdminRoute) {
-          navigate("/admin-login", { replace: true, state: { from: location.pathname } });
-        } else {
-          navigate("/login", { replace: true, state: { from: location.pathname } });
-        }
-      }
-    };
-    verify();
-  }, []);
-
-  if (isChecking || loading) {
+  // Wait for auth to finish loading (AuthContext handles initialization)
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -224,7 +199,8 @@ const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
     );
   }
 
-  if (!user && !location.state?.user) {
+  // If no user after loading completes, redirect to login
+  if (!user) {
     if (isSuperAdminRoute) {
       return <Navigate to="/admin-login" replace state={{ from: location.pathname }} />;
     }
@@ -238,16 +214,16 @@ const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-500 mb-2">Acceso Denegado</h1>
           <p className="text-muted-foreground mb-4">No tienes permisos de super administrador</p>
-          <button 
-            onClick={() => navigate("/dashboard")}
-            className="px-4 py-2 bg-primary text-white rounded-md"
-          >
+          <a href="/dashboard" className="px-4 py-2 bg-primary text-white rounded-md inline-block">
             Ir al Dashboard
-          </button>
+          </a>
         </div>
       </div>
     );
   }
+
+  return children;
+};
 
   return children;
 };
