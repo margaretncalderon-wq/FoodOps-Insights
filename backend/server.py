@@ -228,6 +228,13 @@ class Company(BaseModel):
     terms_contract_es: Optional[str] = None  # Términos para contratos (español)
     terms_contract_en: Optional[str] = None  # Terms for contracts (english)
     payment_terms_default: Optional[str] = None  # Default payment terms
+    # Bank Account Information
+    bank_name: Optional[str] = None  # Nombre del banco
+    bank_account_number: Optional[str] = None  # Número de cuenta
+    bank_account_type: Optional[str] = None  # Tipo (corriente/ahorro)
+    bank_routing_number: Optional[str] = None  # SWIFT/Routing number
+    bank_beneficiary: Optional[str] = None  # Nombre del beneficiario
+    bank_notes: Optional[str] = None  # Notas adicionales de pago
 
 # ============== SAAS MULTI-TENANT MODELS ==============
 
