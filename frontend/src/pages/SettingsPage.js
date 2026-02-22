@@ -3666,11 +3666,23 @@ Mantel Blanco, , 10, 3`}
 function DataAdminSection({ language }) {
   const [deleting, setDeleting] = useState(null);
   const [stats, setStats] = useState({ clients: 0, leads: 0, outreach: 0, inbound: 0 });
+  const [debugInfo, setDebugInfo] = useState(null);
+  const [showDebug, setShowDebug] = useState(false);
   const isEs = language === "es";
 
   useEffect(() => {
     fetchStats();
+    fetchDebugInfo();
   }, []);
+
+  const fetchDebugInfo = async () => {
+    try {
+      const res = await axios.get(`${API}/crm/debug-info`, { withCredentials: true });
+      setDebugInfo(res.data);
+    } catch (err) {
+      console.error("Error fetching debug info:", err);
+    }
+  };
 
   const fetchStats = async () => {
     try {
