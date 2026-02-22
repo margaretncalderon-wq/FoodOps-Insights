@@ -135,6 +135,13 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Roles del sistema**: admin, sales, finance, operations, viewer, marketing_partner
 - **Status**: TESTED & WORKING (13/13 backend tests passed)
 
+### Fix: Login Page Layout - FIXED (Feb 22, 2026)
+- **Issue**: Right panel content (modules illustration) was cut off when accessing protected routes without auth
+- **Root Cause**: CSS `overflow-hidden` with absolute positioned decorative circles extending beyond container boundaries
+- **Fix**: Adjusted decorative circle positioning in `LoginPage.js` (moved from `bottom-32` to `bottom-24` and reduced size)
+- **Files Modified**: `/app/frontend/src/pages/LoginPage.js`
+- **Status**: TESTED & WORKING (verified on /login, /settings, /crm redirects)
+
 ## Pending Issues
 - P1: Email Notifications (blocked on RESEND_API_KEY)
 - P1: Google Calendar Production OAuth (requires user action post-deploy)
