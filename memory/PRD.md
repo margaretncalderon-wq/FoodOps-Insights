@@ -154,6 +154,17 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - Added all business information fields matching the screenshot reference
 - **Status**: TESTED & WORKING
 
+### Feature: Bank Account & Document Preview - IMPLEMENTED (Feb 22, 2026)
+- **Requirement**: Add bank account info for payments + preview how documents will look
+- **Backend Changes**:
+  - Added fields to Company model: `bank_name`, `bank_account_number`, `bank_account_type`, `bank_routing_number`, `bank_beneficiary`, `bank_notes`
+  - Document generation includes `bank_info` object for quotes/proposals/invoices
+- **Frontend Changes**:
+  - New "Bank Account Information" card in Settings > Branding
+  - "Document Preview" button opens dialog showing sample document with all company info, terms, and bank details
+  - DocumentPreview page shows bank info in a blue highlighted box
+- **Status**: TESTED & WORKING
+
 ### Feature: Terms & Conditions Templates - IMPLEMENTED (Feb 22, 2026)
 - **Requirement**: Custom templates for terms and conditions in proposals, invoices, and contracts
 - **Backend Changes**:
