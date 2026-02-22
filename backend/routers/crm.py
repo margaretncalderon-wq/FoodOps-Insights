@@ -526,6 +526,40 @@ async def delete_client(client_id: str, user: User = Depends(get_current_user)):
     return {"message": "Client deleted"}
 
 
+@crm_router.get("/debug-info")
+async def get_debug_info(user: User = Depends(get_current_user)):
+    """Debug endpoint to diagnose data issues"""
+    # Count all data for this user's company
+    total_clients = await db.clients.count_documents({"company_id": user.company_id})
+    total_leads = await db.leads.count_documents({"company_id": user.company_id})
+    
+    # Count ALL clients and leads in database (across all companies)
+    all_clients = await db.clients.count_documents({})
+    all_leads = await db.leads.count_documents({})
+    
+    # Get unique company_ids in the database
+    client_company_ids = await db.clients.distinct("company_id")
+    lead_company_ids = await db.leads.distinct("company_id")
+    
+    # Sample of client data to check structure
+    sample_client = await db.clients.find_one({"company_id": user.company_id}, {"_id": 0, "client_id": 1, "display_name": 1, "status": 1})
+    sample_lead = await db.leads.find_one({"company_id": user.company_id}, {"_id": 0, "lead_id": 1, "lead_name": 1, "status": 1, "lead_type": 1})
+    
+    return {
+        "your_user_id": user.user_id,
+        "your_company_id": user.company_id,
+        "your_email": user.email,
+        "your_clients_count": total_clients,
+        "your_leads_count": total_leads,
+        "total_clients_all_companies": all_clients,
+        "total_leads_all_companies": all_leads,
+        "company_ids_with_clients": client_company_ids[:10],  # First 10
+        "company_ids_with_leads": lead_company_ids[:10],  # First 10
+        "sample_client": sample_client,
+        "sample_lead": sample_lead
+    }
+
+
 @crm_router.get("/stats")
 async def get_crm_stats(user: User = Depends(get_current_user)):
     """Get CRM statistics"""
