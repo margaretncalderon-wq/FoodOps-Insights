@@ -14283,8 +14283,8 @@ def get_industry_templates(industry: str, lang: str = "es"):
             "sample": [["Proyecto García", "Juan García", "2026-02-14", "2026-02-14", "16:00", "23:00", "Oficina Principal", "corporate", 10, "confirmed", 50000, "Incluye todos los servicios"]]
         },
         "leads": {
-            "columns": ["nombre", "email", "telefono", "empresa", "fuente", "estado", "valor_estimado", event_type_col, event_date_col, guests_col, "notas"],
-            "sample": [["María García", "maria@email.com", "555-9876", "Empresa XYZ", "website", "new", 15000, "corporate", "2026-03-15", 100, "Interesado en nuestros servicios"]]
+            "columns": ["nombre", "email", "telefono", "whatsapp", "empresa", "tipo_cliente", "direccion", "rnc", "fuente", "estado", "valor_estimado", "rango_presupuesto", event_type_col, event_date_col, guests_col, "tipo_lead", "notas"],
+            "sample": [["María García", "maria@email.com", "555-9876", "555-9876", "Empresa XYZ", "Company", "Calle Principal 123", "123456789", "website", "new", 15000, "$10,000 - $20,000", "corporate", "2026-03-15", 100, "inbound", "Interesado en nuestros servicios"]]
         }
     }
 
