@@ -657,12 +657,33 @@ async def get_inbound_leads(user: User = Depends(get_current_user)):
     leads = await db.leads.find(
         {"company_id": user.company_id, "lead_type": {"$ne": "outreach"}},
         {"_id": 0}
-    ).sort("created_at", -1).to_list(500)
+    ).sort("created_at", -1).to_list(2000)
     
-    # Sanitize all leads to ensure JSON compliance
+    # Sanitize all leads and auto-clean nan values in DB
     sanitized_leads = []
+    fields_to_check = ["lead_name", "name", "email", "phone", "whatsapp", "company", "company_name", 
+                       "address", "rnc", "notes", "message", "event_type", "event_date", "budget_range"]
+    
     for lead in leads:
-        sanitized_leads.append(sanitize_document(lead))
+        sanitized_lead = sanitize_document(lead)
+        sanitized_leads.append(sanitized_lead)
+        
+        # Check if any field had nan and needs DB update
+        needs_update = False
+        updates = {}
+        for field in fields_to_check:
+            original = lead.get(field)
+            sanitized = sanitized_lead.get(field)
+            if original != sanitized:
+                needs_update = True
+                updates[field] = sanitized
+        
+        # Update DB in background if needed
+        if needs_update and lead.get("lead_id"):
+            await db.leads.update_one(
+                {"lead_id": lead["lead_id"]},
+                {"$set": updates}
+            )
     
     return sanitized_leads
 
