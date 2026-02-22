@@ -11949,6 +11949,369 @@ async def reset_usage_meter(company_id: str, admin: User = Depends(get_super_adm
     
     return {"success": True, "period": current_period}
 
+
+# ---- Super Admin: Data Diagnostics & Repair ----
+
+@super_admin_router.get("/diagnostics")
+async def get_global_diagnostics(admin: User = Depends(get_super_admin)):
+    """Get global system diagnostics (Super Admin only)"""
+    # Count data across all collections
+    total_companies = await db.companies.count_documents({})
+    total_users = await db.users.count_documents({})
+    total_clients = await db.clients.count_documents({})
+    total_leads = await db.leads.count_documents({})
+    total_events = await db.events.count_documents({})
+    total_proposals = await db.proposals.count_documents({})
+    total_invoices = await db.invoices.count_documents({})
+    
+    # Get data per company
+    clients_pipeline = [
+        {"$group": {"_id": "$company_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20}
+    ]
+    clients_by_company = await db.clients.aggregate(clients_pipeline).to_list(20)
+    
+    leads_pipeline = [
+        {"$group": {"_id": "$company_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20}
+    ]
+    leads_by_company = await db.leads.aggregate(leads_pipeline).to_list(20)
+    
+    # Get orphaned data (data without valid company)
+    company_ids = await db.companies.distinct("company_id")
+    orphaned_clients = await db.clients.count_documents({"company_id": {"$nin": company_ids}})
+    orphaned_leads = await db.leads.count_documents({"company_id": {"$nin": company_ids}})
+    
+    # Get recent errors from audit log
+    recent_errors = await db.super_admin_audit.find(
+        {"action": {"$regex": "error", "$options": "i"}},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(10).to_list(10)
+    
+    return {
+        "summary": {
+            "total_companies": total_companies,
+            "total_users": total_users,
+            "total_clients": total_clients,
+            "total_leads": total_leads,
+            "total_events": total_events,
+            "total_proposals": total_proposals,
+            "total_invoices": total_invoices
+        },
+        "data_by_company": {
+            "clients": clients_by_company,
+            "leads": leads_by_company
+        },
+        "issues": {
+            "orphaned_clients": orphaned_clients,
+            "orphaned_leads": orphaned_leads
+        },
+        "recent_errors": recent_errors
+    }
+
+
+@super_admin_router.get("/diagnostics/company/{company_id}")
+async def get_company_diagnostics(company_id: str, admin: User = Depends(get_super_admin)):
+    """Get detailed diagnostics for a specific company (Super Admin only)"""
+    # Get company info
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Count data for this company
+    clients_count = await db.clients.count_documents({"company_id": company_id})
+    leads_count = await db.leads.count_documents({"company_id": company_id})
+    events_count = await db.events.count_documents({"company_id": company_id})
+    proposals_count = await db.proposals.count_documents({"company_id": company_id})
+    
+    # Get users
+    memberships = await db.memberships.find({"company_id": company_id}, {"_id": 0}).to_list(50)
+    users = []
+    for mem in memberships:
+        user = await db.users.find_one({"user_id": mem["user_id"]}, {"_id": 0, "email": 1, "name": 1, "last_login": 1})
+        if user:
+            users.append({**user, "role": mem["role"], "status": mem["status"]})
+    
+    # Sample data to check structure
+    sample_client = await db.clients.find_one({"company_id": company_id}, {"_id": 0})
+    sample_lead = await db.leads.find_one({"company_id": company_id}, {"_id": 0})
+    
+    # Check for data issues
+    issues = []
+    
+    # Check for clients without display_name
+    clients_no_name = await db.clients.count_documents({"company_id": company_id, "display_name": {"$in": [None, ""]}})
+    if clients_no_name > 0:
+        issues.append(f"{clients_no_name} clients without display_name")
+    
+    # Check for clients without status
+    clients_no_status = await db.clients.count_documents({"company_id": company_id, "status": {"$exists": False}})
+    if clients_no_status > 0:
+        issues.append(f"{clients_no_status} clients without status field")
+    
+    # Check for leads without lead_type
+    leads_no_type = await db.leads.count_documents({"company_id": company_id, "lead_type": {"$exists": False}})
+    if leads_no_type > 0:
+        issues.append(f"{leads_no_type} leads without lead_type")
+    
+    return {
+        "company": company,
+        "data_counts": {
+            "clients": clients_count,
+            "leads": leads_count,
+            "events": events_count,
+            "proposals": proposals_count
+        },
+        "users": users,
+        "sample_client": sample_client,
+        "sample_lead": sample_lead,
+        "issues": issues
+    }
+
+
+@super_admin_router.post("/repair/migrate-data")
+async def migrate_data_between_companies(
+    data: dict,
+    admin: User = Depends(get_super_admin)
+):
+    """Migrate data from one company_id to another (Super Admin only)
+    
+    Request body:
+    {
+        "source_company_id": "company_xxx",
+        "target_company_id": "company_yyy",
+        "data_types": ["clients", "leads", "events"],  # optional, defaults to all
+        "dry_run": true  # optional, defaults to true
+    }
+    """
+    source_id = data.get("source_company_id")
+    target_id = data.get("target_company_id")
+    data_types = data.get("data_types", ["clients", "leads", "events", "proposals", "invoices"])
+    dry_run = data.get("dry_run", True)
+    
+    if not source_id or not target_id:
+        raise HTTPException(status_code=400, detail="source_company_id and target_company_id are required")
+    
+    if source_id == target_id:
+        raise HTTPException(status_code=400, detail="Source and target cannot be the same")
+    
+    # Verify target company exists
+    target_company = await db.companies.find_one({"company_id": target_id})
+    if not target_company:
+        raise HTTPException(status_code=404, detail=f"Target company {target_id} not found")
+    
+    results = {}
+    
+    collection_map = {
+        "clients": db.clients,
+        "leads": db.leads,
+        "events": db.events,
+        "proposals": db.proposals,
+        "invoices": db.invoices
+    }
+    
+    for data_type in data_types:
+        if data_type not in collection_map:
+            continue
+            
+        collection = collection_map[data_type]
+        count = await collection.count_documents({"company_id": source_id})
+        
+        if dry_run:
+            results[data_type] = {"would_migrate": count}
+        else:
+            if count > 0:
+                result = await collection.update_many(
+                    {"company_id": source_id},
+                    {"$set": {"company_id": target_id, "migrated_at": datetime.now(timezone.utc).isoformat(), "migrated_from": source_id}}
+                )
+                results[data_type] = {"migrated": result.modified_count}
+            else:
+                results[data_type] = {"migrated": 0}
+    
+    if not dry_run:
+        await log_super_admin_action(admin.user_id, "migrate_data", target_id, {
+            "source": source_id,
+            "results": results
+        })
+    
+    return {
+        "dry_run": dry_run,
+        "source_company_id": source_id,
+        "target_company_id": target_id,
+        "results": results
+    }
+
+
+@super_admin_router.post("/repair/fix-client-fields")
+async def fix_client_fields(
+    data: dict,
+    admin: User = Depends(get_super_admin)
+):
+    """Fix missing fields in clients (Super Admin only)
+    
+    Request body:
+    {
+        "company_id": "company_xxx",  # optional, if not provided fixes all
+        "dry_run": true
+    }
+    """
+    company_id = data.get("company_id")
+    dry_run = data.get("dry_run", True)
+    
+    query = {"company_id": company_id} if company_id else {}
+    
+    # Find clients with issues
+    clients_no_status = await db.clients.count_documents({**query, "status": {"$exists": False}})
+    clients_no_display = await db.clients.count_documents({**query, "display_name": {"$in": [None, ""]}})
+    clients_no_type = await db.clients.count_documents({**query, "client_type": {"$exists": False}})
+    
+    results = {
+        "clients_without_status": clients_no_status,
+        "clients_without_display_name": clients_no_display,
+        "clients_without_client_type": clients_no_type
+    }
+    
+    if not dry_run:
+        # Fix status
+        if clients_no_status > 0:
+            await db.clients.update_many(
+                {**query, "status": {"$exists": False}},
+                {"$set": {"status": "Active"}}
+            )
+        
+        # Fix display_name - use name, company_name, or client_name
+        if clients_no_display > 0:
+            clients = await db.clients.find({**query, "display_name": {"$in": [None, ""]}}).to_list(10000)
+            for c in clients:
+                display_name = c.get("name") or c.get("company_name") or c.get("client_name") or "Unknown"
+                await db.clients.update_one(
+                    {"client_id": c["client_id"]},
+                    {"$set": {"display_name": display_name}}
+                )
+        
+        # Fix client_type
+        if clients_no_type > 0:
+            await db.clients.update_many(
+                {**query, "client_type": {"$exists": False}},
+                {"$set": {"client_type": "Company"}}
+            )
+        
+        results["fixed"] = True
+        await log_super_admin_action(admin.user_id, "fix_client_fields", company_id, results)
+    else:
+        results["dry_run"] = True
+    
+    return results
+
+
+@super_admin_router.post("/repair/cleanup-nan-values")
+async def cleanup_nan_values_admin(
+    data: dict,
+    admin: User = Depends(get_super_admin)
+):
+    """Clean up 'nan' string values from all data (Super Admin only)
+    
+    Request body:
+    {
+        "company_id": "company_xxx",  # optional
+        "dry_run": true
+    }
+    """
+    company_id = data.get("company_id")
+    dry_run = data.get("dry_run", True)
+    
+    query = {"company_id": company_id} if company_id else {}
+    
+    # Find documents with 'nan' string values
+    nan_query = {
+        "$or": [
+            {"$expr": {"$regexMatch": {"input": {"$toString": "$estimated_value"}, "regex": "nan", "options": "i"}}},
+        ]
+    }
+    
+    leads_with_nan = await db.leads.count_documents({**query})
+    clients_with_nan = await db.clients.count_documents({**query})
+    
+    results = {
+        "leads_checked": leads_with_nan,
+        "clients_checked": clients_with_nan
+    }
+    
+    if not dry_run:
+        # Clean leads
+        updated_leads = 0
+        leads = await db.leads.find(query).to_list(10000)
+        for lead in leads:
+            updates = {}
+            for key, value in lead.items():
+                if isinstance(value, str) and value.lower() == "nan":
+                    updates[key] = None
+                elif isinstance(value, float) and (value != value):  # NaN check
+                    updates[key] = 0
+            if updates:
+                await db.leads.update_one({"lead_id": lead["lead_id"]}, {"$set": updates})
+                updated_leads += 1
+        
+        # Clean clients
+        updated_clients = 0
+        clients = await db.clients.find(query).to_list(10000)
+        for client in clients:
+            updates = {}
+            for key, value in client.items():
+                if isinstance(value, str) and value.lower() == "nan":
+                    updates[key] = None
+                elif isinstance(value, float) and (value != value):
+                    updates[key] = 0
+            if updates:
+                await db.clients.update_one({"client_id": client["client_id"]}, {"$set": updates})
+                updated_clients += 1
+        
+        results["leads_cleaned"] = updated_leads
+        results["clients_cleaned"] = updated_clients
+        await log_super_admin_action(admin.user_id, "cleanup_nan_values", company_id, results)
+    else:
+        results["dry_run"] = True
+    
+    return results
+
+
+@super_admin_router.delete("/repair/delete-orphaned-data")
+async def delete_orphaned_data(
+    dry_run: bool = True,
+    admin: User = Depends(get_super_admin)
+):
+    """Delete data not associated with any valid company (Super Admin only)"""
+    company_ids = await db.companies.distinct("company_id")
+    
+    orphaned_clients = await db.clients.count_documents({"company_id": {"$nin": company_ids}})
+    orphaned_leads = await db.leads.count_documents({"company_id": {"$nin": company_ids}})
+    orphaned_events = await db.events.count_documents({"company_id": {"$nin": company_ids}})
+    
+    results = {
+        "orphaned_clients": orphaned_clients,
+        "orphaned_leads": orphaned_leads,
+        "orphaned_events": orphaned_events
+    }
+    
+    if not dry_run:
+        if orphaned_clients > 0:
+            await db.clients.delete_many({"company_id": {"$nin": company_ids}})
+        if orphaned_leads > 0:
+            await db.leads.delete_many({"company_id": {"$nin": company_ids}})
+        if orphaned_events > 0:
+            await db.events.delete_many({"company_id": {"$nin": company_ids}})
+        
+        results["deleted"] = True
+        await log_super_admin_action(admin.user_id, "delete_orphaned_data", None, results)
+    else:
+        results["dry_run"] = True
+    
+    return results
+
+
 # ---- Super Admin: Organization Members ----
 
 @super_admin_router.get("/organizations/{company_id}/members")
