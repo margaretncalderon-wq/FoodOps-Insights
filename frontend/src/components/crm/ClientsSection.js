@@ -482,7 +482,12 @@ export default function ClientsSection() {
                       </div>
                     </TableCell>
                     <TableCell onClick={() => viewClient(client)}>
-                      {client.has_credit ? (
+                      <span className="text-sm">{client.city || "-"}</span>
+                    </TableCell>
+                    <TableCell onClick={() => viewClient(client)}>
+                      <span className="text-sm">{client.industry || "-"}</span>
+                    </TableCell>
+                    <TableCell onClick={() => viewClient(client)}>
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
                             <CreditCard className="w-3 h-3 text-green-600" />
