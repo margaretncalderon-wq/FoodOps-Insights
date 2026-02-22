@@ -84,14 +84,14 @@ export default function LeadInboundSection() {
     const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || lead.status?.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
-  // Stats
-  const newLeads = leads.filter(l => l.status === "New").length;
-  const contactedLeads = leads.filter(l => l.status === "Contacted").length;
-  const convertedLeads = leads.filter(l => l.status === "Converted").length;
+  // Stats - case-insensitive comparison
+  const newLeads = leads.filter(l => l.status?.toLowerCase() === "new").length;
+  const contactedLeads = leads.filter(l => l.status?.toLowerCase() === "contacted").length;
+  const convertedLeads = leads.filter(l => l.status?.toLowerCase() === "converted").length;
 
   const getSourceIcon = (source) => {
     const Icon = SOURCE_ICONS[source] || SOURCE_ICONS.Other;
