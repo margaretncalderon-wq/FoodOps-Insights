@@ -118,14 +118,15 @@ export default function OwnerAssignmentSection() {
 
   // Combine and filter data
   const allItems = [
-    ...leads.map(l => ({ ...l, entity_type: "lead", entity_id: l.lead_id, name: l.lead_name })),
-    ...clients.map(c => ({ ...c, entity_type: "client", entity_id: c.client_id, name: c.display_name }))
+    ...leads.map(l => ({ ...l, entity_type: "lead", entity_id: l.lead_id, name: l.lead_name || "" })),
+    ...clients.map(c => ({ ...c, entity_type: "client", entity_id: c.client_id, name: c.display_name || "" }))
   ].filter(item => {
-    const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const itemName = (item.name || "").toLowerCase();
+    const itemEmail = (item.email || "").toLowerCase();
+    const search = (searchTerm || "").toLowerCase();
+    const matchesSearch = !search || itemName.includes(search) || itemEmail.includes(search);
     const matchesOwner = ownerFilter === "all" || 
-                        ownerFilter === "unassigned" ? !item.owner_id : 
-                        item.owner_id === ownerFilter;
+                        (ownerFilter === "unassigned" ? !item.owner_id : item.owner_id === ownerFilter);
     return matchesSearch && matchesOwner;
   });
 
