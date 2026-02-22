@@ -284,6 +284,22 @@ export default function LeadOutreachSection() {
     setConvertOpen(true);
   };
 
+  // Helper to clean "nan" string values from lead data
+  const cleanNanValues = (lead) => {
+    if (!lead) return lead;
+    const cleaned = { ...lead };
+    const fieldsToClean = ['lead_name', 'name', 'email', 'phone', 'whatsapp', 'company_name', 'company', 'address', 'rnc', 'notes', 'message'];
+    fieldsToClean.forEach(field => {
+      if (cleaned[field] && typeof cleaned[field] === 'string') {
+        const val = cleaned[field].toLowerCase();
+        if (val === 'nan' || val === 'none' || val === 'null') {
+          cleaned[field] = '';
+        }
+      }
+    });
+    return cleaned;
+  };
+
   const getWhatsAppLink = (number) => {
     if (!number) return null;
     const cleaned = number.replace(/\D/g, '');
