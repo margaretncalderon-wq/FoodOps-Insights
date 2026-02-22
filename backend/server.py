@@ -14023,6 +14023,9 @@ async def export_leads(
     
     export_data = []
     for l in leads:
+        # Get effective status - prefer outreach_status for outreach leads
+        effective_status = l.get("outreach_status") or l.get("status", "New")
+        
         export_data.append({
             "nombre": l.get("name") or l.get("lead_name", ""),
             "email": l.get("email", ""),
@@ -14033,7 +14036,8 @@ async def export_leads(
             "direccion": l.get("address", ""),
             "rnc": l.get("rnc", ""),
             "fuente": l.get("source", ""),
-            "estado": l.get("status", "new"),
+            "estado": effective_status,
+            "outreach_status": l.get("outreach_status", ""),
             "valor_estimado": l.get("estimated_value", 0),
             "rango_presupuesto": l.get("budget_range", ""),
             "tipo_evento": l.get("event_type", ""),
