@@ -48,6 +48,7 @@ export default function PurchaseOrdersSection() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [company, setCompany] = useState({});
   
   // Dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
