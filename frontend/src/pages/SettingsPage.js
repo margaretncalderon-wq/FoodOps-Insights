@@ -3669,6 +3669,7 @@ function DataAdminSection({ language }) {
   const [debugInfo, setDebugInfo] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
   const [statsLoaded, setStatsLoaded] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const isEs = language === "es";
 
   useEffect(() => {
@@ -3676,47 +3677,64 @@ function DataAdminSection({ language }) {
   }, []);
 
   const fetchStats = async () => {
+    let statsData = null;
+    let clientsData = null;
+    let errors = [];
+    
+    // Try to get stats
     try {
       const statsRes = await axios.get(`${API}/crm/stats`, { withCredentials: true });
-      const clientsRes = await axios.get(`${API}/clients`, { withCredentials: true });
-      
-      const clientCount = Array.isArray(clientsRes.data) ? clientsRes.data.length : 0;
-      
-      setStats({
-        clients: clientCount,
-        leads: statsRes.data?.total_leads || 0,
-        outreach: statsRes.data?.outreach_leads || 0,
-        inbound: statsRes.data?.inbound_leads || 0
-      });
-      
-      // Set debug info from stats response if available
-      if (statsRes.data?.debug) {
-        setDebugInfo({
-          your_email: statsRes.data.debug.your_email,
-          your_company_id: statsRes.data.debug.your_company_id,
-          your_clients_count: statsRes.data.total_clients,
-          your_leads_count: statsRes.data.total_leads,
-          total_clients_all_companies: statsRes.data.debug.total_clients_all_companies,
-          total_leads_all_companies: statsRes.data.debug.total_leads_all_companies,
-          clients_count_by_company: statsRes.data.debug.clients_by_company
-        });
-      } else {
-        // Fallback: show available data
-        setDebugInfo({
-          your_email: "No disponible (requiere actualización)",
-          your_company_id: "No disponible",
-          your_clients_count: clientCount,
-          your_leads_count: statsRes.data?.total_leads || 0,
-          total_clients_all_companies: "No disponible",
-          total_leads_all_companies: "No disponible",
-          clients_count_by_company: null
-        });
-      }
-      setStatsLoaded(true);
+      statsData = statsRes.data;
     } catch (err) {
-      console.error("Error fetching stats:", err);
-      setStatsLoaded(true);
+      errors.push(`Stats: ${err.message}`);
     }
+    
+    // Try to get clients
+    try {
+      const clientsRes = await axios.get(`${API}/clients`, { withCredentials: true });
+      clientsData = clientsRes.data;
+    } catch (err) {
+      errors.push(`Clients: ${err.message}`);
+    }
+    
+    const clientCount = Array.isArray(clientsData) ? clientsData.length : 0;
+    
+    setStats({
+      clients: clientCount,
+      leads: statsData?.total_leads || 0,
+      outreach: statsData?.outreach_leads || 0,
+      inbound: statsData?.inbound_leads || 0
+    });
+    
+    // Set debug info
+    if (statsData?.debug) {
+      setDebugInfo({
+        your_email: statsData.debug.your_email,
+        your_company_id: statsData.debug.your_company_id,
+        your_clients_count: statsData.total_clients,
+        your_leads_count: statsData.total_leads,
+        total_clients_all_companies: statsData.debug.total_clients_all_companies,
+        total_leads_all_companies: statsData.debug.total_leads_all_companies,
+        clients_count_by_company: statsData.debug.clients_by_company
+      });
+    } else {
+      // Show what we have
+      setDebugInfo({
+        your_email: "Pendiente de deploy backend",
+        your_company_id: "Pendiente de deploy backend",
+        your_clients_count: clientCount,
+        your_leads_count: statsData?.total_leads || 0,
+        total_clients_all_companies: statsData?.debug?.total_clients_all_companies || "N/A",
+        total_leads_all_companies: statsData?.debug?.total_leads_all_companies || "N/A",
+        clients_count_by_company: null,
+        raw_stats: statsData
+      });
+    }
+    
+    if (errors.length > 0) {
+      setFetchError(errors.join(", "));
+    }
+    setStatsLoaded(true);
   };
 
   const handleDeleteClients = async () => {
