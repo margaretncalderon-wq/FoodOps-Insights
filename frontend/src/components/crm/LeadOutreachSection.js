@@ -271,7 +271,7 @@ export default function LeadOutreachSection() {
     if (!selectedLead) return;
     
     try {
-      await axios.put(`${API}/api/crm/leads/${selectedLead.lead_id}`, {
+      await axios.put(`${API}/api/leads/${selectedLead.lead_id}`, {
         lead_name: editForm.lead_name,
         name: editForm.lead_name,
         email: editForm.email,
