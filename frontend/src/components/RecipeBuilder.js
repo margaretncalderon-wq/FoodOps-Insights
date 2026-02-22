@@ -547,7 +547,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
             <span class="recipe-type">${form.recipe_type === 'base' ? 'Base' : form.recipe_type === 'component' ? 'Componente' : 'Plato Final'}</span>
           </div>
           <div class="header-right">
-            ${imageUrl ? `<img src="${imageUrl.startsWith('/api') ? API + imageUrl : imageUrl}" alt="${form.name}" />` : '<div class="company-name">Kora OS</div>'}
+            ${imageUrl ? `<img src="${imageUrl.startsWith('/api') ? API + imageUrl : imageUrl}" alt="${form.name}" />` : `<div class="company-name">${company.legal_name || company.trade_name || company.name || ''}</div>`}
           </div>
         </div>
         
