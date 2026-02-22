@@ -562,6 +562,36 @@ async def create_outreach_lead(data: LeadCreate, user: User = Depends(get_curren
     return lead_data
 
 
+@crm_router.post("/cleanup-nan-values")
+async def cleanup_nan_values(user: User = Depends(get_current_user)):
+    """Clean up 'nan' string values from all leads - one-time migration endpoint"""
+    # Find all leads with nan values
+    leads = await db.leads.find({"company_id": user.company_id}).to_list(5000)
+    
+    updated_count = 0
+    fields_to_check = ["lead_name", "name", "email", "phone", "whatsapp", "company", "company_name", 
+                       "address", "rnc", "notes", "message", "event_type", "event_date", "budget_range"]
+    
+    for lead in leads:
+        updates = {}
+        for field in fields_to_check:
+            if field in lead and isinstance(lead[field], str) and lead[field].lower() in ["nan", "none", "null"]:
+                updates[field] = ""
+        
+        # Also ensure outreach leads have outreach_status
+        if lead.get("lead_type") == "outreach" and not lead.get("outreach_status"):
+            updates["outreach_status"] = lead.get("status", "New")
+        
+        if updates:
+            await db.leads.update_one(
+                {"lead_id": lead["lead_id"]},
+                {"$set": updates}
+            )
+            updated_count += 1
+    
+    return {"message": f"Cleaned up {updated_count} leads", "updated": updated_count}
+
+
 @crm_router.put("/outreach/{lead_id}/status")
 async def update_outreach_status(lead_id: str, outreach_status: str, user: User = Depends(get_current_user)):
     """Update outreach status for a lead"""
