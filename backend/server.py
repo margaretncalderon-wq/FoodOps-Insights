@@ -14125,6 +14125,18 @@ async def import_leads(
     user: User = Depends(get_current_user)
 ):
     """Import leads from CSV or Excel - supports both lead format and client format"""
+    
+    def clean_value(val):
+        """Clean pandas NaN values and 'nan' strings"""
+        if val is None:
+            return ""
+        if pd.isna(val):
+            return ""
+        str_val = str(val).strip()
+        if str_val.lower() == "nan" or str_val.lower() == "none" or str_val == "":
+            return ""
+        return str_val
+    
     try:
         content = await file.read()
         
@@ -14143,10 +14155,10 @@ async def import_leads(
         
         for idx, row in df.iterrows():
             try:
-                # Handle both formats for name
-                name = row.get('nombre') or row.get('name') or ""
-                email = row.get('email') or ""
-                company = row.get('empresa') or row.get('company') or ""
+                # Handle both formats for name - clean NaN values
+                name = clean_value(row.get('nombre')) or clean_value(row.get('name')) or ""
+                email = clean_value(row.get('email')) or ""
+                company = clean_value(row.get('empresa')) or clean_value(row.get('company')) or ""
                 
                 # If no name but has company, use company as name
                 if not name and company:
