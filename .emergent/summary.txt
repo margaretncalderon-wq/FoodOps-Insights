@@ -1,85 +1,83 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to implement an inclusive language by industry feature. This evolved significantly throughout the session to include:
-1.  Fixing a bug with the Professional Services industry selection.
-2.  Verifying that default terminology is applied during user registration.
-3.  **[New]** Correcting a critical bug that showed an incorrect billing amount (77) on the Billing page.
-4.  **[New]** Fixing the UI to display all active modules, as Event Suite was missing.
-5.  **[New]** Adding the ability for users to deactivate/cancel add-on modules from the Billing page.
-6.  **[New]** Making the Import/Export CSV templates dynamic to reflect the user's selected industry terminology.
-7.  **[New]** Adding new fields to the CRM for clients: , , , and social media links (, ), and updating the import/export functionality to support them.
-8.  **[New]** Resolving a persistent browser/CDN caching issue for downloaded templates.
-9.  **[New]** Verifying that protected routes correctly redirect unauthenticated users.
-10. **[New]** Verifying the Super Admin panel and critical backend endpoints were not broken by the extensive changes.
-11. **[New]** Fixing the layout on the login page where content was visually cut off.
+The user's initial goal was to fix a visual layout bug on the login page. This quickly expanded into a series of major feature developments and critical bug fixes, including:
+1.  **Lead Import Enhancement:** The lead import template was missing key fields. This was fixed, and the import logic was enhanced to flexibly handle CSVs structured for Clients and import them as Leads.
+2.  **Company Branding & Logo Upload:** A new feature was built in the Settings -> Branding section allowing users to upload their company logo and input detailed company information (legal name, tax ID, address, banking details, etc.).
+3.  **Dynamic Document Generation:** All generated documents (Proposals, Invoices) were updated to dynamically pull the user's company logo, name, address, and bank details, removing all hardcoded Kora branding.
+4.  **Customizable Terms & Conditions:** A feature was added to allow users to define custom templates for Terms & Conditions and Payment Terms for different document types (Proposals, Invoices, Contracts) in both Spanish and English.
+5.  **Document Preview:** A preview button was added in Settings to allow users to see a sample document incorporating all their branding, terms, and bank information.
+6.  **Critical Bug Fix (Lead Display):** The user reported that imported leads were not appearing in the CRM. The root cause was identified as a case-sensitivity issue in frontend status filters ( vs. ). This was fixed across multiple components.
+7.  **Critical Bug Fix (Deployment Blocker):** A deployment was failing due to a . This was traced to / values in the backend and fixed by adding data sanitization functions.
+8.  **Critical Bug Fix (Current Issue):** After the previous fixes, the user reported that the Lead Outreach page shows the correct total count of leads but an empty list.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The agent successfully completed a large number of tasks, significantly advancing the application. The Inclusive Language feature is fully functional. More importantly, the agent addressed several critical user-reported issues:
--   **Billing Fixed:** The backend logic in  was overhauled to correctly calculate and differentiate between the current cost during a trial (e.g., /bin/bash/mo) and the cost after the trial ends. The frontend  was updated to display this information clearly, fixing the incorrect 77 charge.
--   **Module Management:** The UI now correctly displays all active modules (including legacy ones via aliasing) and provides users with a button to deactivate modules, complete with a confirmation dialog.
--   **CRM Enhanced:** The client entity now includes new business-related fields (, , , social links). The client forms and the import/export functionality have been updated to support these new fields.
--   **Dynamic Import/Export:** The import/export templates are no longer static. The backend now generates them on-the-fly with headers that match the user's selected industry terminology (e.g., Project Type instead of Event Type).
--   **Cache Issue Resolved:** A persistent caching problem with downloaded templates was fixed by implementing  headers on the backend and a cache-busting timestamp parameter on the frontend.
--   The agent also performed comprehensive verification across the Super Admin panel, backend endpoints, and auth flows to ensure no regressions were introduced.
+The application now has a comprehensive company branding and document customization engine. Users can configure their company's visual identity, legal information, and contractual terms, which are then automatically applied to documents generated for their clients. Several critical bugs related to data import, data display (case-sensitivity), and backend data processing (/ floats) have been resolved. The login page UI bug from the previous session has also been fixed.
 
 **Last working item**:
-- **Last item agent was working**: Fixing a visual bug on the login page where the right-side panel showing application modules was getting cut off.
+- **Last item agent was working**: Investigating a critical production bug where the Lead Outreach page shows a correct count of total leads (e.g., 1091) but the list itself is empty, showing 0. The agent has identified the root cause.
 - **Status**: IN PROGRESS
 - **Agent Testing Done**: N
-- **Which testing method agent to use?**: screenshot tool
+- **Which testing method agent to use?**: frontend testing agent. The agent should instruct the testing agent to verify that after the fix, the leads are correctly displayed in the table on the Lead Outreach page. Given the data persistence issues in the preview environment, the final verification will need to be done by the user in production after deployment.
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1**: Fix Login Page Layout (P0)
--   **Issue 2**: Enable Production Email Notifications (P1)
--   **Issue 3**: Complete Google Calendar Production OAuth (P1)
--   **Issue 4**: Incomplete Internationalization (P2)
--   **Issue 5**: Incomplete Dynamic Terminology Coverage (P2)
--   **Issue 6**: Backend plan limit enforcement logic may still exist (P3)
--   **Issue 7**: Local DB data is not persisted (P3)
+-   **Issue 1**: Outreach leads not displayed in CRM list (P0)
+-   **Issue 2**: Google OAuth  in Preview environments (P1)
+-   **Issue 3**: Enable Production Email Notifications (P1)
+-   **Issue 4**: Complete Google Calendar Production OAuth (P1)
+-   **Issue 5**: Incomplete Internationalization (P2)
+-   **Issue 6**: Incomplete Dynamic Terminology Coverage (P2)
+-   **Issue 7**: Backend plan limit enforcement logic may still exist (P3)
+-   **Issue 8**: Local DB data is not persisted (P3)
 
 **Issues Detail**:
--   **Issue 1: Fix Login Page Layout (P0)**
-    -   **Description**: The right-side panel on the login page, which showcases application modules, is visually cut off and does not display its full content. This is a CSS/layout issue.
-    -   **Attempted fixes**: The agent identified the relevant file () but had not yet applied a fix.
+-   **Issue 1: Outreach leads not displayed in CRM list (P0)**
+    -   **Description**: In the production CRM, the Lead Outreach view correctly displays the total number of outreach leads in the sidebar/summary, but the main table shows No outreach leads or 0.
+    -   **Attempted fixes**: The agent investigated the code and found the root cause.
     -   **Next debug checklist**:
-        1.  Modify the CSS in .
-        2.  Adjust the container's flex or grid properties to ensure both the login form and the module showcase panel are fully visible. Consider using  on the module panel if its content is expected to scroll.
-        3.  Take a screenshot of the login page to verify the fix.
-    -   **Why fix this issue and what will be achieved with the fix?**: This fixes a cosmetic bug on the application's main entry point, improving the user's first impression.
+        1.  Open .
+        2.  Locate the JavaScript filter logic that populates the lead table. It currently filters using .
+        3.  Modify this logic to correctly filter leads using the  field, as newly imported leads do not have an  field. The logic should be robust enough to handle both cases if needed.
+        4.  Inform the user that the fix is ready for deployment and that they will need to verify it in their production environment, as the preview environment does not have their persistent data.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical bug that prevents users from viewing and managing all their outreach leads, making a core part of the CRM unusable.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: frontend
     -   **Blocked on other issue**: No
 
--   **Issue 2: Enable Production Email Notifications (P1)**
+-   **Issue 2: Google OAuth  in Preview environments (P1)**
+    -   **Description**: Google login fails in preview environments because the dynamic preview URLs are not registered as authorized redirect URIs in the Google Cloud OAuth client settings. This is a configuration issue, not a code bug.
+    -   **Status**: BLOCKED (on user/admin adding preview URLs to Google Cloud Console).
+    -   **Is recurring issue?**: Y
+
+-   **Issue 3: Enable Production Email Notifications (P1)**
     -   **Status**: BLOCKED (on user providing )
     -   **Is recurring issue?**: Y
 
--   **Issue 3: Complete Google Calendar Production OAuth (P1)**
+-   **Issue 4: Complete Google Calendar Production OAuth (P1)**
     -   **Status**: BLOCKED (on user action post-deployment)
     -   **Is recurring issue?**: N
 
--   **Issue 4: Incomplete Internationalization (P2)**
+-   **Issue 5: Incomplete Internationalization (P2)**
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
 
--   **Issue 5: Incomplete Dynamic Terminology Coverage (P2)**
-    -   **Description**: The user previously requested to pause the full rollout. Approximately 15 files still contain hardcoded text (e.g., Client, Event).
+-   **Issue 6: Incomplete Dynamic Terminology Coverage (P2)**
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
 
--   **Issue 6: Backend plan limit enforcement logic may still exist (P3)**
+-   **Issue 7: Backend plan limit enforcement logic may still exist (P3)**
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
 
--   **Issue 7: Local DB data is not persisted (P3)**
-    -   **Status**: NOT STARTED
+-   **Issue 8: Local DB data is not persisted (P3)**
+    -   **Description**: The MongoDB database in the preview environment is ephemeral and is wiped on server restarts, making it difficult to test features that rely on persistent data.
+    -   **Status**: NOT STARTED (This is a platform-level characteristic).
     -   **Is recurring issue?**: Y
 
 **In progress Task List**:
--   None apart from the Fix Login Page Layout issue.
+-   None, all focus is on the P0 bug fix.
 
 **Upcoming and Future Tasks**
 Upcoming Tasks:
@@ -95,56 +93,78 @@ Future Tasks:
 -   Email Purchase Orders, Multi-currency support, Negative Margin Alerts, End-of-month summaries.
 
 **Completed work in this session**
--   **Fixed Incorrect Billing Amount**: Corrected backend logic () and updated  to show accurate trial and post-trial costs.
--   **Implemented Module Deactivation**: Added UI and backend logic for users to cancel add-on modules.
--   **Fixed Event Suite Display**: Ensured legacy module keys are correctly mapped and displayed in the UI.
--   **Enhanced CRM with New Fields**: Added , , , and social links to the  model and associated UI forms.
--   **Made Import/Export Dynamic & Cache-Proof**: Modified  to generate templates based on industry terminology and added robust cache-busting mechanisms.
--   **Comprehensive System Verification**: Confirmed the stability of the Super Admin panel, backend endpoints, and auth flows after numerous changes.
+- **Company Branding & Document Customization Suite (DONE)**:
+    - Implemented logo uploads and a full company information form in Settings.
+    - Generated documents (proposals, invoices) now dynamically use the user's branding, contact details, and bank information, removing all Kora hardcoding.
+    - Implemented editable templates for Terms & Conditions.
+    - Added a Document Preview feature in Settings.
+- **Flexible Lead Import (DONE)**:
+    - The lead import template was expanded with more fields.
+    - The import engine in  can now intelligently process CSV files formatted for Clients and import them as Leads.
+- **Critical Bug Fixes (DONE)**:
+    - **Login Page Layout**: Fixed a CSS issue causing the module panel to be cut off.
+    - **Lead Display**: Fixed case-sensitivity bugs in frontend filters across CRM components, allowing imported leads to be displayed correctly.
+    - **Deployment Blocker**: Resolved a  for out-of-range floats by adding backend sanitization for  and  values before JSON serialization.
+
+**Earlier issues found/mentioned but not fixed**
+- See the All Pending/In progress Issue list. No other issues were missed.
 
 **Known issue recurrence from previous fork**
--   None. The issues from the previous fork were resolved.
+-   None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend Cost Calculation**: Differentiating between current cost during trials () and future cost after trials () for accurate billing.
--   **Frontend/Backend Alias Mapping**: Using alias objects to map legacy database keys (e.g., ) to current UI displays (e.g., Event Suite).
--   **Cache Busting**: Combining backend  headers with a frontend timestamp parameter () to force-refresh dynamically generated file downloads, bypassing browser and CDN caches.
+-   **Dynamic Document Generation:** The backend provides a comprehensive  object, and the frontend  component renders documents using this data, ensuring full customization and removal of hardcoded platform branding.
+-   **Flexible Data Import:** The backend CSV import logic () inspects headers to differentiate between data formats (e.g., Client vs. Lead) and dynamically maps columns to the correct model, improving user experience.
+-   **Backend Data Sanitization:** A  helper function was implemented in  and  to check for and handle  and  values before JSON serialization, preventing deployment-blocking  exceptions.
+-   **Case-Insensitive Frontend Filtering:** Consistently using  on both the data value and filter value (e.g., ) in frontend components to make filtering robust against data inconsistencies.
+
+**key DB schema**
+-   **company**: Significantly expanded to include: , , , , , , , , , , , , , , , , , , , , , , , , , , , , , .
+
+**changes in tech stack**
+-   None.
 
 **All files of reference**
--    (File for the next immediate fix)
--    (Contains major billing and module management changes)
--    (Core of the new billing logic)
--    (Core of the dynamic template generation)
--    (New client form fields)
--    (New client DB schema)
+-    (Location of the current P0 bug)
+-    (Core logic for flexible lead import)
+-    (UI for all new branding/document features)
+-    (Schema for all new company branding/document data)
+-    (Endpoints for managing company data)
+-    (Contains fix for the float )
+-    (Component responsible for rendering customized documents)
 
 **Critical Info for New Agent**
 -   **Responde en español.**
--   Your first task is to fix the CSS layout issue on the login page in  where the right-side panel is cut off.
--   The user has performed extensive feature verification. The agent has already fixed complex issues related to billing, module management, and caching. Be confident in these fixes.
--   The template caching issue was solved with a two-pronged approach (backend headers + frontend timestamp). If the user reports it again, advise a hard refresh () as the final step.
+-   Your immediate task is to fix the critical bug in . The lead list filter is using the wrong field ( instead of ).
+-   The user is working with their **production data**. The preview environment has an **ephemeral database** that gets wiped on restarts. Do not rely on it for data-dependent testing. Inform the user that they must deploy your fixes to verify them in their production environment.
+-   The  was a major deployment blocker. The sanitization helpers added to  and  are critical and must be preserved.
+-   The Google Login  error is a known configuration issue for preview environments, not a code bug.
+
+**documents and test reports created in this job**
+-   None.
 
 **Last 10 User Messages and any pending HUMAN messages**
-10.  - User points out the login page layout is broken. **(Last working item)**
-9.   - User expressed confusion about cookie management for protected routes. (Resolved: Agent clarified it's not necessary).
-8.   - User questioned why protected routes weren't redirecting to login. (Resolved: Agent confirmed protection works and the user was already logged in).
-7.   - User reported that the fix for the template caching issue was not working. (Resolved: Led to further debugging and a more robust fix).
-6.   - User reported still getting the old template file. (Resolved: Led to implementing a frontend cache-busting solution).
-5.   - User confirmed readiness to deploy after a fix.
-4.   - User correctly pointed out that requiring users to clear cache is a bad solution. (Resolved: Led to a proper server-side fix).
-3.   - User uploaded an old template file, confirming the cache issue. (Resolved).
-2.   - User reported new CRM fields were missing from the import template. (Resolved: It was a cache issue).
-1.   - User asked if import/export respects dynamic terminology. (Completed: Led to a major feature enhancement).
+10.  - User urging agent to continue debugging the lead display issue. **(In Progress)**
+9.  - User confirms import worked in production but the display is broken, correctly identifying it as a display issue. **(In Progress)**
+8.  - User pointed out that the agent's UI screenshots did not match their production UI, leading the agent to find the correct files. (Resolved)
+7. User provides deployment logs showing  - User reported a critical deployment blocker. (Resolved)
+6.  - User provided a screenshot showing a different UI layout and confirming the lead display bug persists. (Resolved, led to agent finding correct component)
+5.  - User asked if they should deploy the changes. (Resolved)
+4.  - User sent a screenshot from production showing 384 inbound leads are counted but not displayed, highlighting a critical bug. (Resolved)
+3.  - User reported that imported leads were not visible in the CRM. (Resolved, led to case-sensitivity fix)
+2.  - User provided an excel file and a user email, reporting an import issue. (Resolved, led to flexible import feature)
+1.  - User asked for verification that all import types were correct, not just leads. (Completed)
 
 **Project Health Check:**
--   **Broken**: The CSS layout of the login page is broken (content is cut off).
+-   **Broken**: The Lead Outreach CRM view is critically broken; it correctly counts leads but does not display them in the list.
 -   **Mocked**: Email Notifications ().
 -   **Blocked**:
     -   Email Notifications (awaiting ).
     -   Google Calendar (awaiting user OAuth in production).
+    -   Google Login in preview environments (configuration issue: ).
 
 **3rd Party Integrations**
 -   **Resend:** For transactional emails (Status: **Integrated, BLOCKED - PENDING API KEY**).
@@ -153,7 +173,7 @@ Future Tasks:
 -   **Custom Google OAuth:** For social login.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO. However, the agent performed extensive and methodical manual testing using  and screenshots for every bug fix and feature addition.
+-   **Testing agent used after significant changes**: NO. Agent performed extensive manual testing via screenshots and . A  was called for a deployment error but failed to find the root cause, which the main agent then fixed manually.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: []
 -   **Known regressions**: None.
@@ -161,4 +181,7 @@ Future Tasks:
 **Credentials to test flow:**
 -   **Super Admin / Agency User:**
     -   **Email:** 
-    -   **Password:** </analysis>
+    -   **Password:** 
+
+**What agent forgot to execute**
+- The agent correctly identified the root cause of the final P0 bug (outreach leads not displaying) but did not get to implement the fix in  before the session ended. This is the immediate next step.</analysis>
