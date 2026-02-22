@@ -541,9 +541,20 @@ async def get_debug_info(user: User = Depends(get_current_user)):
     client_company_ids = await db.clients.distinct("company_id")
     lead_company_ids = await db.leads.distinct("company_id")
     
+    # Count clients per company_id (top 10)
+    pipeline = [
+        {"$group": {"_id": "$company_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    clients_by_company = await db.clients.aggregate(pipeline).to_list(10)
+    
     # Sample of client data to check structure
     sample_client = await db.clients.find_one({"company_id": user.company_id}, {"_id": 0, "client_id": 1, "display_name": 1, "status": 1})
     sample_lead = await db.leads.find_one({"company_id": user.company_id}, {"_id": 0, "lead_id": 1, "lead_name": 1, "status": 1, "lead_type": 1})
+    
+    # Also get a sample client from ANY company to see what company_ids exist
+    any_client = await db.clients.find_one({}, {"_id": 0, "client_id": 1, "company_id": 1, "display_name": 1})
     
     return {
         "your_user_id": user.user_id,
@@ -553,10 +564,12 @@ async def get_debug_info(user: User = Depends(get_current_user)):
         "your_leads_count": total_leads,
         "total_clients_all_companies": all_clients,
         "total_leads_all_companies": all_leads,
-        "company_ids_with_clients": client_company_ids[:10],  # First 10
-        "company_ids_with_leads": lead_company_ids[:10],  # First 10
-        "sample_client": sample_client,
-        "sample_lead": sample_lead
+        "clients_count_by_company": clients_by_company,
+        "company_ids_with_clients": client_company_ids[:10],
+        "company_ids_with_leads": lead_company_ids[:10],
+        "sample_your_client": sample_client,
+        "sample_your_lead": sample_lead,
+        "sample_any_client": any_client
     }
 
 
