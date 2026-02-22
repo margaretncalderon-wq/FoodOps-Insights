@@ -24,6 +24,22 @@ import CommunicationsTimeline from "./CommunicationsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
+// Common cities in Dominican Republic and nearby
+const CITIES = [
+  "Santo Domingo", "Santiago", "San Pedro de Macorís", "La Romana", "San Cristóbal",
+  "Puerto Plata", "San Francisco de Macorís", "Higüey", "La Vega", "Moca",
+  "Bonao", "Azua", "Baní", "Barahona", "Mao", "Cotuí", "Nagua", "Samaná",
+  "Punta Cana", "Bávaro", "Boca Chica", "Juan Dolio", "Cabarete", "Sosúa",
+  "Miami", "New York", "San Juan", "Bogotá", "Ciudad de México", "Madrid"
+];
+
+const COUNTRIES = [
+  "República Dominicana", "Estados Unidos", "Puerto Rico", "España", "México",
+  "Colombia", "Venezuela", "Panamá", "Costa Rica", "Guatemala", "Honduras",
+  "El Salvador", "Nicaragua", "Cuba", "Haití", "Argentina", "Chile", "Perú",
+  "Ecuador", "Brasil", "Canadá", "Francia", "Alemania", "Italia", "Reino Unido"
+];
+
 const OUTREACH_STATUSES = [
   { value: "New", labelEn: "New", labelEs: "Nuevo", color: "bg-blue-100 text-blue-700" },
   { value: "Contacted", labelEn: "Contacted", labelEs: "Contactado", color: "bg-yellow-100 text-yellow-700" },
