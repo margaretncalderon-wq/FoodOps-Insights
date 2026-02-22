@@ -242,7 +242,8 @@ export default function LeadOutreachSection() {
   });
 
   const getStatusBadge = (status) => {
-    const s = OUTREACH_STATUSES.find(st => st.value === status) || OUTREACH_STATUSES[0];
+    const normalizedStatus = status?.toLowerCase();
+    const s = OUTREACH_STATUSES.find(st => st.value.toLowerCase() === normalizedStatus) || OUTREACH_STATUSES[0];
     return <Badge className={s.color}>{isEs ? s.labelEs : s.labelEn}</Badge>;
   };
 
