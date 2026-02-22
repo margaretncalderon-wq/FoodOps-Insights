@@ -1039,6 +1039,25 @@ export default function LeadOutreachSection() {
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Ciudad" : "City"}</Label>
+                <Input
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                  placeholder={isEs ? "Santo Domingo" : "City name"}
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "País" : "Country"}</Label>
+                <Input
+                  value={editForm.country}
+                  onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                  placeholder={isEs ? "República Dominicana" : "Country"}
+                />
+              </div>
+            </div>
+
             <div>
               <Label>{isEs ? "Asignar a" : "Assign to"}</Label>
               <Select value={editForm.owner_id || "unassigned"} onValueChange={(v) => setEditForm({ ...editForm, owner_id: v === "unassigned" ? "" : v })}>
