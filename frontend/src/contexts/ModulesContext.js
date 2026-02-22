@@ -7,7 +7,7 @@ const API_URL = getApiBaseUrl();
 const ModulesContext = createContext(null);
 
 export const ModulesProvider = ({ children }) => {
-  const { token, user } = useAuth();
+  const { token, user, loading: authLoading } = useAuth();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [planId, setPlanId] = useState(null);
@@ -18,8 +18,13 @@ export const ModulesProvider = ({ children }) => {
   const [terminology, setTerminology] = useState({});
 
   const fetchModules = useCallback(async () => {
-    // If no token and no user, skip fetching
-    if (!token && !user) {
+    // Wait for auth to finish loading first
+    if (authLoading) {
+      return;
+    }
+    
+    // If no user after auth finishes, skip fetching
+    if (!user) {
       setLoading(false);
       return;
     }
@@ -53,7 +58,7 @@ export const ModulesProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
+  }, [token, user, authLoading]);
 
   useEffect(() => {
     fetchModules();
