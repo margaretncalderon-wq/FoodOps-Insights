@@ -3818,6 +3818,39 @@ function DataAdminSection({ language }) {
               </Button>
             </div>
           </div>
+
+          {/* Debug Info Section */}
+          <div className="pt-4 border-t">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+              className="mb-3"
+            >
+              {showDebug ? "🔼 Ocultar Diagnóstico" : "🔽 Mostrar Diagnóstico de Datos"}
+            </Button>
+            
+            {showDebug && debugInfo && (
+              <div className="bg-gray-50 p-4 rounded-lg text-sm font-mono space-y-2">
+                <p><strong>Tu Email:</strong> {debugInfo.your_email}</p>
+                <p><strong>Tu Company ID:</strong> {debugInfo.your_company_id}</p>
+                <p><strong>Tus Clientes:</strong> {debugInfo.your_clients_count}</p>
+                <p><strong>Tus Leads:</strong> {debugInfo.your_leads_count}</p>
+                <hr className="my-2" />
+                <p><strong>Total Clientes (todas las empresas):</strong> {debugInfo.total_clients_all_companies}</p>
+                <p><strong>Total Leads (todas las empresas):</strong> {debugInfo.total_leads_all_companies}</p>
+                <hr className="my-2" />
+                <p><strong>Clientes por Company ID:</strong></p>
+                <ul className="pl-4">
+                  {debugInfo.clients_count_by_company?.map((c, i) => (
+                    <li key={i} className={c._id === debugInfo.your_company_id ? "text-green-600 font-bold" : ""}>
+                      {c._id}: {c.count} clientes {c._id === debugInfo.your_company_id ? "← Tu cuenta" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
