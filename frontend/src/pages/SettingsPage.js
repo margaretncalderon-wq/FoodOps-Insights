@@ -1857,6 +1857,123 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
+              {/* Terms & Conditions Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    {language === "es" ? "Términos y Condiciones" : "Terms & Conditions"}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "es" 
+                      ? "Configura los términos que aparecerán en propuestas, facturas y contratos" 
+                      : "Configure terms that will appear in proposals, invoices and contracts"}
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Payment Terms */}
+                  <div className="space-y-2">
+                    <Label>{language === "es" ? "Términos de Pago por Defecto" : "Default Payment Terms"}</Label>
+                    <Textarea 
+                      value={formData.payment_terms_default} 
+                      onChange={(e) => setFormData({ ...formData, payment_terms_default: e.target.value })}
+                      placeholder={language === "es" ? "Ej: 50% al confirmar, 50% el día del evento" : "E.g.: 50% on confirmation, 50% on event day"}
+                      rows={2}
+                    />
+                  </div>
+
+                  {/* Terms Tabs */}
+                  <Tabs value={activeTermsTab} onValueChange={setActiveTermsTab}>
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="proposal">{language === "es" ? "Propuestas" : "Proposals"}</TabsTrigger>
+                      <TabsTrigger value="invoice">{language === "es" ? "Facturas" : "Invoices"}</TabsTrigger>
+                      <TabsTrigger value="contract">{language === "es" ? "Contratos" : "Contracts"}</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="proposal" className="space-y-4 mt-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <span className="text-lg">🇪🇸</span> {language === "es" ? "Español" : "Spanish"}
+                          </Label>
+                          <Textarea 
+                            value={formData.terms_proposal_es} 
+                            onChange={(e) => setFormData({ ...formData, terms_proposal_es: e.target.value })}
+                            placeholder="Los precios incluyen... La propuesta tiene validez de..."
+                            rows={5}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <span className="text-lg">🇺🇸</span> {language === "es" ? "Inglés" : "English"}
+                          </Label>
+                          <Textarea 
+                            value={formData.terms_proposal_en} 
+                            onChange={(e) => setFormData({ ...formData, terms_proposal_en: e.target.value })}
+                            placeholder="Prices include... This proposal is valid for..."
+                            rows={5}
+                          />
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="invoice" className="space-y-4 mt-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <span className="text-lg">🇪🇸</span> {language === "es" ? "Español" : "Spanish"}
+                          </Label>
+                          <Textarea 
+                            value={formData.terms_invoice_es} 
+                            onChange={(e) => setFormData({ ...formData, terms_invoice_es: e.target.value })}
+                            placeholder="El pago debe realizarse antes de... Métodos de pago aceptados..."
+                            rows={5}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <span className="text-lg">🇺🇸</span> {language === "es" ? "Inglés" : "English"}
+                          </Label>
+                          <Textarea 
+                            value={formData.terms_invoice_en} 
+                            onChange={(e) => setFormData({ ...formData, terms_invoice_en: e.target.value })}
+                            placeholder="Payment must be made before... Accepted payment methods..."
+                            rows={5}
+                          />
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="contract" className="space-y-4 mt-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <span className="text-lg">🇪🇸</span> {language === "es" ? "Español" : "Spanish"}
+                          </Label>
+                          <Textarea 
+                            value={formData.terms_contract_es} 
+                            onChange={(e) => setFormData({ ...formData, terms_contract_es: e.target.value })}
+                            placeholder="Las partes acuerdan... En caso de cancelación..."
+                            rows={5}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <span className="text-lg">🇺🇸</span> {language === "es" ? "Inglés" : "English"}
+                          </Label>
+                          <Textarea 
+                            value={formData.terms_contract_en} 
+                            onChange={(e) => setFormData({ ...formData, terms_contract_en: e.target.value })}
+                            placeholder="The parties agree... In case of cancellation..."
+                            rows={5}
+                          />
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+
               <div className="flex justify-end">
                 <Button type="submit" disabled={saving} data-testid="save-settings-btn">
                   {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
