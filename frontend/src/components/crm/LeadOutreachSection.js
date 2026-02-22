@@ -354,7 +354,7 @@ export default function LeadOutreachSection() {
                         ) : (
                           <User className="w-4 h-4 text-purple-600" />
                         )}
-                        {lead.lead_name}
+                        {lead.lead_name || lead.name || lead.company_name || "-"}
                       </div>
                     </TableCell>
                     <TableCell>
