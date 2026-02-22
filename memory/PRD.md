@@ -142,6 +142,18 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Files Modified**: `/app/frontend/src/pages/LoginPage.js`
 - **Status**: TESTED & WORKING (verified on /login, /settings, /crm redirects)
 
+### Feature: Company Information & Logo Upload - IMPLEMENTED (Feb 22, 2026)
+- **Requirement**: Allow logo upload and complete business information in Settings > Branding
+- **Backend Changes**:
+  - Extended `Company` model with new fields: `legal_name`, `trade_name`, `tax_id`, `email`, `phone`, `website`, `address`, `city`, `state`, `country`, `postal_code`, `tax_regime`, `industry_sector`, `employee_count`, `decimal_precision`, `decimal_separator`
+  - Added `POST /api/settings/company/logo` endpoint for logo file upload
+  - Updated `PUT /api/settings/company` to accept new fields
+- **Frontend Changes**:
+  - Redesigned Branding tab with 3 cards: General Info, Location, Additional Info
+  - Added logo upload with drag & drop style interface and preview
+  - Added all business information fields matching the screenshot reference
+- **Status**: TESTED & WORKING
+
 ## Pending Issues
 - P1: Email Notifications (blocked on RESEND_API_KEY)
 - P1: Google Calendar Production OAuth (requires user action post-deploy)
