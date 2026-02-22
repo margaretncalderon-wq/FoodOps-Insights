@@ -53,6 +53,7 @@ export default function LeadOutreachSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
@@ -69,6 +70,19 @@ export default function LeadOutreachSection() {
     message: "",
     owner_id: "",
     event_type: "corporate"
+  });
+  const [editForm, setEditForm] = useState({
+    lead_name: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    company_name: "",
+    client_type: "Individual",
+    rnc: "",
+    address: "",
+    message: "",
+    owner_id: "",
+    event_type: ""
   });
   const [followUpForm, setFollowUpForm] = useState({
     next_follow_up_date: "",
