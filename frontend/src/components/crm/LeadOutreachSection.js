@@ -80,6 +80,8 @@ export default function LeadOutreachSection() {
     client_type: "Individual",
     rnc: "",
     address: "",
+    city: "",
+    country: "",
     message: "",
     owner_id: "",
     event_type: ""
