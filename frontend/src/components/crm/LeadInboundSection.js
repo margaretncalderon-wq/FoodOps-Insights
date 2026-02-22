@@ -64,25 +64,48 @@ export default function LeadInboundSection() {
     follow_up_type: "Call"
   });
 
+  // Helper to clean "nan" string values from lead data
+  const cleanNanValues = useCallback((lead) => {
+    if (!lead) return lead;
+    const cleaned = { ...lead };
+    const fieldsToClean = ['lead_name', 'name', 'email', 'phone', 'whatsapp', 'company_name', 'company', 'address', 'rnc', 'notes', 'message'];
+    fieldsToClean.forEach(field => {
+      if (cleaned[field] && typeof cleaned[field] === 'string') {
+        const val = cleaned[field].toLowerCase();
+        if (val === 'nan' || val === 'none' || val === 'null') {
+          cleaned[field] = '';
+        }
+      }
+    });
+    return cleaned;
+  }, []);
+
   const fetchLeads = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/crm/inbound`, { withCredentials: true });
-      setLeads(res.data);
+      // Clean nan values from all leads
+      const cleanedLeads = res.data.map(lead => cleanNanValues(lead));
+      setLeads(cleanedLeads);
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  }, []);
+  }, [cleanNanValues]);
 
   useEffect(() => { 
     fetchLeads(); 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Filter leads
+  // Filter leads - with null safety
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const leadName = lead.lead_name || lead.name || "";
+    const email = lead.email || "";
+    const companyName = lead.company_name || lead.company || "";
+    
+    const matchesSearch = leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         companyName.toLowerCase().includes(searchTerm.toLowerCase());
                          lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || lead.status?.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
