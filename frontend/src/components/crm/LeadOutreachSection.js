@@ -701,10 +701,8 @@ export default function LeadOutreachSection() {
                   list="city-list-new"
                 />
                 <datalist id="city-list-new">
-                  {CITIES.filter(c => 
-                    (form.country === "República Dominicana" || !form.country) 
-                      ? c.toLowerCase().includes((form.city || "").toLowerCase())
-                      : false
+                  {getCitiesForCountry(form.country).filter(c => 
+                    c.toLowerCase().includes((form.city || "").toLowerCase())
                   ).map(city => (
                     <option key={city} value={city} />
                   ))}
