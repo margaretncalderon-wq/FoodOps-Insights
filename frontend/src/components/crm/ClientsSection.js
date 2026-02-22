@@ -488,19 +488,6 @@ export default function ClientsSection() {
                       <span className="text-sm">{client.industry || "-"}</span>
                     </TableCell>
                     <TableCell onClick={() => viewClient(client)}>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <CreditCard className="w-3 h-3 text-green-600" />
-                            <span className="text-xs">{formatCurrency(client.credit_limit)}</span>
-                          </div>
-                          <Progress value={client.credit_percentage || 0} className="h-1" />
-                          <span className="text-xs text-muted-foreground">{client.credit_percentage || 0}% {isEs ? "usado" : "used"}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell onClick={() => viewClient(client)}>
                       <Badge variant="outline">{client.events_count || 0}</Badge>
                     </TableCell>
                     <TableCell className="font-medium text-green-600" onClick={() => viewClient(client)}>
