@@ -888,7 +888,7 @@ export default function CRMPage() {
                   </div>
                 )}
                 
-                {selectedLead.status === "Converted" && (
+                {selectedLead.status?.toLowerCase() === "converted" && (
                   <div className="p-4 bg-green-50 rounded-lg text-green-800 text-sm">
                     {language === "es" 
                       ? "Este lead ya fue convertido a cliente."
