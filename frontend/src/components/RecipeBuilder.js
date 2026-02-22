@@ -674,7 +674,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         ` : ''}
         
         <div class="footer">
-          <div>Generado por Kora OS - Culinary Intelligence</div>
+          <div>${company.legal_name || company.trade_name || company.name || ''}</div>
           <div>${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
         </div>
       </body>
