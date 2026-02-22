@@ -1135,7 +1135,7 @@ export default function LeadOutreachSection() {
                     list="city-list"
                   />
                   <datalist id="city-list">
-                    {CITIES.filter(c => c.toLowerCase().includes((editForm.city || "").toLowerCase())).map(city => (
+                    {getCitiesForCountry(editForm.country).filter(c => c.toLowerCase().includes((editForm.city || "").toLowerCase())).map(city => (
                       <option key={city} value={city} />
                     ))}
                   </datalist>
