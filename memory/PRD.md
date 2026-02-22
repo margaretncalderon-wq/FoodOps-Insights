@@ -154,6 +154,17 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - Added all business information fields matching the screenshot reference
 - **Status**: TESTED & WORKING
 
+### Feature: Terms & Conditions Templates - IMPLEMENTED (Feb 22, 2026)
+- **Requirement**: Custom templates for terms and conditions in proposals, invoices, and contracts
+- **Backend Changes**:
+  - Added fields to Company model: `terms_proposal_es`, `terms_proposal_en`, `terms_invoice_es`, `terms_invoice_en`, `terms_contract_es`, `terms_contract_en`, `payment_terms_default`
+  - Document generation now includes `terms_and_conditions` and `payment_terms` from company settings
+- **Frontend Changes**:
+  - New "Terms & Conditions" card in Settings > Branding with tabbed interface (Proposals/Invoices/Contracts)
+  - Bilingual support (Spanish/English) for each document type
+  - DocumentPreview now displays payment terms and terms & conditions
+- **Status**: TESTED & WORKING
+
 ### Feature: Company Info in Documents - IMPLEMENTED (Feb 22, 2026)
 - **Requirement**: Show company info (logo, legal name, RNC, address, phone, email) in proposals, invoices, and other generated documents instead of "Kora"
 - **Files Modified**:
