@@ -508,6 +508,11 @@ async def get_outreach_leads(user: User = Depends(get_current_user)):
         for field in ["created_at", "updated_at"]:
             if lead.get(field) and isinstance(lead[field], str):
                 lead[field] = datetime.fromisoformat(lead[field])
+        # Sanitize float fields
+        if "estimated_value" in lead:
+            lead["estimated_value"] = sanitize_float(lead.get("estimated_value"), 0)
+        if "guest_count" in lead:
+            lead["guest_count"] = int(sanitize_float(lead.get("guest_count"), 0))
     
     return leads
 
