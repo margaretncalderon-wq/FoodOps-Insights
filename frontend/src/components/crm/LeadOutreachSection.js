@@ -227,11 +227,17 @@ export default function LeadOutreachSection() {
     return `https://wa.me/${cleaned}`;
   };
 
+  // Helper to get the effective status - prioritize outreach_status, fallback to status
+  const getEffectiveStatus = (lead) => {
+    return lead.outreach_status || lead.status || "New";
+  };
+
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || lead.outreach_status === statusFilter;
+    const effectiveStatus = getEffectiveStatus(lead);
+    const matchesStatus = statusFilter === "all" || effectiveStatus.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
