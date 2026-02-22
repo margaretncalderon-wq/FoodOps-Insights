@@ -34,7 +34,6 @@ import { toast } from "sonner";
 import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
 // New Settings Sections
 import RolesSettingsSection from "../components/settings/RolesSettingsSection";
