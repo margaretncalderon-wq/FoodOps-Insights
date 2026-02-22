@@ -294,7 +294,7 @@ export default function OwnerAssignmentSection() {
                           <User className="w-4 h-4 text-muted-foreground" />
                         )}
                         {item.name}
-                        {item.status === "Converted" && (
+                        {item.status?.toLowerCase() === "converted" && (
                           <Badge className="bg-green-100 text-green-700 text-xs ml-2">
                             {isEs ? "Convertido" : "Converted"}
                           </Badge>
