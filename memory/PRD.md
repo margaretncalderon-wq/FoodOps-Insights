@@ -204,6 +204,30 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - **Files Modified**: `/app/backend/routers/crm.py`
 - **Status**: FIXED - READY FOR DEPLOYMENT
 
+### Fix: Bulk Delete Route Collision - FIXED (Feb 22, 2026)
+- **Issue**: DELETE /api/crm/clients/bulk-delete and /api/crm/leads/bulk-delete returning "Client not found" 404 error
+- **Root Cause**: FastAPI route ordering issue - `/clients/{client_id}` was capturing requests to `/clients/bulk-delete` because `bulk-delete` was being interpreted as a `client_id`
+- **Fix**: Moved bulk-delete routes BEFORE parametrized routes in `/app/backend/routers/crm.py` (lines 421-445)
+- **Status**: FIXED & VERIFIED
+
+### Fix: Owners Tab TypeError - FIXED (Feb 22, 2026)
+- **Issue**: Owners tab (/client-engagement/crm/owners) showing runtime error `_item$name.toLowerCase is not a function`
+- **Root Cause**: `item.name` was `null` or `undefined` when filtering leads/clients, causing TypeError when calling `.toLowerCase()`
+- **Fix**: Added null-safe handling in `OwnerAssignmentSection.js`:
+  - Default `name` to empty string in map functions
+  - Extract values to variables with fallbacks before filtering
+- **Files Modified**: `/app/frontend/src/components/crm/OwnerAssignmentSection.js`
+- **Status**: FIXED & VERIFIED
+
+### Fix: Data Admin Incorrect Counts - FIXED (Feb 22, 2026)
+- **Issue**: Data Admin section showing incorrect lead counts (showing "-12" for inbound instead of actual count)
+- **Root Cause**: Frontend was using wrong field names from API (`total` instead of `total_leads`) and calculating inbound incorrectly
+- **Fix**: Updated `fetchStats()` in SettingsPage.js to use correct field names from `/api/crm/stats`:
+  - `total_leads` instead of `total`
+  - `inbound_leads` instead of calculated value
+- **Files Modified**: `/app/frontend/src/pages/SettingsPage.js`
+- **Status**: FIXED & VERIFIED
+
 ## Pending Issues
 - P1: Email Notifications (blocked on RESEND_API_KEY)
 - P1: Google Calendar Production OAuth (requires user action post-deploy)
