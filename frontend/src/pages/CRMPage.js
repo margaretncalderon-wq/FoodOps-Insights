@@ -273,7 +273,7 @@ export default function CRMPage() {
     const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || lead.status?.toLowerCase() === statusFilter.toLowerCase();
     const matchesSource = sourceFilter === "all" || lead.source === sourceFilter;
     return matchesSearch && matchesStatus && matchesSource;
   });
