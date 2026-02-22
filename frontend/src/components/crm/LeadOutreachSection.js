@@ -657,9 +657,44 @@ export default function LeadOutreachSection() {
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Ciudad" : "City"}</Label>
+                <Input
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder={isEs ? "Santo Domingo" : "City name"}
+                  list="city-list-new"
+                />
+                <datalist id="city-list-new">
+                  {CITIES.filter(c => 
+                    (form.country === "República Dominicana" || !form.country) 
+                      ? c.toLowerCase().includes((form.city || "").toLowerCase())
+                      : false
+                  ).map(city => (
+                    <option key={city} value={city} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <Label>{isEs ? "País" : "Country"}</Label>
+                <Input
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  placeholder={isEs ? "República Dominicana" : "Country"}
+                  list="country-list-new"
+                />
+                <datalist id="country-list-new">
+                  {COUNTRIES.filter(c => c.toLowerCase().includes((form.country || "").toLowerCase())).map(country => (
+                    <option key={country} value={country} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+
             <div>
               <Label>{isEs ? "Asignar a" : "Assign to"}</Label>
-              <Select value={form.owner_id} onValueChange={(v) => setForm({ ...form, owner_id: v })}>
+              <Select value={form.owner_id || "unassigned"} onValueChange={(v) => setForm({ ...form, owner_id: v === "unassigned" ? "" : v })}>
                 <SelectTrigger>
                   <SelectValue placeholder={isEs ? "Seleccionar owner" : "Select owner"} />
                 </SelectTrigger>
