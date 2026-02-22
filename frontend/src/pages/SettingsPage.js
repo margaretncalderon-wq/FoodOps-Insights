@@ -3815,7 +3815,7 @@ function DataAdminSection({ language }) {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={handleShowDebug}
+              onClick={() => setShowDebug(!showDebug)}
               className="mb-3"
             >
               {showDebug ? "🔼 Ocultar Diagnóstico" : "🔽 Mostrar Diagnóstico de Datos"}
@@ -3823,15 +3823,7 @@ function DataAdminSection({ language }) {
             
             {showDebug && (
               <div className="bg-gray-50 p-4 rounded-lg text-sm font-mono space-y-2">
-                {debugLoading && (
-                  <p className="text-blue-600">⏳ Cargando diagnóstico...</p>
-                )}
-                
-                {debugError && (
-                  <p className="text-red-600">❌ Error: {debugError}</p>
-                )}
-                
-                {debugInfo && (
+                {debugInfo ? (
                   <>
                     <p><strong>Tu Email:</strong> {debugInfo.your_email}</p>
                     <p><strong>Tu Company ID:</strong> {debugInfo.your_company_id}</p>
@@ -3841,7 +3833,7 @@ function DataAdminSection({ language }) {
                     <p><strong>Total Clientes (todas las empresas):</strong> {debugInfo.total_clients_all_companies}</p>
                     <p><strong>Total Leads (todas las empresas):</strong> {debugInfo.total_leads_all_companies}</p>
                     <hr className="my-2" />
-                    <p><strong>Clientes por Company ID:</strong></p>
+                    <p><strong>Clientes por Company ID (Top 5):</strong></p>
                     <ul className="pl-4">
                       {debugInfo.clients_count_by_company?.map((c, i) => (
                         <li key={i} className={c._id === debugInfo.your_company_id ? "text-green-600 font-bold" : ""}>
@@ -3850,10 +3842,8 @@ function DataAdminSection({ language }) {
                       ))}
                     </ul>
                   </>
-                )}
-                
-                {!debugLoading && !debugError && !debugInfo && (
-                  <p className="text-gray-500">No hay datos de diagnóstico disponibles</p>
+                ) : (
+                  <p className="text-gray-500">Cargando datos de diagnóstico...</p>
                 )}
               </div>
             )}
