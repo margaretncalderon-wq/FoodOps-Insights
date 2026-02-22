@@ -767,14 +767,20 @@ export default function LeadOutreachSection() {
                   </Button>
                 )}
 
-                <div className="pt-3 border-t">
-                  <p className="text-xs text-muted-foreground mb-2">
+                <div className="pt-3 border-t space-y-2">
+                  <p className="text-xs text-muted-foreground">
                     {isEs ? "Creado" : "Created"}: {new Date(selectedLead.created_at).toLocaleString()}
                   </p>
-                  <Button className="w-full" size="sm" onClick={() => openConvert(selectedLead)} data-testid="convert-outreach-btn">
-                    <ArrowRight className="w-3 h-3 mr-2" />
-                    {isEs ? "Convertir a Cliente" : "Convert to Client"}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setDetailOpen(false); openEdit(selectedLead); }} data-testid="edit-lead-btn">
+                      <Edit className="w-3 h-3 mr-2" />
+                      {isEs ? "Editar" : "Edit"}
+                    </Button>
+                    <Button size="sm" onClick={() => openConvert(selectedLead)} data-testid="convert-outreach-btn">
+                      <ArrowRight className="w-3 h-3 mr-2" />
+                      {isEs ? "Convertir" : "Convert"}
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
 
