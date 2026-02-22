@@ -996,7 +996,7 @@ async def get_clients_with_events(user: User = Depends(get_current_user)):
                 {"_id": 0, "final_total": 1}
             )
             if proposal:
-                total_value += proposal.get("final_total", 0) or 0
+                total_value += sanitize_float(proposal.get("final_total", 0), 0)
             
             # Check unpaid invoices for credit used
             if client.get("has_credit"):
@@ -1005,14 +1005,15 @@ async def get_clients_with_events(user: User = Depends(get_current_user)):
                     {"_id": 0, "total": 1}
                 )
                 if invoice:
-                    credit_used += invoice.get("total", 0) or 0
+                    credit_used += sanitize_float(invoice.get("total", 0), 0)
         
-        client["lifetime_value"] = total_value
-        client["credit_used"] = credit_used
+        client["lifetime_value"] = sanitize_float(total_value, 0)
+        client["credit_used"] = sanitize_float(credit_used, 0)
         
-        # Calculate credit percentage
-        if client.get("has_credit") and client.get("credit_limit", 0) > 0:
-            client["credit_percentage"] = round((credit_used / client["credit_limit"]) * 100, 1)
+        # Calculate credit percentage (avoid division by zero)
+        credit_limit = sanitize_float(client.get("credit_limit", 0), 0)
+        if client.get("has_credit") and credit_limit > 0:
+            client["credit_percentage"] = round(sanitize_float((credit_used / credit_limit) * 100, 0), 1)
         else:
             client["credit_percentage"] = 0
         
