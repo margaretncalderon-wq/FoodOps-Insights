@@ -154,6 +154,14 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - Added all business information fields matching the screenshot reference
 - **Status**: TESTED & WORKING
 
+### Feature: Company Info in Documents - IMPLEMENTED (Feb 22, 2026)
+- **Requirement**: Show company info (logo, legal name, RNC, address, phone, email) in proposals, invoices, and other generated documents instead of "Kora"
+- **Files Modified**:
+  - `/app/frontend/src/pages/DocumentPreview.js` - Updated header to show full company info
+  - `/app/frontend/src/components/PurchaseOrdersSection.js` - Updated PO print/preview
+  - `/app/frontend/src/components/RecipeBuilder.js` - Updated recipe card print
+- **Status**: TESTED & WORKING
+
 ## Pending Issues
 - P1: Email Notifications (blocked on RESEND_API_KEY)
 - P1: Google Calendar Production OAuth (requires user action post-deploy)
