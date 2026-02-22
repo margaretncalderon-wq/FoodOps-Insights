@@ -766,11 +766,21 @@ export default function LeadOutreachSection() {
                     <p className="text-muted-foreground text-xs">Owner</p>
                     <p className="font-medium">
                       {selectedLead.owner_id 
-                        ? selectedLead.owner_id.replace("user_", "").slice(0, 8)
+                        ? users.find(u => u.user_id === selectedLead.owner_id)?.name || selectedLead.owner_id.replace("user_", "").slice(0, 8)
                         : (isEs ? "Sin asignar" : "Unassigned")}
                     </p>
                   </div>
                 </div>
+
+                {/* Address/Location info */}
+                {(selectedLead.address || selectedLead.city) && (
+                  <div className="text-sm">
+                    <p className="text-muted-foreground text-xs">{isEs ? "Ubicación" : "Location"}</p>
+                    <p className="font-medium">
+                      {[selectedLead.address, selectedLead.city, selectedLead.country].filter(Boolean).join(", ") || "-"}
+                    </p>
+                  </div>
+                )}
 
                 {selectedLead.message && (
                   <div className="text-sm">
