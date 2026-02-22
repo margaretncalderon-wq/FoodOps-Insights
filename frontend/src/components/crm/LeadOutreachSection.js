@@ -119,21 +119,33 @@ export default function LeadOutreachSection() {
 
   const fetchUsers = useCallback(async () => {
     try {
+      // Fetch actual team members from the organization
+      const res = await axios.get(`${API}/api/org/members`, { withCredentials: true });
+      if (res.data && Array.isArray(res.data)) {
+        setUsers(res.data.map(member => ({
+          user_id: member.user_id,
+          name: member.name || member.email || member.user_id.replace("user_", "User ")
+        })));
+      }
+    } catch (err) {
+      console.error("Error loading users:", err);
+      // Fallback: extract unique owner_ids from leads
       const ownerIds = new Set();
       leads.forEach(l => l.owner_id && ownerIds.add(l.owner_id));
       setUsers(Array.from(ownerIds).map(id => ({ user_id: id, name: id.replace("user_", "User ") })));
-    } catch (err) {
-      console.error(err);
     }
   }, [leads]);
 
   useEffect(() => { 
     fetchLeads(); 
+    fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   useEffect(() => { 
-    fetchUsers(); 
+    if (users.length === 0) {
+      fetchUsers(); 
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leads]);
 
