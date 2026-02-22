@@ -184,6 +184,17 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   - `/app/frontend/src/components/RecipeBuilder.js` - Updated recipe card print
 - **Status**: TESTED & WORKING
 
+### Fix: Lead Outreach Display Bug - FIXED (Feb 22, 2026)
+- **Issue**: Lead Outreach page showed correct total count (e.g., 1091) but displayed 0 leads in the list
+- **Root Cause**: Filter logic in `LeadOutreachSection.js` was using `lead.outreach_status` which doesn't exist on newly imported leads; they have `lead.status` instead
+- **Fix**: 
+  - Added `getEffectiveStatus()` helper that prioritizes `outreach_status` but falls back to `status`
+  - Updated all status comparisons to be case-insensitive
+  - Fixed stats cards counter to use the same logic
+  - Fixed status badge display to use effective status
+- **Files Modified**: `/app/frontend/src/components/crm/LeadOutreachSection.js`
+- **Status**: FIXED - PENDING USER VERIFICATION IN PRODUCTION
+
 ## Pending Issues
 - P1: Email Notifications (blocked on RESEND_API_KEY)
 - P1: Google Calendar Production OAuth (requires user action post-deploy)
