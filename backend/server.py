@@ -5809,19 +5809,19 @@ async def get_event_proposal(event_id: str, user: User = Depends(get_current_use
                 "status": {"$in": ["pending", "partial", "overdue"]}
             }, {"_id": 0}).to_list(500)
             
-            credit_used = sum(inv.get("total", 0) - inv.get("paid_amount", 0) for inv in unpaid_invoices)
-            proposal_total = proposal.get("total", 0)
+            credit_used = sum(sanitize_float(inv.get("total", 0), 0) - sanitize_float(inv.get("paid_amount", 0), 0) for inv in unpaid_invoices)
+            proposal_total = sanitize_float(proposal.get("total", 0), 0)
             projected_credit = credit_used + proposal_total
             credit_percentage = (projected_credit / credit_limit) * 100 if credit_limit > 0 else 0
             
             # Add credit context to proposal
             proposal["client_credit"] = {
                 "has_credit": True,
-                "credit_limit": credit_limit,
-                "credit_used": credit_used,
-                "projected_with_proposal": projected_credit,
-                "credit_percentage": round(credit_percentage, 1),
-                "available_credit": max(0, credit_limit - credit_used)
+                "credit_limit": sanitize_float(credit_limit, 0),
+                "credit_used": sanitize_float(credit_used, 0),
+                "projected_with_proposal": sanitize_float(projected_credit, 0),
+                "credit_percentage": round(sanitize_float(credit_percentage, 0), 1),
+                "available_credit": max(0, sanitize_float(credit_limit - credit_used, 0))
             }
             
             # Generate warnings
