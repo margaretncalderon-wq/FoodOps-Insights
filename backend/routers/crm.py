@@ -29,6 +29,25 @@ def sanitize_float(value, default=0):
         return default
 
 
+def sanitize_document(doc):
+    """Recursively sanitize a document to ensure JSON compliance"""
+    if doc is None:
+        return None
+    if isinstance(doc, dict):
+        sanitized = {}
+        for key, value in doc.items():
+            sanitized[key] = sanitize_document(value)
+        return sanitized
+    elif isinstance(doc, list):
+        return [sanitize_document(item) for item in doc]
+    elif isinstance(doc, float):
+        if math.isnan(value) or math.isinf(value):
+            return 0
+        return doc
+    else:
+        return doc
+
+
 # ============== ROUTERS ==============
 
 crm_router = APIRouter(prefix="/crm", tags=["CRM"])
