@@ -35,13 +35,13 @@ export const AuthProvider = ({ children }) => {
         headers,
       });
       setUser(response.data);
+      setLoading(false);
       return response.data;
     } catch (error) {
       setUser(null);
       setToken(null);
-      throw error;
-    } finally {
       setLoading(false);
+      throw error;
     }
   }, [token]);
 
