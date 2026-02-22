@@ -361,6 +361,48 @@ async def discard_lead(lead_id: str, user: User = Depends(get_current_user)):
 
 # ============== CLIENTS ROUTES (via CRM Router) ==============
 
+@crm_router.get("/clients-diagnostic")
+async def get_clients_diagnostic(user: User = Depends(get_current_user)):
+    """Diagnostic endpoint to debug client visibility issues"""
+    # Get user's company_id
+    user_company_id = user.company_id
+    
+    # Count with exact match
+    exact_count = await db.clients.count_documents({"company_id": user_company_id})
+    
+    # Get a sample client from the database (any client)
+    sample_any = await db.clients.find_one({}, {"_id": 0, "client_id": 1, "company_id": 1, "display_name": 1})
+    
+    # Try to find clients with this company_id using regex (case insensitive)
+    regex_count = await db.clients.count_documents({"company_id": {"$regex": f"^{user_company_id}$", "$options": "i"}})
+    
+    # Get a sample client for this user's company
+    sample_user = await db.clients.find_one({"company_id": user_company_id}, {"_id": 0, "client_id": 1, "company_id": 1, "display_name": 1})
+    
+    # List all unique company_ids
+    unique_company_ids = await db.clients.distinct("company_id")
+    
+    # Check if user's company_id exists in unique list
+    company_id_exists = user_company_id in unique_company_ids
+    
+    # Find similar company_ids (for debugging typos/whitespace)
+    similar_ids = [cid for cid in unique_company_ids if user_company_id.lower() in cid.lower() or cid.lower() in user_company_id.lower()]
+    
+    return {
+        "user_company_id": user_company_id,
+        "user_company_id_repr": repr(user_company_id),
+        "user_company_id_length": len(user_company_id),
+        "exact_match_count": exact_count,
+        "regex_match_count": regex_count,
+        "company_id_in_unique_list": company_id_exists,
+        "sample_any_client": sample_any,
+        "sample_user_client": sample_user,
+        "unique_company_ids_count": len(unique_company_ids),
+        "similar_company_ids": similar_ids[:5],
+        "all_company_ids": unique_company_ids[:10]
+    }
+
+
 @crm_router.get("/clients")
 async def get_clients(user: User = Depends(get_current_user), status: Optional[str] = None):
     """Get all clients (qualified accounts)"""
