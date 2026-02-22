@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import axios from "axios";
 import { API } from "../utils/api";
 import { setAuthToken } from "../utils/api";
@@ -17,10 +17,31 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setTokenState] = useState(null);
   const [loading, setLoading] = useState(true); // Start as true until auth is verified
+  const [initialized, setInitialized] = useState(false);
 
   const setToken = useCallback((t) => {
     setTokenState(t);
     setAuthToken(t);
+  }, []);
+
+  // Initialize auth on mount - try to restore session from cookie
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const response = await axios.get(`${API}/auth/me`, {
+          withCredentials: true,
+        });
+        setUser(response.data);
+      } catch (error) {
+        // No session or expired - that's ok, user will need to login
+        setUser(null);
+        setToken(null);
+      } finally {
+        setLoading(false);
+        setInitialized(true);
+      }
+    };
+    initAuth();
   }, []);
 
   const checkAuth = useCallback(async () => {
