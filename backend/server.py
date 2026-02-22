@@ -14033,6 +14033,8 @@ async def download_leads_template(
         "empresa": "Empresa Ejemplo SRL",
         "tipo_cliente": "Company",  # Company o Individual
         "direccion": "Av. Principal #123",
+        "ciudad": "Santo Domingo",
+        "pais": "República Dominicana",
         "rnc": "123-45678-9",
         "fuente": "import",
         "estado": "New",  # New, Contacted, NoResponse, Engaged, Qualified, Negotiation, Won, Lost
