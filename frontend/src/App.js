@@ -103,6 +103,7 @@ const PaymentCancelPage = lazy(() => import("./pages/PaymentCancelPage"));
 const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
 const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
 const OrganizationsListPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.OrganizationsListPage })));
+const DataDiagnosticsPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.DataDiagnosticsPage })));
 const OrganizationDetailPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.OrganizationDetailPage })));
 const GlobalAuditPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.GlobalAuditPage })));
 const SuperAdminCRMPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.CRMPage })));
