@@ -3852,52 +3852,32 @@ function DataAdminSection({ language }) {
               onClick={() => setShowDebug(!showDebug)}
               className="mb-3"
             >
-              {showDebug ? "🔼 Ocultar Diagnóstico" : "🔽 Mostrar Diagnóstico de Datos"}
+              {showDebug 
+                ? (isEs ? "🔼 Ocultar Diagnóstico" : "🔼 Hide Diagnostics") 
+                : (isEs ? "🔽 Mostrar Diagnóstico" : "🔽 Show Diagnostics")}
             </Button>
             
             {showDebug && (
               <div className="bg-gray-50 p-4 rounded-lg text-sm font-mono space-y-2">
                 {!statsLoaded ? (
-                  <p className="text-gray-500">⏳ Cargando datos...</p>
+                  <p className="text-gray-500">⏳ {isEs ? "Cargando datos..." : "Loading data..."}</p>
                 ) : (
                   <>
                     {fetchError && (
                       <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
-                        <strong>Errores:</strong> {fetchError}
+                        <strong>{isEs ? "Errores:" : "Errors:"}</strong> {fetchError}
                       </div>
                     )}
                     
-                    <p><strong>Tu Email:</strong> {debugInfo?.your_email || "N/A"}</p>
-                    <p><strong>Tu Company ID:</strong> {debugInfo?.your_company_id || "N/A"}</p>
-                    <p><strong>Tus Clientes:</strong> {stats.clients}</p>
-                    <p><strong>Tus Leads:</strong> {stats.leads} (Outreach: {stats.outreach}, Inbound: {stats.inbound})</p>
-                    
-                    {debugInfo?.total_clients_all_companies && debugInfo.total_clients_all_companies !== "N/A" && (
-                      <>
-                        <hr className="my-2" />
-                        <p><strong>Total Clientes (todas las empresas):</strong> {debugInfo.total_clients_all_companies}</p>
-                        <p><strong>Total Leads (todas las empresas):</strong> {debugInfo.total_leads_all_companies}</p>
-                      </>
-                    )}
-                    
-                    {debugInfo?.clients_count_by_company && (
-                      <>
-                        <hr className="my-2" />
-                        <p><strong>Clientes por Company ID (Top 5):</strong></p>
-                        <ul className="pl-4">
-                          {debugInfo.clients_count_by_company.map((c, i) => (
-                            <li key={i} className={c._id === debugInfo.your_company_id ? "text-green-600 font-bold" : ""}>
-                              {c._id}: {c.count} clientes {c._id === debugInfo.your_company_id ? "← Tu cuenta" : ""}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
+                    <p><strong>{isEs ? "Tu Email:" : "Your Email:"}</strong> {debugInfo?.your_email || "N/A"}</p>
+                    <p><strong>{isEs ? "Tus Clientes:" : "Your Clients:"}</strong> {stats.clients}</p>
+                    <p><strong>{isEs ? "Tus Leads:" : "Your Leads:"}</strong> {stats.leads} (Outreach: {stats.outreach}, Inbound: {stats.inbound})</p>
                     
                     {stats.clients === 0 && (
                       <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-                        <strong>⚠️ Si importaste clientes pero ves 0:</strong><br/>
-                        Los datos pueden estar asociados a otra cuenta. Despliega el backend para ver el diagnóstico completo.
+                        <strong>⚠️ {isEs 
+                          ? "Si importaste clientes pero ves 0, contacta soporte." 
+                          : "If you imported clients but see 0, contact support."}</strong>
                       </div>
                     )}
                   </>
