@@ -81,6 +81,19 @@ from models.crm import (
     LeadFormCreate, LeadForm, LeadFormFieldConfig, CustomFieldConfig
 )
 
+
+def sanitize_float(value, default=0):
+    """Convert non-JSON-compliant floats (inf, -inf, nan) to default value"""
+    if value is None:
+        return default
+    try:
+        if math.isnan(value) or math.isinf(value):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 # Create the main app
 app = FastAPI(title="Kora OS - Business Management Platform")
 
