@@ -3668,6 +3668,7 @@ function DataAdminSection({ language }) {
   const [stats, setStats] = useState({ clients: 0, leads: 0, outreach: 0, inbound: 0 });
   const [debugInfo, setDebugInfo] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false);
   const isEs = language === "es";
 
   useEffect(() => {
@@ -3679,14 +3680,16 @@ function DataAdminSection({ language }) {
       const statsRes = await axios.get(`${API}/crm/stats`, { withCredentials: true });
       const clientsRes = await axios.get(`${API}/clients`, { withCredentials: true });
       
+      const clientCount = Array.isArray(clientsRes.data) ? clientsRes.data.length : 0;
+      
       setStats({
-        clients: Array.isArray(clientsRes.data) ? clientsRes.data.length : 0,
+        clients: clientCount,
         leads: statsRes.data?.total_leads || 0,
         outreach: statsRes.data?.outreach_leads || 0,
         inbound: statsRes.data?.inbound_leads || 0
       });
       
-      // Set debug info from stats response
+      // Set debug info from stats response if available
       if (statsRes.data?.debug) {
         setDebugInfo({
           your_email: statsRes.data.debug.your_email,
@@ -3697,9 +3700,22 @@ function DataAdminSection({ language }) {
           total_leads_all_companies: statsRes.data.debug.total_leads_all_companies,
           clients_count_by_company: statsRes.data.debug.clients_by_company
         });
+      } else {
+        // Fallback: show available data
+        setDebugInfo({
+          your_email: "No disponible (requiere actualización)",
+          your_company_id: "No disponible",
+          your_clients_count: clientCount,
+          your_leads_count: statsRes.data?.total_leads || 0,
+          total_clients_all_companies: "No disponible",
+          total_leads_all_companies: "No disponible",
+          clients_count_by_company: null
+        });
       }
+      setStatsLoaded(true);
     } catch (err) {
       console.error("Error fetching stats:", err);
+      setStatsLoaded(true);
     }
   };
 
