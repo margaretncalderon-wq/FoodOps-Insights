@@ -13911,17 +13911,23 @@ async def export_leads(
     export_data = []
     for l in leads:
         export_data.append({
-            "nombre": l.get("name", ""),
+            "nombre": l.get("name") or l.get("lead_name", ""),
             "email": l.get("email", ""),
             "telefono": l.get("phone", ""),
-            "empresa": l.get("company", ""),
+            "whatsapp": l.get("whatsapp", ""),
+            "empresa": l.get("company") or l.get("company_name", ""),
+            "tipo_cliente": l.get("client_type", "Individual"),
+            "direccion": l.get("address", ""),
+            "rnc": l.get("rnc", ""),
             "fuente": l.get("source", ""),
             "estado": l.get("status", "new"),
             "valor_estimado": l.get("estimated_value", 0),
+            "rango_presupuesto": l.get("budget_range", ""),
             "tipo_evento": l.get("event_type", ""),
             "fecha_evento": l.get("event_date", ""),
-            "num_invitados": l.get("guest_count", 0),
-            "notas": l.get("notes", ""),
+            "num_invitados": l.get("guest_count") or l.get("estimated_guest_count", 0),
+            "tipo_lead": l.get("lead_type", "inbound"),
+            "notas": l.get("notes") or l.get("message", ""),
             "fecha_creacion": l.get("created_at", "")
         })
     
