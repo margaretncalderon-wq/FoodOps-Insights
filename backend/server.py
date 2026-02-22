@@ -14250,6 +14250,8 @@ async def import_leads(
                     "company_name": company,  # For CRM UI
                     "client_type": clean_value(row.get('tipo_cliente')) or clean_value(row.get('client_type')) or ("Company" if is_client_format else "Individual"),
                     "address": clean_value(row.get('direccion')) or clean_value(row.get('address')),
+                    "city": clean_value(row.get('ciudad')) or clean_value(row.get('city')),
+                    "country": clean_value(row.get('pais')) or clean_value(row.get('country')) or "República Dominicana",
                     "rnc": clean_value(row.get('rnc')),
                     "source": clean_value(row.get('fuente')) or clean_value(row.get('source')) or "import",
                     "status": final_status,
