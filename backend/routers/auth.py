@@ -665,7 +665,7 @@ async def google_callback(request: Request, response: Response):
             "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         })
         
-        set_auth_cookie(response, session_token)
+        set_auth_cookie(response, session_token, request)
         
         # Also create a JWT for immediate use by the frontend
         jwt_token = create_jwt_token(user_id)
