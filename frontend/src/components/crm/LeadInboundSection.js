@@ -209,6 +209,29 @@ export default function LeadInboundSection() {
     setFollowUpOpen(true);
   };
 
+  const openAssign = (lead) => {
+    setSelectedLead(lead);
+    setAssignOwnerId(lead.owner_id || "");
+    setAssignOpen(true);
+  };
+
+  const handleAssign = async () => {
+    if (!selectedLead) return;
+    try {
+      const ownerId = assignOwnerId === "unassigned" ? "" : assignOwnerId;
+      await axios.put(
+        `${API}/api/crm/assign/lead/${selectedLead.lead_id}?owner_id=${ownerId}`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Lead asignado" : "Lead assigned");
+      setAssignOpen(false);
+      fetchLeads();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
   const handleSetFollowUp = async () => {
     if (!selectedLead) return;
     try {
