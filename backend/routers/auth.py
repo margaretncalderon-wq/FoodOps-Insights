@@ -453,6 +453,23 @@ async def exchange_session(request: Request, response: Response):
     return {"access_token": jwt_token, "user": user_doc}
 
 
+@auth_router.get("/debug-cookies")
+async def debug_cookies(request: Request):
+    """Debug endpoint to check what cookies are received"""
+    cookies = dict(request.cookies)
+    headers = dict(request.headers)
+    has_session = "session_token" in cookies
+    
+    return {
+        "has_session_cookie": has_session,
+        "cookie_names": list(cookies.keys()),
+        "session_token_prefix": cookies.get("session_token", "")[:20] + "..." if cookies.get("session_token") else None,
+        "origin": headers.get("origin"),
+        "referer": headers.get("referer"),
+        "user_agent": headers.get("user-agent", "")[:50]
+    }
+
+
 @auth_router.get("/me", response_model=User)
 async def get_me(user: User = Depends(get_current_user)):
     return user
