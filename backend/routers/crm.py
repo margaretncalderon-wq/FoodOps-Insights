@@ -1228,17 +1228,57 @@ async def get_by_owner(owner_id: str, user: User = Depends(get_current_user)):
 
 @crm_router.get("/clients-with-events")
 async def get_clients_with_events(user: User = Depends(get_current_user)):
-    """Get clients with their event history, contacts and credit info"""
-    # Don't filter by status - get all clients for this company
+    """Get clients with their event history, contacts and credit info - OPTIMIZED"""
+    # Get all clients
     clients = await db.clients.find(
         {"company_id": user.company_id},
         {"_id": 0}
     ).sort("updated_at", -1).to_list(500)
     
+    if not clients:
+        return []
+    
     # Sanitize all clients first
     clients = [sanitize_document(c) for c in clients]
     
-    # Enrich with event data, contacts, and credit calculations
+    # Get all client IDs
+    client_ids = [c["client_id"] for c in clients]
+    
+    # BATCH: Get all events for all clients in ONE query
+    all_events = await db.events.find(
+        {"client_id": {"$in": client_ids}, "company_id": user.company_id},
+        {"_id": 0, "event_id": 1, "client_id": 1, "name": 1, "event_date": 1, "stage": 1, "status": 1, "ordered_by": 1, "contact_person": 1, "event_type": 1}
+    ).sort("event_date", -1).to_list(1000)
+    
+    # Group events by client_id
+    events_by_client = {}
+    event_ids = []
+    for event in all_events:
+        cid = event["client_id"]
+        if cid not in events_by_client:
+            events_by_client[cid] = []
+        events_by_client[cid].append(event)
+        event_ids.append(event["event_id"])
+    
+    # BATCH: Get all proposals for all events in ONE query
+    all_proposals = await db.proposals.find(
+        {"event_id": {"$in": event_ids}},
+        {"_id": 0, "event_id": 1, "final_total": 1}
+    ).to_list(1000)
+    
+    # Map proposals by event_id
+    proposals_by_event = {p["event_id"]: p for p in all_proposals}
+    
+    # BATCH: Get all unpaid invoices for all events in ONE query
+    all_invoices = await db.invoices.find(
+        {"event_id": {"$in": event_ids}, "status": {"$ne": "paid"}},
+        {"_id": 0, "event_id": 1, "total": 1}
+    ).to_list(1000)
+    
+    # Map invoices by event_id
+    invoices_by_event = {i["event_id"]: i for i in all_invoices}
+    
+    # Enrich clients with pre-fetched data
     for client in clients:
         # Ensure status field exists
         if "status" not in client:
@@ -1252,32 +1292,22 @@ async def get_clients_with_events(user: User = Depends(get_current_user)):
         if not client.get("client_type"):
             client["client_type"] = "Company" if client.get("company_name") else "Individual"
         
-        # Get events with more detail
-        events = await db.events.find(
-            {"client_id": client["client_id"], "company_id": user.company_id},
-            {"_id": 0, "event_id": 1, "name": 1, "event_date": 1, "stage": 1, "status": 1, "ordered_by": 1, "contact_person": 1, "event_type": 1}
-        ).sort("event_date", -1).to_list(50)
+        # Get events from pre-fetched data
+        client_events = events_by_client.get(client["client_id"], [])[:50]
+        client["events"] = client_events
+        client["events_count"] = len(client_events)
         
-        client["events"] = events
-        client["events_count"] = len(events)
-        
-        # Calculate lifetime value and credit used from proposals/invoices
+        # Calculate lifetime value and credit used from pre-fetched data
         total_value = 0
         credit_used = 0
-        for event in events:
-            proposal = await db.proposals.find_one(
-                {"event_id": event["event_id"]},
-                {"_id": 0, "final_total": 1}
-            )
+        for event in client_events:
+            proposal = proposals_by_event.get(event["event_id"])
             if proposal:
                 total_value += sanitize_float(proposal.get("final_total", 0), 0)
             
             # Check unpaid invoices for credit used
             if client.get("has_credit"):
-                invoice = await db.invoices.find_one(
-                    {"event_id": event["event_id"], "status": {"$ne": "paid"}},
-                    {"_id": 0, "total": 1}
-                )
+                invoice = invoices_by_event.get(event["event_id"])
                 if invoice:
                     credit_used += sanitize_float(invoice.get("total", 0), 0)
         
