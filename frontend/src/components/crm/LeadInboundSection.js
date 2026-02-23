@@ -65,6 +65,8 @@ export default function LeadInboundSection() {
     next_follow_up_date: "",
     follow_up_type: "Call"
   });
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignOwnerId, setAssignOwnerId] = useState("");
 
   // Helper to clean "nan" string values from lead data
   const cleanNanValues = useCallback((lead) => {
