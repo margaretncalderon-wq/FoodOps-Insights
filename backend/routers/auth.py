@@ -853,7 +853,7 @@ async def complete_google_registration(request: Request, response: Response):
         "expires_at": (now + timedelta(days=7)).isoformat()
     })
     
-    set_auth_cookie(response, session_token)
+    set_auth_cookie(response, session_token, request)
     
     user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     org_data = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
