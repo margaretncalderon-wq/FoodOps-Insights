@@ -6,6 +6,8 @@ import bcrypt
 import jwt
 import httpx
 import logging
+import os
+from urllib.parse import urlparse
 
 from config import (
     db, JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRATION_HOURS,
@@ -17,6 +19,64 @@ from services.email_service import send_welcome_email
 logger = logging.getLogger(__name__)
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+# ============== COOKIE CONFIGURATION ==============
+
+def get_cookie_domain():
+    """Extract domain from FRONTEND_URL for cookie setting"""
+    frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
+    parsed = urlparse(frontend_url)
+    domain = parsed.netloc
+    # Remove port if present
+    if ":" in domain:
+        domain = domain.split(":")[0]
+    # For production domains, set cookie for the root domain
+    # For localhost/preview, don't set domain (browser handles it)
+    if domain and not domain.startswith("localhost") and not domain.startswith("127.") and "preview" not in domain:
+        # Return domain with leading dot for subdomain support
+        return f".{domain}" if not domain.startswith(".") else domain
+    return None
+
+
+def set_auth_cookie(response: Response, token: str):
+    """Set authentication cookie with proper configuration"""
+    cookie_domain = get_cookie_domain()
+    
+    # Base cookie settings
+    cookie_kwargs = {
+        "key": "session_token",
+        "value": token,
+        "httponly": True,
+        "secure": True,
+        "samesite": "none",
+        "path": "/",
+        "max_age": JWT_EXPIRATION_HOURS * 3600
+    }
+    
+    # Add domain for production
+    if cookie_domain:
+        cookie_kwargs["domain"] = cookie_domain
+    
+    response.set_cookie(**cookie_kwargs)
+
+
+def clear_auth_cookie(response: Response):
+    """Clear authentication cookie"""
+    cookie_domain = get_cookie_domain()
+    
+    cookie_kwargs = {
+        "key": "session_token",
+        "path": "/",
+        "httponly": True,
+        "secure": True,
+        "samesite": "none"
+    }
+    
+    if cookie_domain:
+        cookie_kwargs["domain"] = cookie_domain
+    
+    response.delete_cookie(**cookie_kwargs)
 
 
 # ============== HELPER FUNCTIONS ==============
