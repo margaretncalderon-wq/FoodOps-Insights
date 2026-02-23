@@ -123,6 +123,7 @@ export default function LeadInboundSection() {
 
   useEffect(() => { 
     fetchLeads(); 
+    fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
