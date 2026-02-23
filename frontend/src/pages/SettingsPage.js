@@ -2479,10 +2479,11 @@ export default function SettingsPage() {
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Food">{language === "es" ? "Comida" : "Food"}</SelectItem>
-                          <SelectItem value="Service">{language === "es" ? "Servicio" : "Service"}</SelectItem>
-                          <SelectItem value="Rental">{language === "es" ? "Alquiler" : "Rental"}</SelectItem>
-                          <SelectItem value="Fee">{language === "es" ? "Cargo" : "Fee"}</SelectItem>
+                          {itemTypes.map(it => (
+                            <SelectItem key={it.type_id} value={it.type_id}>
+                              {language === "es" ? it.name_es || it.name : it.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
