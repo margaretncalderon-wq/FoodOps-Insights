@@ -835,6 +835,46 @@ export default function LeadInboundSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Owner Dialog */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Asignar Lead" : "Assign Lead"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground text-sm">
+              {isEs 
+                ? `Asignar "${selectedLead?.lead_name}" a un vendedor`
+                : `Assign "${selectedLead?.lead_name}" to a salesperson`}
+            </p>
+            <div>
+              <Label>{isEs ? "Vendedor" : "Owner"}</Label>
+              <Select value={assignOwnerId || "unassigned"} onValueChange={setAssignOwnerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar vendedor" : "Select owner"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                  {users.map(user => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleAssign}>
+              {isEs ? "Asignar" : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
