@@ -28,8 +28,11 @@ def get_cookie_domain(request: Request = None):
     # First, check if we're in a preview environment by looking at the request origin
     if request:
         origin = request.headers.get("origin", "") or request.headers.get("referer", "")
-        if origin and "preview.emergentagent.com" in origin:
-            # In preview environment, don't set domain - browser will use request domain
+        host = request.headers.get("host", "")
+        # Check for any preview-related domains
+        if origin and ("preview" in origin.lower() or "emergent" in origin.lower()):
+            return None
+        if host and ("preview" in host.lower() or "emergent" in host.lower()):
             return None
     
     # For production, use FRONTEND_URL to determine cookie domain
