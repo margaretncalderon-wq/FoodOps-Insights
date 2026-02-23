@@ -4687,11 +4687,7 @@ async def update_item_category(category_id: str, data: ItemCategoryCreate, user:
 
 @settings_router.delete("/categories/{category_id}")
 async def delete_item_category(category_id: str, user: User = Depends(get_current_user)):
-    # Check if it's a default category
-    cat = await db.item_categories.find_one({"category_id": category_id, "company_id": user.company_id})
-    if cat and cat.get("is_default"):
-        raise HTTPException(status_code=400, detail="Cannot delete default category")
-    
+    # Allow deleting any category (including defaults) so users can fully customize
     result = await db.item_categories.delete_one({"category_id": category_id, "company_id": user.company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Category not found")
