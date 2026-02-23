@@ -455,8 +455,8 @@ export default function LeadOutreachSection() {
       </div>
 
       {/* Search & Filters */}
-      <div className="flex gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap gap-4">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder={isEs ? "Buscar leads..." : "Search leads..."}
@@ -474,6 +474,20 @@ export default function LeadOutreachSection() {
             {OUTREACH_STATUSES.map(status => (
               <SelectItem key={status.value} value={status.value}>
                 {isEs ? status.labelEs : status.labelEn}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="owner-filter-select">
+            <SelectValue placeholder={isEs ? "Filtrar por vendedor" : "Filter by owner"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{isEs ? "Todos los vendedores" : "All owners"}</SelectItem>
+            <SelectItem value="unassigned">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+            {users.map(user => (
+              <SelectItem key={user.user_id} value={user.user_id}>
+                {user.name}
               </SelectItem>
             ))}
           </SelectContent>
