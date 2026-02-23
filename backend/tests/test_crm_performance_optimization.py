@@ -16,7 +16,7 @@ def auth_token():
         "password": "Evoque2024!"
     })
     assert response.status_code == 200, f"Login failed: {response.text}"
-    token = response.json().get("token")
+    token = response.json().get("access_token")
     assert token, "No token in login response"
     return token
 
