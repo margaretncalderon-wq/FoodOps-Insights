@@ -137,7 +137,13 @@ export default function LeadInboundSection() {
                          email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          companyName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || (lead.status || "").toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
+    
+    // Owner filter
+    const matchesOwner = ownerFilter === "all" || 
+                        (ownerFilter === "unassigned" && !lead.owner_id) ||
+                        lead.owner_id === ownerFilter;
+    
+    return matchesSearch && matchesStatus && matchesOwner;
   });
 
   // Stats - case-insensitive comparison
