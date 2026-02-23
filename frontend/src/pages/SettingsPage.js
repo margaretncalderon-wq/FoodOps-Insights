@@ -215,6 +215,7 @@ export default function SettingsPage() {
       fetchCompany(),
       fetchDocumentTypes(),
       fetchCategories(),
+      fetchItemTypes(),
       fetchPicklist(),
       fetchInventory(),
       fetchMenus(),
