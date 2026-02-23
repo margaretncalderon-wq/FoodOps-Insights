@@ -226,7 +226,7 @@ async def get_current_user(request: Request) -> User:
 # ============== AUTH ROUTES ==============
 
 @auth_router.post("/register", response_model=TokenResponse)
-async def register(data: UserCreate, response: Response):
+async def register(data: UserCreate, request: Request, response: Response):
     existing = await db.users.find_one({"email": data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -322,7 +322,7 @@ async def register(data: UserCreate, response: Response):
     await db.users.insert_one(user_doc)
     
     token = create_jwt_token(user_id)
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, token, request)
     
     # Send welcome email (non-blocking)
     try:
@@ -340,7 +340,7 @@ async def register(data: UserCreate, response: Response):
 
 
 @auth_router.post("/login", response_model=TokenResponse)
-async def login(data: UserLogin, response: Response):
+async def login(data: UserLogin, request: Request, response: Response):
     user_doc = await db.users.find_one({"email": data.email}, {"_id": 0})
     if not user_doc:
         raise HTTPException(status_code=401, detail="Invalid credentials")
