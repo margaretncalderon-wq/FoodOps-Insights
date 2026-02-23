@@ -2359,20 +2359,25 @@ export default function SettingsPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
                   {language === "es" 
-                    ? "Ítems predefinidos para selección rápida. Vincula con recetas (comida) o inventario (desechables) para cálculo automático de costos."
-                    : "Predefined items for quick selection. Link to recipes (food) or inventory (disposables) for auto cost calculation."}
+                    ? "Ítems predefinidos para selección rápida. Vincula con recetas o inventario para cálculo automático de costos."
+                    : "Predefined items for quick selection. Link to recipes or inventory for auto cost calculation."}
                 </p>
                 
                 {/* Filter by Type */}
                 <div className="flex gap-2 mb-4 flex-wrap">
-                  {["All", "Food", "Service", "Rental", "Fee"].map(itype => (
+                  <Badge 
+                    variant="outline" 
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    {language === "es" ? "Todos" : "All"}
+                  </Badge>
+                  {itemTypes.map(itype => (
                     <Badge 
-                      key={itype}
+                      key={itype.type_id}
                       variant="outline" 
                       className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                      onClick={() => {/* Filter logic could go here */}}
                     >
-                      {itype === "All" ? (language === "es" ? "Todos" : "All") : itype}
+                      {language === "es" ? itype.name_es || itype.name : itype.name}
                     </Badge>
                   ))}
                 </div>
