@@ -311,7 +311,7 @@ async def register(data: UserCreate, response: Response):
     await db.users.insert_one(user_doc)
     
     token = create_jwt_token(user_id)
-    response.set_cookie(key="session_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=JWT_EXPIRATION_HOURS * 3600)
+    set_auth_cookie(response, token)
     
     # Send welcome email (non-blocking)
     try:
