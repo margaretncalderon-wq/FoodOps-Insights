@@ -310,8 +310,8 @@ export default function LeadInboundSection() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap gap-4">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder={isEs ? "Buscar leads..." : "Search leads..."}
@@ -332,8 +332,22 @@ export default function LeadInboundSection() {
             ))}
           </SelectContent>
         </Select>
-        {statusFilter !== "all" && (
-          <Button variant="outline" onClick={() => setStatusFilter("all")} size="sm">
+        <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="inbound-owner-filter">
+            <SelectValue placeholder={isEs ? "Vendedor" : "Owner"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{isEs ? "Todos los vendedores" : "All owners"}</SelectItem>
+            <SelectItem value="unassigned">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+            {users.map(user => (
+              <SelectItem key={user.user_id} value={user.user_id}>
+                {user.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(statusFilter !== "all" || ownerFilter !== "all") && (
+          <Button variant="outline" onClick={() => { setStatusFilter("all"); setOwnerFilter("all"); }} size="sm">
             {isEs ? "Limpiar" : "Clear"}
           </Button>
         )}
