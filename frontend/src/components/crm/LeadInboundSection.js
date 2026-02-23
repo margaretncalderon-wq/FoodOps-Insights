@@ -94,6 +94,33 @@ export default function LeadInboundSection() {
     setLoading(false);
   }, [cleanNanValues]);
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/org/members`, { withCredentials: true });
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setUsers(res.data.map(member => ({
+          user_id: member.user_id,
+          name: member.name || member.email || member.user_id.replace("user_", "User ")
+        })));
+        return;
+      }
+    } catch (err) {
+      console.error("Error loading org members:", err);
+    }
+    
+    try {
+      const teamRes = await axios.get(`${API}/api/settings/team`, { withCredentials: true });
+      if (teamRes.data && Array.isArray(teamRes.data) && teamRes.data.length > 0) {
+        setUsers(teamRes.data.map(member => ({
+          user_id: member.user_id,
+          name: member.name || member.email || member.user_id.replace("user_", "User ")
+        })));
+      }
+    } catch (err) {
+      console.error("Error loading team:", err);
+    }
+  }, []);
+
   useEffect(() => { 
     fetchLeads(); 
     // eslint-disable-next-line react-hooks/exhaustive-deps
