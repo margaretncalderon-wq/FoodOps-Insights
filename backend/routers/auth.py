@@ -520,15 +520,29 @@ async def debug_cookies(request: Request):
     headers = dict(request.headers)
     has_session = "session_token" in cookies
     cookie_domain = get_cookie_domain()
+    frontend_url = os.environ.get("FRONTEND_URL", "not set")
+    
+    # Check if session is valid
+    session_valid = False
+    user_info = None
+    if has_session:
+        session = await db.user_sessions.find_one({"session_token": cookies.get("session_token")}, {"_id": 0, "user_id": 1, "expires_at": 1})
+        if session:
+            session_valid = True
+            user_info = session.get("user_id", "")[:20]
     
     return {
         "has_session_cookie": has_session,
+        "session_valid_in_db": session_valid,
+        "user_id_prefix": user_info,
         "cookie_names": list(cookies.keys()),
         "session_token_prefix": cookies.get("session_token", "")[:20] + "..." if cookies.get("session_token") else None,
         "origin": headers.get("origin"),
         "referer": headers.get("referer"),
-        "user_agent": headers.get("user-agent", "")[:50],
-        "expected_cookie_domain": cookie_domain
+        "host": headers.get("host"),
+        "frontend_url_env": frontend_url,
+        "expected_cookie_domain": cookie_domain,
+        "cors_origins": os.environ.get("CORS_ORIGINS", "not set")[:100]
     }
 
 
