@@ -517,7 +517,7 @@ async def exchange_session(request: Request, response: Response):
     await db.user_sessions.delete_many({"user_id": user_id})
     await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": now.isoformat()})
     
-    set_auth_cookie(response, session_token)
+    set_auth_cookie(response, session_token, request)
     
     jwt_token = create_jwt_token(user_id)
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -567,7 +567,7 @@ async def logout(request: Request, response: Response):
     token = request.cookies.get("session_token")
     if token:
         await db.user_sessions.delete_one({"session_token": token})
-    clear_auth_cookie(response)
+    clear_auth_cookie(response, request)
     return {"message": "Logged out successfully"}
 
 
