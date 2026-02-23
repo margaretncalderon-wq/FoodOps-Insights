@@ -395,7 +395,13 @@ export default function LeadOutreachSection() {
                          companyName.toLowerCase().includes(searchTerm.toLowerCase());
     const effectiveStatus = getEffectiveStatus(lead);
     const matchesStatus = statusFilter === "all" || effectiveStatus.toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
+    
+    // Owner filter: "all" shows all, "unassigned" shows leads without owner, otherwise filter by owner_id
+    const matchesOwner = ownerFilter === "all" || 
+                        (ownerFilter === "unassigned" && !lead.owner_id) ||
+                        lead.owner_id === ownerFilter;
+    
+    return matchesSearch && matchesStatus && matchesOwner;
   });
 
   const getStatusBadge = (status) => {
