@@ -469,6 +469,9 @@ export default function LeadInboundSection() {
                         <Button variant="ghost" size="icon" onClick={() => viewLead(lead)} title={isEs ? "Ver" : "View"}>
                           <Eye className="w-4 h-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openAssign(lead)} title={isEs ? "Asignar" : "Assign"}>
+                          <UserPlus className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => openFollowUp(lead)} title={isEs ? "Seguimiento" : "Follow-up"}>
                           <CalendarPlus className="w-4 h-4" />
                         </Button>
