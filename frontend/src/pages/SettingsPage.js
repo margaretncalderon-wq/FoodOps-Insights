@@ -149,6 +149,7 @@ export default function SettingsPage() {
   const [showDocPreview, setShowDocPreview] = useState(false);
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
+  const [editCategory, setEditCategory] = useState(null);
   const [newPicklist, setNewPicklist] = useState({ 
     name: "", 
     description: "", 
