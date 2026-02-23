@@ -686,6 +686,46 @@ export default function SettingsPage() {
     }
   };
 
+  // Item Type handlers
+  const handleAddItemType = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API}/settings/item-types`, newItemType, { withCredentials: true });
+      toast.success(language === "es" ? "Tipo creado" : "Type created");
+      fetchItemTypes();
+      setItemTypeDialogOpen(false);
+      setNewItemType({ name: "", name_es: "" });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to create type");
+    }
+  };
+
+  const handleEditItemType = async (e) => {
+    e.preventDefault();
+    if (!editItemType) return;
+    try {
+      await axios.put(`${API}/settings/item-types/${editItemType.type_id}`, {
+        name: editItemType.name,
+        name_es: editItemType.name_es
+      }, { withCredentials: true });
+      toast.success(language === "es" ? "Tipo actualizado" : "Type updated");
+      fetchItemTypes();
+      setEditItemType(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to update type");
+    }
+  };
+
+  const handleDeleteItemType = async (typeId) => {
+    try {
+      await axios.delete(`${API}/settings/item-types/${typeId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Tipo eliminado" : "Type deleted");
+      fetchItemTypes();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to delete type");
+    }
+  };
+
   // Picklist handlers
   const handleAddPicklist = async (e) => {
     e.preventDefault();
