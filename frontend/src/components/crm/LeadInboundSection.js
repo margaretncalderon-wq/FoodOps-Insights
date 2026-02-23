@@ -365,13 +365,14 @@ export default function LeadInboundSection() {
                 <TableHead>{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
                 <TableHead>{isEs ? "Invitados" : "Guests"}</TableHead>
                 <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead>Owner</TableHead>
                 <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay leads inbound" : "No inbound leads"}
                   </TableCell>
                 </TableRow>
