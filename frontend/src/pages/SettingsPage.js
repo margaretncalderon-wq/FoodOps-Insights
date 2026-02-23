@@ -296,6 +296,22 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchItemTypes = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/item-types`, { withCredentials: true });
+      setItemTypes(response.data);
+    } catch (error) {
+      console.error("Failed to fetch item types:", error);
+      // Fallback to defaults if endpoint doesn't exist yet
+      setItemTypes([
+        { type_id: "Food", name: "Food", name_es: "Comida" },
+        { type_id: "Service", name: "Service", name_es: "Servicio" },
+        { type_id: "Rental", name: "Rental", name_es: "Alquiler" },
+        { type_id: "Fee", name: "Fee", name_es: "Cargo" }
+      ]);
+    }
+  };
+
   const fetchPicklist = async () => {
     try {
       const response = await axios.get(`${API}/settings/picklist?active_only=false`, { withCredentials: true });
