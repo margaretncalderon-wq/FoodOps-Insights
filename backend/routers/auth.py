@@ -506,7 +506,7 @@ async def exchange_session(request: Request, response: Response):
     await db.user_sessions.delete_many({"user_id": user_id})
     await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": now.isoformat()})
     
-    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 3600)
+    set_auth_cookie(response, session_token)
     
     jwt_token = create_jwt_token(user_id)
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -640,15 +640,7 @@ async def google_callback(request: Request, response: Response):
             "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         })
         
-        response.set_cookie(
-            key="session_token",
-            value=session_token,
-            httponly=True,
-            secure=True,
-            samesite="none",
-            max_age=7 * 24 * 60 * 60,
-            path="/"
-        )
+        set_auth_cookie(response, session_token)
         
         # Also create a JWT for immediate use by the frontend
         jwt_token = create_jwt_token(user_id)
@@ -836,15 +828,7 @@ async def complete_google_registration(request: Request, response: Response):
         "expires_at": (now + timedelta(days=7)).isoformat()
     })
     
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        max_age=7 * 24 * 60 * 60,
-        path="/"
-    )
+    set_auth_cookie(response, session_token)
     
     user_data = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     org_data = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
