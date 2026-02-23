@@ -2378,6 +2378,92 @@ export default function SettingsPage() {
                 </form>
               </DialogContent>
             </Dialog>
+
+            {/* Item Types Section */}
+            <Card className="mt-6">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <ListChecks className="w-5 h-5" />
+                  {language === "es" ? "Tipos de Ítems" : "Item Types"}
+                </CardTitle>
+                <Button onClick={() => setItemTypeDialogOpen(true)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  {language === "es" ? "Agregar" : "Add"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {language === "es" 
+                    ? "Tipos para clasificar ítems en propuestas (ej: Servicio, Producto, Hora, Cargo)" 
+                    : "Types to classify items in proposals (e.g., Service, Product, Hour, Fee)"}
+                </p>
+                <div className="space-y-2">
+                  {itemTypes.map(itype => (
+                    <div key={itype.type_id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{language === "es" ? itype.name_es || itype.name : itype.name}</p>
+                        {itype.is_default && <span className="text-xs text-muted-foreground">{language === "es" ? "Por defecto" : "Default"}</span>}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setEditItemType({...itype})} title={language === "es" ? "Editar" : "Edit"}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItemType(itype.type_id)} title={language === "es" ? "Eliminar" : "Delete"}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Add Item Type Dialog */}
+            <Dialog open={itemTypeDialogOpen} onOpenChange={setItemTypeDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{language === "es" ? "Nuevo Tipo de Ítem" : "New Item Type"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddItemType} className="space-y-4">
+                  <div>
+                    <Label>{language === "es" ? "Nombre (EN)" : "Name (EN)"}</Label>
+                    <Input value={newItemType.name} onChange={(e) => setNewItemType({ ...newItemType, name: e.target.value })} required />
+                  </div>
+                  <div>
+                    <Label>{language === "es" ? "Nombre (ES)" : "Name (ES)"}</Label>
+                    <Input value={newItemType.name_es} onChange={(e) => setNewItemType({ ...newItemType, name_es: e.target.value })} />
+                  </div>
+                  <Button type="submit" className="w-full">{t("save")}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit Item Type Dialog */}
+            <Dialog open={!!editItemType} onOpenChange={(open) => !open && setEditItemType(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{language === "es" ? "Editar Tipo de Ítem" : "Edit Item Type"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleEditItemType} className="space-y-4">
+                  <div>
+                    <Label>{language === "es" ? "Nombre (EN)" : "Name (EN)"}</Label>
+                    <Input 
+                      value={editItemType?.name || ""} 
+                      onChange={(e) => setEditItemType({ ...editItemType, name: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === "es" ? "Nombre (ES)" : "Name (ES)"}</Label>
+                    <Input 
+                      value={editItemType?.name_es || ""} 
+                      onChange={(e) => setEditItemType({ ...editItemType, name_es: e.target.value })} 
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">{t("save")}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Picklist Tab */}
