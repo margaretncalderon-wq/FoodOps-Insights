@@ -151,6 +151,9 @@ export default function SettingsPage() {
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
   const [editCategory, setEditCategory] = useState(null);
+  const [newItemType, setNewItemType] = useState({ name: "", name_es: "" });
+  const [editItemType, setEditItemType] = useState(null);
+  const [itemTypeDialogOpen, setItemTypeDialogOpen] = useState(false);
   const [newPicklist, setNewPicklist] = useState({ 
     name: "", 
     description: "", 
