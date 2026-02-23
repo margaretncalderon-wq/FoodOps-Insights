@@ -2281,6 +2281,42 @@ export default function SettingsPage() {
                 </form>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Category Dialog */}
+            <Dialog open={!!editCategory} onOpenChange={(open) => !open && setEditCategory(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{language === "es" ? "Editar Categoría" : "Edit Category"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleEditCategory} className="space-y-4">
+                  <div>
+                    <Label>{language === "es" ? "Nombre (EN)" : "Name (EN)"}</Label>
+                    <Input 
+                      value={editCategory?.name || ""} 
+                      onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === "es" ? "Nombre (ES)" : "Name (ES)"}</Label>
+                    <Input 
+                      value={editCategory?.name_es || ""} 
+                      onChange={(e) => setEditCategory({ ...editCategory, name_es: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === "es" ? "Color" : "Color"}</Label>
+                    <Input 
+                      type="color" 
+                      value={editCategory?.color || "#6B7280"} 
+                      onChange={(e) => setEditCategory({ ...editCategory, color: e.target.value })} 
+                      className="w-full h-10" 
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">{t("save")}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Picklist Tab */}
