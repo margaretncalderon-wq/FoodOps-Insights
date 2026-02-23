@@ -519,6 +519,7 @@ async def debug_cookies(request: Request):
     cookies = dict(request.cookies)
     headers = dict(request.headers)
     has_session = "session_token" in cookies
+    cookie_domain = get_cookie_domain()
     
     return {
         "has_session_cookie": has_session,
@@ -526,7 +527,8 @@ async def debug_cookies(request: Request):
         "session_token_prefix": cookies.get("session_token", "")[:20] + "..." if cookies.get("session_token") else None,
         "origin": headers.get("origin"),
         "referer": headers.get("referer"),
-        "user_agent": headers.get("user-agent", "")[:50]
+        "user_agent": headers.get("user-agent", "")[:50],
+        "expected_cookie_domain": cookie_domain
     }
 
 
@@ -540,7 +542,7 @@ async def logout(request: Request, response: Response):
     token = request.cookies.get("session_token")
     if token:
         await db.user_sessions.delete_one({"session_token": token})
-    response.delete_cookie(key="session_token", path="/")
+    clear_auth_cookie(response)
     return {"message": "Logged out successfully"}
 
 
