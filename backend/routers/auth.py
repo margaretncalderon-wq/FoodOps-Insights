@@ -352,7 +352,7 @@ async def login(data: UserLogin, request: Request, response: Response):
     await ensure_user_data_complete(user_doc.get("company_id"), user_doc["user_id"])
 
     token = create_jwt_token(user_doc["user_id"])
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, token, request)
     
     user = User(
         user_id=user_doc["user_id"], email=user_doc["email"], name=user_doc["name"],
