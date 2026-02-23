@@ -98,6 +98,9 @@ def sanitize_float(value, default=0):
 # Create the main app
 app = FastAPI(title="Kora OS - Business Management Platform")
 
+# Add GZip compression for faster responses
+app.add_middleware(GZipMiddleware, minimum_size=500)  # Compress responses > 500 bytes
+
 # Health check endpoint for Kubernetes - MUST be at root level, not under /api
 @app.get("/health")
 async def health_check():
