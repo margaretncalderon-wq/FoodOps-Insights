@@ -1287,8 +1287,8 @@ async def get_clients_with_events(user: User = Depends(get_current_user)):
             client["credit_percentage"] = 0
         
         # Get last event date
-        if events:
-            client["last_event_date"] = events[0].get("event_date")
+        if client_events:
+            client["last_event_date"] = client_events[0].get("event_date")
         
         # Get contacts for this client (especially important for companies)
         contacts = await db.contacts.find(
