@@ -648,6 +648,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleEditCategory = async (e) => {
+    e.preventDefault();
+    if (!editCategory) return;
+    try {
+      await axios.put(`${API}/settings/categories/${editCategory.category_id}`, {
+        name: editCategory.name,
+        name_es: editCategory.name_es,
+        color: editCategory.color
+      }, { withCredentials: true });
+      toast.success(language === "es" ? "Categoría actualizada" : "Category updated");
+      fetchCategories();
+      setEditCategory(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to update category");
+    }
+  };
+
   // Picklist handlers
   const handleAddPicklist = async (e) => {
     e.preventDefault();
