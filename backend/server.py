@@ -4693,6 +4693,67 @@ async def delete_item_category(category_id: str, user: User = Depends(get_curren
         raise HTTPException(status_code=404, detail="Category not found")
     return {"message": "Category deleted"}
 
+# ============== ITEM TYPES (Configurable per company) ==============
+
+@settings_router.get("/item-types")
+async def get_item_types(user: User = Depends(get_current_user)):
+    """Get item types for company - defaults to hospitality types if not customized"""
+    types = await db.item_types.find({"company_id": user.company_id}, {"_id": 0}).sort("sort_order", 1).to_list(100)
+    
+    if not types:
+        # Return default hospitality types
+        default_types = [
+            {"type_id": "Food", "company_id": user.company_id, "name": "Food", "name_es": "Comida", "sort_order": 0, "is_default": True},
+            {"type_id": "Service", "company_id": user.company_id, "name": "Service", "name_es": "Servicio", "sort_order": 1, "is_default": True},
+            {"type_id": "Rental", "company_id": user.company_id, "name": "Rental", "name_es": "Alquiler", "sort_order": 2, "is_default": True},
+            {"type_id": "Fee", "company_id": user.company_id, "name": "Fee", "name_es": "Cargo", "sort_order": 3, "is_default": True},
+        ]
+        # Insert defaults for this company
+        for t in default_types:
+            await db.item_types.insert_one(t)
+        return default_types
+    
+    return types
+
+class ItemTypeCreate(BaseModel):
+    name: str
+    name_es: Optional[str] = None
+    sort_order: Optional[int] = 0
+
+@settings_router.post("/item-types")
+async def create_item_type(data: ItemTypeCreate, user: User = Depends(get_current_user)):
+    """Create a new item type"""
+    type_id = f"type_{uuid.uuid4().hex[:8]}"
+    type_doc = {
+        "type_id": type_id,
+        "company_id": user.company_id,
+        "name": data.name,
+        "name_es": data.name_es or data.name,
+        "sort_order": data.sort_order,
+        "is_default": False
+    }
+    await db.item_types.insert_one(type_doc)
+    return {**type_doc, "_id": None}
+
+@settings_router.put("/item-types/{type_id}")
+async def update_item_type(type_id: str, data: ItemTypeCreate, user: User = Depends(get_current_user)):
+    """Update an item type"""
+    result = await db.item_types.update_one(
+        {"type_id": type_id, "company_id": user.company_id},
+        {"$set": {"name": data.name, "name_es": data.name_es, "sort_order": data.sort_order}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Item type not found")
+    return {"message": "Item type updated"}
+
+@settings_router.delete("/item-types/{type_id}")
+async def delete_item_type(type_id: str, user: User = Depends(get_current_user)):
+    """Delete an item type"""
+    result = await db.item_types.delete_one({"type_id": type_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item type not found")
+    return {"message": "Item type deleted"}
+
 # ============== OPERATIONS SUPPLIES CATEGORIES ==============
 
 @settings_router.get("/ops-categories")
