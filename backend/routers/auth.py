@@ -530,7 +530,7 @@ async def debug_cookies(request: Request):
     cookies = dict(request.cookies)
     headers = dict(request.headers)
     has_session = "session_token" in cookies
-    cookie_domain = get_cookie_domain()
+    cookie_domain = get_cookie_domain(request)
     frontend_url = os.environ.get("FRONTEND_URL", "not set")
     
     # Check if session is valid
