@@ -50,6 +50,8 @@ async def create_indexes():
         await db.clients.create_index([("company_id", 1), ("client_type", 1)])
         await db.clients.create_index([("company_id", 1), ("status", 1)])
         await db.clients.create_index([("company_id", 1), ("created_at", -1)])
+        await db.clients.create_index([("company_id", 1), ("updated_at", -1)])
+        await db.clients.create_index([("company_id", 1), ("next_follow_up_date", 1)])
         
         # Leads indexes (CRM)
         await db.leads.create_index("company_id")
@@ -59,6 +61,16 @@ async def create_indexes():
         await db.leads.create_index([("company_id", 1), ("outreach_status", 1)])
         await db.leads.create_index([("company_id", 1), ("created_at", -1)])
         await db.leads.create_index([("company_id", 1), ("owner_id", 1)])
+        await db.leads.create_index([("company_id", 1), ("next_follow_up_date", 1), ("status", 1)])
+        
+        # Events indexes - add client_id for join queries
+        await db.events.create_index("client_id")
+        await db.events.create_index([("client_id", 1), ("company_id", 1)])
+        await db.events.create_index([("client_id", 1), ("event_date", -1)])
+        
+        # Proposals indexes for lookups
+        await db.proposals.create_index("event_id")
+        await db.proposals.create_index([("event_id", 1), ("final_total", 1)])
         
         # Invoices indexes
         await db.invoices.create_index("company_id")
