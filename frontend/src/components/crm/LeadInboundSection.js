@@ -431,6 +431,15 @@ export default function LeadInboundSection() {
                     </TableCell>
                     <TableCell>{getStatusBadge(lead.status)}</TableCell>
                     <TableCell>
+                      {lead.owner_id ? (
+                        <Badge variant="outline" className="text-xs">
+                          {users.find(u => u.user_id === lead.owner_id)?.name || lead.owner_id.replace("user_", "").slice(0, 8)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => viewLead(lead)} title={isEs ? "Ver" : "View"}>
                           <Eye className="w-4 h-4" />
