@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="13" failures="0" skipped="0" tests="14" time="0.691" timestamp="2026-02-23T06:12:40.165444+00:00" hostname="agent-env-d3990c33-0d70-4675-80c8-3d2d395a8f62"><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMStatsEndpoint" name="test_stats_endpoint_returns_200" time="0.439"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMStatsEndpoint" name="test_stats_response_structure" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMStatsEndpoint" name="test_stats_values_are_reasonable" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMClientsWithEventsEndpoint" name="test_clients_with_events_returns_200" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMClientsWithEventsEndpoint" name="test_clients_with_events_response_is_list" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMClientsWithEventsEndpoint" name="test_client_has_events_array" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMClientsWithEventsEndpoint" name="test_client_has_required_fields" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMOutreachEndpoint" name="test_outreach_returns_200" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMOutreachEndpoint" name="test_outreach_response_is_list" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMInboundEndpoint" name="test_inbound_returns_200" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMInboundEndpoint" name="test_inbound_response_is_list" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMClientsEndpoint" name="test_clients_returns_200" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestCRMClientsEndpoint" name="test_clients_response_is_list" time="0.000"><error message="failed on setup with &quot;AssertionError: No token in login response&#10;assert None&quot;">backend/tests/test_crm_performance_optimization.py:20: in auth_token
+    assert token, "No token in login response"
+E   AssertionError: No token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_crm_performance_optimization.TestHealthCheck" name="test_health_endpoint" time="0.129" /></testsuite></testsuites>
