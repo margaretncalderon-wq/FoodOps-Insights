@@ -48,6 +48,17 @@ async def create_indexes():
         await db.clients.create_index("company_id")
         await db.clients.create_index("client_id", unique=True)
         await db.clients.create_index([("company_id", 1), ("client_type", 1)])
+        await db.clients.create_index([("company_id", 1), ("status", 1)])
+        await db.clients.create_index([("company_id", 1), ("created_at", -1)])
+        
+        # Leads indexes (CRM)
+        await db.leads.create_index("company_id")
+        await db.leads.create_index("lead_id", unique=True)
+        await db.leads.create_index([("company_id", 1), ("lead_type", 1)])
+        await db.leads.create_index([("company_id", 1), ("status", 1)])
+        await db.leads.create_index([("company_id", 1), ("outreach_status", 1)])
+        await db.leads.create_index([("company_id", 1), ("created_at", -1)])
+        await db.leads.create_index([("company_id", 1), ("owner_id", 1)])
         
         # Invoices indexes
         await db.invoices.create_index("company_id")
