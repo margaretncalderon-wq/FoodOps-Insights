@@ -2247,7 +2247,7 @@ export default function SettingsPage() {
                       </div>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setEditCategory({...cat})} title={language === "es" ? "Editar" : "Edit"}>
-                          <Pencil className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCategory(cat.category_id)} title={language === "es" ? "Eliminar" : "Delete"}>
                           <Trash2 className="w-4 h-4" />
