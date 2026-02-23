@@ -52,9 +52,11 @@ export default function LeadInboundSection() {
   const clientLabel = term("events", "client");
   
   const [leads, setLeads] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
   const [selectedLead, setSelectedLead] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
