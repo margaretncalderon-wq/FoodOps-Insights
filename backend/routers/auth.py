@@ -23,25 +23,36 @@ auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # ============== COOKIE CONFIGURATION ==============
 
-def get_cookie_domain():
-    """Extract domain from FRONTEND_URL for cookie setting"""
+def get_cookie_domain(request: Request = None):
+    """Extract domain for cookie setting - handles both production and preview environments"""
+    # First, check if we're in a preview environment by looking at the request origin
+    if request:
+        origin = request.headers.get("origin", "") or request.headers.get("referer", "")
+        if origin and "preview.emergentagent.com" in origin:
+            # In preview environment, don't set domain - browser will use request domain
+            return None
+    
+    # For production, use FRONTEND_URL to determine cookie domain
     frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
     parsed = urlparse(frontend_url)
     domain = parsed.netloc
+    
     # Remove port if present
     if ":" in domain:
         domain = domain.split(":")[0]
+    
     # For production domains, set cookie for the root domain
     # For localhost/preview, don't set domain (browser handles it)
     if domain and not domain.startswith("localhost") and not domain.startswith("127.") and "preview" not in domain:
         # Return domain with leading dot for subdomain support
         return f".{domain}" if not domain.startswith(".") else domain
+    
     return None
 
 
-def set_auth_cookie(response: Response, token: str):
+def set_auth_cookie(response: Response, token: str, request: Request = None):
     """Set authentication cookie with proper configuration"""
-    cookie_domain = get_cookie_domain()
+    cookie_domain = get_cookie_domain(request)
     
     # Base cookie settings
     cookie_kwargs = {
@@ -54,16 +65,16 @@ def set_auth_cookie(response: Response, token: str):
         "max_age": JWT_EXPIRATION_HOURS * 3600
     }
     
-    # Add domain for production
+    # Add domain for production (not for preview)
     if cookie_domain:
         cookie_kwargs["domain"] = cookie_domain
     
     response.set_cookie(**cookie_kwargs)
 
 
-def clear_auth_cookie(response: Response):
+def clear_auth_cookie(response: Response, request: Request = None):
     """Clear authentication cookie"""
-    cookie_domain = get_cookie_domain()
+    cookie_domain = get_cookie_domain(request)
     
     cookie_kwargs = {
         "key": "session_token",
