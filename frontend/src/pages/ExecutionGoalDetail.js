@@ -899,6 +899,120 @@ export default function ExecutionGoalDetail() {
           entityName={goal.title}
           onShareComplete={fetchGoal}
         />
+
+        {/* Team Access Dialog (Internal Users) */}
+        <Dialog open={showAccessDialog} onOpenChange={setShowAccessDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
+                {language === "es" ? "Gestionar Equipo" : "Manage Team Access"}
+              </DialogTitle>
+              <DialogDescription>
+                {language === "es" 
+                  ? `Asigna miembros de tu equipo a "${goal.title}"`
+                  : `Assign team members to "${goal.title}"`}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Add New Access */}
+              <div className="flex gap-2">
+                <Select value={newAccessEmail} onValueChange={setNewAccessEmail}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={language === "es" ? "Seleccionar usuario..." : "Select user..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers
+                      .filter(m => !goalAccess.find(a => a.user_email === m.email))
+                      .map(member => (
+                        <SelectItem key={member.user_id} value={member.email}>
+                          {member.name || member.email}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={newAccessRole} onValueChange={setNewAccessRole}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCESS_ROLES.map(role => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {language === "es" ? role.labelEs : role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Button 
+                  onClick={handleGrantAccess} 
+                  disabled={!newAccessEmail || grantingAccess}
+                  size="icon"
+                  data-testid="grant-access-btn"
+                >
+                  {grantingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                </Button>
+              </div>
+              
+              {teamMembers.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {language === "es" 
+                    ? "No hay miembros en tu equipo. Agrega usuarios desde Configuración > Equipo." 
+                    : "No team members found. Add users from Settings > Team."}
+                </p>
+              )}
+              
+              {/* Current Access List */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === "es" ? "Usuarios con acceso" : "Users with access"}
+                </label>
+                
+                {goalAccess.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    {language === "es" ? "No hay usuarios asignados" : "No users assigned"}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {goalAccess.map(access => (
+                      <div 
+                        key={access.access_id} 
+                        className="flex items-center justify-between p-2 bg-muted rounded-lg"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{access.user_name || access.user_email}</p>
+                          <p className="text-xs text-muted-foreground">{access.user_email}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {ACCESS_ROLES.find(r => r.value === access.role)?.[language === "es" ? 'labelEs' : 'label'] || access.role}
+                          </Badge>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleRevokeAccess(access.access_id)}
+                            className="h-8 w-8"
+                            data-testid={`revoke-access-${access.access_id}`}
+                          >
+                            <X className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAccessDialog(false)}>
+                {language === "es" ? "Cerrar" : "Close"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
