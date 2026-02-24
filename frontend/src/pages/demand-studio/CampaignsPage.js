@@ -658,6 +658,19 @@ export default function CampaignsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Share Entity Dialog (Cross-Organization) */}
+      <ShareEntityDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        entityType="campaign"
+        entityId={selectedCampaignForShare?.campaign_id}
+        entityName={selectedCampaignForShare?.name}
+        onShareComplete={() => {
+          fetchCampaigns();
+          setSelectedCampaignForShare(null);
+        }}
+      />
     </div>
   );
 }
