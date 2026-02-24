@@ -182,11 +182,14 @@ export default function ClientEngagementPage() {
                     onClick={() => navigate(item.path)}
                     className={`flex items-center justify-between cursor-pointer ${
                       location.pathname === item.path ? "bg-blue-50 text-blue-600" : ""
-                    }`}
+                    } ${item.highlight ? "bg-green-50 border-l-2 border-green-500" : ""}`}
                   >
                     <div className="flex items-center gap-2">
-                      <item.icon className="w-4 h-4" />
-                      {item.label}
+                      <item.icon className={`w-4 h-4 ${item.highlight ? "text-green-600" : ""}`} />
+                      <span className={item.highlight ? "font-medium text-green-700" : ""}>{item.label}</span>
+                      {item.highlight && (
+                        <Badge className="text-[9px] bg-green-100 text-green-700 px-1 py-0">NEW</Badge>
+                      )}
                     </div>
                     {item.badge !== undefined && item.badge > 0 && (
                       <Badge variant="secondary" className="text-xs">
