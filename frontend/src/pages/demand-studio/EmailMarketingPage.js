@@ -184,8 +184,27 @@ export default function EmailMarketingPage() {
 
   return (
     <div className="space-y-6" data-testid="email-marketing-page">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Tabs for Email Campaigns vs Sequences */}
+      <Tabs defaultValue="campaigns" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="campaigns" className="gap-2">
+            <Mail className="w-4 h-4" />
+            {isEs ? "Campañas" : "Campaigns"}
+          </TabsTrigger>
+          <TabsTrigger value="sequences" className="gap-2">
+            <Workflow className="w-4 h-4" />
+            {isEs ? "Secuencias" : "Sequences"}
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="gap-2">
+            <FileText className="w-4 h-4" />
+            {isEs ? "Plantillas" : "Templates"}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
