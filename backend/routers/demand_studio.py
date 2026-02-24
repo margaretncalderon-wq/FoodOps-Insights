@@ -322,6 +322,13 @@ async def update_campaign(campaign_id: str, data: MarketingCampaignCreate, user:
     update_data = data.dict(exclude_unset=True)
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
+    # If campaign_code is being updated, validate uniqueness
+    if "campaign_code" in update_data and update_data["campaign_code"]:
+        normalized_code = update_data["campaign_code"].strip().upper()
+        if not await ensure_unique_campaign_code(company_id, normalized_code, exclude_campaign_id=campaign_id):
+            raise HTTPException(status_code=400, detail="Campaign code already exists in your organization")
+        update_data["campaign_code"] = normalized_code
+    
     result = await db.marketing_campaigns.update_one(
         {"campaign_id": campaign_id, "company_id": company_id},
         {"$set": update_data}
@@ -343,6 +350,25 @@ async def update_campaign(campaign_id: str, data: MarketingCampaignCreate, user:
         {"campaign_id": campaign_id},
         {"_id": 0}
     )
+
+
+@demand_studio_router.patch("/campaigns/{campaign_id}/code")
+async def update_campaign_code(campaign_id: str, data: CampaignCodeUpdate, user: User = Depends(get_current_user)):
+    """Update campaign tracking code"""
+    company_id = user.company_id or user.active_org_id
+    
+    normalized_code = data.campaign_code.strip().upper()
+    if not await ensure_unique_campaign_code(company_id, normalized_code, exclude_campaign_id=campaign_id):
+        raise HTTPException(status_code=400, detail="Campaign code already exists in your organization")
+    
+    result = await db.marketing_campaigns.update_one(
+        {"campaign_id": campaign_id, "company_id": company_id},
+        {"$set": {"campaign_code": normalized_code, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    return {"campaign_code": normalized_code}
 
 @demand_studio_router.delete("/campaigns/{campaign_id}")
 async def delete_campaign(campaign_id: str, user: User = Depends(get_current_user)):
