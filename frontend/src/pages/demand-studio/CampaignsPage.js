@@ -21,10 +21,11 @@ import {
 } from "../../components/ui/select";
 import { 
   Plus, Target, Calendar, DollarSign, Trash2, 
-  Edit2, Loader2, Users, UserPlus, X, ShieldCheck
+  Edit2, Loader2, Users, UserPlus, X, ShieldCheck, Share2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
+import ShareEntityDialog from "../../components/collaboration/ShareEntityDialog";
 
 const CAMPAIGN_TYPES = [
   { value: "brand", label: "Brand Awareness", labelEs: "Reconocimiento de Marca" },
@@ -57,6 +58,8 @@ export default function CampaignsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all"); // "all" | "owned" | "shared"
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [selectedCampaignForShare, setSelectedCampaignForShare] = useState(null);
   
   // Role-based access
   const [userRole, setUserRole] = useState(null);
