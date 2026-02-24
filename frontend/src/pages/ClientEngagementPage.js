@@ -231,7 +231,8 @@ export default function ClientEngagementPage() {
             <Route path="events" element={<Navigate to="/client-engagement/proposals" replace />} />
             
             {/* CRM Routes */}
-            <Route path="crm" element={<Navigate to="crm/outreach" replace />} />
+            <Route path="crm" element={<Navigate to="crm/inbox" replace />} />
+            <Route path="crm/inbox" element={<CommsInboxSection />} />
             <Route path="crm/outreach" element={<LeadOutreachSection />} />
             <Route path="crm/inbound" element={<LeadInboundSection />} />
             <Route path="crm/follow-ups" element={<FollowUpsSection />} />
