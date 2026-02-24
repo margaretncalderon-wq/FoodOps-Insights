@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +30,11 @@ import {
 } from "../../components/ui/table";
 import { 
   Plus, Mail, Send, Eye, Trash2, Edit2, Loader2,
-  Users, MousePointerClick, MailOpen
+  Users, MousePointerClick, MailOpen, Workflow, FileText
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import EmailSequencesSection from "../../components/demand-studio/EmailSequencesSection";
 
 const EMAIL_STATUSES = [
   { value: "draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-800" },
