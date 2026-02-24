@@ -82,6 +82,7 @@ crm_router = APIRouter(prefix="/crm", tags=["CRM"])
 leads_router = APIRouter(prefix="/leads", tags=["Leads"])
 contacts_router = APIRouter(prefix="/contacts", tags=["Contacts"])
 lead_forms_router = APIRouter(prefix="/lead-forms", tags=["Lead Forms"])
+webhooks_router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 # ============== LEADS ROUTES ==============
