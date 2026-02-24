@@ -66,6 +66,7 @@ export default function CampaignDetailPage() {
   const [socialPosts, setSocialPosts] = useState([]);
   const [spendRecords, setSpendRecords] = useState([]);
   const [linkedLeads, setLinkedLeads] = useState([]);
+  const [emailCampaigns, setEmailCampaigns] = useState([]);
   
   // Dialogs
   const [showActivationDialog, setShowActivationDialog] = useState(false);
