@@ -2,6 +2,15 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from enum import Enum
+
+
+# ============== CAMPAIGN TRACKING ENUMS ==============
+
+class ChannelType(str, Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+    HYBRID = "hybrid"
 
 
 # ============== CAMPAIGN MODELS ==============
@@ -17,6 +26,9 @@ class MarketingCampaignCreate(BaseModel):
     status: str = "draft"  # draft, active, paused, completed
     tags: List[str] = []
     notes: Optional[str] = None
+    # Campaign Tracking (additive)
+    campaign_code: Optional[str] = None  # Tracking code e.g. "TASTE-SJ-2026"
+    channel_type: Optional[str] = None  # online, offline, hybrid
 
 
 class MarketingCampaign(BaseModel):
@@ -36,8 +48,16 @@ class MarketingCampaign(BaseModel):
     owner_user_id: Optional[str] = None
     leads_linked: int = 0
     opportunities_linked: int = 0
+    # Campaign Tracking (additive)
+    campaign_code: Optional[str] = None
+    channel_type: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+
+class CampaignCodeUpdate(BaseModel):
+    """Update campaign tracking code"""
+    campaign_code: str
 
 
 # ============== CHANNEL MODELS ==============
