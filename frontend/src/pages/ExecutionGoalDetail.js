@@ -56,6 +56,8 @@ import {
   ChevronUp,
   Send,
   Share2,
+  UserPlus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import ShareEntityDialog from "../components/collaboration/ShareEntityDialog";
