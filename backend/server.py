@@ -76,6 +76,7 @@ from routers.room_setup import room_setup_router
 from routers.activity_logs import activity_logs_router
 from routers.payments import payments_router
 from routers.automation import automation_router
+from routers.sharing import sharing_router
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
