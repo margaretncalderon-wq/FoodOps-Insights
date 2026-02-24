@@ -316,6 +316,20 @@ export default function ExecutionHubPage() {
               data-testid="search-goals-input"
             />
           </div>
+          
+          {/* Scope Filter - Collaboration */}
+          <Select value={scopeFilter} onValueChange={setScopeFilter}>
+            <SelectTrigger className="w-full sm:w-48 bg-card border-border" data-testid="scope-filter">
+              <Users className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "es" ? "Todos los Proyectos" : "All Projects"}</SelectItem>
+              <SelectItem value="owned">{language === "es" ? "Mis Proyectos" : "My Projects"}</SelectItem>
+              <SelectItem value="shared">{language === "es" ? "Compartidos Conmigo" : "Shared With Me"}</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-48 bg-card border-border" data-testid="status-filter">
               <Filter className="w-4 h-4 mr-2" />
