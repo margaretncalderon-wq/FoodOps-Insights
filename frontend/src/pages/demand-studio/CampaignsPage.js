@@ -362,7 +362,12 @@ export default function CampaignsPage() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCampaigns.map(campaign => (
-            <Card key={campaign.campaign_id} className="hover:shadow-md transition-shadow" data-testid={`campaign-card-${campaign.campaign_id}`}>
+            <Card 
+              key={campaign.campaign_id} 
+              className="hover:shadow-md transition-shadow cursor-pointer group" 
+              data-testid={`campaign-card-${campaign.campaign_id}`}
+              onClick={() => navigate(`/demand-studio/campaigns/${campaign.campaign_id}`)}
+            >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
