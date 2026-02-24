@@ -30,6 +30,16 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - Google OAuth + Emergent OAuth login
 - Demo/Influencer account creation
 
+### Session: Feb 24, 2026 (Cont.) - Campaign Channel Type Bug Fix ✅
+
+#### Bug Fix: Campaign Creation with Channel Type (P0)
+- **Problem**: Frontend sent `channel_type` field but `resetForm()` and `openEdit()` didn't include it
+- **Root Cause**: Missing `channel_type` in form reset/edit functions (lines 185-197 and 169-183)
+- **Solution**: Added `channel_type` to `resetForm()` and `openEdit()` functions
+- **Files Modified**: `frontend/src/pages/demand-studio/CampaignsPage.js`
+- **Testing**: Verified via curl and UI screenshot - campaigns now save channel_type correctly
+- **Status**: ✅ COMPLETE
+
 ### Session: Feb 24, 2026 - Cross-Organization Collaboration ✅
 
 #### Cross-Organization Collaboration Feature (P0)
