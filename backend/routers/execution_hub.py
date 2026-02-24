@@ -160,41 +160,78 @@ async def get_execution_hub_usage(user: User = Depends(get_current_user)):
 async def get_execution_goals(
     user: User = Depends(get_current_user),
     status: Optional[str] = None,
-    context_type: Optional[str] = None
+    context_type: Optional[str] = None,
+    scope: Optional[str] = None  # "owned" | "shared" | None (both)
 ):
-    """Get all execution goals for the organization + shared goals"""
-    query = {
-        "$or": [
-            {"company_id": user.company_id},
-            {"owner_id": user.user_id}
-        ]
-    }
+    """Get execution goals with optional scope filter for collaboration"""
+    goals = []
     
-    if status:
-        query["status"] = status
-    if context_type:
-        query["context_type"] = context_type
-    
-    goals = await db.execution_goals.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    
-    # Also get goals where user has explicit access
-    shared_access = await db.execution_access.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "goal_id": 1}
-    ).to_list(100)
-    
-    shared_goal_ids = [a["goal_id"] for a in shared_access]
-    if shared_goal_ids:
-        shared_goals = await db.execution_goals.find(
-            {"goal_id": {"$in": shared_goal_ids}},
-            {"_id": 0}
+    # Get owned goals (unless scope is "shared" only)
+    if scope != "shared":
+        query = {
+            "$or": [
+                {"company_id": user.company_id},
+                {"owner_id": user.user_id}
+            ]
+        }
+        if status:
+            query["status"] = status
+        if context_type:
+            query["context_type"] = context_type
+        
+        owned_goals = await db.execution_goals.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+        
+        # Mark as owned
+        for g in owned_goals:
+            g["_access_type"] = "owned"
+        goals.extend(owned_goals)
+        
+        # Also get goals where user has explicit access (individual sharing)
+        shared_access = await db.execution_access.find(
+            {"user_id": user.user_id},
+            {"_id": 0, "goal_id": 1}
         ).to_list(100)
         
-        # Merge without duplicates
-        existing_ids = {g["goal_id"] for g in goals}
-        for sg in shared_goals:
-            if sg["goal_id"] not in existing_ids:
-                goals.append(sg)
+        shared_goal_ids = [a["goal_id"] for a in shared_access]
+        if shared_goal_ids:
+            shared_goals = await db.execution_goals.find(
+                {"goal_id": {"$in": shared_goal_ids}},
+                {"_id": 0}
+            ).to_list(100)
+            
+            existing_ids = {g["goal_id"] for g in goals}
+            for sg in shared_goals:
+                if sg["goal_id"] not in existing_ids:
+                    sg["_access_type"] = "owned"  # Individual access = treat as owned
+                    goals.append(sg)
+    
+    # Get cross-org shared goals (unless scope is "owned" only)
+    if scope != "owned" and user.company_id:
+        # Find shared entities for this org
+        shared_entities = await db.shared_entities.find({
+            "target_org_id": user.company_id,
+            "entity_type": "project",
+            "status": "active"
+        }, {"_id": 0, "entity_id": 1, "source_org_name": 1, "permission_level": 1, "scope": 1}).to_list(100)
+        
+        if shared_entities:
+            shared_goal_ids = [s["entity_id"] for s in shared_entities]
+            shared_info = {s["entity_id"]: s for s in shared_entities}
+            
+            shared_goals = await db.execution_goals.find(
+                {"goal_id": {"$in": shared_goal_ids}},
+                {"_id": 0}
+            ).to_list(100)
+            
+            existing_ids = {g["goal_id"] for g in goals}
+            for sg in shared_goals:
+                if sg["goal_id"] not in existing_ids:
+                    info = shared_info.get(sg["goal_id"], {})
+                    sg["_access_type"] = "shared"
+                    sg["_shared_from"] = info.get("source_org_name", "Unknown")
+                    sg["_permission_level"] = info.get("permission_level", "view")
+                    sg["_allowed_scope"] = info.get("scope", [])
+                    goals.append(sg)
     
     return goals
 
