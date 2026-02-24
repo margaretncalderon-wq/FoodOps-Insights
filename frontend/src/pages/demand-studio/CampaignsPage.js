@@ -536,6 +536,27 @@ export default function CampaignsPage() {
                 </Select>
               </div>
               <div>
+                <label className="text-sm font-medium">{isEs ? "Canal" : "Channel"}</label>
+                <Select 
+                  value={formData.channel_type} 
+                  onValueChange={(v) => setFormData({ ...formData, channel_type: v })}
+                >
+                  <SelectTrigger data-testid="campaign-channel-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CHANNEL_TYPES.map(c => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.icon} {isEs ? c.labelEs : c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label className="text-sm font-medium">{isEs ? "Estado" : "Status"}</label>
                 <Select 
                   value={formData.status} 
@@ -550,6 +571,16 @@ export default function CampaignsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Presupuesto" : "Budget"}</label>
+                <Input
+                  type="number"
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
+                  min="0"
+                  step="100"
+                />
               </div>
             </div>
             
