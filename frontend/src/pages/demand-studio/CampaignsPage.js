@@ -333,23 +333,34 @@ export default function CampaignsPage() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <CardTitle className="text-base">{campaign.name}</CardTitle>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       {getTypeBadge(campaign.campaign_type)}
                       {getStatusBadge(campaign.status)}
+                      {campaign._access_type === "shared" && (
+                        <Badge variant="outline" className="bg-purple-500/20 text-purple-600 border-purple-500/30">
+                          <Users className="w-3 h-3 mr-1" />
+                          {campaign._shared_from || (isEs ? "Compartido" : "Shared")}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    {canManage && (
+                    {canManage && campaign._access_type !== "shared" && (
                       <Button variant="ghost" size="icon" onClick={() => openAccessDialog(campaign)} title={isEs ? "Gestionar Acceso" : "Manage Access"}>
                         <Users className="w-4 h-4 text-purple-500" />
                       </Button>
                     )}
-                    {canEdit && (
+                    {canEdit && campaign._access_type !== "shared" && (
                       <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
                     )}
-                    {canManage && (
+                    {campaign._access_type === "shared" && campaign._permission_level === "edit" && (
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {canManage && campaign._access_type !== "shared" && (
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(campaign.campaign_id)} data-testid={`delete-campaign-${campaign.campaign_id}`}>
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
