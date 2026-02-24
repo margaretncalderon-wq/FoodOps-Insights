@@ -167,9 +167,19 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 
 ## Pending/Blocked Items
 
+### P0 - Kora Comms Next Phases
+- **Phase 1: WhatsApp Provider**: Meta WhatsApp Cloud API integration
+  - Support multiple WhatsApp numbers per org
+  - Inbound/outbound via webhooks
+  - Template messages support
+  - *Requires*: Meta Business Account + WABA credentials
+- **Phase 2: Email Provider**: Connect shared mailboxes (support@, sales@)
+  - Inbound/outbound email threads
+  - *Requires*: Resend or SendGrid API key
+- **Phase 3: Social DMs**: Instagram DM, Facebook Messenger connectors
+
 ### P1 - Upcoming
 - **Email Marketing Híbrido**: Tracker mejorado + envío simple de emails one-off (requiere API key Resend/SendGrid)
-- **WhatsApp Business API**: Integración oficial de Meta para marketing por WhatsApp
 - **Full UTM Tracking**: Track digital campaigns using standard UTM parameters (utm_source, utm_medium, etc.)
 - **Meta (Facebook/Instagram) API Integration**: Publishing, Lead Ads, analytics/spend sync
 - Filter/group leads and clients by City/Country
