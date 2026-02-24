@@ -903,7 +903,7 @@ export default function SystemPulse() {
           <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide">
             {isEs ? "Acciones Rápidas" : "Quick Actions"}
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <Link 
               to="/client-engagement/proposals" 
               className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 transition-all"
@@ -941,7 +941,7 @@ export default function SystemPulse() {
                 <Clock className="w-5 h-5 text-amber-600" />
               </div>
               <span className="text-sm font-medium text-center">
-                {isEs ? "Seguimientos" : "Follow-ups Due"}
+                {isEs ? "Seguimientos" : "Follow-ups"}
               </span>
             </Link>
             <Link 
@@ -954,6 +954,18 @@ export default function SystemPulse() {
               </div>
               <span className="text-sm font-medium text-center">
                 {isEs ? "Comunicación" : "Communication"}
+              </span>
+            </Link>
+            <Link 
+              to="/collaborations" 
+              className="group flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-muted-foreground/20 hover:border-purple-500/50 hover:bg-purple-500/5 transition-all"
+              data-testid="quick-action-collaborations"
+            >
+              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <ArrowUpRight className="w-5 h-5 text-purple-600" />
+              </div>
+              <span className="text-sm font-medium text-center">
+                {isEs ? "Colaboraciones" : "Collaborations"}
               </span>
             </Link>
           </div>
