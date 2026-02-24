@@ -152,20 +152,58 @@ async def get_demand_studio_stats(user: User = Depends(get_current_user)):
 async def get_campaigns(
     status: Optional[str] = None,
     campaign_type: Optional[str] = None,
+    scope: Optional[str] = None,  # "owned" | "shared" | None (both)
     user: User = Depends(get_current_user)
 ):
-    """Get all marketing campaigns"""
+    """Get marketing campaigns with optional scope filter for collaboration"""
     company_id = user.company_id or user.active_org_id
     if not company_id:
         return []
     
-    query = {"company_id": company_id}
-    if status:
-        query["status"] = status
-    if campaign_type:
-        query["campaign_type"] = campaign_type
+    campaigns = []
     
-    campaigns = await db.marketing_campaigns.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Get owned campaigns (unless scope is "shared" only)
+    if scope != "shared":
+        query = {"company_id": company_id}
+        if status:
+            query["status"] = status
+        if campaign_type:
+            query["campaign_type"] = campaign_type
+        
+        owned_campaigns = await db.marketing_campaigns.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+        
+        # Mark as owned
+        for c in owned_campaigns:
+            c["_access_type"] = "owned"
+        campaigns.extend(owned_campaigns)
+    
+    # Get cross-org shared campaigns (unless scope is "owned" only)
+    if scope != "owned":
+        shared_entities = await db.shared_entities.find({
+            "target_org_id": company_id,
+            "entity_type": "campaign",
+            "status": "active"
+        }, {"_id": 0, "entity_id": 1, "source_org_name": 1, "permission_level": 1, "scope": 1}).to_list(100)
+        
+        if shared_entities:
+            shared_campaign_ids = [s["entity_id"] for s in shared_entities]
+            shared_info = {s["entity_id"]: s for s in shared_entities}
+            
+            shared_campaigns = await db.marketing_campaigns.find(
+                {"campaign_id": {"$in": shared_campaign_ids}},
+                {"_id": 0}
+            ).to_list(100)
+            
+            existing_ids = {c["campaign_id"] for c in campaigns}
+            for sc in shared_campaigns:
+                if sc["campaign_id"] not in existing_ids:
+                    info = shared_info.get(sc["campaign_id"], {})
+                    sc["_access_type"] = "shared"
+                    sc["_shared_from"] = info.get("source_org_name", "Unknown")
+                    sc["_permission_level"] = info.get("permission_level", "view")
+                    sc["_allowed_scope"] = info.get("scope", [])
+                    campaigns.append(sc)
+    
     return campaigns
 
 @demand_studio_router.post("/campaigns")
