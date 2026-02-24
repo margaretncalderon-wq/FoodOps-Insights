@@ -97,7 +97,6 @@ export default function ClientEngagementPage() {
     { path: "/client-engagement/crm/outreach", label: "Outreach", icon: UserPlus, badge: stats.outreach_leads },
     { path: "/client-engagement/crm/inbound", label: "Inbound", icon: Inbox, badge: stats.inbound_leads },
     { path: "/client-engagement/crm/follow-ups", label: isEs ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due },
-    { path: "/client-engagement/crm/comms", label: isEs ? "Historial Comms" : "Comms Log", icon: MessageSquare },
     { path: "/client-engagement/crm/sales-report", label: isEs ? "Reporte Ventas" : "Sales Report", icon: BarChart3 },
     { path: "/client-engagement/crm/owners", label: isEs ? "Responsables" : "Owners", icon: UserCircle },
     { path: "/client-engagement/crm/clients", label: clientsLabel, icon: Users, badge: stats.active_clients },
