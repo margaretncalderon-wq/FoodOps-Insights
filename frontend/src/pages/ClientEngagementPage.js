@@ -83,6 +83,7 @@ export default function ClientEngagementPage() {
     if (path.includes("outreach")) return "Outreach";
     if (path.includes("inbound")) return "Inbound";
     if (path.includes("follow-ups")) return isEs ? "Seguimientos" : "Follow-ups";
+    if (path.includes("inbox")) return isEs ? "Bandeja" : "Inbox";
     if (path.includes("comms")) return isEs ? "Comunicaciones" : "Comms";
     if (path.includes("sales-report")) return isEs ? "Reporte Ventas" : "Sales Report";
     if (path.includes("owners")) return isEs ? "Responsables" : "Owners";
@@ -92,10 +93,11 @@ export default function ClientEngagementPage() {
 
   // CRM dropdown items
   const crmItems = [
+    { path: "/client-engagement/crm/inbox", label: isEs ? "Bandeja Comms" : "Comms Inbox", icon: Inbox, highlight: true },
     { path: "/client-engagement/crm/outreach", label: "Outreach", icon: UserPlus, badge: stats.outreach_leads },
     { path: "/client-engagement/crm/inbound", label: "Inbound", icon: Inbox, badge: stats.inbound_leads },
     { path: "/client-engagement/crm/follow-ups", label: isEs ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due },
-    { path: "/client-engagement/crm/comms", label: isEs ? "Comunicaciones" : "Comms", icon: MessageSquare },
+    { path: "/client-engagement/crm/comms", label: isEs ? "Historial Comms" : "Comms Log", icon: MessageSquare },
     { path: "/client-engagement/crm/sales-report", label: isEs ? "Reporte Ventas" : "Sales Report", icon: BarChart3 },
     { path: "/client-engagement/crm/owners", label: isEs ? "Responsables" : "Owners", icon: UserCircle },
     { path: "/client-engagement/crm/clients", label: clientsLabel, icon: Users, badge: stats.active_clients },
