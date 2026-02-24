@@ -239,7 +239,7 @@ export default function CampaignsPage() {
   };
 
   // Check if user can manage this campaign
-  const canManage = userRole === "owner" || userRole === "admin";
+  const canManage = userRole === "owner" || userRole === "admin" || user?.is_super_admin;
   const canCreate = canManage; // Only owner/admin can create
   const canEdit = canManage || userRole === "marketing_partner"; // marketing_partner can edit assigned
 
