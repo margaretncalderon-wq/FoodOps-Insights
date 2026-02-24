@@ -452,6 +452,12 @@ export default function CampaignsPage() {
                     <span className="text-muted-foreground">{isEs ? "Oport.:" : "Opps:"}</span>
                     <span className="font-medium">{campaign.opportunities_linked || 0}</span>
                   </div>
+                  {campaign.campaign_code && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">{isEs ? "Código:" : "Code:"}</span>
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{campaign.campaign_code}</span>
+                    </div>
+                  )}
                 </div>
 
                 {campaign.start_date && (
