@@ -17,6 +17,29 @@ from utils.activity_logger import log_activity, user_info
 from utils.email_service import send_lead_assignment_notification
 
 
+# ============== CAMPAIGN AUTO-LINK HELPER ==============
+
+async def resolve_campaign_from_code(company_id: str, campaign_code: str) -> Optional[str]:
+    """Find campaign_id by tracking code within organization. Returns None if not found."""
+    if not campaign_code:
+        return None
+    normalized_code = campaign_code.strip().upper()
+    campaign = await db.marketing_campaigns.find_one(
+        {"company_id": company_id, "campaign_code": normalized_code},
+        {"_id": 0, "campaign_id": 1}
+    )
+    return campaign["campaign_id"] if campaign else None
+
+
+async def increment_campaign_leads_linked(campaign_id: str):
+    """Increment the leads_linked counter on a campaign"""
+    if campaign_id:
+        await db.marketing_campaigns.update_one(
+            {"campaign_id": campaign_id},
+            {"$inc": {"leads_linked": 1}}
+        )
+
+
 def sanitize_float(value, default=0):
     """Convert non-JSON-compliant floats (inf, -inf, nan) to default value"""
     if value is None:
