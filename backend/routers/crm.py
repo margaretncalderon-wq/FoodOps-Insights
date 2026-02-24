@@ -1885,3 +1885,145 @@ async def get_leads_for_comms(user: User = Depends(get_current_user)):
         })
     
     return result
+
+
+# ============== WEBHOOKS - EXTERNAL INTEGRATIONS ==============
+# These endpoints allow external services like Zapier/Make to send leads
+
+@webhooks_router.post("/leads/{company_slug}")
+async def webhook_create_lead(company_slug: str, data: dict, campaign_code: Optional[str] = None):
+    """
+    Public webhook to receive leads from external sources (Zapier, Make, Meta Lead Ads, etc.)
+    
+    URL: POST /api/webhooks/leads/{company_slug}?campaign_code=OPTIONAL
+    
+    The company_slug identifies which organization receives the lead.
+    Campaign auto-linking works if campaign_code is provided (query param or body).
+    
+    Expected body (all fields optional except email):
+    {
+        "email": "required@example.com",
+        "name": "John Doe",
+        "phone": "+1234567890",
+        "company_name": "Acme Inc",
+        "message": "Interested in your services",
+        "source": "Meta Lead Ads",
+        "campaign_code": "CAM-XXXXX",
+        "custom_fields": { ... }
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "lead_id": "lead_xxx",
+        "campaign_id": "camp_xxx" (if auto-linked),
+        "message": "Lead created successfully"
+    }
+    """
+    # Find company by slug
+    company = await db.companies.find_one(
+        {"$or": [
+            {"slug": company_slug},
+            {"company_id": company_slug}
+        ]},
+        {"_id": 0, "company_id": 1, "name": 1}
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    company_id = company["company_id"]
+    
+    # Validate email is provided
+    email = data.get("email", "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    now = datetime.now(timezone.utc)
+    lead_id = f"lead_{uuid.uuid4().hex[:12]}"
+    
+    # Campaign auto-link: check query param first, then body
+    tracking_code = campaign_code or data.get("campaign_code")
+    linked_campaign_id = None
+    attribution_source = None
+    
+    if tracking_code:
+        linked_campaign_id = await resolve_campaign_from_code(company_id, tracking_code)
+        if linked_campaign_id:
+            attribution_source = "link"
+    
+    # Determine source
+    source = data.get("source", "Webhook")
+    if "meta" in source.lower() or "facebook" in source.lower():
+        attribution_source = attribution_source or "link"
+    
+    # Build lead document
+    lead_doc = {
+        "lead_id": lead_id,
+        "company_id": company_id,
+        "lead_name": data.get("name") or data.get("lead_name") or data.get("full_name") or "",
+        "email": email,
+        "phone": data.get("phone") or data.get("phone_number"),
+        "whatsapp": data.get("whatsapp"),
+        "company_name": data.get("company_name") or data.get("company"),
+        "event_type": data.get("event_type", "other"),
+        "event_date": data.get("event_date"),
+        "estimated_guest_count": data.get("guest_count") or data.get("estimated_guest_count"),
+        "budget_range": data.get("budget_range") or data.get("budget"),
+        "message": data.get("message") or data.get("notes") or data.get("comments"),
+        "source": source,
+        "status": "New",
+        "lead_type": "inbound",
+        # Campaign tracking
+        "campaign_id": linked_campaign_id,
+        "attribution_source": attribution_source,
+        # Webhook metadata
+        "webhook_source": data.get("webhook_source", "external"),
+        "raw_data": {k: v for k, v in data.items() if k not in ["email", "name", "phone", "message"]},
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.leads.insert_one(lead_doc)
+    
+    # Increment campaign leads_linked counter if auto-linked
+    if linked_campaign_id:
+        await increment_campaign_leads_linked(linked_campaign_id)
+    
+    return {
+        "success": True,
+        "lead_id": lead_id,
+        "campaign_id": linked_campaign_id,
+        "message": "Lead created successfully"
+    }
+
+
+@webhooks_router.get("/test/{company_slug}")
+async def webhook_test(company_slug: str):
+    """
+    Test endpoint to verify webhook is accessible and company_slug is valid.
+    Use this URL in Zapier/Make to test the connection.
+    """
+    company = await db.companies.find_one(
+        {"$or": [
+            {"slug": company_slug},
+            {"company_id": company_slug}
+        ]},
+        {"_id": 0, "company_id": 1, "name": 1}
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    return {
+        "success": True,
+        "message": "Webhook is ready to receive leads",
+        "company_name": company.get("name"),
+        "endpoint": f"/api/webhooks/leads/{company_slug}",
+        "method": "POST",
+        "example_body": {
+            "email": "lead@example.com",
+            "name": "John Doe",
+            "phone": "+1234567890",
+            "source": "Meta Lead Ads",
+            "campaign_code": "CAM-XXXXX"
+        }
+    }
