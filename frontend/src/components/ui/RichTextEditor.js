@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/button";
 import { 
   Bold, Italic, Underline, List, ListOrdered, 
@@ -17,6 +17,23 @@ export default function RichTextEditor({
 }) {
   const editorRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const isInitialized = useRef(false);
+
+  // Initialize content only once when component mounts or value changes externally
+  useEffect(() => {
+    if (editorRef.current && !isInitialized.current && value) {
+      editorRef.current.innerHTML = value;
+      isInitialized.current = true;
+    }
+  }, [value]);
+
+  // Reset initialization flag when value is cleared
+  useEffect(() => {
+    if (!value && editorRef.current) {
+      editorRef.current.innerHTML = '';
+      isInitialized.current = false;
+    }
+  }, [value]);
 
   const execCommand = (command, value = null) => {
     document.execCommand(command, false, value);
