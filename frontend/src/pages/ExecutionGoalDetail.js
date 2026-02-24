@@ -59,6 +59,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ShareEntityDialog from "../components/collaboration/ShareEntityDialog";
+import SharedWith from "../components/collaboration/SharedWith";
 
 const statusConfig = {
   planning: { labelKey: "planning", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: CircleDot },
@@ -318,6 +319,20 @@ export default function ExecutionGoalDetail() {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Share Button - Only for owned projects */}
+            {!goal._access_type || goal._access_type === "owner" ? (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowShareDialog(true)}
+                className="text-purple-400 border-purple-500/30 hover:bg-purple-500/10"
+                data-testid="share-goal-btn"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                {language === "es" ? "Compartir" : "Share"}
+              </Button>
+            ) : null}
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
