@@ -22,7 +22,8 @@ import {
 } from "../../components/ui/select";
 import { 
   Plus, Target, Calendar, DollarSign, Trash2, 
-  Edit2, Loader2, Users, UserPlus, X, ShieldCheck, Share2
+  Edit2, Loader2, Users, UserPlus, X, ShieldCheck, Share2,
+  Copy, Link2, QrCode
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
