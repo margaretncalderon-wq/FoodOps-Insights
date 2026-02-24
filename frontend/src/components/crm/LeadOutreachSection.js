@@ -186,17 +186,17 @@ export default function LeadOutreachSection() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      // Try to fetch team members from the organization
-      const res = await axios.get(`${API}/api/org/members`, { withCredentials: true });
+      // Try to fetch team members from the CRM endpoint
+      const res = await axios.get(`${API}/api/crm/team-members`, { withCredentials: true });
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         setUsers(res.data.map(member => ({
           user_id: member.user_id,
-          name: member.name || member.email || member.user_id.replace("user_", "User ")
+          name: member.name || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
         })));
         return;
       }
     } catch (err) {
-      console.error("Error loading org members:", err);
+      console.error("Error loading team members:", err);
     }
     
     // Fallback: try settings/team endpoint
@@ -205,7 +205,7 @@ export default function LeadOutreachSection() {
       if (teamRes.data && Array.isArray(teamRes.data) && teamRes.data.length > 0) {
         setUsers(teamRes.data.map(member => ({
           user_id: member.user_id,
-          name: member.name || member.email || member.user_id.replace("user_", "User ")
+          name: member.name || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
         })));
         return;
       }
@@ -217,7 +217,7 @@ export default function LeadOutreachSection() {
     const ownerIds = new Set();
     leads.forEach(l => l.owner_id && ownerIds.add(l.owner_id));
     if (ownerIds.size > 0) {
-      setUsers(Array.from(ownerIds).map(id => ({ user_id: id, name: id.replace("user_", "User ") })));
+      setUsers(Array.from(ownerIds).map(id => ({ user_id: id, name: `User ${id.slice(-6)}` })));
     }
   }, [leads]);
 
