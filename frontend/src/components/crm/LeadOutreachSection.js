@@ -144,16 +144,44 @@ export default function LeadOutreachSection() {
     return cleaned;
   }, []);
 
-  const fetchLeads = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API}/api/crm/outreach`, { withCredentials: true });
-      // Clean nan values from all leads
-      const cleanedLeads = res.data.map(lead => cleanNanValues(lead));
-      setLeads(cleanedLeads);
-    } catch (err) {
-      console.error(err);
+  // Debounced fetch to avoid multiple rapid calls
+  const fetchTimeoutRef = useRef(null);
+  const isFetchingRef = useRef(false);
+
+  const fetchLeads = useCallback(async (immediate = false) => {
+    // Clear any pending fetch
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
     }
-    setLoading(false);
+    
+    // If already fetching and not immediate, skip
+    if (isFetchingRef.current && !immediate) {
+      return;
+    }
+
+    const doFetch = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      
+      try {
+        const res = await axios.get(`${API}/api/crm/outreach`, { withCredentials: true });
+        // Clean nan values from all leads
+        const cleanedLeads = res.data.map(lead => cleanNanValues(lead));
+        setLeads(cleanedLeads);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+        isFetchingRef.current = false;
+      }
+    };
+
+    if (immediate) {
+      await doFetch();
+    } else {
+      // Debounce by 300ms
+      fetchTimeoutRef.current = setTimeout(doFetch, 300);
+    }
   }, [cleanNanValues]);
 
   const fetchUsers = useCallback(async () => {
