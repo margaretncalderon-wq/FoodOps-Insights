@@ -266,7 +266,20 @@ export default function CampaignsPage() {
 
       {/* Filters & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* Scope Filter - Collaboration */}
+          <Select value={scopeFilter} onValueChange={setScopeFilter}>
+            <SelectTrigger className="w-[180px]" data-testid="filter-scope">
+              <Users className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isEs ? "Todas las Campañas" : "All Campaigns"}</SelectItem>
+              <SelectItem value="owned">{isEs ? "Mis Campañas" : "My Campaigns"}</SelectItem>
+              <SelectItem value="shared">{isEs ? "Compartidas Conmigo" : "Shared With Me"}</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[140px]" data-testid="filter-status">
               <SelectValue placeholder={isEs ? "Estado" : "Status"} />
