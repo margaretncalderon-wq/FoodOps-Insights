@@ -56,6 +56,7 @@ export default function CampaignsPage() {
   const [selectedCampaignForAccess, setSelectedCampaignForAccess] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all"); // "all" | "owned" | "shared"
   
   // Role-based access
   const [userRole, setUserRole] = useState(null);
