@@ -11,7 +11,8 @@ import { Badge } from "../components/ui/badge";
 import { 
   Activity, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight,
   FileCheck, Users, Zap, Bell, RefreshCw, ChefHat, MapPin, Building2,
-  GitBranch, Lock, Unlock, Target, FolderKanban, BarChart3, TrendingUp, UserCircle
+  GitBranch, Lock, Unlock, Target, FolderKanban, BarChart3, TrendingUp, UserCircle,
+  ArrowUpRight, ArrowDownLeft
 } from "lucide-react";
 
 // ==================== SYSTEM PULSE ====================
