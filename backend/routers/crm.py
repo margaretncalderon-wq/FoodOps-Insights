@@ -1534,19 +1534,34 @@ async def get_public_lead_form(form_id: str):
 
 
 @lead_forms_router.post("/{form_id}/submit")
-async def submit_lead_form(form_id: str, data: dict):
-    """Submit a lead form (no auth required - public endpoint)"""
+async def submit_lead_form(form_id: str, data: dict, campaign_code: Optional[str] = None):
+    """Submit a lead form (no auth required - public endpoint)
+    
+    Campaign tracking: pass campaign_code as query param or in body
+    Example: POST /lead-forms/{form_id}/submit?campaign_code=TASTE-SJ-2026
+    """
     form = await db.lead_forms.find_one({"form_id": form_id, "is_active": True}, {"_id": 0})
     if not form:
         raise HTTPException(status_code=404, detail="Form not found or inactive")
     
     now = datetime.now(timezone.utc)
     lead_id = f"lead_{uuid.uuid4().hex[:12]}"
+    company_id = form["company_id"]
+    
+    # Campaign auto-link: check query param first, then body
+    tracking_code = campaign_code or data.get("campaign_code")
+    linked_campaign_id = None
+    attribution_source = None
+    
+    if tracking_code:
+        linked_campaign_id = await resolve_campaign_from_code(company_id, tracking_code)
+        if linked_campaign_id:
+            attribution_source = "link"
     
     # Create lead from form submission
     lead_doc = {
         "lead_id": lead_id,
-        "company_id": form["company_id"],
+        "company_id": company_id,
         "lead_name": data.get("lead_name", data.get("name", "")),
         "email": data.get("email", ""),
         "phone": data.get("phone"),
@@ -1562,10 +1577,17 @@ async def submit_lead_form(form_id: str, data: dict):
         "status": "New",
         "lead_type": "inbound",
         "owner_id": form.get("assign_owner_id"),
+        # Campaign tracking
+        "campaign_id": linked_campaign_id,
+        "attribution_source": attribution_source,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
     await db.leads.insert_one(lead_doc)
+    
+    # Increment campaign leads_linked counter if auto-linked
+    if linked_campaign_id:
+        await increment_campaign_leads_linked(linked_campaign_id)
     
     # Update form submission count
     await db.lead_forms.update_one(
@@ -1576,7 +1598,8 @@ async def submit_lead_form(form_id: str, data: dict):
     return {
         "success": True,
         "message": form.get("thank_you_message", "Thank you for your inquiry!"),
-        "lead_id": lead_id
+        "lead_id": lead_id,
+        "campaign_id": linked_campaign_id  # Confirms auto-link if happened
     }
 
 
