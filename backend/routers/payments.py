@@ -346,7 +346,7 @@ async def get_payment_status(
     
     try:
         # Get status from Stripe
-        origin = "https://partner-portal-87.preview.emergentagent.com/"
+        origin = "https://demand-studio-build.preview.emergentagent.com/"
         stripe_checkout = get_stripe_checkout(origin)
         
         checkout_status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
@@ -486,7 +486,7 @@ async def stripe_webhook(request: Request):
         body = await request.body()
         signature = request.headers.get("Stripe-Signature")
         
-        origin = "https://partner-portal-87.preview.emergentagent.com/"
+        origin = "https://demand-studio-build.preview.emergentagent.com/"
         stripe_checkout = get_stripe_checkout(origin)
         
         webhook_response = await stripe_checkout.handle_webhook(body, signature)

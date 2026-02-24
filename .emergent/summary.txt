@@ -1,184 +1,147 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix a visual layout bug on the login page. This quickly expanded into a series of major feature developments and critical bug fixes, including:
-1.  **Lead Import Enhancement:** The lead import template was missing key fields. This was fixed, and the import logic was enhanced to flexibly handle CSVs structured for Clients and import them as Leads.
-2.  **Company Branding & Logo Upload:** A new feature was built in the Settings -> Branding section allowing users to upload their company logo and input detailed company information.
-3.  **Dynamic Document Generation:** All generated documents (Proposals, Invoices) were updated to dynamically pull the user's company logo, name, address, and bank details, removing all hardcoded Kora branding.
-4.  **Customizable Terms & Conditions:** A feature was added to allow users to define custom templates for Terms & Conditions and Payment Terms for different document types.
-5.  **Document Preview:** A preview button was added in Settings to allow users to see a sample document incorporating all their branding and terms.
-6.  **Critical Bug Fix (Lead Display):** The user reported that imported leads were not appearing in the CRM. The root cause was identified as a case-sensitivity issue in frontend status filters ( vs. ). This was fixed.
-7.  **Critical Bug Fix (Deployment Blocker):** A deployment was failing due to a . This was traced to / values in the backend and fixed by adding data sanitization functions. This issue recurred and was fixed more robustly.
-8.  **Critical Bug Fix (Current Session):** The user reported that the Lead Outreach page was showing an empty list. This was fixed, which then revealed subsequent issues like  values from Excel imports appearing in the UI, missing edit functionality, and incorrect API endpoints, all of which were also resolved in this session. A data deletion feature was also added per the user's request.
-9.  **Critical Production Bugs (This Fork):** The agent diagnosed and fixed several critical production-only bugs, including clients not appearing (due to a hardcoded API filter), a data leak in a diagnostic tool, and a major usability issue where refreshing the page would break the UI and log the user out.
-10. **New Features (This Fork):** A comprehensive Super Admin Data Diagnostics panel was built to help debug data issues. Performance was improved with Gzip compression and new database indexes.
+The user's initial goal was to fix production bugs and improve application stability. The scope of work has since expanded to include significant feature enhancements, performance optimizations, and new module implementations.
+
+In this session, the agent completed the Cross-Organization Collaboration feature, added a Collaborations dashboard, and enabled internal team access for projects. The primary focus then shifted to a large feature request: Offline campaign tracking via a single campaign_code, which was implemented end-to-end (data model, backend logic, frontend UI). This was followed by creating a public webhook for lead intake from third-party services like Zapier. Finally, the agent created a new Campaign Detail page and added a  selector to the campaign creation form as requested by the user.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a CRM with features for lead/client management, company branding, and dynamic document generation. This session focused heavily on stabilizing the production environment and improving performance.
-- **Production Stability**: A critical production-only bug where refreshing the page broke the UI has been diagnosed and fixed by ensuring the session cookie is set with the correct . A separate issue where clients weren't visible was also fixed by removing a hardcoded filter from an API endpoint.
-- **New Super Admin Panel**: A new Data Diagnostics panel was created for super admins. It provides a global overview of data, company-specific drill-downs, and tools to repair common data issues (e.g., migrate data between companies, fix fields, clean bad values).
-- **Performance Improvements**: The backend now uses Gzip compression for API responses, and new MongoDB indexes have been added to the  collection to speed up queries.
-- **Bug Fixes**: Numerous bugs were fixed, including incorrect counts in the Data Admin section, a JavaScript error in the Owners tab, and a security data leak in a diagnostic tool.
+The application is a multi-tenant CRM and project management tool called Kora.
+- **Cross-Organization Collaboration:** This feature is fully implemented and tested, allowing projects and campaigns to be shared between different organizations.
+- **Offline & Webhook Campaign Tracking:** A robust system for tracking marketing campaigns is in place. Campaigns have a unique  that can be used in URLs () to automatically link new leads to the correct campaign. A public webhook endpoint also exists to ingest leads from services like Zapier, which is documented within the Demand Studio Settings page.
+- **Campaign Management (Demand Studio):** The module features a list of campaigns, a Copy Tracking Link function, and a new detailed view for each campaign () showing stats and tabs for sub-entities (though the tab content is not yet implemented).
+- **Internal User Assignment:** Functionality has been added to the Execution Hub (Projects) to manage internal team member access, mirroring the existing functionality in Campaigns.
 
 **Last working item**:
--   **Last item agent was working**: Fixing a critical production bug where refreshing any page would cause the user's session to be lost. The agent identified that the session cookie was not being sent on subsequent requests because it was missing the  attribute. A helper function, , was created in  to centralize cookie settings (including the correct domain) and was applied to all authentication routes in .
--   **Status**: USER VERIFICATION PENDING
+-   **Last item agent was working**: Adding a  (Online, Offline, Hybrid) dropdown selector to the New Campaign dialog.
+-   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Manual testing by user in production. The user needs to deploy the latest changes and verify that refreshing pages no longer logs them out or breaks the UI.
+-   **Which testing method agent to use?**: Frontend testing agent or a screenshot is sufficient to verify the UI. A backend  test is required to verify the associated bug fix (see Issue 1 below).
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Page refresh breaks UI in production (P0)
--   Issue 2: Super Admin access denied for  (P1)
--   Issue 3: Logo not persisting in Branding settings (P2)
--   Issue 4: Google OAuth  in Preview environments (P2)
--   Issue 5: Enable Production Email Notifications (P2)
+-   Issue 1: Campaign Creation Fails Due to Missing Backend Field (P0 - CRITICAL)
 
 **Issues Detail**:
--   **Issue 1: Page refresh breaks UI in production (P0)**
-    -   **Attempted fixes**: The agent correctly diagnosed that the  cookie was not being sent from the browser in production because it was set without a specific  attribute. A fix was implemented by creating a  helper in  and using it to replace all  calls in , ensuring the cookie is always set with the correct domain, , and .
+-   **Issue 1: Campaign Creation Fails Due to Missing Backend Field (P0 - CRITICAL)**
+    -   **Attempted fixes**: None. This is a bug introduced in the last step of the previous session.
     -   **Next debug checklist**:
-        1.  Instruct the user to deploy the latest changes to their production environment.
-        2.  Ask the user to perform a hard refresh (Ctrl+Shift+R or Cmd+Shift+R) one time to clear any old cached code.
-        3.  Have the user test refreshing various pages (e.g., Client Engagement, Settings, Super Admin panel) to confirm the session now persists correctly.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical usability bug that makes the application difficult to use. Fixing it restores basic, expected web application behavior.
-    -   **Status**: USER VERIFICATION PENDING
-    -   **Is recurring issue?**: Y
-    -   **Blocked on other issue**: None
-
--   **Issue 2: Super Admin access denied for  (P1)**
-    -   **Attempted fixes**: The agent diagnosed that this is a data/permissions issue, not a code bug. The user account  in the production database does not have the  flag set.
-    -   **Next debug checklist**:
-        1.  Explain to the user that this is a permissions configuration in their production database.
-        2.  The user needs to use an account that already has super admin privileges to grant access to , or this will require manual intervention in their database.
-    -   **Why fix this issue and what will be achieved with the fix?**: Allows the user to access and use the powerful new Super Admin Data Diagnostics panel.
-    -   **Status**: BLOCKED
+        1.  **File**: 
+        2.  **Action**: The  field was added to the frontend form but is missing from the  Pydantic model. Add  to the  model to match the UI.
+        3.  **File**: 
+        4.  **Action**: Verify that the  endpoint correctly passes the new  to the database model upon creation.
+    -   **Why fix this issue and what will be achieved with the fix?**: The New Campaign feature is currently broken. Fixing this will allow users to create campaigns again and correctly specify their channel type.
+    -   **Status**: NOT STARTED
     -   **Is recurring issue?**: N
-    -   **Blocked on other issue**: Blocked on the user having an account with super admin rights.
-
--   **Issue 3: Logo not persisting in Branding settings (P2)**
-    -   **Attempted fixes**: Previously investigated. The agent concluded this is likely due to the ephemeral file storage in the preview environment.
-    -   **Next debug checklist**:
-        1.  Ask the user to test this in their production environment after a successful deployment to confirm if the logo persists correctly there.
-    -   **Why fix this issue and what will be achieved with the fix?**: Ensures a core branding feature works as expected for the user in their live environment.
-    -   **Status**: USER VERIFICATION PENDING
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: frontend
-
--   **Issue 4: Google OAuth  in Preview environments (P2)**
-    -   **Description**: Google login fails in preview environments due to dynamic URLs not being in the Google Cloud authorized list. This is a configuration issue.
-    -   **Status**: BLOCKED
-    -   **Is recurring issue?**: Y
-
--   **Issue 5: Enable Production Email Notifications (P2)**
-    -   **Status**: BLOCKED (on user providing ).
-    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: both
 
 **In progress Task List**:
--   None.
+- There are no other multi-step tasks in progress. The focus should be on fixing the critical issue above.
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks**:
-- **P1**: Filter/group leads and clients by City/Country.
-- **P2**: Complete Dynamic Terminology Coverage (from previous fork).
-- **P2**: Normalize lead statuses to use a single source of truth (from previous fork).
+-   **P1: Implement Campaign Detail Tabs**: The new  has placeholder tabs (Activations, Social Media, Spend, Leads). These need to be implemented to fetch and display the relevant data for the selected campaign.
+-   **P2: Implement Full UTM Tracking**: The user has expressed interest in tracking digital campaigns using standard UTM parameters (, , etc.) in addition to the current  system.
+-   **P2: Implement Meta (Facebook/Instagram) API Integration**: The user wants a direct integration for publishing posts, receiving leads from Lead Ads, and syncing analytics/spend. The webhook was a temporary solution.
+-   **P3: Filter/group leads and clients by City/Country**: A pending request from a previous session.
+-   **P3: Add Generate QR button**: An optional but requested part of the campaign tracking feature.
 
 **Future Tasks**:
-- Propose a Kanban-style view for leads.
-- Social Media - Campaign Widget.
-- User Data Migration Assistance.
-- Marketing Budget Management feature.
-- API Documentation page.
+-   Propose a Kanban-style view for leads.
+-   Social Media - Campaign Widget.
+-   User Data Migration Assistance.
+-   Complete Dynamic Terminology Coverage.
+-   Propose an initial setup assistant/wizard for new users.
+-   API Documentation page.
 
 **Completed work in this session**
--   **Critical Bug Fix (Client Visibility)**: Diagnosed and fixed the production issue where 347 clients were not appearing by removing a hardcoded  filter from the  endpoint.
--   **Critical Bug Fix (Page Refresh)**: Diagnosed and fixed a major UI-breaking bug where refreshing the page would lose the user's session. The final fix involved setting the  attribute on the session cookie in .
--   **Feature: Super Admin Data Diagnostics Panel**: Built a new section at  with global data summaries, company-specific drill-downs, and data repair tools, per the user's request.
--   **Performance Optimization**: Implemented backend Gzip compression and added comprehensive MongoDB indexes for the  collection in .
--   **Security Fix**: Removed a data leak in the user-facing diagnostics tool that exposed information about other companies in .
--   **Bug Fix (Endpoint Routing)**: Fixed a  error on  endpoints by reordering routes in .
--   **Bug Fix (Owners Tab)**: Fixed a JavaScript error in  that was preventing the owners list from rendering.
--   **Lead Import/Export**: Updated the functionality and template in  to include  and  fields.
+-   **Feature (Cross-Org Collaboration UI):** Completed the frontend for sharing projects and campaigns, including dialogs and UI state management. Tested with the testing agent.
+-   **Feature (Collaboration Dashboard):** Created a new dashboard, accessible as a Quick Action from the System Pulse page.
+-   **Feature (Internal Team Access for Projects):** Added a Manage Team Access dialog to the Project detail page, leveraging existing backend endpoints.
+-   **Feature (Offline Campaign Tracking):** Implemented a full-stack solution for offline campaign attribution using a unique .
+-   **Feature (Webhook for Lead Intake):** Created a secure, public webhook to allow third-party services like Zapier to create leads in the system.
+-   **Feature (Campaign Detail Page):** Created a new, comprehensive detail page for campaigns, accessible from the main campaign list.
+-   **Enhancement (Demand Studio Settings):** Replaced a Coming Soon placeholder with a functional page displaying the new webhook URL and integration instructions.
+-   **Enhancement (Campaign Creation Form):** Added a  selector to the New Campaign dialog (Note: this introduced a critical bug).
 
 **Earlier issues found/mentioned but not fixed**
 -   Incomplete Internationalization (P2)
--   Incomplete Dynamic Terminology Coverage (P2)
 -   Backend plan limit enforcement logic may still exist (P3)
--   Local DB data is not persisted (platform-level characteristic).
-
-**Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: 
--   **Recurrence count**: 1
--   **Status**: RESOLVED. This did not recur in the current session.
 
 **Code Architecture**
-set_session_cookie
+
 
 **Key Technical Concepts**
--   **Production Debugging**: The session heavily involved debugging production-specific issues (data visibility, authentication) by creating custom diagnostic endpoints to inspect the state of the production database and HTTP headers.
--   **Cookie Management for Authentication**: The root cause of the page refresh bug was identified as the session cookie lacking a  attribute, preventing it from being sent correctly in production. This was fixed by creating a centralized helper function to set cookies with the proper attributes (, , ).
--   **FastAPI Route Order**: An issue with a  on a  endpoint was resolved by understanding that FastAPI prioritizes routes in the order they are declared. Parameterized routes (e.g., ) must be declared *after* specific sub-paths (e.g., ).
--   **State Management & Race Conditions**: An earlier iteration of the page refresh bug was caused by a race condition where UI components tried to load data before the user's authentication state was restored. This was fixed by centralizing auth state restoration in  and making other contexts wait for it.
--   **Backend Performance**: Gzip compression and MongoDB indexes were added to improve application speed and data retrieval times.
+-   **Additive Development**: All features were built on top of the existing codebase without introducing breaking changes to existing workflows, per user requirements.
+-   **Webhook Integration**: A secure, generic webhook endpoint was created using a company-specific token in the URL path, enabling flexible integration with third-party services like Zapier.
+-   **Campaign Auto-Attribution**: The lead creation logic was enhanced to automatically find and link a campaign if a valid  is provided in the API request (via query parameters or request body).
+-   **Database Indexing for Uniqueness**: A unique sparse index was correctly added in MongoDB to enforce that  is unique per organization, which is a critical constraint for the tracking feature.
 
 **key DB schema**
--   **leads**: New indexes have been created on , , , , , , and  to improve query performance.
+-   **marketing_campaigns**: Added , , . A unique sparse index was created on .
+-   **leads**: Added  (to link to a campaign) and  (e.g., 'manual', 'link').
+-   **webhook_tokens**: (New Collection) Stores tokens for authenticating webhook requests per company: .
 
 **All files of reference**
--    (Cookie fix implementation)
--    (New cookie helper function)
--    (Client visibility fix, diagnostics endpoints)
--    (Gzip, indexes, Super Admin endpoints)
--    (Auth refresh logic)
--    (Simplified auth-aware routing)
--    (New Super Admin panel feature)
+-   : Contains the new logic for lead intake from third-party services.
+-   : Contains the modified lead creation logic for auto-attribution.
+-   : Contains the logic for generating and managing .
+-   : The new detail page for campaigns.
+-   : The main campaign list view and creation dialog.
+-   : The project detail view where internal team access was added.
+
+**key api endpoints**
+-   : **New** public endpoint for creating leads via webhooks, authenticated by a header token.
+-   : Modified to accept  for auto-linking.
+-   : Modified to accept .
+-   : Modified to auto-generate  on creation.
+-   : Existing endpoint now consumed by the new Team Access UI on the project page.
 
 **Critical Info for New Agent**
 -   **Responde en español.**
--   The user tests changes directly in their **production environment**. Bugs that only appear in production (and not preview) are common and are often related to environment differences (DB data, domains, cookies). Be prepared to create diagnostic tools to investigate.
--   **The page refresh issue is the highest priority.** The latest fix (adding a  to the session cookie) is implemented but awaits deployment and verification by the user. You must guide the user through this final verification step.
--   The user's account  does not have super admin permissions in production. You cannot fix this directly. The user needs to resolve this on their end.
+-   Your immediate priority is to fix the **critical bug** preventing campaign creation (Issue #1). The frontend sends a  that the backend  model doesn't recognize.
+-   The user is focused on expanding the **Demand Studio** module. After the bug fix, implementing the content of the tabs on the  is the logical next step.
+-   The user has shown strong interest in deeper digital marketing integrations (full UTM tracking, Meta API). Be prepared to discuss and plan these large features.
+-   All development must continue to be **additive**. Do not refactor or remove existing functionality unless explicitly told to.
+
+**documents and test reports created in this job**
+-   
+-    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **si**: User agreed to let the agent investigate the refresh issue further. **(In Progress)**
-2.  ****: User provided crucial debug output showing the session cookie was not being sent, leading to the final fix. **(Resolved)**
-3.  **yo hice despliegue y problemas y el problema del refresh de otras cuentas persiste. que podria ser**: User reported that after a deployment, the refresh issue was still happening. **(In Progress)**
-4.  **1. super admin Acceso Denegado... 2. tampoco funciona el refres con la cuenta de staffdo**: User reported two critical issues: Super Admin access is denied, and the page refresh fix isn't working for their production account. **(In Progress)**
-5.  **muy bien todo funciona el admin panel pero no el refresh de la pagina**: User confirmed the Super Admin UI works, but refreshing it breaks the session. **(In Progress)**
-6.  **cual es el Link del admin panel ya que este no funcione**: User asked for the Super Admin panel URL. **(Resolved)**
-7.  **1. todo lo hemos hecho en settings... 2. resolvamos el problema de las paginas cuando se refrescan...**: User requested to finalize CRM/Settings work and fix the page refresh bug. **(In Progress)**
-8.  **este cambio no rompe nada correcto?**: User asked if the new Super Admin panel would break existing functionality. **(Resolved)**
-9.  **dale**: User approved implementing performance optimizations. **(Resolved)**
-10. **esto rompera lo demas o no?**: User asked if the suggested performance optimizations were safe. **(Resolved)**
+1.  **user**: Asks for  and dates on the campaign creation form. (Agent implemented , which introduced a bug).
+2.  **user**: Reports that campaign cards are not clickable to view details. (Resolved: Agent created a campaign detail page and made cards navigable).
+3.  **user**: Confirms they don't need to set up Zapier now, but the webhook info should be available in the app. (Resolved: Agent added a webhook info section to the Demand Studio settings page).
+4.  **user**: Agrees to start with the Zapier/webhook integration for Meta Lead Ads. (Resolved: Agent implemented the public webhook).
+5.  **user**: Asks about the complexity of a direct Meta API integration. (Agent provided a realistic breakdown of complexity and effort).
+6.  **user**: Confirms desire for a full Meta API integration for Demand Studio. (Agent broke it down into potential priorities for the user).
+7.  **user**: Asks for recommendations on connecting to Meta and handling hybrid campaigns. (Agent provided recommendations).
+8.  **user**: Asks about online/digital campaign assignment. (Agent explained the current  system and the potential for a future UTM-based system).
+9.  **user**: Asks to test if the CRM (Outreach and Inbound) was broken by the campaign tracking changes. (Resolved: Agent tested and confirmed both sections are working correctly).
+10. **user**: Worries that the campaign tracking changes might break the CRM. (Agent reassured that changes were additive and offered to test).
 
 **Project Health Check:**
--   **Broken**:
-    -   **Authentication on Page Refresh (Production)**: A fix has been implemented for this critical issue but awaits user deployment and verification.
--   **Mocked**:
-    -   .
--   **Blocked**:
-    -   **Super Admin Access**: User's account () lacks super admin permissions in production, blocking access to the new diagnostics panel.
-    -   Email Notifications (awaiting ).
-    -   Google OAuth in preview environments (configuration issue: ).
+-   **Broken**: The New Campaign creation flow is broken due to the backend model not accepting the new  field from the frontend.
+-   **Mocked**: The content for the tabs (Activations, Social Media, Spend, Leads) on the  is currently placeholder UI. The  is also still mocked.
+-   **Blocked**: None.
 
 **3rd Party Integrations**
--   **Resend:** For transactional emails (Status: **Integrated, BLOCKED - PENDING API KEY**).
--   **Google Calendar API:** For calendar synchronization (Status: **Integrated, BLOCKED - PENDING USER OAUTH IN PROD**).
--   **Stripe:** For payments.
--   **Custom Google OAuth:** For social login.
+-   **Zapier / Make**: Ready for use. A public webhook endpoint  has been created and documented in the UI to receive leads.
+-   **Meta (Facebook/Instagram)**: User has requested full integration (publishing, analytics, Lead Ads). A webhook for Lead Ads via Zapier is a viable first step.
+-   **Resend**: Integrated but pending API Key.
+-   **Google Calendar API**: In backlog.
+-   **Stripe**: In backlog.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES
+-   **Testing agent used after significant changes**: YES (for Cross-Organization Collaboration feature).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: []
--   **Known regressions**: None.
+-   **Test files created**: None.
+-   **Known regressions**: The New Campaign feature regressed and is now broken.
 
 **Credentials to test flow:**
--   **Super Admin / Agency User (for Preview environment):**
-    -   **Email:** 
-    -   **Password:** 
--   **User's Production Account:**
-    -   **Email:** 
+-   **Email:** 
+-   **Password:** 
 
 **What agent forgot to execute**
--   The agent successfully addressed all major issues reported by the user in this session. All pending items are verifications that must occur in the user's production environment after they deploy the latest changes. No tasks were forgotten.</analysis>
+-   The agent forgot to update the backend  Pydantic model in  to accept the new  field after adding it to the frontend form. This created a critical bug.
+-   The agent did not verify the final UI change for the New Campaign dialog with a screenshot after adding the code.</analysis>
