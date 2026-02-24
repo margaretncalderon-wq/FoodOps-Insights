@@ -435,21 +435,101 @@ export default function CampaignDetailPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base">Social Media</CardTitle>
-                <CardDescription>{isEs ? "Posts y contenido de redes sociales" : "Social media posts and content"}</CardDescription>
+                <CardDescription>{isEs ? "Posts y contenido de redes sociales vinculados" : "Linked social media posts and content"}</CardDescription>
               </div>
               <Button onClick={() => navigate("/demand-studio/social-media")}>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                {isEs ? "Ir a Social Media" : "Go to Social Media"}
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Crear Post" : "Create Post"}
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Share2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>{isEs ? "Gestiona contenido social desde el módulo Social Media" : "Manage social content from the Social Media module"}</p>
-                <Button variant="link" onClick={() => navigate("/demand-studio/social-media")}>
-                  {isEs ? "Ir a Social Media →" : "Go to Social Media →"}
-                </Button>
+              {socialPosts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Share2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>{isEs ? "No hay posts vinculados a esta campaña" : "No posts linked to this campaign"}</p>
+                  <Button variant="link" onClick={() => navigate("/demand-studio/social-media")}>
+                    {isEs ? "Ir a Social Media →" : "Go to Social Media →"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {socialPosts.map((post) => (
+                    <div key={post.post_id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                          <Share2 className="w-5 h-5 text-pink-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{post.title}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {post.format} • {post.status} • {post.scheduled_at || post.created_at?.split('T')[0]}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="capitalize">{post.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Email Marketing Tab */}
+        <TabsContent value="email" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Email Marketing</CardTitle>
+                <CardDescription>{isEs ? "Campañas de email vinculadas" : "Linked email campaigns"}</CardDescription>
               </div>
+              <Button onClick={() => navigate("/demand-studio/email-marketing")}>
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Nueva Campaña Email" : "New Email Campaign"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {emailCampaigns.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>{isEs ? "No hay campañas de email vinculadas" : "No email campaigns linked"}</p>
+                  <Button variant="link" onClick={() => navigate("/demand-studio/email-marketing")}>
+                    {isEs ? "Ir a Email Marketing →" : "Go to Email Marketing →"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {emailCampaigns.map((email) => (
+                    <div key={email.email_id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                          <Mail className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{email.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {email.segment || "All"} • {email.send_date || "No date"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="text-center">
+                          <p className="font-semibold">{email.sent_count?.toLocaleString() || 0}</p>
+                          <p className="text-xs text-muted-foreground">{isEs ? "Enviados" : "Sent"}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-semibold">{email.open_count?.toLocaleString() || 0}</p>
+                          <p className="text-xs text-muted-foreground">{isEs ? "Abiertos" : "Opens"}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-semibold">{email.click_count?.toLocaleString() || 0}</p>
+                          <p className="text-xs text-muted-foreground">Clicks</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
