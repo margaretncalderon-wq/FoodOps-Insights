@@ -171,6 +171,7 @@ export default function CampaignsPage() {
     setFormData({
       name: campaign.name,
       campaign_type: campaign.campaign_type,
+      channel_type: campaign.channel_type || "online",
       objective: campaign.objective || "",
       start_date: campaign.start_date || "",
       end_date: campaign.end_date || "",
@@ -186,6 +187,7 @@ export default function CampaignsPage() {
     setFormData({
       name: "",
       campaign_type: "acquisition",
+      channel_type: "online",
       objective: "",
       start_date: "",
       end_date: "",
