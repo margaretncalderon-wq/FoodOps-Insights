@@ -98,18 +98,44 @@ export default function LeadInboundSection() {
     setLoading(false);
   }, [cleanNanValues]);
 
+  // Debounced fetch to avoid multiple rapid calls
+  const fetchTimeoutRef = useRef(null);
+  const isFetchingRef = useRef(false);
+
+  const fetchLeadsDebounced = useCallback(async (immediate = false) => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+    
+    if (isFetchingRef.current && !immediate) return;
+
+    const doFetch = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      await fetchLeads();
+      isFetchingRef.current = false;
+    };
+
+    if (immediate) {
+      await doFetch();
+    } else {
+      fetchTimeoutRef.current = setTimeout(doFetch, 300);
+    }
+  }, [fetchLeads]);
+
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/org/members`, { withCredentials: true });
+      // Try the CRM team-members endpoint first
+      const res = await axios.get(`${API}/api/crm/team-members`, { withCredentials: true });
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         setUsers(res.data.map(member => ({
           user_id: member.user_id,
-          name: member.name || member.email || member.user_id.replace("user_", "User ")
+          name: member.name || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
         })));
         return;
       }
     } catch (err) {
-      console.error("Error loading org members:", err);
+      console.error("Error loading team members:", err);
     }
     
     try {
@@ -117,7 +143,7 @@ export default function LeadInboundSection() {
       if (teamRes.data && Array.isArray(teamRes.data) && teamRes.data.length > 0) {
         setUsers(teamRes.data.map(member => ({
           user_id: member.user_id,
-          name: member.name || member.email || member.user_id.replace("user_", "User ")
+          name: member.name || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
         })));
       }
     } catch (err) {
@@ -126,7 +152,7 @@ export default function LeadInboundSection() {
   }, []);
 
   useEffect(() => { 
-    fetchLeads(); 
+    fetchLeadsDebounced(true); // immediate on mount
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
