@@ -98,6 +98,15 @@ async def create_indexes():
         # Notifications indexes
         await db.notifications.create_index("company_id")
         await db.notifications.create_index([("company_id", 1), ("read", 1)])
+        await db.notifications.create_index("user_id")
+        
+        # Shared Entities indexes (Cross-Organization Collaboration)
+        await db.shared_entities.create_index("share_id", unique=True)
+        await db.shared_entities.create_index("source_org_id")
+        await db.shared_entities.create_index("target_org_id")
+        await db.shared_entities.create_index([("target_org_id", 1), ("status", 1)])
+        await db.shared_entities.create_index([("target_org_id", 1), ("entity_type", 1), ("status", 1)])
+        await db.shared_entities.create_index([("source_org_id", 1), ("entity_type", 1), ("entity_id", 1)])
         await db.notifications.create_index([("company_id", 1), ("created_at", -1)])
         
         # Suppliers indexes
