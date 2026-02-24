@@ -92,7 +92,8 @@ async def get_leads(
     user: User = Depends(get_current_user),
     status: Optional[str] = None,
     source: Optional[str] = None,
-    event_type: Optional[str] = None
+    event_type: Optional[str] = None,
+    campaign_id: Optional[str] = None
 ):
     """Get all leads with optional filters"""
     query = {"company_id": user.company_id}
@@ -102,6 +103,8 @@ async def get_leads(
         query["source"] = source
     if event_type:
         query["event_type"] = event_type
+    if campaign_id:
+        query["campaign_id"] = campaign_id
     
     leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
