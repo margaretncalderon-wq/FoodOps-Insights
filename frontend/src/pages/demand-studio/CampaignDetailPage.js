@@ -307,7 +307,11 @@ export default function CampaignDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="social" className="data-[state=active]:bg-card">
             <Share2 className="w-4 h-4 mr-2" />
-            Social Media
+            Social ({socialPosts.length})
+          </TabsTrigger>
+          <TabsTrigger value="email" className="data-[state=active]:bg-card">
+            <Mail className="w-4 h-4 mr-2" />
+            Email ({emailCampaigns.length})
           </TabsTrigger>
           <TabsTrigger value="spend" className="data-[state=active]:bg-card">
             <DollarSign className="w-4 h-4 mr-2" />
