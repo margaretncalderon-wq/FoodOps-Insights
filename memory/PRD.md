@@ -31,6 +31,39 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - Demo/Influencer account creation
 - **Kora Comms** - Omnichannel shared inbox (Phase 0)
 
+### Session: Feb 24, 2026 - Email Marketing Enhancement ✅
+
+#### Email Sequences System (Pre-development)
+- **Goal**: Create email sequence (drip campaign) infrastructure for when email provider is connected
+- **Status**: ✅ COMPLETE (pre-development ready for API integration)
+
+**Backend Implementation:**
+- Extended `models/demand_studio.py` with:
+  - `EmailSequence`: Drip campaign definition with trigger types
+  - `EmailSequenceStep`: Individual steps with delay configuration
+  - `EmailSequenceEnrollment`: Contact enrollment tracking
+  - `EmailTemplate`: Reusable email templates
+- Added endpoints in `routers/demand_studio.py`:
+  - `/api/demand-studio/email-sequences/*`: Full CRUD for sequences
+  - `/api/demand-studio/email-sequences/{id}/steps/*`: Manage sequence steps
+  - `/api/demand-studio/email-sequences/{id}/enroll`: Enroll contacts
+  - `/api/demand-studio/email-templates/*`: Template management
+
+**Frontend Implementation:**
+- `components/demand-studio/EmailSequencesSection.js`: Full UI for:
+  - Create/edit sequences with trigger types (manual, new_lead, status_change, form_submit)
+  - Add/edit/delete steps with delay configuration
+  - Visual step builder with timing indicators
+  - Enrollment stats display
+- Updated `EmailMarketingPage.js` with tabs:
+  - Campaigns (existing tracker)
+  - Sequences (new drip campaigns)
+  - Templates (placeholder for email templates)
+
+**Testing**: ✅ API endpoints verified - sequences and steps working
+
+**Next Step**: Connect email provider (Resend/SendGrid) to enable actual sending
+
 ### Session: Feb 24, 2026 - Kora Comms Phase 0 ✅
 
 #### Kora Comms - Omnichannel Shared Inbox (Phase 0: Architecture + UI)
