@@ -10,7 +10,7 @@ import {
 const navTabs = [
   { path: "/demand-studio", label: "Overview", labelEs: "Resumen", icon: LayoutDashboard, end: true },
   { path: "/demand-studio/campaigns", label: "Campaigns", labelEs: "Campañas", icon: Target },
-  { path: "/demand-studio/social", label: "Social Media", labelEs: "Social Media", icon: Hash },
+  { path: "/demand-studio/social-media", label: "Social Media", labelEs: "Social Media", icon: Hash },
   { path: "/demand-studio/activations", label: "Activations", labelEs: "Activaciones", icon: Zap },
   { path: "/demand-studio/email-marketing", label: "Email Marketing", labelEs: "Email Marketing", icon: Mail },
   { path: "/demand-studio/spend-ledger", label: "Spend Ledger", labelEs: "Libro de Gastos", icon: Receipt },
