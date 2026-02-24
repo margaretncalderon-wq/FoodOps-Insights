@@ -16260,6 +16260,10 @@ api_router.include_router(integrations_admin_router, prefix="/super-admin")  # /
 from routers.google_calendar import router as google_calendar_router
 api_router.include_router(google_calendar_router)  # /api/oauth/calendar/*
 
+# Include Comms router (Kora Comms - omnichannel messaging)
+from routers.comms import comms_router
+api_router.include_router(comms_router)  # /api/comms/*
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
