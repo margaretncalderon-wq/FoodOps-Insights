@@ -97,6 +97,8 @@ export default function ExecutionHubPage() {
   const [usage, setUsage] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all"); // "all" | "owned" | "shared"
+  const [hasSharedAccess, setHasSharedAccess] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [creating, setCreating] = useState(false);
   
@@ -110,19 +112,26 @@ export default function ExecutionHubPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      // Build URL with scope filter
+      const scopeParam = scopeFilter !== "all" ? `?scope=${scopeFilter}` : "";
       const [goalsRes, usageRes] = await Promise.all([
-        axios.get(`${API}/execution-hub/goals`, { withCredentials: true }),
+        axios.get(`${API}/execution-hub/goals${scopeParam}`, { withCredentials: true }),
         axios.get(`${API}/execution-hub/usage`, { withCredentials: true }),
       ]);
-      setGoals(goalsRes.data || []);
+      const goalsData = goalsRes.data || [];
+      setGoals(goalsData);
       setUsage(usageRes.data);
+      
+      // Check if any shared goals exist
+      const sharedExists = goalsData.some(g => g._access_type === "shared");
+      setHasSharedAccess(sharedExists);
     } catch (error) {
       console.error("Error fetching goals:", error);
       toast.error(t("errorLoadingGoals"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, scopeFilter]);
 
   useEffect(() => {
     fetchData();
