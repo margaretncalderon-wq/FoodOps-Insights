@@ -379,12 +379,22 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
+                    {/* View Campaign Detail */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => navigate(`/demand-studio/campaigns/${campaign.campaign_id}`)} 
+                      title={isEs ? "Ver Campaña" : "View Campaign"}
+                      data-testid={`view-campaign-${campaign.campaign_id}`}
+                    >
+                      <Eye className="w-4 h-4 text-foreground" />
+                    </Button>
                     {/* Copy Tracking Link Button */}
                     {campaign.campaign_code && (
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => copyTrackingLink(campaign, isEs)} 
+                        onClick={(e) => { e.stopPropagation(); copyTrackingLink(campaign, isEs); }} 
                         title={isEs ? `Copiar Link: ${campaign.campaign_code}` : `Copy Link: ${campaign.campaign_code}`}
                         data-testid={`copy-tracking-${campaign.campaign_id}`}
                       >
@@ -396,7 +406,7 @@ export default function CampaignsPage() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => openShareDialog(campaign)} 
+                        onClick={(e) => { e.stopPropagation(); openShareDialog(campaign); }} 
                         title={isEs ? "Compartir con Otra Org" : "Share with Another Org"}
                         data-testid={`share-campaign-${campaign.campaign_id}`}
                       >
@@ -404,17 +414,17 @@ export default function CampaignsPage() {
                       </Button>
                     )}
                     {canManage && campaign._access_type !== "shared" && (
-                      <Button variant="ghost" size="icon" onClick={() => openAccessDialog(campaign)} title={isEs ? "Gestionar Acceso" : "Manage Access"}>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openAccessDialog(campaign); }} title={isEs ? "Gestionar Acceso" : "Manage Access"}>
                         <Users className="w-4 h-4 text-blue-500" />
                       </Button>
                     )}
                     {canEdit && campaign._access_type !== "shared" && (
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEdit(campaign); }} data-testid={`edit-campaign-${campaign.campaign_id}`}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
                     )}
                     {campaign._access_type === "shared" && campaign._permission_level === "edit" && (
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(campaign)} data-testid={`edit-campaign-${campaign.campaign_id}`}>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEdit(campaign); }} data-testid={`edit-campaign-${campaign.campaign_id}`}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
                     )}
