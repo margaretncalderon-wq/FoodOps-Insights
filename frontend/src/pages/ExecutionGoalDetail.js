@@ -55,8 +55,10 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
+import ShareEntityDialog from "../components/collaboration/ShareEntityDialog";
 
 const statusConfig = {
   planning: { labelKey: "planning", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: CircleDot },
