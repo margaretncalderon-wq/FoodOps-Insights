@@ -247,6 +247,24 @@ async def create_campaign(data: MarketingCampaignCreate, user: User = Depends(ge
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
+    # Generate or validate campaign_code
+    campaign_code = None
+    if data.campaign_code:
+        # User provided a code - validate uniqueness
+        normalized_code = data.campaign_code.strip().upper()
+        if not await ensure_unique_campaign_code(company_id, normalized_code):
+            raise HTTPException(status_code=400, detail="Campaign code already exists in your organization")
+        campaign_code = normalized_code
+    else:
+        # Auto-generate unique code
+        for _ in range(10):  # Try up to 10 times
+            generated = generate_campaign_code()
+            if await ensure_unique_campaign_code(company_id, generated):
+                campaign_code = generated
+                break
+        if not campaign_code:
+            campaign_code = f"CAM-{uuid.uuid4().hex[:8].upper()}"  # Fallback
+    
     now = datetime.now(timezone.utc)
     campaign = {
         "campaign_id": f"camp_{uuid.uuid4().hex[:12]}",
@@ -264,6 +282,9 @@ async def create_campaign(data: MarketingCampaignCreate, user: User = Depends(ge
         "owner_user_id": user.user_id,
         "leads_linked": 0,
         "opportunities_linked": 0,
+        # Campaign Tracking fields
+        "campaign_code": campaign_code,
+        "channel_type": data.channel_type,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
