@@ -82,30 +82,23 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     fetchCampaigns();
-  }, [filterStatus, filterType]);
+  }, [filterStatus, filterType, scopeFilter]);
 
   const fetchCampaigns = async () => {
     try {
-      // Use my-campaigns endpoint to get role-aware data
-      const response = await axios.get(`${API}/api/demand-studio/my-campaigns`, { withCredentials: true });
-      setCampaigns(response.data.campaigns || []);
-      setUserRole(response.data.role);
-      setHasFullAccess(response.data.has_full_access !== false);
+      // Build URL with scope filter
+      let url = `${API}/api/demand-studio/campaigns`;
+      const params = [];
+      if (filterStatus !== "all") params.push(`status=${filterStatus}`);
+      if (filterType !== "all") params.push(`campaign_type=${filterType}`);
+      if (scopeFilter !== "all") params.push(`scope=${scopeFilter}`);
+      if (params.length) url += `?${params.join("&")}`;
+      
+      const response = await axios.get(url, { withCredentials: true });
+      setCampaigns(response.data || []);
+      setHasFullAccess(true);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
-      // Fallback to regular endpoint
-      try {
-        let url = `${API}/api/demand-studio/campaigns`;
-        const params = [];
-        if (filterStatus !== "all") params.push(`status=${filterStatus}`);
-        if (filterType !== "all") params.push(`campaign_type=${filterType}`);
-        if (params.length) url += `?${params.join("&")}`;
-        
-        const fallbackResponse = await axios.get(url, { withCredentials: true });
-        setCampaigns(fallbackResponse.data);
-      } catch (e) {
-        console.error("Fallback also failed:", e);
-      }
     } finally {
       setLoading(false);
     }
