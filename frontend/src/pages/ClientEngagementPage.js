@@ -84,7 +84,6 @@ export default function ClientEngagementPage() {
     if (path.includes("inbound")) return "Inbound";
     if (path.includes("follow-ups")) return isEs ? "Seguimientos" : "Follow-ups";
     if (path.includes("inbox")) return isEs ? "Bandeja" : "Inbox";
-    if (path.includes("comms")) return isEs ? "Comunicaciones" : "Comms";
     if (path.includes("sales-report")) return isEs ? "Reporte Ventas" : "Sales Report";
     if (path.includes("owners")) return isEs ? "Responsables" : "Owners";
     if (path.includes("clients")) return clientsLabel;
