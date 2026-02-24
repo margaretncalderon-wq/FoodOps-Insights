@@ -119,6 +119,20 @@ export default function ExecutionGoalDetail() {
   
   // Share dialog
   const [showShareDialog, setShowShareDialog] = useState(false);
+  
+  // Team Access dialog (internal users)
+  const [showAccessDialog, setShowAccessDialog] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [goalAccess, setGoalAccess] = useState([]);
+  const [newAccessEmail, setNewAccessEmail] = useState("");
+  const [newAccessRole, setNewAccessRole] = useState("team_member");
+  const [grantingAccess, setGrantingAccess] = useState(false);
+
+  const ACCESS_ROLES = [
+    { value: "team_member", label: "Team Member", labelEs: "Miembro del Equipo" },
+    { value: "collaborator", label: "Collaborator", labelEs: "Colaborador" },
+    { value: "viewer", label: "Viewer", labelEs: "Observador" },
+  ];
 
   const fetchGoal = useCallback(async () => {
     try {
