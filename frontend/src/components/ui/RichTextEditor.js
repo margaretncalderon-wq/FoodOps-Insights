@@ -186,11 +186,11 @@ export default function RichTextEditor({
       <div
         ref={editorRef}
         contentEditable
-        className="p-3 outline-none prose prose-sm max-w-none"
-        style={{ minHeight }}
+        dir="ltr"
+        className="p-3 outline-none prose prose-sm max-w-none text-left"
+        style={{ minHeight, direction: 'ltr', unicodeBidi: 'plaintext' }}
         onInput={handleInput}
         data-placeholder={placeholder}
-        dangerouslySetInnerHTML={{ __html: value || '' }}
         suppressContentEditableWarning
       />
 
