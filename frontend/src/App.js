@@ -92,6 +92,9 @@ const DemandStudioSettings = lazy(() => import("./pages/demand-studio/DemandStud
 const ExecutionHubPage = lazy(() => import("./pages/ExecutionHubPage"));
 const ExecutionGoalDetail = lazy(() => import("./pages/ExecutionGoalDetail"));
 
+// Collaboration pages
+const CollaborationDashboard = lazy(() => import("./pages/CollaborationDashboard"));
+
 // Venues & Locations pages
 const VenuesPage = lazy(() => import("./pages/VenuesPage"));
 
