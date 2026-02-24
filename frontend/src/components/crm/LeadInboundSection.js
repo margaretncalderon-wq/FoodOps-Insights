@@ -20,6 +20,7 @@ import {
   MessageCircle, ExternalLink, DollarSign, Info
 } from "lucide-react";
 import CommunicationsTimeline from "./CommunicationsTimeline";
+import CommsChannelTimeline from "./CommsChannelTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
