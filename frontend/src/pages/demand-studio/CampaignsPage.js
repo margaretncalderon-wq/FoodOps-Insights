@@ -28,6 +28,27 @@ import {
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 import ShareEntityDialog from "../../components/collaboration/ShareEntityDialog";
+import { toast } from "sonner";
+
+// Helper to get tracking URL
+const getTrackingUrl = (campaignCode) => {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/lead?campaign_code=${campaignCode}`;
+};
+
+const copyTrackingLink = async (campaign, isEs) => {
+  if (!campaign.campaign_code) {
+    toast.error(isEs ? "Esta campaña no tiene código de seguimiento" : "This campaign has no tracking code");
+    return;
+  }
+  const url = getTrackingUrl(campaign.campaign_code);
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success(isEs ? "Link copiado al portapapeles" : "Tracking link copied to clipboard");
+  } catch (err) {
+    toast.error(isEs ? "Error al copiar" : "Failed to copy");
+  }
+};
 
 const CAMPAIGN_TYPES = [
   { value: "brand", label: "Brand Awareness", labelEs: "Reconocimiento de Marca" },
