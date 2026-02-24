@@ -377,6 +377,18 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
+                    {/* Copy Tracking Link Button */}
+                    {campaign.campaign_code && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => copyTrackingLink(campaign, isEs)} 
+                        title={isEs ? `Copiar Link: ${campaign.campaign_code}` : `Copy Link: ${campaign.campaign_code}`}
+                        data-testid={`copy-tracking-${campaign.campaign_id}`}
+                      >
+                        <Link2 className="w-4 h-4 text-green-500" />
+                      </Button>
+                    )}
                     {/* Share Button - Only for owned campaigns */}
                     {canManage && campaign._access_type !== "shared" && (
                       <Button 
