@@ -100,6 +100,7 @@ export default function CampaignsPage() {
   const [formData, setFormData] = useState({
     name: "",
     campaign_type: "acquisition",
+    channel_type: "online",
     objective: "",
     start_date: "",
     end_date: "",
