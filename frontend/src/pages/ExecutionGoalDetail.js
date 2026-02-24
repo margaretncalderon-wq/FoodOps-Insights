@@ -370,6 +370,15 @@ export default function ExecutionGoalDetail() {
           </div>
         </div>
 
+        {/* Shared With Section - Only visible to owner */}
+        <SharedWith 
+          entityType="project"
+          entityId={goalId}
+          entityName={goal.title}
+          isOwner={!goal._access_type || goal._access_type === "owner"}
+          onShareRevoked={fetchGoal}
+        />
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted/50">
@@ -798,6 +807,16 @@ export default function ExecutionGoalDetail() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Share Entity Dialog */}
+        <ShareEntityDialog
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          entityType="project"
+          entityId={goalId}
+          entityName={goal.title}
+          onShareComplete={fetchGoal}
+        />
       </div>
     </Layout>
   );
