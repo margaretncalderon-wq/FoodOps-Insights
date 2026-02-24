@@ -387,6 +387,12 @@ export default function ExecutionHubPage() {
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {t(status.labelKey)}
                           </Badge>
+                          {goal._access_type === "shared" && (
+                            <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-400 border-purple-500/30">
+                              <Users className="w-3 h-3 mr-1" />
+                              {goal._shared_from || (language === "es" ? "Compartido" : "Shared")}
+                            </Badge>
+                          )}
                           {goal.context_type && (
                             <span className="text-xs text-muted-foreground">
                               {t(contextConfig[goal.context_type]?.labelKey)}
