@@ -24,6 +24,7 @@ import {
 import CommsLogSection from "./CommsLogSection";
 import CommunicationsTimeline from "./CommunicationsTimeline";
 import CommsChannelTimeline from "./CommsChannelTimeline";
+import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
