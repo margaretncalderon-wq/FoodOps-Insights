@@ -49,6 +49,7 @@ const ACCESS_LEVELS = [
 
 export default function CampaignsPage() {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const isEs = language === "es";
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,8 +63,8 @@ export default function CampaignsPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedCampaignForShare, setSelectedCampaignForShare] = useState(null);
   
-  // Role-based access
-  const [userRole, setUserRole] = useState(null);
+  // Role-based access - get from auth context
+  const userRole = user?.role || "member";
   const [hasFullAccess, setHasFullAccess] = useState(true);
   
   // Access management
