@@ -118,10 +118,30 @@ async def create_lead(data: LeadCreate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     lead_id = f"lead_{uuid.uuid4().hex[:12]}"
     
+    lead_data = data.model_dump()
+    
+    # Campaign auto-link: if campaign_code provided, resolve to campaign_id
+    campaign_id = lead_data.get("campaign_id")
+    campaign_code = lead_data.pop("campaign_code", None)  # Remove from doc, we don't store it
+    attribution_source = lead_data.get("attribution_source")
+    
+    if not campaign_id and campaign_code:
+        # Auto-link via campaign_code
+        resolved_campaign_id = await resolve_campaign_from_code(user.company_id, campaign_code)
+        if resolved_campaign_id:
+            campaign_id = resolved_campaign_id
+            attribution_source = attribution_source or "link"
+    
+    # If campaign_id selected manually and no attribution_source, mark as manual
+    if campaign_id and not attribution_source:
+        attribution_source = "manual"
+    
     lead_doc = {
         "lead_id": lead_id,
         "company_id": user.company_id,
-        **data.model_dump(),
+        **lead_data,
+        "campaign_id": campaign_id,
+        "attribution_source": attribution_source,
         "status": "New",
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
@@ -131,13 +151,17 @@ async def create_lead(data: LeadCreate, user: User = Depends(get_current_user)):
     lead_doc["created_at"] = now
     lead_doc["updated_at"] = now
     
+    # Increment campaign leads_linked counter
+    if campaign_id:
+        await increment_campaign_leads_linked(campaign_id)
+    
     # Log activity
     await log_activity(
         module="crm",
         action="create",
         entity_type="lead",
         entity_id=lead_id,
-        entity_name=data.name or data.email or "New Lead",
+        entity_name=data.lead_name or data.email or "New Lead",
         **user_info(user)
     )
     
