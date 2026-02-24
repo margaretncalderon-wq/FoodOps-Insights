@@ -47,11 +47,13 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
   **Frontend Components**:
   - `ShareEntityDialog.js` - Dialog for sharing entities with configurable permissions
   - `SharedWith.js` - Component showing who entity is shared with (with revoke capability)
+  - `CollaborationDashboard.js` - **NEW** Clean dashboard to view all collaborations
   
   **Updated Pages**:
   - `ExecutionGoalDetail.js` - Added Share button and dialog for projects
   - `ExecutionHubPage.js` - Added scope filter (All/Owned/Shared)
   - `CampaignsPage.js` - Added Share button and scope filter
+  - `Layout.js` - Added "Collaborations" link in sidebar navigation
 
 - **Permission Levels**: View, Comment, Create, Edit
 - **Scope Options**: Tasks, Assets, Deliverables, Posts, Comments
