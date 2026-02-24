@@ -73,6 +73,7 @@ const ACCESS_LEVELS = [
 export default function CampaignsPage() {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isEs = language === "es";
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
