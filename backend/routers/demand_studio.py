@@ -755,6 +755,412 @@ async def delete_email(email_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Email record not found")
     return {"success": True}
 
+
+# ============== EMAIL TEMPLATES ==============
+
+@demand_studio_router.get("/email-templates")
+async def get_email_templates(
+    category: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get email templates"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    query = {"company_id": company_id}
+    if category:
+        query["category"] = category
+    
+    templates = await db.email_templates.find(query, {"_id": 0}).sort("name", 1).to_list(200)
+    return templates
+
+
+@demand_studio_router.post("/email-templates")
+async def create_email_template(data: dict, user: User = Depends(get_current_user)):
+    """Create email template"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    template = {
+        "template_id": f"tpl_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.get("name", "Untitled Template"),
+        "subject": data.get("subject", ""),
+        "body_html": data.get("body_html"),
+        "body_text": data.get("body_text"),
+        "category": data.get("category", "general"),
+        "usage_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.email_templates.insert_one(template)
+    del template["_id"]
+    return template
+
+
+@demand_studio_router.put("/email-templates/{template_id}")
+async def update_email_template(template_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update email template"""
+    company_id = user.company_id or user.active_org_id
+    
+    update_data = {k: v for k, v in data.items() if k not in ["template_id", "company_id", "created_at"]}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.email_templates.update_one(
+        {"template_id": template_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return await db.email_templates.find_one({"template_id": template_id}, {"_id": 0})
+
+
+@demand_studio_router.delete("/email-templates/{template_id}")
+async def delete_email_template(template_id: str, user: User = Depends(get_current_user)):
+    """Delete email template"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.email_templates.delete_one(
+        {"template_id": template_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"success": True}
+
+
+# ============== EMAIL SEQUENCES ==============
+
+@demand_studio_router.get("/email-sequences")
+async def get_email_sequences(
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get email sequences"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    
+    sequences = await db.email_sequences.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return sequences
+
+
+@demand_studio_router.post("/email-sequences")
+async def create_email_sequence(data: dict, user: User = Depends(get_current_user)):
+    """Create email sequence"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    sequence = {
+        "sequence_id": f"seq_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.get("name", "Untitled Sequence"),
+        "description": data.get("description"),
+        "trigger_type": data.get("trigger_type", "manual"),
+        "trigger_config": data.get("trigger_config"),
+        "status": "draft",
+        "total_enrolled": 0,
+        "total_completed": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.email_sequences.insert_one(sequence)
+    del sequence["_id"]
+    return sequence
+
+
+@demand_studio_router.get("/email-sequences/{sequence_id}")
+async def get_email_sequence(sequence_id: str, user: User = Depends(get_current_user)):
+    """Get email sequence with steps"""
+    company_id = user.company_id or user.active_org_id
+    
+    sequence = await db.email_sequences.find_one(
+        {"sequence_id": sequence_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    # Get steps
+    steps = await db.email_sequence_steps.find(
+        {"sequence_id": sequence_id, "company_id": company_id},
+        {"_id": 0}
+    ).sort("step_order", 1).to_list(50)
+    
+    sequence["steps"] = steps
+    return sequence
+
+
+@demand_studio_router.put("/email-sequences/{sequence_id}")
+async def update_email_sequence(sequence_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update email sequence"""
+    company_id = user.company_id or user.active_org_id
+    
+    update_data = {k: v for k, v in data.items() if k not in ["sequence_id", "company_id", "created_at"]}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.email_sequences.update_one(
+        {"sequence_id": sequence_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    return await db.email_sequences.find_one({"sequence_id": sequence_id}, {"_id": 0})
+
+
+@demand_studio_router.delete("/email-sequences/{sequence_id}")
+async def delete_email_sequence(sequence_id: str, user: User = Depends(get_current_user)):
+    """Delete email sequence and its steps"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Delete steps first
+    await db.email_sequence_steps.delete_many(
+        {"sequence_id": sequence_id, "company_id": company_id}
+    )
+    
+    # Delete enrollments
+    await db.email_sequence_enrollments.delete_many(
+        {"sequence_id": sequence_id, "company_id": company_id}
+    )
+    
+    # Delete sequence
+    result = await db.email_sequences.delete_one(
+        {"sequence_id": sequence_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    return {"success": True}
+
+
+# ============== SEQUENCE STEPS ==============
+
+@demand_studio_router.post("/email-sequences/{sequence_id}/steps")
+async def create_sequence_step(sequence_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Create a step in an email sequence"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Verify sequence exists
+    sequence = await db.email_sequences.find_one(
+        {"sequence_id": sequence_id, "company_id": company_id}
+    )
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    # Get next step order
+    last_step = await db.email_sequence_steps.find_one(
+        {"sequence_id": sequence_id},
+        sort=[("step_order", -1)]
+    )
+    next_order = (last_step.get("step_order", 0) + 1) if last_step else 1
+    
+    now = datetime.now(timezone.utc)
+    step = {
+        "step_id": f"step_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "sequence_id": sequence_id,
+        "step_order": data.get("step_order", next_order),
+        "delay_days": data.get("delay_days", 0),
+        "delay_hours": data.get("delay_hours", 0),
+        "subject": data.get("subject", ""),
+        "body_html": data.get("body_html"),
+        "body_text": data.get("body_text"),
+        "template_id": data.get("template_id"),
+        "sent_count": 0,
+        "open_count": 0,
+        "click_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.email_sequence_steps.insert_one(step)
+    del step["_id"]
+    return step
+
+
+@demand_studio_router.put("/email-sequences/{sequence_id}/steps/{step_id}")
+async def update_sequence_step(sequence_id: str, step_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update a sequence step"""
+    company_id = user.company_id or user.active_org_id
+    
+    update_data = {k: v for k, v in data.items() if k not in ["step_id", "company_id", "sequence_id", "created_at"]}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.email_sequence_steps.update_one(
+        {"step_id": step_id, "sequence_id": sequence_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Step not found")
+    
+    return await db.email_sequence_steps.find_one({"step_id": step_id}, {"_id": 0})
+
+
+@demand_studio_router.delete("/email-sequences/{sequence_id}/steps/{step_id}")
+async def delete_sequence_step(sequence_id: str, step_id: str, user: User = Depends(get_current_user)):
+    """Delete a sequence step"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.email_sequence_steps.delete_one(
+        {"step_id": step_id, "sequence_id": sequence_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Step not found")
+    
+    return {"success": True}
+
+
+# ============== SEQUENCE ENROLLMENTS ==============
+
+@demand_studio_router.get("/email-sequences/{sequence_id}/enrollments")
+async def get_sequence_enrollments(
+    sequence_id: str,
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get enrollments for a sequence"""
+    company_id = user.company_id or user.active_org_id
+    
+    query = {"sequence_id": sequence_id, "company_id": company_id}
+    if status:
+        query["status"] = status
+    
+    enrollments = await db.email_sequence_enrollments.find(
+        query, {"_id": 0}
+    ).sort("enrolled_at", -1).to_list(500)
+    
+    # Enrich with contact info
+    for enrollment in enrollments:
+        if enrollment["contact_type"] == "lead":
+            contact = await db.leads.find_one(
+                {"lead_id": enrollment["contact_id"]},
+                {"_id": 0, "lead_name": 1, "email": 1}
+            )
+            if contact:
+                enrollment["contact_name"] = contact.get("lead_name")
+                enrollment["contact_email"] = contact.get("email")
+        elif enrollment["contact_type"] == "client":
+            contact = await db.clients.find_one(
+                {"client_id": enrollment["contact_id"]},
+                {"_id": 0, "name": 1, "email": 1}
+            )
+            if contact:
+                enrollment["contact_name"] = contact.get("name")
+                enrollment["contact_email"] = contact.get("email")
+    
+    return enrollments
+
+
+@demand_studio_router.post("/email-sequences/{sequence_id}/enroll")
+async def enroll_in_sequence(sequence_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Enroll a contact in a sequence"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Verify sequence exists and is active
+    sequence = await db.email_sequences.find_one(
+        {"sequence_id": sequence_id, "company_id": company_id}
+    )
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    contact_type = data.get("contact_type")
+    contact_id = data.get("contact_id")
+    
+    # Check if already enrolled
+    existing = await db.email_sequence_enrollments.find_one({
+        "sequence_id": sequence_id,
+        "contact_type": contact_type,
+        "contact_id": contact_id,
+        "status": {"$in": ["active", "paused"]}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Contact already enrolled in this sequence")
+    
+    now = datetime.now(timezone.utc)
+    enrollment = {
+        "enrollment_id": f"enroll_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "sequence_id": sequence_id,
+        "contact_type": contact_type,
+        "contact_id": contact_id,
+        "status": "active",
+        "current_step": 0,
+        "next_send_at": now.isoformat(),  # First step sends immediately or based on first step delay
+        "enrolled_at": now.isoformat(),
+        "completed_at": None
+    }
+    
+    await db.email_sequence_enrollments.insert_one(enrollment)
+    
+    # Update sequence stats
+    await db.email_sequences.update_one(
+        {"sequence_id": sequence_id},
+        {"$inc": {"total_enrolled": 1}}
+    )
+    
+    del enrollment["_id"]
+    return enrollment
+
+
+@demand_studio_router.post("/email-sequences/{sequence_id}/enrollments/{enrollment_id}/pause")
+async def pause_enrollment(sequence_id: str, enrollment_id: str, user: User = Depends(get_current_user)):
+    """Pause an enrollment"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.email_sequence_enrollments.update_one(
+        {"enrollment_id": enrollment_id, "sequence_id": sequence_id, "company_id": company_id},
+        {"$set": {"status": "paused"}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    
+    return {"success": True, "status": "paused"}
+
+
+@demand_studio_router.post("/email-sequences/{sequence_id}/enrollments/{enrollment_id}/resume")
+async def resume_enrollment(sequence_id: str, enrollment_id: str, user: User = Depends(get_current_user)):
+    """Resume a paused enrollment"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.email_sequence_enrollments.update_one(
+        {"enrollment_id": enrollment_id, "sequence_id": sequence_id, "company_id": company_id, "status": "paused"},
+        {"$set": {"status": "active"}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Enrollment not found or not paused")
+    
+    return {"success": True, "status": "active"}
+
+
+@demand_studio_router.delete("/email-sequences/{sequence_id}/enrollments/{enrollment_id}")
+async def remove_enrollment(sequence_id: str, enrollment_id: str, user: User = Depends(get_current_user)):
+    """Remove a contact from a sequence"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.email_sequence_enrollments.delete_one(
+        {"enrollment_id": enrollment_id, "sequence_id": sequence_id, "company_id": company_id}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    
+    return {"success": True}
+
+
 # ---- Lead & Opportunity Links ----
 
 @demand_studio_router.post("/link-lead")
