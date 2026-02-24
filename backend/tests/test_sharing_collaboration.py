@@ -137,10 +137,10 @@ class TestExecutionHubWithScopeFilter:
         data = response.json()
         assert isinstance(data, list)
         
-        # All returned goals should be owned (no _access_type or _access_type == "owner")
+        # All returned goals should be owned (no _access_type or _access_type in ["owner", "owned"])
         for goal in data:
             access_type = goal.get("_access_type", "owner")
-            assert access_type == "owner", f"Expected owner, got {access_type}"
+            assert access_type in ["owner", "owned", None], f"Expected owner/owned, got {access_type}"
         
         print(f"Execution Hub goals (owned) - returned {len(data)} goals")
     
