@@ -65,6 +65,12 @@ const CAMPAIGN_STATUSES = [
   { value: "completed", label: "Completed", labelEs: "Completada", color: "bg-blue-100 text-blue-800" },
 ];
 
+const CHANNEL_TYPES = [
+  { value: "online", label: "Online", labelEs: "Online", icon: "🌐" },
+  { value: "offline", label: "Offline", labelEs: "Offline", icon: "📍" },
+  { value: "hybrid", label: "Hybrid", labelEs: "Híbrido", icon: "🔄" },
+];
+
 const ACCESS_LEVELS = [
   { value: "view", label: "View Only", labelEs: "Solo Ver" },
   { value: "edit", label: "View & Edit", labelEs: "Ver y Editar" },
