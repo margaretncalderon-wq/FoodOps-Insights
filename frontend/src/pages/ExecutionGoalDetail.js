@@ -151,6 +151,58 @@ export default function ExecutionGoalDetail() {
     fetchGoal();
   }, [fetchGoal]);
 
+  // Fetch team members when access dialog opens
+  const fetchTeamAndAccess = useCallback(async () => {
+    try {
+      const [teamRes, goalRes] = await Promise.all([
+        axios.get(`${API}/settings/team`, { withCredentials: true }),
+        axios.get(`${API}/execution-hub/goals/${goalId}`, { withCredentials: true })
+      ]);
+      setTeamMembers(teamRes.data || []);
+      setGoalAccess(goalRes.data?.access_list || []);
+    } catch (error) {
+      console.error("Error fetching team/access:", error);
+    }
+  }, [goalId]);
+
+  useEffect(() => {
+    if (showAccessDialog) {
+      fetchTeamAndAccess();
+    }
+  }, [showAccessDialog, fetchTeamAndAccess]);
+
+  const handleGrantAccess = async () => {
+    if (!newAccessEmail) return;
+    setGrantingAccess(true);
+    try {
+      await axios.post(
+        `${API}/execution-hub/goals/${goalId}/access`,
+        { user_email: newAccessEmail, role: newAccessRole, is_external: false },
+        { withCredentials: true }
+      );
+      toast.success(language === "es" ? "Acceso otorgado" : "Access granted");
+      setNewAccessEmail("");
+      fetchTeamAndAccess();
+      fetchGoal();
+    } catch (error) {
+      const msg = error.response?.data?.detail || (language === "es" ? "Error al otorgar acceso" : "Error granting access");
+      toast.error(msg);
+    } finally {
+      setGrantingAccess(false);
+    }
+  };
+
+  const handleRevokeAccess = async (accessId) => {
+    try {
+      await axios.delete(`${API}/execution-hub/goals/${goalId}/access/${accessId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Acceso revocado" : "Access revoked");
+      fetchTeamAndAccess();
+      fetchGoal();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al revocar acceso" : "Error revoking access");
+    }
+  };
+
   const handleStatusChange = async (newStatus) => {
     try {
       await axios.put(`${API}/execution-hub/goals/${goalId}`, { status: newStatus }, { withCredentials: true });
