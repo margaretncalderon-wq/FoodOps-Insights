@@ -109,6 +109,10 @@ async def create_indexes():
         await db.shared_entities.create_index([("source_org_id", 1), ("entity_type", 1), ("entity_id", 1)])
         await db.notifications.create_index([("company_id", 1), ("created_at", -1)])
         
+        # Campaign Tracking indexes (campaign_code unique per org)
+        await db.marketing_campaigns.create_index([("company_id", 1), ("campaign_code", 1)], unique=True, sparse=True)
+        await db.leads.create_index([("company_id", 1), ("campaign_id", 1)])
+        
         # Suppliers indexes
         await db.suppliers.create_index("company_id")
         await db.suppliers.create_index("supplier_id", unique=True)
