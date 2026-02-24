@@ -105,16 +105,20 @@ export default function CampaignDetailPage() {
     if (!campaign) return;
     
     try {
-      // Fetch activations for this campaign
-      const [activationsRes, spendRes, leadsRes] = await Promise.all([
+      // Fetch all related data for this campaign
+      const [activationsRes, spendRes, leadsRes, socialRes, emailsRes] = await Promise.all([
         axios.get(`${API}/api/demand-studio/activations?campaign_id=${campaignId}`, { withCredentials: true }).catch(() => ({ data: [] })),
         axios.get(`${API}/api/demand-studio/spend?campaign_id=${campaignId}`, { withCredentials: true }).catch(() => ({ data: [] })),
-        axios.get(`${API}/api/crm/leads?campaign_id=${campaignId}`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${API}/api/leads?campaign_id=${campaignId}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/posts?campaign_id=${campaignId}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/emails?campaign_id=${campaignId}`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       
       setActivations(activationsRes.data || []);
       setSpendRecords(spendRes.data || []);
       setLinkedLeads(Array.isArray(leadsRes.data) ? leadsRes.data : []);
+      setSocialPosts(Array.isArray(socialRes.data) ? socialRes.data : []);
+      setEmailCampaigns(Array.isArray(emailsRes.data) ? emailsRes.data : []);
     } catch (error) {
       console.error("Error fetching related data:", error);
     }
