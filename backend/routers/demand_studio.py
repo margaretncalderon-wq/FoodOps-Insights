@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 import uuid
 import logging
 import os
+import random
+import string
 
 from config import db
 from models.auth import User
@@ -21,12 +23,44 @@ from models.demand_studio import (
     ContentPillarCreate, ContentPillar,
     SocialPostCreate, SocialPost,
     SocialPostAssetLinkCreate, SocialPostSpendLinkCreate,
-    ContentIdeaCreate, ContentIdea
+    ContentIdeaCreate, ContentIdea,
+    CampaignCodeUpdate
 )
 from routers.auth import get_current_user
 from utils.activity_logger import log_activity, user_info
 
 demand_studio_router = APIRouter(prefix="/demand-studio", tags=["Demand Studio"])
+
+
+# ============== CAMPAIGN CODE HELPERS ==============
+
+def generate_campaign_code() -> str:
+    """Generate a random campaign code like CAM-7F3K2"""
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(random.choices(chars, k=5))
+    return f"CAM-{random_part}"
+
+
+async def ensure_unique_campaign_code(company_id: str, code: str, exclude_campaign_id: str = None) -> bool:
+    """Check if campaign code is unique within organization"""
+    query = {
+        "company_id": company_id,
+        "campaign_code": code.upper()
+    }
+    if exclude_campaign_id:
+        query["campaign_id"] = {"$ne": exclude_campaign_id}
+    
+    existing = await db.marketing_campaigns.find_one(query)
+    return existing is None
+
+
+async def get_campaign_by_code(company_id: str, campaign_code: str) -> dict:
+    """Find campaign by tracking code within organization"""
+    normalized_code = campaign_code.strip().upper()
+    return await db.marketing_campaigns.find_one(
+        {"company_id": company_id, "campaign_code": normalized_code},
+        {"_id": 0}
+    )
 
 # ============== ROLE PERMISSIONS ==============
 ROLE_PERMISSIONS = {
