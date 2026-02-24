@@ -1616,6 +1616,17 @@ async def get_team_members(user: User = Depends(get_current_user)):
         {"company_id": user.company_id, "is_active": {"$ne": False}},
         {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role_id": 1}
     ).to_list(100)
+    
+    # Ensure each user has a display name
+    for u in users:
+        if not u.get("name"):
+            # Use email username as fallback
+            email = u.get("email", "")
+            if email and "@" in email:
+                u["name"] = email.split("@")[0].replace(".", " ").title()
+            else:
+                u["name"] = f"User {u.get('user_id', '')[-6:]}"
+    
     return users
 
 
