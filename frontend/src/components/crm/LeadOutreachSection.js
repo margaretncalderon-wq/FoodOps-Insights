@@ -222,7 +222,7 @@ export default function LeadOutreachSection() {
   }, [leads]);
 
   useEffect(() => { 
-    fetchLeads(); 
+    fetchLeads(true); // immediate on mount
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
