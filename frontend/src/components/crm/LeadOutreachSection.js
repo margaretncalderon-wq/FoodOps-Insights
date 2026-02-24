@@ -22,6 +22,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
 import CommsChannelTimeline from "./CommsChannelTimeline";
+import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
