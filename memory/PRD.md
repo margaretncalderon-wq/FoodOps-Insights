@@ -109,7 +109,11 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 ## Pending/Blocked Items
 
 ### P1 - Upcoming
+- **Implement Campaign Detail Tabs**: CampaignDetailPage has placeholder tabs (Activations, Social Media, Spend, Leads)
+- **Full UTM Tracking**: Track digital campaigns using standard UTM parameters (utm_source, utm_medium, etc.)
+- **Meta (Facebook/Instagram) API Integration**: Publishing, Lead Ads, analytics/spend sync
 - Filter/group leads and clients by City/Country
+- Add "Generate QR" button for campaign tracking codes
 - Complete Dynamic Terminology Coverage
 - Normalize lead statuses to single source of truth
 - In-app notifications display (bell icon with unread count)
