@@ -488,6 +488,34 @@ export default function EmailMarketingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        {/* Sequences Tab */}
+        <TabsContent value="sequences">
+          <EmailSequencesSection />
+        </TabsContent>
+
+        {/* Templates Tab */}
+        <TabsContent value="templates">
+          <Card>
+            <CardContent className="py-16 text-center">
+              <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-medium mb-2">
+                {isEs ? "Plantillas de Email" : "Email Templates"}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {isEs 
+                  ? "Crea plantillas reutilizables para tus emails y secuencias"
+                  : "Create reusable templates for your emails and sequences"}
+              </p>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Nueva Plantilla" : "New Template"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
