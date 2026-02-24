@@ -16223,6 +16223,9 @@ api_router.include_router(demand_studio_router)
 # Include execution_hub_router
 api_router.include_router(execution_hub_router)
 
+# Include sharing_router (Cross-Organization Collaboration)
+api_router.include_router(sharing_router)
+
 # Include addons_router
 api_router.include_router(addons_router)
 
