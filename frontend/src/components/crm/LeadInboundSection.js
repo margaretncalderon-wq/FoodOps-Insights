@@ -710,20 +710,13 @@ export default function LeadInboundSection() {
               </TabsContent>
 
               {/* Comms Tab */}
-              <TabsContent value="comms" className="mt-0 space-y-4">
-                <CommsChannelTimeline 
-                  contactType="lead"
-                  contactId={selectedLead.lead_id}
-                  maxVisible={5}
+              <TabsContent value="comms" className="mt-0">
+                <UnifiedCommsTimeline 
+                  entityType="lead"
+                  entityId={selectedLead.lead_id}
+                  entityName={selectedLead.lead_name || selectedLead.company_name || "Lead"}
+                  maxVisible={10}
                 />
-                <div className="border-t pt-4">
-                  <CommunicationsTimeline 
-                    entityType="lead" 
-                    entityId={selectedLead.lead_id}
-                    entityName={selectedLead.lead_name || selectedLead.company_name || "Lead"}
-                    maxVisible={10}
-                  />
-                </div>
               </TabsContent>
             </Tabs>
           )}
