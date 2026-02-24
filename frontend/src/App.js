@@ -81,6 +81,7 @@ const OnboardingPage = lazy(() => import("./pages/onboarding/OnboardingPage"));
 const DemandStudioPage = lazy(() => import("./pages/demand-studio/DemandStudioPage"));
 const DemandStudioOverview = lazy(() => import("./pages/demand-studio/DemandStudioOverview"));
 const CampaignsPage = lazy(() => import("./pages/demand-studio/CampaignsPage"));
+const CampaignDetailPage = lazy(() => import("./pages/demand-studio/CampaignDetailPage"));
 const SocialMediaPage = lazy(() => import("./pages/demand-studio/SocialMediaPage"));
 const ActivationsPage = lazy(() => import("./pages/demand-studio/ActivationsPage"));
 const EmailMarketingPage = lazy(() => import("./pages/demand-studio/EmailMarketingPage"));
