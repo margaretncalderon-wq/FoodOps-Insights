@@ -829,20 +829,13 @@ export default function ClientsSection() {
               </TabsContent>
 
               {/* Comms Tab */}
-              <TabsContent value="comms" className="space-y-4">
-                <CommsChannelTimeline 
-                  contactType="client"
-                  contactId={selectedClient.client_id}
-                  maxVisible={5}
+              <TabsContent value="comms">
+                <UnifiedCommsTimeline 
+                  entityType="client"
+                  entityId={selectedClient.client_id}
+                  entityName={selectedClient.display_name}
+                  maxVisible={10}
                 />
-                <div className="border-t pt-4">
-                  <CommunicationsTimeline 
-                    entityType="client" 
-                    entityId={selectedClient.client_id}
-                    entityName={selectedClient.display_name}
-                    maxVisible={10}
-                  />
-                </div>
               </TabsContent>
             </Tabs>
           )}
