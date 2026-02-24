@@ -29,6 +29,48 @@ Multi-tenant SaaS platform where terminology, modules, and features dynamically 
 - Workflow Builder UI (Automations)
 - Google OAuth + Emergent OAuth login
 - Demo/Influencer account creation
+- **Kora Comms** - Omnichannel shared inbox (Phase 0)
+
+### Session: Feb 24, 2026 - Kora Comms Phase 0 ✅
+
+#### Kora Comms - Omnichannel Shared Inbox (Phase 0: Architecture + UI)
+- **Goal**: Build team-based shared inbox for WhatsApp + Email + Social DMs integrated with CRM
+- **Status**: ✅ COMPLETE (Phase 0)
+
+**Backend Implementation:**
+- Created omnichannel data model (MongoDB collections):
+  - `comm_inboxes`: Team-shared inbox containers
+  - `comm_channels`: Channel endpoints (WhatsApp number, email, social page)
+  - `comm_conversations`: Conversation threads per contact/channel
+  - `comm_messages`: Individual messages with direction, provider, delivery status
+  - `comm_contacts_map`: CRM contact to provider identity mapping
+- API endpoints: `/api/comms/*` for full CRUD operations
+- Contact timeline endpoint: `/api/comms/contact/{type}/{id}/messages`
+- Stats endpoint with unassigned/my conversations counts
+- Seed endpoint for test data
+
+**Frontend Implementation:**
+- `CommsInboxSection.js`: Full inbox UI with:
+  - Left panel: Filters (status, assigned, inbox), conversation list
+  - Right panel: Thread view, reply composer, status/assignment controls
+- `CommsChannelTimeline.js`: Timeline component for Lead/Client profiles
+- Integrated into Client Engagement > CRM dropdown as "Comms Inbox"
+- Added channel timeline to Lead Outreach, Inbound, and Clients sections
+
+**Files Created:**
+- `backend/models/comms.py`
+- `backend/routers/comms.py`
+- `frontend/src/components/crm/CommsInboxSection.js`
+- `frontend/src/components/crm/CommsChannelTimeline.js`
+
+**Files Modified:**
+- `backend/server.py` (registered comms_router)
+- `frontend/src/pages/ClientEngagementPage.js` (added route + nav item)
+- `frontend/src/components/crm/LeadOutreachSection.js`
+- `frontend/src/components/crm/LeadInboundSection.js`
+- `frontend/src/components/crm/ClientsSection.js`
+
+**Testing**: ✅ API endpoints verified via curl - all operations working
 
 ### Session: Feb 24, 2026 (Cont.) - Campaign Detail Tabs Enhancement ✅
 
