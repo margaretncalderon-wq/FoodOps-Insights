@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
+import CommsChannelTimeline from "./CommsChannelTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 
