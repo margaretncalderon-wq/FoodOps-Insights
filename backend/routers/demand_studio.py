@@ -154,8 +154,15 @@ async def get_demand_studio_stats(user: User = Depends(get_current_user)):
     ]).to_list(1)
     spend_qtd = qtd_spend[0]["total"] if qtd_spend else 0
     
-    # Count linked leads
-    leads_linked = await db.campaign_lead_links.count_documents({"company_id": company_id})
+    # Count linked leads - now from leads collection directly (includes auto-linked)
+    leads_linked = await db.leads.count_documents({
+        "company_id": company_id,
+        "campaign_id": {"$ne": None}
+    })
+    
+    # Also count from legacy campaign_lead_links table for backward compatibility
+    legacy_leads_linked = await db.campaign_lead_links.count_documents({"company_id": company_id})
+    leads_linked = max(leads_linked, legacy_leads_linked)
     
     # Count linked opportunities
     opportunities_linked = await db.campaign_opportunity_links.count_documents({"company_id": company_id})
