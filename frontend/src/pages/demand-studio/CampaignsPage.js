@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -23,7 +24,7 @@ import {
 import { 
   Plus, Target, Calendar, DollarSign, Trash2, 
   Edit2, Loader2, Users, UserPlus, X, ShieldCheck, Share2,
-  Copy, Link2, QrCode
+  Copy, Link2, QrCode, Eye
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
