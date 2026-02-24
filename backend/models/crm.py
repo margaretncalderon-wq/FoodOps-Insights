@@ -2,6 +2,14 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from enum import Enum
+
+
+class AttributionSource(str, Enum):
+    MANUAL = "manual"
+    LINK = "link"
+    QR = "qr"
+    IMPORT = "import"
 
 
 # ============== LEAD MODELS ==============
@@ -28,6 +36,10 @@ class LeadCreate(BaseModel):
     outreach_status: Optional[str] = None  # New, Contacted, NoResponse, Engaged
     next_follow_up_date: Optional[str] = None
     follow_up_type: Optional[str] = None  # Call, Email, Meeting, CheckIn
+    # Campaign Attribution (additive)
+    campaign_id: Optional[str] = None  # Linked campaign
+    campaign_code: Optional[str] = None  # For auto-linking via tracking code
+    attribution_source: Optional[str] = None  # manual, link, qr, import
 
 
 class Lead(BaseModel):
