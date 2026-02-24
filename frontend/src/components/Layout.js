@@ -84,13 +84,37 @@ export const Layout = ({ children }) => {
       ];
     }
 
-    return modules.map((module) => ({
+    const items = modules.map((module) => ({
       path: module.path,
       icon: iconMap[module.icon] || Activity,
       label: module.name_en,
       labelEs: module.name_es,
       isAddon: module.is_addon,
     }));
+    
+    // Add Collaborations link after Execution Hub or Demand Studio
+    const execHubIndex = items.findIndex(i => i.path === "/execution-hub");
+    const collaborationItem = {
+      path: "/collaborations",
+      icon: Users,
+      label: "Collaborations",
+      labelEs: "Colaboraciones",
+      isCollaboration: true,
+    };
+    
+    if (execHubIndex !== -1) {
+      items.splice(execHubIndex + 1, 0, collaborationItem);
+    } else {
+      // Add before Settings
+      const settingsIndex = items.findIndex(i => i.path === "/settings");
+      if (settingsIndex !== -1) {
+        items.splice(settingsIndex, 0, collaborationItem);
+      } else {
+        items.push(collaborationItem);
+      }
+    }
+    
+    return items;
   }, [modules]);
 
   const handleLogout = async () => {
