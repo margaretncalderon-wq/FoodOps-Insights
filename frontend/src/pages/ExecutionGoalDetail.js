@@ -113,6 +113,9 @@ export default function ExecutionGoalDetail() {
   // Task note
   const [taskNoteContent, setTaskNoteContent] = useState({});
   const [expandedTask, setExpandedTask] = useState(null);
+  
+  // Share dialog
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const fetchGoal = useCallback(async () => {
     try {
