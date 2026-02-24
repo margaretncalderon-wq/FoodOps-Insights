@@ -387,6 +387,20 @@ export default function ExecutionGoalDetail() {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Team Access Button - Only for owned projects */}
+            {!goal._access_type || goal._access_type === "owner" ? (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAccessDialog(true)}
+                className="text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                data-testid="team-access-btn"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                {language === "es" ? "Equipo" : "Team"}
+              </Button>
+            ) : null}
+            
             {/* Share Button - Only for owned projects */}
             {!goal._access_type || goal._access_type === "owner" ? (
               <Button 
