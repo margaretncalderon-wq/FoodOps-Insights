@@ -353,9 +353,21 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
+                    {/* Share Button - Only for owned campaigns */}
+                    {canManage && campaign._access_type !== "shared" && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => openShareDialog(campaign)} 
+                        title={isEs ? "Compartir con Otra Org" : "Share with Another Org"}
+                        data-testid={`share-campaign-${campaign.campaign_id}`}
+                      >
+                        <Share2 className="w-4 h-4 text-purple-500" />
+                      </Button>
+                    )}
                     {canManage && campaign._access_type !== "shared" && (
                       <Button variant="ghost" size="icon" onClick={() => openAccessDialog(campaign)} title={isEs ? "Gestionar Acceso" : "Manage Access"}>
-                        <Users className="w-4 h-4 text-purple-500" />
+                        <Users className="w-4 h-4 text-blue-500" />
                       </Button>
                     )}
                     {canEdit && campaign._access_type !== "shared" && (
