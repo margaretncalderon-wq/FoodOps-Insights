@@ -202,10 +202,120 @@ class EmailTracking(BaseModel):
     sent_count: int = 0
     open_count: int = 0
     click_count: int = 0
+    bounce_count: int = 0
+    unsubscribe_count: int = 0
     send_date: Optional[str] = None
     status: str = "draft"
     cost: float = 0.0
     notes: Optional[str] = None
+    # Enhanced tracking fields
+    subject_line: Optional[str] = None
+    preview_text: Optional[str] = None
+    from_name: Optional[str] = None
+    from_email: Optional[str] = None
+    external_campaign_id: Optional[str] = None  # Mailchimp/Brevo campaign ID
+    external_provider: Optional[str] = None  # mailchimp, brevo, sendgrid, etc.
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============== EMAIL SEQUENCE MODELS (PRE-DEVELOPMENT) ==============
+
+class EmailSequenceCreate(BaseModel):
+    """Create an email sequence (drip campaign)"""
+    name: str
+    description: Optional[str] = None
+    trigger_type: str = "manual"  # manual, new_lead, status_change, form_submit
+    trigger_config: Optional[dict] = None  # Config for automatic triggers
+    status: str = "draft"  # draft, active, paused
+
+
+class EmailSequence(BaseModel):
+    """Email sequence (drip campaign) model"""
+    sequence_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    trigger_type: str = "manual"
+    trigger_config: Optional[dict] = None
+    status: str = "draft"
+    total_enrolled: int = 0
+    total_completed: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmailSequenceStepCreate(BaseModel):
+    """Create a step in an email sequence"""
+    sequence_id: str
+    step_order: int
+    delay_days: int = 0  # Days to wait after previous step (or enrollment)
+    delay_hours: int = 0
+    subject: str
+    body_html: Optional[str] = None
+    body_text: Optional[str] = None
+    template_id: Optional[str] = None  # Reference to email template
+
+
+class EmailSequenceStep(BaseModel):
+    """Email sequence step model"""
+    step_id: str
+    company_id: str
+    sequence_id: str
+    step_order: int
+    delay_days: int = 0
+    delay_hours: int = 0
+    subject: str
+    body_html: Optional[str] = None
+    body_text: Optional[str] = None
+    template_id: Optional[str] = None
+    sent_count: int = 0
+    open_count: int = 0
+    click_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmailSequenceEnrollmentCreate(BaseModel):
+    """Enroll a contact in a sequence"""
+    sequence_id: str
+    contact_type: str  # lead, client
+    contact_id: str
+
+
+class EmailSequenceEnrollment(BaseModel):
+    """Contact enrollment in a sequence"""
+    enrollment_id: str
+    company_id: str
+    sequence_id: str
+    contact_type: str
+    contact_id: str
+    status: str = "active"  # active, paused, completed, unsubscribed
+    current_step: int = 0
+    next_send_at: Optional[datetime] = None
+    enrolled_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class EmailTemplateCreate(BaseModel):
+    """Create an email template"""
+    name: str
+    subject: str
+    body_html: Optional[str] = None
+    body_text: Optional[str] = None
+    category: str = "general"  # general, welcome, follow_up, promotion, etc.
+
+
+class EmailTemplate(BaseModel):
+    """Email template model"""
+    template_id: str
+    company_id: str
+    name: str
+    subject: str
+    body_html: Optional[str] = None
+    body_text: Optional[str] = None
+    category: str = "general"
+    usage_count: int = 0
     created_at: datetime
     updated_at: datetime
 
