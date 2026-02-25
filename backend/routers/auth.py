@@ -25,17 +25,7 @@ auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 def get_cookie_domain(request: Request = None):
     """Extract domain for cookie setting - handles both production and preview environments"""
-    # First, check if we're in a preview environment by looking at the request origin
-    if request:
-        origin = request.headers.get("origin", "") or request.headers.get("referer", "")
-        host = request.headers.get("host", "")
-        # Check for any preview-related domains
-        if origin and ("preview" in origin.lower() or "emergent" in origin.lower()):
-            return None
-        if host and ("preview" in host.lower() or "emergent" in host.lower()):
-            return None
-    
-    # For production, use FRONTEND_URL to determine cookie domain
+    # For ourkora.com, we need to set domain as .ourkora.com to work across subdomains
     frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
     parsed = urlparse(frontend_url)
     domain = parsed.netloc
@@ -44,9 +34,17 @@ def get_cookie_domain(request: Request = None):
     if ":" in domain:
         domain = domain.split(":")[0]
     
+    # Check request headers for preview environments
+    if request:
+        origin = request.headers.get("origin", "") or request.headers.get("referer", "")
+        host = request.headers.get("host", "")
+        
+        # For preview/localhost environments, don't set domain
+        if any(x in (origin + host).lower() for x in ["preview", "emergent", "localhost", "127.0"]):
+            return None
+    
     # For production domains, set cookie for the root domain
-    # For localhost/preview, don't set domain (browser handles it)
-    if domain and not domain.startswith("localhost") and not domain.startswith("127.") and "preview" not in domain:
+    if domain and not domain.startswith("localhost") and not domain.startswith("127."):
         # Return domain with leading dot for subdomain support
         return f".{domain}" if not domain.startswith(".") else domain
     
@@ -57,13 +55,20 @@ def set_auth_cookie(response: Response, token: str, request: Request = None):
     """Set authentication cookie with proper configuration"""
     cookie_domain = get_cookie_domain(request)
     
+    # Determine if we're in a secure context
+    is_secure = True
+    if request:
+        origin = request.headers.get("origin", "") or request.headers.get("referer", "")
+        if "localhost" in origin or "127.0" in origin:
+            is_secure = False
+    
     # Base cookie settings
     cookie_kwargs = {
         "key": "session_token",
         "value": token,
         "httponly": True,
-        "secure": True,
-        "samesite": "none",
+        "secure": is_secure,
+        "samesite": "lax" if not is_secure else "none",
         "path": "/",
         "max_age": JWT_EXPIRATION_HOURS * 3600
     }
