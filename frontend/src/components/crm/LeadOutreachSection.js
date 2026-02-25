@@ -791,7 +791,8 @@ export default function LeadOutreachSection() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
