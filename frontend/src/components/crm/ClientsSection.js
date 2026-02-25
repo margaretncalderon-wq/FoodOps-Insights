@@ -421,113 +421,215 @@ export default function ClientsSection() {
         )}
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{clientLabel}</TableHead>
-                <TableHead>RNC</TableHead>
-                <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead>{isEs ? "Ciudad" : "City"}</TableHead>
-                <TableHead>{isEs ? "Industria" : "Industry"}</TableHead>
-                <TableHead>{isEs ? "Eventos" : "Events"}</TableHead>
-                <TableHead>{isEs ? "Valor Lifetime" : "Lifetime Value"}</TableHead>
-                <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredClients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    {isEs ? `No hay ${clientsLabel.toLowerCase()}` : `No ${clientsLabel.toLowerCase()}`}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredClients.map((client) => (
-                  <TableRow key={client.client_id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell onClick={() => viewClient(client)}>
+      {/* Clients List - Expandable */}
+      <div className="space-y-2">
+        {filteredClients.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              {isEs ? `No hay ${clientsLabel.toLowerCase()}` : `No ${clientsLabel.toLowerCase()}`}
+            </CardContent>
+          </Card>
+        ) : (
+          filteredClients.map((client) => (
+            <Collapsible 
+              key={client.client_id} 
+              open={expandedClient === client.client_id}
+              onOpenChange={() => setExpandedClient(expandedClient === client.client_id ? null : client.client_id)}
+            >
+              <Card className="overflow-hidden">
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        {client.client_type === "Company" ? (
-                          <Building2 className="w-4 h-4 text-blue-600" />
+                        {expandedClient === client.client_id ? (
+                          <ChevronDown className="w-4 h-4" />
                         ) : (
-                          <User className="w-4 h-4 text-purple-600" />
+                          <ChevronRight className="w-4 h-4" />
                         )}
-                        <div>
-                          <span className="font-medium">{client.display_name}</span>
-                          {client.contacts?.length > 0 && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              ({client.contacts.length} {isEs ? "contactos" : "contacts"})
-                            </span>
-                          )}
+                        {client.client_type === "Company" ? (
+                          <Building2 className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <User className="w-5 h-5 text-purple-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium">{client.display_name}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          {client.industry && <span>{client.industry}</span>}
+                          {client.city && <span>• {client.city}</span>}
+                          {client.rnc && <span>• RNC: {client.rnc}</span>}
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell onClick={() => viewClient(client)}>
-                      <span className="text-sm font-mono">{client.rnc || "-"}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right text-sm hidden md:block">
+                        <p className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {client.contacts?.length || 0} {isEs ? "contactos" : "contacts"}
+                        </p>
+                        {client.lifetime_value > 0 && (
+                          <p className="text-green-600 font-medium">{formatCurrency(client.lifetime_value)}</p>
+                        )}
+                      </div>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
+                        {client.status}
+                      </Badge>
+                      <div className="flex items-center gap-1">
                         {client.whatsapp && (
                           <a href={getWhatsAppLink(client.whatsapp)} target="_blank" rel="noopener noreferrer" 
-                             className="text-green-600 hover:text-green-700" title="WhatsApp">
+                             className="text-green-600 hover:text-green-700 p-1" title="WhatsApp"
+                             onClick={(e) => e.stopPropagation()}>
                             <MessageCircle className="w-4 h-4" />
                           </a>
                         )}
                         {client.email && (
-                          <a href={getMailtoLink(client.email)} className="text-blue-600 hover:text-blue-700" title="Email">
+                          <a href={getMailtoLink(client.email)} className="text-blue-600 hover:text-blue-700 p-1" title="Email"
+                             onClick={(e) => e.stopPropagation()}>
                             <Mail className="w-4 h-4" />
                           </a>
                         )}
-                        {client.phone && (
-                          <a href={`tel:${client.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
-                            <Phone className="w-4 h-4" />
-                          </a>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); viewClient(client); }}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              {isEs ? "Ver Detalles" : "View Details"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(client, e); }}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              {isEs ? "Editar" : "Edit"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { 
+                              e.stopPropagation(); 
+                              window.open(`${window.location.origin}/portal/client/${client.client_id}`, '_blank');
+                            }}>
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              {isEs ? "Portal Cliente" : "Client Portal"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={(e) => { e.stopPropagation(); setSelectedClient(client); setDeleteConfirmOpen(true); }}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              {isEs ? "Eliminar" : "Delete"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    </TableCell>
-                    <TableCell onClick={() => viewClient(client)}>
-                      <span className="text-sm">{client.city || "-"}</span>
-                    </TableCell>
-                    <TableCell onClick={() => viewClient(client)}>
-                      <span className="text-sm">{client.industry || "-"}</span>
-                    </TableCell>
-                    <TableCell onClick={() => viewClient(client)}>
-                      <Badge variant="outline">{client.events_count || 0}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium text-green-600" onClick={() => viewClient(client)}>
-                      {formatCurrency(client.lifetime_value)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const portalUrl = `${window.location.origin}/portal/client/${client.client_id}`;
-                            window.open(portalUrl, '_blank');
-                          }}
-                          title={isEs ? "Portal Cliente" : "Client Portal"}
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => viewClient(client)} title={isEs ? "Ver" : "View"}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={(e) => openEdit(client, e)} title={isEs ? "Editar" : "Edit"} data-testid={`edit-client-${client.client_id}`}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="border-t p-4 bg-muted/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium">{isEs ? "Contactos" : "Contacts"}</h4>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedClient(client);
+                          setEditingContact(null);
+                          setContactForm({ name: "", email: "", phone: "", whatsapp: "", role: "", is_primary: false });
+                          setContactDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        {isEs ? "Agregar" : "Add"}
+                      </Button>
+                    </div>
+                    {(!client.contacts || client.contacts.length === 0) ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        {isEs ? "No hay contactos. Agrega el primer contacto." : "No contacts. Add the first contact."}
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {client.contacts.map((contact) => (
+                          <div 
+                            key={contact.contact_id}
+                            className="flex items-center justify-between bg-background rounded-lg p-3 border"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm">{contact.name}</p>
+                                  {contact.is_primary && (
+                                    <Badge variant="outline" className="text-xs">Primary</Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {contact.role_title || contact.role || "-"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {contact.phone && (
+                                <a href={`tel:${contact.phone}`} className="text-muted-foreground hover:text-foreground">
+                                  <Phone className="w-4 h-4" />
+                                </a>
+                              )}
+                              {contact.email && (
+                                <a href={`mailto:${contact.email}`} className="text-muted-foreground hover:text-foreground">
+                                  <Mail className="w-4 h-4" />
+                                </a>
+                              )}
+                              {contact.whatsapp && (
+                                <a 
+                                  href={getWhatsAppLink(contact.whatsapp)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <MessageCircle className="w-4 h-4" />
+                                </a>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  setSelectedClient(client);
+                                  setEditingContact(contact);
+                                  setContactForm({
+                                    name: contact.name || "",
+                                    email: contact.email || "",
+                                    phone: contact.phone || "",
+                                    whatsapp: contact.whatsapp || "",
+                                    role: contact.role_title || contact.role || "",
+                                    is_primary: contact.is_primary || false
+                                  });
+                                  setContactDialogOpen(true);
+                                }}
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-red-600"
+                                onClick={() => handleDeleteContact(contact.contact_id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          ))
+        )}
+      </div>
 
       {/* Detail Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
