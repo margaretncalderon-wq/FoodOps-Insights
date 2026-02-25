@@ -1234,6 +1234,82 @@ export default function LeadInboundSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Contact Dialog */}
+      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              {isEs ? "Agregar Contacto" : "Add Contact"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isEs ? "Nombre" : "Name"} *</Label>
+              <Input
+                value={contactForm.name}
+                onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                placeholder={isEs ? "Nombre completo" : "Full name"}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                <Input
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>WhatsApp</Label>
+              <Input
+                value={contactForm.whatsapp}
+                onChange={(e) => setContactForm({ ...contactForm, whatsapp: e.target.value })}
+                placeholder="+1 809 555 1234"
+              />
+            </div>
+            <div>
+              <Label>{isEs ? "Rol / Cargo" : "Role / Title"}</Label>
+              <Input
+                value={contactForm.role}
+                onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })}
+                placeholder={isEs ? "Ej: CEO, Gerente, Asistente" : "E.g.: CEO, Manager, Assistant"}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_primary_inbound"
+                checked={contactForm.is_primary}
+                onChange={(e) => setContactForm({ ...contactForm, is_primary: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="is_primary_inbound" className="text-sm cursor-pointer">
+                {isEs ? "Contacto principal" : "Primary contact"}
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddContactOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleAddContact}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              {isEs ? "Agregar" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
