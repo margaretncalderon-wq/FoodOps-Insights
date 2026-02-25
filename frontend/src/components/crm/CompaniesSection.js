@@ -72,11 +72,13 @@ export default function CompaniesSection() {
   
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [companyContacts, setCompanyContacts] = useState([]);
+  const [showCustomIndustry, setShowCustomIndustry] = useState(false);
   
   // Forms
   const [companyForm, setCompanyForm] = useState({
     name: "",
     industry: "",
+    customIndustry: "",
     website: "",
     phone: "",
     email: "",
