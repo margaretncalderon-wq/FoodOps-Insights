@@ -1630,6 +1630,196 @@ async def get_team_members(user: User = Depends(get_current_user)):
     return users
 
 
+# ============== PIPELINE STAGES (CUSTOMIZABLE PER ORG) ==============
+
+DEFAULT_PIPELINE_STAGES = [
+    {"id": "new", "name": "New", "name_es": "Nuevo", "color": "#3B82F6", "order": 1},
+    {"id": "contacted", "name": "Contacted", "name_es": "Contactado", "color": "#F59E0B", "order": 2},
+    {"id": "qualified", "name": "Qualified", "name_es": "Calificado", "color": "#8B5CF6", "order": 3},
+    {"id": "proposal", "name": "Proposal", "name_es": "Propuesta", "color": "#EC4899", "order": 4},
+    {"id": "negotiation", "name": "Negotiation", "name_es": "Negociación", "color": "#F97316", "order": 5},
+    {"id": "won", "name": "Won", "name_es": "Ganado", "color": "#22C55E", "order": 6},
+    {"id": "lost", "name": "Lost", "name_es": "Perdido", "color": "#EF4444", "order": 7},
+]
+
+
+@crm_router.get("/pipeline-stages")
+async def get_pipeline_stages(user: User = Depends(get_current_user)):
+    """Get pipeline stages for the organization"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return DEFAULT_PIPELINE_STAGES
+    
+    # Check if org has custom stages
+    config = await db.crm_pipeline_config.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if config and config.get("stages"):
+        return config["stages"]
+    
+    return DEFAULT_PIPELINE_STAGES
+
+
+@crm_router.put("/pipeline-stages")
+async def update_pipeline_stages(data: dict, user: User = Depends(get_current_user)):
+    """Update pipeline stages for the organization"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    stages = data.get("stages", [])
+    
+    # Validate stages
+    if not stages or not isinstance(stages, list):
+        raise HTTPException(status_code=400, detail="stages must be a non-empty array")
+    
+    for i, stage in enumerate(stages):
+        if not stage.get("id") or not stage.get("name"):
+            raise HTTPException(status_code=400, detail=f"Stage {i} missing id or name")
+        # Ensure order
+        stage["order"] = i + 1
+    
+    now = datetime.now(timezone.utc)
+    
+    await db.crm_pipeline_config.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "company_id": company_id,
+            "stages": stages,
+            "updated_at": now.isoformat(),
+            "updated_by": user.user_id
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "stages": stages}
+
+
+@crm_router.post("/pipeline-stages/reset")
+async def reset_pipeline_stages(user: User = Depends(get_current_user)):
+    """Reset pipeline stages to defaults"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    await db.crm_pipeline_config.delete_one({"company_id": company_id})
+    
+    return {"success": True, "stages": DEFAULT_PIPELINE_STAGES}
+
+
+@crm_router.get("/leads/by-stage")
+async def get_leads_by_stage(user: User = Depends(get_current_user)):
+    """Get leads grouped by pipeline stage for Kanban view"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"stages": DEFAULT_PIPELINE_STAGES, "leads_by_stage": {}}
+    
+    # Get stages
+    config = await db.crm_pipeline_config.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    stages = config["stages"] if config and config.get("stages") else DEFAULT_PIPELINE_STAGES
+    
+    # Get all active leads (not converted or discarded)
+    leads = await db.leads.find(
+        {
+            "company_id": company_id,
+            "status": {"$nin": ["Converted", "Discarded"]}
+        },
+        {"_id": 0}
+    ).sort("updated_at", -1).to_list(500)
+    
+    # Group by pipeline_stage (fallback to status mapping)
+    leads_by_stage = {stage["id"]: [] for stage in stages}
+    
+    # Status to stage mapping for backward compatibility
+    status_to_stage = {
+        "new": "new",
+        "contacted": "contacted",
+        "noresponse": "new",  # No response goes back to queue
+        "engaged": "qualified",
+        "qualified": "qualified",
+        "proposal": "proposal",
+        "negotiation": "negotiation",
+        "won": "won",
+        "lost": "lost"
+    }
+    
+    for lead in leads:
+        # Use pipeline_stage if set, otherwise map from status
+        stage_id = lead.get("pipeline_stage")
+        if not stage_id:
+            status = (lead.get("outreach_status") or lead.get("status") or "new").lower()
+            stage_id = status_to_stage.get(status, "new")
+        
+        if stage_id in leads_by_stage:
+            leads_by_stage[stage_id].append(lead)
+        else:
+            # If stage doesn't exist, put in first stage
+            first_stage = stages[0]["id"] if stages else "new"
+            if first_stage in leads_by_stage:
+                leads_by_stage[first_stage].append(lead)
+    
+    return {
+        "stages": stages,
+        "leads_by_stage": leads_by_stage
+    }
+
+
+@crm_router.patch("/leads/{lead_id}/stage")
+async def update_lead_stage(lead_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Move a lead to a different pipeline stage"""
+    company_id = user.company_id or user.active_org_id
+    stage_id = data.get("stage_id")
+    
+    if not stage_id:
+        raise HTTPException(status_code=400, detail="stage_id is required")
+    
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Update lead
+    update_data = {
+        "pipeline_stage": stage_id,
+        "updated_at": now.isoformat()
+    }
+    
+    # Also update status for backward compatibility
+    stage_to_status = {
+        "new": "New",
+        "contacted": "Contacted",
+        "qualified": "Engaged",
+        "proposal": "Engaged",
+        "negotiation": "Engaged",
+        "won": "Converted",
+        "lost": "Discarded"
+    }
+    if stage_id in stage_to_status:
+        update_data["status"] = stage_to_status[stage_id]
+        update_data["outreach_status"] = stage_to_status[stage_id]
+    
+    await db.leads.update_one(
+        {"lead_id": lead_id},
+        {"$set": update_data}
+    )
+    
+    # Log activity
+    await log_activity(
+        db, company_id, user.user_id,
+        "lead_stage_changed",
+        f"Lead {lead.get('lead_name', lead_id)} moved to {stage_id}",
+        {"lead_id": lead_id, "from_stage": lead.get("pipeline_stage"), "to_stage": stage_id}
+    )
+    
+    return {"success": True, "lead_id": lead_id, "stage_id": stage_id}
+
+
 # ============== LEAD OWNER ASSIGNMENT (New Endpoint per spec) ==============
 
 @crm_router.patch("/leads/{lead_id}/owner")
