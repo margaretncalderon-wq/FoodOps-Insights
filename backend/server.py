@@ -10200,6 +10200,7 @@ async def get_clients_direct(user: User = Depends(get_current_user)):
 # Include all routers
 api_router.include_router(auth_router)
 api_router.include_router(crm_router)
+api_router.include_router(companies_router)  # B2B Company management
 api_router.include_router(leads_router)
 api_router.include_router(contacts_router)
 api_router.include_router(lead_forms_router)
