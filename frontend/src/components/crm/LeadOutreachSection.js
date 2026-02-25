@@ -17,12 +17,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { 
   Plus, Search, Phone, Mail, Building2, RefreshCw, User, 
   MoreHorizontal, CheckCircle, Eye, Clock, CalendarPlus,
-  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info, Edit
+  ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info, Edit,
+  LayoutList, Kanban
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
 import CommsChannelTimeline from "./CommsChannelTimeline";
 import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
+import LeadKanbanView from "./LeadKanbanView";
 
 import { API_BASE as API } from "../../utils/api";
 
