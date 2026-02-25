@@ -27,33 +27,58 @@ export const AuthProvider = ({ children }) => {
   // Initialize auth on mount - try to restore session from cookie
   useEffect(() => {
     const initAuth = async () => {
-      // Add a small delay to ensure cookies are available
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Small delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 50));
       
-      try {
-        console.log("[Auth] Attempting to restore session...");
-        const response = await axios.get(`${API}/auth/me`, {
-          withCredentials: true,
-          timeout: 10000, // 10 second timeout
-        });
-        console.log("[Auth] Session restored successfully:", response.data?.email);
-        setUser(response.data);
-      } catch (error) {
-        // Log the specific error for debugging
-        if (error.response?.status === 401) {
-          console.log("[Auth] No valid session found (401)");
-        } else {
-          console.warn("[Auth] Session restore error:", error.message);
+      // Retry logic for network issues
+      const maxRetries = 2;
+      let lastError = null;
+      
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`[Auth] Retry attempt ${attempt}...`);
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+          }
+          
+          console.log("[Auth] Attempting to restore session...");
+          const response = await axios.get(`${API}/auth/me`, {
+            withCredentials: true,
+            timeout: 10000,
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          if (response.data && response.data.user_id) {
+            console.log("[Auth] Session restored successfully:", response.data.email);
+            setUser(response.data);
+            return; // Success, exit the retry loop
+          } else {
+            throw new Error("Invalid user data received");
+          }
+        } catch (error) {
+          lastError = error;
+          if (error.response?.status === 401) {
+            console.log("[Auth] No valid session found (401)");
+            break; // Don't retry on 401 - session is truly invalid
+          }
+          // For other errors, continue retrying
+          console.warn(`[Auth] Attempt ${attempt + 1} failed:`, error.message);
         }
-        // No session or expired - that's ok, user will need to login
-        setUser(null);
-        setToken(null);
-      } finally {
-        setLoading(false);
-        setInitialized(true);
       }
+      
+      // All retries failed or 401 received
+      console.log("[Auth] Session restore failed, user needs to login");
+      setUser(null);
+      setToken(null);
     };
-    initAuth();
+    
+    initAuth().finally(() => {
+      setLoading(false);
+      setInitialized(true);
+    });
   }, []);
 
   const checkAuth = useCallback(async () => {
