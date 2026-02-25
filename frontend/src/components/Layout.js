@@ -149,7 +149,7 @@ export const Layout = ({ children }) => {
 
         {/* Notifications & Activity Log Section */}
         <div className="p-4 border-t border-white/10">
-          {/* Activity Log & Notification Bell */}
+          {/* Activity Log, Bug Report & Notification Bell */}
           <div className="flex justify-end gap-2 mb-3">
             <GlobalActivityLog 
               trigger={
@@ -157,6 +157,11 @@ export const Layout = ({ children }) => {
                   <History className="w-5 h-5" />
                 </Button>
               }
+            />
+            <BugReportButton 
+              variant="ghost" 
+              size="icon" 
+              className="text-white/70 hover:text-white hover:bg-white/10"
             />
             <NotificationBell />
           </div>
