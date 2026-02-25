@@ -180,10 +180,7 @@ export default function CompaniesSection() {
   const handleUpdateCompany = async () => {
     if (!selectedCompany) return;
     try {
-      const payload = {
-        ...companyForm,
-        industry: companyForm.industry === "other" ? companyForm.customIndustry : companyForm.industry
-      };
+      const payload = { ...companyForm };
       delete payload.customIndustry;
       
       await axios.put(`${API}/api/companies/${selectedCompany.company_entity_id}`, payload, { withCredentials: true });
