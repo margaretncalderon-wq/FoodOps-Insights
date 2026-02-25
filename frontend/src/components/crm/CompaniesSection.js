@@ -133,7 +133,14 @@ export default function CompaniesSection() {
       return;
     }
     try {
-      await axios.post(`${API}/api/companies`, companyForm, { withCredentials: true });
+      // Use custom industry if "other" is selected
+      const payload = {
+        ...companyForm,
+        industry: companyForm.industry === "other" ? companyForm.customIndustry : companyForm.industry
+      };
+      delete payload.customIndustry;
+      
+      await axios.post(`${API}/api/companies`, payload, { withCredentials: true });
       toast.success(isEs ? "Empresa creada" : "Company created");
       setCreateOpen(false);
       resetCompanyForm();
