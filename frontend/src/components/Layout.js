@@ -41,6 +41,7 @@ import { OrgSwitcher } from "./org";
 import { TrialExpirationModal } from "./TrialExpirationModal";
 import NotificationBell from "./notifications/NotificationBell";
 import { GlobalActivityLog } from "./GlobalActivityLog";
+import BugReportButton from "./BugReportButton";
 
 // Icon mapping for dynamic modules
 const iconMap = {
