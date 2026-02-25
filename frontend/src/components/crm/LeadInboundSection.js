@@ -199,22 +199,55 @@ export default function LeadInboundSection() {
       }
     });
 
-  // Detect potential duplicates
-  const duplicateCompanies = useMemo(() => {
+  // Detect potential duplicates by company, name, or email
+  const duplicateInfo = useMemo(() => {
     const companyCount = {};
+    const nameCount = {};
+    const emailCount = {};
+    
     leads.forEach(lead => {
       const company = (lead.company_name || "").toLowerCase().trim();
-      if (company) {
-        companyCount[company] = (companyCount[company] || 0) + 1;
-      }
+      const name = (lead.lead_name || lead.name || "").toLowerCase().trim();
+      const email = (lead.email || "").toLowerCase().trim();
+      
+      if (company) companyCount[company] = (companyCount[company] || 0) + 1;
+      if (name) nameCount[name] = (nameCount[name] || 0) + 1;
+      if (email) emailCount[email] = (emailCount[email] || 0) + 1;
     });
-    return Object.keys(companyCount).filter(c => companyCount[c] > 1);
+    
+    return {
+      companies: Object.keys(companyCount).filter(c => companyCount[c] > 1),
+      names: Object.keys(nameCount).filter(n => nameCount[n] > 1),
+      emails: Object.keys(emailCount).filter(e => emailCount[e] > 1),
+      companyCount,
+      nameCount,
+      emailCount
+    };
   }, [leads]);
 
-  const isDuplicate = (lead) => {
+  const getDuplicateReasons = (lead) => {
+    const reasons = [];
     const company = (lead.company_name || "").toLowerCase().trim();
-    return company && duplicateCompanies.includes(company);
+    const name = (lead.lead_name || lead.name || "").toLowerCase().trim();
+    const email = (lead.email || "").toLowerCase().trim();
+    
+    if (company && duplicateInfo.companies.includes(company)) {
+      reasons.push(`${isEs ? "Empresa" : "Company"} (${duplicateInfo.companyCount[company]}x)`);
+    }
+    if (name && duplicateInfo.names.includes(name)) {
+      reasons.push(`${isEs ? "Nombre" : "Name"} (${duplicateInfo.nameCount[name]}x)`);
+    }
+    if (email && duplicateInfo.emails.includes(email)) {
+      reasons.push(`Email (${duplicateInfo.emailCount[email]}x)`);
+    }
+    return reasons;
   };
+
+  const isDuplicate = (lead) => {
+    return getDuplicateReasons(lead).length > 0;
+  };
+
+  const totalDuplicates = duplicateInfo.companies.length + duplicateInfo.names.length + duplicateInfo.emails.length;
 
   // Stats - case-insensitive comparison
   const newLeads = leads.filter(l => l.status?.toLowerCase() === "new").length;
