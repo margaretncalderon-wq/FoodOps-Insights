@@ -76,6 +76,43 @@ def sanitize_document(doc):
         return doc
 
 
+async def enrich_leads_with_owner_names(leads: list, company_id: str) -> list:
+    """Add owner_name to each lead that has an owner_id"""
+    if not leads:
+        return leads
+    
+    # Collect unique owner_ids
+    owner_ids = set()
+    for lead in leads:
+        if lead.get("owner_id"):
+            owner_ids.add(lead["owner_id"])
+    
+    if not owner_ids:
+        return leads
+    
+    # Fetch user names in one query
+    users = await db.users.find(
+        {"user_id": {"$in": list(owner_ids)}, "company_id": company_id},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1}
+    ).to_list(100)
+    
+    # Build lookup dict
+    user_map = {}
+    for u in users:
+        name = u.get("name")
+        if not name:
+            email = u.get("email", "")
+            name = email.split("@")[0].replace(".", " ").title() if email else f"User {u.get('user_id', '')[-6:]}"
+        user_map[u["user_id"]] = name
+    
+    # Enrich leads
+    for lead in leads:
+        if lead.get("owner_id") and lead["owner_id"] in user_map:
+            lead["owner_name"] = user_map[lead["owner_id"]]
+    
+    return leads
+
+
 # ============== ROUTERS ==============
 
 crm_router = APIRouter(prefix="/crm", tags=["CRM"])
