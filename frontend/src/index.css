@@ -135,3 +135,15 @@
   pointer-events: none;
   z-index: 0;
 }
+
+/* Force table columns to display properly */
+.crm-table {
+  min-width: 900px !important;
+  table-layout: fixed !important;
+}
+
+.crm-table th,
+.crm-table td {
+  display: table-cell !important;
+  visibility: visible !important;
+}
