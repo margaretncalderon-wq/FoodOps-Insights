@@ -17,8 +17,10 @@ import {
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
   Globe, Instagram, MessageSquare, UserPlus, Eye, ArrowRight,
   Clock, Star, CalendarPlus, UserCheck, Users, FileText,
-  MessageCircle, ExternalLink, DollarSign, Info
+  MessageCircle, ExternalLink, DollarSign, Info, Trash2, AlertTriangle, ArrowUpDown, MoreHorizontal
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
+import { Textarea } from "../ui/textarea";
 import CommunicationsTimeline from "./CommunicationsTimeline";
 import CommsChannelTimeline from "./CommsChannelTimeline";
 import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
