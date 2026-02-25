@@ -133,6 +133,19 @@ export default function LeadOutreachSection() {
     next_follow_up_date: "",
     follow_up_type: "Call"
   });
+  
+  // Lead contacts state
+  const [leadContacts, setLeadContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [addContactOpen, setAddContactOpen] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    role: "",
+    is_primary: false
+  });
 
   // Helper to clean "nan" string values from lead data
   const cleanNanValues = useCallback((lead) => {
