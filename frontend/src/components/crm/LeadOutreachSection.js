@@ -745,17 +745,17 @@ export default function LeadOutreachSection() {
 
       {/* Table */}
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
-                <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead>{isEs ? "Empresa" : "Company"}</TableHead>
-                <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
-                <TableHead>{isEs ? "Seguimiento" : "Follow-up"}</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
+                <TableHead className="w-[200px]">{isEs ? "Nombre" : "Name"}</TableHead>
+                <TableHead className="w-[100px]">{isEs ? "Contacto" : "Contact"}</TableHead>
+                <TableHead className="w-[150px]">{isEs ? "Empresa" : "Company"}</TableHead>
+                <TableHead className="w-[100px]">{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead className="w-[120px]">{isEs ? "Seguimiento" : "Follow-up"}</TableHead>
+                <TableHead className="w-[100px]">Owner</TableHead>
+                <TableHead className="w-[80px]">{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
