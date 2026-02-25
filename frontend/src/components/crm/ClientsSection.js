@@ -73,6 +73,7 @@ export default function ClientsSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterIndustry, setFilterIndustry] = useState("all");
+  const [expandedClient, setExpandedClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
