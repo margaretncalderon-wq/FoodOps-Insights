@@ -194,10 +194,20 @@ def create_jwt_token(user_id: str) -> str:
 async def get_current_user(request: Request) -> User:
     """Extract and validate user from session token cookie or Authorization header"""
     token = request.cookies.get("session_token")
+    
+    # Log cookie info for debugging
+    all_cookies = request.cookies
+    logger.debug(f"Cookies received: {list(all_cookies.keys())}")
+    
     if not token:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
+            logger.debug("Using token from Authorization header")
+        else:
+            logger.debug("No session_token cookie or Authorization header found")
+    else:
+        logger.debug("Using token from session_token cookie")
     
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -211,6 +221,7 @@ async def get_current_user(request: Request) -> User:
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if expires_at < datetime.now(timezone.utc):
+            logger.warning(f"Session expired for user {session.get('user_id')}")
             raise HTTPException(status_code=401, detail="Session expired")
         
         user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
@@ -224,10 +235,13 @@ async def get_current_user(request: Request) -> User:
         user_doc = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
         if not user_doc:
             raise HTTPException(status_code=401, detail="User not found")
+        logger.debug(f"JWT token valid for user {payload['user_id']}")
         return User(**user_doc)
     except jwt.ExpiredSignatureError:
+        logger.warning("JWT token expired")
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid JWT token: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
