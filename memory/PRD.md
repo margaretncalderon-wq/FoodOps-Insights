@@ -281,3 +281,43 @@ def get_cookie_domain(request):
 
 ## Production URL
 - https://ourkora.com
+
+### Session: Feb 25, 2026 - Report a Bug Feature ✅
+
+#### Report a Bug / Support Tickets System (P0)
+- **Goal**: Allow users to report bugs from anywhere in the app, and super admins to manage these tickets
+- **Status**: ✅ COMPLETE
+
+**Backend Implementation (`backend/routers/support_tickets.py`):**
+- `POST /api/support/tickets` - Create a ticket (type, subject, description, priority, page_url, browser_info)
+- `GET /api/support/tickets/mine` - Get user's own tickets with optional status filter
+- `GET /api/support/admin/tickets` - Admin list with pagination and filters (status, priority, type, company_id)
+- `GET /api/support/admin/tickets/stats` - Ticket statistics (open, in_progress, resolved, urgent, high)
+- `GET /api/support/admin/tickets/{ticket_id}` - Get single ticket (admin)
+- `PATCH /api/support/admin/tickets/{ticket_id}` - Update status, priority, resolution_notes
+- `DELETE /api/support/admin/tickets/{ticket_id}` - Delete ticket (admin)
+
+**Frontend Implementation:**
+- `components/BugReportButton.js` - Bug report dialog accessible from sidebar
+  - Type selection: Bug, Feature, Question, Other
+  - Priority levels: Low, Normal, High, Urgent
+  - Auto-captures current URL and browser info
+- `pages/super-admin/SupportTicketsPage.js` - Admin view for managing tickets
+  - Stats cards (Open, In Progress, Urgent, Resolved)
+  - Filterable table with search
+  - Detail dialog with status/priority updates
+  - Resolution notes and delete functionality
+- Added route `/super-admin/support-tickets` in App.js
+- Added navigation link "Tickets Soporte" in SuperAdminLayout.js
+
+**Testing**: ✅ 17/17 backend tests passed (100% success rate)
+
+**Files Modified:**
+- `frontend/src/pages/super-admin/index.js` - Added SupportTicketsPage export
+- `frontend/src/pages/super-admin/SuperAdminLayout.js` - Added nav link
+- `frontend/src/App.js` - Added routes for support-tickets
+
+**Files Created (previous fork):**
+- `backend/routers/support_tickets.py`
+- `frontend/src/components/BugReportButton.js`
+- `frontend/src/pages/super-admin/SupportTicketsPage.js`
