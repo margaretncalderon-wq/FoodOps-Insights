@@ -225,17 +225,10 @@ export default function LeadOutreachSection() {
   }, [leads]);
 
   useEffect(() => { 
-    fetchLeads(true); // immediate on mount
-    fetchUsers();
+    // Fetch both in parallel on mount
+    Promise.all([fetchLeads(true), fetchUsers()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  useEffect(() => { 
-    if (users.length === 0) {
-      fetchUsers(); 
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads]);
 
   const resetForm = () => {
     setForm({
