@@ -820,17 +820,22 @@ export default function LeadOutreachSection() {
             <p className="text-xs text-yellow-700 dark:text-yellow-300">
               {duplicateInfo.companies.length > 0 && (
                 <span className="mr-3">
-                  {isEs ? "Empresas" : "Companies"}: {duplicateInfo.companies.length}
+                  {isEs ? "Empresas exactas" : "Exact companies"}: {duplicateInfo.companies.length}
                 </span>
               )}
               {duplicateInfo.names.length > 0 && (
                 <span className="mr-3">
-                  {isEs ? "Nombres" : "Names"}: {duplicateInfo.names.length}
+                  {isEs ? "Nombres exactos" : "Exact names"}: {duplicateInfo.names.length}
                 </span>
               )}
               {duplicateInfo.emails.length > 0 && (
-                <span>
+                <span className="mr-3">
                   Emails: {duplicateInfo.emails.length}
+                </span>
+              )}
+              {duplicateInfo.similarGroups.length > 0 && (
+                <span className="text-orange-600 dark:text-orange-400 font-medium">
+                  {isEs ? "Nombres similares" : "Similar names"}: {duplicateInfo.similarGroups.length}
                 </span>
               )}
             </p>
