@@ -257,13 +257,11 @@ export default function CompaniesSection() {
 
   const openEdit = (company) => {
     setSelectedCompany(company);
-    // Check if industry is custom (not in predefined list)
-    const isCustomIndustry = company.industry && !INDUSTRIES.find(i => i.value === company.industry);
-    setShowCustomIndustry(isCustomIndustry);
+    setShowCustomIndustry(false);
     setCompanyForm({
       name: company.name || "",
-      industry: isCustomIndustry ? "other" : (company.industry || ""),
-      customIndustry: isCustomIndustry ? company.industry : "",
+      industry: company.industry || "",
+      customIndustry: "",
       website: company.website || "",
       phone: company.phone || "",
       email: company.email || "",
