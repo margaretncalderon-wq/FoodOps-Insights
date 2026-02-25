@@ -30,34 +30,12 @@ const STATUS_COLORS = {
   Inactive: "bg-gray-100 text-gray-700 border-gray-300"
 };
 
-const INDUSTRIES = [
-  { value: "technology", labelEn: "Technology", labelEs: "Tecnología" },
-  { value: "healthcare", labelEn: "Healthcare", labelEs: "Salud" },
-  { value: "finance", labelEn: "Finance & Banking", labelEs: "Finanzas y Banca" },
-  { value: "retail", labelEn: "Retail & E-commerce", labelEs: "Retail y E-commerce" },
-  { value: "manufacturing", labelEn: "Manufacturing", labelEs: "Manufactura" },
-  { value: "real_estate", labelEn: "Real Estate", labelEs: "Bienes Raíces" },
-  { value: "hospitality", labelEn: "Hospitality & Tourism", labelEs: "Hospitalidad y Turismo" },
-  { value: "education", labelEn: "Education", labelEs: "Educación" },
-  { value: "media", labelEn: "Media & Entertainment", labelEs: "Medios y Entretenimiento" },
-  { value: "nonprofit", labelEn: "Non-Profit", labelEs: "Sin Fines de Lucro" },
-  { value: "government", labelEn: "Government", labelEs: "Gobierno" },
-  { value: "legal", labelEn: "Legal Services", labelEs: "Servicios Legales" },
-  { value: "consulting", labelEn: "Consulting", labelEs: "Consultoría" },
-  { value: "construction", labelEn: "Construction", labelEs: "Construcción" },
-  { value: "automotive", labelEn: "Automotive", labelEs: "Automotriz" },
-  { value: "food_beverage", labelEn: "Food & Beverage", labelEs: "Alimentos y Bebidas" },
-  { value: "beauty", labelEn: "Beauty & Wellness", labelEs: "Belleza y Bienestar" },
-  { value: "logistics", labelEn: "Logistics & Transport", labelEs: "Logística y Transporte" },
-  { value: "agriculture", labelEn: "Agriculture", labelEs: "Agricultura" },
-  { value: "other", labelEn: "Other", labelEs: "Otro" }
-];
-
 export default function CompaniesSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
 
   const [companies, setCompanies] = useState([]);
+  const [industries, setIndustries] = useState({ predefined: [], custom: [] });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -69,10 +47,12 @@ export default function CompaniesSection() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [industryDialogOpen, setIndustryDialogOpen] = useState(false);
   
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [companyContacts, setCompanyContacts] = useState([]);
   const [showCustomIndustry, setShowCustomIndustry] = useState(false);
+  const [newIndustryName, setNewIndustryName] = useState("");
   
   // Forms
   const [companyForm, setCompanyForm] = useState({
