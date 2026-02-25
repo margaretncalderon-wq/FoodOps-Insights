@@ -565,15 +565,20 @@ export default function LeadInboundSection() {
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedAndFilteredLeads.map((lead) => (
+                sortedAndFilteredLeads.map((lead) => {
+                  const dupeReasons = getDuplicateReasons(lead);
+                  return (
                   <TableRow 
                     key={lead.lead_id} 
-                    className={`cursor-pointer hover:bg-muted/50 ${isNewLead(lead) ? "bg-blue-50/50" : ""} ${isDuplicate(lead) ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
+                    className={`cursor-pointer hover:bg-muted/50 ${isNewLead(lead) ? "bg-blue-50/50" : ""} ${dupeReasons.length > 0 ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
                   >
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {isDuplicate(lead) && (
-                          <AlertTriangle className="w-4 h-4 text-yellow-600" title={isEs ? "Posible duplicado" : "Possible duplicate"} />
+                        {dupeReasons.length > 0 && (
+                          <AlertTriangle 
+                            className="w-4 h-4 text-yellow-600 flex-shrink-0" 
+                            title={`${isEs ? "Duplicado" : "Duplicate"}: ${dupeReasons.join(", ")}`} 
+                          />
                         )}
                         {getSourceIcon(lead.source)}
                         <span className="text-sm">{lead.source}</span>
