@@ -19,14 +19,14 @@ export const setAuthToken = (token) => {
     if (token) {
       localStorage.setItem("kora_auth_token", token);
     }
-  } catch { /* ignore */ }
+  } catch (e) { /* ignore */ }
 };
 export const getAuthToken = () => {
   // Try memory first, then localStorage
   if (_authToken) return _authToken;
   try {
     return localStorage.getItem("kora_auth_token");
-  } catch {
+  } catch (e) {
     return null;
   }
 };
