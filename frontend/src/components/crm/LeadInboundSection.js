@@ -61,10 +61,13 @@ export default function LeadInboundSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date_desc");
   const [selectedLead, setSelectedLead] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const [followUpForm, setFollowUpForm] = useState({
     next_follow_up_date: "",
     follow_up_type: "Call"
