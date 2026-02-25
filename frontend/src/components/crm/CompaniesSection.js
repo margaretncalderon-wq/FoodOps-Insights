@@ -437,7 +437,7 @@ export default function CompaniesSection() {
                         <p className="font-medium">{company.name}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           {company.industry && (
-                            <span>{INDUSTRIES.find(i => i.value === company.industry)?.[isEs ? 'labelEs' : 'labelEn'] || company.industry}</span>
+                            <span>{getIndustryLabel(company.industry)}</span>
                           )}
                           {company.city && <span>• {company.city}</span>}
                         </div>
