@@ -12,6 +12,66 @@ class AttributionSource(str, Enum):
     IMPORT = "import"
 
 
+# ============== COMPANY MODELS ==============
+
+class CompanyCreate(BaseModel):
+    """Model for creating a new company (B2B account)"""
+    name: str
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    rnc: Optional[str] = None  # Tax ID
+    description: Optional[str] = None
+    social_linkedin: Optional[str] = None
+    social_instagram: Optional[str] = None
+    tags: List[str] = []
+    notes: Optional[str] = None
+    # Credit/billing
+    has_credit: bool = False
+    credit_limit: float = 0.0
+    payment_terms: str = "immediate"
+
+
+class Company(BaseModel):
+    """Company entity - parent for contacts"""
+    company_entity_id: str  # Unique ID for this company record
+    organization_id: str  # The org/tenant that owns this record
+    name: str
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    rnc: Optional[str] = None
+    description: Optional[str] = None
+    social_linkedin: Optional[str] = None
+    social_instagram: Optional[str] = None
+    tags: List[str] = []
+    notes: Optional[str] = None
+    # Credit/billing
+    has_credit: bool = False
+    credit_limit: float = 0.0
+    credit_used: float = 0.0
+    payment_terms: str = "immediate"
+    # Stats
+    contacts_count: int = 0
+    leads_count: int = 0
+    total_revenue: float = 0.0
+    events_count: int = 0
+    # Status
+    status: str = "Active"  # Active, Inactive, Lead, Client
+    owner_id: Optional[str] = None
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+
+
 # ============== LEAD MODELS ==============
 
 class LeadCreate(BaseModel):
