@@ -74,6 +74,19 @@ export default function LeadInboundSection() {
   });
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignOwnerId, setAssignOwnerId] = useState("");
+  
+  // Lead contacts state
+  const [leadContacts, setLeadContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [addContactOpen, setAddContactOpen] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    role: "",
+    is_primary: false
+  });
 
   // Helper to clean "nan" string values from lead data
   const cleanNanValues = useCallback((lead) => {
