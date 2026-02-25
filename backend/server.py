@@ -69,6 +69,7 @@ from routers.auth import auth_router, get_current_user, hash_password, verify_pa
 from routers.demand_studio import demand_studio_router, get_user_role, can_user_perform_action
 from routers.business_clarity import business_clarity_router
 from routers.crm import crm_router, leads_router, contacts_router, lead_forms_router, webhooks_router
+from routers.companies import companies_router
 from routers.execution_hub import execution_hub_router
 from routers.addons import addons_router, ensure_default_addons
 from routers.locations import locations_router
