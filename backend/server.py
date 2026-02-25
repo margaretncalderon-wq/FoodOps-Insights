@@ -16270,6 +16270,32 @@ api_router.include_router(comms_router)  # /api/comms/*
 from routers.support_tickets import support_router
 api_router.include_router(support_router)  # /api/support/*
 
+# General file upload endpoint
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload a file (image or video) and return its URL"""
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/webm", "video/quicktime"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="File type not allowed. Use images or videos.")
+    
+    # Generate unique filename
+    ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
+    filename = f"{uuid.uuid4().hex[:16]}.{ext}"
+    filepath = UPLOADS_DIR / filename
+    
+    # Save file
+    try:
+        with open(filepath, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    # Return URL
+    file_url = f"/api/uploads/{filename}"
+    return {"url": file_url, "file_url": file_url, "filename": filename}
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
