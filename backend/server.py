@@ -100,6 +100,15 @@ def sanitize_float(value, default=0):
 # Create the main app
 app = FastAPI(title="Kora OS - Business Management Platform")
 
+# CORS middleware - MUST be added early, before routes
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Add GZip compression for faster responses
 app.add_middleware(GZipMiddleware, minimum_size=500)  # Compress responses > 500 bytes
 
