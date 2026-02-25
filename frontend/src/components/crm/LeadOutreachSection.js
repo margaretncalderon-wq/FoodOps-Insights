@@ -637,56 +637,6 @@ export default function LeadOutreachSection() {
       }
     });
 
-  // Normalize string for comparison - removes accents, special chars, common suffixes
-  const normalizeForComparison = useCallback((str) => {
-    if (!str) return "";
-    return str
-      .toLowerCase()
-      .trim()
-      // Remove accents
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      // Remove common company suffixes
-      .replace(/\b(s\.?a\.?|s\.?r\.?l\.?|inc\.?|llc\.?|corp\.?|ltd\.?|co\.?|cia\.?)\b/gi, "")
-      // Remove special characters except spaces
-      .replace(/[^a-z0-9\s]/g, "")
-      // Remove extra spaces
-      .replace(/\s+/g, " ")
-      .trim();
-  }, []);
-
-  // Calculate similarity between two strings (0-1)
-  const calculateSimilarity = useCallback((str1, str2) => {
-    const s1 = normalizeForComparison(str1);
-    const s2 = normalizeForComparison(str2);
-    
-    if (!s1 || !s2) return 0;
-    if (s1 === s2) return 1;
-    
-    // Check if one contains the other
-    if (s1.includes(s2) || s2.includes(s1)) return 0.9;
-    
-    // Simple Levenshtein-based similarity for short strings
-    const longer = s1.length > s2.length ? s1 : s2;
-    const shorter = s1.length > s2.length ? s2 : s1;
-    
-    if (longer.length === 0) return 1;
-    
-    // If lengths are very different, low similarity
-    if (shorter.length / longer.length < 0.5) return 0;
-    
-    // Count matching characters in order
-    let matches = 0;
-    let j = 0;
-    for (let i = 0; i < longer.length && j < shorter.length; i++) {
-      if (longer[i] === shorter[j]) {
-        matches++;
-        j++;
-      }
-    }
-    
-    return matches / longer.length;
-  }, [normalizeForComparison]);
-
   // Detect potential duplicates by company, name, or email with fuzzy matching
   const duplicateInfo = useMemo(() => {
     const exactCompanyCount = {};
