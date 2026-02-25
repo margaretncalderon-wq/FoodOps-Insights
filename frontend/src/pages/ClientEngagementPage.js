@@ -22,6 +22,7 @@ import { API_BASE as API } from "../utils/api";
 // Lazy load CRM sections
 const LeadOutreachSection = lazy(() => import("../components/crm/LeadOutreachSection"));
 const LeadInboundSection = lazy(() => import("../components/crm/LeadInboundSection"));
+const CompaniesSection = lazy(() => import("../components/crm/CompaniesSection"));
 const FollowUpsSection = lazy(() => import("../components/crm/FollowUpsSection"));
 const CommsLogSection = lazy(() => import("../components/crm/CommsLogSection"));
 const OwnerAssignmentSection = lazy(() => import("../components/crm/OwnerAssignmentSection"));
