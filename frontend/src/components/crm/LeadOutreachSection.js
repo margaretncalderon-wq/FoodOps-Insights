@@ -402,6 +402,28 @@ export default function LeadOutreachSection() {
     setConvertOpen(true);
   };
 
+  const openDelete = (lead) => {
+    setSelectedLead(lead);
+    setDeleteReason("");
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedLead) return;
+    try {
+      await axios.delete(`${API}/api/leads/${selectedLead.lead_id}`, { 
+        withCredentials: true,
+        data: { reason: deleteReason }
+      });
+      toast.success(isEs ? "Lead eliminado" : "Lead deleted");
+      fetchLeads(true);
+      setDeleteOpen(false);
+      setSelectedLead(null);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al eliminar");
+    }
+  };
+
   const getWhatsAppLink = (number) => {
     if (!number) return null;
     const cleaned = number.replace(/\D/g, '');
@@ -414,24 +436,60 @@ export default function LeadOutreachSection() {
     return lead.outreach_status || lead.status || "New";
   };
 
-  const filteredLeads = leads.filter(lead => {
-    const leadName = lead.lead_name || lead.name || "";
-    const email = lead.email || "";
-    const companyName = lead.company_name || lead.company || "";
-    
-    const matchesSearch = leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         companyName.toLowerCase().includes(searchTerm.toLowerCase());
-    const effectiveStatus = getEffectiveStatus(lead);
-    const matchesStatus = statusFilter === "all" || effectiveStatus.toLowerCase() === statusFilter.toLowerCase();
-    
-    // Owner filter: "all" shows all, "unassigned" shows leads without owner, otherwise filter by owner_id
-    const matchesOwner = ownerFilter === "all" || 
-                        (ownerFilter === "unassigned" && !lead.owner_id) ||
-                        lead.owner_id === ownerFilter;
-    
-    return matchesSearch && matchesStatus && matchesOwner;
-  });
+  // Sort and filter leads
+  const sortedAndFilteredLeads = leads
+    .filter(lead => {
+      const leadName = lead.lead_name || lead.name || "";
+      const email = lead.email || "";
+      const companyName = lead.company_name || lead.company || "";
+      
+      // Skip empty/blank leads
+      if (!leadName.trim() && !email.trim() && !companyName.trim()) return false;
+      
+      const matchesSearch = leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           companyName.toLowerCase().includes(searchTerm.toLowerCase());
+      const effectiveStatus = getEffectiveStatus(lead);
+      const matchesStatus = statusFilter === "all" || effectiveStatus.toLowerCase() === statusFilter.toLowerCase();
+      
+      // Owner filter: "all" shows all, "unassigned" shows leads without owner, otherwise filter by owner_id
+      const matchesOwner = ownerFilter === "all" || 
+                          (ownerFilter === "unassigned" && !lead.owner_id) ||
+                          lead.owner_id === ownerFilter;
+      
+      return matchesSearch && matchesStatus && matchesOwner;
+    })
+    .sort((a, b) => {
+      const nameA = (a.company_name || a.lead_name || "").toLowerCase();
+      const nameB = (b.company_name || b.lead_name || "").toLowerCase();
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      
+      switch (sortBy) {
+        case "alpha_asc": return nameA.localeCompare(nameB);
+        case "alpha_desc": return nameB.localeCompare(nameA);
+        case "date_asc": return dateA - dateB;
+        case "date_desc": 
+        default: return dateB - dateA;
+      }
+    });
+
+  // Detect potential duplicates
+  const duplicateCompanies = useMemo(() => {
+    const companyCount = {};
+    leads.forEach(lead => {
+      const company = (lead.company_name || "").toLowerCase().trim();
+      if (company) {
+        companyCount[company] = (companyCount[company] || 0) + 1;
+      }
+    });
+    return Object.keys(companyCount).filter(c => companyCount[c] > 1);
+  }, [leads]);
+
+  const isDuplicate = (lead) => {
+    const company = (lead.company_name || "").toLowerCase().trim();
+    return company && duplicateCompanies.includes(company);
+  };
 
   const getStatusBadge = (status) => {
     const normalizedStatus = status?.toLowerCase();
