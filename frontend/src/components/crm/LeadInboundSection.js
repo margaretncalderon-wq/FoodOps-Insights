@@ -751,9 +751,15 @@ export default function LeadInboundSection() {
           </DialogHeader>
           {selectedLead && (
             <Tabs defaultValue="info" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="info" className="text-xs">
                   <Info className="w-3 h-3 mr-1" /> Info
+                </TabsTrigger>
+                <TabsTrigger value="contacts" className="text-xs">
+                  <Users className="w-3 h-3 mr-1" /> {isEs ? "Contactos" : "Contacts"}
+                  {leadContacts.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{leadContacts.length}</Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="comms" className="text-xs">
                   <MessageCircle className="w-3 h-3 mr-1" /> Comms
