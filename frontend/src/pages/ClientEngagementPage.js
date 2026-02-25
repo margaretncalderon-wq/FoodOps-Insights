@@ -94,7 +94,6 @@ export default function ClientEngagementPage() {
   // CRM dropdown items
   const crmItems = [
     { path: "/client-engagement/crm/inbox", label: isEs ? "Bandeja Comms" : "Comms Inbox", icon: Inbox, highlight: true },
-    { path: "/client-engagement/crm/companies", label: isEs ? "Empresas" : "Companies", icon: Building2 },
     { path: "/client-engagement/crm/outreach", label: "Outreach", icon: UserPlus, badge: stats.outreach_leads },
     { path: "/client-engagement/crm/inbound", label: "Inbound", icon: Inbox, badge: stats.inbound_leads },
     { path: "/client-engagement/crm/follow-ups", label: isEs ? "Seguimientos" : "Follow-ups", icon: Clock, badge: stats.follow_ups_due },
