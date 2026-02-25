@@ -5,6 +5,59 @@ import { setAuthToken } from "../utils/api";
 
 const AuthContext = createContext(null);
 
+// Storage keys
+const STORAGE_KEY_TOKEN = "kora_auth_token";
+const STORAGE_KEY_USER = "kora_auth_user";
+
+// Helper to safely access localStorage
+const storage = {
+  getToken: () => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_TOKEN);
+    } catch {
+      return null;
+    }
+  },
+  setToken: (token) => {
+    try {
+      if (token) {
+        localStorage.setItem(STORAGE_KEY_TOKEN, token);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_TOKEN);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  },
+  getUser: () => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_USER);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+  setUser: (user) => {
+    try {
+      if (user) {
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_USER);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  },
+  clear: () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
+      localStorage.removeItem(STORAGE_KEY_USER);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -14,72 +67,73 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setTokenState] = useState(null);
-  const [loading, setLoading] = useState(true); // Start as true until auth is verified
+  // Initialize state from localStorage for instant restore
+  const [user, setUserState] = useState(() => storage.getUser());
+  const [token, setTokenState] = useState(() => storage.getToken());
+  const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
+  // Wrapper to update token in state and storage
   const setToken = useCallback((t) => {
     setTokenState(t);
     setAuthToken(t);
+    storage.setToken(t);
   }, []);
 
-  // Initialize auth on mount - try to restore session from cookie
+  // Wrapper to update user in state and storage
+  const setUser = useCallback((u) => {
+    setUserState(u);
+    storage.setUser(u);
+  }, []);
+
+  // Initialize auth on mount - validate session with server
   useEffect(() => {
     const initAuth = async () => {
-      // Small delay to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Get stored token for Authorization header
+      const storedToken = storage.getToken();
       
-      // Retry logic for network issues
-      const maxRetries = 2;
-      let lastError = null;
-      
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          if (attempt > 0) {
-            console.log(`[Auth] Retry attempt ${attempt}...`);
-            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-          }
-          
-          console.log("[Auth] Attempting to restore session...");
-          const response = await axios.get(`${API}/auth/me`, {
-            withCredentials: true,
-            timeout: 10000,
-            headers: {
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            }
-          });
-          
-          if (response.data && response.data.user_id) {
-            console.log("[Auth] Session restored successfully:", response.data.email);
-            setUser(response.data);
-            return; // Success, exit the retry loop
-          } else {
-            throw new Error("Invalid user data received");
-          }
-        } catch (error) {
-          lastError = error;
-          if (error.response?.status === 401) {
-            console.log("[Auth] No valid session found (401)");
-            break; // Don't retry on 401 - session is truly invalid
-          }
-          // For other errors, continue retrying
-          console.warn(`[Auth] Attempt ${attempt + 1} failed:`, error.message);
+      try {
+        // Build headers - include stored token if available
+        const headers = {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        };
+        if (storedToken) {
+          headers['Authorization'] = `Bearer ${storedToken}`;
         }
+
+        const response = await axios.get(`${API}/auth/me`, {
+          withCredentials: true,
+          timeout: 10000,
+          headers
+        });
+        
+        if (response.data && response.data.user_id) {
+          setUser(response.data);
+          // If server returns a new token, update it
+          if (response.data.access_token) {
+            setToken(response.data.access_token);
+          }
+        } else {
+          throw new Error("Invalid user data");
+        }
+      } catch (error) {
+        // Only clear storage if we get a definitive 401
+        if (error.response?.status === 401) {
+          setUser(null);
+          setToken(null);
+          storage.clear();
+        }
+        // For network errors, keep the cached user (optimistic)
+        // The user will see their data, and API calls will fail if truly logged out
+      } finally {
+        setLoading(false);
+        setInitialized(true);
       }
-      
-      // All retries failed or 401 received
-      console.log("[Auth] Session restore failed, user needs to login");
-      setUser(null);
-      setToken(null);
     };
     
-    initAuth().finally(() => {
-      setLoading(false);
-      setInitialized(true);
-    });
-  }, []);
+    initAuth();
+  }, [setUser, setToken]);
 
   const checkAuth = useCallback(async () => {
     setLoading(true);
@@ -98,10 +152,11 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       setUser(null);
       setToken(null);
+      storage.clear();
       setLoading(false);
       throw error;
     }
-  }, [token]);
+  }, [token, setUser, setToken]);
 
   const login = async (email, password) => {
     setLoading(true);
@@ -161,6 +216,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setToken(null);
+      storage.clear();
     }
   };
 
