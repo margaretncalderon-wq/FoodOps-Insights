@@ -263,6 +263,50 @@ export default function LeadOutreachSection() {
     });
   };
 
+  // Check for potential duplicates when creating a new lead
+  const checkForDuplicates = useCallback((newName, newEmail, newCompany) => {
+    const warnings = [];
+    
+    // Check exact email match
+    if (newEmail) {
+      const emailMatch = leads.find(l => 
+        (l.email || "").toLowerCase().trim() === newEmail.toLowerCase().trim()
+      );
+      if (emailMatch) {
+        warnings.push({
+          type: "exact",
+          field: "email",
+          message: isEs 
+            ? `Email ya existe: "${emailMatch.lead_name || emailMatch.name}"` 
+            : `Email already exists: "${emailMatch.lead_name || emailMatch.name}"`
+        });
+      }
+    }
+    
+    // Check similar names
+    if (newName || newCompany) {
+      const nameToCheck = newCompany || newName;
+      leads.forEach(lead => {
+        const existingName = lead.company_name || lead.lead_name || lead.name || "";
+        if (!existingName) return;
+        
+        const similarity = calculateSimilarity(nameToCheck, existingName);
+        if (similarity >= 0.7) {
+          warnings.push({
+            type: similarity === 1 ? "exact" : "similar",
+            field: "name",
+            similarity: Math.round(similarity * 100),
+            message: isEs 
+              ? `${similarity === 1 ? "Existe" : "Similar a"}: "${existingName}" (${Math.round(similarity * 100)}%)` 
+              : `${similarity === 1 ? "Exists" : "Similar to"}: "${existingName}" (${Math.round(similarity * 100)}%)`
+          });
+        }
+      });
+    }
+    
+    return warnings;
+  }, [leads, calculateSimilarity, isEs]);
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.lead_name || !form.email) {
