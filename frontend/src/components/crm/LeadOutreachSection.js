@@ -939,7 +939,7 @@ export default function LeadOutreachSection() {
                     <p className="text-muted-foreground text-xs">Owner</p>
                     <p className="font-medium">
                       {selectedLead.owner_id 
-                        ? users.find(u => u.user_id === selectedLead.owner_id)?.name || selectedLead.owner_id.replace("user_", "").slice(0, 8)
+                        ? selectedLead.owner_name || users.find(u => u.user_id === selectedLead.owner_id)?.name || selectedLead.owner_id.replace("user_", "").slice(0, 8)
                         : (isEs ? "Sin asignar" : "Unassigned")}
                     </p>
                   </div>
