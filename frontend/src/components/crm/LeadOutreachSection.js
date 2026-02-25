@@ -745,20 +745,20 @@ export default function LeadOutreachSection() {
 
       {/* Table */}
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table className="min-w-[900px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[200px]">{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead className="w-[100px]">{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead className="w-[150px]">{isEs ? "Empresa" : "Company"}</TableHead>
-                <TableHead className="w-[100px]">{isEs ? "Estado" : "Status"}</TableHead>
-                <TableHead className="w-[120px]">{isEs ? "Seguimiento" : "Follow-up"}</TableHead>
-                <TableHead className="w-[100px]">Owner</TableHead>
-                <TableHead className="w-[80px]">{isEs ? "Acciones" : "Actions"}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <CardContent className="p-0" style={{ overflowX: 'auto' }}>
+          <table className="w-full caption-bottom text-sm" style={{ minWidth: '900px', tableLayout: 'fixed' }}>
+            <thead className="[&_tr]:border-b">
+              <tr className="border-b transition-colors hover:bg-muted/50">
+                <th style={{ width: '200px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">{isEs ? "Nombre" : "Name"}</th>
+                <th style={{ width: '100px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">{isEs ? "Contacto" : "Contact"}</th>
+                <th style={{ width: '150px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">{isEs ? "Empresa" : "Company"}</th>
+                <th style={{ width: '100px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">{isEs ? "Estado" : "Status"}</th>
+                <th style={{ width: '120px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">{isEs ? "Seguimiento" : "Follow-up"}</th>
+                <th style={{ width: '100px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Owner</th>
+                <th style={{ width: '130px' }} className="h-10 px-2 text-left align-middle font-medium text-muted-foreground">{isEs ? "Acciones" : "Actions"}</th>
+              </tr>
+            </thead>
+            <tbody className="[&_tr:last-child]:border-0">
               {sortedAndFilteredLeads.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
