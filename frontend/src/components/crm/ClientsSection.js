@@ -13,14 +13,17 @@ import { Textarea } from "../ui/textarea";
 import { Switch } from "../ui/switch";
 import { Progress } from "../ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { 
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
   Eye, TrendingUp, Edit, Trash2, UserPlus, CreditCard, Plus,
-  MessageCircle, ExternalLink, Users, FileText, Link2, Copy
+  MessageCircle, ExternalLink, Users, FileText, Link2, Copy,
+  ChevronDown, ChevronRight, MoreHorizontal
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommsLogSection from "./CommsLogSection";
 import CommunicationsTimeline from "./CommunicationsTimeline";
 import CommsChannelTimeline from "./CommsChannelTimeline";
