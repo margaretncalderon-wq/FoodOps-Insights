@@ -389,6 +389,34 @@ def get_cookie_domain(request):
 - Owner name enrichment via `enrich_leads_with_owner_names()` function
 - Audit logging for deletions
 
+#### P0/P1 Fixes Session ✅
+
+**P0 - UI para Contactos en Leads**:
+- Status: ✅ COMPLETE
+- Added "Contacts" tab to Lead detail dialogs (both Outreach and Inbound)
+- Tab layout now: Info | Contacts | Comms
+- Contacts tab shows list of contacts or "No contacts yet" message
+- Add Contact dialog with fields: Name*, Email, Phone, WhatsApp, Role, Primary checkbox
+- Functions: fetchLeadContacts, handleAddContact, handleDeleteContact
+
+**P1 - File Upload for Bug Report**:
+- Status: ✅ COMPLETE
+- New endpoint: `POST /api/upload` with authentication
+- Supports images (jpeg, png, gif, webp) and videos (mp4, webm, quicktime)
+- Files saved to `/app/backend/uploads/` with unique UUID names
+- Returns: `{ url, file_url, filename }`
+- BugReportButton.js already had UI, now has working backend
+
+**Testing Results:**
+- Backend: 100% success rate
+- Frontend: 100% (5/5 features verified)
+- Test report: `/app/test_reports/iteration_68.json`
+
+**Files Modified:**
+- `backend/server.py` - Added `/api/upload` endpoint
+- `frontend/src/components/crm/LeadOutreachSection.js` - Added Contacts tab + Add Contact dialog
+- `frontend/src/components/crm/LeadInboundSection.js` - Added Contacts tab + Add Contact dialog
+
 
 **Frontend Implementation:**
 - `components/crm/CompaniesSection.js` - Full CRUD UI for companies
