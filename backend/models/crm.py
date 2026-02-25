@@ -79,6 +79,7 @@ class LeadCreate(BaseModel):
     email: str
     phone: Optional[str] = None
     company_name: Optional[str] = None
+    company_entity_id: Optional[str] = None  # Link to Company record
     event_type: str = "other"
     event_date: Optional[str] = None  # Can be "TBD" or a date string
     estimated_guest_count: Optional[int] = None
@@ -89,6 +90,8 @@ class LeadCreate(BaseModel):
     # Additional client-compatible fields for easier conversion
     whatsapp: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
     rnc: Optional[str] = None
     client_type: str = "Individual"  # Individual, Company
     # CRM Enhancement fields (additive)
@@ -104,12 +107,15 @@ class LeadCreate(BaseModel):
 
 class Lead(BaseModel):
     lead_id: str
-    company_id: str
+    company_id: str  # Organization/tenant ID
+    company_entity_id: Optional[str] = None  # Link to Company record
     lead_name: str
     email: str
     phone: Optional[str] = None
     whatsapp: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
     rnc: Optional[str] = None
     client_type: str = "Individual"  # Individual, Company
     company_name: Optional[str] = None
