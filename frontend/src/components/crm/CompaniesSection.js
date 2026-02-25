@@ -153,9 +153,16 @@ export default function CompaniesSection() {
   const handleUpdateCompany = async () => {
     if (!selectedCompany) return;
     try {
-      await axios.put(`${API}/api/companies/${selectedCompany.company_entity_id}`, companyForm, { withCredentials: true });
+      const payload = {
+        ...companyForm,
+        industry: companyForm.industry === "other" ? companyForm.customIndustry : companyForm.industry
+      };
+      delete payload.customIndustry;
+      
+      await axios.put(`${API}/api/companies/${selectedCompany.company_entity_id}`, payload, { withCredentials: true });
       toast.success(isEs ? "Empresa actualizada" : "Company updated");
       setEditOpen(false);
+      setShowCustomIndustry(false);
       fetchCompanies();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
