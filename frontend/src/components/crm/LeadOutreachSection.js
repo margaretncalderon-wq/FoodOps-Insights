@@ -89,12 +89,15 @@ export default function LeadOutreachSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date_desc"); // date_desc, date_asc, alpha_asc, alpha_desc
   const [viewMode, setViewMode] = useState("list"); // "list" or "kanban"
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [form, setForm] = useState({
     lead_name: "",
