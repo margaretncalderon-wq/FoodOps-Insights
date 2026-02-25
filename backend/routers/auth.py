@@ -566,7 +566,9 @@ async def debug_cookies(request: Request):
 
 
 @auth_router.get("/me", response_model=User)
-async def get_me(user: User = Depends(get_current_user)):
+async def get_me(request: Request, user: User = Depends(get_current_user)):
+    """Get current authenticated user - used to restore session on page refresh"""
+    logger.info(f"GET /auth/me - User restored: {user.email}")
     return user
 
 
