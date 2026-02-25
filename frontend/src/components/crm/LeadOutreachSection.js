@@ -411,9 +411,8 @@ export default function LeadOutreachSection() {
   const handleDelete = async () => {
     if (!selectedLead) return;
     try {
-      await axios.delete(`${API}/api/leads/${selectedLead.lead_id}`, { 
-        withCredentials: true,
-        data: { reason: deleteReason }
+      await axios.delete(`${API}/api/crm/leads/${selectedLead.lead_id}`, { 
+        withCredentials: true
       });
       toast.success(isEs ? "Lead eliminado" : "Lead deleted");
       fetchLeads(true);
