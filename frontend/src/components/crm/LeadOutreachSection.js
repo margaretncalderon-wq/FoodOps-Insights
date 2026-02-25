@@ -672,7 +672,7 @@ export default function LeadOutreachSection() {
     return getDuplicateReasons(lead).length > 0;
   };
 
-  const totalDuplicates = duplicateInfo.companies.length + duplicateInfo.names.length + duplicateInfo.emails.length;
+  const totalDuplicates = duplicateInfo.companies.length + duplicateInfo.names.length + duplicateInfo.emails.length + duplicateInfo.similarGroups.length;
 
   const getStatusBadge = (status) => {
     const normalizedStatus = status?.toLowerCase();
