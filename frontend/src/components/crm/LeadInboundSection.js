@@ -460,12 +460,42 @@ export default function LeadInboundSection() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[180px]">
+            <ArrowUpDown className="w-4 h-4 mr-2" />
+            <SelectValue placeholder={isEs ? "Ordenar" : "Sort"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc">{isEs ? "Más reciente" : "Newest first"}</SelectItem>
+            <SelectItem value="date_asc">{isEs ? "Más antiguo" : "Oldest first"}</SelectItem>
+            <SelectItem value="alpha_asc">{isEs ? "A-Z (Empresa)" : "A-Z (Company)"}</SelectItem>
+            <SelectItem value="alpha_desc">{isEs ? "Z-A (Empresa)" : "Z-A (Company)"}</SelectItem>
+          </SelectContent>
+        </Select>
         {(statusFilter !== "all" || ownerFilter !== "all") && (
           <Button variant="outline" onClick={() => { setStatusFilter("all"); setOwnerFilter("all"); }} size="sm">
             {isEs ? "Limpiar" : "Clear"}
           </Button>
         )}
       </div>
+
+      {/* Duplicate Warning */}
+      {duplicateCompanies.length > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-600" />
+          <div>
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              {isEs ? "Posibles duplicados detectados" : "Potential duplicates detected"}
+            </p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+              {isEs 
+                ? `${duplicateCompanies.length} empresa(s) aparecen más de una vez: ${duplicateCompanies.slice(0, 3).join(", ")}${duplicateCompanies.length > 3 ? "..." : ""}`
+                : `${duplicateCompanies.length} company(ies) appear more than once: ${duplicateCompanies.slice(0, 3).join(", ")}${duplicateCompanies.length > 3 ? "..." : ""}`
+              }
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <Card>
@@ -484,20 +514,23 @@ export default function LeadInboundSection() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLeads.length === 0 ? (
+              {sortedAndFilteredLeads.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay leads inbound" : "No inbound leads"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLeads.map((lead) => (
+                sortedAndFilteredLeads.map((lead) => (
                   <TableRow 
                     key={lead.lead_id} 
-                    className={`cursor-pointer hover:bg-muted/50 ${isNewLead(lead) ? "bg-blue-50/50" : ""}`}
+                    className={`cursor-pointer hover:bg-muted/50 ${isNewLead(lead) ? "bg-blue-50/50" : ""} ${isDuplicate(lead) ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
                   >
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        {isDuplicate(lead) && (
+                          <AlertTriangle className="w-4 h-4 text-yellow-600" title={isEs ? "Posible duplicado" : "Possible duplicate"} />
+                        )}
                         {getSourceIcon(lead.source)}
                         <span className="text-sm">{lead.source}</span>
                       </div>
