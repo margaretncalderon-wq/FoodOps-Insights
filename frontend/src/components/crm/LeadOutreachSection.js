@@ -660,17 +660,23 @@ export default function LeadOutreachSection() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLeads.length === 0 ? (
+              {sortedAndFilteredLeads.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay leads de outreach" : "No outreach leads"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLeads.map((lead) => (
-                  <TableRow key={lead.lead_id} className="cursor-pointer hover:bg-muted/50">
+                sortedAndFilteredLeads.map((lead) => (
+                  <TableRow 
+                    key={lead.lead_id} 
+                    className={`cursor-pointer hover:bg-muted/50 ${isDuplicate(lead) ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
+                  >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
+                        {isDuplicate(lead) && (
+                          <AlertTriangle className="w-4 h-4 text-yellow-600" title={isEs ? "Posible duplicado" : "Possible duplicate"} />
+                        )}
                         {lead.client_type === "Company" ? (
                           <Building2 className="w-4 h-4 text-blue-600" />
                         ) : (
