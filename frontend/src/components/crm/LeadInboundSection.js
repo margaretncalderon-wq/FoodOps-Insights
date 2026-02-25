@@ -1010,6 +1010,50 @@ export default function LeadInboundSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              {isEs ? "Eliminar Lead" : "Delete Lead"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-sm text-red-800 dark:text-red-200">
+                {isEs 
+                  ? `¿Estás seguro de que deseas eliminar "${selectedLead?.lead_name || selectedLead?.company_name || "este lead"}"?`
+                  : `Are you sure you want to delete "${selectedLead?.lead_name || selectedLead?.company_name || "this lead"}"?`
+                }
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                {isEs ? "Esta acción no se puede deshacer." : "This action cannot be undone."}
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm">{isEs ? "Motivo de eliminación (opcional)" : "Reason for deletion (optional)"}</Label>
+              <Textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder={isEs ? "Ej: Duplicado, datos incorrectos, etc." : "E.g.: Duplicate, incorrect data, etc."}
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isEs ? "Sí, eliminar" : "Yes, delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
