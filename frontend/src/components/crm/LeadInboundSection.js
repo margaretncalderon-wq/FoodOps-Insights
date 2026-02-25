@@ -350,6 +350,47 @@ export default function LeadInboundSection() {
     }
   };
 
+  // Lead contacts functions
+  const fetchLeadContacts = async (leadId) => {
+    if (!leadId) return;
+    setLoadingContacts(true);
+    try {
+      const res = await axios.get(`${API}/api/crm/leads/${leadId}/contacts`, { withCredentials: true });
+      setLeadContacts(res.data || []);
+    } catch (err) {
+      console.error("Error fetching contacts:", err);
+      setLeadContacts([]);
+    }
+    setLoadingContacts(false);
+  };
+
+  const handleAddContact = async () => {
+    if (!selectedLead || !contactForm.name.trim()) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+    try {
+      await axios.post(`${API}/api/crm/leads/${selectedLead.lead_id}/contacts`, contactForm, { withCredentials: true });
+      toast.success(isEs ? "Contacto agregado" : "Contact added");
+      fetchLeadContacts(selectedLead.lead_id);
+      setAddContactOpen(false);
+      setContactForm({ name: "", email: "", phone: "", whatsapp: "", role: "", is_primary: false });
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al agregar contacto");
+    }
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    if (!selectedLead || !contactId) return;
+    try {
+      await axios.delete(`${API}/api/crm/leads/${selectedLead.lead_id}/contacts/${contactId}`, { withCredentials: true });
+      toast.success(isEs ? "Contacto eliminado" : "Contact removed");
+      fetchLeadContacts(selectedLead.lead_id);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al eliminar contacto");
+    }
+  };
+
   const handleAssign = async () => {
     if (!selectedLead) return;
     try {
