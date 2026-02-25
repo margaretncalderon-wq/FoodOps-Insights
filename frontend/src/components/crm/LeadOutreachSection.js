@@ -99,6 +99,7 @@ export default function LeadOutreachSection() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null); // For showing warning when creating
   const [form, setForm] = useState({
     lead_name: "",
     email: "",
