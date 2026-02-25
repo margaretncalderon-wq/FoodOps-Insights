@@ -283,6 +283,27 @@ export default function LeadInboundSection() {
     setAssignOpen(true);
   };
 
+  const openDelete = (lead) => {
+    setSelectedLead(lead);
+    setDeleteReason("");
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedLead) return;
+    try {
+      await axios.delete(`${API}/api/crm/leads/${selectedLead.lead_id}`, { 
+        withCredentials: true
+      });
+      toast.success(isEs ? "Lead eliminado" : "Lead deleted");
+      fetchLeads();
+      setDeleteOpen(false);
+      setSelectedLead(null);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al eliminar");
+    }
+  };
+
   const handleAssign = async () => {
     if (!selectedLead) return;
     try {
