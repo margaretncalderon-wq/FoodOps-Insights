@@ -1126,6 +1126,85 @@ async def get_comm_logs(entity_type: str, entity_id: str, user: User = Depends(g
     return logs
 
 
+# ============== LEAD CONTACTS ==============
+
+@crm_router.get("/leads/{lead_id}/contacts")
+async def get_lead_contacts(lead_id: str, user: User = Depends(get_current_user)):
+    """Get all contacts for a specific lead"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Verify lead exists
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    contacts = await db.contacts.find(
+        {"company_id": company_id, "lead_id": lead_id},
+        {"_id": 0}
+    ).sort("is_primary", -1).to_list(50)
+    
+    return contacts
+
+
+@crm_router.post("/leads/{lead_id}/contacts")
+async def add_lead_contact(lead_id: str, contact: dict, user: User = Depends(get_current_user)):
+    """Add a contact to a lead"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Verify lead exists
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    import secrets
+    now = datetime.utcnow()
+    
+    # If this is primary, unset other primaries
+    if contact.get("is_primary"):
+        await db.contacts.update_many(
+            {"lead_id": lead_id, "is_primary": True},
+            {"$set": {"is_primary": False}}
+        )
+    
+    new_contact = {
+        "contact_id": f"contact_{secrets.token_hex(6)}",
+        "company_id": company_id,
+        "lead_id": lead_id,
+        "client_id": None,
+        "name": contact.get("name", ""),
+        "email": contact.get("email"),
+        "phone": contact.get("phone"),
+        "whatsapp": contact.get("whatsapp"),
+        "role": contact.get("role"),
+        "role_title": contact.get("role") or contact.get("role_title"),
+        "is_primary": contact.get("is_primary", False),
+        "is_billing_contact": contact.get("is_billing_contact", False),
+        "created_at": now
+    }
+    
+    await db.contacts.insert_one(new_contact)
+    del new_contact["_id"]
+    
+    return new_contact
+
+
+@crm_router.delete("/leads/{lead_id}/contacts/{contact_id}")
+async def delete_lead_contact(lead_id: str, contact_id: str, user: User = Depends(get_current_user)):
+    """Delete a contact from a lead"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.contacts.delete_one({
+        "contact_id": contact_id,
+        "lead_id": lead_id,
+        "company_id": company_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    return {"success": True, "message": "Contact deleted"}
+
+
 # ============== COMMUNICATIONS TIMELINE (Lead/Client specific with history) ==============
 
 @crm_router.get("/leads/{lead_id}/communications")
