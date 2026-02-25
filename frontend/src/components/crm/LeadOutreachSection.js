@@ -455,12 +455,45 @@ export default function LeadOutreachSection() {
             {isEs ? "Contactos proactivos iniciados por el equipo" : "Proactive contacts initiated by the team"}
           </p>
         </div>
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-outreach-btn">
-          <Plus className="w-4 h-4 mr-2" />
-          {isEs ? "Nuevo Outreach" : "New Outreach"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex border rounded-lg p-1">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => setViewMode("list")}
+            >
+              <LayoutList className="w-4 h-4 mr-1" />
+              {isEs ? "Lista" : "List"}
+            </Button>
+            <Button
+              variant={viewMode === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => setViewMode("kanban")}
+            >
+              <Kanban className="w-4 h-4 mr-1" />
+              Kanban
+            </Button>
+          </div>
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-outreach-btn">
+            <Plus className="w-4 h-4 mr-2" />
+            {isEs ? "Nuevo Outreach" : "New Outreach"}
+          </Button>
+        </div>
       </div>
 
+      {/* Kanban View */}
+      {viewMode === "kanban" ? (
+        <LeadKanbanView 
+          onLeadClick={(lead) => {
+            setSelectedLead(lead);
+            setDetailOpen(true);
+          }}
+        />
+      ) : (
+      <>
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {OUTREACH_STATUSES.map(status => {
