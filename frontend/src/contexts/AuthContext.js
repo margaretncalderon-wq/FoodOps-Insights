@@ -14,7 +14,7 @@ const storage = {
   getToken: () => {
     try {
       return localStorage.getItem(STORAGE_KEY_TOKEN);
-    } catch {
+    } catch (e) {
       return null;
     }
   },
@@ -25,7 +25,7 @@ const storage = {
       } else {
         localStorage.removeItem(STORAGE_KEY_TOKEN);
       }
-    } catch {
+    } catch (e) {
       // Ignore storage errors
     }
   },
@@ -33,7 +33,7 @@ const storage = {
     try {
       const data = localStorage.getItem(STORAGE_KEY_USER);
       return data ? JSON.parse(data) : null;
-    } catch {
+    } catch (e) {
       return null;
     }
   },
@@ -44,7 +44,7 @@ const storage = {
       } else {
         localStorage.removeItem(STORAGE_KEY_USER);
       }
-    } catch {
+    } catch (e) {
       // Ignore storage errors
     }
   },
@@ -52,7 +52,7 @@ const storage = {
     try {
       localStorage.removeItem(STORAGE_KEY_TOKEN);
       localStorage.removeItem(STORAGE_KEY_USER);
-    } catch {
+    } catch (e) {
       // Ignore storage errors
     }
   }
