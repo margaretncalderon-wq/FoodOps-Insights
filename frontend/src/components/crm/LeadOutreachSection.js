@@ -666,7 +666,18 @@ export default function LeadOutreachSection() {
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedAndFilteredLeads.map((lead) => (
+                sortedAndFilteredLeads.map((lead) => {
+                  // Determine what to show in Name vs Company columns
+                  const hasCompany = lead.company_name && lead.company_name.trim();
+                  const contactName = lead.lead_name || lead.name || "";
+                  const companyName = lead.company_name || "";
+                  
+                  // If contact name equals company name, it's probably a company entry - show company in Company column, leave Name for contact
+                  const nameIsSameAsCompany = contactName.toLowerCase().trim() === companyName.toLowerCase().trim();
+                  const displayName = nameIsSameAsCompany ? "-" : (contactName || "-");
+                  const displayCompany = hasCompany ? companyName : "-";
+                  
+                  return (
                   <TableRow 
                     key={lead.lead_id} 
                     className={`cursor-pointer hover:bg-muted/50 ${isDuplicate(lead) ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
@@ -676,12 +687,12 @@ export default function LeadOutreachSection() {
                         {isDuplicate(lead) && (
                           <AlertTriangle className="w-4 h-4 text-yellow-600" title={isEs ? "Posible duplicado" : "Possible duplicate"} />
                         )}
-                        {lead.client_type === "Company" ? (
+                        {lead.client_type === "Company" || hasCompany ? (
                           <Building2 className="w-4 h-4 text-blue-600" />
                         ) : (
                           <User className="w-4 h-4 text-purple-600" />
                         )}
-                        {lead.lead_name || lead.name || lead.company_name || "-"}
+                        {displayName !== "-" ? displayName : (hasCompany ? companyName : "-")}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -705,11 +716,13 @@ export default function LeadOutreachSection() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {lead.company_name && (
+                      {hasCompany && !nameIsSameAsCompany ? (
                         <span className="flex items-center gap-1 text-sm">
                           <Building2 className="w-3 h-3" />
-                          {lead.company_name}
+                          {companyName}
                         </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>{getStatusBadge(getEffectiveStatus(lead))}</TableCell>
