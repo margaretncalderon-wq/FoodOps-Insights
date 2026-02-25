@@ -1712,6 +1712,20 @@ async def reset_pipeline_stages(user: User = Depends(get_current_user)):
 @crm_router.get("/leads/by-stage")
 async def get_leads_by_stage(user: User = Depends(get_current_user)):
     """Get leads grouped by pipeline stage for Kanban view"""
+    import math
+    
+    def clean_nan_values(obj):
+        """Recursively clean NaN and Inf values from dict/list"""
+        if isinstance(obj, dict):
+            return {k: clean_nan_values(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [clean_nan_values(item) for item in obj]
+        elif isinstance(obj, float):
+            if math.isnan(obj) or math.isinf(obj):
+                return None
+            return obj
+        return obj
+    
     company_id = user.company_id or user.active_org_id
     if not company_id:
         return {"stages": DEFAULT_PIPELINE_STAGES, "leads_by_stage": {}}
@@ -1731,6 +1745,9 @@ async def get_leads_by_stage(user: User = Depends(get_current_user)):
         },
         {"_id": 0}
     ).sort("updated_at", -1).to_list(500)
+    
+    # Clean NaN values
+    leads = [clean_nan_values(lead) for lead in leads]
     
     # Group by pipeline_stage (fallback to status mapping)
     leads_by_stage = {stage["id"]: [] for stage in stages}
