@@ -690,6 +690,8 @@ export default function LeadOutreachSection() {
           </Table>
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* Create Dialog - Enhanced with Client-compatible fields */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
