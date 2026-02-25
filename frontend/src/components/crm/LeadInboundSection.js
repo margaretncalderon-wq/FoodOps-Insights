@@ -486,7 +486,7 @@ export default function LeadInboundSection() {
                     <TableCell>
                       {lead.owner_id ? (
                         <Badge variant="outline" className="text-xs">
-                          {users.find(u => u.user_id === lead.owner_id)?.name || lead.owner_id.replace("user_", "").slice(0, 8)}
+                          {lead.owner_name || users.find(u => u.user_id === lead.owner_id)?.name || lead.owner_id.replace("user_", "").slice(0, 8)}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
