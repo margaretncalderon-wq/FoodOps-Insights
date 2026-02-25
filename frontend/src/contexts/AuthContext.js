@@ -27,12 +27,24 @@ export const AuthProvider = ({ children }) => {
   // Initialize auth on mount - try to restore session from cookie
   useEffect(() => {
     const initAuth = async () => {
+      // Add a small delay to ensure cookies are available
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       try {
+        console.log("[Auth] Attempting to restore session...");
         const response = await axios.get(`${API}/auth/me`, {
           withCredentials: true,
+          timeout: 10000, // 10 second timeout
         });
+        console.log("[Auth] Session restored successfully:", response.data?.email);
         setUser(response.data);
       } catch (error) {
+        // Log the specific error for debugging
+        if (error.response?.status === 401) {
+          console.log("[Auth] No valid session found (401)");
+        } else {
+          console.warn("[Auth] Session restore error:", error.message);
+        }
         // No session or expired - that's ok, user will need to login
         setUser(null);
         setToken(null);
