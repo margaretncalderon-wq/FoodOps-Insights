@@ -543,11 +543,18 @@ export default function CompaniesSection() {
               </div>
               <div>
                 <Label>{isEs ? "Industria" : "Industry"}</Label>
-                <Input
-                  value={companyForm.industry}
-                  onChange={(e) => setCompanyForm({ ...companyForm, industry: e.target.value })}
-                  placeholder={isEs ? "Tecnología" : "Technology"}
-                />
+                <Select value={companyForm.industry} onValueChange={(v) => setCompanyForm({ ...companyForm, industry: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDUSTRIES.map(ind => (
+                      <SelectItem key={ind.value} value={ind.value}>
+                        {isEs ? ind.labelEs : ind.labelEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>RNC</Label>
