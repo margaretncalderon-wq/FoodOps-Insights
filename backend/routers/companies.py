@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 from typing import Optional, List
-from models.user import User
+from models.auth import User
 from dependencies import get_current_user, db
 from models.crm import CompanyCreate, ContactCreate
 
