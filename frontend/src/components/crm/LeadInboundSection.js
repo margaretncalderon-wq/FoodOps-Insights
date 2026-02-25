@@ -212,31 +212,112 @@ export default function LeadInboundSection() {
       }
     });
 
-  // Detect potential duplicates by company, name, or email
+  // Normalize string for comparison - removes accents, special chars, common suffixes
+  const normalizeForComparison = useCallback((str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .trim()
+      // Remove accents
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      // Remove common company suffixes
+      .replace(/\b(s\.?a\.?|s\.?r\.?l\.?|inc\.?|llc\.?|corp\.?|ltd\.?|co\.?|cia\.?)\b/gi, "")
+      // Remove special characters except spaces
+      .replace(/[^a-z0-9\s]/g, "")
+      // Remove extra spaces
+      .replace(/\s+/g, " ")
+      .trim();
+  }, []);
+
+  // Calculate similarity between two strings (0-1)
+  const calculateSimilarity = useCallback((str1, str2) => {
+    const s1 = normalizeForComparison(str1);
+    const s2 = normalizeForComparison(str2);
+    
+    if (!s1 || !s2) return 0;
+    if (s1 === s2) return 1;
+    
+    // Check if one contains the other
+    if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+    
+    // Simple similarity for short strings
+    const longer = s1.length > s2.length ? s1 : s2;
+    const shorter = s1.length > s2.length ? s2 : s1;
+    
+    if (longer.length === 0) return 1;
+    if (shorter.length / longer.length < 0.5) return 0;
+    
+    // Count matching characters in order
+    let matches = 0;
+    let j = 0;
+    for (let i = 0; i < longer.length && j < shorter.length; i++) {
+      if (longer[i] === shorter[j]) {
+        matches++;
+        j++;
+      }
+    }
+    
+    return matches / longer.length;
+  }, [normalizeForComparison]);
+
+  // Detect potential duplicates with fuzzy matching
   const duplicateInfo = useMemo(() => {
-    const companyCount = {};
-    const nameCount = {};
-    const emailCount = {};
+    const exactCompanyCount = {};
+    const exactNameCount = {};
+    const exactEmailCount = {};
+    const similarGroups = [];
     
     leads.forEach(lead => {
       const company = (lead.company_name || "").toLowerCase().trim();
       const name = (lead.lead_name || lead.name || "").toLowerCase().trim();
       const email = (lead.email || "").toLowerCase().trim();
       
-      if (company) companyCount[company] = (companyCount[company] || 0) + 1;
-      if (name) nameCount[name] = (nameCount[name] || 0) + 1;
-      if (email) emailCount[email] = (emailCount[email] || 0) + 1;
+      if (company) exactCompanyCount[company] = (exactCompanyCount[company] || 0) + 1;
+      if (name) exactNameCount[name] = (exactNameCount[name] || 0) + 1;
+      if (email) exactEmailCount[email] = (exactEmailCount[email] || 0) + 1;
+    });
+    
+    // Find similar names/companies (fuzzy matching)
+    const processedPairs = new Set();
+    
+    leads.forEach((lead1, i) => {
+      const name1 = lead1.company_name || lead1.lead_name || lead1.name || "";
+      if (!name1) return;
+      
+      leads.forEach((lead2, j) => {
+        if (i >= j) return;
+        
+        const name2 = lead2.company_name || lead2.lead_name || lead2.name || "";
+        if (!name2) return;
+        
+        const pairKey = [lead1.lead_id, lead2.lead_id].sort().join("-");
+        if (processedPairs.has(pairKey)) return;
+        processedPairs.add(pairKey);
+        
+        const similarity = calculateSimilarity(name1, name2);
+        
+        if (similarity >= 0.7) {
+          similarGroups.push({
+            lead1: lead1.lead_id,
+            lead2: lead2.lead_id,
+            name1,
+            name2,
+            similarity: Math.round(similarity * 100)
+          });
+        }
+      });
     });
     
     return {
-      companies: Object.keys(companyCount).filter(c => companyCount[c] > 1),
-      names: Object.keys(nameCount).filter(n => nameCount[n] > 1),
-      emails: Object.keys(emailCount).filter(e => emailCount[e] > 1),
-      companyCount,
-      nameCount,
-      emailCount
+      companies: Object.keys(exactCompanyCount).filter(c => exactCompanyCount[c] > 1),
+      names: Object.keys(exactNameCount).filter(n => exactNameCount[n] > 1),
+      emails: Object.keys(exactEmailCount).filter(e => exactEmailCount[e] > 1),
+      companyCount: exactCompanyCount,
+      nameCount: exactNameCount,
+      emailCount: exactEmailCount,
+      similarGroups
     };
-  }, [leads]);
+  }, [leads, calculateSimilarity]);
 
   const getDuplicateReasons = (lead) => {
     const reasons = [];
@@ -245,14 +326,24 @@ export default function LeadInboundSection() {
     const email = (lead.email || "").toLowerCase().trim();
     
     if (company && duplicateInfo.companies.includes(company)) {
-      reasons.push(`${isEs ? "Empresa" : "Company"} (${duplicateInfo.companyCount[company]}x)`);
+      reasons.push(`${isEs ? "Empresa exacta" : "Exact company"} (${duplicateInfo.companyCount[company]}x)`);
     }
     if (name && duplicateInfo.names.includes(name)) {
-      reasons.push(`${isEs ? "Nombre" : "Name"} (${duplicateInfo.nameCount[name]}x)`);
+      reasons.push(`${isEs ? "Nombre exacto" : "Exact name"} (${duplicateInfo.nameCount[name]}x)`);
     }
     if (email && duplicateInfo.emails.includes(email)) {
       reasons.push(`Email (${duplicateInfo.emailCount[email]}x)`);
     }
+    
+    // Similar matches (fuzzy)
+    const similarMatch = duplicateInfo.similarGroups.find(
+      g => g.lead1 === lead.lead_id || g.lead2 === lead.lead_id
+    );
+    if (similarMatch && reasons.length === 0) {
+      const otherName = similarMatch.lead1 === lead.lead_id ? similarMatch.name2 : similarMatch.name1;
+      reasons.push(`${isEs ? "Similar a" : "Similar to"} "${otherName}" (${similarMatch.similarity}%)`);
+    }
+    
     return reasons;
   };
 
@@ -260,7 +351,7 @@ export default function LeadInboundSection() {
     return getDuplicateReasons(lead).length > 0;
   };
 
-  const totalDuplicates = duplicateInfo.companies.length + duplicateInfo.names.length + duplicateInfo.emails.length;
+  const totalDuplicates = duplicateInfo.companies.length + duplicateInfo.names.length + duplicateInfo.emails.length + duplicateInfo.similarGroups.length;
 
   // Stats - case-insensitive comparison
   const newLeads = leads.filter(l => l.status?.toLowerCase() === "new").length;
