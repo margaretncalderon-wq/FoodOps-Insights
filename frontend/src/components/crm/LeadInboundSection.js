@@ -954,6 +954,74 @@ export default function LeadInboundSection() {
                 )}
               </TabsContent>
 
+              {/* Contacts Tab */}
+              <TabsContent value="contacts" className="mt-0 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {isEs ? "Personas de contacto para este lead" : "Contact people for this lead"}
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => setAddContactOpen(true)}>
+                    <Plus className="w-3 h-3 mr-1" />
+                    {isEs ? "Agregar" : "Add"}
+                  </Button>
+                </div>
+                
+                {loadingContacts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : leadContacts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">{isEs ? "No hay contactos" : "No contacts yet"}</p>
+                    <p className="text-xs mt-1">{isEs ? "Agrega personas de contacto para este lead" : "Add contact people for this lead"}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {leadContacts.map((contact) => (
+                      <div key={contact.contact_id} className="p-3 bg-muted/50 rounded-lg flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{contact.name}</p>
+                            {contact.is_primary && (
+                              <Badge variant="outline" className="text-[10px] h-4">{isEs ? "Principal" : "Primary"}</Badge>
+                            )}
+                            {contact.role && (
+                              <Badge variant="secondary" className="text-[10px] h-4">{contact.role}</Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                            {contact.email && (
+                              <a href={`mailto:${contact.email}`} className="flex items-center gap-1 hover:text-primary">
+                                <Mail className="w-3 h-3" /> {contact.email}
+                              </a>
+                            )}
+                            {contact.phone && (
+                              <a href={`tel:${contact.phone}`} className="flex items-center gap-1 hover:text-primary">
+                                <Phone className="w-3 h-3" /> {contact.phone}
+                              </a>
+                            )}
+                            {contact.whatsapp && (
+                              <a href={getWhatsAppLink(contact.whatsapp)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-700">
+                                <MessageCircle className="w-3 h-3" /> WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteContact(contact.contact_id)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
               {/* Comms Tab */}
               <TabsContent value="comms" className="mt-0">
                 <UnifiedCommsTimeline 
