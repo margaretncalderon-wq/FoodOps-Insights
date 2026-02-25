@@ -714,32 +714,44 @@ export default function CompaniesSection() {
               </div>
               <div>
                 <Label>{isEs ? "Industria" : "Industry"}</Label>
-                <Select 
-                  value={companyForm.industry} 
-                  onValueChange={(v) => {
-                    setCompanyForm({ ...companyForm, industry: v, customIndustry: v === "other" ? companyForm.customIndustry : "" });
-                    setShowCustomIndustry(v === "other");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INDUSTRIES.map(ind => (
-                      <SelectItem key={ind.value} value={ind.value}>
-                        {isEs ? ind.labelEs : ind.labelEn}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {showCustomIndustry && (
-                  <Input
-                    className="mt-2"
-                    value={companyForm.customIndustry}
-                    onChange={(e) => setCompanyForm({ ...companyForm, customIndustry: e.target.value })}
-                    placeholder={isEs ? "Escribe la industria..." : "Type industry..."}
-                  />
-                )}
+                <div className="flex gap-2">
+                  <Select 
+                    value={companyForm.industry} 
+                    onValueChange={(v) => setCompanyForm({ ...companyForm, industry: v })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {industries.predefined.map(ind => (
+                        <SelectItem key={ind.value} value={ind.value}>
+                          {isEs ? ind.labelEs : ind.labelEn}
+                        </SelectItem>
+                      ))}
+                      {industries.custom.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs text-muted-foreground border-t mt-1 pt-1">
+                            {isEs ? "Personalizadas" : "Custom"}
+                          </div>
+                          {industries.custom.map(ind => (
+                            <SelectItem key={ind.value} value={ind.value}>
+                              {isEs ? ind.labelEs : ind.labelEn}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => setIndustryDialogOpen(true)}
+                    title={isEs ? "Agregar industria" : "Add industry"}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label>RNC</Label>
