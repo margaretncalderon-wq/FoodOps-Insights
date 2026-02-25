@@ -612,7 +612,37 @@ export default function LeadOutreachSection() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[180px]">
+            <ArrowUpDown className="w-4 h-4 mr-2" />
+            <SelectValue placeholder={isEs ? "Ordenar" : "Sort"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc">{isEs ? "Más reciente" : "Newest first"}</SelectItem>
+            <SelectItem value="date_asc">{isEs ? "Más antiguo" : "Oldest first"}</SelectItem>
+            <SelectItem value="alpha_asc">{isEs ? "A-Z (Empresa)" : "A-Z (Company)"}</SelectItem>
+            <SelectItem value="alpha_desc">{isEs ? "Z-A (Empresa)" : "Z-A (Company)"}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Duplicate Warning */}
+      {duplicateCompanies.length > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-600" />
+          <div>
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              {isEs ? "Posibles duplicados detectados" : "Potential duplicates detected"}
+            </p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+              {isEs 
+                ? `${duplicateCompanies.length} empresa(s) aparecen más de una vez: ${duplicateCompanies.slice(0, 3).join(", ")}${duplicateCompanies.length > 3 ? "..." : ""}`
+                : `${duplicateCompanies.length} company(ies) appear more than once: ${duplicateCompanies.slice(0, 3).join(", ")}${duplicateCompanies.length > 3 ? "..." : ""}`
+              }
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <Card>
