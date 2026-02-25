@@ -307,12 +307,22 @@ export default function LeadOutreachSection() {
     return warnings;
   }, [leads, calculateSimilarity, isEs]);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  const handleCreate = async (e, forceCreate = false) => {
+    e?.preventDefault();
     if (!form.lead_name || !form.email) {
       toast.error(isEs ? "Nombre y email son requeridos" : "Name and email are required");
       return;
     }
+    
+    // Check for duplicates unless force creating
+    if (!forceCreate) {
+      const warnings = checkForDuplicates(form.lead_name, form.email, form.company_name);
+      if (warnings.length > 0) {
+        setDuplicateWarning(warnings);
+        return; // Don't create, show warning
+      }
+    }
+    
     try {
       const payload = {
         ...form,
@@ -330,6 +340,7 @@ export default function LeadOutreachSection() {
       toast.success(isEs ? "Lead de outreach creado" : "Outreach lead created");
       fetchLeads();
       setDialogOpen(false);
+      setDuplicateWarning(null);
       resetForm();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error al crear lead");
