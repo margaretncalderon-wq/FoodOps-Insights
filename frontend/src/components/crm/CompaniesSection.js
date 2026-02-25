@@ -952,6 +952,60 @@ export default function CompaniesSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Custom Industry Dialog */}
+      <Dialog open={industryDialogOpen} onOpenChange={setIndustryDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Nueva Industria" : "New Industry"}</DialogTitle>
+            <DialogDescription>
+              {isEs 
+                ? "Agrega una industria personalizada para tu organización"
+                : "Add a custom industry for your organization"
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>{isEs ? "Nombre de la industria" : "Industry name"}</Label>
+              <Input
+                value={newIndustryName}
+                onChange={(e) => setNewIndustryName(e.target.value)}
+                placeholder={isEs ? "Ej: Eventos Corporativos" : "E.g.: Corporate Events"}
+              />
+            </div>
+            {industries.custom.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">
+                  {isEs ? "Industrias personalizadas existentes" : "Existing custom industries"}
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {industries.custom.map(ind => (
+                    <Badge key={ind.industry_id} variant="secondary" className="flex items-center gap-1">
+                      {ind.labelEn}
+                      <button
+                        onClick={() => handleDeleteCustomIndustry(ind.industry_id)}
+                        className="ml-1 hover:text-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIndustryDialogOpen(false); setNewIndustryName(""); }}>
+              {isEs ? "Cerrar" : "Close"}
+            </Button>
+            <Button onClick={handleCreateCustomIndustry}>
+              <Plus className="w-4 h-4 mr-2" />
+              {isEs ? "Agregar" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
