@@ -354,6 +354,8 @@ export default function LeadOutreachSection() {
 
   const viewLead = (lead) => {
     setSelectedLead(lead);
+    setLeadContacts([]);
+    fetchLeadContacts(lead.lead_id);
     setDetailOpen(true);
   };
 
