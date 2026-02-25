@@ -659,18 +659,29 @@ export default function LeadOutreachSection() {
       </div>
 
       {/* Duplicate Warning */}
-      {duplicateCompanies.length > 0 && (
+      {totalDuplicates > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-yellow-600" />
+          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
               {isEs ? "Posibles duplicados detectados" : "Potential duplicates detected"}
             </p>
             <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              {isEs 
-                ? `${duplicateCompanies.length} empresa(s) aparecen más de una vez: ${duplicateCompanies.slice(0, 3).join(", ")}${duplicateCompanies.length > 3 ? "..." : ""}`
-                : `${duplicateCompanies.length} company(ies) appear more than once: ${duplicateCompanies.slice(0, 3).join(", ")}${duplicateCompanies.length > 3 ? "..." : ""}`
-              }
+              {duplicateInfo.companies.length > 0 && (
+                <span className="mr-3">
+                  {isEs ? "Empresas" : "Companies"}: {duplicateInfo.companies.length}
+                </span>
+              )}
+              {duplicateInfo.names.length > 0 && (
+                <span className="mr-3">
+                  {isEs ? "Nombres" : "Names"}: {duplicateInfo.names.length}
+                </span>
+              )}
+              {duplicateInfo.emails.length > 0 && (
+                <span>
+                  Emails: {duplicateInfo.emails.length}
+                </span>
+              )}
             </p>
           </div>
         </div>
