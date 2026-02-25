@@ -600,7 +600,7 @@ export default function LeadInboundSection() {
       {/* Table */}
       <Card>
         <CardContent className="p-0" style={{ overflowX: 'auto' }}>
-          <Table style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
+          <Table className="crm-table" style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
             <TableHeader>
               <TableRow>
                 <TableHead style={{ width: '100px' }}>{isEs ? "Fuente" : "Source"}</TableHead>
