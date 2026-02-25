@@ -608,6 +608,19 @@ export default function LeadInboundSection() {
                             <ArrowRight className="w-4 h-4 text-green-600" />
                           </Button>
                         )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDelete(lead)} className="text-red-600">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              {isEs ? "Eliminar" : "Delete"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
