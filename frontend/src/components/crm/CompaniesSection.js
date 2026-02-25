@@ -92,9 +92,19 @@ export default function CompaniesSection() {
     setLoading(false);
   }, [isEs]);
 
+  const fetchIndustries = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/companies/industries`, { withCredentials: true });
+      setIndustries(res.data);
+    } catch (err) {
+      console.error("Error fetching industries:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCompanies();
-  }, [fetchCompanies]);
+    fetchIndustries();
+  }, [fetchCompanies, fetchIndustries]);
 
   const fetchCompanyDetail = async (companyId) => {
     try {
@@ -107,17 +117,54 @@ export default function CompaniesSection() {
     }
   };
 
+  const handleCreateCustomIndustry = async () => {
+    if (!newIndustryName.trim()) {
+      toast.error(isEs ? "Nombre requerido" : "Name required");
+      return;
+    }
+    try {
+      await axios.post(`${API}/api/companies/industries`, {
+        name: newIndustryName,
+        name_es: newIndustryName
+      }, { withCredentials: true });
+      toast.success(isEs ? "Industria creada" : "Industry created");
+      setNewIndustryName("");
+      setIndustryDialogOpen(false);
+      fetchIndustries();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  const handleDeleteCustomIndustry = async (industryId) => {
+    try {
+      await axios.delete(`${API}/api/companies/industries/${industryId}`, { withCredentials: true });
+      toast.success(isEs ? "Industria eliminada" : "Industry deleted");
+      fetchIndustries();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  // Combine all industries for dropdown
+  const allIndustries = [...industries.predefined, ...industries.custom];
+
+  // Get industry label by value
+  const getIndustryLabel = (value) => {
+    if (!value) return "-";
+    const ind = allIndustries.find(i => i.value === value);
+    if (ind) return isEs ? ind.labelEs : ind.labelEn;
+    // Fallback for values not in list (old custom values)
+    return value;
+  };
+
   const handleCreateCompany = async () => {
     if (!companyForm.name.trim()) {
       toast.error(isEs ? "Nombre es requerido" : "Name is required");
       return;
     }
     try {
-      // Use custom industry if "other" is selected
-      const payload = {
-        ...companyForm,
-        industry: companyForm.industry === "other" ? companyForm.customIndustry : companyForm.industry
-      };
+      const payload = { ...companyForm };
       delete payload.customIndustry;
       
       await axios.post(`${API}/api/companies`, payload, { withCredentials: true });
