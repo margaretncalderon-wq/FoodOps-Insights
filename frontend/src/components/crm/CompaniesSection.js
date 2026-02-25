@@ -680,7 +680,13 @@ export default function CompaniesSection() {
               </div>
               <div>
                 <Label>{isEs ? "Industria" : "Industry"}</Label>
-                <Select value={companyForm.industry} onValueChange={(v) => setCompanyForm({ ...companyForm, industry: v })}>
+                <Select 
+                  value={companyForm.industry} 
+                  onValueChange={(v) => {
+                    setCompanyForm({ ...companyForm, industry: v, customIndustry: v === "other" ? companyForm.customIndustry : "" });
+                    setShowCustomIndustry(v === "other");
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                   </SelectTrigger>
@@ -692,6 +698,14 @@ export default function CompaniesSection() {
                     ))}
                   </SelectContent>
                 </Select>
+                {showCustomIndustry && (
+                  <Input
+                    className="mt-2"
+                    value={companyForm.customIndustry}
+                    onChange={(e) => setCompanyForm({ ...companyForm, customIndustry: e.target.value })}
+                    placeholder={isEs ? "Escribe la industria..." : "Type industry..."}
+                  />
+                )}
               </div>
               <div>
                 <Label>RNC</Label>
