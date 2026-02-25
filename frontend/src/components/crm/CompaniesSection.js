@@ -218,9 +218,10 @@ export default function CompaniesSection() {
 
   const resetCompanyForm = () => {
     setCompanyForm({
-      name: "", industry: "", website: "", phone: "", email: "",
+      name: "", industry: "", customIndustry: "", website: "", phone: "", email: "",
       address: "", city: "", country: "", rnc: "", description: "", notes: ""
     });
+    setShowCustomIndustry(false);
   };
 
   const resetContactForm = () => {
@@ -232,9 +233,13 @@ export default function CompaniesSection() {
 
   const openEdit = (company) => {
     setSelectedCompany(company);
+    // Check if industry is custom (not in predefined list)
+    const isCustomIndustry = company.industry && !INDUSTRIES.find(i => i.value === company.industry);
+    setShowCustomIndustry(isCustomIndustry);
     setCompanyForm({
       name: company.name || "",
-      industry: company.industry || "",
+      industry: isCustomIndustry ? "other" : (company.industry || ""),
+      customIndustry: isCustomIndustry ? company.industry : "",
       website: company.website || "",
       phone: company.phone || "",
       email: company.email || "",
