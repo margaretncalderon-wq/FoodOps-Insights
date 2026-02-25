@@ -18,7 +18,7 @@ import {
   Plus, Search, Phone, Mail, Building2, RefreshCw, User, 
   MoreHorizontal, CheckCircle, Eye, Clock, CalendarPlus,
   ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info, Edit,
-  LayoutList, Kanban
+  LayoutList, Kanban, Trash2, AlertTriangle, ArrowUpDown
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
