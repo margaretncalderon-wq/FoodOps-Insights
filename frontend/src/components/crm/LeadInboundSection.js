@@ -673,7 +673,8 @@ export default function LeadInboundSection() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
