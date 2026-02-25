@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 from typing import Optional, List
+from pydantic import BaseModel
 from models.auth import User
 from dependencies import get_current_user, db
 from models.crm import CompanyCreate, ContactCreate
@@ -19,6 +20,112 @@ def generate_contact_id():
     """Generate unique contact ID"""
     import secrets
     return f"contact_{secrets.token_hex(6)}"
+
+
+# ============== CUSTOM INDUSTRIES ==============
+
+class IndustryCreate(BaseModel):
+    name: str
+    name_es: Optional[str] = None
+
+
+@companies_router.get("/industries")
+async def list_industries(user: User = Depends(get_current_user)):
+    """Get all industries (predefined + custom for this org)"""
+    org_id = user.company_id or user.active_org_id
+    
+    # Predefined industries
+    predefined = [
+        {"value": "technology", "labelEn": "Technology", "labelEs": "Tecnología", "custom": False},
+        {"value": "healthcare", "labelEn": "Healthcare", "labelEs": "Salud", "custom": False},
+        {"value": "finance", "labelEn": "Finance & Banking", "labelEs": "Finanzas y Banca", "custom": False},
+        {"value": "retail", "labelEn": "Retail & E-commerce", "labelEs": "Retail y E-commerce", "custom": False},
+        {"value": "manufacturing", "labelEn": "Manufacturing", "labelEs": "Manufactura", "custom": False},
+        {"value": "real_estate", "labelEn": "Real Estate", "labelEs": "Bienes Raíces", "custom": False},
+        {"value": "hospitality", "labelEn": "Hospitality & Tourism", "labelEs": "Hospitalidad y Turismo", "custom": False},
+        {"value": "education", "labelEn": "Education", "labelEs": "Educación", "custom": False},
+        {"value": "media", "labelEn": "Media & Entertainment", "labelEs": "Medios y Entretenimiento", "custom": False},
+        {"value": "nonprofit", "labelEn": "Non-Profit", "labelEs": "Sin Fines de Lucro", "custom": False},
+        {"value": "government", "labelEn": "Government", "labelEs": "Gobierno", "custom": False},
+        {"value": "legal", "labelEn": "Legal Services", "labelEs": "Servicios Legales", "custom": False},
+        {"value": "consulting", "labelEn": "Consulting", "labelEs": "Consultoría", "custom": False},
+        {"value": "construction", "labelEn": "Construction", "labelEs": "Construcción", "custom": False},
+        {"value": "automotive", "labelEn": "Automotive", "labelEs": "Automotriz", "custom": False},
+        {"value": "food_beverage", "labelEn": "Food & Beverage", "labelEs": "Alimentos y Bebidas", "custom": False},
+        {"value": "beauty", "labelEn": "Beauty & Wellness", "labelEs": "Belleza y Bienestar", "custom": False},
+        {"value": "logistics", "labelEn": "Logistics & Transport", "labelEs": "Logística y Transporte", "custom": False},
+        {"value": "agriculture", "labelEn": "Agriculture", "labelEs": "Agricultura", "custom": False},
+    ]
+    
+    # Get custom industries for this org
+    custom = await db.custom_industries.find(
+        {"organization_id": org_id},
+        {"_id": 0}
+    ).sort("name", 1).to_list(100)
+    
+    custom_formatted = [
+        {
+            "value": f"custom_{ind['industry_id']}", 
+            "labelEn": ind["name"], 
+            "labelEs": ind.get("name_es") or ind["name"],
+            "custom": True,
+            "industry_id": ind["industry_id"]
+        } 
+        for ind in custom
+    ]
+    
+    return {"predefined": predefined, "custom": custom_formatted}
+
+
+@companies_router.post("/industries")
+async def create_custom_industry(data: IndustryCreate, user: User = Depends(get_current_user)):
+    """Create a custom industry for this organization"""
+    org_id = user.company_id or user.active_org_id
+    
+    # Check for duplicate
+    existing = await db.custom_industries.find_one({
+        "organization_id": org_id,
+        "name": {"$regex": f"^{data.name}$", "$options": "i"}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Industry already exists")
+    
+    import secrets
+    industry = {
+        "industry_id": f"ind_{secrets.token_hex(4)}",
+        "organization_id": org_id,
+        "name": data.name,
+        "name_es": data.name_es or data.name,
+        "created_at": datetime.utcnow(),
+        "created_by": user.user_id
+    }
+    
+    await db.custom_industries.insert_one(industry)
+    del industry["_id"]
+    
+    return {
+        "value": f"custom_{industry['industry_id']}", 
+        "labelEn": industry["name"], 
+        "labelEs": industry["name_es"],
+        "custom": True,
+        "industry_id": industry["industry_id"]
+    }
+
+
+@companies_router.delete("/industries/{industry_id}")
+async def delete_custom_industry(industry_id: str, user: User = Depends(get_current_user)):
+    """Delete a custom industry"""
+    org_id = user.company_id or user.active_org_id
+    
+    result = await db.custom_industries.delete_one({
+        "industry_id": industry_id,
+        "organization_id": org_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Industry not found")
+    
+    return {"success": True, "message": "Industry deleted"}
 
 
 # ============== COMPANY CRUD ==============
