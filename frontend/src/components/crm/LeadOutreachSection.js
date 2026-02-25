@@ -746,7 +746,7 @@ export default function LeadOutreachSection() {
       {/* Table */}
       <Card>
         <CardContent className="p-0" style={{ overflowX: 'auto' }}>
-          <Table style={{ minWidth: '900px', tableLayout: 'fixed' }}>
+          <Table className="crm-table" style={{ minWidth: '900px', tableLayout: 'fixed' }}>
             <TableHeader>
               <TableRow>
                 <TableHead style={{ width: '200px' }}>{isEs ? "Nombre" : "Name"}</TableHead>
