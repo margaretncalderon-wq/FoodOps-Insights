@@ -321,3 +321,47 @@ def get_cookie_domain(request):
 - `backend/routers/support_tickets.py`
 - `frontend/src/components/BugReportButton.js`
 - `frontend/src/pages/super-admin/SupportTicketsPage.js`
+
+### Session: Feb 25, 2026 - Company > Contacts Architecture ✅
+
+#### Company Management System (B2B Structure)
+- **Goal**: Organize CRM with Company as parent entity containing multiple Contacts
+- **Status**: ✅ COMPLETE (Phase 1)
+
+**Backend Implementation (`backend/routers/companies.py`):**
+- `GET /api/companies` - List all companies with contacts count
+- `POST /api/companies` - Create new company
+- `GET /api/companies/{id}` - Get company with contacts and linked leads
+- `PUT /api/companies/{id}` - Update company
+- `DELETE /api/companies/{id}` - Delete company (requires no contacts)
+- `PATCH /api/companies/{id}/status` - Update status (Lead, Active, Client, Inactive)
+- `GET /api/companies/{id}/contacts` - List contacts
+- `POST /api/companies/{id}/contacts` - Add contact to company
+- `PUT /api/companies/{id}/contacts/{contact_id}` - Update contact
+- `DELETE /api/companies/{id}/contacts/{contact_id}` - Delete contact
+- `POST /api/companies/{id}/link-lead/{lead_id}` - Link existing lead
+- `POST /api/companies/migrate-from-leads` - Migration helper
+
+**Models Updated (`backend/models/crm.py`):**
+- `CompanyCreate` / `Company` - New models for B2B accounts
+- `ContactCreate` / `Contact` - Updated with company_entity_id reference
+- `Lead` - Updated with company_entity_id reference
+- `Client` - Updated with company_entity_id reference
+
+**Frontend Implementation:**
+- `components/crm/CompaniesSection.js` - Full CRUD UI for companies
+  - Expandable rows showing contacts inline
+  - Add/edit/delete companies
+  - Add/edit/delete contacts within company
+  - Stats cards (Total, Active, Leads, Contacts)
+  - Status badges and filtering
+- Route: `/client-engagement/crm/companies`
+- Added to CRM dropdown navigation
+
+**Database Collections:**
+- `company_entities` - New collection for companies
+- Companies linked to leads via `company_entity_id`
+
+**Migration Executed:**
+- 5 companies created from existing leads
+- 5 leads linked to their companies
