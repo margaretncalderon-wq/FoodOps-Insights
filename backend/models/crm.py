@@ -185,10 +185,13 @@ class Contact(BaseModel):
 class ClientCreate(BaseModel):
     client_type: str = "Individual"  # "Company" or "Individual"
     display_name: str
+    company_entity_id: Optional[str] = None  # Link to Company record
     email: Optional[str] = None
     phone: Optional[str] = None
     whatsapp: Optional[str] = None  # WhatsApp number for direct communication
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
     rnc: Optional[str] = None  # Tax ID (RNC)
     source: str = "Direct"  # Website, Instagram, QR, Referral, Direct, Other
     tags: List[str] = []
@@ -208,13 +211,16 @@ class ClientCreate(BaseModel):
 
 class Client(BaseModel):
     client_id: str
-    company_id: str
+    company_id: str  # Organization/tenant ID
+    company_entity_id: Optional[str] = None  # Link to Company record
     client_type: str = "Individual"
     display_name: str
     email: Optional[str] = None
     phone: Optional[str] = None
     whatsapp: Optional[str] = None  # WhatsApp number
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
     rnc: Optional[str] = None  # Tax ID (RNC)
     source: str = "Direct"
     tags: List[str] = []
