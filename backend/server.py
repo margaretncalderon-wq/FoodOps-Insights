@@ -16264,6 +16264,10 @@ api_router.include_router(google_calendar_router)  # /api/oauth/calendar/*
 from routers.comms import comms_router
 api_router.include_router(comms_router)  # /api/comms/*
 
+# Include Support Tickets router (Bug reports)
+from routers.support_tickets import support_router
+api_router.include_router(support_router)  # /api/support/*
+
 # Serve uploaded files
 @api_router.get("/uploads/{filename}")
 async def get_upload(filename: str):
