@@ -720,23 +720,27 @@ export default function LeadOutreachSection() {
                   const nameIsSameAsCompany = contactName.toLowerCase().trim() === companyName.toLowerCase().trim();
                   const displayName = nameIsSameAsCompany ? "-" : (contactName || "-");
                   const displayCompany = hasCompany ? companyName : "-";
+                  const dupeReasons = getDuplicateReasons(lead);
                   
                   return (
                   <TableRow 
                     key={lead.lead_id} 
-                    className={`cursor-pointer hover:bg-muted/50 ${isDuplicate(lead) ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
+                    className={`cursor-pointer hover:bg-muted/50 ${dupeReasons.length > 0 ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        {isDuplicate(lead) && (
-                          <AlertTriangle className="w-4 h-4 text-yellow-600" title={isEs ? "Posible duplicado" : "Possible duplicate"} />
+                        {dupeReasons.length > 0 && (
+                          <AlertTriangle 
+                            className="w-4 h-4 text-yellow-600 flex-shrink-0" 
+                            title={`${isEs ? "Duplicado" : "Duplicate"}: ${dupeReasons.join(", ")}`} 
+                          />
                         )}
                         {lead.client_type === "Company" || hasCompany ? (
                           <Building2 className="w-4 h-4 text-blue-600" />
                         ) : (
                           <User className="w-4 h-4 text-purple-600" />
                         )}
-                        {displayName !== "-" ? displayName : (hasCompany ? companyName : "-")}
+                        <span className="truncate">{displayName !== "-" ? displayName : (hasCompany ? companyName : "-")}</span>
                       </div>
                     </TableCell>
                     <TableCell>
