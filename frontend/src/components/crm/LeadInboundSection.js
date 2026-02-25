@@ -599,18 +599,18 @@ export default function LeadInboundSection() {
 
       {/* Table */}
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table className="min-w-[1000px]">
+        <CardContent className="p-0" style={{ overflowX: 'auto' }}>
+          <Table style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">{isEs ? "Fuente" : "Source"}</TableHead>
-                <TableHead className="w-[180px]">{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead className="w-[120px]">{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead className="w-[120px]">{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
-                <TableHead className="w-[80px]">{isEs ? "Invitados" : "Guests"}</TableHead>
-                <TableHead className="w-[100px]">{isEs ? "Estado" : "Status"}</TableHead>
-                <TableHead className="w-[100px]">Owner</TableHead>
-                <TableHead className="w-[80px]">{isEs ? "Acciones" : "Actions"}</TableHead>
+                <TableHead style={{ width: '100px' }}>{isEs ? "Fuente" : "Source"}</TableHead>
+                <TableHead style={{ width: '180px' }}>{isEs ? "Nombre" : "Name"}</TableHead>
+                <TableHead style={{ width: '120px' }}>{isEs ? "Contacto" : "Contact"}</TableHead>
+                <TableHead style={{ width: '120px' }}>{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
+                <TableHead style={{ width: '80px' }}>{isEs ? "Invitados" : "Guests"}</TableHead>
+                <TableHead style={{ width: '100px' }}>{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead style={{ width: '100px' }}>Owner</TableHead>
+                <TableHead style={{ width: '100px' }}>{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
