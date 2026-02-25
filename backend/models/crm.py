@@ -143,30 +143,41 @@ class Lead(BaseModel):
 # ============== CONTACT MODELS ==============
 
 class ContactCreate(BaseModel):
-    client_id: str
+    """Contact person - can belong to a Company and/or Client"""
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
     whatsapp: Optional[str] = None
     role: Optional[str] = None  # Alias for role_title
     role_title: Optional[str] = None
+    department: Optional[str] = None
     is_primary: bool = False
     is_billing_contact: bool = False
+    is_decision_maker: bool = False
+    # Links
+    company_entity_id: Optional[str] = None  # Link to Company
+    client_id: Optional[str] = None  # Legacy link to Client
 
 
 class Contact(BaseModel):
     contact_id: str
-    company_id: str
-    client_id: str
+    organization_id: str  # Tenant/org that owns this
+    company_entity_id: Optional[str] = None  # Link to Company
+    client_id: Optional[str] = None  # Legacy link to Client
+    company_id: Optional[str] = None  # Legacy field (org id)
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
     whatsapp: Optional[str] = None
     role: Optional[str] = None
     role_title: Optional[str] = None
+    department: Optional[str] = None
     is_primary: bool = False
     is_billing_contact: bool = False
+    is_decision_maker: bool = False
+    notes: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
 
 # ============== CLIENT MODELS ==============
