@@ -427,7 +427,7 @@ class TestCRMLeadCleanup:
         response = auth_session.get(f"{BASE_URL}/api/crm/outreach")
         if response.status_code == 200:
             leads = response.json()
-            test_leads = [l for l in leads if l.get("lead_name", "").startswith("TEST_")]
+            test_leads = [l for l in leads if isinstance(l, dict) and str(l.get("lead_name", "")).startswith("TEST_")]
             deleted_count = 0
             for lead in test_leads:
                 del_response = auth_session.delete(f"{BASE_URL}/api/crm/leads/{lead['lead_id']}")
