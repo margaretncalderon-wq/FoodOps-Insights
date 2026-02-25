@@ -880,8 +880,9 @@ async def get_inbound_leads(user: User = Depends(get_current_user)):
         {"_id": 0}
     ).sort("created_at", -1).to_list(2000)
     
-    # Sanitize all leads to ensure JSON compliance (cleans nan values)
-    return [sanitize_document(lead) for lead in leads]
+    # Sanitize and enrich with owner names
+    sanitized = [sanitize_document(lead) for lead in leads]
+    return await enrich_leads_with_owner_names(sanitized, user.company_id)
 
 
 @crm_router.get("/follow-ups")
