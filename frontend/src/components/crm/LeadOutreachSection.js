@@ -1205,6 +1205,43 @@ export default function LeadOutreachSection() {
               />
             </div>
 
+            {/* Duplicate Warning */}
+            {duplicateWarning && duplicateWarning.length > 0 && (
+              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                      {isEs ? "¡Posible duplicado detectado!" : "Potential duplicate detected!"}
+                    </p>
+                    <ul className="text-xs text-orange-700 dark:text-orange-300 space-y-1 mb-3">
+                      {duplicateWarning.map((w, i) => (
+                        <li key={i}>• {w.message}</li>
+                      ))}
+                    </ul>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => setDuplicateWarning(null)}
+                      >
+                        {isEs ? "Revisar" : "Review"}
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleCreate(null, true)}
+                      >
+                        {isEs ? "Crear de todas formas" : "Create anyway"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 {isEs ? "Cancelar" : "Cancel"}
