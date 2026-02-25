@@ -1825,6 +1825,43 @@ async def get_leads_by_stage(user: User = Depends(get_current_user)):
     }
 
 
+@crm_router.delete("/leads/{lead_id}")
+async def delete_lead(lead_id: str, user: User = Depends(get_current_user)):
+    """Delete a single lead with audit logging"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Find the lead first
+    lead = await db.leads.find_one({"lead_id": lead_id, "company_id": company_id})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Log the deletion for audit purposes
+    deletion_log = {
+        "log_id": f"del_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{lead_id[-6:]}",
+        "action": "lead_deleted",
+        "lead_id": lead_id,
+        "lead_data": {
+            "lead_name": lead.get("lead_name"),
+            "company_name": lead.get("company_name"),
+            "email": lead.get("email"),
+            "lead_type": lead.get("lead_type")
+        },
+        "deleted_by": user.user_id,
+        "deleted_by_name": user.name or user.email,
+        "company_id": company_id,
+        "deleted_at": datetime.utcnow()
+    }
+    await db.audit_logs.insert_one(deletion_log)
+    
+    # Delete the lead
+    result = await db.leads.delete_one({"lead_id": lead_id, "company_id": company_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    return {"success": True, "message": "Lead deleted", "lead_id": lead_id}
+
+
 @crm_router.patch("/leads/{lead_id}/stage")
 async def update_lead_stage(lead_id: str, data: dict, user: User = Depends(get_current_user)):
     """Move a lead to a different pipeline stage"""
