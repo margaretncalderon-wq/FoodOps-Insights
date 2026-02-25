@@ -599,18 +599,18 @@ export default function LeadInboundSection() {
 
       {/* Table */}
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[1000px]">
             <TableHeader>
               <TableRow>
-                <TableHead>{isEs ? "Fuente" : "Source"}</TableHead>
-                <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead>{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead>{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
-                <TableHead>{isEs ? "Invitados" : "Guests"}</TableHead>
-                <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
+                <TableHead className="w-[100px]">{isEs ? "Fuente" : "Source"}</TableHead>
+                <TableHead className="w-[180px]">{isEs ? "Nombre" : "Name"}</TableHead>
+                <TableHead className="w-[120px]">{isEs ? "Contacto" : "Contact"}</TableHead>
+                <TableHead className="w-[120px]">{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
+                <TableHead className="w-[80px]">{isEs ? "Invitados" : "Guests"}</TableHead>
+                <TableHead className="w-[100px]">{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead className="w-[100px]">Owner</TableHead>
+                <TableHead className="w-[80px]">{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
