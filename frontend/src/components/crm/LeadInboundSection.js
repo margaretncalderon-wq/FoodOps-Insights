@@ -152,8 +152,8 @@ export default function LeadInboundSection() {
   }, []);
 
   useEffect(() => { 
-    fetchLeadsDebounced(true); // immediate on mount
-    fetchUsers();
+    // Fetch both in parallel on mount
+    Promise.all([fetchLeadsDebounced(true), fetchUsers()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
