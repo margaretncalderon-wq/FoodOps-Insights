@@ -12,14 +12,31 @@ export const API = `${API_BASE}/api`;
 
 // Shared token storage for axios interceptor
 let _authToken = null;
-export const setAuthToken = (token) => { _authToken = token; };
-export const getAuthToken = () => _authToken;
+export const setAuthToken = (token) => { 
+  _authToken = token;
+  // Also sync to localStorage
+  try {
+    if (token) {
+      localStorage.setItem("kora_auth_token", token);
+    }
+  } catch { /* ignore */ }
+};
+export const getAuthToken = () => {
+  // Try memory first, then localStorage
+  if (_authToken) return _authToken;
+  try {
+    return localStorage.getItem("kora_auth_token");
+  } catch {
+    return null;
+  }
+};
 
 // Global axios interceptor - adds Authorization header to all requests
 axios.interceptors.request.use((config) => {
   config.withCredentials = true;
-  if (_authToken && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${_authToken}`;
+  const token = getAuthToken();
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
