@@ -733,6 +733,11 @@ export default function LeadOutreachSection() {
                               <ArrowRight className="w-4 h-4 mr-2" />
                               {isEs ? "Convertir a Cliente" : "Convert to Client"}
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openDelete(lead)} className="text-red-600">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              {isEs ? "Eliminar" : "Delete"}
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
