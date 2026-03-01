@@ -103,6 +103,8 @@ export default function SocialMediaPage() {
   const [editingIdea, setEditingIdea] = useState(null);
   const [convertIdeaDialogOpen, setConvertIdeaDialogOpen] = useState(false);
   const [ideaToConvert, setIdeaToConvert] = useState(null);
+  const [studioOpen, setStudioOpen] = useState(false);
+  const [studioAssets, setStudioAssets] = useState([]);
   
   // Forms
   const [postForm, setPostForm] = useState({
