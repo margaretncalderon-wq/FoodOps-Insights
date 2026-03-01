@@ -476,6 +476,10 @@ export default function SocialMediaPage() {
               <List className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Cola" : "Queue"}</span>
             </TabsTrigger>
+            <TabsTrigger value="feed" className="gap-2">
+              <Grid3X3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Feed</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Config" : "Settings"}</span>
