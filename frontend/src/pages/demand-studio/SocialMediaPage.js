@@ -959,6 +959,11 @@ export default function SocialMediaPage() {
           </Card>
         </TabsContent>
 
+        {/* Feed Tab */}
+        <TabsContent value="feed">
+          <FeedTab campaigns={campaigns} pillars={pillars} />
+        </TabsContent>
+
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
