@@ -418,6 +418,62 @@ def get_cookie_domain(request):
 - `frontend/src/components/crm/LeadInboundSection.js` - Added Contacts tab + Add Contact dialog
 
 
+### Session: Feb 25, 2026 - Tezza-like Studio & Feed View ✅
+
+#### Implemented Features (Additive Only - No Breaking Changes)
+
+**1. Feed Tab in Social Media**
+- New tab added: Overview | Ideas | Calendar | Queue | **Feed** | Settings
+- View modes: Planned / Published / Mixed
+- Preview modes: Original / Styled
+- Instagram-like 3-column grid with lazy loading
+- Detail drawer for post info and actions
+
+**2. Studio Editor (Tezza-like)**
+- Accessible via "Studio" button in Social Media
+- Layout: Media tray (left) | Preview (center) | Controls (right)
+- Controls tabs:
+  - **Looks**: Preset carousel with 8 default looks (Natural, Warm Glow, Cool Crisp, etc.)
+  - **Adjust**: 10 sliders (Exposure, Contrast, Highlights, Shadows, Temperature, Saturation, Grain, Sharpen, Vignette, Glow)
+  - **Crop**: 1:1, 4:5, 9:16, 16:9 aspect ratios
+  - **Export**: Export Pack with multiple sizes
+- Features: Apply to all (batch), Save, Export
+
+**3. New Backend Models (Non-Breaking)**
+- `brand_looks` - Preset configurations
+- `media_assets` - Uploaded media with edit history
+- `instagram_connections` - OAuth connection storage
+- `instagram_media_cache` - Cached IG posts
+
+**4. New API Endpoints** (`/api/studio/*`)
+- `GET /api/studio/feature-flags` - Feature toggles
+- `GET/POST/PUT/DELETE /api/studio/looks` - Preset management
+- `GET/POST/PUT/DELETE /api/studio/assets` - Media assets
+- `POST /api/studio/assets/upload` - File upload
+- `GET /api/studio/instagram/connection` - IG status
+- `POST /api/studio/instagram/connect` - Store IG OAuth
+- `GET /api/studio/feed/planned` - Planned posts
+- `GET /api/studio/feed/mixed` - Combined feed
+
+**Files Created:**
+- `backend/models/studio.py` - Data models
+- `backend/routers/studio.py` - API routes
+- `frontend/src/components/demand-studio/FeedTab.js`
+- `frontend/src/components/demand-studio/StudioEditor.js`
+
+**Files Modified:**
+- `backend/server.py` - Registered studio_router
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Added Feed tab + Studio button
+
+**Testing Results:**
+- Backend: 100% (14/14 endpoints verified)
+- Frontend: Code verified
+- Test report: `/app/test_reports/iteration_71.json`
+
+**MOCKED:** Instagram sync returns mock success (not actual IG API calls for MVP)
+
+
+
 **Frontend Implementation:**
 - `components/crm/CompaniesSection.js` - Full CRUD UI for companies
   - Expandable rows showing contacts inline
