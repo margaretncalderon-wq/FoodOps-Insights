@@ -1404,6 +1404,18 @@ export default function SocialMediaPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Studio Editor */}
+      <StudioEditor
+        isOpen={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        initialAssets={studioAssets}
+        campaignId={null}
+        onSave={(assets) => {
+          console.log("Saved assets:", assets);
+          setStudioOpen(false);
+        }}
+      />
     </div>
   );
 }
