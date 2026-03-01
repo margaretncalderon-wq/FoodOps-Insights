@@ -624,7 +624,7 @@ async def get_mixed_feed(
         if isinstance(date_str, str):
             try:
                 return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            except:
+            except Exception:
                 return datetime.min
         return date_str
     
