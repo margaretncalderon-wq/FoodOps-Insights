@@ -16279,6 +16279,10 @@ api_router.include_router(comms_router)  # /api/comms/*
 from routers.support_tickets import support_router
 api_router.include_router(support_router)  # /api/support/*
 
+# Include Studio router (Tezza-like editor + Feed)
+from routers.studio import studio_router
+api_router.include_router(studio_router)  # /api/studio/*
+
 # General file upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):
