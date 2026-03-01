@@ -487,6 +487,10 @@ export default function SocialMediaPage() {
           </TabsList>
           
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setStudioOpen(true)}>
+              <Wand2 className="w-4 h-4 mr-2" />
+              Studio
+            </Button>
             <Button variant="outline" onClick={() => { resetIdeaForm(); setIdeaDialogOpen(true); }}>
               <Lightbulb className="w-4 h-4 mr-2" />
               {isEs ? "Nueva Idea" : "New Idea"}
