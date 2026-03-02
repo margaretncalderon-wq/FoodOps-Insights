@@ -443,7 +443,7 @@ export default function SocialSharing() {
                     <SelectItem value="30">30 {isEs ? "días" : "days"}</SelectItem>
                     <SelectItem value="90">90 {isEs ? "días" : "days"}</SelectItem>
                     <SelectItem value="365">1 {isEs ? "año" : "year"}</SelectItem>
-                    <SelectItem value="">{isEs ? "Nunca" : "Never"}</SelectItem>
+                    <SelectItem value="never">{isEs ? "Nunca" : "Never"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
