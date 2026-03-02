@@ -145,7 +145,7 @@ export default function NotificationBell() {
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-background border rounded-lg shadow-lg z-50 overflow-hidden">
+        <div className="absolute left-0 bottom-full mb-2 w-80 bg-background border rounded-lg shadow-lg z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b bg-muted/50">
             <h3 className="font-semibold text-sm">
