@@ -30,9 +30,10 @@ import {
   ArrowLeft, Target, Calendar, DollarSign, Users, 
   Megaphone, Mail, Share2, BarChart3, Plus, Edit2,
   Loader2, Copy, Link2, Check, Zap, Image,
-  FileText, Clock, TrendingUp, ExternalLink, Trash2
+  FileText, Clock, TrendingUp, ExternalLink, Trash2, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
+import CampaignDNA from "../../components/demand-studio/CampaignDNA";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
