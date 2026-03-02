@@ -19,10 +19,11 @@ import {
 import { 
   Palette, Type, Image as ImageIcon, Wand2, FileText, MessageSquare, BookOpen,
   Plus, Search, Pin, Star, Trash2, Edit, Save, Upload, Copy, Check,
-  Loader2, ChevronRight, ExternalLink, Sparkles
+  Loader2, ChevronRight, ExternalLink, Sparkles, Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
+import StudioEditor from "./StudioEditor";
 
 // Default colors for color picker
 const COLOR_PRESETS = [
