@@ -62,7 +62,8 @@ export default function StudioEditor({
   onClose, 
   initialAssets = [], 
   campaignId = null,
-  onSave 
+  onSave,
+  onSaveAsTemplate
 }) {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -79,6 +80,10 @@ export default function StudioEditor({
   const [uploading, setUploading] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportSizes, setExportSizes] = useState(["1:1", "4:5", "9:16"]);
+  const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState("social_post");
+  const [newTemplateCategory, setNewTemplateCategory] = useState("custom");
   
   // Load looks on mount
   useEffect(() => {
