@@ -72,6 +72,15 @@ const CLIENT_TYPES = [
   { value: "Company", labelEn: "Corporate", labelEs: "Corporativo" }
 ];
 
+const LEAD_INDUSTRIES = [
+  "Tecnología", "Retail", "Salud", "Educación", "Finanzas", "Construcción",
+  "Manufactura", "Turismo", "Hostelería", "Restaurantes", "Alimentos y Bebidas",
+  "Moda", "Automotriz", "Real Estate", "Legal", "Consultoría", "Marketing",
+  "Publicidad", "Medios", "Entretenimiento", "Deportes", "Belleza", "Bienestar",
+  "E-commerce", "Logística", "Agricultura", "Energía", "Telecomunicaciones",
+  "Gobierno", "ONG", "Otro"
+];
+
 export default function LeadOutreachSection() {
   const { language } = useLanguage();
   const { term } = useTerminology();
