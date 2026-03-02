@@ -823,3 +823,24 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
 - `frontend/src/components/demand-studio/CampaignDNA.js` (created)
 - `frontend/src/components/demand-studio/BrandHub.js` (created)
+
+### Session: Mar 02, 2026 - CRM Bug Fixes ✅
+
+#### CRM Lead Edit Industry Field (P0)
+- **Problem**: Industry dropdown field was not visible when editing a lead
+- **Root Cause**: Radix/Shadcn SelectItem with `value=""` causes rendering issues
+- **Solution**: Changed `value=""` to `value="none"` with proper conversion in handler
+- **File Modified**: `frontend/src/components/crm/LeadOutreachSection.js` (lines 1701-1714)
+
+#### CRM Dropdown Counter Updates (P0)
+- **Problem**: Counter badges in CRM dropdown menu (Outreach: 1046, Clients: 7) not updating when navigating
+- **Root Cause**: Stats only fetched once on component mount, not on route changes
+- **Solution**: Added `useEffect` to refetch stats when `location.pathname` changes within CRM
+- **File Modified**: `frontend/src/pages/ClientEngagementPage.js` (lines 78-84)
+
+**Testing Results:**
+- Backend: 100% success rate
+- Frontend: 100% - Industry field visible and functional
+- Test report: `/app/test_reports/iteration_80.json`
+
+**Note**: Backend `allowed_fields` in `crm.py` already included 'industry' - no backend changes needed
