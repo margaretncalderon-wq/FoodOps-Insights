@@ -60,18 +60,27 @@ export default function DemandStudioSettings() {
   }, [fetchInstagramConnection]);
 
   const handleInstagramConnect = async () => {
-    // For now, simulate a connection with mock data
-    // In production, this would redirect to Instagram OAuth
+    // Start real Instagram OAuth flow
     try {
-      await axios.post(`${API}/api/studio/instagram/connect`, {
-        access_token: "mock_token_" + Date.now(),
-        ig_user_id: "ig_" + Math.random().toString(36).substr(2, 9),
-        ig_username: "demo_account"
-      }, { withCredentials: true });
-      toast.success(isEs ? "Instagram conectado" : "Instagram connected");
-      fetchInstagramConnection();
+      setIgLoading(true);
+      const res = await axios.get(`${API}/api/instagram/oauth/start`, { withCredentials: true });
+      
+      if (res.data?.auth_url) {
+        // Redirect to Instagram authorization
+        window.location.href = res.data.auth_url;
+      } else {
+        toast.error(isEs ? "Error al iniciar conexión" : "Failed to start connection");
+      }
     } catch (error) {
-      toast.error(isEs ? "Error al conectar" : "Connection error");
+      console.error("Instagram connect error:", error);
+      if (error.response?.status === 503) {
+        toast.error(isEs 
+          ? "Instagram no está configurado. Contacta al administrador." 
+          : "Instagram not configured. Contact administrator.");
+      } else {
+        toast.error(isEs ? "Error al conectar" : "Connection error");
+      }
+      setIgLoading(false);
     }
   };
 
@@ -88,8 +97,9 @@ export default function DemandStudioSettings() {
   const handleInstagramSync = async () => {
     setIgSyncing(true);
     try {
-      await axios.post(`${API}/api/studio/instagram/sync`, {}, { withCredentials: true });
-      toast.success(isEs ? "Sincronización iniciada" : "Sync started");
+      // Use the new media endpoint that fetches from API
+      await axios.get(`${API}/api/instagram/media`, { withCredentials: true });
+      toast.success(isEs ? "Media sincronizado" : "Media synced");
       fetchInstagramConnection();
     } catch (error) {
       toast.error(isEs ? "Error al sincronizar" : "Sync error");
