@@ -327,6 +327,10 @@ export default function StudioEditor({
               <RefreshCw className="w-4 h-4 mr-1" />
               Reset
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setSaveAsTemplateOpen(true)} disabled={loading || !currentAsset}>
+              <Plus className="w-4 h-4 mr-1" />
+              {isEs ? "Guardar como Template" : "Save as Template"}
+            </Button>
             <Button variant="outline" size="sm" onClick={saveEdits} disabled={loading || !currentAsset}>
               <Save className="w-4 h-4 mr-1" />
               {isEs ? "Guardar" : "Save"}
