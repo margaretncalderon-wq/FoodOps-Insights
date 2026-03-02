@@ -62,6 +62,14 @@ export default function BrandHub({ brandId = null }) {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioTemplate, setStudioTemplate] = useState(null);
+  const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    name: "",
+    type: "social_post",
+    category: "custom",
+    preview_url: ""
+  });
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
   
   // Messaging state
   const [messagingPack, setMessagingPack] = useState({
