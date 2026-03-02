@@ -517,7 +517,7 @@ DEFAULT_TEMPLATES = [
                 {"type": "cta", "style": "button", "bg": "{{accent}}", "color": "#ffffff"}
             ]
         },
-        "preview_url": None,
+        "preview_url": "https://static.prod-images.emergentagent.com/jobs/498de423-fc83-40fd-8ce9-82c36a9c0056/images/e5c392519df042c42835438d4bd44e39dd9bcabb96f215c7e168d117dd276ff0.png",
         "auto_applies_tokens": True
     },
     {
@@ -535,7 +535,7 @@ DEFAULT_TEMPLATES = [
                 {"type": "swipe_up", "text": "Ver más", "color": "{{accent}}"}
             ]
         },
-        "preview_url": None,
+        "preview_url": "https://static.prod-images.emergentagent.com/jobs/498de423-fc83-40fd-8ce9-82c36a9c0056/images/11747e4499fb2dbc7129fc41837a1450b6fe07b0bb336fba35329cb1fcdcc8be.png",
         "auto_applies_tokens": True
     },
     {
@@ -552,7 +552,7 @@ DEFAULT_TEMPLATES = [
                 {"type": "cta", "elements": [{"type": "headline"}, {"type": "button"}]}
             ]
         },
-        "preview_url": None,
+        "preview_url": "https://static.prod-images.emergentagent.com/jobs/498de423-fc83-40fd-8ce9-82c36a9c0056/images/c861f2867e210b64a66d62809a5472cbf8bbe353e942bcc8410426823d908f30.png",
         "auto_applies_tokens": True
     },
     {
@@ -570,7 +570,7 @@ DEFAULT_TEMPLATES = [
                 {"type": "footer", "social_links": True}
             ]
         },
-        "preview_url": None,
+        "preview_url": "https://static.prod-images.emergentagent.com/jobs/498de423-fc83-40fd-8ce9-82c36a9c0056/images/00a9c4222665da2329ee152e1bc2282950b734e40c51dc15ae3c3cc660ae6b5c.png",
         "auto_applies_tokens": True
     },
     {
@@ -589,7 +589,7 @@ DEFAULT_TEMPLATES = [
                 {"type": "footer"}
             ]
         },
-        "preview_url": None,
+        "preview_url": "https://static.prod-images.emergentagent.com/jobs/498de423-fc83-40fd-8ce9-82c36a9c0056/images/05a74a4b77a38403b0f636e150acc836e64217e0c08fa2613e89de836b0ab494.png",
         "auto_applies_tokens": True
     },
     {
@@ -607,7 +607,7 @@ DEFAULT_TEMPLATES = [
                 {"type": "author", "font": "body", "size": "14px", "color": "{{text_muted}}"}
             ]
         },
-        "preview_url": None,
+        "preview_url": "https://static.prod-images.emergentagent.com/jobs/498de423-fc83-40fd-8ce9-82c36a9c0056/images/7e618e4a1bb9844d087587b14332805eae6161a0a81d442f7ee8bf73cfe73ba5.png",
         "auto_applies_tokens": True
     }
 ]
