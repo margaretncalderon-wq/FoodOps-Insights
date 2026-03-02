@@ -16283,6 +16283,10 @@ api_router.include_router(support_router)  # /api/support/*
 from routers.studio import studio_router
 api_router.include_router(studio_router)  # /api/studio/*
 
+# Include Instagram OAuth router (real Instagram login flow)
+from routers.instagram_oauth import instagram_oauth_router
+api_router.include_router(instagram_oauth_router)  # /api/instagram/*
+
 # Include Brand Hub router
 from routers.brand_hub import brand_hub_router
 api_router.include_router(brand_hub_router)  # /api/brand-hub/*
