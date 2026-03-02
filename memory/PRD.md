@@ -594,6 +594,50 @@ def get_cookie_domain(request):
 - Frontend: All features verified working
 - Test report: `/app/test_reports/iteration_74.json`
 
+### Session: Mar 02, 2026 - Template Creation Features ✅
+
+#### Create Template, Upload & Save as New (User Request)
+- **Goal**: Allow users to create templates, upload images, and save variations
+- **Status**: ✅ COMPLETE
+
+**Features Implemented:**
+
+1. **Create Template Dialog (BrandHub)**
+   - Button "Create Template" opens modal
+   - Fields: Template Name, Type (dropdown), Category (dropdown)
+   - Upload area for preview image
+   - Uses /api/upload endpoint for image upload
+   - Creates template via POST /api/brand-hub/templates
+
+2. **Upload Template Image**
+   - Drag & drop or click to upload
+   - Uses existing /api/upload endpoint
+   - Supports image/* files
+   - Preview displayed after upload with delete option
+
+3. **Save as Template (Studio Editor)**
+   - New button "Save as Template" in header
+   - Opens dialog with name, type, category fields
+   - Shows preview of current image with applied filters
+   - Saves look settings and sliders with template
+   - Refreshes template list after save
+
+**Backend Changes:**
+- Added `category` field to TemplateCreate model
+- Added `is_default` field to distinguish custom from default templates
+- Updated POST /templates endpoint
+
+**Frontend Changes:**
+- BrandHub.js: Added createTemplateOpen state, handleTemplateUpload(), createNewTemplate()
+- BrandHub.js: Added Create Template Dialog with form fields and upload
+- StudioEditor.js: Added saveAsTemplateOpen state, handleSaveAsTemplate()
+- StudioEditor.js: Added Save as Template button and dialog
+
+**Testing Results:**
+- Backend: 11/11 tests pass (100%)
+- Frontend: All 7 features verified
+- Test report: `/app/test_reports/iteration_75.json`
+
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
