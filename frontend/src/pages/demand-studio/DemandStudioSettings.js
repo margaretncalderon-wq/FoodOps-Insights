@@ -240,6 +240,13 @@ export default function DemandStudioSettings() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* Brand Hub Tab */}
+        <TabsContent value="brand-hub" className="mt-6">
+          <BrandHub />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
