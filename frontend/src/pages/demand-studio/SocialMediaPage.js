@@ -24,12 +24,13 @@ import {
   Plus, Calendar, List, BarChart3, Hash, Instagram, 
   Loader2, Play, Copy, Archive, Check, Settings,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
-  ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2
+  ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 import FeedTab from "../../components/demand-studio/FeedTab";
 import StudioEditor from "../../components/demand-studio/StudioEditor";
+import SocialSharing from "../../components/demand-studio/SocialSharing";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
