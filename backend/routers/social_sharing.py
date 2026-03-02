@@ -555,6 +555,17 @@ async def create_external_draft(
     
     await db.social_posts.insert_one(new_post)
     
+    # Send notification to org admins
+    await notify_org_admins(
+        org_id=org_id,
+        notification_type="approval_needed",
+        title="Nuevo borrador pendiente de aprobación",
+        message=f"{contributor_name} creó un borrador de post que requiere tu aprobación",
+        link=f"/demand-studio/social?tab=queue",
+        metadata={"post_id": post_id, "contributor": contributor_name},
+        priority="high"
+    )
+    
     return {
         "post_id": post_id,
         "message": "Draft created successfully. Pending approval.",
