@@ -1699,6 +1699,21 @@ export default function LeadOutreachSection() {
             </div>
 
             <div>
+              <Label>{isEs ? "Industria" : "Industry"}</Label>
+              <Select value={editForm.industry || ""} onValueChange={(v) => setEditForm({ ...editForm, industry: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar industria" : "Select industry"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">{isEs ? "Sin especificar" : "Not specified"}</SelectItem>
+                  {LEAD_INDUSTRIES.map(ind => (
+                    <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <Label>{isEs ? "Dirección" : "Address"}</Label>
               <Input
                 value={editForm.address}
