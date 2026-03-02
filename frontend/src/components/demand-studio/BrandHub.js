@@ -452,13 +452,57 @@ export default function BrandHub({ brandId = null }) {
             <p className="text-sm text-muted-foreground">
               {templates.length} templates
             </p>
-            <Button variant="outline" size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              {isEs ? "Crear Template" : "Create Template"}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={seedDefaultTemplates}>
+                <Sparkles className="w-4 h-4 mr-1" />
+                {isEs ? "Agregar Defaults" : "Add Defaults"}
+              </Button>
+              <Button variant="outline" size="sm">
+                <Plus className="w-4 h-4 mr-1" />
+                {isEs ? "Crear Template" : "Create Template"}
+              </Button>
+            </div>
           </div>
 
-          {templates.length === 0 ? (
+          {/* Template Library Section */}
+          {templateLibrary.length > 0 && templates.length === 0 && (
+            <Card className="border-dashed border-2">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  {isEs ? "Biblioteca de Templates" : "Template Library"}
+                </CardTitle>
+                <CardDescription>
+                  {isEs ? "Templates pre-diseñados listos para usar" : "Pre-designed templates ready to use"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {templateLibrary.map((template, idx) => (
+                    <div 
+                      key={idx}
+                      className="p-4 border rounded-lg hover:border-primary cursor-pointer transition-colors group"
+                    >
+                      <div className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10 rounded mb-3 flex items-center justify-center">
+                        <FileText className="w-8 h-8 text-primary/50 group-hover:text-primary transition-colors" />
+                      </div>
+                      <p className="font-medium text-sm">{template.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[10px]">{template.type}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{template.category}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full mt-4" onClick={seedDefaultTemplates}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isEs ? "Agregar todos a mi Brand Hub" : "Add all to my Brand Hub"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {templates.length === 0 && templateLibrary.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
                 <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -467,20 +511,32 @@ export default function BrandHub({ brandId = null }) {
                 </p>
               </CardContent>
             </Card>
-          ) : (
+          )}
+          
+          {templates.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {templates.map(template => (
                 <Card key={template.template_id} className="cursor-pointer hover:border-primary">
                   <CardContent className="p-4">
-                    <div className="aspect-video bg-muted rounded mb-3 flex items-center justify-center">
+                    <div className="aspect-video bg-muted rounded mb-3 flex items-center justify-center relative">
                       {template.preview_url ? (
                         <img src={template.preview_url} alt="" className="w-full h-full object-cover rounded" />
                       ) : (
-                        <FileText className="w-8 h-8 text-muted-foreground" />
+                        <div className="bg-gradient-to-br from-primary/10 to-accent/10 w-full h-full rounded flex items-center justify-center">
+                          <FileText className="w-8 h-8 text-primary/50" />
+                        </div>
+                      )}
+                      {template.is_default && (
+                        <Badge className="absolute top-2 right-2 text-[9px]" variant="secondary">Default</Badge>
                       )}
                     </div>
                     <p className="font-medium text-sm truncate">{template.name}</p>
-                    <Badge variant="outline" className="text-[10px] mt-1">{template.type}</Badge>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Badge variant="outline" className="text-[10px]">{template.type}</Badge>
+                      {template.category && (
+                        <Badge variant="secondary" className="text-[10px]">{template.category}</Badge>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
