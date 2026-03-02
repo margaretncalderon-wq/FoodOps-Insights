@@ -614,6 +614,11 @@ export default function CampaignDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Campaign DNA Tab */}
+        <TabsContent value="dna" className="mt-4">
+          <CampaignDNA campaignId={campaignId} brandId={campaign?.brand_id} />
+        </TabsContent>
       </Tabs>
 
       {/* New Activation Dialog */}
