@@ -322,6 +322,10 @@ export default function CampaignDetailPage() {
             <Users className="w-4 h-4 mr-2" />
             Leads ({linkedLeads.length})
           </TabsTrigger>
+          <TabsTrigger value="dna" className="data-[state=active]:bg-card">
+            <Sparkles className="w-4 h-4 mr-2" />
+            DNA
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
