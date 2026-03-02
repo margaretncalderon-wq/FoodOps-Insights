@@ -183,9 +183,11 @@ class TemplateCreate(BaseModel):
     campaign_id: Optional[str] = None
     name: str
     type: str
+    category: Optional[str] = None
     template_json: Dict[str, Any] = {}  # layers, positions, etc.
     preview_url: Optional[str] = None
     auto_applies_tokens: bool = True
+    is_default: bool = False
 
 
 class Template(BaseModel):
@@ -196,9 +198,11 @@ class Template(BaseModel):
     campaign_id: Optional[str] = None
     name: str
     type: str
+    category: Optional[str] = None
     template_json: Dict[str, Any] = {}
     preview_url: Optional[str] = None
     auto_applies_tokens: bool = True
+    is_default: bool = False
     created_at: datetime
     updated_at: datetime
 
