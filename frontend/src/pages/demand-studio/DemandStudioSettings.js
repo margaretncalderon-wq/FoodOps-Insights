@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { 
   Settings, Link2, Copy, Check, Webhook, 
-  Facebook, ExternalLink, Zap, AlertCircle
+  Facebook, ExternalLink, Zap, AlertCircle, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
+import BrandHub from "../../components/demand-studio/BrandHub";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
