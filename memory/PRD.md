@@ -537,10 +537,21 @@ def get_cookie_domain(request):
 **Bug Fixed:**
 - `UnboundLocalError` in resolve endpoint - Added `campaign_dna = None` initialization
 
+**Template Library Added (Mar 02):**
+- 6 pre-designed templates added to Brand Hub:
+  1. Post Promocional (social_post / promotion)
+  2. Story con CTA (story / engagement)
+  3. Carrusel Producto (carousel / product)
+  4. Email Newsletter (email / newsletter)
+  5. Email Promocional (email / promotion)
+  6. Quote Card (social_post / engagement)
+- New endpoints: `/api/brand-hub/templates/library` and `/api/brand-hub/templates/seed-defaults`
+- UI shows template grid with category badges and "Default" indicator
+
 **Testing Results:**
 - Backend: 27/27 tests pass (100%)
 - Frontend: All features verified working
-- Test report: `/app/test_reports/iteration_72.json`
+- Test report: `/app/test_reports/iteration_72.json`, `/app/test_reports/iteration_73.json`
 
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
