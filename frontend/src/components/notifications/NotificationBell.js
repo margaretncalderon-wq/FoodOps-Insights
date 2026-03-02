@@ -27,8 +27,8 @@ export default function NotificationBell() {
     lastFetchRef.current = now;
     
     try {
-      const response = await axios.get(`${API}/api/demand-studio/notifications/unread-count`, { withCredentials: true });
-      setUnreadCount(response.data.count || 0);
+      const response = await axios.get(`${API}/api/notifications/unread-count`, { withCredentials: true });
+      setUnreadCount(response.data.unread_count || 0);
     } catch (error) {
       // Silently fail - user might not be logged in
     }
