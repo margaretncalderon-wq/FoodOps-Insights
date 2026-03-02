@@ -638,6 +638,52 @@ def get_cookie_domain(request):
 - Frontend: All 7 features verified
 - Test report: `/app/test_reports/iteration_75.json`
 
+### Session: Mar 02, 2026 - Feed View & Instagram Integration ✅
+
+#### Feed View with Scheduled Posts (User Request)
+- **Goal**: Display scheduled posts in a Feed preview (Instagram-style grid)
+- **Status**: ✅ COMPLETE
+
+**Implementation:**
+- FeedTab already integrated in SocialMediaPage at `/demand-studio/social`
+- Tabs: Overview | Ideas | Calendar | Queue | **Feed** | Settings
+- Feed filters: Planned | Published | Mixed | Original | Styled
+- Stats cards: Scheduled this week, Posted this month, Pending ideas, Campaign-linked
+- Empty state: "No scheduled or draft posts"
+- Endpoints working: `/api/studio/feed/planned`, `/api/studio/feed/mixed`
+
+#### Instagram Integration - Read Only (User Request)
+- **Goal**: Connect Instagram Business account to display published posts
+- **Status**: ✅ COMPLETE (MOCKED - no real IG API)
+
+**Implementation:**
+- Instagram Connection Card in Settings > Integrations
+- Connect flow: Button triggers mock OAuth (in production would redirect to IG OAuth)
+- Connected state shows: @username, Active badge, Sync button, Disconnect button
+- Permission check fixed to use `user.role` directly (was failing on membership lookup)
+
+**Backend Endpoints:**
+- GET `/api/studio/instagram/connection` - Returns connection status
+- POST `/api/studio/instagram/connect` - Creates connection (mock OAuth)
+- DELETE `/api/studio/instagram/disconnect` - Removes connection
+- POST `/api/studio/instagram/sync` - Triggers media sync (MOCKED)
+- GET `/api/studio/instagram/media` - Returns cached media
+
+**Files Modified:**
+- `frontend/src/pages/demand-studio/DemandStudioSettings.js` - Added Instagram section
+- `backend/routers/studio.py` - Fixed permission check (line 413)
+
+**Testing Results:**
+- Backend: 11/11 tests pass (100%)
+- Frontend: All features verified
+- Test report: `/app/test_reports/iteration_76.json`
+
+**Note:** Instagram integration is MOCKED. In production, would need:
+- Meta Developer App registration
+- Instagram Graph API OAuth flow
+- Token refresh mechanism
+- Real media caching
+
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
