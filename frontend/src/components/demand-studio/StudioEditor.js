@@ -264,6 +264,50 @@ export default function StudioEditor({
     toast.success(isEs ? "Aplicado a todos" : "Applied to all");
   };
 
+  const handleSaveAsTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      toast.error(isEs ? "Ingresa un nombre" : "Enter a name");
+      return;
+    }
+    
+    if (!currentAsset) {
+      toast.error(isEs ? "No hay imagen seleccionada" : "No image selected");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const templateData = {
+        name: newTemplateName,
+        type: newTemplateType,
+        category: newTemplateCategory,
+        template_json: {
+          aspect_ratio: cropRatio,
+          look_id: selectedLook,
+          sliders: sliders,
+          source_asset: currentAsset.asset_id
+        },
+        preview_url: currentAsset.original_url,
+        auto_applies_tokens: true,
+        is_default: false
+      };
+
+      await axios.post(`${API}/api/brand-hub/templates`, templateData, { withCredentials: true });
+      toast.success(isEs ? "Template guardado" : "Template saved");
+      setSaveAsTemplateOpen(false);
+      setNewTemplateName("");
+      
+      if (onSaveAsTemplate) {
+        onSaveAsTemplate(templateData);
+      }
+    } catch (error) {
+      console.error("Save as template error:", error);
+      toast.error(isEs ? "Error al guardar template" : "Error saving template");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
