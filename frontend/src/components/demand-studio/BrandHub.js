@@ -77,19 +77,21 @@ export default function BrandHub({ brandId = null }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [kitRes, looksRes, packsRes, templatesRes, messagingRes, playbooksRes] = await Promise.all([
+      const [kitRes, looksRes, packsRes, templatesRes, messagingRes, playbooksRes, libraryRes] = await Promise.all([
         axios.get(`${API}/api/brand-hub/kits`, { withCredentials: true, params: { brand_id: brandId } }),
         axios.get(`${API}/api/studio/looks`, { withCredentials: true, params: { brand_id: brandId } }),
         axios.get(`${API}/api/brand-hub/look-packs`, { withCredentials: true, params: { brand_id: brandId } }),
         axios.get(`${API}/api/brand-hub/templates`, { withCredentials: true, params: { brand_id: brandId } }),
         axios.get(`${API}/api/brand-hub/messaging-packs`, { withCredentials: true, params: { brand_id: brandId } }),
-        axios.get(`${API}/api/brand-hub/playbooks`, { withCredentials: true, params: { brand_id: brandId } })
+        axios.get(`${API}/api/brand-hub/playbooks`, { withCredentials: true, params: { brand_id: brandId } }),
+        axios.get(`${API}/api/brand-hub/templates/library`, { withCredentials: true })
       ]);
       
       if (kitRes.data?.[0]) setBrandKit(kitRes.data[0]);
       setLooks(looksRes.data || []);
       setLookPacks(packsRes.data || []);
       setTemplates(templatesRes.data || []);
+      setTemplateLibrary(libraryRes.data || []);
       if (messagingRes.data?.[0]) setMessagingPack(messagingRes.data[0]);
       setPlaybooks(playbooksRes.data || []);
     } catch (error) {
@@ -102,6 +104,23 @@ export default function BrandHub({ brandId = null }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const seedDefaultTemplates = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.post(`${API}/api/brand-hub/templates/seed-defaults`, {}, { withCredentials: true });
+      if (res.data?.count > 0) {
+        toast.success(isEs ? `${res.data.count} templates agregados` : `${res.data.count} templates added`);
+        fetchData();
+      } else {
+        toast.info(isEs ? "Todos los templates ya existen" : "All templates already exist");
+      }
+    } catch (error) {
+      toast.error(isEs ? "Error al agregar templates" : "Error adding templates");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveBrandKit = async () => {
     setSaving(true);
