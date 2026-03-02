@@ -860,6 +860,25 @@ export default function BrandHub({ brandId = null }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Studio Editor Dialog */}
+      <Dialog open={studioOpen} onOpenChange={setStudioOpen}>
+        <DialogContent className="max-w-6xl h-[90vh] p-0">
+          <StudioEditor 
+            initialAsset={studioTemplate}
+            onClose={() => {
+              setStudioOpen(false);
+              setStudioTemplate(null);
+            }}
+            onSave={(editedAsset) => {
+              toast.success(isEs ? "Template guardado" : "Template saved");
+              setStudioOpen(false);
+              setStudioTemplate(null);
+              fetchData();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
