@@ -61,8 +61,22 @@ export default function DemandStudioSettings() {
         </p>
       </div>
 
-      {/* External Integrations Section */}
-      <Card>
+      <Tabs defaultValue="integrations" className="w-full">
+        <TabsList>
+          <TabsTrigger value="integrations" className="gap-1">
+            <Webhook className="w-4 h-4" />
+            {isEs ? "Integraciones" : "Integrations"}
+          </TabsTrigger>
+          <TabsTrigger value="brand-hub" className="gap-1">
+            <Sparkles className="w-4 h-4" />
+            Brand Hub
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Integrations Tab */}
+        <TabsContent value="integrations" className="mt-6">
+          {/* External Integrations Section */}
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Webhook className="w-5 h-5 text-purple-500" />
