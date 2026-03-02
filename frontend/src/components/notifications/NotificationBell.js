@@ -55,8 +55,8 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/api/demand-studio/notifications`, { withCredentials: true });
-      setNotifications(response.data);
+      const response = await axios.get(`${API}/api/notifications?limit=20`, { withCredentials: true });
+      setNotifications(response.data || []);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
