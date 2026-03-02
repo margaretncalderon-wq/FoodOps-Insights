@@ -120,7 +120,7 @@ export default function SocialSharing() {
       const res = await axios.post(`${API}/api/social-sharing/links`, {
         name: linkName,
         password: linkPassword || null,
-        expires_in_days: parseInt(linkExpiry) || null,
+        expires_in_days: linkExpiry === "never" ? null : parseInt(linkExpiry) || null,
         permissions: linkPermission
       }, { withCredentials: true });
       
