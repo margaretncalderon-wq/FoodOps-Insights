@@ -302,6 +302,96 @@ export default function DemandStudioSettings() {
           </div>
         </CardContent>
       </Card>
+
+          {/* Instagram Connection Card */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Instagram className="w-5 h-5 text-pink-500" />
+                Instagram
+              </CardTitle>
+              <CardDescription>
+                {isEs 
+                  ? "Conecta tu cuenta de Instagram Business para ver tus posts publicados en el Feed"
+                  : "Connect your Instagram Business account to see your published posts in the Feed"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {igLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : igConnection?.connected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <div>
+                        <p className="font-medium text-green-700 dark:text-green-400">
+                          {isEs ? "Conectado" : "Connected"}
+                        </p>
+                        <p className="text-sm text-green-600 dark:text-green-500">
+                          @{igConnection.ig_username || "instagram_account"}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-green-100 text-green-700">
+                      {isEs ? "Activo" : "Active"}
+                    </Badge>
+                  </div>
+                  
+                  {igConnection.last_sync_at && (
+                    <p className="text-xs text-muted-foreground">
+                      {isEs ? "Última sincronización:" : "Last sync:"}{" "}
+                      {new Date(igConnection.last_sync_at).toLocaleString()}
+                    </p>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={handleInstagramSync}
+                      disabled={igSyncing}
+                    >
+                      {igSyncing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      {isEs ? "Sincronizar" : "Sync"}
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleInstagramDisconnect}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      {isEs ? "Desconectar" : "Disconnect"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Instagram className="w-12 h-12 mx-auto text-pink-500 mb-4" />
+                  <h3 className="font-medium mb-2">
+                    {isEs ? "Conecta tu Instagram" : "Connect your Instagram"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                    {isEs 
+                      ? "Conecta tu cuenta de Instagram Business o Creator para importar tus posts publicados"
+                      : "Connect your Instagram Business or Creator account to import your published posts"}
+                  </p>
+                  <Button onClick={handleInstagramConnect} className="bg-gradient-to-r from-purple-500 to-pink-500">
+                    <Instagram className="w-4 h-4 mr-2" />
+                    {isEs ? "Conectar Instagram" : "Connect Instagram"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {isEs ? "Requiere cuenta Business o Creator" : "Requires Business or Creator account"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Brand Hub Tab */}
