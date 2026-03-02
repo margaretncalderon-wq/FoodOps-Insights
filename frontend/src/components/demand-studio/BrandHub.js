@@ -865,7 +865,8 @@ export default function BrandHub({ brandId = null }) {
       <Dialog open={studioOpen} onOpenChange={setStudioOpen}>
         <DialogContent className="max-w-6xl h-[90vh] p-0">
           <StudioEditor 
-            initialAsset={studioTemplate}
+            isOpen={studioOpen}
+            initialAssets={studioTemplate ? [studioTemplate] : []}
             onClose={() => {
               setStudioOpen(false);
               setStudioTemplate(null);
