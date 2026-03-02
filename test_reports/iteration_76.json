@@ -1,0 +1,109 @@
+{
+  "summary": "Tested Instagram integration and Feed Tab features. All backend APIs pass (11/11). Frontend UI verified: Feed tab with Planned/Published/Mixed filters, Original/Styled toggles, empty state display. Instagram connection UI shows Connected state with Sync/Disconnect buttons.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_verified": {
+    "feed_tab": {
+      "status": "WORKING",
+      "location": "Demand Generation > Social Media > Feed tab",
+      "elements_verified": [
+        "Feed tab visible with data-testid='feed-tab'",
+        "Planned filter tab",
+        "Published filter tab (disabled when IG not connected)",
+        "Mixed filter tab",
+        "Original/Styled preview mode toggles",
+        "Refresh button",
+        "Empty state: 'No scheduled or draft posts'"
+      ]
+    },
+    "feed_stats_cards": {
+      "status": "WORKING",
+      "location": "Demand Generation > Social Media > Overview",
+      "cards_verified": [
+        "Scheduled this week",
+        "Posted this month",
+        "Pending ideas",
+        "Campaign-linked"
+      ]
+    },
+    "instagram_connect_ui": {
+      "status": "WORKING",
+      "location": "Demand Generation > Settings > Integrations tab",
+      "elements_verified": [
+        "Instagram section heading",
+        "Description: Connect your Instagram Business account",
+        "Connected status with @demo_account username",
+        "Active badge",
+        "Sync button",
+        "Disconnect button (red)"
+      ]
+    },
+    "instagram_apis": {
+      "status": "WORKING",
+      "endpoints_tested": [
+        "GET /api/studio/instagram/connection - Returns connection status",
+        "POST /api/studio/instagram/connect - Creates mock connection",
+        "DELETE /api/studio/instagram/disconnect - Disconnects account",
+        "POST /api/studio/instagram/sync - Triggers sync (MOCKED)",
+        "GET /api/studio/instagram/media - Returns cached media"
+      ]
+    },
+    "feed_apis": {
+      "status": "WORKING",
+      "endpoints_tested": [
+        "GET /api/studio/feed/planned - Returns planned posts",
+        "GET /api/studio/feed/mixed - Returns mixed feed",
+        "GET /api/studio/feature-flags - Returns feature flags"
+      ]
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_instagram_feed_features.py",
+    "/app/test_reports/pytest/pytest_instagram_feed.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_instagram_feed_features.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (11/11 tests pass)",
+    "frontend": "100% - All features verified visually"
+  },
+
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+
+  "seed_data_creation": "Instagram connection already existed for demo account",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Feed Tab and Instagram integration fully working. Feed tab shows at Demand Generation > Social Media > Feed with Planned/Published/Mixed filters and Original/Styled toggles. Instagram settings at Demand Generation > Settings > Integrations with Connect/Disconnect/Sync UI. APIs are MOCKED - no real Instagram API calls.",
+
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": [
+      "POST /api/studio/instagram/connect - Uses mock OAuth tokens",
+      "POST /api/studio/instagram/sync - Returns mock success (no real IG API calls)",
+      "GET /api/studio/instagram/media - Returns empty array (no real cached media)"
+    ]
+  }
+}
