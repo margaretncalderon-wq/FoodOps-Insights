@@ -122,6 +122,7 @@ export default function LeadOutreachSection() {
     whatsapp: "",
     company_name: "",
     client_type: "Individual",
+    industry: "",
     rnc: "",
     address: "",
     city: "",
