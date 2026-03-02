@@ -60,6 +60,8 @@ export default function BrandHub({ brandId = null }) {
   const [templates, setTemplates] = useState([]);
   const [templateLibrary, setTemplateLibrary] = useState([]);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
+  const [studioTemplate, setStudioTemplate] = useState(null);
   
   // Messaging state
   const [messagingPack, setMessagingPack] = useState({
