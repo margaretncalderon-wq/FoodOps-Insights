@@ -75,6 +75,13 @@ export default function ClientEngagementPage() {
     fetchStats(); 
   }, [fetchStats]);
 
+  // Refetch stats when navigating within CRM sections to keep counters updated
+  useEffect(() => {
+    if (isCrmActive) {
+      fetchStats();
+    }
+  }, [location.pathname, fetchStats]);
+
   // Check if current path is in CRM section
   const isCrmActive = location.pathname.includes("/client-engagement/crm");
   
