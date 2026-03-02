@@ -684,6 +684,47 @@ def get_cookie_domain(request):
 - Token refresh mechanism
 - Real media caching
 
+### Session: Mar 02, 2026 - Real Instagram OAuth Multi-Tenant ✅
+
+#### Instagram OAuth 2.0 (User Request: "Simple sign in like Tezza")
+- **Goal**: Real Instagram login flow that works multi-tenant (each client connects their own IG)
+- **Status**: ✅ COMPLETE (Pending Meta App credentials)
+
+**Implementation:**
+- Created new router: `backend/routers/instagram_oauth.py`
+- OAuth 2.0 flow with CSRF state protection
+- Multi-tenant: ONE Kora Meta App, each tenant connects their own IG account
+- Token storage encrypted per tenant
+- Automatic token refresh (60-day long-lived tokens)
+
+**New Endpoints:**
+- `GET /api/instagram/oauth/start` - Returns Instagram auth URL
+- `GET /api/instagram/oauth/callback` - Handles OAuth callback, exchanges code for token
+- `POST /api/instagram/oauth/refresh` - Refreshes token before expiry
+- `GET /api/instagram/media` - Fetches user's media with caching
+- `GET /api/instagram/profile` - Gets user profile info
+
+**Frontend Changes:**
+- `DemandStudioSettings.js` - Updated connect flow to use real OAuth
+- Handles OAuth callback params (ig_success, ig_error, ig_username)
+- Shows appropriate error when IG not configured
+
+**Configuration Required:**
+Add to `/app/backend/.env`:
+```
+INSTAGRAM_APP_ID=your_meta_app_id
+INSTAGRAM_APP_SECRET=your_meta_app_secret
+```
+
+**Documentation:**
+- Created `/app/docs/INSTAGRAM_SETUP.md` with full setup guide
+- Includes Meta App creation, permissions, redirect URIs
+
+**Testing Results:**
+- Backend: 12/12 tests pass (100%)
+- Frontend: All OAuth flows verified
+- Test report: `/app/test_reports/iteration_77.json`
+
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
