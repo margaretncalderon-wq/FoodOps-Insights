@@ -148,6 +148,60 @@ export default function BrandHub({ brandId = null }) {
     setStudioOpen(true);
   };
 
+  const handleTemplateUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingTemplate(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axios.post(`${API}/api/upload`, formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (res.data?.url) {
+        setNewTemplate(prev => ({ ...prev, preview_url: res.data.url }));
+        toast.success(isEs ? "Imagen subida" : "Image uploaded");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error(isEs ? "Error al subir imagen" : "Error uploading image");
+    } finally {
+      setUploadingTemplate(false);
+    }
+  };
+
+  const createNewTemplate = async () => {
+    if (!newTemplate.name.trim()) {
+      toast.error(isEs ? "Ingresa un nombre" : "Enter a name");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await axios.post(`${API}/api/brand-hub/templates`, {
+        ...newTemplate,
+        brand_id: brandId,
+        template_json: { aspect_ratio: "1:1" },
+        auto_applies_tokens: true,
+        is_default: false
+      }, { withCredentials: true });
+
+      toast.success(isEs ? "Template creado" : "Template created");
+      setCreateTemplateOpen(false);
+      setNewTemplate({ name: "", type: "social_post", category: "custom", preview_url: "" });
+      fetchData();
+    } catch (error) {
+      console.error("Create template error:", error);
+      toast.error(isEs ? "Error al crear template" : "Error creating template");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveBrandKit = async () => {
     setSaving(true);
     try {
