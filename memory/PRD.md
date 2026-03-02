@@ -773,6 +773,51 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - Frontend: 100% - All UI components verified
 - Test report: `/app/test_reports/iteration_78.json`
 
+### Session: Mar 02, 2026 - In-App Notifications System ✅
+
+#### In-System Notifications (User Request)
+- **Goal**: Notify users in-app when external agencies create content
+- **Status**: ✅ COMPLETE
+
+**Features Implemented:**
+
+1. **Notification Backend (`/api/notifications/`)**
+   - `GET /` - List notifications with pagination
+   - `GET /unread-count` - Count of unread notifications
+   - `POST /{id}/read` - Mark single notification as read
+   - `POST /mark-all-read` - Mark all as read
+   - `DELETE /{id}` - Delete notification
+   - `DELETE /` - Clear read notifications
+   - `POST /internal/create` - Internal API for other services
+
+2. **Helper Functions**
+   - `create_notification()` - Create notification for a user
+   - `notify_org_admins()` - Notify all admins of an organization
+
+3. **Integration with Social Sharing**
+   - When external agency creates an idea → notification to admins
+   - When external agency creates a draft → high priority "needs approval" notification
+
+4. **Frontend NotificationBell Component**
+   - Bell icon in sidebar with unread count badge
+   - Dropdown with notification list
+   - Mark as read / Mark all as read
+   - Click to navigate to related content
+   - Fixed dropdown positioning (was off-screen)
+
+**Notification Types:**
+- `content_created` - External content created
+- `approval_needed` - Draft needs approval (high priority)
+- `invitation_accepted` - User accepted invite
+- `campaign_update` - Campaign changes
+- `system` - System alerts
+
+**Testing Results:**
+- Backend: 18/18 tests pass (100%)
+- Frontend: 100% - Dropdown positioning fixed by testing agent
+- Test report: `/app/test_reports/iteration_79.json`
+- Unit tests: `/app/backend/tests/test_notifications.py`
+
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
