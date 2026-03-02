@@ -628,25 +628,9 @@ async def seed_default_templates(user: User = Depends(get_current_user)):
     
     now = datetime.now(timezone.utc)
     created = []
+    updated = []
     
     for tpl in DEFAULT_TEMPLATES:
-        template_id = str(uuid.uuid4())
-        template = {
-            "template_id": template_id,
-            "tenant_id": tenant_id,
-            "brand_id": None,
-            "campaign_id": None,
-            "name": tpl["name"],
-            "type": tpl["type"],
-            "category": tpl.get("category"),
-            "template_json": tpl["template_json"],
-            "preview_url": tpl.get("preview_url"),
-            "auto_applies_tokens": tpl.get("auto_applies_tokens", True),
-            "is_default": True,
-            "created_at": now.isoformat(),
-            "updated_at": now.isoformat()
-        }
-        
         # Check if already exists
         existing = await db.templates.find_one({
             "tenant_id": tenant_id,
@@ -654,11 +638,39 @@ async def seed_default_templates(user: User = Depends(get_current_user)):
             "type": tpl["type"]
         })
         
-        if not existing:
+        if existing:
+            # Update existing template with preview_url if missing
+            if not existing.get("preview_url") and tpl.get("preview_url"):
+                await db.templates.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {
+                        "preview_url": tpl.get("preview_url"),
+                        "template_json": tpl["template_json"],
+                        "updated_at": now.isoformat()
+                    }}
+                )
+                updated.append(tpl["name"])
+        else:
+            template_id = str(uuid.uuid4())
+            template = {
+                "template_id": template_id,
+                "tenant_id": tenant_id,
+                "brand_id": None,
+                "campaign_id": None,
+                "name": tpl["name"],
+                "type": tpl["type"],
+                "category": tpl.get("category"),
+                "template_json": tpl["template_json"],
+                "preview_url": tpl.get("preview_url"),
+                "auto_applies_tokens": tpl.get("auto_applies_tokens", True),
+                "is_default": True,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat()
+            }
             await db.templates.insert_one(template)
             created.append(tpl["name"])
     
-    return {"created": created, "count": len(created)}
+    return {"created": created, "updated": updated, "count": len(created) + len(updated)}
 
 
 @brand_hub_router.get("/templates")
