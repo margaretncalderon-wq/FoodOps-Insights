@@ -557,7 +557,7 @@ export default function BrandHub({ brandId = null }) {
                 <Sparkles className="w-4 h-4 mr-1" />
                 {isEs ? "Agregar Defaults" : "Add Defaults"}
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setCreateTemplateOpen(true)}>
                 <Plus className="w-4 h-4 mr-1" />
                 {isEs ? "Crear Template" : "Create Template"}
               </Button>
