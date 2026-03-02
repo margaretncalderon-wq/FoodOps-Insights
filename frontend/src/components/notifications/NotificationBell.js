@@ -73,7 +73,7 @@ export default function NotificationBell() {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.post(`${API}/api/demand-studio/notifications/${notificationId}/read`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/notifications/${notificationId}/read`, {}, { withCredentials: true });
       setNotifications(prev => 
         prev.map(n => n.notification_id === notificationId ? { ...n, read: true } : n)
       );
@@ -85,7 +85,7 @@ export default function NotificationBell() {
 
   const markAllAsRead = async () => {
     try {
-      await axios.post(`${API}/api/demand-studio/notifications/mark-all-read`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/notifications/mark-all-read`, {}, { withCredentials: true });
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (error) {
