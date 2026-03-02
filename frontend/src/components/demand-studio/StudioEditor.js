@@ -563,6 +563,76 @@ export default function StudioEditor({
           </div>
         </div>
       </DialogContent>
+
+      {/* Save as Template Dialog */}
+      <Dialog open={saveAsTemplateOpen} onOpenChange={setSaveAsTemplateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Guardar como Template" : "Save as Template"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{isEs ? "Nombre del Template" : "Template Name"}</label>
+              <Input
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder={isEs ? "Mi template personalizado" : "My custom template"}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{isEs ? "Tipo" : "Type"}</label>
+              <select 
+                className="w-full p-2 border rounded-md bg-background"
+                value={newTemplateType}
+                onChange={(e) => setNewTemplateType(e.target.value)}
+              >
+                <option value="social_post">Social Post</option>
+                <option value="story">Story</option>
+                <option value="carousel">Carousel</option>
+                <option value="email">Email</option>
+                <option value="banner">Banner</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{isEs ? "Categoría" : "Category"}</label>
+              <select 
+                className="w-full p-2 border rounded-md bg-background"
+                value={newTemplateCategory}
+                onChange={(e) => setNewTemplateCategory(e.target.value)}
+              >
+                <option value="custom">{isEs ? "Personalizado" : "Custom"}</option>
+                <option value="promotion">{isEs ? "Promoción" : "Promotion"}</option>
+                <option value="engagement">{isEs ? "Engagement" : "Engagement"}</option>
+                <option value="product">{isEs ? "Producto" : "Product"}</option>
+                <option value="newsletter">Newsletter</option>
+                <option value="announcement">{isEs ? "Anuncio" : "Announcement"}</option>
+              </select>
+            </div>
+            {currentAsset?.original_url && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Preview</label>
+                <div className="aspect-video rounded-lg overflow-hidden border">
+                  <img 
+                    src={currentAsset.original_url} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                    style={getFilterStyle()}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveAsTemplateOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveAsTemplate} disabled={loading || !newTemplateName.trim()}>
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {isEs ? "Guardar Template" : "Save Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
