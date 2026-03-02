@@ -518,10 +518,28 @@ export default function BrandHub({ brandId = null }) {
                   {templateLibrary.map((template, idx) => (
                     <div 
                       key={idx}
-                      className="p-4 border rounded-lg hover:border-primary cursor-pointer transition-colors group"
+                      className="p-4 border rounded-lg hover:border-primary cursor-pointer transition-colors group relative overflow-hidden"
                     >
-                      <div className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10 rounded mb-3 flex items-center justify-center">
-                        <FileText className="w-8 h-8 text-primary/50 group-hover:text-primary transition-colors" />
+                      <div className="aspect-video rounded mb-3 flex items-center justify-center relative overflow-hidden">
+                        {template.preview_url ? (
+                          <img src={template.preview_url} alt="" className="w-full h-full object-cover rounded" />
+                        ) : (
+                          <div className="bg-gradient-to-br from-primary/10 to-accent/10 w-full h-full rounded flex items-center justify-center">
+                            <FileText className="w-8 h-8 text-primary/50 group-hover:text-primary transition-colors" />
+                          </div>
+                        )}
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={() => openTemplateInStudio(template)}
+                            className="gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            {isEs ? "Vista previa" : "Preview"}
+                          </Button>
+                        </div>
                       </div>
                       <p className="font-medium text-sm">{template.name}</p>
                       <div className="flex items-center gap-2 mt-1">
