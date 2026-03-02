@@ -725,6 +725,54 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - Frontend: All OAuth flows verified
 - Test report: `/app/test_reports/iteration_77.json`
 
+### Session: Mar 02, 2026 - Social Media Sharing for External Agencies ✅
+
+#### Share Social Media with Marketing Agencies (User Request)
+- **Goal**: Allow sharing Social Media module with external agencies (multi-tenant)
+- **Status**: ✅ COMPLETE
+
+**Features Implemented:**
+
+1. **Internal Collaborators (Kora Users)**
+   - Invite Kora users as "Social Viewer" or "Social Contributor"
+   - Users see the organization in their Kora account
+   - Permissions: Viewer (read-only), Contributor (view + create drafts/ideas)
+   - Manage invitations and remove collaborators
+
+2. **External Share Links (Non-Kora Users)**
+   - Create public links with optional password protection
+   - Configurable expiry (7 days, 30 days, 90 days, 1 year, never)
+   - Permissions: Viewer or Contributor
+   - Track access count and last accessed date
+   - Revoke links at any time
+
+**Backend Endpoints (`/api/social-sharing/`):**
+- `GET /collaborators` - List collaborators and pending invitations
+- `POST /collaborators/invite` - Invite a Kora user
+- `DELETE /collaborators/{membership_id}` - Remove collaborator
+- `GET /links` - List active share links
+- `POST /links` - Create share link
+- `DELETE /links/{share_id}` - Revoke link
+- `POST /access/validate` - Public endpoint for external access
+- `GET /external/social-posts` - Posts for external viewers
+- `GET /external/ideas` - Ideas for external viewers
+- `POST /external/ideas` - Create idea as external contributor
+- `POST /external/drafts` - Create draft as external contributor
+
+**Frontend:**
+- New component: `SocialSharing.js`
+- Integrated in Social Media > Settings > "Share with Agencies" section
+- Dialogs for inviting collaborators and creating links
+- Copy to clipboard functionality
+
+**Bug Fixed by Testing Agent:**
+- SelectItem with empty value caused React error - Changed to value="never"
+
+**Testing Results:**
+- Backend: 16/16 tests pass (100%)
+- Frontend: 100% - All UI components verified
+- Test report: `/app/test_reports/iteration_78.json`
+
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
