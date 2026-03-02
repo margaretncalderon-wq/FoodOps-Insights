@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -9,7 +9,8 @@ import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { 
   Settings, Link2, Copy, Check, Webhook, 
-  Facebook, ExternalLink, Zap, AlertCircle, Sparkles
+  Facebook, ExternalLink, Zap, AlertCircle, Sparkles, Instagram,
+  Loader2, CheckCircle, XCircle, RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import BrandHub from "../../components/demand-studio/BrandHub";
@@ -22,6 +23,11 @@ export default function DemandStudioSettings() {
   const isEs = language === "es";
   const [copied, setCopied] = useState(null);
   const [companySlug, setCompanySlug] = useState("");
+  
+  // Instagram state
+  const [igConnection, setIgConnection] = useState(null);
+  const [igLoading, setIgLoading] = useState(true);
+  const [igSyncing, setIgSyncing] = useState(false);
 
   useEffect(() => {
     // Get company slug/id for webhook URL
@@ -35,6 +41,62 @@ export default function DemandStudioSettings() {
     };
     fetchCompany();
   }, [user]);
+
+  const fetchInstagramConnection = useCallback(async () => {
+    setIgLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/studio/instagram/connection`, { withCredentials: true });
+      setIgConnection(res.data);
+    } catch (error) {
+      console.error("Error fetching IG connection:", error);
+      setIgConnection({ connected: false });
+    } finally {
+      setIgLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInstagramConnection();
+  }, [fetchInstagramConnection]);
+
+  const handleInstagramConnect = async () => {
+    // For now, simulate a connection with mock data
+    // In production, this would redirect to Instagram OAuth
+    try {
+      await axios.post(`${API}/api/studio/instagram/connect`, {
+        access_token: "mock_token_" + Date.now(),
+        ig_user_id: "ig_" + Math.random().toString(36).substr(2, 9),
+        ig_username: "demo_account"
+      }, { withCredentials: true });
+      toast.success(isEs ? "Instagram conectado" : "Instagram connected");
+      fetchInstagramConnection();
+    } catch (error) {
+      toast.error(isEs ? "Error al conectar" : "Connection error");
+    }
+  };
+
+  const handleInstagramDisconnect = async () => {
+    try {
+      await axios.delete(`${API}/api/studio/instagram/disconnect`, { withCredentials: true });
+      toast.success(isEs ? "Instagram desconectado" : "Instagram disconnected");
+      setIgConnection({ connected: false });
+    } catch (error) {
+      toast.error(isEs ? "Error al desconectar" : "Disconnect error");
+    }
+  };
+
+  const handleInstagramSync = async () => {
+    setIgSyncing(true);
+    try {
+      await axios.post(`${API}/api/studio/instagram/sync`, {}, { withCredentials: true });
+      toast.success(isEs ? "Sincronización iniciada" : "Sync started");
+      fetchInstagramConnection();
+    } catch (error) {
+      toast.error(isEs ? "Error al sincronizar" : "Sync error");
+    } finally {
+      setIgSyncing(false);
+    }
+  };
 
   const webhookUrl = `${window.location.origin}/api/webhooks/leads/${companySlug}`;
   const testUrl = `${window.location.origin}/api/webhooks/test/${companySlug}`;
