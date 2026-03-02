@@ -1,0 +1,65 @@
+{
+  "summary": "Tested CRM bug fixes: (1) Industry field visibility in edit dialog and (2) CRM dropdown counter updates. Both bugs are fixed. Found and fixed backend issue - 'industry' was not in allowed_fields list for lead updates.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_verified": {
+    "industry_field_in_edit_dialog": {
+      "status": "WORKING",
+      "details": "Industry field visible at lines 1701-1714 in LeadOutreachSection.js. Dropdown opens correctly with all industry options. Selection works. Fixed Radix SelectItem value='' bug by using value='none'."
+    },
+    "industry_save_persistence": {
+      "status": "WORKING - after backend fix",
+      "details": "Industry value now saves correctly. Backend fix: added 'industry' to allowed_fields in /app/backend/routers/crm.py line 260."
+    },
+    "crm_dropdown_counters": {
+      "status": "WORKING",
+      "details": "useEffect on line 82-86 in ClientEngagementPage.js calls fetchStats when navigating within CRM sections. Counters show: Outreach (6), Inbound (11), Clients (3)."
+    }
+  },
+
+  "bugs_fixed_during_testing": [
+    {
+      "file": "/app/backend/routers/crm.py",
+      "issue": "Industry field was not being saved when updating leads - field was missing from allowed_fields whitelist",
+      "fix": "Added 'industry' to allowed_fields list in update_lead function at line 260",
+      "line_changed": 260
+    }
+  ],
+
+  "test_report_links": [],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/routers/crm.py"
+  ],
+
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+
+  "seed_data_creation": "Set industry='Retail' on lead 'Elizabeth Diaz - Test' during testing",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "CRM lead edit dialog Industry field is working. Backend allowed_fields list was missing 'industry' - now fixed. CRM dropdown counters refresh on navigation via useEffect. The total badge (17) in CRM tab header = Outreach (6) + Inbound (11)."
+}
