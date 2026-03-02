@@ -54,15 +54,13 @@ class TestCollaboratorsAPI:
         assert isinstance(data["collaborators"], list)
         assert isinstance(data["pending_invitations"], list)
     
-    def test_list_collaborators_unauthorized(self, api_client):
+    def test_list_collaborators_unauthorized(self):
         """GET /api/social-sharing/collaborators requires auth"""
-        # Remove auth header temporarily
-        auth = api_client.headers.pop("Authorization", None)
-        response = api_client.get(f"{BASE_URL}/api/social-sharing/collaborators")
+        # Use fresh session without auth
+        fresh_client = requests.Session()
+        fresh_client.headers.update({"Content-Type": "application/json"})
+        response = fresh_client.get(f"{BASE_URL}/api/social-sharing/collaborators")
         assert response.status_code == 401
-        # Restore header
-        if auth:
-            api_client.headers["Authorization"] = auth
     
     def test_invite_collaborator_creates_invitation(self, authenticated_client):
         """POST /api/social-sharing/collaborators/invite invites a user"""
