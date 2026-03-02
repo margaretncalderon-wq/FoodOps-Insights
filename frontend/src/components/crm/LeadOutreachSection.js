@@ -505,6 +505,7 @@ export default function LeadOutreachSection() {
         city: editForm.city,
         country: editForm.country,
         client_type: editForm.client_type,
+        industry: editForm.industry,
         rnc: editForm.rnc,
         address: editForm.address,
         message: editForm.message,
