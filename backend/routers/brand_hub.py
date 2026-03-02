@@ -70,6 +70,7 @@ async def resolve_brand_config(
     # 3. Get look pack
     look_pack = None
     default_look_id = None
+    campaign_dna = None  # Initialize to avoid UnboundLocalError
     
     # First check campaign DNA for look pack
     if campaign_id:
