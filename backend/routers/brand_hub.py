@@ -717,9 +717,11 @@ async def create_template(data: TemplateCreate, user: User = Depends(get_current
         "campaign_id": data.campaign_id,
         "name": data.name,
         "type": data.type,
+        "category": data.category,
         "template_json": data.template_json,
         "preview_url": data.preview_url,
         "auto_applies_tokens": data.auto_applies_tokens,
+        "is_default": data.is_default,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
