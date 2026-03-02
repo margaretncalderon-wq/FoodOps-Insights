@@ -146,7 +146,7 @@ class TestTemplatePreviewFeatures:
         
     def test_campaigns_endpoint(self):
         """Test campaigns list endpoint"""
-        response = self.session.get(f"{BASE_URL}/api/campaigns")
+        response = self.session.get(f"{BASE_URL}/api/demand-studio/campaigns")
         assert response.status_code == 200, f"Failed: {response.text}"
         
         data = response.json()
@@ -161,7 +161,7 @@ class TestTemplatePreviewFeatures:
     def test_campaign_detail_endpoint(self):
         """Test campaign detail endpoint"""
         # First get campaigns list
-        list_response = self.session.get(f"{BASE_URL}/api/campaigns")
+        list_response = self.session.get(f"{BASE_URL}/api/demand-studio/campaigns")
         assert list_response.status_code == 200
         
         data = list_response.json()
@@ -169,7 +169,7 @@ class TestTemplatePreviewFeatures:
         
         if len(campaigns) > 0:
             campaign_id = campaigns[0].get("campaign_id") or campaigns[0].get("id")
-            detail_response = self.session.get(f"{BASE_URL}/api/campaigns/{campaign_id}")
+            detail_response = self.session.get(f"{BASE_URL}/api/demand-studio/campaigns/{campaign_id}")
             
             assert detail_response.status_code == 200, f"Failed: {detail_response.text}"
             detail = detail_response.json()
@@ -180,7 +180,7 @@ class TestTemplatePreviewFeatures:
     def test_campaign_dna_endpoint(self):
         """Test campaign DNA endpoint"""
         # First get campaigns list
-        list_response = self.session.get(f"{BASE_URL}/api/campaigns")
+        list_response = self.session.get(f"{BASE_URL}/api/demand-studio/campaigns")
         assert list_response.status_code == 200
         
         data = list_response.json()
