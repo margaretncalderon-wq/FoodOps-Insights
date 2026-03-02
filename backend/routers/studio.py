@@ -409,12 +409,16 @@ async def connect_instagram(data: InstagramConnectionCreate, user: User = Depend
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization found")
     
-    # Check permissions (Admin/Manager only)
-    membership = await db.memberships.find_one({
-        "user_id": user.user_id,
-        "organization_id": company_id
-    })
-    if not membership or membership.get("role") not in ["owner", "admin", "manager"]:
+    # Check permissions - first check user's role directly, then membership
+    user_role = user.role
+    if not user_role:
+        membership = await db.memberships.find_one({
+            "user_id": user.user_id,
+            "organization_id": company_id
+        })
+        user_role = membership.get("role") if membership else None
+    
+    if user_role not in ["owner", "admin", "manager"]:
         raise HTTPException(status_code=403, detail="Admin or Manager access required")
     
     now = datetime.now(timezone.utc)
