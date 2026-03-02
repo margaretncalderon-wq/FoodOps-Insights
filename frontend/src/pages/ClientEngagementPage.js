@@ -57,6 +57,9 @@ export default function ClientEngagementPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({});
 
+  // Check if current path is in CRM section
+  const isCrmActive = location.pathname.includes("/client-engagement/crm");
+
   // Get terminology-aware labels
   const clientsLabel = term("events", "clients");
   const leadsLabel = term("events", "leads");
@@ -80,10 +83,7 @@ export default function ClientEngagementPage() {
     if (isCrmActive) {
       fetchStats();
     }
-  }, [location.pathname, fetchStats]);
-
-  // Check if current path is in CRM section
-  const isCrmActive = location.pathname.includes("/client-engagement/crm");
+  }, [location.pathname, isCrmActive, fetchStats]);
   
   // Get current CRM sub-tab label
   const getCrmLabel = () => {
