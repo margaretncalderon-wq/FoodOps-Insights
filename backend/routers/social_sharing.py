@@ -21,6 +21,7 @@ import hashlib
 from config import db
 from models.auth import User
 from routers.auth import get_current_user
+from routers.notifications import notify_org_admins, create_notification
 
 social_sharing_router = APIRouter(prefix="/social-sharing", tags=["Social Sharing"])
 
