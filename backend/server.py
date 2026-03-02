@@ -16291,6 +16291,10 @@ api_router.include_router(instagram_oauth_router)  # /api/instagram/*
 from routers.social_sharing import social_sharing_router
 api_router.include_router(social_sharing_router)  # /api/social-sharing/*
 
+# Include Notifications router
+from routers.notifications import notifications_router
+api_router.include_router(notifications_router)  # /api/notifications/*
+
 # Include Brand Hub router
 from routers.brand_hub import brand_hub_router
 api_router.include_router(brand_hub_router)  # /api/brand-hub/*
