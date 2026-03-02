@@ -477,6 +477,7 @@ export default function LeadOutreachSection() {
       whatsapp: lead.whatsapp || "",
       company_name: lead.company_name || lead.company || "",
       client_type: lead.client_type || "Individual",
+      industry: lead.industry || "",
       rnc: lead.rnc || "",
       address: lead.address || "",
       city: lead.city || "",
