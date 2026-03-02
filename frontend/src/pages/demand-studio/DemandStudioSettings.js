@@ -29,6 +29,32 @@ export default function DemandStudioSettings() {
   const [igLoading, setIgLoading] = useState(true);
   const [igSyncing, setIgSyncing] = useState(false);
 
+  // Handle OAuth callback parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const igSuccess = urlParams.get("ig_success");
+    const igError = urlParams.get("ig_error");
+    const igUsername = urlParams.get("ig_username");
+    
+    if (igSuccess === "true") {
+      toast.success(isEs 
+        ? `Instagram conectado: @${igUsername || "cuenta"}` 
+        : `Instagram connected: @${igUsername || "account"}`);
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (igError) {
+      const errorMessages = {
+        invalid_state: isEs ? "Sesión expirada. Intenta de nuevo." : "Session expired. Try again.",
+        expired: isEs ? "Enlace expirado. Intenta de nuevo." : "Link expired. Try again.",
+        token_exchange_failed: isEs ? "Error de autenticación con Instagram." : "Instagram authentication error.",
+        no_token: isEs ? "No se recibió token de Instagram." : "No token received from Instagram.",
+        unknown: isEs ? "Error desconocido. Intenta de nuevo." : "Unknown error. Try again."
+      };
+      toast.error(errorMessages[igError] || errorMessages.unknown);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [isEs]);
+
   useEffect(() => {
     // Get company slug/id for webhook URL
     const fetchCompany = async () => {
