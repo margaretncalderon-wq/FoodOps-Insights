@@ -500,6 +500,167 @@ async def update_messaging_pack(pack_id: str, data: MessagingPackCreate, user: U
 
 # ============== TEMPLATES ==============
 
+# Pre-designed template library
+DEFAULT_TEMPLATES = [
+    {
+        "name": "Post Promocional",
+        "name_en": "Promotional Post",
+        "type": "social_post",
+        "category": "promotion",
+        "template_json": {
+            "layout": "image_top",
+            "aspect_ratio": "1:1",
+            "elements": [
+                {"type": "image", "position": "top", "height": "60%"},
+                {"type": "headline", "font": "heading", "size": "24px", "color": "{{primary}}"},
+                {"type": "body", "font": "body", "size": "14px", "color": "{{text}}"},
+                {"type": "cta", "style": "button", "bg": "{{accent}}", "color": "#ffffff"}
+            ]
+        },
+        "preview_url": None,
+        "auto_applies_tokens": True
+    },
+    {
+        "name": "Story con CTA",
+        "name_en": "Story with CTA",
+        "type": "story",
+        "category": "engagement",
+        "template_json": {
+            "layout": "fullscreen",
+            "aspect_ratio": "9:16",
+            "elements": [
+                {"type": "background_image", "position": "full"},
+                {"type": "gradient_overlay", "direction": "bottom", "color": "{{primary}}"},
+                {"type": "headline", "position": "center", "font": "heading", "size": "32px", "color": "#ffffff"},
+                {"type": "swipe_up", "text": "Ver más", "color": "{{accent}}"}
+            ]
+        },
+        "preview_url": None,
+        "auto_applies_tokens": True
+    },
+    {
+        "name": "Carrusel Producto",
+        "name_en": "Product Carousel",
+        "type": "carousel",
+        "category": "product",
+        "template_json": {
+            "layout": "slides",
+            "aspect_ratio": "4:5",
+            "slides": [
+                {"type": "cover", "elements": [{"type": "headline"}, {"type": "logo"}]},
+                {"type": "product", "elements": [{"type": "image"}, {"type": "title"}, {"type": "price"}]},
+                {"type": "cta", "elements": [{"type": "headline"}, {"type": "button"}]}
+            ]
+        },
+        "preview_url": None,
+        "auto_applies_tokens": True
+    },
+    {
+        "name": "Email Newsletter",
+        "name_en": "Newsletter Email",
+        "type": "email",
+        "category": "newsletter",
+        "template_json": {
+            "layout": "single_column",
+            "sections": [
+                {"type": "header", "logo": True, "bg": "{{primary}}"},
+                {"type": "hero", "image": True, "headline": True},
+                {"type": "content", "columns": 1},
+                {"type": "cta_block", "button_bg": "{{accent}}"},
+                {"type": "footer", "social_links": True}
+            ]
+        },
+        "preview_url": None,
+        "auto_applies_tokens": True
+    },
+    {
+        "name": "Email Promocional",
+        "name_en": "Promotional Email",
+        "type": "email",
+        "category": "promotion",
+        "template_json": {
+            "layout": "centered",
+            "sections": [
+                {"type": "header", "minimal": True},
+                {"type": "hero_banner", "full_width": True},
+                {"type": "offer_block", "bg": "{{accent}}", "countdown": True},
+                {"type": "products_grid", "columns": 2},
+                {"type": "cta_button", "size": "large"},
+                {"type": "footer"}
+            ]
+        },
+        "preview_url": None,
+        "auto_applies_tokens": True
+    },
+    {
+        "name": "Quote Card",
+        "name_en": "Quote Card",
+        "type": "social_post",
+        "category": "engagement",
+        "template_json": {
+            "layout": "centered",
+            "aspect_ratio": "1:1",
+            "elements": [
+                {"type": "background", "color": "{{surface}}"},
+                {"type": "quote_mark", "color": "{{primary}}", "opacity": 0.2},
+                {"type": "quote_text", "font": "accent", "size": "20px", "color": "{{text}}"},
+                {"type": "author", "font": "body", "size": "14px", "color": "{{text_muted}}"}
+            ]
+        },
+        "preview_url": None,
+        "auto_applies_tokens": True
+    }
+]
+
+
+@brand_hub_router.get("/templates/library")
+async def get_template_library(user: User = Depends(get_current_user)):
+    """Get pre-designed template library"""
+    return DEFAULT_TEMPLATES
+
+
+@brand_hub_router.post("/templates/seed-defaults")
+async def seed_default_templates(user: User = Depends(get_current_user)):
+    """Seed default templates for the organization"""
+    tenant_id = user.company_id or user.active_org_id
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="No organization found")
+    
+    now = datetime.now(timezone.utc)
+    created = []
+    
+    for tpl in DEFAULT_TEMPLATES:
+        template_id = str(uuid.uuid4())
+        template = {
+            "template_id": template_id,
+            "tenant_id": tenant_id,
+            "brand_id": None,
+            "campaign_id": None,
+            "name": tpl["name"],
+            "type": tpl["type"],
+            "category": tpl.get("category"),
+            "template_json": tpl["template_json"],
+            "preview_url": tpl.get("preview_url"),
+            "auto_applies_tokens": tpl.get("auto_applies_tokens", True),
+            "is_default": True,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        
+        # Check if already exists
+        existing = await db.templates.find_one({
+            "tenant_id": tenant_id,
+            "name": tpl["name"],
+            "type": tpl["type"]
+        })
+        
+        if not existing:
+            await db.templates.insert_one(template)
+            created.append(tpl["name"])
+    
+    return {"created": created, "count": len(created)}
+
+
 @brand_hub_router.get("/templates")
 async def get_templates(
     brand_id: Optional[str] = None,
