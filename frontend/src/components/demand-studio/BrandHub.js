@@ -924,6 +924,104 @@ export default function BrandHub({ brandId = null }) {
         </DialogContent>
       </Dialog>
 
+      {/* Create Template Dialog */}
+      <Dialog open={createTemplateOpen} onOpenChange={setCreateTemplateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Crear Nuevo Template" : "Create New Template"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre del Template" : "Template Name"}</Label>
+              <Input
+                value={newTemplate.name}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+                placeholder={isEs ? "Mi template" : "My template"}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Tipo" : "Type"}</Label>
+                <select 
+                  className="w-full p-2 border rounded-md bg-background"
+                  value={newTemplate.type}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, type: e.target.value }))}
+                >
+                  <option value="social_post">Social Post</option>
+                  <option value="story">Story</option>
+                  <option value="carousel">Carousel</option>
+                  <option value="email">Email</option>
+                  <option value="banner">Banner</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Categoría" : "Category"}</Label>
+                <select 
+                  className="w-full p-2 border rounded-md bg-background"
+                  value={newTemplate.category}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, category: e.target.value }))}
+                >
+                  <option value="custom">{isEs ? "Personalizado" : "Custom"}</option>
+                  <option value="promotion">{isEs ? "Promoción" : "Promotion"}</option>
+                  <option value="engagement">Engagement</option>
+                  <option value="product">{isEs ? "Producto" : "Product"}</option>
+                  <option value="newsletter">Newsletter</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{isEs ? "Imagen de Preview" : "Preview Image"}</Label>
+              {newTemplate.preview_url ? (
+                <div className="relative aspect-video rounded-lg overflow-hidden border">
+                  <img 
+                    src={newTemplate.preview_url} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="absolute top-2 right-2"
+                    onClick={() => setNewTemplate(prev => ({ ...prev, preview_url: "" }))}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleTemplateUpload}
+                    disabled={uploadingTemplate}
+                  />
+                  {uploadingTemplate ? (
+                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                      <span className="text-sm text-muted-foreground">
+                        {isEs ? "Subir imagen" : "Upload image"}
+                      </span>
+                    </>
+                  )}
+                </label>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateTemplateOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={createNewTemplate} disabled={saving || !newTemplate.name.trim()}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+              {isEs ? "Crear Template" : "Create Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Studio Editor Dialog */}
       <Dialog open={studioOpen} onOpenChange={setStudioOpen}>
         <DialogContent className="max-w-6xl h-[90vh] p-0">
@@ -936,6 +1034,11 @@ export default function BrandHub({ brandId = null }) {
             }}
             onSave={(editedAsset) => {
               toast.success(isEs ? "Template guardado" : "Template saved");
+              setStudioOpen(false);
+              setStudioTemplate(null);
+              fetchData();
+            }}
+            onSaveAsTemplate={() => {
               setStudioOpen(false);
               setStudioTemplate(null);
               fetchData();
