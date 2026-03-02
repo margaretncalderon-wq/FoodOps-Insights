@@ -1,158 +1,171 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix production bugs, improve application stability, and add significant new features.
+The user's initial goal was to fix critical production bugs (UI, session persistence), improve application stability, and add significant new features to their multi-tenant CRM & marketing platform, Kora OS.
 
-The main feature requested in this session was Kora Comms, a new omnichannel shared inbox (WhatsApp, Email, Social DMs) integrated with the existing CRM. The implementation was planned in phases, starting with the core architecture and UI shell (Phase 0).
-
-Additionally, the user reported three critical production bugs: reversed text in notes, screen freezing due to performance issues, and incorrect user name display in assignment dropdowns. The user also requested a Kanban view for leads with customizable pipeline stages and a simple Report a Bug feature.
-
-PRODUCT REQUIREMENTS:
--   Implement Kora Comms in phases, starting with the omnichannel data model and UI shell.
--   Fix the three production bugs (reversed text, screen freezing, incorrect name display).
--   Add a Kanban view for leads.
--   Allow organizations to customize their own sales pipeline stages.
--   Add a Report a Bug button that creates tickets viewable in a super admin panel.
--   Consolidate the existing Comms Log and the new Comms Inbox into a single, unified timeline view within lead/client profiles.
--   Set up the backend models and UI shell for an email sequence feature, in preparation for a future integration with an email provider.
+The scope has since expanded dramatically to include:
+1.  **CRM & Stability Fixes:**
+    *   Fixing production bugs: A lead table UI issue where columns are not visible, and a session persistence issue causing users to be logged out on refresh.
+    *   Fixing CRM bugs reported mid-session: The industry field is not visible when editing a lead, and a counter in the industry dropdown does not update correctly.
+    *   Improving duplicate detection with fuzzy matching.
+2.  **Demand Studio (Content Creation Suite):**
+    *   Building a Brand Hub and Campaign DNA system as a central source for branding, styles, and messaging.
+    *   Building a Tezza-like image/video editor (Studio) and an Instagram-style Feed preview, powered by the Brand Hub.
+    *   Adding functionality to create, upload, and save templates from the Studio.
+3.  **Social Media & Integrations:**
+    *   Implementing a read-only Instagram integration.
+    *   Implementing a full, multi-tenant OAuth 2.0 flow for connecting Instagram via a central Meta App.
+    *   Adding functionality to share the Social Media module with external agencies via user roles and public links.
+4.  **Core Features:**
+    *   Implementing an in-app notification system.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a multi-tenant CRM and project management tool. The following has been implemented:
--   **Critical Bug Fixes**: The campaign creation flow, previously broken, is now fixed and verified. Three production bugs related to text reversal in notes, screen freezing, and incorrect user name display have been resolved.
--   **Kora Comms (Phase 0)**: The complete backend architecture (models and API endpoints) and frontend UI shell for the omnichannel shared inbox (Comms Inbox) have been created. It's accessible under the Client Engagement -> CRM dropdown. The system works with internal/seeded data but has no external providers (like WhatsApp) connected yet.
--   **Unified Communications Timeline**: The old Comms Log (manual entries) and the new Comms Inbox messages are now displayed in a single, unified chronological timeline within the Lead and Client detail pages, eliminating UI confusion.
--   **Email Marketing Sequences (Pre-development)**: The backend models, API endpoints, and a new Sequences tab in the Email Marketing UI have been created. This structure is ready for a future email provider integration.
--   **Kanban View for Leads**: A new Kanban board view has been added to the Leads section, allowing users to toggle between the traditional list view and a Kanban view.
--   **Customizable Pipeline Stages**: The backend and UI now support organizations creating and managing their own custom pipeline stages for the Kanban view.
+The application is a multi-tenant CRM and marketing platform. The session has seen a massive expansion of the Demand Studio module and the implementation of several core features.
+-   **Brand Hub & Campaign DNA:** The UI for both is fully integrated. The Brand Hub includes a template library populated with pre-designed, editable templates.
+-   **Studio Editor:** A functional image editor is integrated. Users can open templates in the Studio, apply visual Looks (filters), use Adjust sliders for fine-tuning, and Save as new template. Users can also create new templates from scratch or by uploading an image.
+-   **Feed View & Instagram:** A Feed tab exists in the Social Media module. A full, multi-tenant OAuth flow for connecting Instagram accounts is implemented, though it requires administrator setup of environment variables. A  file has been created with instructions.
+-   **Social Sharing:** A system is in place to invite internal collaborators and generate public sharing links for the Social Media module.
+-   **Notifications:** A real-time, in-app notification system is functional, with a notification bell in the main application header.
+-   **CRM:** The agent was in the process of fixing bugs related to the industry field for leads.
 
 **Last working item**:
--   **Last item agent was working**: Implementing a Report a Bug feature. The agent created the backend models and API endpoints (), a frontend dialog for submitting bugs (), and a new page for super admins to view tickets (). The Report a bug button was added to the main layout.
+-   **Last item agent was working**: Investigating and fixing two bugs in the CRM module as per the user's request (no rompas nada - don't break anything):
+    1.  The industry dropdown field is missing when editing a Lead.
+    2.  The total number in an industry dropdown (presumably for filtering) does not update when industries are added or removed.
 -   **Status**: IN PROGRESS
--   **Agent Testing Done**: N (Backend endpoints were created but not tested with . Frontend components were created but not verified with screenshots.)
--   **Which testing method agent to use?**: both. Use  to test the backend  and  endpoints. Use the screenshot tool to verify the Report a bug button appears and opens the submission dialog. Manual testing will be needed to verify the super admin page, as it requires adding a new route.
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: frontend testing agent. The agent should test the complete lead editing workflow, including saving the industry. It should also attempt to reproduce the counter not updating bug in the , possibly by adding/deleting clients with unique industries and observing the filter dropdown.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- There are no pending issues. All bugs reported by the user in this session have been resolved.
+-   **Issue 1: CRM Bugs: Industry Field and Counter (P0)**
+    -   **Description**: The industry field is missing from the lead edit dialog, and a counter in an industry filter dropdown is reportedly not updating.
+    -   **Attempted fixes**: The agent correctly identified that the industry field was missing from the edit form in . The agent has partially implemented the fix by adding the field to the form state, update handler, and JSX, but the work is incomplete. The agent investigated the counter issue but could not locate a visible counter, suspecting it might be a misinterpretation by the user or related to custom industry management.
+    -   **Next debug checklist**:
+        1.  Finalize the implementation of the Industry  dropdown in the lead edit dialog within .
+        2.  Ensure the list of industries is sourced correctly. Currently, it's a new hardcoded list. It should ideally use the same source as the client creation/editing forms, including any custom industries.
+        3.  Test the full flow: open a lead, change its industry, save it, and verify the change persists.
+        4.  Ask the user for a screenshot or a more detailed description of where the non-updating industry counter is located to properly debug the second part of the issue.
+    -   **Status**: IN PROGRESS
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend
+-   **Issue 2: Session persistence on refresh (P0)**
+    -   **Description**: A critical production-only bug where users are logged out upon refreshing the page.
+    -   **Status**: USER VERIFICATION PENDING. A robust  fix was implemented in a previous session, but confirmation from the user on the production environment is still needed.
+-   **Issue 3: Lead table columns not showing in production (P1)**
+    -   **Description**: A production-only UI bug where lead table columns are not visible.
+    -   **Status**: USER VERIFICATION PENDING. Aggressive CSS fixes were deployed, pending user confirmation.
+-   **Issue 4: Redundant  files (P2, Tech Debt)**
+    -   **Description**: Deprecated files (, ) from a previous refactor were never deleted.
+    -   **Status**: NOT STARTED.
+    -   **Is recurring issue?**: N
 
 **In progress Task List**:
--   **Task 1: Complete Report a Bug Feature (P0)**
-    -   **Where to resume**: The  component has been created but is not yet accessible. It needs to be added to the main application router in , likely within a route protected for super admin users.
-    -   **What will be achieved with this?**: Users will be able to report bugs from anywhere in the app, and super admins will have a dedicated page to view and manage these tickets.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on something**: No.
+-   None. The current focus is on the P0 bug fix.
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks**:
--   **P0: Kora Comms - Phase 1 (WhatsApp Integration)**: Integrate the Meta WhatsApp Business Cloud API as the first provider for the Comms Inbox. This involves setting up webhooks to receive incoming messages and using the API to send replies from the inbox UI.
--   **P1: Email Marketing - Sending Functionality**: Implement the logic to connect to an email provider (e.g., Resend) and send emails based on the sequences and templates that were pre-developed.
--   **P1: Full UTM Tracking**: Expand the campaign tracking system to support standard UTM parameters (, , etc.) for more detailed digital campaign attribution.
--   **P2: Meta (Facebook/Instagram) API Integration**: Implement a direct integration for publishing posts, syncing analytics, and pulling leads from Meta Lead Ads into the CRM.
+-   **P0: Finalize Report a Bug with Attachments**: Connect the existing  endpoint to the  frontend component to enable real file uploads.
+-   **P1: Connect Social + Email to Brand Hub**: Update the social post and email creation flows to consume templates, styles, and messaging from the new Brand Hub resolver service.
 
 **Future Tasks**:
--   Kora Comms - Phase 2 & 3 (Email & Social DM Providers)
+-   Full UTM Tracking.
+-   Write-access for Meta (Facebook/Instagram) API Integration.
 -   Filter/group leads and clients by City/Country.
--   Add Generate QR button for offline campaigns.
+-   Email Marketing - Sending Functionality (e.g., using Resend).
+-   Kora Comms - Phase 1 (WhatsApp Integration).
 -   Propose an initial setup assistant/wizard for new users.
--   API Documentation page.
 
 **Completed work in this session**
--   **Bug Fix (Critical)**: Resolved the campaign creation failure by correcting the frontend form logic.
--   **Bug Fix (Routing)**: Fixed an issue where clicking the Social Media link logged the user out due to a route path mismatch.
--   **Bug Fix (Production)**: Corrected three production bugs: reversed text in the notes editor, screen freezing from excessive API calls (fixed with debouncing), and user assignment dropdowns showing emails instead of names.
--   **Feature (Kora Comms - Phase 0)**: Implemented the complete backend data models, API endpoints, and frontend UI shell for the new omnichannel Comms Inbox.
--   **Feature (Kanban View)**: Added a Kanban board view for leads with drag-and-drop capabilities (to be implemented).
--   **Feature (Customizable Statuses)**: Enabled organizations to create and manage their own custom pipeline stages.
--   **Enhancement (Unified Timeline)**: Consolidated the Comms Log and Comms Inbox messages into a single, unified timeline in lead/client profiles to improve clarity.
--   **Enhancement (Email Sequences Setup)**: Built the backend models, APIs, and frontend UI structure for a future email sequencing feature.
--   **Enhancement (Campaign Detail Tabs)**: Populated the placeholder tabs on the Campaign Detail page with functioning components for Social Media, Leads, and a new Email Marketing tab.
+-   **Feature**: Fully integrated the Brand Hub and Campaign DNA UI.
+-   **Feature**: Implemented a Template Library in the Brand Hub with pre-designed, editable templates and visual previews.
+-   **Feature**: Built a functional Studio Editor for editing templates with visual Looks and Adjust controls.
+-   **Feature**: Implemented Save as new template, Create template, and Upload template functionality.
+-   **Feature**: Implemented the Feed view in the Social Media module.
+-   **Feature**: Implemented a full, multi-tenant OAuth flow for Instagram integration via a Meta App, complete with backend logic, frontend UI, and setup documentation.
+-   **Feature**: Implemented Social Media module sharing with external collaborators via roles and public links.
+-   **Feature**: Implemented a real-time, in-app notification system.
+-   **Bugfix**: Resolved an  in the backend related to campaigns.
+-   **Testing**: Used the testing agent extensively, which identified and fixed minor UI/backend bugs and added a new backend test file.
 
 **Earlier issues found/mentioned but not fixed**
--   Incomplete Internationalization (P2)
--   Backend plan limit enforcement logic may still exist (P3)
+-   **Incomplete Internationalization (P2)**: The application contains hardcoded strings and lacks a formal i18n framework.
+-   **Backend plan limit enforcement logic (P3)**: Legacy code related to plan/usage limits might still exist and may no longer be required.
 
 **Known issue recurrence from previous fork**
--   None.
+-   The handoff summary listed two critical production-only bugs as pending user verification: **Session persistence on refresh** and **Lead table columns not showing**. Their status remains unchanged.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Omnichannel Architecture**: Designed a flexible, provider-agnostic data model for the Comms Inbox to support various communication channels (WhatsApp, Email, etc.).
--   **Performance Optimization**: Implemented  and loading state flags to prevent excessive, redundant API calls and improve UI responsiveness.
--   **UI/UX Consolidation**: Refactored multiple UI components into a single,  to simplify the user experience and reduce confusion.
--   **Feature Toggling**: Implemented a UI toggle to switch between a list view and a new Kanban board view.
+-   **Multi-Tenant OAuth**: Implementation of a real OAuth 2.0 flow for a third-party service (Meta/Instagram) where a single central application (Kora) manages authentications for multiple independent tenants, storing tokens securely on a per-tenant basis.
+-   **Public Sharing Links**: A system for generating secure, token-based, shareable links for application modules, allowing external users read-only access without needing an account.
+-   **In-App Notification System**: A real-time notification feature with a backend model (), API endpoints for fetching/marking as read, and a frontend component () that polls for new updates to display to the user.
+-   **Dynamic Template Seeding**: A backend endpoint () designed to populate the database with a default set of pre-designed templates, including their metadata and preview image URLs, for immediate use by new users.
 
 **key DB schema**
--   **comm_inboxes**: { organization_id, name, team_id, visibility_scope }
--   **comm_channels**: { organization_id, inbox_id, provider, display_name, ... }
--   **comm_conversations**: { organization_id, inbox_id, contact_id, assigned_user_id, status, ... }
--   **comm_messages**: { organization_id, conversation_id, direction, provider, content_text, ... }
--   **email_sequences**: { organization_id, name, steps_count, ... }
--   **email_sequence_steps**: { sequence_id, delay_days, template_id, ... }
--   **email_templates**: { organization_id, name, subject, body_html, ... }
--   **support_tickets**: { organization_id, reported_by_user_id, description, screenshot_url, status, ... }
--   **pipeline_stages**: { organization_id, name, order, type ('lead'/'client') }
+-   **crm**: , , , , 
+-   **demand_studio**: , , , , , , , , , .
+-   **notifications (New)**: , , , , , 
+-   **shared_entities (New)**: , , , , , , 
 
 **All files of reference**
--   : Core logic for the new shared inbox.
--   : Main UI for the shared inbox.
--   : The merged timeline view for lead/client profiles.
--   : Contains the performance fixes and the new Kanban view toggle.
--   : Contains fixes for user name display and new endpoints for custom pipeline stages.
--   : New endpoints for bug reporting.
-
-**key api endpoints**
--   : Send a message.
--   : List conversations in an inbox.
--   : Get custom pipeline stages for an org.
--   : Create a new custom stage.
--   : Create a new support ticket.
--   : List support tickets (for admins).
--   : List email sequences.
+-   : **Currently being modified** for the CRM bug fix.
+-   : Core of the template library and creation flow.
+-   : The main image editing component.
+-   : Contains the UI for the Instagram OAuth flow.
+-   : New file containing the server-side logic for Instagram OAuth.
+-   : New file for the social media sharing feature.
+-   : New file for the notification system.
+-   : New documentation file with instructions for setting up the Instagram integration.
 
 **Critical Info for New Agent**
--   **Responde en español.**
--   The immediate priority is to finish the Report a Bug feature by integrating the new  into the application's routing for super admins.
--   The next major feature is Phase 1 of Kora Comms: integrating the WhatsApp Business API. The architecture is ready for a provider to be plugged in.
--   The user is actively providing feedback on production issues and feature requests. Be prepared to prioritize bug fixes and user-requested enhancements.
+-   **Responde en español.** The user communicates exclusively in Spanish. All responses must be in Spanish.
+-   The user's last request was to fix bugs in the CRM, with a strong warning: **no rompas nada** (don't break anything). Extreme care and focused changes are required. Avoid any unrelated refactoring.
+-   You are resuming an in-progress bug fix in . The changes are not complete or tested.
+-   The Instagram OAuth integration is code-complete but non-functional without the user setting the  and  environment variables as per .
+-   Two critical production-only bugs (session loss, table rendering) are still awaiting user verification. Do not assume they are fixed.
 
 **documents and test reports created in this job**
--   None new. The agent relied on  and screenshot verification.
+-   
+-   
+-   Multiple test reports from  are present in .
+-   The  file was updated multiple times.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **user**: Reports 3 production bugs: reversed text in notes, screen freezing, and assignment dropdowns showing emails. (Resolved)
-2.  **user**: Asks if lead statuses can be assigned and if a view by status is possible. (Agent implemented Kanban view).
-3.  **user**: Asks if companies can add their own pipeline statuses and for a recommendation on the best view for sales. (Agent implemented customizable stages and recommended Kanban).
-4.  **user**: Agrees with the plan to implement Kanban and customizable statuses. (Resolved)
-5.  **user**: Before deploying, requests a Report Bug button next to the activity log that sends tickets to a super admin section. (In Progress)
-6.  **user**: Provides details on the Comms Inbox and Comms Log confusion. (Agent clarified and then unified them).
-7.  **user**: Asks if both types of comms live inside the lead profile. (Agent confirmed and proposed consolidation).
-8.  **user**: Agrees to consolidate the timelines: a sin romper nada (A, without breaking anything). (Resolved)
-9.  **user**: Reports comms inbox no lo veo en client engament. (Agent clarified its location in the CRM dropdown).
-10. **user**: Asks for email sequences. (Agent implemented pre-development/structure).
+1.  **user**: Asks to implement the Feed view with scheduled posts and read-only Instagram integration. (Status: Completed)
+2.  **user**: Confirms they want the real Instagram OAuth flow, and it must be multi-tenant. (Status: Completed)
+3.  **user**: Asks if the login can be a simple sign-in like the Tezza app. (Status: Clarification handled, flow implemented)
+4.  **user**: Asks for confirmation that no other modules were touched during the Instagram implementation. (Status: Agent confirmed)
+5.  **user**: Asks how to share the social media module with an external marketing agency. (Status: Completed)
+6.  **user**: Provides detailed requirements for the sharing feature (internal users, external link, permissions). (Status: Completed)
+7.  **user**: Requests in-app notifications. (Status: Completed)
+8.  **user**: Reports two bugs in the CRM: can't see industries when editing a lead, and the total count in an industry dropdown doesn't update. Critically asks not to break anything else. (Status: In Progress)
+-   There are no further pending user messages. The top priority is to address the CRM bugs.
 
 **Project Health Check:**
--   **Broken**: Nothing is critically broken.
--   **Mocked**: The Email Sequence feature is pre-developed; it has a UI and backend but cannot send actual emails yet. The Comms Inbox only works with manually seeded data.
+-   **Broken**:
+    -   The  field is currently missing from the lead edit form due to an in-progress bug fix.
+    -   Session persistence and table rendering issues in production are still **pending verification** and should be considered potentially broken.
+-   **Mocked**: The Report a Bug feature still uses a Base64 fallback for file attachments instead of the real  endpoint.
 -   **Blocked**: None.
 
 **3rd Party Integrations**
--   **Zapier / Make**: Webhook endpoint exists for lead intake.
--   **Meta (Facebook/Instagram)**: User has requested full integration (publishing, analytics, Lead Ads). This is a P2 upcoming task.
--   **WhatsApp Business API**: Planned as the first provider for Kora Comms (P0 upcoming task).
--   **Resend**: Integrated but pending API Key. Planned for use with Email Sequences.
+-   **Zapier / Make**: Existing webhook for lead intake.
+-   **Meta (Instagram)**: A multi-tenant OAuth 2.0 flow has been implemented for read-only access. It requires administrator configuration of API keys.
+-   **Planned**: Meta (write access), WhatsApp Business API, Resend.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
+-   **Testing agent used after significant changes**: YES, frequently and successfully.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: None.
--   **Known regressions**: None. All known regressions from the previous fork were fixed.
+-   **Test files created**: 
+-   **Known regressions**: None introduced in this session, but previous production regressions are still pending verification.
 
 **Credentials to test flow:**
 -   **Email:** 
--   **Password:**  (Note: The app now uses Google OAuth, so this credential might not work directly. The test account is associated with a Google account).
+-   **Password:** 
 
 **What agent forgot to execute**
--   After creating the  component, the agent did not add it to the main router in . As a result, the page is not yet accessible in the application.</analysis>
+-   The agent did not complete the bug fix for the missing industry field in the lead edit form. The work is mid-implementation.
+-   The deprecated  and  files still have not been cleaned up.</analysis>
