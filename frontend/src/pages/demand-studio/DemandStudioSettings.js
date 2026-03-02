@@ -331,7 +331,7 @@ export default function DemandStudioSettings() {
                           {isEs ? "Conectado" : "Connected"}
                         </p>
                         <p className="text-sm text-green-600 dark:text-green-500">
-                          @{igConnection.ig_username || "instagram_account"}
+                          @{igConnection.connection?.ig_username || igConnection.ig_username || "instagram_account"}
                         </p>
                       </div>
                     </div>
@@ -340,10 +340,10 @@ export default function DemandStudioSettings() {
                     </Badge>
                   </div>
                   
-                  {igConnection.last_sync_at && (
+                  {(igConnection.connection?.last_sync_at || igConnection.last_sync_at) && (
                     <p className="text-xs text-muted-foreground">
                       {isEs ? "Última sincronización:" : "Last sync:"}{" "}
-                      {new Date(igConnection.last_sync_at).toLocaleString()}
+                      {new Date(igConnection.connection?.last_sync_at || igConnection.last_sync_at).toLocaleString()}
                     </p>
                   )}
                   
