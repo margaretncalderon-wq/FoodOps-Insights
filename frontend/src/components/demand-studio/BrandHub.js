@@ -130,6 +130,7 @@ export default function BrandHub({ brandId = null }) {
     const asset = {
       asset_id: template.template_id || `tpl_${Date.now()}`,
       url: template.preview_url,
+      original_url: template.preview_url,
       name: template.name,
       template_json: template.template_json,
       type: "template",
