@@ -1035,6 +1035,15 @@ export default function SocialMediaPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Social Sharing Section */}
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Share2 className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">{isEs ? "Compartir con Agencias" : "Share with Agencies"}</h3>
+            </div>
+            <SocialSharing />
+          </div>
         </TabsContent>
       </Tabs>
 
