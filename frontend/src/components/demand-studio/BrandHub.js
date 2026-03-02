@@ -553,9 +553,9 @@ export default function BrandHub({ brandId = null }) {
           {templates.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {templates.map(template => (
-                <Card key={template.template_id} className="cursor-pointer hover:border-primary">
+                <Card key={template.template_id} className="cursor-pointer hover:border-primary group">
                   <CardContent className="p-4">
-                    <div className="aspect-video bg-muted rounded mb-3 flex items-center justify-center relative">
+                    <div className="aspect-video bg-muted rounded mb-3 flex items-center justify-center relative overflow-hidden">
                       {template.preview_url ? (
                         <img src={template.preview_url} alt="" className="w-full h-full object-cover rounded" />
                       ) : (
@@ -566,6 +566,17 @@ export default function BrandHub({ brandId = null }) {
                       {template.is_default && (
                         <Badge className="absolute top-2 right-2 text-[9px]" variant="secondary">Default</Badge>
                       )}
+                      {/* Hover overlay with Edit button */}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button 
+                          size="sm" 
+                          onClick={() => openTemplateInStudio(template)}
+                          className="gap-1"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          {isEs ? "Editar en Studio" : "Edit in Studio"}
+                        </Button>
+                      </div>
                     </div>
                     <p className="font-medium text-sm truncate">{template.name}</p>
                     <div className="flex items-center gap-1 mt-1">
