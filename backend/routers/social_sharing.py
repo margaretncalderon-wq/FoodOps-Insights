@@ -491,6 +491,17 @@ async def create_external_idea(
     
     await db.content_ideas.insert_one(new_idea)
     
+    # Send notification to org admins
+    await notify_org_admins(
+        org_id=org_id,
+        notification_type="content_created",
+        title="Nueva idea de agencia externa",
+        message=f"{contributor_name} creó una nueva idea: {idea.get('title', 'Sin título')}",
+        link=f"/demand-studio/social?tab=ideas",
+        metadata={"idea_id": idea_id, "contributor": contributor_name},
+        priority="normal"
+    )
+    
     return {
         "idea_id": idea_id,
         "message": "Idea created successfully",
