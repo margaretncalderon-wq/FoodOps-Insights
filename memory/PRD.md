@@ -553,6 +553,47 @@ def get_cookie_domain(request):
 - Frontend: All features verified working
 - Test report: `/app/test_reports/iteration_72.json`, `/app/test_reports/iteration_73.json`
 
+### Session: Mar 02, 2026 - Template Previews & Studio Integration ✅
+
+#### Template Visual Previews (User Request)
+- **Goal**: Add visual preview images to all templates
+- **Status**: ✅ COMPLETE
+
+**Implementation:**
+- Generated 6 AI preview images using Gemini:
+  1. Post Promocional - Purple gradient with CTA
+  2. Story con CTA - "ADVENTURE AWAITS" vertical
+  3. Carrusel Producto - Product showcase layout
+  4. Email Newsletter - Single column email design
+  5. Email Promocional - "30% OFF" promo banner
+  6. Quote Card - Inspirational quote design
+- Updated DEFAULT_TEMPLATES with preview_url for all 6 templates
+- Modified seed endpoint to update existing templates with previews
+
+#### Studio Editor Integration (User Request)
+- **Goal**: Allow editing templates in Studio
+- **Status**: ✅ COMPLETE
+
+**Implementation:**
+- Added `openTemplateInStudio()` function in BrandHub.js
+- Hover overlay shows "Editar en Studio" / "Edit in Studio" button
+- StudioEditor dialog opens with template image in canvas
+- Asset conversion: template → studio asset format with original_url
+- Full editing capabilities:
+  - 8 Look presets (Natural, Warm Glow, Cool Crisp, etc.)
+  - 10 Adjustment sliders (Exposure, Contrast, etc.)
+  - Crop ratios (1:1, 4:5, 9:16, 16:9)
+  - Export functionality
+
+**Files Modified:**
+- `backend/routers/brand_hub.py` - Added preview_url to DEFAULT_TEMPLATES, updated seed endpoint
+- `frontend/src/components/demand-studio/BrandHub.js` - Added Studio integration, hover overlays
+
+**Testing Results:**
+- Backend: 10/10 tests pass (100%)
+- Frontend: All features verified working
+- Test report: `/app/test_reports/iteration_74.json`
+
 **Files Created/Modified:**
 - `backend/routers/brand_hub.py` (Bug fix)
 - `frontend/src/pages/demand-studio/CampaignDetailPage.js` (DNA tab added)
