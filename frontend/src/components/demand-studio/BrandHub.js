@@ -125,6 +125,20 @@ export default function BrandHub({ brandId = null }) {
     }
   };
 
+  const openTemplateInStudio = (template) => {
+    // Convert template to studio asset format
+    const asset = {
+      asset_id: template.template_id || `tpl_${Date.now()}`,
+      url: template.preview_url,
+      name: template.name,
+      template_json: template.template_json,
+      type: "template",
+      aspect_ratio: template.template_json?.aspect_ratio || "1:1"
+    };
+    setStudioTemplate(asset);
+    setStudioOpen(true);
+  };
+
   const saveBrandKit = async () => {
     setSaving(true);
     try {
