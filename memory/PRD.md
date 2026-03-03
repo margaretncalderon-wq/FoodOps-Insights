@@ -999,3 +999,25 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `frontend/src/components/demand-studio/SocialSharing.js` - Editar roles y links
 - `backend/routers/demand_studio.py` - include_shared en accounts endpoint
 - `backend/routers/social_sharing.py` - PATCH endpoints para colaboradores y links
+
+#### Vista Completa de Social Media para Agencias
+- **Selector de Organización**: Cuando la agencia tiene acceso a otras empresas, aparece un dropdown en la parte superior de Social Media
+- **Cambio de contexto**: Al seleccionar una empresa compartida, la agencia ve TODO el Social Media de esa empresa (Overview, Ideas, Calendar, Queue, Feed, Settings)
+- **Banner informativo**: Muestra claramente de qué empresa es el contenido que está viendo
+- **Botón "Volver a mi empresa"**: Para regresar rápidamente al contenido propio
+
+**Endpoints modificados para soportar org_id:**
+- `GET /api/demand-studio/social/stats?org_id=xxx`
+- `GET /api/demand-studio/social/posts?org_id=xxx`
+- `GET /api/demand-studio/social/ideas?org_id=xxx`
+- `GET /api/demand-studio/social/pillars?org_id=xxx`
+- `GET /api/demand-studio/social/insights?org_id=xxx`
+- `GET /api/demand-studio/social/accounts?org_id=xxx`
+
+**Nuevo endpoint:**
+- `GET /api/social-sharing/available-orgs` - Lista de organizaciones disponibles (propia + compartidas)
+
+**Files Modified:**
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Selector de org, estados, banner
+- `backend/routers/demand_studio.py` - org_id param en todos los endpoints social
+- `backend/routers/social_sharing.py` - endpoint available-orgs

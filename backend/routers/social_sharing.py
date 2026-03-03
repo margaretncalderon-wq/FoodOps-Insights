@@ -30,6 +30,52 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "https://ourkora.com")
 social_sharing_router = APIRouter(prefix="/social-sharing", tags=["Social Sharing"])
 
 
+# ============== AVAILABLE ORGANIZATIONS ==============
+
+@social_sharing_router.get("/available-orgs")
+async def get_available_organizations(user: User = Depends(get_current_user)):
+    """Get all organizations available to the user (own + shared with me)"""
+    company_id = user.company_id or user.active_org_id
+    
+    orgs = []
+    
+    # Add own organization first
+    if company_id:
+        own_company = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+        if own_company:
+            orgs.append({
+                "org_id": company_id,
+                "name": own_company.get("name", "Mi Empresa"),
+                "logo_url": own_company.get("logo_url"),
+                "role": "owner",
+                "is_own": True
+            })
+    
+    # Get organizations shared with me (where I'm a social collaborator)
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "role": {"$in": ["social_contributor", "social_viewer"]},
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(50)
+    
+    for membership in memberships:
+        org_id = membership.get("company_id") or membership.get("organization_id")
+        if not org_id or org_id == company_id:
+            continue
+        
+        company = await db.companies.find_one({"company_id": org_id}, {"_id": 0})
+        if company:
+            orgs.append({
+                "org_id": org_id,
+                "name": company.get("name", "Unknown"),
+                "logo_url": company.get("logo_url"),
+                "role": membership["role"],
+                "is_own": False
+            })
+    
+    return orgs
+
+
 # ============== MODELS ==============
 
 class SocialShareCreate(BaseModel):

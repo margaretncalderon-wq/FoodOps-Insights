@@ -24,7 +24,8 @@ import {
   Plus, Calendar, List, BarChart3, Hash, Instagram, 
   Loader2, Play, Copy, Archive, Check, Settings,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
-  ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2
+  ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
+  Building2, ChevronDown
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -69,6 +70,12 @@ export default function SocialMediaPage() {
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState("overview");
+  
+  // Organization context - for viewing shared accounts
+  const [availableOrgs, setAvailableOrgs] = useState([]); // [{org_id, name, role, is_own}]
+  const [activeOrgId, setActiveOrgId] = useState(null); // null = my own org
+  const [activeOrgName, setActiveOrgName] = useState(null);
+  const [isViewingShared, setIsViewingShared] = useState(false);
   
   // Data
   const [stats, setStats] = useState({});
@@ -155,16 +162,33 @@ export default function SocialMediaPage() {
     }
   }, [activeView, calendarMonth, calFilterAccount, calFilterFormat, calFilterPillar]);
 
-  const fetchData = async () => {
+  // Fetch available organizations (own + shared with me)
+  const fetchAvailableOrgs = async () => {
     try {
+      const res = await axios.get(`${API}/api/social-sharing/available-orgs`, { withCredentials: true });
+      setAvailableOrgs(res.data || []);
+    } catch (err) {
+      console.error("Error fetching available orgs:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAvailableOrgs();
+  }, []);
+
+  const fetchData = async (orgId = null) => {
+    try {
+      const orgParam = orgId ? `?org_id=${orgId}` : "";
+      const orgParamAnd = orgId ? `&org_id=${orgId}` : "";
+      
       const [statsRes, postsRes, accountsRes, pillarsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
-        axios.get(`${API}/api/demand-studio/social/stats`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/posts`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/pillars`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/campaigns`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/insights`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/ideas`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/stats${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/posts${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${orgParamAnd}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/pillars${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/campaigns${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/insights${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/ideas${orgParam}`, { withCredentials: true }),
       ]);
       
       setStats(statsRes.data);
@@ -178,6 +202,24 @@ export default function SocialMediaPage() {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle org change
+  const handleOrgChange = (orgId) => {
+    if (orgId === "mine") {
+      setActiveOrgId(null);
+      setActiveOrgName(null);
+      setIsViewingShared(false);
+      setLoading(true);
+      fetchData(null);
+    } else {
+      const org = availableOrgs.find(o => o.org_id === orgId);
+      setActiveOrgId(orgId);
+      setActiveOrgName(org?.name || "");
+      setIsViewingShared(true);
+      setLoading(true);
+      fetchData(orgId);
     }
   };
 
@@ -458,6 +500,62 @@ export default function SocialMediaPage() {
 
   return (
     <div className="space-y-6" data-testid="social-media-page">
+      {/* Organization Selector - for viewing shared accounts */}
+      {availableOrgs.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+          <Building2 className="w-5 h-5 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">
+              {isEs ? "Viendo Social Media de:" : "Viewing Social Media for:"}
+            </p>
+          </div>
+          <Select value={activeOrgId || "mine"} onValueChange={handleOrgChange}>
+            <SelectTrigger className="w-64">
+              <SelectValue>
+                {activeOrgId ? activeOrgName : (isEs ? "Mi Empresa" : "My Company")}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mine">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  {isEs ? "Mi Empresa" : "My Company"}
+                </div>
+              </SelectItem>
+              {availableOrgs.filter(o => !o.is_own).map(org => (
+                <SelectItem key={org.org_id} value={org.org_id}>
+                  <div className="flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-blue-500" />
+                    {org.name}
+                    <Badge variant="outline" className="text-[10px] ml-1">
+                      {org.role === "social_contributor" ? (isEs ? "Editar" : "Edit") : (isEs ? "Ver" : "View")}
+                    </Badge>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Shared View Banner */}
+      {isViewingShared && (
+        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+          <Share2 className="w-5 h-5 text-blue-600" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              {isEs ? `Viendo contenido de ${activeOrgName}` : `Viewing content from ${activeOrgName}`}
+            </p>
+            <p className="text-xs text-blue-600">
+              {isEs ? "Los cambios que hagas serán visibles para esta empresa" : "Changes you make will be visible to this company"}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => handleOrgChange("mine")}>
+            {isEs ? "Volver a mi empresa" : "Back to my company"}
+          </Button>
+        </div>
+      )}
+
       {/* View Tabs */}
       <Tabs value={activeView} onValueChange={setActiveView}>
         <div className="flex items-center justify-between flex-wrap gap-2">

@@ -33,6 +33,33 @@ from utils.activity_logger import log_activity, user_info
 demand_studio_router = APIRouter(prefix="/demand-studio", tags=["Demand Studio"])
 
 
+# Helper function to get effective company_id (for viewing shared orgs)
+async def get_effective_company_id(user: User, org_id: Optional[str] = None):
+    """
+    Returns the company_id to use for queries.
+    If org_id is provided, verifies user has access to that org.
+    """
+    own_company_id = user.company_id or user.active_org_id
+    
+    if not org_id or org_id == own_company_id:
+        return own_company_id, "owner"
+    
+    # Check if user has membership access to the requested org
+    membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$and": [
+            {"$or": [{"company_id": org_id}, {"organization_id": org_id}]},
+            {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
+        ],
+        "role": {"$in": ["social_contributor", "social_viewer", "admin", "manager"]}
+    })
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="No access to this organization")
+    
+    return org_id, membership.get("role", "viewer")
+
+
 # ============== CAMPAIGN CODE HELPERS ==============
 
 def generate_campaign_code() -> str:
@@ -1713,9 +1740,25 @@ async def mark_all_notifications_read(user: User = Depends(get_current_user)):
 @demand_studio_router.get("/social/accounts")
 async def get_social_accounts(
     include_shared: bool = False,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get all social media accounts (owned and optionally shared)"""
+    # If org_id is specified, get accounts for that org only
+    if org_id:
+        try:
+            company_id, role = await get_effective_company_id(user, org_id)
+            accounts = await db.social_accounts.find(
+                {"company_id": company_id},
+                {"_id": 0}
+            ).to_list(100)
+            for acc in accounts:
+                acc["_access_type"] = "shared"
+                acc["_role"] = role
+            return accounts
+        except HTTPException:
+            return []
+    
     company_id = user.company_id or user.active_org_id
     if not company_id:
         return []
@@ -1819,9 +1862,13 @@ async def delete_social_account(account_id: str, user: User = Depends(get_curren
 # ---- Content Pillars CRUD ----
 
 @demand_studio_router.get("/social/pillars")
-async def get_content_pillars(user: User = Depends(get_current_user)):
+async def get_content_pillars(org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Get all content pillars"""
-    company_id = user.company_id or user.active_org_id
+    try:
+        company_id, role = await get_effective_company_id(user, org_id)
+    except HTTPException:
+        company_id = user.company_id or user.active_org_id
+        
     if not company_id:
         return []
     
@@ -1871,10 +1918,15 @@ async def get_social_posts(
     pillar_id: Optional[str] = None,
     status: Optional[str] = None,
     format: Optional[str] = None,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get social posts with filters"""
-    company_id = user.company_id or user.active_org_id
+    try:
+        company_id, user_role = await get_effective_company_id(user, org_id)
+    except HTTPException:
+        company_id = user.company_id or user.active_org_id
+        
     if not company_id:
         return []
     
@@ -2221,9 +2273,16 @@ async def unlink_spend_from_post(post_id: str, spend_id: str, user: User = Depen
 # ---- Social Media Stats & Insights ----
 
 @demand_studio_router.get("/social/stats")
-async def get_social_stats(user: User = Depends(get_current_user)):
+async def get_social_stats(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Get social media statistics for dashboard"""
-    company_id = user.company_id or user.active_org_id
+    try:
+        company_id, role = await get_effective_company_id(user, org_id)
+    except HTTPException:
+        company_id = user.company_id or user.active_org_id
+        
     if not company_id:
         return {
             "scheduledThisWeek": 0,
@@ -2270,9 +2329,13 @@ async def get_social_stats(user: User = Depends(get_current_user)):
     }
 
 @demand_studio_router.get("/social/insights")
-async def get_social_insights(user: User = Depends(get_current_user)):
+async def get_social_insights(org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Get social media insights for reporting"""
-    company_id = user.company_id or user.active_org_id
+    try:
+        company_id, role = await get_effective_company_id(user, org_id)
+    except HTTPException:
+        company_id = user.company_id or user.active_org_id
+        
     if not company_id:
         return {"byFormat": [], "byPillar": [], "byStatus": []}
     
@@ -2356,10 +2419,15 @@ async def get_social_calendar(
 async def get_content_ideas(
     status: Optional[str] = None,
     pillar_id: Optional[str] = None,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get content ideas"""
-    company_id = user.company_id or user.active_org_id
+    try:
+        company_id, role = await get_effective_company_id(user, org_id)
+    except HTTPException:
+        company_id = user.company_id or user.active_org_id
+        
     if not company_id:
         return []
     
