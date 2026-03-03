@@ -1711,17 +1711,61 @@ async def mark_all_notifications_read(user: User = Depends(get_current_user)):
 # ---- Social Accounts CRUD ----
 
 @demand_studio_router.get("/social/accounts")
-async def get_social_accounts(user: User = Depends(get_current_user)):
-    """Get all social media accounts"""
+async def get_social_accounts(
+    include_shared: bool = False,
+    user: User = Depends(get_current_user)
+):
+    """Get all social media accounts (owned and optionally shared)"""
     company_id = user.company_id or user.active_org_id
     if not company_id:
         return []
     
-    accounts = await db.social_accounts.find(
+    # Get owned accounts
+    owned_accounts = await db.social_accounts.find(
         {"company_id": company_id},
         {"_id": 0}
     ).to_list(100)
-    return accounts
+    
+    # Mark as owned
+    for acc in owned_accounts:
+        acc["_access_type"] = "owned"
+        acc["_shared_by"] = None
+    
+    if not include_shared:
+        return owned_accounts
+    
+    # Get shared accounts - find organizations where user is a collaborator
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "role": {"$in": ["social_contributor", "social_viewer"]},
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(50)
+    
+    shared_accounts = []
+    for membership in memberships:
+        org_id = membership.get("company_id") or membership.get("organization_id")
+        if not org_id or org_id == company_id:
+            continue
+        
+        # Get company name
+        company = await db.companies.find_one({"company_id": org_id}, {"name": 1, "_id": 0})
+        company_name = company.get("name") if company else "Unknown"
+        
+        # Get accounts from that org
+        org_accounts = await db.social_accounts.find(
+            {"company_id": org_id},
+            {"_id": 0}
+        ).to_list(50)
+        
+        for acc in org_accounts:
+            acc["_access_type"] = "shared"
+            acc["_shared_by"] = company_name
+            acc["_shared_org_id"] = org_id
+            acc["_role"] = membership["role"]
+        
+        shared_accounts.extend(org_accounts)
+    
+    return owned_accounts + shared_accounts
 
 @demand_studio_router.post("/social/accounts")
 async def create_social_account(data: SocialAccountCreate, user: User = Depends(get_current_user)):

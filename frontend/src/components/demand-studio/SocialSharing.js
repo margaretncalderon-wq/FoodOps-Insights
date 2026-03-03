@@ -42,6 +42,8 @@ export default function SocialSharing() {
   // Dialog states
   const [inviteOpen, setInviteOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [editLinkOpen, setEditLinkOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("social_contributor");
   const [linkName, setLinkName] = useState("");
@@ -50,6 +52,7 @@ export default function SocialSharing() {
   const [linkPermission, setLinkPermission] = useState("contributor");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(null);
+  const [updatingRole, setUpdatingRole] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -153,6 +156,50 @@ export default function SocialSharing() {
     }
   };
 
+  const handleUpdateCollaboratorRole = async (membershipId, newRole) => {
+    setUpdatingRole(membershipId);
+    try {
+      await axios.patch(`${API}/api/social-sharing/collaborators/${membershipId}`, {
+        role: newRole
+      }, { withCredentials: true });
+      toast.success(isEs ? "Rol actualizado" : "Role updated");
+      fetchData();
+    } catch (error) {
+      toast.error(isEs ? "Error al actualizar rol" : "Error updating role");
+    } finally {
+      setUpdatingRole(null);
+    }
+  };
+
+  const handleUpdateLink = async () => {
+    if (!editingLink) return;
+    
+    setSaving(true);
+    try {
+      await axios.patch(`${API}/api/social-sharing/links/${editingLink.share_id}`, {
+        name: linkName,
+        password: linkPassword || null,
+        permissions: linkPermission
+      }, { withCredentials: true });
+      toast.success(isEs ? "Link actualizado" : "Link updated");
+      setEditLinkOpen(false);
+      setEditingLink(null);
+      fetchData();
+    } catch (error) {
+      toast.error(isEs ? "Error al actualizar" : "Error updating");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditLink = (link) => {
+    setEditingLink(link);
+    setLinkName(link.name);
+    setLinkPassword("");
+    setLinkPermission(link.permissions || "contributor");
+    setEditLinkOpen(true);
+  };
+
   const copyToClipboard = (text, id) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
@@ -221,7 +268,33 @@ export default function SocialSharing() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {getRoleBadge(collab.role)}
+                    <Select 
+                      value={collab.role} 
+                      onValueChange={(newRole) => handleUpdateCollaboratorRole(collab.membership_id, newRole)}
+                      disabled={updatingRole === collab.membership_id}
+                    >
+                      <SelectTrigger className="w-32 h-8">
+                        {updatingRole === collab.membership_id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <SelectValue />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="social_viewer">
+                          <div className="flex items-center gap-2">
+                            <Eye className="w-3 h-3" />
+                            {isEs ? "Visor" : "Viewer"}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="social_contributor">
+                          <div className="flex items-center gap-2">
+                            <Edit className="w-3 h-3" />
+                            {isEs ? "Colaborador" : "Contributor"}
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button 
                       variant="ghost" 
                       size="sm"
@@ -331,13 +404,22 @@ export default function SocialSharing() {
                       </div>
                     </div>
                     
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleRevokeLink(link.share_id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => openEditLink(link)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleRevokeLink(link.share_id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -468,6 +550,60 @@ export default function SocialSharing() {
             <Button onClick={handleCreateLink} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
               {isEs ? "Crear Link" : "Create Link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Link Dialog */}
+      <Dialog open={editLinkOpen} onOpenChange={setEditLinkOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Link" : "Edit Link"}</DialogTitle>
+            <DialogDescription>
+              {isEs 
+                ? "Modifica los permisos y configuración del link"
+                : "Modify link permissions and settings"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre" : "Name"}</Label>
+              <Input
+                value={linkName}
+                onChange={(e) => setLinkName(e.target.value)}
+                placeholder={isEs ? "Ej: Agencia XYZ" : "Ex: Agency XYZ"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isEs ? "Nueva Contraseña" : "New Password"} ({isEs ? "opcional" : "optional"})</Label>
+              <Input
+                type="password"
+                value={linkPassword}
+                onChange={(e) => setLinkPassword(e.target.value)}
+                placeholder={isEs ? "Dejar vacío para mantener la actual" : "Leave empty to keep current"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isEs ? "Permisos" : "Permissions"}</Label>
+              <Select value={linkPermission} onValueChange={setLinkPermission}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">{isEs ? "Solo ver" : "View only"}</SelectItem>
+                  <SelectItem value="contributor">{isEs ? "Ver + Crear" : "View + Create"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditLinkOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleUpdateLink} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -976,3 +976,26 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 **Testing**: Backend endpoints funcionan. AI integrado pero requiere balance en Emergent LLM Key.
 
 **Nota sobre AI**: La Emergent LLM Key tiene budget limitado. El usuario puede agregar balance en Profile > Universal Key > Add Balance.
+
+#### Tabs "Mis Cuentas/Compartidas" en Social Media
+- **Ubicación**: Social Media > Settings > Cuentas Sociales
+- **Tabs de filtro**: Todas | Mías | Compartidas
+- **Para cuentas compartidas muestra**:
+  - Badge "de [Nombre Empresa]"
+  - Badge de permisos (Editar/Ver)
+- **Endpoint modificado**: `GET /api/demand-studio/social/accounts?include_shared=true`
+
+#### Editar Permisos de Compartir
+- **Colaboradores Internos**: 
+  - Dropdown para cambiar rol (Visor ↔ Colaborador) directamente en la lista
+  - Endpoint: `PATCH /api/social-sharing/collaborators/{id}` con `{role: "social_viewer"|"social_contributor"}`
+- **Links Externos**:
+  - Botón de editar al lado de cada link
+  - Dialog para cambiar nombre, contraseña y permisos
+  - Endpoint: `PATCH /api/social-sharing/links/{id}` con `{name, password, permissions}`
+
+**Files Modified:**
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Tabs de scope en cuentas
+- `frontend/src/components/demand-studio/SocialSharing.js` - Editar roles y links
+- `backend/routers/demand_studio.py` - include_shared en accounts endpoint
+- `backend/routers/social_sharing.py` - PATCH endpoints para colaboradores y links

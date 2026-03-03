@@ -85,6 +85,7 @@ export default function SocialMediaPage() {
   const [filterFormat, setFilterFormat] = useState("all");
   const [filterCampaign, setFilterCampaign] = useState("all");
   const [filterPillar, setFilterPillar] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all"); // "all" | "owned" | "shared"
   
   // Calendar filters
   const [calFilterAccount, setCalFilterAccount] = useState("all");
@@ -159,7 +160,7 @@ export default function SocialMediaPage() {
       const [statsRes, postsRes, accountsRes, pillarsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
         axios.get(`${API}/api/demand-studio/social/stats`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/posts`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/accounts`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/pillars`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/campaigns`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/insights`, { withCredentials: true }),
@@ -970,7 +971,7 @@ export default function SocialMediaPage() {
           <div className="grid md:grid-cols-2 gap-6">
             {/* Accounts */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-base">{isEs ? "Cuentas Sociales" : "Social Accounts"}</CardTitle>
                 <Button size="sm" onClick={() => setAccountDialogOpen(true)}>
                   <Plus className="w-4 h-4 mr-1" />
@@ -978,11 +979,53 @@ export default function SocialMediaPage() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {accounts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{isEs ? "No hay cuentas" : "No accounts"}</p>
+                {/* Scope Filter Tabs */}
+                <div className="flex gap-1 mb-4 p-1 bg-muted rounded-lg">
+                  <Button 
+                    variant={scopeFilter === "all" ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="flex-1 h-7 text-xs"
+                    onClick={() => setScopeFilter("all")}
+                  >
+                    {isEs ? "Todas" : "All"} ({accounts.length})
+                  </Button>
+                  <Button 
+                    variant={scopeFilter === "owned" ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="flex-1 h-7 text-xs"
+                    onClick={() => setScopeFilter("owned")}
+                  >
+                    {isEs ? "Mías" : "Mine"} ({accounts.filter(a => a._access_type !== "shared").length})
+                  </Button>
+                  <Button 
+                    variant={scopeFilter === "shared" ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="flex-1 h-7 text-xs"
+                    onClick={() => setScopeFilter("shared")}
+                  >
+                    {isEs ? "Compartidas" : "Shared"} ({accounts.filter(a => a._access_type === "shared").length})
+                  </Button>
+                </div>
+
+                {accounts.filter(a => 
+                  scopeFilter === "all" || 
+                  (scopeFilter === "owned" && a._access_type !== "shared") ||
+                  (scopeFilter === "shared" && a._access_type === "shared")
+                ).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {scopeFilter === "shared" 
+                      ? (isEs ? "No hay cuentas compartidas contigo" : "No accounts shared with you")
+                      : (isEs ? "No hay cuentas" : "No accounts")}
+                  </p>
                 ) : (
                   <div className="space-y-2">
-                    {accounts.map(account => {
+                    {accounts
+                      .filter(a => 
+                        scopeFilter === "all" || 
+                        (scopeFilter === "owned" && a._access_type !== "shared") ||
+                        (scopeFilter === "shared" && a._access_type === "shared")
+                      )
+                      .map(account => {
                       const platform = getPlatformInfo(account.platform);
                       return (
                         <div key={account.account_id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
@@ -992,12 +1035,26 @@ export default function SocialMediaPage() {
                             </div>
                             <div>
                               <p className="text-sm font-medium">{account.handle}</p>
-                              <p className="text-xs text-muted-foreground">{platform.label}</p>
+                              <div className="flex items-center gap-1">
+                                <p className="text-xs text-muted-foreground">{platform.label}</p>
+                                {account._access_type === "shared" && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                    {isEs ? "de" : "from"} {account._shared_by}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <Badge variant={account.status === "active" ? "default" : "secondary"}>
-                            {account.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            {account._access_type === "shared" && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {account._role === "social_contributor" ? (isEs ? "Editar" : "Edit") : (isEs ? "Ver" : "View")}
+                              </Badge>
+                            )}
+                            <Badge variant={account.status === "active" ? "default" : "secondary"}>
+                              {account.status}
+                            </Badge>
+                          </div>
                         </div>
                       );
                     })}

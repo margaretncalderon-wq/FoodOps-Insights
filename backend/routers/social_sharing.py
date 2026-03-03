@@ -225,6 +225,40 @@ async def remove_collaborator(
     
     return {"status": "removed"}
 
+class CollaboratorUpdate(BaseModel):
+    role: str
+
+@social_sharing_router.patch("/collaborators/{membership_id}")
+async def update_collaborator_role(
+    membership_id: str,
+    data: CollaboratorUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Update a collaborator's role"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization found")
+    
+    if user.role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only admins can update collaborator roles")
+    
+    # Validate role
+    if data.role not in ["social_viewer", "social_contributor"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Use 'social_viewer' or 'social_contributor'")
+    
+    result = await db.memberships.update_one(
+        {
+            "membership_id": membership_id,
+            "$or": [{"company_id": company_id}, {"organization_id": company_id}]
+        },
+        {"$set": {"role": data.role, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Collaborator not found")
+    
+    return {"status": "updated", "role": data.role}
+
 
 # ============== EXTERNAL SHARE LINKS ==============
 
@@ -332,6 +366,48 @@ async def revoke_share_link(
         raise HTTPException(status_code=404, detail="Share link not found")
     
     return {"status": "revoked"}
+
+class ShareLinkUpdate(BaseModel):
+    name: Optional[str] = None
+    password: Optional[str] = None
+    permissions: Optional[str] = None
+
+@social_sharing_router.patch("/links/{share_id}")
+async def update_share_link(
+    share_id: str,
+    data: ShareLinkUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Update a share link's settings"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization found")
+    
+    if user.role not in ["owner", "admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Only admins can update share links")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if data.name is not None:
+        update_data["name"] = data.name
+    
+    if data.password is not None and data.password.strip():
+        update_data["password_hash"] = hash_password(data.password)
+    
+    if data.permissions is not None:
+        if data.permissions not in ["viewer", "contributor"]:
+            raise HTTPException(status_code=400, detail="Invalid permissions")
+        update_data["permissions"] = data.permissions
+    
+    result = await db.social_share_links.update_one(
+        {"share_id": share_id, "organization_id": company_id, "active": True},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    
+    return {"status": "updated"}
 
 
 # ============== EXTERNAL ACCESS (PUBLIC) ==============
