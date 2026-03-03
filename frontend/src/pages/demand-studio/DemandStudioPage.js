@@ -4,7 +4,7 @@ import { Layout } from "../../components/Layout";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { 
   Megaphone, LayoutDashboard, Target, Zap, Mail, 
-  Receipt, BarChart3, Settings, ChevronRight, Hash
+  Receipt, BarChart3, Settings, ChevronRight, Hash, Users
 } from "lucide-react";
 
 const navTabs = [
@@ -15,6 +15,7 @@ const navTabs = [
   { path: "/demand-studio/email-marketing", label: "Email Marketing", labelEs: "Email Marketing", icon: Mail },
   { path: "/demand-studio/spend-ledger", label: "Spend Ledger", labelEs: "Libro de Gastos", icon: Receipt },
   { path: "/demand-studio/insights", label: "Insights", labelEs: "Insights", icon: BarChart3 },
+  { path: "/demand-studio/agency", label: "Agency", labelEs: "Panel Agencia", icon: Users },
   { path: "/demand-studio/settings", label: "Settings", labelEs: "Configuración", icon: Settings },
 ];
 

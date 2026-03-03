@@ -1,0 +1,79 @@
+{
+  "summary": "Tested Collaboration and Agency Dashboard features. All 17 backend tests passed (100%). Frontend Agency Dashboard loads correctly with proper UI components. Agency tab visible in Demand Studio navigation.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_verified": {
+    "collaborators_invite_endpoint": {
+      "status": "WORKING",
+      "details": "POST /api/social-sharing/collaborators/invite creates membership with company_id and status=active. Endpoint validates roles and requires authentication."
+    },
+    "my_organizations_endpoint": {
+      "status": "WORKING",
+      "details": "GET /api/org/my-organizations returns list of organizations. Searches both company_id AND organization_id fields for memberships. Returns organization details, role, and is_active flag."
+    },
+    "agency_clients_overview_endpoint": {
+      "status": "WORKING",
+      "details": "GET /api/agency/clients-overview returns clients list and stats. Only returns orgs where user is social_contributor or social_viewer. Stats include: total, pendingApproval, scheduledThisWeek."
+    },
+    "agency_pending_approvals_endpoint": {
+      "status": "WORKING",
+      "details": "GET /api/agency/pending-approvals returns pending approval items across all client organizations."
+    },
+    "agency_dashboard_page": {
+      "status": "WORKING",
+      "details": "Page at /demand-studio/agency loads correctly. Shows stats cards (Clients, Pending Approval, Scheduled This Week, Total Ideas), search input, grid/list toggle, and 'No clients yet' message when no collaborations."
+    },
+    "agency_tab_in_menu": {
+      "status": "WORKING",
+      "details": "Agency tab visible in Demand Studio navigation tabs between Insights and Settings."
+    },
+    "org_switch_endpoint": {
+      "status": "WORKING",
+      "details": "POST /api/org/switch/{company_id} allows switching active organization. Returns success=true on valid access."
+    },
+    "list_collaborators_endpoint": {
+      "status": "WORKING",
+      "details": "GET /api/social-sharing/collaborators returns collaborators and pending_invitations for the organization."
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_collaboration_agency.py",
+    "/app/test_reports/pytest/pytest_collaboration_agency.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_collaboration_agency.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100%"
+  },
+
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+
+  "seed_data_creation": "No seed data created. User demo.agency@kora.com has no collaborator memberships, so Agency Dashboard shows 'No clients yet' as expected.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Collaboration and Agency features are fully functional. Key endpoints: /api/social-sharing/collaborators/invite (creates membership with company_id+status=active), /api/org/my-organizations (searches both company_id and organization_id), /api/agency/clients-overview (returns clients where user is collaborator). Agency Dashboard UI at /demand-studio/agency loads correctly with all components (stats cards, search, grid/list toggle)."
+}

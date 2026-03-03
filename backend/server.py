@@ -10669,6 +10669,128 @@ async def switch_organization(company_id: str, user: User = Depends(get_current_
     
     return {"success": True, "company_id": company_id}
 
+# ============== AGENCY DASHBOARD ENDPOINTS ==============
+
+agency_router = APIRouter(prefix="/agency", tags=["agency"])
+
+@agency_router.get("/clients-overview")
+async def get_agency_clients_overview(user: User = Depends(get_current_user)):
+    """Get overview of all clients the agency user has access to (as collaborator)"""
+    from datetime import timedelta
+    
+    # Get all memberships where user is a collaborator (not owner)
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "role": {"$in": ["social_contributor", "social_viewer"]},
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(50)
+    
+    clients = []
+    total_pending = 0
+    total_scheduled_week = 0
+    now = datetime.now(timezone.utc)
+    week_from_now = now + timedelta(days=7)
+    
+    for membership in memberships:
+        org_id = membership.get("company_id") or membership.get("organization_id")
+        if not org_id:
+            continue
+        
+        # Get company info
+        company = await db.companies.find_one({"company_id": org_id}, {"_id": 0})
+        if not company:
+            continue
+        
+        # Get stats for this client's social content
+        scheduled_count = await db.social_posts.count_documents({
+            "company_id": org_id,
+            "status": "scheduled"
+        })
+        
+        ideas_count = await db.content_ideas.count_documents({
+            "company_id": org_id
+        })
+        
+        pending_count = await db.social_posts.count_documents({
+            "company_id": org_id,
+            "status": "draft",
+            "needs_approval": True
+        })
+        
+        published_count = await db.social_posts.count_documents({
+            "company_id": org_id,
+            "status": "published"
+        })
+        
+        # Count scheduled this week
+        scheduled_week = await db.social_posts.count_documents({
+            "company_id": org_id,
+            "status": "scheduled",
+            "scheduled_at": {"$gte": now.isoformat(), "$lte": week_from_now.isoformat()}
+        })
+        
+        total_pending += pending_count
+        total_scheduled_week += scheduled_week
+        
+        clients.append({
+            "company_id": company["company_id"],
+            "name": company.get("name", "Unknown"),
+            "logo_url": company.get("logo_url"),
+            "role": membership["role"],
+            "is_active": company["company_id"] == user.company_id,
+            "stats": {
+                "scheduled": scheduled_count,
+                "ideas": ideas_count,
+                "pending": pending_count,
+                "published": published_count
+            }
+        })
+    
+    return {
+        "clients": clients,
+        "stats": {
+            "total": len(clients),
+            "pendingApproval": total_pending,
+            "scheduledThisWeek": total_scheduled_week
+        }
+    }
+
+@agency_router.get("/pending-approvals")
+async def get_pending_approvals(user: User = Depends(get_current_user)):
+    """Get all pending approval items across all client organizations"""
+    # Get all memberships where user is a collaborator
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "role": {"$in": ["social_contributor", "social_viewer"]},
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(50)
+    
+    org_ids = [m.get("company_id") or m.get("organization_id") for m in memberships]
+    org_ids = [oid for oid in org_ids if oid]
+    
+    if not org_ids:
+        return {"pending": []}
+    
+    # Get pending posts from all orgs
+    pending = await db.social_posts.find({
+        "company_id": {"$in": org_ids},
+        "status": "draft",
+        "needs_approval": True
+    }, {"_id": 0}).to_list(100)
+    
+    # Enrich with company names
+    for post in pending:
+        company = await db.companies.find_one(
+            {"company_id": post.get("company_id")},
+            {"name": 1, "logo_url": 1, "_id": 0}
+        )
+        post["company_name"] = company.get("name") if company else "Unknown"
+        post["company_logo"] = company.get("logo_url") if company else None
+    
+    return {"pending": pending}
+
+api_router.include_router(agency_router)
+
 @org_router.post("/create")
 async def create_organization(data: OrganizationCreate, user: User = Depends(get_current_user)):
     """Create a new organization (onboarding step 1)"""
