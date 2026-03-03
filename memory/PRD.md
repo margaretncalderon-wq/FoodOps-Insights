@@ -1021,3 +1021,83 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `frontend/src/pages/demand-studio/SocialMediaPage.js` - Selector de org, estados, banner
 - `backend/routers/demand_studio.py` - org_id param en todos los endpoints social
 - `backend/routers/social_sharing.py` - endpoint available-orgs
+
+### Session: Mar 03, 2026 - Account-Centric Sharing Model ✅
+
+#### Refactorización Mayor: Modelo de Compartir Centrado en Cuentas
+
+**Problema**: El modelo anterior basado en organizaciones no era suficientemente granular. El usuario necesitaba poder compartir cuentas de redes sociales individuales, no organizaciones completas.
+
+**Solución Implementada**: Nuevo modelo donde cada cuenta de red social es un workspace completamente independiente que puede ser compartido de forma granular.
+
+**Backend - Nuevo Router account_sharing.py:**
+- Colección `account_memberships`: Mapea user_id → social_account_id con role
+- Colección `account_share_links`: Links públicos para compartir cuentas específicas
+
+**Nuevos Endpoints:**
+- `GET /api/account-sharing/my-accounts` - Devuelve todas las cuentas accesibles (propias + compartidas)
+- `POST /api/account-sharing/share?account_id=X` - Comparte cuenta con usuario de Kora
+- `GET /api/account-sharing/collaborators/{account_id}` - Lista colaboradores de una cuenta
+- `DELETE /api/account-sharing/collaborators/{membership_id}` - Revoca acceso
+- `PATCH /api/account-sharing/collaborators/{membership_id}` - Cambia rol
+- `POST /api/account-sharing/links` - Crea link de compartir para cuenta
+- `GET /api/account-sharing/links/{account_id}` - Lista links activos
+- `DELETE /api/account-sharing/links/{share_id}` - Revoca link
+
+**Endpoints Modificados con Filtro por account_id:**
+- `GET /api/demand-studio/social/stats?account_id=X`
+- `GET /api/demand-studio/social/posts?account_id=X`
+- `GET /api/demand-studio/social/insights?account_id=X`
+- `GET /api/demand-studio/social/calendar?account_id=X`
+- `GET /api/demand-studio/social/ideas?account_id=X`
+
+**Frontend - Account Selector Dropdown:**
+- Ubicación: Header del módulo Social Media ("Active account:")
+- Opciones:
+  - "All my accounts" - Ver todas las cuentas propias
+  - Sección "My Accounts" - Lista de cuentas propias con icono de plataforma
+  - Sección "Shared With Me" - Lista de cuentas compartidas con nombre del dueño y rol
+- Al seleccionar una cuenta, toda la vista (stats, posts, calendar, etc.) se filtra para mostrar solo datos de esa cuenta
+
+**Frontend - AccountSharing.js Component:**
+- Ubicación: Social Media > Settings (al fondo de la página)
+- Sección "Share Individual Accounts"
+- Selector de cuenta a compartir
+- Botón "Invite User" - Invita usuario de Kora con email y rol (Editor/Viewer)
+- Botón "Create Link" - Crea link público con nombre, contraseña opcional, expiración y permisos
+- Lista de colaboradores con botón de eliminar
+- Lista de links activos con botón de copiar y eliminar
+
+**Testing**: 100% - 18/18 backend tests passed, frontend UI verified
+
+**Files Created:**
+- `backend/routers/account_sharing.py` - Router completo para compartir cuentas
+- `frontend/src/components/demand-studio/AccountSharing.js` - UI de compartir cuentas
+- `backend/tests/test_account_sharing.py` - Tests automatizados
+
+**Files Modified:**
+- `backend/server.py` - Registrado account_sharing_router
+- `backend/routers/demand_studio.py` - account_id en stats, insights, calendar, ideas
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Account selector, estados, banner de cuenta compartida
+
+## Prioritized Backlog
+
+### P0 (Critical - Next Session)
+- ❌ "Report a Bug" - Conectar con endpoint real de upload (actualmente usa Base64 fallback)
+- ⚠️ AI Features - Requieren fondos en Emergent LLM Key
+
+### P1 (High Priority)
+- Connect Social + Email flows to Brand Hub templates
+- UTM Tracking completo
+
+### P2 (Medium Priority)
+- Meta (Facebook/Instagram) write-access API integration
+- Filter/group leads by City/Country
+- Email Marketing - Real sending via Resend
+
+### Future/Backlog
+- Kora Comms Phase 1 (WhatsApp Integration)
+- Initial setup wizard for new users
+- Granular campaign-level sharing permissions
+- Clean up deprecated files: AgencyDashboard.js, CompaniesSection.js, companies.py
+
