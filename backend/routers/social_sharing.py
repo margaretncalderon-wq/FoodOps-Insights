@@ -127,12 +127,24 @@ async def invite_social_collaborator(
     membership = {
         "membership_id": f"member_{uuid.uuid4().hex[:12]}",
         "user_id": invited_user["user_id"],
-        "organization_id": company_id,
+        "company_id": company_id,  # Use company_id for consistency with org system
+        "organization_id": company_id,  # Keep for backwards compatibility
         "role": data.role,
+        "status": "active",
         "invited_by": user.user_id,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.memberships.insert_one(membership)
+    
+    # Send notification to the invited user
+    await create_notification(
+        user_id=invited_user["user_id"],
+        notification_type="invitation_accepted",
+        title="Te han agregado a una organización",
+        message=f"Ahora tienes acceso a Social Media de una nueva organización como {data.role.replace('social_', '')}",
+        link="/demand-studio/social",
+        priority="high"
+    )
     
     return {
         "status": "added",
@@ -148,9 +160,9 @@ async def list_social_collaborators(user: User = Depends(get_current_user)):
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization found")
     
-    # Get memberships with social roles
+    # Get memberships with social roles - check both company_id and organization_id for compatibility
     memberships = await db.memberships.find({
-        "organization_id": company_id,
+        "$or": [{"company_id": company_id}, {"organization_id": company_id}],
         "role": {"$in": ["social_viewer", "social_contributor", "admin", "manager", "owner"]}
     }).to_list(100)
     
@@ -202,9 +214,10 @@ async def remove_collaborator(
     if user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only admins can remove collaborators")
     
+    # Try both company_id and organization_id for compatibility
     result = await db.memberships.delete_one({
         "membership_id": membership_id,
-        "organization_id": company_id
+        "$or": [{"company_id": company_id}, {"organization_id": company_id}]
     })
     
     if result.deleted_count == 0:

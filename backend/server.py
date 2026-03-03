@@ -10391,8 +10391,15 @@ api_router.include_router(ops_supplies_router)
 
 async def get_user_membership(user_id: str, company_id: str) -> Optional[dict]:
     """Get user's membership in an organization"""
+    # Support both company_id and organization_id fields, with or without status
     return await db.memberships.find_one(
-        {"user_id": user_id, "company_id": company_id, "status": "active"},
+        {
+            "user_id": user_id,
+            "$and": [
+                {"$or": [{"company_id": company_id}, {"organization_id": company_id}]},
+                {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
+            ]
+        },
         {"_id": 0}
     )
 
@@ -10602,15 +10609,24 @@ async def get_current_organization(user: User = Depends(get_current_user)):
 @org_router.get("/my-organizations")
 async def get_my_organizations(user: User = Depends(get_current_user)):
     """Get all organizations the user belongs to"""
+    # Find memberships - support both status and no-status (for backwards compatibility)
     memberships = await db.memberships.find(
-        {"user_id": user.user_id, "status": "active"},
+        {
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        },
         {"_id": 0}
     ).to_list(50)
     
     orgs = []
     for membership in memberships:
+        # Support both company_id and organization_id fields
+        org_id = membership.get("company_id") or membership.get("organization_id")
+        if not org_id:
+            continue
+            
         company = await db.companies.find_one(
-            {"company_id": membership["company_id"]},
+            {"company_id": org_id},
             {"_id": 0}
         )
         if company:
