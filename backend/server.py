@@ -78,6 +78,7 @@ from routers.activity_logs import activity_logs_router
 from routers.payments import payments_router
 from routers.automation import automation_router
 from routers.sharing import sharing_router
+from routers.notes import notes_router
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
@@ -16369,6 +16370,9 @@ async def get_trial_status(user: User = Depends(get_current_user)):
 
 # Include demand_studio_router
 api_router.include_router(demand_studio_router)
+
+# Include notes_router
+api_router.include_router(notes_router)
 
 # Include execution_hub_router
 api_router.include_router(execution_hub_router)

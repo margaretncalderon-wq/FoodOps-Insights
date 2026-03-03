@@ -4,18 +4,18 @@ import { Layout } from "../../components/Layout";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { 
   Megaphone, LayoutDashboard, Target, Zap, Mail, 
-  Receipt, BarChart3, Settings, ChevronRight, Hash, Users
+  Receipt, BarChart3, Settings, ChevronRight, Hash, FileText
 } from "lucide-react";
 
 const navTabs = [
   { path: "/demand-studio", label: "Overview", labelEs: "Resumen", icon: LayoutDashboard, end: true },
   { path: "/demand-studio/campaigns", label: "Campaigns", labelEs: "Campañas", icon: Target },
   { path: "/demand-studio/social-media", label: "Social Media", labelEs: "Social Media", icon: Hash },
+  { path: "/demand-studio/notes", label: "Notes", labelEs: "Notas", icon: FileText },
   { path: "/demand-studio/activations", label: "Activations", labelEs: "Activaciones", icon: Zap },
   { path: "/demand-studio/email-marketing", label: "Email Marketing", labelEs: "Email Marketing", icon: Mail },
   { path: "/demand-studio/spend-ledger", label: "Spend Ledger", labelEs: "Libro de Gastos", icon: Receipt },
   { path: "/demand-studio/insights", label: "Insights", labelEs: "Insights", icon: BarChart3 },
-  { path: "/demand-studio/agency", label: "Agency", labelEs: "Panel Agencia", icon: Users },
   { path: "/demand-studio/settings", label: "Settings", labelEs: "Configuración", icon: Settings },
 ];
 

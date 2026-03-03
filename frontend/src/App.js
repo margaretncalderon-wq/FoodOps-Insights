@@ -89,6 +89,7 @@ const SpendLedgerPage = lazy(() => import("./pages/demand-studio/SpendLedgerPage
 const InsightsPage = lazy(() => import("./pages/demand-studio/InsightsPage"));
 const DemandStudioSettings = lazy(() => import("./pages/demand-studio/DemandStudioSettings"));
 const AgencyDashboard = lazy(() => import("./pages/demand-studio/AgencyDashboard"));
+const NotesPage = lazy(() => import("./pages/demand-studio/NotesPage"));
 
 // Execution Hub pages
 const ExecutionHubPage = lazy(() => import("./pages/ExecutionHubPage"));
@@ -323,6 +324,7 @@ function AppRouter() {
         <Route path="campaigns" element={<CampaignsPage />} />
         <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
         <Route path="social-media" element={<SocialMediaPage />} />
+        <Route path="notes" element={<NotesPage />} />
         <Route path="activations" element={<ActivationsPage />} />
         <Route path="email-marketing" element={<EmailMarketingPage />} />
         <Route path="spend-ledger" element={<SpendLedgerPage />} />

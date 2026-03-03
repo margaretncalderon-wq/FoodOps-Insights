@@ -932,3 +932,47 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 
 **Files Modified:**
 - `backend/routers/demand_studio.py` - Agregada lógica de notificación en PATCH endpoint
+
+### Session: Mar 03, 2026 - Refactor Compartir + Notes + AI ✅
+
+#### 1. Refactor Sistema de Compartir
+- ❌ Eliminado tab "Agency" del menú de Demand Studio  
+- ✅ Badge de Cola de Aprobación agregado al header (junto a notificaciones)
+- ✅ Campañas ya tenía tabs "Mías/Compartidas" (scopeFilter existente)
+- 📝 Pendiente: Agregar tabs "Mis Cuentas/Compartidas" en Social Media
+
+#### 2. Nueva Sección: Notes en Demand Studio
+- **Ubicación**: Demand Studio > Notes
+- **Features**:
+  - CRUD completo de notas
+  - Organización por carpetas
+  - Colores personalizables (6 opciones)
+  - Tags/etiquetas
+  - Adjuntos de archivos
+  - Vincular a campañas
+  - Búsqueda
+- **AI Features** (usando Emergent LLM Key):
+  - Resumir contenido automáticamente
+  - Extraer action items de notas
+
+#### 3. Badge de Cola de Aprobación
+- Icono 📋 en header al lado de notificaciones
+- Muestra número de posts pendientes de aprobar
+- Dropdown con preview de posts
+- Aprobar/Rechazar directamente desde el dropdown
+- Solo visible si hay items pendientes
+
+**Files Created:**
+- `frontend/src/pages/demand-studio/NotesPage.js` - Página completa de notas
+- `frontend/src/components/notifications/ApprovalQueueBell.js` - Badge de aprobación
+- `backend/routers/notes.py` - API completa de notas + AI
+
+**Files Modified:**
+- `frontend/src/pages/demand-studio/DemandStudioPage.js` - Reemplazado tab Agency con Notes
+- `frontend/src/components/Layout.js` - Agregado ApprovalQueueBell
+- `frontend/src/App.js` - Agregada ruta /demand-studio/notes
+- `backend/server.py` - Registrado notes_router
+
+**Testing**: Backend endpoints funcionan. AI integrado pero requiere balance en Emergent LLM Key.
+
+**Nota sobre AI**: La Emergent LLM Key tiene budget limitado. El usuario puede agregar balance en Profile > Universal Key > Add Balance.
