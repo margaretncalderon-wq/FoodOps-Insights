@@ -978,33 +978,39 @@ export default function SocialMediaPage() {
                   {isEs ? "Agregar" : "Add"}
                 </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 {/* Scope Filter Tabs */}
-                <div className="flex gap-1 mb-4 p-1 bg-muted rounded-lg">
-                  <Button 
-                    variant={scopeFilter === "all" ? "secondary" : "ghost"} 
-                    size="sm" 
-                    className="flex-1 h-7 text-xs"
+                <div className="flex border-b">
+                  <button 
+                    className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      scopeFilter === "all" 
+                        ? "border-primary text-primary" 
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
                     onClick={() => setScopeFilter("all")}
                   >
                     {isEs ? "Todas" : "All"} ({accounts.length})
-                  </Button>
-                  <Button 
-                    variant={scopeFilter === "owned" ? "secondary" : "ghost"} 
-                    size="sm" 
-                    className="flex-1 h-7 text-xs"
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      scopeFilter === "owned" 
+                        ? "border-primary text-primary" 
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
                     onClick={() => setScopeFilter("owned")}
                   >
                     {isEs ? "Mías" : "Mine"} ({accounts.filter(a => a._access_type !== "shared").length})
-                  </Button>
-                  <Button 
-                    variant={scopeFilter === "shared" ? "secondary" : "ghost"} 
-                    size="sm" 
-                    className="flex-1 h-7 text-xs"
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      scopeFilter === "shared" 
+                        ? "border-primary text-primary" 
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
                     onClick={() => setScopeFilter("shared")}
                   >
                     {isEs ? "Compartidas" : "Shared"} ({accounts.filter(a => a._access_type === "shared").length})
-                  </Button>
+                  </button>
                 </div>
 
                 {accounts.filter(a => 
