@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
   Building2, Calendar, Lightbulb, FileText, Clock, CheckCircle,
   AlertCircle, Search, RefreshCw, ExternalLink, Users, TrendingUp,
-  LayoutGrid, List, Filter
+  LayoutGrid, List, Filter, Inbox, Eye, ThumbsUp, ThumbsDown,
+  Instagram, Image, Video
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +28,9 @@ export default function AgencyDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [stats, setStats] = useState({ total: 0, pendingApproval: 0, scheduledThisWeek: 0 });
+  const [activeTab, setActiveTab] = useState("clients");
+  const [pendingItems, setPendingItems] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -58,9 +63,26 @@ export default function AgencyDashboard() {
     setLoading(false);
   }, []);
 
+  const fetchPendingApprovals = useCallback(async () => {
+    setLoadingPending(true);
+    try {
+      const res = await axios.get(`${API}/api/agency/pending-approvals`, { withCredentials: true });
+      setPendingItems(res.data.pending || []);
+    } catch (err) {
+      console.error("Error fetching pending approvals:", err);
+    }
+    setLoadingPending(false);
+  }, []);
+
   useEffect(() => {
     fetchClients();
   }, [fetchClients]);
+
+  useEffect(() => {
+    if (activeTab === "approvals") {
+      fetchPendingApprovals();
+    }
+  }, [activeTab, fetchPendingApprovals]);
 
   const handleSwitchToClient = async (companyId) => {
     try {
@@ -70,6 +92,41 @@ export default function AgencyDashboard() {
       window.location.href = "/demand-studio/social";
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error switching organization");
+    }
+  };
+
+  const handleApprovePost = async (postId, companyId) => {
+    try {
+      // First switch to the client's org context
+      await axios.post(`${API}/api/org/switch/${companyId}`, {}, { withCredentials: true });
+      // Then approve the post
+      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, {
+        status: "scheduled",
+        needs_approval: false
+      }, { withCredentials: true });
+      toast.success(isEs ? "Post aprobado" : "Post approved");
+      fetchPendingApprovals();
+      fetchClients(); // Refresh stats
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error approving post");
+    }
+  };
+
+  const handleRejectPost = async (postId, companyId) => {
+    try {
+      // First switch to the client's org context
+      await axios.post(`${API}/api/org/switch/${companyId}`, {}, { withCredentials: true });
+      // Then reject - just mark as draft without approval needed
+      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, {
+        status: "draft",
+        needs_approval: false,
+        rejection_note: isEs ? "Rechazado por la empresa" : "Rejected by company"
+      }, { withCredentials: true });
+      toast.success(isEs ? "Post rechazado" : "Post rejected");
+      fetchPendingApprovals();
+      fetchClients(); // Refresh stats
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error rejecting post");
     }
   };
 
@@ -118,7 +175,10 @@ export default function AgencyDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeTab === "clients" ? "ring-2 ring-primary" : ""}`}
+          onClick={() => setActiveTab("clients")}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -130,7 +190,10 @@ export default function AgencyDashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeTab === "approvals" ? "ring-2 ring-primary" : ""}`}
+          onClick={() => setActiveTab("approvals")}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -169,50 +232,68 @@ export default function AgencyDashboard() {
         </Card>
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={isEs ? "Buscar cliente..." : "Search client..."}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex border rounded-lg p-1">
-          <Button
-            variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("list")}
-          >
-            <List className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="clients" className="gap-2">
+            <Building2 className="w-4 h-4" />
+            {isEs ? "Clientes" : "Clients"} ({clients.length})
+          </TabsTrigger>
+          <TabsTrigger value="approvals" className="gap-2">
+            <Inbox className="w-4 h-4" />
+            {isEs ? "Cola de Aprobación" : "Approval Queue"} 
+            {stats.pendingApproval > 0 && (
+              <Badge variant="destructive" className="ml-1">{stats.pendingApproval}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Clients Grid/List */}
-      {filteredClients.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground opacity-50 mb-4" />
-            <h3 className="text-lg font-medium mb-2">
-              {isEs ? "No hay clientes" : "No clients yet"}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {isEs 
-                ? "Cuando una empresa te agregue como colaborador, aparecerá aquí"
-                : "When a company adds you as a collaborator, they'll appear here"}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Clients Tab */}
+        <TabsContent value="clients" className="mt-4 space-y-4">
+          {/* Search & Filters */}
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={isEs ? "Buscar cliente..." : "Search client..."}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex border rounded-lg p-1">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Clients Grid/List */}
+          {filteredClients.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Users className="w-12 h-12 mx-auto text-muted-foreground opacity-50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  {isEs ? "No hay clientes" : "No clients yet"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {isEs 
+                    ? "Cuando una empresa te agregue como colaborador, aparecerá aquí"
+                    : "When a company adds you as a collaborator, they'll appear here"}
+                </p>
+              </CardContent>
+            </Card>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredClients.map((client) => (
@@ -346,6 +427,135 @@ export default function AgencyDashboard() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        {/* Approval Queue Tab */}
+        <TabsContent value="approvals" className="mt-4">
+          {loadingPending ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : pendingItems.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CheckCircle className="w-12 h-12 mx-auto text-green-500 opacity-50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  {isEs ? "¡Todo al día!" : "All caught up!"}
+                </h3>
+                <p className="text-muted-foreground">
+                  {isEs 
+                    ? "No hay posts pendientes de aprobación"
+                    : "No posts pending approval"}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {pendingItems.length} {isEs ? "posts pendientes" : "pending posts"}
+                </p>
+                <Button variant="outline" size="sm" onClick={fetchPendingApprovals}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {isEs ? "Actualizar" : "Refresh"}
+                </Button>
+              </div>
+              
+              {pendingItems.map((post) => (
+                <Card key={post.post_id} className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex">
+                      {/* Preview Image/Video */}
+                      <div className="w-32 h-32 bg-muted flex-shrink-0 flex items-center justify-center">
+                        {post.media_url ? (
+                          <img 
+                            src={post.media_url} 
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : post.content_type === "video" ? (
+                          <Video className="w-8 h-8 text-muted-foreground" />
+                        ) : (
+                          <Image className="w-8 h-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {post.company_logo ? (
+                              <img 
+                                src={post.company_logo} 
+                                alt={post.company_name}
+                                className="w-6 h-6 rounded"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">
+                                  {post.company_name?.[0]?.toUpperCase() || "?"}
+                                </span>
+                              </div>
+                            )}
+                            <span className="font-medium text-sm">{post.company_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {post.platforms?.map(p => (
+                              <Badge key={p} variant="outline" className="text-xs">
+                                {p === "instagram" && <Instagram className="w-3 h-3 mr-1" />}
+                                {p}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm line-clamp-2 mb-3">
+                          {post.caption || (isEs ? "Sin caption" : "No caption")}
+                        </p>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="w-3 h-3" />
+                            {post.scheduled_at 
+                              ? new Date(post.scheduled_at).toLocaleString()
+                              : (isEs ? "Sin programar" : "Not scheduled")}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleSwitchToClient(post.company_id)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              {isEs ? "Ver" : "View"}
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleRejectPost(post.post_id, post.company_id)}
+                            >
+                              <ThumbsDown className="w-4 h-4 mr-1" />
+                              {isEs ? "Rechazar" : "Reject"}
+                            </Button>
+                            <Button 
+                              size="sm"
+                              onClick={() => handleApprovePost(post.post_id, post.company_id)}
+                            >
+                              <ThumbsUp className="w-4 h-4 mr-1" />
+                              {isEs ? "Aprobar" : "Approve"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

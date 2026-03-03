@@ -1,5 +1,6 @@
 # routers/demand_studio.py - Demand Studio routes
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -1983,6 +1984,35 @@ async def mark_post_as_posted(post_id: str, user: User = Depends(get_current_use
             "updated_at": now.isoformat()
         }}
     )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
+
+class PostApprovalUpdate(BaseModel):
+    status: Optional[str] = None
+    needs_approval: Optional[bool] = None
+    rejection_note: Optional[str] = None
+
+@demand_studio_router.patch("/social/posts/{post_id}")
+async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User = Depends(get_current_user)):
+    """Partial update for post approval/rejection workflow"""
+    company_id = user.company_id or user.active_org_id
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if data.status is not None:
+        update_data["status"] = data.status
+    if data.needs_approval is not None:
+        update_data["needs_approval"] = data.needs_approval
+    if data.rejection_note is not None:
+        update_data["rejection_note"] = data.rejection_note
+    
+    result = await db.social_posts.update_one(
+        {"post_id": post_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Post not found")
     

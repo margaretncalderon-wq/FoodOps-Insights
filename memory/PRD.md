@@ -908,3 +908,17 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `frontend/src/pages/demand-studio/DemandStudioPage.js` - tab Agency en nav
 
 **Testing**: 100% - 17/17 backend tests passed, frontend verified
+
+#### Feature: Cola de Aprobación en Dashboard de Agencia
+- **Descripción**: Tab adicional en el Panel de Agencia para ver y gestionar todos los borradores pendientes de aprobación de todos los clientes
+- **Funcionalidades**:
+  - Lista de posts pendientes de todas las empresas cliente
+  - Preview del post con imagen/video, caption, plataforma y fecha programada
+  - Botones de Aprobar/Rechazar directamente desde la cola
+  - Badge con contador de pendientes en el tab
+  - Refresh automático al aprobar/rechazar
+- **Endpoint nuevo**: `PATCH /api/demand-studio/social/posts/{post_id}` para aprobación parcial
+
+**Files Modified:**
+- `frontend/src/pages/demand-studio/AgencyDashboard.js` - Agregado tabs (Clientes/Cola de Aprobación) y UI de cola
+- `backend/routers/demand_studio.py` - Agregado PATCH endpoint para aprobación
