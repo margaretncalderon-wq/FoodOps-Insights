@@ -1997,7 +1997,14 @@ class PostApprovalUpdate(BaseModel):
 @demand_studio_router.patch("/social/posts/{post_id}")
 async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User = Depends(get_current_user)):
     """Partial update for post approval/rejection workflow"""
+    from routers.notifications import create_notification
+    
     company_id = user.company_id or user.active_org_id
+    
+    # Get the post first to find who created it
+    post = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
     
     update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
     
@@ -2008,13 +2015,43 @@ async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User =
     if data.rejection_note is not None:
         update_data["rejection_note"] = data.rejection_note
     
-    result = await db.social_posts.update_one(
+    await db.social_posts.update_one(
         {"post_id": post_id, "company_id": company_id},
         {"$set": update_data}
     )
     
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Post not found")
+    # Send notification to the post creator (agency) if this is an approval/rejection action
+    creator_id = post.get("created_by_user_id")
+    if creator_id and creator_id != user.user_id and data.needs_approval == False:
+        # Get company name for the notification
+        company = await db.companies.find_one({"company_id": company_id}, {"name": 1})
+        company_name = company.get("name", "Cliente") if company else "Cliente"
+        
+        # Get post caption preview (first 50 chars)
+        caption_preview = (post.get("caption") or "Sin caption")[:50]
+        if len(post.get("caption", "") or "") > 50:
+            caption_preview += "..."
+        
+        if data.status == "scheduled":
+            # Post was approved
+            await create_notification(
+                user_id=creator_id,
+                notification_type="post_approved",
+                title="Post Aprobado",
+                message=f'{company_name} aprobó tu post: "{caption_preview}"',
+                link="/demand-studio/social",
+                priority="normal"
+            )
+        elif data.status == "draft" and data.rejection_note:
+            # Post was rejected
+            await create_notification(
+                user_id=creator_id,
+                notification_type="post_rejected",
+                title="Post Rechazado",
+                message=f'{company_name} rechazó tu post: "{caption_preview}"',
+                link="/demand-studio/social",
+                priority="high"
+            )
     
     return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
 

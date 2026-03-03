@@ -922,3 +922,13 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 **Files Modified:**
 - `frontend/src/pages/demand-studio/AgencyDashboard.js` - Agregado tabs (Clientes/Cola de Aprobación) y UI de cola
 - `backend/routers/demand_studio.py` - Agregado PATCH endpoint para aprobación
+
+#### Feature: Notificaciones de Aprobación/Rechazo
+- **Descripción**: Cuando la empresa aprueba o rechaza un post, el creador (agencia) recibe notificación automática in-app
+- **Notificaciones**:
+  - **Post Aprobado**: "✅ [Empresa] aprobó tu post: '[preview del caption]'"
+  - **Post Rechazado**: "❌ [Empresa] rechazó tu post: '[preview del caption]'" (prioridad alta)
+- **Condiciones**: Solo se envía si el aprobador es diferente al creador del post
+
+**Files Modified:**
+- `backend/routers/demand_studio.py` - Agregada lógica de notificación en PATCH endpoint
