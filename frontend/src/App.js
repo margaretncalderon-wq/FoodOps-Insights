@@ -96,6 +96,9 @@ const ExecutionGoalDetail = lazy(() => import("./pages/ExecutionGoalDetail"));
 // Collaboration pages
 const CollaborationDashboard = lazy(() => import("./pages/CollaborationDashboard"));
 
+// Shared (Public) pages
+const SharedSocialPage = lazy(() => import("./pages/shared/SharedSocialPage"));
+
 // Venues & Locations pages
 const VenuesPage = lazy(() => import("./pages/VenuesPage"));
 
@@ -285,6 +288,7 @@ function AppRouter() {
       <Route path="/portal/delivery/:eventId" element={<ClientDeliveryNote />} />
       <Route path="/portal/event/:eventId" element={<ClientEventPortal />} />
       <Route path="/portal/client/:clientId" element={<ClientPortalMain />} />
+      <Route path="/shared/social/:token" element={<SharedSocialPage />} />
       <Route path="/forms/:formId" element={<LeadFormPage />} />
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       

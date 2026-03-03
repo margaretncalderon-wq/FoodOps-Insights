@@ -10,18 +10,22 @@ Permissions:
 - manager: Full access (internal users only)
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, EmailStr
 import uuid
 import secrets
 import hashlib
+import os
 
 from config import db
 from models.auth import User
 from routers.auth import get_current_user
 from routers.notifications import notify_org_admins, create_notification
+
+# Get frontend URL from environment - fallback to production
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://ourkora.com")
 
 social_sharing_router = APIRouter(prefix="/social-sharing", tags=["Social Sharing"])
 
@@ -254,9 +258,8 @@ async def create_share_link(
     
     await db.social_share_links.insert_one(share_link)
     
-    # Build share URL
-    frontend_url = "https://ourkora.com"  # Will use env var in production
-    share_url = f"{frontend_url}/shared/social/{share_token}"
+    # Build share URL using environment variable
+    share_url = f"{FRONTEND_URL}/shared/social/{share_token}"
     
     return SocialShareResponse(
         share_id=share_id,
@@ -281,12 +284,10 @@ async def list_share_links(user: User = Depends(get_current_user)):
         "active": True
     }).to_list(50)
     
-    frontend_url = "https://ourkora.com"
-    
     return [
         {
             "share_id": link["share_id"],
-            "share_url": f"{frontend_url}/shared/social/{link['share_token']}",
+            "share_url": f"{FRONTEND_URL}/shared/social/{link['share_token']}",
             "name": link["name"],
             "permissions": link["permissions"],
             "has_password": bool(link.get("password_hash")),

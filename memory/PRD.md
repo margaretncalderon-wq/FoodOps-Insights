@@ -844,3 +844,32 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - Test report: `/app/test_reports/iteration_80.json`
 
 **Note**: Backend `allowed_fields` in `crm.py` already included 'industry' - no backend changes needed
+
+### Session: Mar 03, 2026 - External Share Links Fix ✅
+
+#### Social Media External Link Sharing (P0 Bug Fix)
+- **Problem**: External share links for agencies didn't work - URL was hardcoded to production and no frontend page existed
+- **Root Cause**: 
+  1. Backend hardcoded `https://ourkora.com` instead of using environment variable
+  2. No `/shared/social/:token` route existed in frontend
+- **Solution**: 
+  1. Added `FRONTEND_URL` env variable usage in `backend/routers/social_sharing.py`
+  2. Created `frontend/src/pages/shared/SharedSocialPage.js` - full shared social view
+  3. Added route in `App.js` for `/shared/social/:token`
+
+**Features of Shared Page:**
+- Password protection support (if configured)
+- Session-based authentication (8 hours)
+- Tabs: Calendar, Posts, Ideas
+- Permissions displayed (Viewer/Can Edit)
+- Organization branding shown
+
+**Files Modified:**
+- `backend/routers/social_sharing.py` - Use FRONTEND_URL env var
+- `backend/.env` - Updated FRONTEND_URL for preview environment
+- `frontend/src/App.js` - Added SharedSocialPage route
+
+**Files Created:**
+- `frontend/src/pages/shared/SharedSocialPage.js`
+
+**Testing**: Link created successfully, page loads with correct data
