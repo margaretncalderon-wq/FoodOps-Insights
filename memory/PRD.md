@@ -873,3 +873,38 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `frontend/src/pages/shared/SharedSocialPage.js`
 
 **Testing**: Link created successfully, page loads with correct data
+
+### Session: Mar 03, 2026 - Colaboradores Internos + Dashboard de Agencia ✅
+
+#### Bug Fix: Colaboradores Internos (P0)
+- **Problem**: Cuando invitabas a un colaborador, no aparecía en su OrgSwitcher ni recibía notificación
+- **Root Cause**: 
+  1. Membresía se creaba con `organization_id` pero el query buscaba `company_id`
+  2. No se incluía campo `status: "active"`
+  3. No se enviaba notificación
+- **Solution**: 
+  1. Agregado `company_id` y `status: "active"` en creación de membresía
+  2. Agregada notificación al invitar colaborador
+  3. `/api/org/my-organizations` ahora busca en ambos campos
+
+#### Feature: Dashboard de Agencia (Multi-empresa)
+- **Descripción**: Panel centralizado para agencias que manejan múltiples clientes
+- **Funcionalidades**:
+  - Cards de cada cliente con métricas (posts programados, ideas, pendientes, publicados)
+  - Vista Grid y Lista
+  - Búsqueda de clientes
+  - Stats agregados (total clientes, pendientes aprobación, programados esta semana)
+  - Click para cambiar a cualquier cliente (org switch)
+- **Acceso**: Demand Studio > Agency (Panel Agencia)
+
+**Files Created:**
+- `frontend/src/pages/demand-studio/AgencyDashboard.js`
+- `backend/tests/test_collaboration_agency.py` (by test-agent)
+
+**Files Modified:**
+- `backend/routers/social_sharing.py` - membership con company_id y status
+- `backend/server.py` - endpoint /api/agency/clients-overview, /api/agency/pending-approvals
+- `frontend/src/App.js` - ruta /demand-studio/agency
+- `frontend/src/pages/demand-studio/DemandStudioPage.js` - tab Agency en nav
+
+**Testing**: 100% - 17/17 backend tests passed, frontend verified
