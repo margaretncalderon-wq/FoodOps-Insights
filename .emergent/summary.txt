@@ -1,171 +1,146 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix critical production bugs (UI, session persistence), improve application stability, and add significant new features to their multi-tenant CRM & marketing platform, Kora OS.
+The user's initial goal was to fix production bugs (UI, session persistence) and add significant new features to their multi-tenant CRM & marketing platform, Kora OS.
 
-The scope has since expanded dramatically to include:
-1.  **CRM & Stability Fixes:**
-    *   Fixing production bugs: A lead table UI issue where columns are not visible, and a session persistence issue causing users to be logged out on refresh.
-    *   Fixing CRM bugs reported mid-session: The industry field is not visible when editing a lead, and a counter in the industry dropdown does not update correctly.
-    *   Improving duplicate detection with fuzzy matching.
-2.  **Demand Studio (Content Creation Suite):**
-    *   Building a Brand Hub and Campaign DNA system as a central source for branding, styles, and messaging.
-    *   Building a Tezza-like image/video editor (Studio) and an Instagram-style Feed preview, powered by the Brand Hub.
-    *   Adding functionality to create, upload, and save templates from the Studio.
-3.  **Social Media & Integrations:**
-    *   Implementing a read-only Instagram integration.
-    *   Implementing a full, multi-tenant OAuth 2.0 flow for connecting Instagram via a central Meta App.
-    *   Adding functionality to share the Social Media module with external agencies via user roles and public links.
-4.  **Core Features:**
-    *   Implementing an in-app notification system.
+The scope has since expanded to include:
+1.  **CRM & Stability Fixes:** Resolved bugs related to the lead editing form and outdated UI counters.
+2.  **Demand Studio (Content Creation Suite):** Built a Brand Hub, Studio editor, and Feed preview.
+3.  **Social Media & Sharing:** Implemented Instagram integration and a complex sharing model for agencies. This model has been the subject of several iterative changes based on user feedback.
+4.  **Core Features:** Implemented an in-app notification system.
+5.  **New Modules:** Added a Notes section with AI capabilities.
+6.  **Current Focus:** The primary goal is a major architectural refactor of the Social Media sharing model. The user wants to move from an organization-centric sharing model to a more granular, **account-centric** model, where each individual social media account is a self-contained workspace that can be shared.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a multi-tenant CRM and marketing platform. The session has seen a massive expansion of the Demand Studio module and the implementation of several core features.
--   **Brand Hub & Campaign DNA:** The UI for both is fully integrated. The Brand Hub includes a template library populated with pre-designed, editable templates.
--   **Studio Editor:** A functional image editor is integrated. Users can open templates in the Studio, apply visual Looks (filters), use Adjust sliders for fine-tuning, and Save as new template. Users can also create new templates from scratch or by uploading an image.
--   **Feed View & Instagram:** A Feed tab exists in the Social Media module. A full, multi-tenant OAuth flow for connecting Instagram accounts is implemented, though it requires administrator setup of environment variables. A  file has been created with instructions.
--   **Social Sharing:** A system is in place to invite internal collaborators and generate public sharing links for the Social Media module.
--   **Notifications:** A real-time, in-app notification system is functional, with a notification bell in the main application header.
--   **CRM:** The agent was in the process of fixing bugs related to the industry field for leads.
+The application is a functional multi-tenant CRM and marketing platform.
+*   **CRM:** Bugs related to the industry field in the lead edit form and non-updating stat counters have been fixed.
+*   **Social Media Sharing:** A complex sharing system exists. Bugs with external links and internal collaborator invites were fixed. A multi-step refactor was performed, first creating a standalone Agency Dashboard, then removing it in favor of an organization-switcher within the main Social Media page. This implementation allows an agency to view a client's data but has been deemed insufficient by the user.
+*   **Approval Flow:** A full approval workflow is in place, allowing collaborators to submit posts for approval, and owners to approve/reject them from a centralized Approval Queue badge in the header. Notifications are sent for status changes.
+*   **Notes Section:** A new Notes section has been added to the Demand Studio, complete with a backend, frontend, and an AI assistant powered by the Emergent LLM Key.
+*   **AI Integration:** The  library is set up to use the Emergent LLM Key. However, the budget for the key is currently exhausted, rendering AI features non-functional.
+*   **Editable Permissions:** Functionality was added to edit a collaborator's role or a public link's permissions after they have been created.
 
 **Last working item**:
--   **Last item agent was working**: Investigating and fixing two bugs in the CRM module as per the user's request (no rompas nada - don't break anything):
-    1.  The industry dropdown field is missing when editing a Lead.
-    2.  The total number in an industry dropdown (presumably for filtering) does not update when industries are added or removed.
+-   **Last item agent was working**: The agent was working on a major architectural refactor of the social media sharing model. After implementing an organization-level switcher, the user clarified that the desired logic is for each **individual social account** to be a completely separate workspace (with its own Calendar, Ideas, Feed, etc.) that can be shared. The agent analyzed this requirement and proposed a new account-centric data model, which the user approved.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: frontend testing agent. The agent should test the complete lead editing workflow, including saving the industry. It should also attempt to reproduce the counter not updating bug in the , possibly by adding/deleting clients with unique industries and observing the filter dropdown.
+-   **Which testing method agent to use?**: both. This is a major architectural change. The backend agent must validate new data models (e.g., ) and ensure all  API endpoints are correctly refactored to filter by . The frontend agent must validate the new account-switcher UI in the Social Media module and test that all sub-tabs (Calendar, Feed, etc.) correctly display data for the selected account only.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: CRM Bugs: Industry Field and Counter (P0)**
-    -   **Description**: The industry field is missing from the lead edit dialog, and a counter in an industry filter dropdown is reportedly not updating.
-    -   **Attempted fixes**: The agent correctly identified that the industry field was missing from the edit form in . The agent has partially implemented the fix by adding the field to the form state, update handler, and JSX, but the work is incomplete. The agent investigated the counter issue but could not locate a visible counter, suspecting it might be a misinterpretation by the user or related to custom industry management.
+-   **Issue 1: Social Sharing Model Major Refactor (P0)**
+    -   **Description**: The current sharing model, based on sharing an entire organization, is not granular enough. The user requires a new model where each individual social media account is the primary entity. An agency should see a list of individual accounts (their own and those shared with them) and, upon selecting one, see a complete, isolated workspace for that account only.
+    -   **Attempted fixes**: An Agency Dashboard was created and then deprecated. An Organization Switcher was implemented in the Social Media page by refactoring backend endpoints to accept an . This approach was also rejected by the user as not meeting the core requirement.
     -   **Next debug checklist**:
-        1.  Finalize the implementation of the Industry  dropdown in the lead edit dialog within .
-        2.  Ensure the list of industries is sourced correctly. Currently, it's a new hardcoded list. It should ideally use the same source as the client creation/editing forms, including any custom industries.
-        3.  Test the full flow: open a lead, change its industry, save it, and verify the change persists.
-        4.  Ask the user for a screenshot or a more detailed description of where the non-updating industry counter is located to properly debug the second part of the issue.
+        1.  **Backend Model:** Create a new database collection (e.g., ) to map  to  with a specific .
+        2.  **Backend API Refactor:** Modify all  endpoints (, , , etc.) to filter primarily by  instead of .
+        3.  **Frontend UI Refactor:** Replace the Organization Selector in  with a new Account Selector component.
+        4.  **Frontend State Refactor:** Change the state management in  from  to  and ensure all API calls pass the correct .
+        5.  **Test:** Thoroughly test the entire Social Media module to confirm that switching accounts isolates the data view correctly across all tabs (Calendar, Feed, Ideas, etc.).
     -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
--   **Issue 2: Session persistence on refresh (P0)**
-    -   **Description**: A critical production-only bug where users are logged out upon refreshing the page.
-    -   **Status**: USER VERIFICATION PENDING. A robust  fix was implemented in a previous session, but confirmation from the user on the production environment is still needed.
--   **Issue 3: Lead table columns not showing in production (P1)**
-    -   **Description**: A production-only UI bug where lead table columns are not visible.
-    -   **Status**: USER VERIFICATION PENDING. Aggressive CSS fixes were deployed, pending user confirmation.
--   **Issue 4: Redundant  files (P2, Tech Debt)**
-    -   **Description**: Deprecated files (, ) from a previous refactor were never deleted.
-    -   **Status**: NOT STARTED.
-    -   **Is recurring issue?**: N
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on other issue**: None
 
 **In progress Task List**:
--   None. The current focus is on the P0 bug fix.
+-   None. The current focus is entirely on the P0 issue.
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks**:
--   **P0: Finalize Report a Bug with Attachments**: Connect the existing  endpoint to the  frontend component to enable real file uploads.
--   **P1: Connect Social + Email to Brand Hub**: Update the social post and email creation flows to consume templates, styles, and messaging from the new Brand Hub resolver service.
+*   **P0: Finalize Report a Bug with Attachments**: Connect the existing  endpoint to the  frontend component to enable real file uploads.
+*   **P1: Connect Social + Email to Brand Hub**: Update the social post and email creation flows to consume templates, styles, and messaging from the new Brand Hub.
+*   **P2: Re-enable AI Features**: The Emergent LLM Key budget is exhausted. Once the user adds funds, implement the remaining planned AI features: Caption Generator and Content Ideas.
 
 **Future Tasks**:
--   Full UTM Tracking.
--   Write-access for Meta (Facebook/Instagram) API Integration.
--   Filter/group leads and clients by City/Country.
--   Email Marketing - Sending Functionality (e.g., using Resend).
--   Kora Comms - Phase 1 (WhatsApp Integration).
--   Propose an initial setup assistant/wizard for new users.
+*   Full UTM Tracking.
+*   Write-access for Meta (Facebook/Instagram) API Integration.
+*   Filter/group leads and clients by City/Country.
+*   Email Marketing - Sending Functionality (e.g., using Resend).
+*   Kora Comms - Phase 1 (WhatsApp Integration).
+*   Propose an initial setup assistant/wizard for new users.
+*   Implement granular sharing permissions (by Campaign) as previously discussed.
 
 **Completed work in this session**
--   **Feature**: Fully integrated the Brand Hub and Campaign DNA UI.
--   **Feature**: Implemented a Template Library in the Brand Hub with pre-designed, editable templates and visual previews.
--   **Feature**: Built a functional Studio Editor for editing templates with visual Looks and Adjust controls.
--   **Feature**: Implemented Save as new template, Create template, and Upload template functionality.
--   **Feature**: Implemented the Feed view in the Social Media module.
--   **Feature**: Implemented a full, multi-tenant OAuth flow for Instagram integration via a Meta App, complete with backend logic, frontend UI, and setup documentation.
--   **Feature**: Implemented Social Media module sharing with external collaborators via roles and public links.
--   **Feature**: Implemented a real-time, in-app notification system.
--   **Bugfix**: Resolved an  in the backend related to campaigns.
--   **Testing**: Used the testing agent extensively, which identified and fixed minor UI/backend bugs and added a new backend test file.
+-   **Bugfix (CRM)**: Fixed missing industry field in lead edit form and non-updating CRM stat counters.
+-   **Bugfix (Social Sharing)**: Fixed broken external agency sharing links and non-functional internal collaborator invites.
+-   **Feature (Approval Flow)**: Implemented a full approval workflow for social media posts, including a central Approval Queue and automated in-app notifications for status changes (pending, approved, rejected).
+-   **Feature (Notes Section)**: Created a new Notes section in Demand Studio with a dedicated page, backend router, and an AI assistant.
+-   **Feature (AI Integration)**: Integrated the  library to use the Emergent LLM Key.
+-   **Feature (Editable Permissions)**: Added the ability to edit collaborator roles and public link permissions after creation.
+-   **Refactor (Sharing Model)**: Performed multiple refactors of the sharing model, culminating in an organization-switcher, which is now being replaced. The Agency Dashboard page was created and deprecated.
 
 **Earlier issues found/mentioned but not fixed**
--   **Incomplete Internationalization (P2)**: The application contains hardcoded strings and lacks a formal i18n framework.
--   **Backend plan limit enforcement logic (P3)**: Legacy code related to plan/usage limits might still exist and may no longer be required.
+-   **Exhausted Emergent LLM Key Budget (P2)**: AI features are non-functional until the user adds funds to their key. This is not a code bug.
+-   **Redundant  files (P2, Tech Debt)**: Deprecated files (, ) still exist.
+-   **Incomplete Internationalization (P2)**: Hardcoded strings remain in the application.
 
 **Known issue recurrence from previous fork**
--   The handoff summary listed two critical production-only bugs as pending user verification: **Session persistence on refresh** and **Lead table columns not showing**. Their status remains unchanged.
+-   **Session persistence on refresh (USER VERIFICATION PENDING)**
+-   **Lead table columns not showing in production (USER VERIFICATION PENDING)**
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Multi-Tenant OAuth**: Implementation of a real OAuth 2.0 flow for a third-party service (Meta/Instagram) where a single central application (Kora) manages authentications for multiple independent tenants, storing tokens securely on a per-tenant basis.
--   **Public Sharing Links**: A system for generating secure, token-based, shareable links for application modules, allowing external users read-only access without needing an account.
--   **In-App Notification System**: A real-time notification feature with a backend model (), API endpoints for fetching/marking as read, and a frontend component () that polls for new updates to display to the user.
--   **Dynamic Template Seeding**: A backend endpoint () designed to populate the database with a default set of pre-designed templates, including their metadata and preview image URLs, for immediate use by new users.
+-   **Account-Centric Multi-Tenancy**: The upcoming architecture where the primary data boundary for sharing and viewing content is the individual , not the . This requires a fundamental shift in API design and state management.
+-   **Dynamic Data Scoping**: Allowing a single user (e.g., an agency) to switch their view context (first by organization, next by account) and have the UI dynamically re-fetch and display the correct, isolated dataset.
+-   **Centralized Approval Queue**: A system that aggregates actionable items (pending posts) from multiple sources (different client accounts) into a single, unified UI for an agency user.
 
 **key DB schema**
--   **crm**: , , , , 
--   **demand_studio**: , , , , , , , , , .
--   **notifications (New)**: , , , , , 
--   **shared_entities (New)**: , , , , , , 
+-   **notes (New)**: Stores content for the new Notes section, linked to a user and company.
+-   **memberships (Modified)**: Fixed to ensure  is set on creation. Queries were updated to handle legacy data.
+-   **posts (Modified)**: Now includes  to track authorship for notifications and a  field for the approval workflow.
 
 **All files of reference**
--   : **Currently being modified** for the CRM bug fix.
--   : Core of the template library and creation flow.
--   : The main image editing component.
--   : Contains the UI for the Instagram OAuth flow.
--   : New file containing the server-side logic for Instagram OAuth.
--   : New file for the social media sharing feature.
--   : New file for the notification system.
--   : New documentation file with instructions for setting up the Instagram integration.
+-   : **The primary frontend file for the upcoming refactor**. It contains the org-switcher logic that must be replaced with an account-switcher.
+-   : **The primary backend file for the upcoming refactor**. Its endpoints must be changed from being / centric to  centric.
+-   : Contains membership and organization logic that will need to be consulted or adapted for the new account-level permission model.
+-   : The UI for sharing, which will need to be updated to manage account-level permissions instead of organization-level ones.
 
 **Critical Info for New Agent**
--   **Responde en español.** The user communicates exclusively in Spanish. All responses must be in Spanish.
--   The user's last request was to fix bugs in the CRM, with a strong warning: **no rompas nada** (don't break anything). Extreme care and focused changes are required. Avoid any unrelated refactoring.
--   You are resuming an in-progress bug fix in . The changes are not complete or tested.
--   The Instagram OAuth integration is code-complete but non-functional without the user setting the  and  environment variables as per .
--   Two critical production-only bugs (session loss, table rendering) are still awaiting user verification. Do not assume they are fixed.
+-   **Responde en español.**
+-   **The sharing model is the absolute priority.** The user has explicitly rejected organization-level sharing. You must implement the new **account-centric** model. This is a major refactor. Do not try to patch the existing org-switcher; it needs to be replaced with an account-switcher.
+-   **Core Logic for Refactor:** An agency user should see a dropdown of individual social accounts they can manage. Selecting an account must load that account's entire isolated workspace (its own posts, calendar, ideas, etc.).
+-   **Emergent LLM Key Budget is Exhausted:** The AI features will fail with a budget error. Inform the user they need to add funds to their key. This is not a code bug.
+-   **Production Bugs Still Pending:** Two critical bugs (session persistence, lead table UI) are still awaiting user verification. Do not assume they are fixed.
 
 **documents and test reports created in this job**
--   
--   
 -   Multiple test reports from  are present in .
--   The  file was updated multiple times.
+-   The  file has been updated multiple times to reflect new features and bug fixes.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **user**: Asks to implement the Feed view with scheduled posts and read-only Instagram integration. (Status: Completed)
-2.  **user**: Confirms they want the real Instagram OAuth flow, and it must be multi-tenant. (Status: Completed)
-3.  **user**: Asks if the login can be a simple sign-in like the Tezza app. (Status: Clarification handled, flow implemented)
-4.  **user**: Asks for confirmation that no other modules were touched during the Instagram implementation. (Status: Agent confirmed)
-5.  **user**: Asks how to share the social media module with an external marketing agency. (Status: Completed)
-6.  **user**: Provides detailed requirements for the sharing feature (internal users, external link, permissions). (Status: Completed)
-7.  **user**: Requests in-app notifications. (Status: Completed)
-8.  **user**: Reports two bugs in the CRM: can't see industries when editing a lead, and the total count in an industry dropdown doesn't update. Critically asks not to break anything else. (Status: In Progress)
--   There are no further pending user messages. The top priority is to address the CRM bugs.
+1.  **user**: Requested a refactor of the Agency tab into a more integrated Mías/Compartidas view. (Status: Partially Implemented, but now superseded by new requirements)
+2.  **user**: Approved the refactor and added requests for a Notes section, AI integration, and editable sharing permissions. (Status: Done)
+3.  **user**: Asked for clarification on how AI API keys would work. (Status: Answered)
+4.  **user**: Agreed with the recommendation to use the Emergent LLM Key. (Status: Acknowledged)
+5.  **user**: Prioritized the sharing refactor and Notes section over implementing an AI key-choice UI. (Status: Acknowledged)
+6.  **user**: Specified the remaining tasks: Add Mías/Compartidas tabs to Social Media and allow editing of sharing permissions. (Status: Done)
+7.  **user**: Reported that the implemented sharing refactor changes were not visible or intuitive. (Status: Investigating)
+8.  **user**: Clarified that the UI for switching contexts was not working as expected. (Status: Investigating)
+9.  **user**: Provided a screenshot and a crucial clarification: an agency needs to see the *entire* Social Media module for a shared account, not just a list in settings. (Status: New Requirement Understood)
+10. **user**: Confirmed the new direction after the agent proposed a fully account-centric model. Stated that each account must have its own everything and asked for a logical plan to implement it. (Status: This is the current, active task).
 
 **Project Health Check:**
--   **Broken**:
-    -   The  field is currently missing from the lead edit form due to an in-progress bug fix.
-    -   Session persistence and table rendering issues in production are still **pending verification** and should be considered potentially broken.
--   **Mocked**: The Report a Bug feature still uses a Base64 fallback for file attachments instead of the real  endpoint.
--   **Blocked**: None.
+-   **Broken**: The Social Media sharing feature is in a state of flux and does not meet user requirements. The current implementation (organization-switcher) has been rejected by the user in favor of an account-centric model.
+-   **Mocked**: The Report a Bug feature still uses a Base64 fallback for file attachments instead of a real upload endpoint.
+-   **Blocked**: All AI-powered features are blocked by the exhausted Emergent LLM Key budget, which requires user action to resolve.
 
 **3rd Party Integrations**
 -   **Zapier / Make**: Existing webhook for lead intake.
--   **Meta (Instagram)**: A multi-tenant OAuth 2.0 flow has been implemented for read-only access. It requires administrator configuration of API keys.
+-   **Meta (Instagram)**: Multi-tenant OAuth 2.0 flow for read-only access.
+-   **Emergent LLM Key**: Integrated via  library for OpenAI/Claude/Gemini access. **The budget for this key is currently exhausted.**
 -   **Planned**: Meta (write access), WhatsApp Business API, Resend.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES, frequently and successfully.
+-   **Testing agent used after significant changes**: YES
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: 
--   **Known regressions**: None introduced in this session, but previous production regressions are still pending verification.
+-   **Test files created**: None in this session.
+-   **Known regressions**: None introduced, but two previous production regressions are still pending user verification.
 
 **Credentials to test flow:**
 -   **Email:** 
 -   **Password:** 
 
 **What agent forgot to execute**
--   The agent did not complete the bug fix for the missing industry field in the lead edit form. The work is mid-implementation.
--   The deprecated  and  files still have not been cleaned up.</analysis>
+-   The deprecated  and  files have not been cleaned up.
+-   The  page and its associated backend route are now tech debt after the user rejected that UI model, and should be removed.</analysis>

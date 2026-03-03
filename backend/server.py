@@ -16433,6 +16433,10 @@ api_router.include_router(instagram_oauth_router)  # /api/instagram/*
 from routers.social_sharing import social_sharing_router
 api_router.include_router(social_sharing_router)  # /api/social-sharing/*
 
+# Include Account Sharing router (account-centric model)
+from routers.account_sharing import account_sharing_router
+api_router.include_router(account_sharing_router)  # /api/account-sharing/*
+
 # Include Notifications router
 from routers.notifications import notifications_router
 api_router.include_router(notifications_router)  # /api/notifications/*

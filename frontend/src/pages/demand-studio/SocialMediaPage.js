@@ -25,13 +25,14 @@ import {
   Loader2, Play, Copy, Archive, Check, Settings,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
-  Building2, ChevronDown
+  Building2, ChevronDown, AtSign, User
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 import FeedTab from "../../components/demand-studio/FeedTab";
 import StudioEditor from "../../components/demand-studio/StudioEditor";
 import SocialSharing from "../../components/demand-studio/SocialSharing";
+import AccountSharing from "../../components/demand-studio/AccountSharing";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -71,11 +72,16 @@ export default function SocialMediaPage() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState("overview");
   
-  // Organization context - for viewing shared accounts
-  const [availableOrgs, setAvailableOrgs] = useState([]); // [{org_id, name, role, is_own}]
-  const [activeOrgId, setActiveOrgId] = useState(null); // null = my own org
-  const [activeOrgName, setActiveOrgName] = useState(null);
+  // Account-centric context - each account is a separate workspace
+  const [accessibleAccounts, setAccessibleAccounts] = useState([]); // [{account_id, handle, platform, _access_type, _role, _shared_by}]
+  const [selectedAccountId, setSelectedAccountId] = useState(null); // null = show all owned, string = specific account
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const [isViewingShared, setIsViewingShared] = useState(false);
+  
+  // Legacy org context - for backwards compatibility
+  const [availableOrgs, setAvailableOrgs] = useState([]);
+  const [activeOrgId, setActiveOrgId] = useState(null);
+  const [activeOrgName, setActiveOrgName] = useState(null);
   
   // Data
   const [stats, setStats] = useState({});
@@ -162,7 +168,24 @@ export default function SocialMediaPage() {
     }
   }, [activeView, calendarMonth, calFilterAccount, calFilterFormat, calFilterPillar]);
 
-  // Fetch available organizations (own + shared with me)
+  // Fetch all accessible accounts (owned + shared via account_memberships)
+  const fetchAccessibleAccounts = async () => {
+    try {
+      const res = await axios.get(`${API}/api/account-sharing/my-accounts`, { withCredentials: true });
+      setAccessibleAccounts(res.data || []);
+      
+      // If no account is selected and we have accounts, select "all" by default
+      if (res.data && res.data.length > 0 && selectedAccountId === null) {
+        // Default to showing all owned accounts
+      }
+    } catch (err) {
+      console.error("Error fetching accessible accounts:", err);
+      // Fallback to legacy org-based fetch
+      fetchAvailableOrgs();
+    }
+  };
+
+  // Fetch available organizations (legacy, for backwards compatibility)
   const fetchAvailableOrgs = async () => {
     try {
       const res = await axios.get(`${API}/api/social-sharing/available-orgs`, { withCredentials: true });
@@ -173,22 +196,50 @@ export default function SocialMediaPage() {
   };
 
   useEffect(() => {
-    fetchAvailableOrgs();
+    fetchAccessibleAccounts();
+    fetchAvailableOrgs(); // Keep for backwards compatibility
   }, []);
 
-  const fetchData = async (orgId = null) => {
+  // Handle account selection change
+  const handleAccountChange = (accountId) => {
+    if (accountId === "all") {
+      // Show all owned accounts
+      setSelectedAccountId(null);
+      setSelectedAccount(null);
+      setIsViewingShared(false);
+      setLoading(true);
+      fetchData(null, null);
+    } else {
+      const account = accessibleAccounts.find(a => a.account_id === accountId);
+      setSelectedAccountId(accountId);
+      setSelectedAccount(account);
+      setIsViewingShared(account?._access_type === "shared");
+      setLoading(true);
+      fetchData(null, accountId);
+    }
+  };
+
+  const fetchData = async (orgId = null, accountId = null) => {
     try {
-      const orgParam = orgId ? `?org_id=${orgId}` : "";
-      const orgParamAnd = orgId ? `&org_id=${orgId}` : "";
+      // Build query params based on account or org
+      let params = new URLSearchParams();
+      if (accountId) {
+        params.append("account_id", accountId);
+      }
+      if (orgId) {
+        params.append("org_id", orgId);
+      }
+      const queryString = params.toString() ? `?${params.toString()}` : "";
+      const andParams = params.toString() ? `&${params.toString()}` : "";
       
       const [statsRes, postsRes, accountsRes, pillarsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
-        axios.get(`${API}/api/demand-studio/social/stats${orgParam}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/posts${orgParam}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${orgParamAnd}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/pillars${orgParam}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/campaigns${orgParam}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/insights${orgParam}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/ideas${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/stats${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/posts${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${andParams}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/pillars${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/campaigns${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/insights${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/ideas${queryString}`, { withCredentials: true }),
       ]);
       
       setStats(statsRes.data);
@@ -205,21 +256,21 @@ export default function SocialMediaPage() {
     }
   };
 
-  // Handle org change
+  // Handle org change (legacy, for backwards compatibility)
   const handleOrgChange = (orgId) => {
     if (orgId === "mine") {
       setActiveOrgId(null);
       setActiveOrgName(null);
       setIsViewingShared(false);
       setLoading(true);
-      fetchData(null);
+      fetchData(null, null);
     } else {
       const org = availableOrgs.find(o => o.org_id === orgId);
       setActiveOrgId(orgId);
       setActiveOrgName(org?.name || "");
       setIsViewingShared(true);
       setLoading(true);
-      fetchData(orgId);
+      fetchData(orgId, null);
     }
   };
 
@@ -498,60 +549,128 @@ export default function SocialMediaPage() {
     );
   }
 
+  // Helper to get platform icon
+  const getPlatformIcon = (platform) => {
+    switch (platform?.toLowerCase()) {
+      case 'instagram': return <Instagram className="w-4 h-4 text-pink-500" />;
+      case 'linkedin': return <Linkedin className="w-4 h-4 text-blue-600" />;
+      case 'youtube': return <Youtube className="w-4 h-4 text-red-500" />;
+      case 'tiktok': return <Hash className="w-4 h-4" />;
+      case 'facebook': return <Hash className="w-4 h-4 text-blue-500" />;
+      default: return <AtSign className="w-4 h-4" />;
+    }
+  };
+
+  // Separate owned and shared accounts
+  const ownedAccounts = accessibleAccounts.filter(a => a._access_type === "owned");
+  const sharedAccounts = accessibleAccounts.filter(a => a._access_type === "shared");
+
   return (
     <div className="space-y-6" data-testid="social-media-page">
-      {/* Organization Selector - for viewing shared accounts */}
-      {availableOrgs.length > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-          <Building2 className="w-5 h-5 text-muted-foreground" />
+      {/* Account Selector Dropdown - Account-centric model */}
+      {accessibleAccounts.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border" data-testid="account-selector">
+          <AtSign className="w-5 h-5 text-muted-foreground" />
           <div className="flex-1">
             <p className="text-sm font-medium">
-              {isEs ? "Viendo Social Media de:" : "Viewing Social Media for:"}
+              {isEs ? "Cuenta activa:" : "Active account:"}
             </p>
           </div>
-          <Select value={activeOrgId || "mine"} onValueChange={handleOrgChange}>
-            <SelectTrigger className="w-64">
+          <Select value={selectedAccountId || "all"} onValueChange={handleAccountChange}>
+            <SelectTrigger className="w-72" data-testid="account-selector-trigger">
               <SelectValue>
-                {activeOrgId ? activeOrgName : (isEs ? "Mi Empresa" : "My Company")}
+                {selectedAccountId && selectedAccount ? (
+                  <div className="flex items-center gap-2">
+                    {getPlatformIcon(selectedAccount.platform)}
+                    <span>@{selectedAccount.handle}</span>
+                    {selectedAccount._access_type === "shared" && (
+                      <Badge variant="secondary" className="text-[10px] ml-1">
+                        {isEs ? "Compartida" : "Shared"}
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    {isEs ? "Todas mis cuentas" : "All my accounts"}
+                  </div>
+                )}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="mine">
+              {/* All accounts option */}
+              <SelectItem value="all" data-testid="account-option-all">
                 <div className="flex items-center gap-2">
                   <Building2 className="w-4 h-4" />
-                  {isEs ? "Mi Empresa" : "My Company"}
+                  {isEs ? "Todas mis cuentas" : "All my accounts"}
                 </div>
               </SelectItem>
-              {availableOrgs.filter(o => !o.is_own).map(org => (
-                <SelectItem key={org.org_id} value={org.org_id}>
-                  <div className="flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-blue-500" />
-                    {org.name}
-                    <Badge variant="outline" className="text-[10px] ml-1">
-                      {org.role === "social_contributor" ? (isEs ? "Editar" : "Edit") : (isEs ? "Ver" : "View")}
-                    </Badge>
+              
+              {/* Owned accounts section */}
+              {ownedAccounts.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1">
+                    {isEs ? "Mis Cuentas" : "My Accounts"}
                   </div>
-                </SelectItem>
-              ))}
+                  {ownedAccounts.map(acc => (
+                    <SelectItem key={acc.account_id} value={acc.account_id} data-testid={`account-option-${acc.account_id}`}>
+                      <div className="flex items-center gap-2">
+                        {getPlatformIcon(acc.platform)}
+                        <span>@{acc.handle}</span>
+                        <Badge variant="outline" className="text-[10px] ml-1 capitalize">
+                          {acc.platform}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+              
+              {/* Shared accounts section */}
+              {sharedAccounts.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1">
+                    {isEs ? "Compartidas Conmigo" : "Shared With Me"}
+                  </div>
+                  {sharedAccounts.map(acc => (
+                    <SelectItem key={acc.account_id} value={acc.account_id} data-testid={`account-option-shared-${acc.account_id}`}>
+                      <div className="flex items-center gap-2">
+                        {getPlatformIcon(acc.platform)}
+                        <span>@{acc.handle}</span>
+                        <Badge variant="secondary" className="text-[10px] ml-1">
+                          {acc._shared_by}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          {acc._role === "contributor" ? (isEs ? "Editar" : "Edit") : (isEs ? "Ver" : "View")}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
       )}
 
-      {/* Shared View Banner */}
-      {isViewingShared && (
-        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+      {/* Shared Account Banner */}
+      {isViewingShared && selectedAccount && (
+        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800" data-testid="shared-account-banner">
           <Share2 className="w-5 h-5 text-blue-600" />
           <div className="flex-1">
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              {isEs ? `Viendo contenido de ${activeOrgName}` : `Viewing content from ${activeOrgName}`}
+              {isEs 
+                ? `Viendo @${selectedAccount.handle} (compartida por ${selectedAccount._shared_by})` 
+                : `Viewing @${selectedAccount.handle} (shared by ${selectedAccount._shared_by})`}
             </p>
             <p className="text-xs text-blue-600">
-              {isEs ? "Los cambios que hagas serán visibles para esta empresa" : "Changes you make will be visible to this company"}
+              {selectedAccount._role === "contributor" 
+                ? (isEs ? "Puedes crear y editar contenido para esta cuenta" : "You can create and edit content for this account")
+                : (isEs ? "Solo puedes ver el contenido de esta cuenta" : "You can only view content for this account")}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => handleOrgChange("mine")}>
-            {isEs ? "Volver a mi empresa" : "Back to my company"}
+          <Button variant="outline" size="sm" onClick={() => handleAccountChange("all")} data-testid="back-to-all-accounts">
+            {isEs ? "Volver a mis cuentas" : "Back to my accounts"}
           </Button>
         </div>
       )}
@@ -1197,13 +1316,18 @@ export default function SocialMediaPage() {
             </Card>
           </div>
 
-          {/* Social Sharing Section */}
+          {/* Social Sharing Section - Organization Level */}
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-4">
               <Share2 className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold">{isEs ? "Compartir con Agencias" : "Share with Agencies"}</h3>
+              <h3 className="text-lg font-semibold">{isEs ? "Compartir Organización Completa" : "Share Full Organization"}</h3>
             </div>
             <SocialSharing />
+          </div>
+
+          {/* Account-Level Sharing Section */}
+          <div className="mt-6">
+            <AccountSharing accounts={accounts} />
           </div>
         </TabsContent>
       </Tabs>

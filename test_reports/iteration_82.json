@@ -1,0 +1,110 @@
+{
+  "summary": "Tested Account-Centric Sharing Model refactoring. All 18 backend API tests passed (100%). Frontend UI verified: Account selector dropdown with owned accounts, Settings tab with Account Sharing component, New Post dialog working.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_verified": {
+    "get_my_accounts_api": {
+      "status": "WORKING",
+      "details": "GET /api/account-sharing/my-accounts returns accessible accounts (owned + shared). Response includes account_id, handle, platform, _access_type (owned/shared), _role."
+    },
+    "share_account_api": {
+      "status": "WORKING",
+      "details": "POST /api/account-sharing/share?account_id=X validates email and role, rejects invalid users/accounts with proper error codes (404, 403)."
+    },
+    "get_collaborators_api": {
+      "status": "WORKING",
+      "details": "GET /api/account-sharing/collaborators/{account_id} returns collaborators list with membership details, is_owner flag, and account info."
+    },
+    "create_share_links_api": {
+      "status": "WORKING",
+      "details": "POST /api/account-sharing/links creates share links with name, password, expiry, permissions. Returns share_id and share_url."
+    },
+    "get_share_links_api": {
+      "status": "WORKING",
+      "details": "GET /api/account-sharing/links/{account_id} returns active share links with share_id, share_url, name, permissions, has_password, expires_at, access_count."
+    },
+    "revoke_share_link_api": {
+      "status": "WORKING",
+      "details": "DELETE /api/account-sharing/links/{share_id} revokes links, returns 404 for invalid IDs."
+    },
+    "stats_filter_by_account": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/social/stats?account_id=X correctly filters statistics by account."
+    },
+    "posts_filter_by_account": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/social/posts?account_id=X correctly filters posts by social_account_id."
+    },
+    "insights_filter_by_account": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/social/insights?account_id=X correctly filters insights by account."
+    },
+    "calendar_filter_by_account": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/social/calendar?account_id=X correctly filters calendar posts by account."
+    },
+    "ideas_filter_by_account": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/social/ideas?account_id=X correctly filters ideas by account."
+    },
+    "account_selector_dropdown_ui": {
+      "status": "WORKING",
+      "details": "Account selector in Social Media header shows 'All my accounts' option plus 3 owned accounts: @creative_agency_demo (Instagram), @creative_agency_tiktok (TikTok), @creative-agency-demo (LinkedIn)."
+    },
+    "account_sharing_component_ui": {
+      "status": "WORKING",
+      "details": "AccountSharing.js component renders in Settings tab with account selector, collaborators list section, and share links management."
+    },
+    "new_post_dialog_ui": {
+      "status": "WORKING",
+      "details": "New Post button opens dialog with Account dropdown showing available accounts, Format, Status, Campaign, Pillar selectors and content fields."
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_account_sharing.py",
+    "/app/test_reports/pytest/pytest_account_sharing.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_account_sharing.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100%"
+  },
+
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+
+  "seed_data_used": {
+    "accounts": [
+      {"account_id": "creative_agency_demo", "platform": "instagram", "handle": "creative_agency_demo"},
+      {"account_id": "creative_agency_tiktok", "platform": "tiktok", "handle": "creative_agency_tiktok"},
+      {"account_id": "creative-agency-demo", "platform": "linkedin", "handle": "creative-agency-demo"}
+    ],
+    "company_id": "company_3ab116c0994d"
+  },
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Account-centric sharing model is fully functional. Key endpoints: /api/account-sharing/my-accounts (returns owned + shared accounts), /api/account-sharing/share (share account with user), /api/account-sharing/collaborators/{account_id} (list collaborators), /api/account-sharing/links (CRUD for share links). All demand_studio social endpoints (stats, posts, insights, calendar, ideas) support account_id query parameter for filtering. Test user demo.agency@kora.com has 3 owned accounts: Instagram, TikTok, LinkedIn. The AccountSharing.js component is visible in Settings tab with account selector and sharing controls."
+}

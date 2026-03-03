@@ -2275,6 +2275,7 @@ async def unlink_spend_from_post(post_id: str, spend_id: str, user: User = Depen
 @demand_studio_router.get("/social/stats")
 async def get_social_stats(
     org_id: Optional[str] = None,
+    account_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get social media statistics for dashboard"""
@@ -2288,48 +2289,63 @@ async def get_social_stats(
             "scheduledThisWeek": 0,
             "postedThisMonth": 0,
             "activeAccounts": 0,
-            "campaignLinkedPosts": 0
+            "campaignLinkedPosts": 0,
+            "pendingIdeas": 0
         }
     
     now = datetime.now(timezone.utc)
     week_from_now = (now + timedelta(days=7)).isoformat()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
     
+    # Base query
+    base_query = {"company_id": company_id}
+    if account_id:
+        base_query["social_account_id"] = account_id
+    
     # Scheduled this week
-    scheduled_this_week = await db.social_posts.count_documents({
-        "company_id": company_id,
-        "scheduled_at": {"$gte": now.isoformat(), "$lte": week_from_now},
-        "status": {"$in": ["scheduled", "drafted"]}
-    })
+    scheduled_query = {**base_query, "scheduled_at": {"$gte": now.isoformat(), "$lte": week_from_now}, "status": {"$in": ["scheduled", "drafted"]}}
+    scheduled_this_week = await db.social_posts.count_documents(scheduled_query)
     
     # Posted this month
-    posted_this_month = await db.social_posts.count_documents({
-        "company_id": company_id,
-        "posted_at": {"$gte": month_start},
-        "status": "posted"
-    })
+    posted_query = {**base_query, "posted_at": {"$gte": month_start}, "status": "posted"}
+    posted_this_month = await db.social_posts.count_documents(posted_query)
     
-    # Active accounts
-    active_accounts = await db.social_accounts.count_documents({
-        "company_id": company_id,
-        "status": "active"
-    })
+    # Active accounts (only count if no specific account filter)
+    if account_id:
+        active_accounts = 1
+    else:
+        active_accounts = await db.social_accounts.count_documents({
+            "company_id": company_id,
+            "status": "active"
+        })
     
     # Campaign-linked posts
-    campaign_linked = await db.social_posts.count_documents({
-        "company_id": company_id,
-        "campaign_id": {"$ne": None}
+    campaign_query = {**base_query, "campaign_id": {"$ne": None}}
+    campaign_linked = await db.social_posts.count_documents(campaign_query)
+    
+    # Pending ideas
+    ideas_query = {"company_id": company_id}
+    if account_id:
+        ideas_query["account_id"] = account_id
+    pending_ideas = await db.social_ideas.count_documents({
+        **ideas_query,
+        "status": {"$in": ["new", "reviewing"]}
     })
     
     return {
         "scheduledThisWeek": scheduled_this_week,
         "postedThisMonth": posted_this_month,
         "activeAccounts": active_accounts,
-        "campaignLinkedPosts": campaign_linked
+        "campaignLinkedPosts": campaign_linked,
+        "pendingIdeas": pending_ideas
     }
 
 @demand_studio_router.get("/social/insights")
-async def get_social_insights(org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+async def get_social_insights(
+    org_id: Optional[str] = None,
+    account_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Get social media insights for reporting"""
     try:
         company_id, role = await get_effective_company_id(user, org_id)
@@ -2339,16 +2355,21 @@ async def get_social_insights(org_id: Optional[str] = None, user: User = Depends
     if not company_id:
         return {"byFormat": [], "byPillar": [], "byStatus": []}
     
+    # Base match condition
+    base_match = {"company_id": company_id}
+    if account_id:
+        base_match["social_account_id"] = account_id
+    
     # Posts by format
     by_format = await db.social_posts.aggregate([
-        {"$match": {"company_id": company_id}},
+        {"$match": base_match},
         {"$group": {"_id": "$format", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}}
     ]).to_list(20)
     
     # Posts by pillar
     by_pillar_raw = await db.social_posts.aggregate([
-        {"$match": {"company_id": company_id, "pillar_id": {"$ne": None}}},
+        {"$match": {**base_match, "pillar_id": {"$ne": None}}},
         {"$group": {"_id": "$pillar_id", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}}
     ]).to_list(20)
@@ -2365,14 +2386,14 @@ async def get_social_insights(org_id: Optional[str] = None, user: User = Depends
     
     # Posts by status
     by_status = await db.social_posts.aggregate([
-        {"$match": {"company_id": company_id}},
+        {"$match": base_match},
         {"$group": {"_id": "$status", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}}
     ]).to_list(20)
     
     # Scheduled vs Posted rate
-    total_posts = await db.social_posts.count_documents({"company_id": company_id})
-    posted_count = await db.social_posts.count_documents({"company_id": company_id, "status": "posted"})
+    total_posts = await db.social_posts.count_documents(base_match)
+    posted_count = await db.social_posts.count_documents({**base_match, "status": "posted"})
     
     return {
         "byFormat": [{"format": item["_id"], "count": item["count"]} for item in by_format],
@@ -2387,6 +2408,7 @@ async def get_social_insights(org_id: Optional[str] = None, user: User = Depends
 async def get_social_calendar(
     start_date: str,
     end_date: str,
+    account_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get posts for calendar view"""
@@ -2394,13 +2416,17 @@ async def get_social_calendar(
     if not company_id:
         return []
     
-    posts = await db.social_posts.find({
+    query = {
         "company_id": company_id,
         "$or": [
             {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
             {"posted_at": {"$gte": start_date, "$lte": end_date}}
         ]
-    }, {"_id": 0}).to_list(500)
+    }
+    if account_id:
+        query["social_account_id"] = account_id
+    
+    posts = await db.social_posts.find(query, {"_id": 0}).to_list(500)
     
     # Enrich with account info
     for post in posts:
@@ -2420,6 +2446,7 @@ async def get_content_ideas(
     status: Optional[str] = None,
     pillar_id: Optional[str] = None,
     org_id: Optional[str] = None,
+    account_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get content ideas"""
@@ -2436,6 +2463,8 @@ async def get_content_ideas(
         query["status"] = status
     if pillar_id:
         query["pillar_id"] = pillar_id
+    if account_id:
+        query["account_id"] = account_id
     
     ideas = await db.content_ideas.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     return ideas
