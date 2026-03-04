@@ -2741,3 +2741,207 @@ async def get_asset_value_report(user: User = Depends(get_current_user)):
         }
     }
 
+
+# ==================== MARKETING ROI ====================
+
+class MarketingROIFilters(BaseModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    activation_id: Optional[str] = None
+
+
+@business_clarity_router.get("/marketing-roi")
+async def get_marketing_roi_dashboard(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get Marketing ROI dashboard - tracks internal marketing investment vs returns"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Date filtering
+    date_filter = {}
+    if start_date:
+        date_filter["$gte"] = start_date
+    if end_date:
+        date_filter["$lte"] = end_date
+    
+    # Get internal cost center client
+    cost_center = await db.clients.find_one({
+        "company_id": company_id,
+        "is_internal_cost_center": True
+    }, {"_id": 0, "client_id": 1, "display_name": 1})
+    
+    cost_center_id = cost_center.get("client_id") if cost_center else None
+    
+    # 1. Get all marketing activations (internal events)
+    activation_query = {"company_id": company_id}
+    if date_filter:
+        activation_query["created_at"] = date_filter
+    
+    activations = await db.marketing_activations.find(
+        activation_query,
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # 2. Get internal events (events linked to cost center)
+    internal_events_query = {
+        "company_id": company_id,
+        "$or": [
+            {"is_internal_event": True},
+            {"client_id": cost_center_id} if cost_center_id else {"is_internal_event": True}
+        ]
+    }
+    if date_filter:
+        internal_events_query["created_at"] = date_filter
+    
+    internal_events = await db.events.find(
+        internal_events_query,
+        {"_id": 0}
+    ).to_list(500)
+    
+    # 3. Get leads attributed to activations
+    leads_with_activation = await db.leads.find({
+        "company_id": company_id,
+        "activation_id": {"$exists": True, "$ne": None}
+    }, {"_id": 0}).to_list(1000)
+    
+    # Also get leads where source matches an activation name
+    activation_names = [a.get("name", "").lower() for a in activations if a.get("name")]
+    leads_by_source = await db.leads.find({
+        "company_id": company_id,
+        "source": {"$in": [a.get("name") for a in activations if a.get("name")]}
+    }, {"_id": 0}).to_list(1000)
+    
+    # Combine leads
+    all_attributed_leads = {l["lead_id"]: l for l in leads_with_activation}
+    for lead in leads_by_source:
+        if lead["lead_id"] not in all_attributed_leads:
+            all_attributed_leads[lead["lead_id"]] = lead
+    attributed_leads = list(all_attributed_leads.values())
+    
+    # 4. Count conversions (leads that became events or clients)
+    converted_leads = [l for l in attributed_leads if l.get("status") == "Converted" or l.get("converted_event_id")]
+    
+    # 5. Get revenue from converted events
+    converted_event_ids = [l.get("converted_event_id") for l in converted_leads if l.get("converted_event_id")]
+    revenue_from_conversions = 0.0
+    
+    if converted_event_ids:
+        converted_events = await db.events.find({
+            "event_id": {"$in": converted_event_ids}
+        }, {"_id": 0, "total_price": 1, "budget": 1}).to_list(500)
+        
+        for event in converted_events:
+            revenue_from_conversions += event.get("total_price") or event.get("budget") or 0
+    
+    # Calculate totals
+    total_investment = sum(a.get("budget", 0) or 0 for a in activations)
+    total_internal_events_cost = sum(e.get("budget", 0) or 0 for e in internal_events)
+    total_leads = len(attributed_leads)
+    total_conversions = len(converted_leads)
+    conversion_rate = (total_conversions / total_leads * 100) if total_leads > 0 else 0
+    
+    # ROI calculation
+    total_cost = total_investment + total_internal_events_cost
+    roi = ((revenue_from_conversions - total_cost) / total_cost * 100) if total_cost > 0 else 0
+    cost_per_lead = total_cost / total_leads if total_leads > 0 else 0
+    cost_per_conversion = total_cost / total_conversions if total_conversions > 0 else 0
+    
+    # Build activation breakdown
+    activation_breakdown = []
+    for activation in activations:
+        act_id = activation.get("activation_id")
+        act_name = activation.get("name", "")
+        
+        # Count leads for this activation
+        act_leads = [l for l in attributed_leads 
+                     if l.get("activation_id") == act_id or 
+                        l.get("source", "").lower() == act_name.lower()]
+        act_conversions = [l for l in act_leads 
+                          if l.get("status") == "Converted" or l.get("converted_event_id")]
+        
+        # Revenue from this activation's conversions
+        act_event_ids = [l.get("converted_event_id") for l in act_conversions if l.get("converted_event_id")]
+        act_revenue = 0.0
+        if act_event_ids:
+            act_events = await db.events.find({
+                "event_id": {"$in": act_event_ids}
+            }, {"_id": 0, "total_price": 1, "budget": 1}).to_list(100)
+            act_revenue = sum(e.get("total_price") or e.get("budget") or 0 for e in act_events)
+        
+        act_cost = activation.get("budget", 0) or 0
+        act_roi = ((act_revenue - act_cost) / act_cost * 100) if act_cost > 0 else 0
+        
+        activation_breakdown.append({
+            "activation_id": act_id,
+            "name": act_name,
+            "type": activation.get("activation_type", "other"),
+            "status": activation.get("status", "Active"),
+            "budget": act_cost,
+            "leads_generated": len(act_leads),
+            "conversions": len(act_conversions),
+            "conversion_rate": (len(act_conversions) / len(act_leads) * 100) if act_leads else 0,
+            "revenue_generated": act_revenue,
+            "roi": round(act_roi, 1),
+            "linked_event_name": activation.get("linked_event_name"),
+            "campaign_name": activation.get("campaign_name")
+        })
+    
+    # Sort by ROI descending
+    activation_breakdown.sort(key=lambda x: x["roi"], reverse=True)
+    
+    return {
+        "summary": {
+            "total_investment": round(total_investment, 2),
+            "total_internal_events_cost": round(total_internal_events_cost, 2),
+            "total_cost": round(total_cost, 2),
+            "total_leads_generated": total_leads,
+            "total_conversions": total_conversions,
+            "conversion_rate": round(conversion_rate, 1),
+            "revenue_from_conversions": round(revenue_from_conversions, 2),
+            "roi_percentage": round(roi, 1),
+            "cost_per_lead": round(cost_per_lead, 2),
+            "cost_per_conversion": round(cost_per_conversion, 2)
+        },
+        "cost_center": {
+            "client_id": cost_center_id,
+            "name": cost_center.get("display_name") if cost_center else None,
+            "total_events": len(internal_events)
+        },
+        "activation_breakdown": activation_breakdown,
+        "internal_events": [{
+            "event_id": e.get("event_id"),
+            "name": e.get("name"),
+            "budget": e.get("budget", 0),
+            "date": e.get("event_date"),
+            "linked_activation_name": e.get("linked_activation_name")
+        } for e in internal_events[:20]],
+        "recent_attributed_leads": [{
+            "lead_id": l.get("lead_id"),
+            "lead_name": l.get("lead_name"),
+            "source": l.get("source"),
+            "activation_name": l.get("activation_name"),
+            "status": l.get("status"),
+            "converted": bool(l.get("converted_event_id")),
+            "created_at": l.get("created_at")
+        } for l in sorted(attributed_leads, key=lambda x: x.get("created_at", ""), reverse=True)[:20]]
+    }
+
+
+@business_clarity_router.get("/marketing-roi/activations")
+async def get_marketing_activations_for_roi(user: User = Depends(get_current_user)):
+    """Get list of activations for lead attribution dropdown"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    activations = await db.marketing_activations.find(
+        {"company_id": company_id},
+        {"_id": 0, "activation_id": 1, "name": 1, "activation_type": 1, "status": 1}
+    ).sort("name", 1).to_list(500)
+    
+    return activations
+

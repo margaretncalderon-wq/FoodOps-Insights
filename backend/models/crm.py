@@ -103,6 +103,8 @@ class LeadCreate(BaseModel):
     campaign_id: Optional[str] = None  # Linked campaign
     campaign_code: Optional[str] = None  # For auto-linking via tracking code
     attribution_source: Optional[str] = None  # manual, link, qr, import
+    # Marketing Activation Attribution
+    activation_id: Optional[str] = None  # Linked marketing activation (for ROI tracking)
 
 
 class Lead(BaseModel):
@@ -138,6 +140,9 @@ class Lead(BaseModel):
     next_follow_up_date: Optional[str] = None
     follow_up_type: Optional[str] = None  # Call, Email, Meeting, CheckIn
     last_contact_date: Optional[str] = None
+    # Marketing Activation Attribution
+    activation_id: Optional[str] = None  # Linked marketing activation (for ROI tracking)
+    activation_name: Optional[str] = None  # Denormalized for display
 
 
 # ============== CONTACT MODELS ==============
