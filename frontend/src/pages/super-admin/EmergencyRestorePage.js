@@ -353,45 +353,44 @@ export default function EmergencyRestorePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-400">
               <Zap className="w-5 h-5" />
-              Arreglos Rápidos
+              Arreglo Automático
             </CardTitle>
             <CardDescription>
-              Botones de un clic para arreglar los problemas específicos
+              Un clic para arreglar todo: Margaret + Usuarios de Staffdo
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-4">
-              <Button
-                onClick={handleFixMargaret}
-                disabled={fixing}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <User className="w-4 h-4 mr-2" />}
-                1. Arreglar cuenta de Margaret
-              </Button>
-              
-              <Button
-                onClick={handleMoveUsersBackToStaffdo}
-                disabled={fixing}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
-                2. Mover usuarios de vuelta a Staffdo
-              </Button>
-              
-              <Button
-                onClick={handleFixStaffdoUsers}
-                disabled={fixing}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
-                3. Arreglar membresías de Staffdo
-              </Button>
-            </div>
+            <Button
+              onClick={async () => {
+                setFixing(true);
+                setFixResult(null);
+                try {
+                  const res = await axios.post(
+                    `${API}/api/emergency/fix-everything`,
+                    {},
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+                  setFixResult({ type: "success", data: res.data });
+                  setMessage({ type: "success", text: "✅ Todo arreglado! Cierra sesión y vuelve a entrar." });
+                  await fetchStatus();
+                } catch (err) {
+                  setFixResult({ type: "error", data: err.response?.data || err.message });
+                  setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.message) });
+                } finally {
+                  setFixing(false);
+                }
+              }}
+              disabled={fixing}
+              size="lg"
+              className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-lg py-6 px-8"
+            >
+              {fixing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Zap className="w-5 h-5 mr-2" />}
+              ARREGLAR TODO CON UN CLIC
+            </Button>
             
             {fixResult && (
               <div className={`p-4 rounded-lg text-sm ${fixResult.type === "success" ? "bg-green-500/20 border border-green-500" : "bg-red-500/20 border border-red-500"}`}>
-                <pre className="whitespace-pre-wrap overflow-auto max-h-48">
+                <pre className="whitespace-pre-wrap overflow-auto max-h-64">
                   {JSON.stringify(fixResult.data, null, 2)}
                 </pre>
               </div>
