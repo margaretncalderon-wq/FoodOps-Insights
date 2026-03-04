@@ -108,6 +108,9 @@ const VenuesPage = lazy(() => import("./pages/VenuesPage"));
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
 const PaymentCancelPage = lazy(() => import("./pages/PaymentCancelPage"));
 
+// Emergency restore page
+const EmergencyRestorePage = lazy(() => import("./pages/EmergencyRestorePage"));
+
 // Super Admin pages
 const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
 const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
@@ -286,6 +289,7 @@ function AppRouter() {
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
       <Route path="/payment/cancel" element={<PaymentCancelPage />} />
       <Route path="/payment/addon-success" element={<PaymentSuccessPage />} />
+      <Route path="/emergency-restore" element={<ProtectedRoute><EmergencyRestorePage /></ProtectedRoute>} />
       <Route path="/portal/:documentId" element={<ClientPortal />} />
       <Route path="/portal/delivery/:eventId" element={<ClientDeliveryNote />} />
       <Route path="/portal/event/:eventId" element={<ClientEventPortal />} />
