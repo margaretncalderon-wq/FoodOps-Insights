@@ -11075,9 +11075,22 @@ async def check_usage_for_action(metric: str, user: User = Depends(get_current_u
 @org_router.get("/members")
 async def get_members(user: User = Depends(get_current_user), include_suspended: bool = False):
     """Get all members of the organization"""
-    status_filter = {"$in": ["active", "suspended"]} if include_suspended else "active"
+    # More flexible query - include memberships with status=active, or no status field at all
+    if include_suspended:
+        status_filter = {"$or": [
+            {"status": {"$in": ["active", "suspended"]}},
+            {"status": {"$exists": False}},
+            {"status": None}
+        ]}
+    else:
+        status_filter = {"$or": [
+            {"status": "active"},
+            {"status": {"$exists": False}},
+            {"status": None}
+        ]}
+    
     memberships = await db.memberships.find(
-        {"company_id": user.company_id, "status": status_filter},
+        {"company_id": user.company_id, **status_filter},
         {"_id": 0}
     ).to_list(100)
     
