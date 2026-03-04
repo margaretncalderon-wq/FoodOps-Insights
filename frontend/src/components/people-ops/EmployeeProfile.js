@@ -10,8 +10,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   ArrowLeft, User, Briefcase, Wallet, Calendar, Building2,
   Mail, Phone, MapPin, RefreshCw, Edit2, Save, X,
-  FileText, Clock, TrendingUp, AlertCircle
+  FileText, Clock, TrendingUp, AlertCircle, DollarSign, Sun, Moon,
+  Percent, Zap, CreditCard
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Switch } from "../ui/switch";
 
 import { API_BASE as API } from "../../utils/api";
 
@@ -400,6 +409,326 @@ export function EmployeeProfile() {
               </CardContent>
             </Card>
           )}
+
+          {/* Variable Pay Configuration - Per Employee */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                {isEs ? "Configuración de Pagos Variables" : "Variable Pay Configuration"}
+              </CardTitle>
+              <CardDescription>
+                {isEs 
+                  ? "Define cómo se pagan las horas extras, comisiones, bonos e incentivos de este empleado" 
+                  : "Define how this employee's overtime, commissions, bonuses and incentives are paid"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Overtime */}
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span className="font-medium">{isEs ? "Horas Extras" : "Overtime"}</span>
+                  </div>
+                  {editing ? (
+                    <>
+                      <Select 
+                        value={editData.overtime_payment_type || "separate"} 
+                        onValueChange={(v) => setEditData({ ...editData, overtime_payment_type: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="with_payroll">{isEs ? "Con nómina regular" : "With regular payroll"}</SelectItem>
+                          <SelectItem value="separate">{isEs ? "Pago separado" : "Separate payment"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {editData.overtime_payment_type === "separate" && (
+                        <div>
+                          <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="28"
+                            value={editData.overtime_payment_day || 5}
+                            onChange={(e) => setEditData({ ...editData, overtime_payment_day: parseInt(e.target.value) || 5 })}
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {employee.overtime_payment_type === "with_payroll" 
+                        ? (isEs ? "Con nómina regular" : "With regular payroll")
+                        : (isEs ? `Pago separado - Día ${employee.overtime_payment_day || 5}` : `Separate - Day ${employee.overtime_payment_day || 5}`)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Commissions */}
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Percent className="w-4 h-4 text-emerald-500" />
+                    <span className="font-medium">{isEs ? "Comisiones" : "Commissions"}</span>
+                  </div>
+                  {editing ? (
+                    <>
+                      <Select 
+                        value={editData.commission_payment_type || "separate"} 
+                        onValueChange={(v) => setEditData({ ...editData, commission_payment_type: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="with_payroll">{isEs ? "Con nómina regular" : "With regular payroll"}</SelectItem>
+                          <SelectItem value="separate">{isEs ? "Pago separado" : "Separate payment"}</SelectItem>
+                          <SelectItem value="not_applicable">{isEs ? "No aplica" : "Not applicable"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {editData.commission_payment_type === "separate" && (
+                        <div>
+                          <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="28"
+                            value={editData.commission_payment_day || 10}
+                            onChange={(e) => setEditData({ ...editData, commission_payment_day: parseInt(e.target.value) || 10 })}
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {employee.commission_payment_type === "with_payroll" 
+                        ? (isEs ? "Con nómina regular" : "With regular payroll")
+                        : employee.commission_payment_type === "not_applicable"
+                        ? (isEs ? "No aplica" : "Not applicable")
+                        : (isEs ? `Pago separado - Día ${employee.commission_payment_day || 10}` : `Separate - Day ${employee.commission_payment_day || 10}`)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Bonuses */}
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium">{isEs ? "Bonos" : "Bonuses"}</span>
+                  </div>
+                  {editing ? (
+                    <>
+                      <Select 
+                        value={editData.bonus_payment_type || "separate"} 
+                        onValueChange={(v) => setEditData({ ...editData, bonus_payment_type: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="with_payroll">{isEs ? "Con nómina regular" : "With regular payroll"}</SelectItem>
+                          <SelectItem value="separate">{isEs ? "Pago separado" : "Separate payment"}</SelectItem>
+                          <SelectItem value="not_applicable">{isEs ? "No aplica" : "Not applicable"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {editData.bonus_payment_type === "separate" && (
+                        <div>
+                          <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="28"
+                            value={editData.bonus_payment_day || 5}
+                            onChange={(e) => setEditData({ ...editData, bonus_payment_day: parseInt(e.target.value) || 5 })}
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {employee.bonus_payment_type === "with_payroll" 
+                        ? (isEs ? "Con nómina regular" : "With regular payroll")
+                        : employee.bonus_payment_type === "not_applicable"
+                        ? (isEs ? "No aplica" : "Not applicable")
+                        : (isEs ? `Pago separado - Día ${employee.bonus_payment_day || 5}` : `Separate - Day ${employee.bonus_payment_day || 5}`)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Incentives */}
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-purple-500" />
+                    <span className="font-medium">{isEs ? "Incentivos" : "Incentives"}</span>
+                  </div>
+                  {editing ? (
+                    <>
+                      <Select 
+                        value={editData.incentive_payment_type || "separate"} 
+                        onValueChange={(v) => setEditData({ ...editData, incentive_payment_type: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="with_payroll">{isEs ? "Con nómina regular" : "With regular payroll"}</SelectItem>
+                          <SelectItem value="separate">{isEs ? "Pago separado" : "Separate payment"}</SelectItem>
+                          <SelectItem value="not_applicable">{isEs ? "No aplica" : "Not applicable"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {editData.incentive_payment_type === "separate" && (
+                        <div>
+                          <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="28"
+                            value={editData.incentive_payment_day || 5}
+                            onChange={(e) => setEditData({ ...editData, incentive_payment_day: parseInt(e.target.value) || 5 })}
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {employee.incentive_payment_type === "with_payroll" 
+                        ? (isEs ? "Con nómina regular" : "With regular payroll")
+                        : employee.incentive_payment_type === "not_applicable"
+                        ? (isEs ? "No aplica" : "Not applicable")
+                        : (isEs ? `Pago separado - Día ${employee.incentive_payment_day || 5}` : `Separate - Day ${employee.incentive_payment_day || 5}`)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Benefits */}
+              <div className="mt-6 pt-6 border-t">
+                <h4 className="font-medium mb-4 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  {isEs ? "Beneficios Adicionales" : "Additional Benefits"}
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Lunch Allowance */}
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm">{isEs ? "Almuerzo" : "Lunch"}</span>
+                      {editing ? (
+                        <Switch
+                          checked={editData.has_lunch_allowance || false}
+                          onCheckedChange={(v) => setEditData({ ...editData, has_lunch_allowance: v })}
+                        />
+                      ) : (
+                        <Badge variant={employee.has_lunch_allowance ? "default" : "outline"} className="text-xs">
+                          {employee.has_lunch_allowance ? (isEs ? "Sí" : "Yes") : "No"}
+                        </Badge>
+                      )}
+                    </div>
+                    {(editing ? editData.has_lunch_allowance : employee.has_lunch_allowance) && (
+                      editing ? (
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={editData.lunch_allowance_amount || ""}
+                          onChange={(e) => setEditData({ ...editData, lunch_allowance_amount: parseFloat(e.target.value) || 0 })}
+                        />
+                      ) : (
+                        <p className="text-sm font-medium">{formatCurrency(employee.lunch_allowance_amount)}/mes</p>
+                      )
+                    )}
+                  </div>
+
+                  {/* Transport Allowance */}
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm">{isEs ? "Transporte" : "Transport"}</span>
+                      {editing ? (
+                        <Switch
+                          checked={editData.has_transport_allowance || false}
+                          onCheckedChange={(v) => setEditData({ ...editData, has_transport_allowance: v })}
+                        />
+                      ) : (
+                        <Badge variant={employee.has_transport_allowance ? "default" : "outline"} className="text-xs">
+                          {employee.has_transport_allowance ? (isEs ? "Sí" : "Yes") : "No"}
+                        </Badge>
+                      )}
+                    </div>
+                    {(editing ? editData.has_transport_allowance : employee.has_transport_allowance) && (
+                      editing ? (
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={editData.transport_allowance_amount || ""}
+                          onChange={(e) => setEditData({ ...editData, transport_allowance_amount: parseFloat(e.target.value) || 0 })}
+                        />
+                      ) : (
+                        <p className="text-sm font-medium">{formatCurrency(employee.transport_allowance_amount)}/mes</p>
+                      )
+                    )}
+                  </div>
+
+                  {/* Phone Allowance */}
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm">{isEs ? "Teléfono" : "Phone"}</span>
+                      {editing ? (
+                        <Switch
+                          checked={editData.has_phone_allowance || false}
+                          onCheckedChange={(v) => setEditData({ ...editData, has_phone_allowance: v })}
+                        />
+                      ) : (
+                        <Badge variant={employee.has_phone_allowance ? "default" : "outline"} className="text-xs">
+                          {employee.has_phone_allowance ? (isEs ? "Sí" : "Yes") : "No"}
+                        </Badge>
+                      )}
+                    </div>
+                    {(editing ? editData.has_phone_allowance : employee.has_phone_allowance) && (
+                      editing ? (
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={editData.phone_allowance_amount || ""}
+                          onChange={(e) => setEditData({ ...editData, phone_allowance_amount: parseFloat(e.target.value) || 0 })}
+                        />
+                      ) : (
+                        <p className="text-sm font-medium">{formatCurrency(employee.phone_allowance_amount)}/mes</p>
+                      )
+                    )}
+                  </div>
+
+                  {/* Fuel Allowance */}
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm">{isEs ? "Combustible" : "Fuel"}</span>
+                      {editing ? (
+                        <Switch
+                          checked={editData.has_fuel_allowance || false}
+                          onCheckedChange={(v) => setEditData({ ...editData, has_fuel_allowance: v })}
+                        />
+                      ) : (
+                        <Badge variant={employee.has_fuel_allowance ? "default" : "outline"} className="text-xs">
+                          {employee.has_fuel_allowance ? (isEs ? "Sí" : "Yes") : "No"}
+                        </Badge>
+                      )}
+                    </div>
+                    {(editing ? editData.has_fuel_allowance : employee.has_fuel_allowance) && (
+                      editing ? (
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={editData.fuel_allowance_amount || ""}
+                          onChange={(e) => setEditData({ ...editData, fuel_allowance_amount: parseFloat(e.target.value) || 0 })}
+                        />
+                      ) : (
+                        <p className="text-sm font-medium">{formatCurrency(employee.fuel_allowance_amount)}/mes</p>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Documents Tab */}
