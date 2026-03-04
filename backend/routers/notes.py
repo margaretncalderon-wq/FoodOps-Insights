@@ -25,13 +25,54 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
             "user_id": user.user_id,
             "$or": [{"company_id": org_id}, {"organization_id": org_id}]
         },
-        {"_id": 0, "role": 1}
+        {"_id": 0, "role": 1, "permissions": 1}
     )
     
     if not membership:
         return None, None
     
     return org_id, membership.get("role", "viewer")
+
+
+async def check_notes_permission(user: User, org_id: Optional[str], required_role: str = "viewer"):
+    """Check if user has permission to access notes section"""
+    ROLE_HIERARCHY = {"admin": 3, "editor": 2, "viewer": 1}
+    
+    own_company_id = user.company_id or user.active_org_id
+    
+    if not org_id or org_id == own_company_id:
+        return own_company_id, True
+    
+    membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$and": [
+            {"$or": [{"company_id": org_id}, {"organization_id": org_id}]},
+            {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
+        ]
+    })
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="No access to this organization")
+    
+    permissions = membership.get("permissions", {})
+    
+    if not permissions:
+        general_role = membership.get("role", "viewer")
+        if general_role == "collaborator":
+            raise HTTPException(status_code=403, detail="No access to notes")
+        can_write = ROLE_HIERARCHY.get(general_role, 0) >= ROLE_HIERARCHY.get("editor", 2)
+        return org_id, can_write
+    
+    section_perm = permissions.get("notes", {})
+    
+    if not section_perm.get("enabled", False):
+        raise HTTPException(status_code=403, detail="No access to notes")
+    
+    section_role = section_perm.get("role", "viewer")
+    user_level = ROLE_HIERARCHY.get(section_role, 1)
+    can_write = user_level >= ROLE_HIERARCHY.get("editor", 2)
+    
+    return org_id, can_write
 
 class NoteCreate(BaseModel):
     title: str
@@ -59,24 +100,28 @@ async def get_folders(
     user: User = Depends(get_current_user)
 ):
     """Get all note folders for the organization"""
-    if org_id:
-        effective_company_id, role = await get_effective_company_id(user, org_id)
-        if not effective_company_id:
-            raise HTTPException(status_code=403, detail="No access to this organization")
-        company_id = effective_company_id
-    else:
-        company_id = user.company_id or user.active_org_id
+    company_id, can_write = await check_notes_permission(user, org_id, "viewer")
     
     folders = await db.note_folders.find(
         {"company_id": company_id},
         {"_id": 0}
     ).to_list(100)
+    for f in folders:
+        f["_can_edit"] = can_write
     return folders
 
 @notes_router.post("/folders")
-async def create_folder(data: FolderCreate, user: User = Depends(get_current_user)):
+async def create_folder(
+    data: FolderCreate, 
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Create a new folder"""
-    company_id = user.company_id or user.active_org_id
+    company_id, can_write = await check_notes_permission(user, org_id, "editor")
+    
+    if not can_write:
+        raise HTTPException(status_code=403, detail="No write permission for notes")
+    
     now = datetime.now(timezone.utc)
     
     folder = {
@@ -122,13 +167,7 @@ async def get_notes(
     user: User = Depends(get_current_user)
 ):
     """Get all notes for the organization"""
-    if org_id:
-        effective_company_id, role = await get_effective_company_id(user, org_id)
-        if not effective_company_id:
-            raise HTTPException(status_code=403, detail="No access to this organization")
-        company_id = effective_company_id
-    else:
-        company_id = user.company_id or user.active_org_id
+    company_id, can_write = await check_notes_permission(user, org_id, "viewer")
     
     query = {"company_id": company_id}
     if folder_id:
@@ -137,6 +176,8 @@ async def get_notes(
         query["tags"] = tag
     
     notes = await db.notes.find(query, {"_id": 0}).sort("updated_at", -1).to_list(500)
+    for n in notes:
+        n["_can_edit"] = can_write
     return notes
 
 @notes_router.get("/{note_id}")

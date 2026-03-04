@@ -38,11 +38,13 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
     """
     Returns the company_id to use for queries.
     If org_id is provided, verifies user has access to that org.
+    Returns: (company_id, role, permissions)
     """
     own_company_id = user.company_id or user.active_org_id
     
     if not org_id or org_id == own_company_id:
-        return own_company_id, "owner"
+        # User's own company - full access
+        return own_company_id, "owner", None
     
     # Check if user has membership access to the requested org
     membership = await db.memberships.find_one({
@@ -56,7 +58,145 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
     if not membership:
         raise HTTPException(status_code=403, detail="No access to this organization")
     
-    return org_id, membership.get("role", "viewer")
+    return org_id, membership.get("role", "viewer"), membership.get("permissions", {})
+
+
+async def check_section_permission(
+    user: User, 
+    org_id: Optional[str], 
+    section: str, 
+    required_role: str = "viewer"
+) -> tuple:
+    """
+    Check if user has permission to access a specific section of an organization.
+    
+    Sections: social_media, campaigns, spend_ledger, email_marketing, notes, insights, activations
+    Roles: admin > editor > viewer
+    
+    Returns: (company_id, can_write)
+    """
+    ROLE_HIERARCHY = {"admin": 3, "editor": 2, "viewer": 1}
+    
+    own_company_id = user.company_id or user.active_org_id
+    
+    # If no org_id or it's user's own company - full access
+    if not org_id or org_id == own_company_id:
+        return own_company_id, True
+    
+    # Get membership with permissions
+    membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$and": [
+            {"$or": [{"company_id": org_id}, {"organization_id": org_id}]},
+            {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
+        ]
+    })
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="No access to this organization")
+    
+    permissions = membership.get("permissions", {})
+    
+    # If no granular permissions set, check general role
+    if not permissions:
+        general_role = membership.get("role", "viewer")
+        # For collaborators without specific permissions, deny access
+        if general_role == "collaborator":
+            raise HTTPException(status_code=403, detail=f"No access to {section}")
+        can_write = ROLE_HIERARCHY.get(general_role, 0) >= ROLE_HIERARCHY.get("editor", 2)
+        return org_id, can_write
+    
+    # Check specific section permission
+    section_perm = permissions.get(section, {})
+    
+    if not section_perm.get("enabled", False):
+        raise HTTPException(status_code=403, detail=f"No access to {section}")
+    
+    section_role = section_perm.get("role", "viewer")
+    required_level = ROLE_HIERARCHY.get(required_role, 1)
+    user_level = ROLE_HIERARCHY.get(section_role, 1)
+    
+    if user_level < required_level:
+        raise HTTPException(status_code=403, detail=f"Insufficient permissions for {section}")
+    
+    can_write = user_level >= ROLE_HIERARCHY.get("editor", 2)
+    return org_id, can_write
+
+
+# ============== SECTION PERMISSIONS ENDPOINT ==============
+
+@demand_studio_router.get("/my-permissions")
+async def get_my_permissions(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's permissions for each section in an organization.
+    Returns which sections are accessible and the role for each.
+    """
+    own_company_id = user.company_id or user.active_org_id
+    
+    # If viewing own company, full access
+    if not org_id or org_id == own_company_id:
+        return {
+            "org_id": own_company_id,
+            "is_own_org": True,
+            "sections": {
+                "social_media": {"enabled": True, "role": "admin", "can_write": True},
+                "campaigns": {"enabled": True, "role": "admin", "can_write": True},
+                "spend_ledger": {"enabled": True, "role": "admin", "can_write": True},
+                "email_marketing": {"enabled": True, "role": "admin", "can_write": True},
+                "notes": {"enabled": True, "role": "admin", "can_write": True},
+                "insights": {"enabled": True, "role": "admin", "can_write": True},
+                "activations": {"enabled": True, "role": "admin", "can_write": True}
+            }
+        }
+    
+    # Check membership for the requested org
+    membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$and": [
+            {"$or": [{"company_id": org_id}, {"organization_id": org_id}]},
+            {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
+        ]
+    })
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="No access to this organization")
+    
+    permissions = membership.get("permissions", {})
+    general_role = membership.get("role", "viewer")
+    
+    ROLE_HIERARCHY = {"admin": 3, "editor": 2, "viewer": 1}
+    
+    # Build section permissions
+    sections = {}
+    default_sections = ["social_media", "campaigns", "spend_ledger", "email_marketing", "notes", "insights", "activations"]
+    
+    for section in default_sections:
+        section_perm = permissions.get(section, {})
+        
+        if permissions:
+            # Granular permissions defined
+            enabled = section_perm.get("enabled", False)
+            role = section_perm.get("role", "viewer") if enabled else None
+        else:
+            # No granular permissions - use general role (except for collaborator)
+            enabled = general_role != "collaborator"
+            role = general_role if enabled else None
+        
+        sections[section] = {
+            "enabled": enabled,
+            "role": role,
+            "can_write": ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("editor", 2) if role else False
+        }
+    
+    return {
+        "org_id": org_id,
+        "is_own_org": False,
+        "general_role": general_role,
+        "sections": sections
+    }
 
 
 # ============== CAMPAIGN CODE HELPERS ==============
@@ -236,14 +376,8 @@ async def get_campaigns(
     user: User = Depends(get_current_user)
 ):
     """Get marketing campaigns with optional scope filter for collaboration"""
-    # Use org_id if provided and user has access, otherwise use user's company
-    if org_id:
-        effective_company_id, role = await get_effective_company_id(user, org_id)
-        if not effective_company_id:
-            raise HTTPException(status_code=403, detail="No access to this organization")
-        company_id = effective_company_id
-    else:
-        company_id = user.company_id or user.active_org_id
+    # Check section permission for campaigns
+    company_id, can_write = await check_section_permission(user, org_id, "campaigns", "viewer")
     
     if not company_id:
         return []
@@ -263,6 +397,7 @@ async def get_campaigns(
     is_own_org = company_id == (user.company_id or user.active_org_id)
     for c in owned_campaigns:
         c["_access_type"] = "owned" if is_own_org else "shared"
+        c["_can_edit"] = can_write
     campaigns.extend(owned_campaigns)
     
     # If viewing own org and scope allows, also get cross-org shared campaigns
@@ -295,11 +430,20 @@ async def get_campaigns(
     return campaigns
 
 @demand_studio_router.post("/campaigns")
-async def create_campaign(data: MarketingCampaignCreate, user: User = Depends(get_current_user)):
+async def create_campaign(
+    data: MarketingCampaignCreate, 
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Create a new marketing campaign"""
-    company_id = user.company_id or user.active_org_id
+    # Check write permission for campaigns section
+    company_id, can_write = await check_section_permission(user, org_id, "campaigns", "editor")
+    
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
+    
+    if not can_write:
+        raise HTTPException(status_code=403, detail="No write permission for campaigns")
     
     # Generate or validate campaign_code
     campaign_code = None
@@ -537,14 +681,8 @@ async def get_spend(
     user: User = Depends(get_current_user)
 ):
     """Get campaign spend records"""
-    # Use org_id if provided and user has access
-    if org_id:
-        effective_company_id, role = await get_effective_company_id(user, org_id)
-        if not effective_company_id:
-            raise HTTPException(status_code=403, detail="No access to this organization")
-        company_id = effective_company_id
-    else:
-        company_id = user.company_id or user.active_org_id
+    # Check section permission for spend_ledger
+    company_id, can_write = await check_section_permission(user, org_id, "spend_ledger", "viewer")
     
     query = {"company_id": company_id}
     if campaign_id:
@@ -555,14 +693,26 @@ async def get_spend(
         query["category"] = category
     
     spend = await db.campaign_spend.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Add write permission info to each record
+    for s in spend:
+        s["_can_edit"] = can_write
     return spend
 
 @demand_studio_router.post("/spend")
-async def create_spend(data: CampaignSpendCreate, user: User = Depends(get_current_user)):
+async def create_spend(
+    data: CampaignSpendCreate, 
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Record campaign spend"""
-    company_id = user.company_id or user.active_org_id
+    # Check write permission for spend_ledger section
+    company_id, can_write = await check_section_permission(user, org_id, "spend_ledger", "editor")
+    
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
+    
+    if not can_write:
+        raise HTTPException(status_code=403, detail="No write permission for spend ledger")
     
     now = datetime.now(timezone.utc)
     spend = {
@@ -679,14 +829,8 @@ async def get_activations(
     user: User = Depends(get_current_user)
 ):
     """Get marketing activations"""
-    # Use org_id if provided and user has access
-    if org_id:
-        effective_company_id, role = await get_effective_company_id(user, org_id)
-        if not effective_company_id:
-            raise HTTPException(status_code=403, detail="No access to this organization")
-        company_id = effective_company_id
-    else:
-        company_id = user.company_id or user.active_org_id
+    # Check section permission for activations
+    company_id, can_write = await check_section_permission(user, org_id, "activations", "viewer")
     
     query = {"company_id": company_id}
     if campaign_id:
@@ -695,14 +839,25 @@ async def get_activations(
         query["status"] = status
     
     activations = await db.marketing_activations.find(query, {"_id": 0}).sort("start_date", -1).to_list(500)
+    for a in activations:
+        a["_can_edit"] = can_write
     return activations
 
 @demand_studio_router.post("/activations")
-async def create_activation(data: MarketingActivationCreate, user: User = Depends(get_current_user)):
+async def create_activation(
+    data: MarketingActivationCreate, 
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Create a marketing activation"""
-    company_id = user.company_id or user.active_org_id
+    # Check write permission for activations section
+    company_id, can_write = await check_section_permission(user, org_id, "activations", "editor")
+    
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
+    
+    if not can_write:
+        raise HTTPException(status_code=403, detail="No write permission for activations")
     
     now = datetime.now(timezone.utc)
     activation = {

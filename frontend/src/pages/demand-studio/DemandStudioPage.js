@@ -41,6 +41,22 @@ export default function DemandStudioPage() {
   const [selectedOrgId, setSelectedOrgId] = useState(null);
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
+  
+  // Section permissions
+  const [sectionPermissions, setSectionPermissions] = useState(null);
+
+  // Map nav tabs to section names
+  const tabSectionMap = {
+    "/demand-studio": null, // Overview always visible
+    "/demand-studio/campaigns": "campaigns",
+    "/demand-studio/social-media": "social_media",
+    "/demand-studio/notes": "notes",
+    "/demand-studio/activations": "activations",
+    "/demand-studio/email-marketing": "email_marketing",
+    "/demand-studio/spend-ledger": "spend_ledger",
+    "/demand-studio/insights": "insights",
+    "/demand-studio/settings": null, // Settings always visible for now
+  };
 
   // Fetch user's organizations
   useEffect(() => {
@@ -70,6 +86,26 @@ export default function DemandStudioPage() {
     fetchOrganizations();
   }, []);
 
+  // Fetch permissions when org changes
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (!selectedOrgId) return;
+      
+      try {
+        const url = selectedOrg?.is_own 
+          ? `${API}/api/demand-studio/my-permissions`
+          : `${API}/api/demand-studio/my-permissions?org_id=${selectedOrgId}`;
+        const res = await axios.get(url, { withCredentials: true });
+        setSectionPermissions(res.data?.sections || null);
+      } catch (error) {
+        console.error("Error fetching permissions:", error);
+        // Default to full access on error
+        setSectionPermissions(null);
+      }
+    };
+    fetchPermissions();
+  }, [selectedOrgId, selectedOrg?.is_own]);
+
   // Handle org change
   const handleOrgChange = (orgId) => {
     const org = organizations.find(o => o.org_id === orgId);
@@ -77,9 +113,26 @@ export default function DemandStudioPage() {
       setSelectedOrgId(orgId);
       setSelectedOrg(org);
       localStorage.setItem("demandStudio_selectedOrgId", orgId);
-      // No reload needed - child components will react to context change
     }
   };
+
+  // Filter tabs based on permissions
+  const getVisibleTabs = () => {
+    // If own org or no permissions loaded, show all
+    if (selectedOrg?.is_own || !sectionPermissions) {
+      return navTabs;
+    }
+    
+    return navTabs.filter(tab => {
+      const section = tabSectionMap[tab.path];
+      // Always show tabs with no section mapping (Overview, Settings)
+      if (!section) return true;
+      // Check if section is enabled
+      return sectionPermissions[section]?.enabled !== false;
+    });
+  };
+
+  const visibleTabs = getVisibleTabs();
 
   // Separate owned and shared orgs
   const ownedOrgs = organizations.filter(o => o.is_own);
@@ -183,28 +236,41 @@ export default function DemandStudioPage() {
         {/* Navigation Tabs */}
         <div className="border-b">
           <nav className="flex gap-1 overflow-x-auto pb-px">
-            {navTabs.map((tab) => (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                end={tab.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isActive
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                  }`
-                }
-              >
-                <tab.icon className="w-4 h-4" />
-                {isEs ? tab.labelEs : tab.label}
-              </NavLink>
-            ))}
+            {visibleTabs.map((tab) => {
+              const section = tabSectionMap[tab.path];
+              const canWrite = !section || !sectionPermissions || sectionPermissions[section]?.can_write !== false;
+              
+              return (
+                <NavLink
+                  key={tab.path}
+                  to={tab.path}
+                  end={tab.end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isActive
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`
+                  }
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {isEs ? tab.labelEs : tab.label}
+                  {!canWrite && section && (
+                    <span className="text-[10px] text-muted-foreground">(👁)</span>
+                  )}
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 
-        {/* Content - Pass org context to children */}
-        <Outlet context={{ selectedOrgId, selectedOrg, isOwnOrg: selectedOrg?.is_own }} />
+        {/* Content - Pass org context and permissions to children */}
+        <Outlet context={{ 
+          selectedOrgId, 
+          selectedOrg, 
+          isOwnOrg: selectedOrg?.is_own,
+          sectionPermissions 
+        }} />
       </div>
     </Layout>
   );
