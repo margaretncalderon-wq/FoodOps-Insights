@@ -8,6 +8,8 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - Claridad empresarial y análisis (Business Clarity)
 - **Gestión de RRHH y Nómina (People Ops)**
 - **Sistema de Pagos Variables con 4 tipos independientes**
+- **Historial de pagos por empleado**
+- **Beneficios en especie (almuerzo/catering) con tracking y Cost Center**
 
 ## User Personas
 - **Agencias de Marketing/Eventos**: Usuarios principales que gestionan múltiples clientes y proyectos
@@ -21,13 +23,52 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 3. Filtrado de datos por organización seleccionada
 4. Vinculación bidireccional entre módulos
 5. Sistema de nómina completo con cálculos legales de RD
-6. **Sistema de pagos variables con 4 flujos independientes: Overtime, Comisiones, Bonos, Incentivos**
+6. Sistema de pagos variables con 4 flujos independientes: Overtime, Comisiones, Bonos, Incentivos
+7. **Historial completo de pagos por empleado**
+8. **Tracking de beneficios en especie con cargo a Cost Center**
 
 ---
 
 ## What's Been Implemented
 
 ### Session: March 4-5, 2026 (ÚLTIMA ACTUALIZACIÓN)
+
+#### P0 - Widget de Próximos Pagos Variables - COMPLETADO ✅
+
+**Frontend Widget** (`VariablePayWidget.js`):
+- Widget en People Ops > Payroll mostrando cards para cada tipo de pago variable
+- Muestra: día de pago configurado, monto pendiente (para overtime)
+- Lista de runs pendientes con acceso directo a Variable Pay
+- Click en cards navega al tab correspondiente
+
+#### P0 - Historial de Pagos por Empleado - COMPLETADO ✅
+
+**Frontend Payment History Tab** (`PaymentHistoryTab.js`):
+- Nueva pestaña "Historial Pagos" en el perfil del empleado
+- Filtros por año y tipo de pago (Nómina, Overtime, Comisiones, Bonos, Incentivos, Beneficios)
+- Cards de resumen con totales por tipo
+- Tabla detallada con: Fecha, Tipo, Descripción, Bruto, Deducciones, Neto
+- Información adicional según tipo (horas extras, % comisión, % pool, etc.)
+
+**Backend** (`settings.py`):
+- `GET /api/settings/employee-payment-history/{employee_id}` - Historial completo
+- Agrega datos de: payroll_entries, variable_pay_entries, employee_benefits_log
+- Retorna totales acumulados por tipo
+
+#### P0 - Beneficios en Especie (Almuerzo/Catering) - COMPLETADO ✅
+
+**Frontend Benefits Section** (`BenefitsInKindSection.js`):
+- Nueva pestaña "Beneficios" en People Ops
+- Registro de beneficios en especie: Almuerzo, Transporte, Teléfono, Otro
+- Selección múltiple de empleados con "Seleccionar todos"
+- Asignación a Cost Center (el costo se registra como gasto)
+- Tabla de beneficios recientes
+
+**Backend** (`settings.py`):
+- `POST /api/settings/benefits-in-kind` - Registro individual
+- `POST /api/settings/benefits-in-kind/bulk` - Registro masivo para múltiples empleados
+- `GET /api/settings/benefits-in-kind` - Listado con filtros
+- Los beneficios se registran en `employee_benefits_log` y como gasto en `cost_center_expenses`
 
 #### P0 - Sistema Completo de Pagos Variables - COMPLETADO ✅
 
