@@ -1992,6 +1992,26 @@ async def create_social_post(data: SocialPostCreate, user: User = Depends(get_cu
     }
     await db.social_posts.insert_one(post)
     del post["_id"]
+    
+    # Log activity
+    user_name = user.name or user.email or "Usuario"
+    caption_preview = (data.caption or data.title or "")[:50]
+    if len(caption_preview) == 50:
+        caption_preview += "..."
+    
+    from routers.activity_feed import log_activity
+    await log_activity(
+        company_id=company_id,
+        user_id=user.user_id,
+        user_name=user_name,
+        activity_type="post_created",
+        entity_type="post",
+        entity_id=post["post_id"],
+        description=f"creó un {data.format or 'post'}: \"{caption_preview}\"",
+        account_id=data.social_account_id,
+        metadata={"format": data.format, "status": data.status}
+    )
+    
     return post
 
 @demand_studio_router.get("/social/posts/{post_id}")
@@ -2041,6 +2061,9 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
     """Update a social post"""
     company_id = user.company_id or user.active_org_id
     
+    # Get original post for activity log
+    original_post = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    
     update_data = {
         "social_account_id": data.social_account_id,
         "campaign_id": data.campaign_id,
@@ -2063,6 +2086,26 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Log activity
+    if original_post:
+        user_name = user.name or user.email or "Usuario"
+        caption_preview = (data.caption or data.title or "")[:40]
+        if len(caption_preview) == 40:
+            caption_preview += "..."
+        
+        from routers.activity_feed import log_activity
+        await log_activity(
+            company_id=company_id,
+            user_id=user.user_id,
+            user_name=user_name,
+            activity_type="post_edited",
+            entity_type="post",
+            entity_id=post_id,
+            description=f"editó un post: \"{caption_preview}\"",
+            account_id=data.social_account_id or original_post.get("social_account_id"),
+            metadata={"format": data.format, "status": data.status}
+        )
     
     return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
 
@@ -2118,6 +2161,38 @@ async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User =
     
     # Send notification to the post creator (agency) if this is an approval/rejection action
     creator_id = post.get("created_by_user_id")
+    user_name = user.name or user.email or "Usuario"
+    caption_preview = (post.get("caption") or "Sin caption")[:40]
+    if len(post.get("caption", "") or "") > 40:
+        caption_preview += "..."
+    
+    # Log activity for approval/rejection
+    from routers.activity_feed import log_activity
+    if data.status == "scheduled" and data.needs_approval == False:
+        await log_activity(
+            company_id=company_id,
+            user_id=user.user_id,
+            user_name=user_name,
+            activity_type="post_approved",
+            entity_type="post",
+            entity_id=post_id,
+            description=f"aprobó un post: \"{caption_preview}\"",
+            account_id=post.get("social_account_id"),
+            metadata={"status": "scheduled"}
+        )
+    elif data.status == "draft" and data.rejection_note:
+        await log_activity(
+            company_id=company_id,
+            user_id=user.user_id,
+            user_name=user_name,
+            activity_type="post_rejected",
+            entity_type="post",
+            entity_id=post_id,
+            description=f"rechazó un post: \"{caption_preview}\"",
+            account_id=post.get("social_account_id"),
+            metadata={"status": "draft", "reason": data.rejection_note[:100] if data.rejection_note else None}
+        )
+    
     if creator_id and creator_id != user.user_id and data.needs_approval == False:
         # Get company name for the notification
         company = await db.companies.find_one({"company_id": company_id}, {"name": 1})

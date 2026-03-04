@@ -33,6 +33,7 @@ import FeedTab from "../../components/demand-studio/FeedTab";
 import StudioEditor from "../../components/demand-studio/StudioEditor";
 import SocialSharing from "../../components/demand-studio/SocialSharing";
 import AccountSharing from "../../components/demand-studio/AccountSharing";
+import ActivityFeed from "../../components/demand-studio/ActivityFeed";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -858,6 +859,11 @@ export default function SocialMediaPage() {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* Activity Feed - Recent Changes */}
+          <div className="mt-6">
+            <ActivityFeed accountId={selectedAccountId} limit={8} />
           </div>
         </TabsContent>
 

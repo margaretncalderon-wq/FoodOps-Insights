@@ -1080,6 +1080,44 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `backend/routers/demand_studio.py` - account_id en stats, insights, calendar, ideas
 - `frontend/src/pages/demand-studio/SocialMediaPage.js` - Account selector, estados, banner de cuenta compartida
 
+### Session: Mar 04, 2026 - Activity Feed Implementation ✅
+
+#### Feature: Feed de Actividad Reciente
+
+**Requerimiento**: El usuario quería un sistema para ver cambios recientes en las cuentas compartidas sin ser abrumador (no notificaciones push).
+
+**Solución Implementada**: Feed de actividad cronológico en el Overview de Social Media.
+
+**Backend - Nuevo Router activity_feed.py:**
+- Colección `social_activity_feed`: Almacena todas las actividades
+- Función `log_activity()`: Registra actividades desde otros routers
+
+**Endpoints:**
+- `GET /api/activity-feed/recent` - Obtiene actividades recientes (filtrable por account_id, limit, days)
+- `GET /api/activity-feed/stats` - Estadísticas de actividad
+
+**Actividades Registradas:**
+- `post_created` - Cuando se crea un post
+- `post_edited` - Cuando se edita un post
+- `post_approved` - Cuando se aprueba un post
+- `post_rejected` - Cuando se rechaza un post
+
+**Frontend - ActivityFeed.js Component:**
+- Ubicación: Social Media > Overview (debajo de las insights)
+- Muestra: Nombre del usuario, descripción de la acción, cuenta asociada, tiempo relativo
+- Iconos por tipo de actividad (verde para creado, azul para editado, etc.)
+- Botón de refrescar
+- Filtrable por cuenta seleccionada
+
+**Files Created:**
+- `backend/routers/activity_feed.py` - Router de activity feed
+- `frontend/src/components/demand-studio/ActivityFeed.js` - Componente UI
+
+**Files Modified:**
+- `backend/server.py` - Registrado activity_feed_router
+- `backend/routers/demand_studio.py` - Agregado log_activity en create, update, patch
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Integrado ActivityFeed en Overview
+
 ## Prioritized Backlog
 
 ### P0 (Critical - Next Session)

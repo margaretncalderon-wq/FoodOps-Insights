@@ -16437,6 +16437,10 @@ api_router.include_router(social_sharing_router)  # /api/social-sharing/*
 from routers.account_sharing import account_sharing_router
 api_router.include_router(account_sharing_router)  # /api/account-sharing/*
 
+# Include Activity Feed router
+from routers.activity_feed import activity_feed_router
+api_router.include_router(activity_feed_router)  # /api/activity-feed/*
+
 # Include Notifications router
 from routers.notifications import notifications_router
 api_router.include_router(notifications_router)  # /api/notifications/*
