@@ -6,8 +6,8 @@ after the OrgSwitcher bug incorrectly changed it.
 DELETE THIS FILE AFTER ALL AFFECTED USERS ARE RESTORED.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from config import db
@@ -15,6 +15,121 @@ from models.auth import User
 from routers.auth import get_current_user
 
 emergency_router = APIRouter(prefix="/emergency", tags=["Emergency"])
+
+
+@emergency_router.get("/search-companies")
+async def search_companies(
+    q: str = Query(..., min_length=2, description="Search query"),
+    user: User = Depends(get_current_user)
+):
+    """
+    Search for companies by name. Available to all authenticated users
+    since this is an emergency recovery tool.
+    """
+    # Search by name, legal_name, or company_id
+    companies = await db.companies.find({
+        "$or": [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"legal_name": {"$regex": q, "$options": "i"}},
+            {"company_id": {"$regex": q, "$options": "i"}}
+        ]
+    }, {"_id": 0, "company_id": 1, "name": 1, "legal_name": 1}).to_list(20)
+    
+    return {
+        "query": q,
+        "count": len(companies),
+        "companies": companies
+    }
+
+
+@emergency_router.get("/all-companies")
+async def get_all_companies(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get all companies. For emergency use to find the correct company.
+    """
+    companies = await db.companies.find(
+        {},
+        {"_id": 0, "company_id": 1, "name": 1, "legal_name": 1, "created_at": 1}
+    ).sort("name", 1).to_list(100)
+    
+    return {
+        "count": len(companies),
+        "companies": companies
+    }
+
+
+@emergency_router.post("/force-restore/{company_id}")
+async def force_restore_company(
+    company_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Force restore user's company_id without checking membership.
+    This is for emergency use when the user lost all their memberships.
+    Creates a membership if it doesn't exist.
+    """
+    # Verify the company exists
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    old_company_id = user.company_id
+    
+    # Update user's company_id
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {
+            "$set": {
+                "company_id": company_id,
+                "active_org_id": company_id,
+                "restored_at": datetime.now(timezone.utc).isoformat(),
+                "restored_from": old_company_id,
+                "force_restored": True
+            },
+            "$unset": {
+                "view_as_org_id": ""
+            }
+        }
+    )
+    
+    # Check if membership exists, if not create one
+    existing_membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$or": [
+            {"company_id": company_id},
+            {"organization_id": company_id}
+        ]
+    })
+    
+    if not existing_membership:
+        # Create a membership for this user
+        import uuid
+        new_membership = {
+            "membership_id": f"mem_{uuid.uuid4().hex[:12]}",
+            "user_id": user.user_id,
+            "company_id": company_id,
+            "organization_id": company_id,
+            "role": "owner",  # Restore as owner since they're recovering
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": "emergency_restore"
+        }
+        await db.memberships.insert_one(new_membership)
+        membership_created = True
+    else:
+        membership_created = False
+    
+    return {
+        "success": True,
+        "message": f"Cuenta restaurada a {company.get('name')}",
+        "old_company_id": old_company_id,
+        "new_company_id": company_id,
+        "company_name": company.get("name"),
+        "membership_created": membership_created,
+        "note": "Por favor cierra sesión y vuelve a iniciar sesión"
+    }
 
 
 @emergency_router.get("/my-status")

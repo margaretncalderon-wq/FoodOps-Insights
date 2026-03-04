@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Separator } from "../components/ui/separator";
+import { Input } from "../components/ui/input";
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -14,7 +15,8 @@ import {
   Users,
   ArrowRight,
   Shield,
-  Loader2
+  Loader2,
+  Search
 } from "lucide-react";
 import axios from "axios";
 
@@ -30,6 +32,13 @@ export default function EmergencyRestorePage() {
   const [bulkRestoring, setBulkRestoring] = useState(false);
   const [message, setMessage] = useState(null);
   const [selectedCompanyForUsers, setSelectedCompanyForUsers] = useState(null);
+  
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [allCompanies, setAllCompanies] = useState([]);
+  const [showAllCompanies, setShowAllCompanies] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!token) return;
@@ -58,6 +67,67 @@ export default function EmergencyRestorePage() {
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  // Search companies
+  const handleSearch = async () => {
+    if (searchQuery.length < 2) return;
+    
+    setSearching(true);
+    try {
+      const res = await axios.get(
+        `${API}/api/emergency/search-companies?q=${encodeURIComponent(searchQuery)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSearchResults(res.data.companies || []);
+    } catch (err) {
+      setMessage({ type: "error", text: "Error buscando: " + (err.response?.data?.detail || err.message) });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Load all companies
+  const loadAllCompanies = async () => {
+    setShowAllCompanies(true);
+    try {
+      const res = await axios.get(
+        `${API}/api/emergency/all-companies`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setAllCompanies(res.data.companies || []);
+    } catch (err) {
+      setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.message) });
+    }
+  };
+
+  // Force restore (without membership check)
+  const handleForceRestore = async (companyId, companyName) => {
+    if (!confirm(`¿Estás seguro de restaurar tu cuenta a "${companyName}"? Esto también creará una membresía si no existe.`)) {
+      return;
+    }
+    
+    setRestoring(true);
+    setMessage(null);
+    
+    try {
+      const res = await axios.post(
+        `${API}/api/emergency/force-restore/${companyId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setMessage({ 
+        type: "success", 
+        text: `✅ ${res.data.message}. ${res.data.membership_created ? "Se creó una nueva membresía." : ""} Por favor, cierra sesión y vuelve a iniciar sesión.`
+      });
+      
+      await fetchStatus();
+    } catch (err) {
+      setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.message) });
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const handleRestore = async (companyId, companyName) => {
     if (!confirm(`¿Estás seguro de restaurar tu cuenta a "${companyName}"?`)) {
@@ -262,7 +332,7 @@ export default function EmergencyRestorePage() {
             {/* Candidates */}
             {candidates.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-sm text-zinc-400 font-medium">Empresas encontradas:</p>
+                <p className="text-sm text-zinc-400 font-medium">Empresas encontradas automáticamente:</p>
                 {candidates.map((c, idx) => (
                   <div 
                     key={idx} 
@@ -301,8 +371,101 @@ export default function EmergencyRestorePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-zinc-400">No se encontraron empresas candidatas.</p>
+              <Alert className="border-amber-500/50 bg-amber-500/10">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <AlertTitle className="text-amber-400">No se encontraron empresas automáticamente</AlertTitle>
+                <AlertDescription>
+                  Usa la búsqueda abajo para encontrar tu empresa por nombre.
+                </AlertDescription>
+              </Alert>
             )}
+
+            {/* Search Section */}
+            <Separator className="my-6 bg-zinc-700" />
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-400 font-medium">🔍 Buscar tu empresa por nombre:</p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Escribe el nombre de tu empresa..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  className="bg-zinc-800 border-zinc-700"
+                />
+                <Button onClick={handleSearch} disabled={searching || searchQuery.length < 2}>
+                  {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <p className="text-sm text-zinc-400">Resultados ({searchResults.length}):</p>
+                  {searchResults.map((c, idx) => (
+                    <div 
+                      key={idx}
+                      className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg border border-zinc-700"
+                    >
+                      <div>
+                        <p className="font-medium">{c.name}</p>
+                        {c.legal_name && <p className="text-sm text-zinc-500">{c.legal_name}</p>}
+                        <code className="text-xs text-zinc-500">{c.company_id}</code>
+                      </div>
+                      <Button
+                        onClick={() => handleForceRestore(c.company_id, c.name)}
+                        disabled={restoring}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {restoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                        Restaurar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Show All Companies Button */}
+              <div className="mt-4">
+                <Button variant="outline" onClick={loadAllCompanies} className="w-full">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Ver Todas las Empresas
+                </Button>
+              </div>
+
+              {/* All Companies List */}
+              {showAllCompanies && allCompanies.length > 0 && (
+                <div className="space-y-2 mt-4 max-h-64 overflow-y-auto">
+                  <p className="text-sm text-zinc-400">Todas las empresas ({allCompanies.length}):</p>
+                  {allCompanies.map((c, idx) => (
+                    <div 
+                      key={idx}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        status?.current_company_id === c.company_id 
+                          ? "bg-amber-500/10 border-amber-500" 
+                          : "bg-zinc-800/30 border-zinc-700"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium">{c.name}</p>
+                        {c.legal_name && <p className="text-sm text-zinc-500">{c.legal_name}</p>}
+                      </div>
+                      {status?.current_company_id === c.company_id ? (
+                        <Badge className="bg-amber-500">Actual</Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleForceRestore(c.company_id, c.name)}
+                          disabled={restoring}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Restaurar
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Memberships */}
             {status?.membership_companies?.length > 0 && (
