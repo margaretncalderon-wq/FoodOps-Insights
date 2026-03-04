@@ -108,9 +108,6 @@ const VenuesPage = lazy(() => import("./pages/VenuesPage"));
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
 const PaymentCancelPage = lazy(() => import("./pages/PaymentCancelPage"));
 
-// Emergency restore page
-const EmergencyRestorePage = lazy(() => import("./pages/EmergencyRestorePage"));
-
 // Super Admin pages
 const SuperAdminLayout = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminLayout })));
 const SuperAdminOverview = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminOverview })));
@@ -122,6 +119,7 @@ const SuperAdminCRMPage = lazy(() => import("./pages/super-admin").then(m => ({ 
 const BIPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.BIPage })));
 const SuperAdminClarity = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminClarity })));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminSettings })));
+const EmergencyRestorePage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.EmergencyRestorePage })));
 const UserManagementPage = lazy(() => import("./pages/super-admin/UserManagementPage"));
 const DemoAccountsPage = lazy(() => import("./pages/super-admin/DemoAccountsPage"));
 const IntegrationsPage = lazy(() => import("./pages/super-admin/IntegrationsPage"));
@@ -270,6 +268,7 @@ function AppRouter() {
             <Route path="support-tickets" element={<SupportTicketsPage />} />
             <Route path="diagnostics" element={<DataDiagnosticsPage />} />
             <Route path="settings" element={<SuperAdminSettings />} />
+            <Route path="emergency" element={<EmergencyRestorePage />} />
           </Route>
           {/* Redirect all other routes to Super Admin */}
           <Route path="*" element={<Navigate to="/super-admin" replace />} />
@@ -289,7 +288,6 @@ function AppRouter() {
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
       <Route path="/payment/cancel" element={<PaymentCancelPage />} />
       <Route path="/payment/addon-success" element={<PaymentSuccessPage />} />
-      <Route path="/emergency-restore" element={<ProtectedRoute><EmergencyRestorePage /></ProtectedRoute>} />
       <Route path="/portal/:documentId" element={<ClientPortal />} />
       <Route path="/portal/delivery/:eventId" element={<ClientDeliveryNote />} />
       <Route path="/portal/event/:eventId" element={<ClientEventPortal />} />
@@ -353,6 +351,7 @@ function AppRouter() {
         <Route path="support-tickets" element={<SupportTicketsPage />} />
         <Route path="diagnostics" element={<DataDiagnosticsPage />} />
         <Route path="settings" element={<SuperAdminSettings />} />
+        <Route path="emergency" element={<EmergencyRestorePage />} />
       </Route>
       
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Separator } from "../components/ui/separator";
-import { Input } from "../components/ui/input";
+import { useAuth } from "../../contexts/AuthContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
+import { Separator } from "../../components/ui/separator";
+import { Input } from "../../components/ui/input";
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -16,7 +16,8 @@ import {
   ArrowRight,
   Shield,
   Loader2,
-  Search
+  Search,
+  Zap
 } from "lucide-react";
 import axios from "axios";
 
@@ -39,6 +40,51 @@ export default function EmergencyRestorePage() {
   const [searching, setSearching] = useState(false);
   const [allCompanies, setAllCompanies] = useState([]);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
+  
+  // Quick fix results
+  const [fixResult, setFixResult] = useState(null);
+  const [fixing, setFixing] = useState(false);
+
+  // Quick fix for Margaret
+  const handleFixMargaret = async () => {
+    setFixing(true);
+    setFixResult(null);
+    try {
+      const res = await axios.post(
+        `${API}/api/emergency/fix-margaret`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setFixResult({ type: "success", data: res.data });
+      setMessage({ type: "success", text: "✅ Cuenta de Margaret arreglada. Cierra sesión y vuelve a entrar." });
+      await fetchStatus();
+    } catch (err) {
+      setFixResult({ type: "error", data: err.response?.data || err.message });
+      setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.response?.data?.error || err.message) });
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  // Quick fix for Staffdo users
+  const handleFixStaffdoUsers = async () => {
+    setFixing(true);
+    setFixResult(null);
+    try {
+      const res = await axios.post(
+        `${API}/api/emergency/fix-staffdo-users`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setFixResult({ type: "success", data: res.data });
+      setMessage({ type: "success", text: `✅ ${res.data.memberships_fixed} membresías arregladas. Margaret removida de Staffdo: ${res.data.margaret_memberships_removed}` });
+    } catch (err) {
+      setFixResult({ type: "error", data: err.response?.data || err.message });
+      setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.message) });
+    } finally {
+      setFixing(false);
+    }
+  };
 
   const fetchStatus = useCallback(async () => {
     if (!token) return;
@@ -281,6 +327,48 @@ export default function EmergencyRestorePage() {
             Herramienta para restaurar tu cuenta después del error del conmutador de organización.
           </p>
         </div>
+
+        {/* QUICK FIX BUTTONS */}
+        <Card className="bg-red-950/30 border-red-500/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-400">
+              <Zap className="w-5 h-5" />
+              Arreglos Rápidos
+            </CardTitle>
+            <CardDescription>
+              Botones de un clic para arreglar los problemas específicos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-4">
+              <Button
+                onClick={handleFixMargaret}
+                disabled={fixing}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <User className="w-4 h-4 mr-2" />}
+                1. Arreglar cuenta de Margaret
+              </Button>
+              
+              <Button
+                onClick={handleFixStaffdoUsers}
+                disabled={fixing}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
+                2. Arreglar usuarios de Staffdo
+              </Button>
+            </div>
+            
+            {fixResult && (
+              <div className={`p-4 rounded-lg text-sm ${fixResult.type === "success" ? "bg-green-500/20 border border-green-500" : "bg-red-500/20 border border-red-500"}`}>
+                <pre className="whitespace-pre-wrap overflow-auto max-h-48">
+                  {JSON.stringify(fixResult.data, null, 2)}
+                </pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Alert Message */}
         {message && (
