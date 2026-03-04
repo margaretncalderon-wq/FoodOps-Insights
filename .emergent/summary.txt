@@ -1,146 +1,144 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix production bugs (UI, session persistence) and add significant new features to their multi-tenant CRM & marketing platform, Kora OS.
-
-The scope has since expanded to include:
-1.  **CRM & Stability Fixes:** Resolved bugs related to the lead editing form and outdated UI counters.
-2.  **Demand Studio (Content Creation Suite):** Built a Brand Hub, Studio editor, and Feed preview.
-3.  **Social Media & Sharing:** Implemented Instagram integration and a complex sharing model for agencies. This model has been the subject of several iterative changes based on user feedback.
-4.  **Core Features:** Implemented an in-app notification system.
-5.  **New Modules:** Added a Notes section with AI capabilities.
-6.  **Current Focus:** The primary goal is a major architectural refactor of the Social Media sharing model. The user wants to move from an organization-centric sharing model to a more granular, **account-centric** model, where each individual social media account is a self-contained workspace that can be shared.
+El objetivo inicial del usuario era crear una plataforma CRM y de marketing multitenant, Kora OS. El alcance se ha ampliado para incluir:
+1.  **Corrección de errores y refactorización importante:** Se han solucionado varios errores, pero el enfoque principal se ha convertido en una refactorización arquitectónica para abordar un error de seguridad crítico y mejorar el modelo de uso compartido multitenant.
+2.  **Modelo de uso compartido centrado en la cuenta:** Se ha refactorizado el módulo de redes sociales para que cada cuenta social individual sea un espacio de trabajo independiente que se puede compartir, en lugar del modelo anterior centrado en la organización.
+3.  **Modelo de uso compartido centrado en la empresa:** Se ha implementado un conmutador de empresa global en el Demand Studio para permitir a los usuarios (especialmente a las agencias) cambiar todo el contexto de la aplicación (Campañas, Gastos, Notas, etc.) a una empresa cliente específica.
+4.  **Error de seguridad crítico (problema actual):** Un conmutador de organización heredado estaba cambiando incorrectamente el  de un usuario en la base de datos, lo que provocaba que un usuario viera los datos de CRM de otra empresa. Este error afectó a la cuenta del usuario en el entorno de **PRODUCCIÓN**.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a functional multi-tenant CRM and marketing platform.
-*   **CRM:** Bugs related to the industry field in the lead edit form and non-updating stat counters have been fixed.
-*   **Social Media Sharing:** A complex sharing system exists. Bugs with external links and internal collaborator invites were fixed. A multi-step refactor was performed, first creating a standalone Agency Dashboard, then removing it in favor of an organization-switcher within the main Social Media page. This implementation allows an agency to view a client's data but has been deemed insufficient by the user.
-*   **Approval Flow:** A full approval workflow is in place, allowing collaborators to submit posts for approval, and owners to approve/reject them from a centralized Approval Queue badge in the header. Notifications are sent for status changes.
-*   **Notes Section:** A new Notes section has been added to the Demand Studio, complete with a backend, frontend, and an AI assistant powered by the Emergent LLM Key.
-*   **AI Integration:** The  library is set up to use the Emergent LLM Key. However, the budget for the key is currently exhausted, rendering AI features non-functional.
-*   **Editable Permissions:** Functionality was added to edit a collaborator's role or a public link's permissions after they have been created.
+La aplicación es una plataforma de marketing y CRM en funcionamiento.
+*   **Uso compartido centrado en la cuenta:** El módulo de redes sociales se ha refactorizado por completo. Ahora cuenta con un selector de cuentas que aísla correctamente los datos (publicaciones, calendario, ideas, etc.) a la cuenta social seleccionada. Esto ha sido validado por el agente de pruebas.
+*   **Feed de actividad:** Se ha añadido una sección de Actividad reciente a la vista general de las redes sociales, que registra acciones como la creación y actualización de publicaciones.
+*   **Conmutador de empresa global:** Se ha implementado un conmutador de empresa global en la cabecera del Demand Studio. Esto permite a un usuario cambiar la vista de todos los módulos (Campañas, Notas, etc.) para ver los datos de una empresa específica a la que tiene acceso. Todos los módulos se han actualizado para respetar el  seleccionado.
+*   **Permisos de uso compartido granulares:** Se ha implementado la interfaz de usuario y el backend para un sistema de permisos granulares que permite a los propietarios de empresas compartir secciones específicas (redes sociales, campañas, gastos, etc.) con colaboradores externos con roles de Admin, Editor o Visor.
+*   **Parche de error de seguridad:** Se ha identificado y parcheado un error crítico en el endpoint  en el código del entorno de vista previa. Este endpoint ya no muta incorrectamente el  del usuario. **Este parche aún no se ha implementado en producción.**
+*   **Endpoints de emergencia:** Se ha creado un nuevo router de backend () con endpoints para ayudar al usuario a restaurar su  dañado en producción.
 
 **Last working item**:
--   **Last item agent was working**: The agent was working on a major architectural refactor of the social media sharing model. After implementing an organization-level switcher, the user clarified that the desired logic is for each **individual social account** to be a completely separate workspace (with its own Calendar, Ideas, Feed, etc.) that can be shared. The agent analyzed this requirement and proposed a new account-centric data model, which the user approved.
+-   **Last item agent was working**: El agente estaba en medio de la creación de una página de frontend de emergencia () para que el usuario pudiera utilizar los endpoints de restauración de emergencia () desde una sesión autenticada. Esto es necesario porque la cuenta del usuario () en la base de datos de **PRODUCCIÓN** tiene un  incorrecto, lo que le hace ver los datos de CRM de otra empresa (Staffdo) en lugar de los suyos. El agente creó los endpoints de backend pero fue interrumpido antes de terminar la página de frontend para consumirlos.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: both. This is a major architectural change. The backend agent must validate new data models (e.g., ) and ensure all  API endpoints are correctly refactored to filter by . The frontend agent must validate the new account-switcher UI in the Social Media module and test that all sub-tabs (Calendar, Feed, etc.) correctly display data for the selected account only.
+-   **Which testing method agent to use?**: Manual testing by user. Una vez que la página de restauración esté completa, el agente debe proporcionar al usuario la URL y las instrucciones para que la utilice en el entorno de producción para arreglar su cuenta.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Social Sharing Model Major Refactor (P0)**
-    -   **Description**: The current sharing model, based on sharing an entire organization, is not granular enough. The user requires a new model where each individual social media account is the primary entity. An agency should see a list of individual accounts (their own and those shared with them) and, upon selecting one, see a complete, isolated workspace for that account only.
-    -   **Attempted fixes**: An Agency Dashboard was created and then deprecated. An Organization Switcher was implemented in the Social Media page by refactoring backend endpoints to accept an . This approach was also rejected by the user as not meeting the core requirement.
+-   **Issue 1: Corrupción de la cuenta de producción del usuario debido a un error de seguridad (P0)**
+    -   **Description**: Un conmutador de organización heredado cambió permanentemente el  del usuario a Staffdo en la base de datos de producción. Como resultado, el usuario no puede ver los datos de su propio CRM y en su lugar ve los datos de otra persona. Este es un bloqueo total para el usuario en producción.
+    -   **Attempted fixes**: El endpoint de backend defectuoso () se ha parcheado en el entorno de vista previa. Se han creado endpoints de backend de emergencia () para permitir una restauración manual. El agente comenzó a crear una página de frontend para usar estos endpoints.
     -   **Next debug checklist**:
-        1.  **Backend Model:** Create a new database collection (e.g., ) to map  to  with a specific .
-        2.  **Backend API Refactor:** Modify all  endpoints (, , , etc.) to filter primarily by  instead of .
-        3.  **Frontend UI Refactor:** Replace the Organization Selector in  with a new Account Selector component.
-        4.  **Frontend State Refactor:** Change the state management in  from  to  and ensure all API calls pass the correct .
-        5.  **Test:** Thoroughly test the entire Social Media module to confirm that switching accounts isolates the data view correctly across all tabs (Calendar, Feed, Ideas, etc.).
+        1.  Finalizar la creación del componente .
+        2.  Añadir una ruta para esta página en .
+        3.  Instruir al usuario para que guarde los cambios en GitHub y los despliegue en producción.
+        4.  Una vez desplegado, guiar al usuario para que navegue a la página de restauración de emergencia en producción y la utilice para restablecer su  correcto.
     -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend (la corrección del usuario en producción es la prueba)
     -   **Blocked on other issue**: None
 
 **In progress Task List**:
--   None. The current focus is entirely on the P0 issue.
+-   **Task 1: Finalizar la página de restauración de emergencia (P0)**
+    -   **Where to resume**: Continuar trabajando en . El archivo fue creado pero probablemente esté vacío o incompleto.
+    -   **What will be achieved with this?**: Proporcionará una interfaz de usuario para que el usuario autenticado llame a los endpoints de emergencia y restaure su  correcto en la base de datos de producción, solucionando el error de seguridad que le bloquea.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: backend
+    -   **Blocked on something**: None
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks**:
-*   **P0: Finalize Report a Bug with Attachments**: Connect the existing  endpoint to the  frontend component to enable real file uploads.
-*   **P1: Connect Social + Email to Brand Hub**: Update the social post and email creation flows to consume templates, styles, and messaging from the new Brand Hub.
-*   **P2: Re-enable AI Features**: The Emergent LLM Key budget is exhausted. Once the user adds funds, implement the remaining planned AI features: Caption Generator and Content Ideas.
+*   **P0: Despliegue en producción y limpieza:** Una vez que el usuario haya restaurado su cuenta, se debe eliminar el conmutador de organización heredado () y el router de emergencia () para evitar futuros abusos y limpiar la deuda técnica.
+*   **P1: Fase 2 - UI de configuración de permisos granulares:** Aunque el diálogo se ha creado (), debe estar completamente integrado para que, al guardar, los permisos se apliquen en todo el backend. Los endpoints del backend para cada módulo (Campañas, Notas, etc.) deben modificarse para comprobar estos permisos granulares para los usuarios externos.
+*   **P2: Conectar Social + Correo electrónico al Brand Hub:** Actualizar los flujos de creación de publicaciones sociales y correos electrónicos para que consuman plantillas, estilos y mensajes del nuevo Brand Hub.
 
 **Future Tasks**:
-*   Full UTM Tracking.
-*   Write-access for Meta (Facebook/Instagram) API Integration.
-*   Filter/group leads and clients by City/Country.
-*   Email Marketing - Sending Functionality (e.g., using Resend).
-*   Kora Comms - Phase 1 (WhatsApp Integration).
-*   Propose an initial setup assistant/wizard for new users.
-*   Implement granular sharing permissions (by Campaign) as previously discussed.
+*   Seguimiento completo de UTM.
+*   Acceso de escritura para la integración de la API de Meta (Facebook/Instagram).
+*   Filtrar/agrupar leads y clientes por ciudad/país.
+*   Funcionalidad de envío de marketing por correo electrónico (por ejemplo, usando Resend).
+*   Kora Comms - Fase 1 (integración de WhatsApp).
+*   Proponer un asistente/wizard de configuración inicial para nuevos usuarios.
 
 **Completed work in this session**
--   **Bugfix (CRM)**: Fixed missing industry field in lead edit form and non-updating CRM stat counters.
--   **Bugfix (Social Sharing)**: Fixed broken external agency sharing links and non-functional internal collaborator invites.
--   **Feature (Approval Flow)**: Implemented a full approval workflow for social media posts, including a central Approval Queue and automated in-app notifications for status changes (pending, approved, rejected).
--   **Feature (Notes Section)**: Created a new Notes section in Demand Studio with a dedicated page, backend router, and an AI assistant.
--   **Feature (AI Integration)**: Integrated the  library to use the Emergent LLM Key.
--   **Feature (Editable Permissions)**: Added the ability to edit collaborator roles and public link permissions after creation.
--   **Refactor (Sharing Model)**: Performed multiple refactors of the sharing model, culminating in an organization-switcher, which is now being replaced. The Agency Dashboard page was created and deprecated.
+-   **Refactor de seguridad (crítico):** Se ha parcheado un endpoint en  que cambiaba incorrectamente el  de un usuario de forma permanente.
+-   **Refactor de uso compartido centrado en la cuenta:** Se ha refactorizado por completo el módulo de redes sociales para que funcione a nivel de cuenta individual, incluido el selector de frontend y las actualizaciones de todos los endpoints de  (publicaciones, estadísticas, calendario, ideas). El agente de pruebas lo ha validado.
+-   **Feature (Feed de actividad):** Se ha implementado un feed de actividad reciente en la vista general de las redes sociales.
+-   **Feature (Conmutador de empresa global):** Se ha añadido un conmutador global de empresas al Demand Studio y se han actualizado todos los módulos (Campañas, Gastos, Notas, etc.) para filtrar los datos según la empresa seleccionada.
+-   **Feature (UI de permisos granulares):** Se ha creado la interfaz de usuario de frontend () y el endpoint de backend () para configurar permisos granulares al compartir una empresa.
 
 **Earlier issues found/mentioned but not fixed**
--   **Exhausted Emergent LLM Key Budget (P2)**: AI features are non-functional until the user adds funds to their key. This is not a code bug.
--   **Redundant  files (P2, Tech Debt)**: Deprecated files (, ) still exist.
--   **Incomplete Internationalization (P2)**: Hardcoded strings remain in the application.
+-   **Presupuesto de la clave LLM de Emergent agotado (P2):** Las funciones de IA no funcionan hasta que el usuario añada fondos a su clave. Esto no es un error de código.
+-   **Archivos  redundantes (P2, Deuda técnica):** Los archivos obsoletos (, ) todavía existen.
+-   **Internacionalización incompleta (P2):** Siguen existiendo cadenas de texto codificadas en la aplicación.
 
 **Known issue recurrence from previous fork**
--   **Session persistence on refresh (USER VERIFICATION PENDING)**
--   **Lead table columns not showing in production (USER VERIFICATION PENDING)**
+-   None
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Account-Centric Multi-Tenancy**: The upcoming architecture where the primary data boundary for sharing and viewing content is the individual , not the . This requires a fundamental shift in API design and state management.
--   **Dynamic Data Scoping**: Allowing a single user (e.g., an agency) to switch their view context (first by organization, next by account) and have the UI dynamically re-fetch and display the correct, isolated dataset.
--   **Centralized Approval Queue**: A system that aggregates actionable items (pending posts) from multiple sources (different client accounts) into a single, unified UI for an agency user.
+-   **Parche de error de seguridad en producción:** La tarea más crítica es proporcionar una forma para que un usuario en producción corrija los datos corruptos de su propia cuenta causados por un error de seguridad que ya ha sido parcheado en el código.
+-   **Contexto de la organización global vs. local:** La aplicación ahora tiene dos niveles de conmutación de contexto: un conmutador de *empresa* global en la cabecera del Demand Studio que afecta a todos los módulos y un conmutador de *cuenta* local dentro del módulo de redes sociales para un filtrado más detallado.
+-   **Uso compartido basado en roles y permisos granulares:** La arquitectura se está moviendo hacia un modelo en el que los usuarios externos (agencias) solo ven las secciones y los datos específicos que se les han asignado explícitamente, con permisos de nivel de sección (Admin, Editor, Visor).
 
 **key DB schema**
--   **notes (New)**: Stores content for the new Notes section, linked to a user and company.
--   **memberships (Modified)**: Fixed to ensure  is set on creation. Queries were updated to handle legacy data.
--   **posts (Modified)**: Now includes  to track authorship for notifications and a  field for the approval workflow.
+-   **users:** Este es el modelo afectado por el error crítico. El campo  fue mutado incorrectamente. La cuenta del usuario  tiene el  incorrecto en producción.
+-   **memberships:** Se ha modificado para incluir un campo , que es un diccionario que almacena el nivel de acceso (por ejemplo, ) para los colaboradores externos.
 
 **All files of reference**
--   : **The primary frontend file for the upcoming refactor**. It contains the org-switcher logic that must be replaced with an account-switcher.
--   : **The primary backend file for the upcoming refactor**. Its endpoints must be changed from being / centric to  centric.
--   : Contains membership and organization logic that will need to be consulted or adapted for the new account-level permission model.
--   : The UI for sharing, which will need to be updated to manage account-level permissions instead of organization-level ones.
+-   : **El archivo en el que trabajar a continuación.** Hay que completarlo.
+-   : Contiene la lógica de backend que consumirá la página de restauración.
+-   : Contiene el parche de seguridad crítico en el endpoint .
+-   : Contiene la implementación del nuevo conmutador de empresa global.
+-   : El componente heredado que causó el error de seguridad. Debe eliminarse después de que se resuelva el problema de producción.
 
 **Critical Info for New Agent**
--   **Responde en español.**
--   **The sharing model is the absolute priority.** The user has explicitly rejected organization-level sharing. You must implement the new **account-centric** model. This is a major refactor. Do not try to patch the existing org-switcher; it needs to be replaced with an account-switcher.
--   **Core Logic for Refactor:** An agency user should see a dropdown of individual social accounts they can manage. Selecting an account must load that account's entire isolated workspace (its own posts, calendar, ideas, etc.).
--   **Emergent LLM Key Budget is Exhausted:** The AI features will fail with a budget error. Inform the user they need to add funds to their key. This is not a code bug.
--   **Production Bugs Still Pending:** Two critical bugs (session persistence, lead table UI) are still awaiting user verification. Do not assume they are fixed.
+-   **¡RESPONDE EN ESPAÑOL!**
+-   **PRIORIDAD MÁXIMA:** El usuario () está **bloqueado en PRODUCCIÓN**. No puede acceder a los datos de su propio CRM debido a un  corrupto en la base de datos de producción. Tu primera y única tarea es finalizar la herramienta de restauración () para que el usuario pueda solucionar su problema.
+-   **El error está en PRODUCCIÓN, no en la vista previa:** El código en el entorno de vista previa ya tiene el parche. El problema es que los datos del usuario en la base de datos de producción ya están dañados. No pierdas tiempo intentando reproducir el error en la vista previa; céntrate en crear la herramienta de restauración.
+-   **Plan de restauración:**
+    1.  Termina .
+    2.  Añade una ruta para ella en .
+    3.  Instruye al usuario para que despliegue los cambios en producción.
+    4.  Guíale para que vaya a la página de restauración en producción y arregle su cuenta.
 
 **documents and test reports created in this job**
--   Multiple test reports from  are present in .
--   The  file has been updated multiple times to reflect new features and bug fixes.
+-    (validó el refactor del modelo centrado en la cuenta).
+-    se ha actualizado varias veces.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **user**: Requested a refactor of the Agency tab into a more integrated Mías/Compartidas view. (Status: Partially Implemented, but now superseded by new requirements)
-2.  **user**: Approved the refactor and added requests for a Notes section, AI integration, and editable sharing permissions. (Status: Done)
-3.  **user**: Asked for clarification on how AI API keys would work. (Status: Answered)
-4.  **user**: Agreed with the recommendation to use the Emergent LLM Key. (Status: Acknowledged)
-5.  **user**: Prioritized the sharing refactor and Notes section over implementing an AI key-choice UI. (Status: Acknowledged)
-6.  **user**: Specified the remaining tasks: Add Mías/Compartidas tabs to Social Media and allow editing of sharing permissions. (Status: Done)
-7.  **user**: Reported that the implemented sharing refactor changes were not visible or intuitive. (Status: Investigating)
-8.  **user**: Clarified that the UI for switching contexts was not working as expected. (Status: Investigating)
-9.  **user**: Provided a screenshot and a crucial clarification: an agency needs to see the *entire* Social Media module for a shared account, not just a list in settings. (Status: New Requirement Understood)
-10. **user**: Confirmed the new direction after the agent proposed a fully account-centric model. Stated that each account must have its own everything and asked for a logical plan to implement it. (Status: This is the current, active task).
+1.  **user:** Informó de un error crítico: cambió de organización en el conmutador de la barra lateral y ahora ve el CRM de staffdo.com en lugar del suyo.
+2.  **user:** Confirmó que el problema persiste y que no debería depender de las cookies.
+3.  **user:** Compartió una captura de pantalla que muestra claramente que está conectado como  pero ve los datos de la empresa StaffDO SRL.
+4.  **user:** Confirmó que el problema persiste incluso después de usar una ventana de incógnito.
+5.  **user:** Aclaró un punto crucial: en test no, me sale mi text user pero en production me sale todo lo de staffdo (En la prueba no, veo mi usuario de prueba, pero en producción veo todo lo de staffdo). Esto confirmó que el problema está en el entorno de producción.
+6.  **user:** Informó de otro síntoma en producción: los usuarios se ocultaron de la configuración de Staffdo.
+7.  **agent:** Explicó que crearía endpoints de emergencia para que el usuario se recuperara.
+8.  **user:** Envió  después de intentar acceder directamente a los endpoints de emergencia, lo que indica que se necesita una sesión autenticada.
+9.  **agent:** Reconoció el problema de autenticación y declaró que crearía una página de frontend simple para resolverlo.
+10. **agent:** Creó el archivo  justo antes de que terminara la sesión.
 
 **Project Health Check:**
--   **Broken**: The Social Media sharing feature is in a state of flux and does not meet user requirements. The current implementation (organization-switcher) has been rejected by the user in favor of an account-centric model.
--   **Mocked**: The Report a Bug feature still uses a Base64 fallback for file attachments instead of a real upload endpoint.
--   **Blocked**: All AI-powered features are blocked by the exhausted Emergent LLM Key budget, which requires user action to resolve.
+-   **Broken**: **La cuenta de producción del usuario principal está rota.** No puede acceder a ninguno de sus datos de CRM, lo que hace que la aplicación sea inutilizable para él en producción. Este es un bloqueo de nivel P0.
+-   **Mocked**: None.
+-   **Blocked**: El usuario está bloqueado para usar la aplicación en producción.
 
 **3rd Party Integrations**
--   **Zapier / Make**: Existing webhook for lead intake.
--   **Meta (Instagram)**: Multi-tenant OAuth 2.0 flow for read-only access.
--   **Emergent LLM Key**: Integrated via  library for OpenAI/Claude/Gemini access. **The budget for this key is currently exhausted.**
--   **Planned**: Meta (write access), WhatsApp Business API, Resend.
+-   **Zapier / Make**: Webhook para la entrada de leads.
+-   **Meta (Instagram)**: Flujo OAuth 2.0 multitenant para acceso de solo lectura.
+-   **Emergent LLM Key**: Integrado, pero el presupuesto está agotado.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES
+-   **Testing agent used after significant changes**: YES (para el refactor de redes sociales)
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: None in this session.
--   **Known regressions**: None introduced, but two previous production regressions are still pending user verification.
+-   **Test files created**: None.
+-   **Known regressions**: El error de seguridad crítico es una regresión importante introducida por un componente heredado.
 
 **Credentials to test flow:**
 -   **Email:** 
 -   **Password:** 
+    *(Nota: estas credenciales son para el entorno de prueba. El problema real está en la cuenta de producción del usuario )*
 
 **What agent forgot to execute**
--   The deprecated  and  files have not been cleaned up.
--   The  page and its associated backend route are now tech debt after the user rejected that UI model, and should be removed.</analysis>
+-   El agente no terminó de crear la página de frontend de emergencia () que es esencial para resolver el problema de producción del usuario. El flujo de trabajo se interrumpió a mitad de la solución del problema más crítico.</analysis>
