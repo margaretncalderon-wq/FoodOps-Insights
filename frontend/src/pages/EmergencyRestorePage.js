@@ -404,21 +404,82 @@ export default function EmergencyRestorePage() {
                   {searchResults.map((c, idx) => (
                     <div 
                       key={idx}
-                      className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg border border-zinc-700"
+                      className="p-4 bg-zinc-800/50 rounded-lg border border-zinc-700 space-y-3"
                     >
-                      <div>
-                        <p className="font-medium">{c.name}</p>
-                        {c.legal_name && <p className="text-sm text-zinc-500">{c.legal_name}</p>}
-                        <code className="text-xs text-zinc-500">{c.company_id}</code>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-lg">{c.name}</p>
+                          {c.legal_name && <p className="text-sm text-zinc-500">{c.legal_name}</p>}
+                          <code className="text-xs text-zinc-500">{c.company_id}</code>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fetchCompanyUsers(c.company_id)}
+                          >
+                            <Users className="w-4 h-4 mr-1" />
+                            Ver Usuarios
+                          </Button>
+                          <Button
+                            onClick={() => handleForceRestore(c.company_id, c.name)}
+                            disabled={restoring}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            {restoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                            Restaurar Mi Cuenta
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        onClick={() => handleForceRestore(c.company_id, c.name)}
-                        disabled={restoring}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {restoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
-                        Restaurar
-                      </Button>
+                      
+                      {/* Show users inline if this company is selected */}
+                      {companyUsers && companyUsers.company_id === c.company_id && (
+                        <div className="mt-4 p-4 bg-zinc-900 rounded-lg border border-purple-500/50">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <p className="font-medium text-purple-400">Usuarios de {companyUsers.company_name}</p>
+                              <p className="text-sm text-zinc-400">
+                                {companyUsers.total_users} usuarios • {companyUsers.users_needing_fix || 0} necesitan arreglo
+                              </p>
+                            </div>
+                            <Button
+                              onClick={() => handleBulkRestore(c.company_id, c.name)}
+                              disabled={bulkRestoring}
+                              className="bg-purple-600 hover:bg-purple-700"
+                            >
+                              {bulkRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                              Restaurar Todos los Usuarios
+                            </Button>
+                          </div>
+                          
+                          {companyUsers.users.length > 0 ? (
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {companyUsers.users.map((u, uidx) => (
+                                <div 
+                                  key={uidx}
+                                  className={`flex items-center justify-between p-2 rounded text-sm ${
+                                    u.is_pointing_to_this_company 
+                                      ? "bg-green-500/10 border border-green-500/30" 
+                                      : "bg-red-500/10 border border-red-500/30"
+                                  }`}
+                                >
+                                  <div>
+                                    <span className="font-medium">{u.email}</span>
+                                    <span className="text-zinc-500 ml-2">({u.role})</span>
+                                  </div>
+                                  {u.is_pointing_to_this_company ? (
+                                    <Badge className="bg-green-600 text-xs">✓ OK</Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="text-xs">⚠ Incorrecto</Badge>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-zinc-500 text-sm">No se encontraron usuarios con membresía a esta empresa.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

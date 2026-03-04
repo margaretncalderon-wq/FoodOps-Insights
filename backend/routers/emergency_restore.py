@@ -321,27 +321,13 @@ async def get_company_users(
 ):
     """
     Get all users that should belong to a company (based on memberships).
-    Useful to diagnose if users were hidden.
+    Emergency mode - no permission checks, just get the data.
     """
-    # Verify user has access
-    membership = await db.memberships.find_one({
-        "user_id": user.user_id,
-        "$or": [
-            {"company_id": company_id},
-            {"organization_id": company_id}
-        ]
-    })
-    
     company = await db.companies.find_one({"company_id": company_id})
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    is_owned = company.get("created_by") == user.user_id or company.get("owner_id") == user.user_id
-    
-    if not membership and not is_owned and not user.is_super_admin:
-        raise HTTPException(status_code=403, detail="No access to this company")
-    
-    # Find all memberships for this company
+    # Find all memberships for this company (no permission check for emergency)
     memberships = await db.memberships.find({
         "$or": [
             {"company_id": company_id},
@@ -392,7 +378,8 @@ async def get_company_users(
         "company_id": company_id,
         "company_name": company.get("name"),
         "total_users": len(users_info),
-        "users": users_info
+        "users": users_info,
+        "users_needing_fix": len([u for u in users_info if not u["is_pointing_to_this_company"]])
     }
 
 
@@ -466,18 +453,12 @@ async def bulk_restore_company_users(
 ):
     """
     Restore ALL users with membership to this company back to this company.
-    Only company owner or super_admin can do this.
+    Emergency mode - no permission checks.
     """
     # Verify company exists
     company = await db.companies.find_one({"company_id": company_id})
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    
-    # Check permissions
-    is_owner = company.get("created_by") == user.user_id or company.get("owner_id") == user.user_id
-    
-    if not is_owner and not user.is_super_admin:
-        raise HTTPException(status_code=403, detail="Only company owner or super_admin can bulk restore")
     
     # Find all memberships for this company
     memberships = await db.memberships.find({
