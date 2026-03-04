@@ -11,6 +11,7 @@ import { PayrollSection } from "../components/people-ops/PayrollSection";
 import { PayrollPeriodView } from "../components/people-ops/PayrollPeriodView";
 import { PayrollConfigSection } from "../components/people-ops/PayrollConfigSection";
 import { TimeOffSection } from "../components/people-ops/TimeOffSection";
+import { OvertimeSection } from "../components/people-ops/OvertimeSection";
 import { LoansSection } from "../components/people-ops/LoansSection";
 import { OffboardingSection } from "../components/people-ops/OffboardingSection";
 
@@ -88,8 +89,14 @@ export default function PeopleOpsPage() {
     },
     { 
       path: "/people-ops/time-off", 
-      label: isEs ? "Tiempo" : "Time Off", 
+      label: isEs ? "Ausencias" : "Time Off", 
       icon: Calendar,
+      requiresAccess: "payroll"
+    },
+    { 
+      path: "/people-ops/overtime", 
+      label: isEs ? "Hrs Extra" : "Overtime", 
+      icon: Clock,
       requiresAccess: "payroll"
     },
     { 
@@ -199,6 +206,7 @@ export default function PeopleOpsPage() {
           <Route path="payroll/:periodId" element={<PayrollPeriodView />} />
           <Route path="payroll-config" element={<PayrollConfigSection />} />
           <Route path="time-off" element={<TimeOffSection />} />
+          <Route path="overtime" element={<OvertimeSection />} />
           <Route path="loans" element={<LoansSection />} />
           <Route path="offboarding" element={<OffboardingSection />} />
         </Routes>

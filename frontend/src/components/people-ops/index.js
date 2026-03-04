@@ -5,5 +5,6 @@ export { PayrollSection } from './PayrollSection';
 export { PayrollPeriodView } from './PayrollPeriodView';
 export { PayrollConfigSection } from './PayrollConfigSection';
 export { TimeOffSection } from './TimeOffSection';
+export { OvertimeSection } from './OvertimeSection';
 export { LoansSection } from './LoansSection';
 export { OffboardingSection } from './OffboardingSection';
