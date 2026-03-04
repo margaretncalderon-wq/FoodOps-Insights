@@ -16441,6 +16441,60 @@ api_router.include_router(account_sharing_router)  # /api/account-sharing/*
 from routers.activity_feed import activity_feed_router
 api_router.include_router(activity_feed_router)  # /api/activity-feed/*
 
+# User organizations endpoint - Get all organizations user has access to
+@api_router.get("/user/organizations")
+async def get_user_organizations(user: User = Depends(get_current_user)):
+    """
+    Get all organizations the user has access to:
+    - Organizations they own/admin
+    - Organizations shared with them (via memberships)
+    """
+    organizations = []
+    
+    # 1. Get user's own organization
+    if user.company_id:
+        own_company = await db.companies.find_one(
+            {"company_id": user.company_id},
+            {"_id": 0, "company_id": 1, "name": 1, "logo": 1}
+        )
+        if own_company:
+            organizations.append({
+                "org_id": own_company["company_id"],
+                "name": own_company.get("name", "Mi Empresa"),
+                "logo": own_company.get("logo"),
+                "is_own": True,
+                "role": "owner"
+            })
+    
+    # 2. Get organizations shared with user (via memberships)
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "status": "active"
+    }).to_list(100)
+    
+    if memberships:
+        company_ids = [m["company_id"] for m in memberships if m.get("company_id") != user.company_id]
+        if company_ids:
+            shared_companies = await db.companies.find(
+                {"company_id": {"$in": company_ids}},
+                {"_id": 0, "company_id": 1, "name": 1, "logo": 1}
+            ).to_list(100)
+            
+            membership_map = {m["company_id"]: m for m in memberships}
+            
+            for company in shared_companies:
+                membership = membership_map.get(company["company_id"], {})
+                organizations.append({
+                    "org_id": company["company_id"],
+                    "name": company.get("name", "Empresa"),
+                    "logo": company.get("logo"),
+                    "is_own": False,
+                    "role": membership.get("role", "viewer"),
+                    "permissions": membership.get("permissions", {})
+                })
+    
+    return organizations
+
 # Include Notifications router
 from routers.notifications import notifications_router
 api_router.include_router(notifications_router)  # /api/notifications/*

@@ -1118,6 +1118,47 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 - `backend/routers/demand_studio.py` - Agregado log_activity en create, update, patch
 - `frontend/src/pages/demand-studio/SocialMediaPage.js` - Integrado ActivityFeed en Overview
 
+### Session: Mar 04, 2026 - Organization Selector in Demand Studio ✅
+
+#### Feature: Selector de Empresa Global en Demand Studio
+
+**Requerimiento**: El usuario necesita poder ver y cambiar entre múltiples empresas (propias y compartidas) desde el Demand Studio.
+
+**Solución Implementada**: Selector de empresa en el header del Demand Studio que permite cambiar el contexto de toda la aplicación.
+
+**Backend - Nuevo Endpoint:**
+- `GET /api/user/organizations` - Devuelve todas las organizaciones del usuario:
+  - Empresas propias (is_own: true, role: "owner")
+  - Empresas compartidas (is_own: false, role: "editor"/"viewer")
+
+**Frontend - DemandStudioPage.js:**
+- Selector dropdown en el header "Viewing: [Empresa]"
+- Secciones separadas: "My Companies" y "Shared With Me"
+- Badges de rol (Editor, Admin, View)
+- Persistencia en localStorage
+- Pasa contexto de org a todos los módulos hijos via Outlet
+
+**Modelo de Permisos Confirmado:**
+- Dueño/Admin → Ve TODO de su empresa
+- Colaborador Externo → Ve solo lo que le configuraron (por sección)
+- Permisos por sección: Admin / Editor / Viewer
+- Secciones configurables: Social Media, Campañas, Spend Ledger, Email Marketing, Notas
+
+**Files Created:**
+- `frontend/src/contexts/OrganizationContext.js` - Contexto global (para uso futuro)
+
+**Files Modified:**
+- `backend/server.py` - Endpoint /api/user/organizations
+- `frontend/src/pages/demand-studio/DemandStudioPage.js` - Selector de empresa
+
+**Testing**: ✅ Endpoint y UI verificados funcionando
+
+**Pendiente (Fase 2):**
+- UI de configuración granular de permisos al compartir empresa
+- Backend para guardar permisos por sección
+- Validación de permisos en cada módulo
+- Optimización: usar contexto en vez de reload al cambiar empresa
+
 ## Prioritized Backlog
 
 ### P0 (Critical - Next Session)
