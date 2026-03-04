@@ -10651,24 +10651,34 @@ async def get_my_organizations(user: User = Depends(get_current_user)):
 
 @org_router.post("/switch/{company_id}")
 async def switch_organization(company_id: str, user: User = Depends(get_current_user)):
-    """Switch user's active organization"""
+    """Switch user's active organization view (read-only for non-owned orgs)"""
     # Check user has access to this org
     membership = await get_user_membership(user.user_id, company_id)
     
-    # Also check if it's the user's legacy company
+    # Also check if it's the user's own company
     user_data = await db.users.find_one({"user_id": user.user_id})
-    is_legacy_company = user_data and user_data.get("company_id") == company_id
+    own_company_id = user_data.get("company_id") if user_data else None
+    is_own_company = own_company_id == company_id
     
-    if not membership and not is_legacy_company:
+    if not membership and not is_own_company:
         raise HTTPException(status_code=403, detail="No access to this organization")
     
-    # Update user's active org
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {"company_id": company_id, "active_org_id": company_id}}
-    )
+    # SECURITY: Never change the user's own company_id
+    # Only update active_org_id for viewing purposes
+    if is_own_company:
+        # Switching back to own org - clear any view_as settings
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$set": {"active_org_id": company_id}, "$unset": {"view_as_org_id": ""}}
+        )
+    else:
+        # Viewing another org - set view_as but keep own company_id intact
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$set": {"active_org_id": company_id, "view_as_org_id": company_id}}
+        )
     
-    return {"success": True, "company_id": company_id}
+    return {"success": True, "active_org_id": company_id, "is_own": is_own_company}
 
 # ============== AGENCY DASHBOARD ENDPOINTS ==============
 
