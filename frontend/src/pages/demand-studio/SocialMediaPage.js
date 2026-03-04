@@ -208,9 +208,13 @@ export default function SocialMediaPage() {
 
   // Refetch data when org changes from parent context
   useEffect(() => {
-    if (selectedOrgId !== undefined) {
+    if (selectedOrgId) {
       setLoading(true);
-      fetchData(isOwnOrg ? null : selectedOrgId, null);
+      fetchData(isOwnOrg ? null : selectedOrgId, selectedAccountId);
+    } else if (selectedOrgId === null && isOwnOrg) {
+      // Own org selected
+      setLoading(true);
+      fetchData(null, selectedAccountId);
     }
   }, [selectedOrgId, isOwnOrg]);
 

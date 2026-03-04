@@ -38,13 +38,13 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
     """
     Returns the company_id to use for queries.
     If org_id is provided, verifies user has access to that org.
-    Returns: (company_id, role, permissions)
+    Returns: (company_id, role) - backwards compatible
     """
     own_company_id = user.company_id or user.active_org_id
     
     if not org_id or org_id == own_company_id:
         # User's own company - full access
-        return own_company_id, "owner", None
+        return own_company_id, "owner"
     
     # Check if user has membership access to the requested org
     membership = await db.memberships.find_one({
@@ -58,7 +58,7 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
     if not membership:
         raise HTTPException(status_code=403, detail="No access to this organization")
     
-    return org_id, membership.get("role", "viewer"), membership.get("permissions", {})
+    return org_id, membership.get("role", "viewer")
 
 
 async def check_section_permission(
@@ -2115,9 +2115,10 @@ async def get_social_posts(
 ):
     """Get social posts with filters"""
     try:
-        company_id, user_role = await get_effective_company_id(user, org_id)
+        company_id, can_write = await check_section_permission(user, org_id, "social_media", "viewer")
     except HTTPException:
         company_id = user.company_id or user.active_org_id
+        can_write = True
         
     if not company_id:
         return []
