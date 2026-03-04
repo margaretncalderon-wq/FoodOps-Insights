@@ -16512,6 +16512,10 @@ api_router.include_router(notifications_router)  # /api/notifications/*
 from routers.brand_hub import brand_hub_router
 api_router.include_router(brand_hub_router)  # /api/brand-hub/*
 
+# Include Settings router
+from routers.settings import settings_router
+api_router.include_router(settings_router)  # /api/settings/*
+
 # General file upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):

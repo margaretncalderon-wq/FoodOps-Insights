@@ -1060,6 +1060,10 @@ export default function SettingsPage() {
               <Building2 className="w-4 h-4" />
               Cost Centers
             </TabsTrigger>
+            <TabsTrigger value="variable-pay" className="gap-2">
+              <DollarSign className="w-4 h-4" />
+              {language === "es" ? "Pagos Variables" : "Variable Pay"}
+            </TabsTrigger>
             <TabsTrigger value="data-admin" className="gap-2 text-red-600">
               <Trash2 className="w-4 h-4" />
               {language === "es" ? "Admin Datos" : "Data Admin"}
@@ -3873,6 +3877,11 @@ Mantel Blanco, , 10, 3`}
             <CostCentersSection />
           </TabsContent>
 
+          {/* Variable Pay Tab */}
+          <TabsContent value="variable-pay">
+            <VariablePaySection language={language} />
+          </TabsContent>
+
           {/* Data Admin Tab */}
           <TabsContent value="data-admin">
             <DataAdminSection language={language} />
@@ -3880,6 +3889,384 @@ Mantel Blanco, , 10, 3`}
         </Tabs>
       </div>
     </Layout>
+  );
+}
+
+// Variable Pay Section Component
+function VariablePaySection({ language }) {
+  const isEs = language === "es";
+  const [config, setConfig] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const fetchConfig = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/settings/variable-pay-config`, { withCredentials: true });
+      setConfig(res.data);
+    } catch (err) {
+      // Initialize with defaults if not found
+      setConfig({
+        overtime_payment_type: "separate",  // "with_payroll" or "separate"
+        overtime_payment_day: 5,
+        commission_payment_type: "separate",
+        commission_payment_day: 10,
+        bonus_payment_type: "separate",
+        bonus_payment_day: 5,
+        incentive_payment_type: "separate",
+        incentive_payment_day: 5,
+        separate_payment_frequency: "monthly",  // "monthly", "biweekly"
+        require_approval: true,
+        auto_include_approved: false
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleChange = (field, value) => {
+    setConfig({ ...config, [field]: value });
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await axios.post(`${API}/api/settings/variable-pay-config`, config, { withCredentials: true });
+      setHasChanges(false);
+      toast.success(isEs ? "Configuración guardada" : "Configuration saved");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error saving configuration");
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <DollarSign className="w-5 h-5" />
+            {isEs ? "Configuración de Pagos Variables" : "Variable Pay Configuration"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {isEs 
+              ? "Define cuándo y cómo se pagan horas extras, comisiones, bonos e incentivos" 
+              : "Define when and how overtime, commissions, bonuses and incentives are paid"}
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={!hasChanges || saving}>
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+          {isEs ? "Guardar" : "Save"}
+        </Button>
+      </div>
+
+      {/* Info Banner */}
+      <div className="p-4 rounded-lg border border-blue-200 bg-blue-50">
+        <p className="text-sm text-blue-800">
+          <strong>{isEs ? "Nota:" : "Note:"}</strong>{" "}
+          {isEs 
+            ? "Los pagos variables (horas extras, comisiones, bonos) pueden pagarse junto con la nómina regular o en fechas separadas. Configura según las políticas de tu empresa." 
+            : "Variable payments (overtime, commissions, bonuses) can be paid with regular payroll or on separate dates. Configure according to your company policies."}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Overtime Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              {isEs ? "Horas Extras" : "Overtime"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>{isEs ? "Tipo de Pago" : "Payment Type"}</Label>
+              <Select 
+                value={config?.overtime_payment_type || "separate"} 
+                onValueChange={(v) => handleChange("overtime_payment_type", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="with_payroll">
+                    {isEs ? "Junto con la nómina regular" : "With regular payroll"}
+                  </SelectItem>
+                  <SelectItem value="separate">
+                    {isEs ? "Pago separado" : "Separate payment"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {config?.overtime_payment_type === "separate" && (
+              <div>
+                <Label>{isEs ? "Día de Pago" : "Payment Day"}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="28"
+                  value={config?.overtime_payment_day || 5}
+                  onChange={(e) => handleChange("overtime_payment_day", parseInt(e.target.value) || 5)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Día del mes para pagar horas extras" : "Day of month to pay overtime"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Commission Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Percent className="w-4 h-4" />
+              {isEs ? "Comisiones" : "Commissions"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>{isEs ? "Tipo de Pago" : "Payment Type"}</Label>
+              <Select 
+                value={config?.commission_payment_type || "separate"} 
+                onValueChange={(v) => handleChange("commission_payment_type", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="with_payroll">
+                    {isEs ? "Junto con la nómina regular" : "With regular payroll"}
+                  </SelectItem>
+                  <SelectItem value="separate">
+                    {isEs ? "Pago separado" : "Separate payment"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {config?.commission_payment_type === "separate" && (
+              <div>
+                <Label>{isEs ? "Día de Pago" : "Payment Day"}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="28"
+                  value={config?.commission_payment_day || 10}
+                  onChange={(e) => handleChange("commission_payment_day", parseInt(e.target.value) || 10)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Día del mes para pagar comisiones" : "Day of month to pay commissions"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bonus Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              {isEs ? "Bonos" : "Bonuses"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>{isEs ? "Tipo de Pago" : "Payment Type"}</Label>
+              <Select 
+                value={config?.bonus_payment_type || "separate"} 
+                onValueChange={(v) => handleChange("bonus_payment_type", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="with_payroll">
+                    {isEs ? "Junto con la nómina regular" : "With regular payroll"}
+                  </SelectItem>
+                  <SelectItem value="separate">
+                    {isEs ? "Pago separado" : "Separate payment"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {config?.bonus_payment_type === "separate" && (
+              <div>
+                <Label>{isEs ? "Día de Pago" : "Payment Day"}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="28"
+                  value={config?.bonus_payment_day || 5}
+                  onChange={(e) => handleChange("bonus_payment_day", parseInt(e.target.value) || 5)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Día del mes para pagar bonos" : "Day of month to pay bonuses"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Incentives Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              {isEs ? "Incentivos" : "Incentives"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>{isEs ? "Tipo de Pago" : "Payment Type"}</Label>
+              <Select 
+                value={config?.incentive_payment_type || "separate"} 
+                onValueChange={(v) => handleChange("incentive_payment_type", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="with_payroll">
+                    {isEs ? "Junto con la nómina regular" : "With regular payroll"}
+                  </SelectItem>
+                  <SelectItem value="separate">
+                    {isEs ? "Pago separado" : "Separate payment"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {config?.incentive_payment_type === "separate" && (
+              <div>
+                <Label>{isEs ? "Día de Pago" : "Payment Day"}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="28"
+                  value={config?.incentive_payment_day || 5}
+                  onChange={(e) => handleChange("incentive_payment_day", parseInt(e.target.value) || 5)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Día del mes para pagar incentivos" : "Day of month to pay incentives"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* General Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {isEs ? "Configuración General" : "General Settings"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>{isEs ? "Requiere Aprobación" : "Require Approval"}</Label>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? "Las horas extras, comisiones y bonos deben ser aprobados antes de procesarse" 
+                  : "Overtime, commissions and bonuses must be approved before processing"}
+              </p>
+            </div>
+            <Switch
+              checked={config?.require_approval !== false}
+              onCheckedChange={(v) => handleChange("require_approval", v)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>{isEs ? "Frecuencia de Pagos Separados" : "Separate Payment Frequency"}</Label>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? "Con qué frecuencia se procesan los pagos variables separados" 
+                  : "How often separate variable payments are processed"}
+              </p>
+            </div>
+            <Select 
+              value={config?.separate_payment_frequency || "monthly"} 
+              onValueChange={(v) => handleChange("separate_payment_frequency", v)}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary */}
+      <Card className="border-violet-200 bg-violet-50/30">
+        <CardHeader>
+          <CardTitle className="text-base text-violet-700">
+            {isEs ? "Resumen de Fechas de Pago" : "Payment Dates Summary"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">{isEs ? "Horas Extras" : "Overtime"}</p>
+              <p className="font-medium">
+                {config?.overtime_payment_type === "with_payroll" 
+                  ? (isEs ? "Con nómina" : "With payroll")
+                  : (isEs ? `Día ${config?.overtime_payment_day}` : `Day ${config?.overtime_payment_day}`)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">{isEs ? "Comisiones" : "Commissions"}</p>
+              <p className="font-medium">
+                {config?.commission_payment_type === "with_payroll" 
+                  ? (isEs ? "Con nómina" : "With payroll")
+                  : (isEs ? `Día ${config?.commission_payment_day}` : `Day ${config?.commission_payment_day}`)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">{isEs ? "Bonos" : "Bonuses"}</p>
+              <p className="font-medium">
+                {config?.bonus_payment_type === "with_payroll" 
+                  ? (isEs ? "Con nómina" : "With payroll")
+                  : (isEs ? `Día ${config?.bonus_payment_day}` : `Day ${config?.bonus_payment_day}`)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">{isEs ? "Incentivos" : "Incentives"}</p>
+              <p className="font-medium">
+                {config?.incentive_payment_type === "with_payroll" 
+                  ? (isEs ? "Con nómina" : "With payroll")
+                  : (isEs ? `Día ${config?.incentive_payment_day}` : `Day ${config?.incentive_payment_day}`)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
