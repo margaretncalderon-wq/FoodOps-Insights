@@ -207,6 +207,8 @@ class ClientCreate(BaseModel):
     description: Optional[str] = None  # Description of what they do
     social_linkedin: Optional[str] = None  # LinkedIn profile/company page
     social_instagram: Optional[str] = None  # Instagram handle
+    # Internal cost center flag
+    is_internal_cost_center: bool = False  # True for internal marketing/cost center "client"
 
 
 class Client(BaseModel):
@@ -239,6 +241,8 @@ class Client(BaseModel):
     description: Optional[str] = None  # Description of what they do
     social_linkedin: Optional[str] = None  # LinkedIn profile/company page
     social_instagram: Optional[str] = None  # Instagram handle
+    # Internal cost center flag
+    is_internal_cost_center: bool = False  # True for internal marketing/cost center "client"
     created_at: datetime
     updated_at: datetime
     # CRM Enhancement fields (additive)

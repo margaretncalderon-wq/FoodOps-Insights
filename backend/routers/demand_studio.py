@@ -1203,6 +1203,175 @@ async def get_linked_activation_for_event(
     return activation
 
 
+
+# ---- Internal Cost Center / Quick Event Creation ----
+
+class QuickEventCreate(BaseModel):
+    """Model for creating a quick internal event from an Activation"""
+    name: str
+    event_date: Optional[str] = None
+    budget: float = 0.0
+    notes: Optional[str] = None
+
+
+@demand_studio_router.get("/internal-cost-center")
+async def get_or_create_internal_cost_center(user: User = Depends(get_current_user)):
+    """Get or create the internal cost center 'client' for this organization"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Try to find existing internal cost center
+    cost_center = await db.clients.find_one({
+        "company_id": company_id,
+        "is_internal_cost_center": True
+    }, {"_id": 0})
+    
+    if cost_center:
+        return cost_center
+    
+    # Create new internal cost center
+    now = datetime.now(timezone.utc)
+    client_id = f"client_{uuid.uuid4().hex[:12]}"
+    
+    # Get organization name for display
+    org = await db.organizations.find_one({"org_id": company_id}, {"_id": 0, "name": 1})
+    org_name = org.get("name", "My Company") if org else "My Company"
+    
+    cost_center_doc = {
+        "client_id": client_id,
+        "company_id": company_id,
+        "client_type": "Company",
+        "display_name": f"Marketing Interno - {org_name}",
+        "is_internal_cost_center": True,
+        "source": "Internal",
+        "tags": ["cost-center", "internal"],
+        "notes": "Cliente interno para eventos y activaciones de marketing propio",
+        "status": "Active",
+        "total_revenue": 0.0,
+        "events_count": 0,
+        "has_credit": False,
+        "credit_limit": 0.0,
+        "credit_used": 0.0,
+        "payment_terms": "immediate",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.clients.insert_one(cost_center_doc)
+    del cost_center_doc["_id"]
+    
+    return cost_center_doc
+
+
+@demand_studio_router.post("/activations/{activation_id}/create-internal-event")
+async def create_internal_event_for_activation(
+    activation_id: str,
+    data: QuickEventCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a quick internal event and link it to this activation"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Verify activation exists
+    activation = await db.marketing_activations.find_one({
+        "activation_id": activation_id,
+        "company_id": company_id
+    })
+    if not activation:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    
+    # Get or create internal cost center
+    cost_center = await db.clients.find_one({
+        "company_id": company_id,
+        "is_internal_cost_center": True
+    }, {"_id": 0, "client_id": 1, "display_name": 1})
+    
+    if not cost_center:
+        # Create it
+        now = datetime.now(timezone.utc)
+        client_id = f"client_{uuid.uuid4().hex[:12]}"
+        org = await db.organizations.find_one({"org_id": company_id}, {"_id": 0, "name": 1})
+        org_name = org.get("name", "My Company") if org else "My Company"
+        
+        cost_center = {
+            "client_id": client_id,
+            "company_id": company_id,
+            "client_type": "Company",
+            "display_name": f"Marketing Interno - {org_name}",
+            "is_internal_cost_center": True,
+            "source": "Internal",
+            "tags": ["cost-center", "internal"],
+            "notes": "Cliente interno para eventos y activaciones de marketing propio",
+            "status": "Active",
+            "total_revenue": 0.0,
+            "events_count": 0,
+            "has_credit": False,
+            "credit_limit": 0.0,
+            "credit_used": 0.0,
+            "payment_terms": "immediate",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.clients.insert_one(cost_center)
+    
+    # Create the internal event
+    now = datetime.now(timezone.utc)
+    event_id = f"event_{uuid.uuid4().hex[:12]}"
+    
+    event_doc = {
+        "event_id": event_id,
+        "company_id": company_id,
+        "client_id": cost_center["client_id"],
+        "name": data.name,
+        "event_type": "marketing",
+        "engagement_type": "event",
+        "event_date": data.event_date,
+        "event_date_tbd": not bool(data.event_date),
+        "venue": None,
+        "guest_count": 0,
+        "budget": data.budget,
+        "notes": data.notes or f"Evento creado desde Activation: {activation.get('name', '')}",
+        "status": "planning",
+        "stage": "Committed",  # Internal events are auto-committed
+        "source": "Demand Studio",
+        "is_internal_event": True,
+        # Link to activation
+        "linked_activation_id": activation_id,
+        "linked_activation_name": activation.get("name"),
+        "marketing_budget": activation.get("budget", 0),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.events.insert_one(event_doc)
+    
+    # Update the cost center's event count
+    await db.clients.update_one(
+        {"client_id": cost_center["client_id"]},
+        {"$inc": {"events_count": 1}}
+    )
+    
+    # Update the activation with the link
+    await db.marketing_activations.update_one(
+        {"activation_id": activation_id},
+        {"$set": {
+            "linked_event_id": event_id,
+            "linked_event_name": data.name,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Return the created event with client info
+    del event_doc["_id"]
+    event_doc["client_name"] = cost_center.get("display_name")
+    event_doc["is_confirmed"] = True  # Committed = confirmed
+    
+    return event_doc
+
+
 # ---- Email Tracking CRUD ----
 
 @demand_studio_router.get("/emails")

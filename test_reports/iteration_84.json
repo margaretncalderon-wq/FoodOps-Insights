@@ -1,0 +1,107 @@
+{
+  "summary": "Tested Internal Cost Center / Create Internal Event functionality. Backend: 11/11 tests passed (100%). Frontend: All features verified - Create Internal Event button, form with pre-filled data, internal events appearing in Event Orchestration with Committed badge, and Linked Marketing Activation banner.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_verified": {
+    "create_internal_event_button": {
+      "status": "WORKING",
+      "details": "Button 'Create Internal Event (Cost Center)' appears in Link to Event dialog with description 'For internal marketing activations without external client'"
+    },
+    "create_internal_event_form": {
+      "status": "WORKING",
+      "details": "Form shows: Event Name (pre-filled from activation), Date, Budget (pre-filled), Notes. Cost Center info banner displays 'This event will be created as internal marketing investment'"
+    },
+    "form_prefill": {
+      "status": "WORKING",
+      "details": "Form correctly pre-fills Event Name from activation.name and Budget from activation.budget"
+    },
+    "internal_event_stage_committed": {
+      "status": "WORKING",
+      "details": "Created internal events automatically get stage='Committed' and appear immediately in Event Orchestration"
+    },
+    "internal_cost_center_client": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/internal-cost-center creates/returns client 'Marketing Interno - {Org Name}' with is_internal_cost_center=true"
+    },
+    "internal_events_in_orchestration": {
+      "status": "WORKING",
+      "details": "Internal events display in Event Orchestration with 'Committed' badge and client 'Marketing Interno - My Company'"
+    },
+    "linked_activation_banner": {
+      "status": "WORKING",
+      "details": "Event Orchestration shows 'Linked Marketing Activation' banner with activation name (xtz), Marketing Budget ($10,000), and 'View Activation' button"
+    },
+    "event_activation_bidirectional_link": {
+      "status": "WORKING",
+      "details": "Created internal events are automatically linked to their source activation, and activation shows 'Linked Event' section"
+    },
+    "backend_create_internal_event_endpoint": {
+      "status": "WORKING",
+      "details": "POST /api/demand-studio/activations/{id}/create-internal-event creates event with is_internal_event=true, stage='Committed', and links bidirectionally"
+    },
+    "backend_internal_cost_center_endpoint": {
+      "status": "WORKING",
+      "details": "GET /api/demand-studio/internal-cost-center is idempotent - returns same client on multiple calls"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_internal_cost_center.py",
+    "/app/test_reports/pytest/pytest_internal_cost_center.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_internal_cost_center.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% - All features verified"
+  },
+
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+
+  "seed_data_used": {
+    "existing_internal_event": {
+      "name": "Lanzamiento Q1 - Marketing Interno",
+      "client": "Marketing Interno - My Company",
+      "stage": "Committed",
+      "date": "4/15/2026",
+      "linked_activation": "xtz"
+    },
+    "existing_activation_xtz": {
+      "name": "xtz",
+      "type": "Event",
+      "status": "Active",
+      "budget": "$10,000.00",
+      "campaign": "Test Tracking Campaign",
+      "linked_event": "Lanzamiento Q1 - Marketing Interno"
+    },
+    "test_created_data": {
+      "activation": "TEST_CreateInternal_46210",
+      "internal_event": "UI_Test_Internal_Event_46214"
+    }
+  },
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Internal Cost Center / Create Internal Event feature fully functional. Key implementation details: 1) GET /api/demand-studio/internal-cost-center creates/returns 'Marketing Interno - {Org Name}' client with is_internal_cost_center=true. 2) POST /api/demand-studio/activations/{id}/create-internal-event creates event with stage='Committed' (appears in Event Orchestration immediately), is_internal_event=true, and links to activation bidirectionally. 3) Event Orchestration EventDetail component shows 'Linked Marketing Activation' banner when event has linked_activation_id. 4) Internal events client displays as 'Marketing Interno - My Company' in orchestration list. 5) Create Internal Event form pre-fills name and budget from source activation. 6) All TEST_* prefixed data was created for testing but should be cleaned up if needed."
+}

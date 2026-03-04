@@ -75,6 +75,16 @@ export default function ActivationsPage() {
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
   const [loadingEventDetails, setLoadingEventDetails] = useState(false);
   
+  // Create Internal Event
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [newEventData, setNewEventData] = useState({
+    name: "",
+    event_date: "",
+    budget: 0,
+    notes: ""
+  });
+  
   const [formData, setFormData] = useState({
     name: "",
     activation_type: "event",
@@ -140,6 +150,8 @@ export default function ActivationsPage() {
     setSelectedActivationForLink(activation);
     setLinkDialogOpen(true);
     setLoadingEvents(true);
+    setShowCreateEvent(false); // Reset create mode
+    setNewEventData({ name: "", event_date: "", budget: 0, notes: "" });
     
     try {
       const res = await axios.get(
@@ -189,6 +201,37 @@ export default function ActivationsPage() {
       fetchData();
     } catch (error) {
       console.error("Error unlinking event:", error);
+    }
+  };
+
+  // Create Internal Event
+  const handleCreateInternalEvent = async () => {
+    if (!selectedActivationForLink || !newEventData.name) return;
+    setCreatingEvent(true);
+    
+    try {
+      await axios.post(
+        `${API}/api/demand-studio/activations/${selectedActivationForLink.activation_id}/create-internal-event`,
+        {
+          name: newEventData.name,
+          event_date: newEventData.event_date || null,
+          budget: newEventData.budget || 0,
+          notes: newEventData.notes || ""
+        },
+        { withCredentials: true }
+      );
+      
+      // Reset and close
+      setNewEventData({ name: "", event_date: "", budget: 0, notes: "" });
+      setShowCreateEvent(false);
+      setLinkDialogOpen(false);
+      setSelectedActivationForLink(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error creating internal event:", error);
+      alert(isEs ? "Error al crear evento interno" : "Error creating internal event");
+    } finally {
+      setCreatingEvent(false);
     }
   };
 
@@ -435,66 +478,171 @@ export default function ActivationsPage() {
             </p>
           )}
 
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {loadingEvents ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : linkableEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                {isEs ? "No hay eventos disponibles para vincular" : "No events available to link"}
-              </p>
-            ) : (
-              linkableEvents.map(event => (
-                <div 
-                  key={event.event_id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    event.is_currently_linked 
-                      ? "bg-primary/10 border-primary" 
-                      : "hover:bg-muted/50"
-                  }`}
-                  onClick={() => !linking && handleLinkEvent(event.event_id)}
-                  data-testid={`linkable-event-${event.event_id}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{event.name}</p>
-                        {event.is_confirmed ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 text-xs">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            {isEs ? "Confirmado" : "Confirmed"}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {isEs ? "En proceso" : "In Progress"}
+          {/* Toggle between link existing or create new */}
+          {!showCreateEvent ? (
+            <>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {loadingEvents ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : linkableEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    {isEs ? "No hay eventos disponibles para vincular" : "No events available to link"}
+                  </p>
+                ) : (
+                  linkableEvents.map(event => (
+                    <div 
+                      key={event.event_id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        event.is_currently_linked 
+                          ? "bg-primary/10 border-primary" 
+                          : "hover:bg-muted/50"
+                      }`}
+                      onClick={() => !linking && handleLinkEvent(event.event_id)}
+                      data-testid={`linkable-event-${event.event_id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{event.name}</p>
+                            {event.is_confirmed ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {isEs ? "Confirmado" : "Confirmed"}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {isEs ? "En proceso" : "In Progress"}
+                              </Badge>
+                            )}
+                          </div>
+                          {event.client_name && (
+                            <p className="text-xs text-muted-foreground">{event.client_name}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatEventDate(event.event_date)}
+                            {event.venue && ` • ${event.venue}`}
+                          </p>
+                        </div>
+                        {event.is_currently_linked && (
+                          <Badge variant="outline" className="text-xs ml-2">
+                            {isEs ? "Actual" : "Current"}
                           </Badge>
                         )}
                       </div>
-                      {event.client_name && (
-                        <p className="text-xs text-muted-foreground">{event.client_name}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatEventDate(event.event_date)}
-                        {event.venue && ` • ${event.venue}`}
-                      </p>
                     </div>
-                    {event.is_currently_linked && (
-                      <Badge variant="outline" className="text-xs ml-2">
-                        {isEs ? "Actual" : "Current"}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                  ))
+                )}
+              </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
-              {isEs ? "Cancelar" : "Cancel"}
-            </Button>
+              {/* Create Internal Event Button */}
+              <div className="pt-3 border-t">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    setNewEventData({
+                      name: selectedActivationForLink?.name || "",
+                      event_date: selectedActivationForLink?.start_date || "",
+                      budget: selectedActivationForLink?.budget || 0,
+                      notes: ""
+                    });
+                    setShowCreateEvent(true);
+                  }}
+                  data-testid="create-internal-event-btn"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isEs ? "Crear Evento Interno (Cost Center)" : "Create Internal Event (Cost Center)"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  {isEs 
+                    ? "Para activaciones de marketing propio sin cliente externo" 
+                    : "For internal marketing activations without external client"}
+                </p>
+              </div>
+            </>
+          ) : (
+            /* Create Internal Event Form */
+            <div className="space-y-4">
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  <strong>{isEs ? "Cost Center:" : "Cost Center:"}</strong>{" "}
+                  {isEs 
+                    ? "Este evento se creará como inversión interna de marketing" 
+                    : "This event will be created as internal marketing investment"}
+                </p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Nombre del Evento" : "Event Name"} *</label>
+                <Input
+                  value={newEventData.name}
+                  onChange={(e) => setNewEventData({ ...newEventData, name: e.target.value })}
+                  placeholder={isEs ? "Ej: Lanzamiento Campaña Q1" : "E.g.: Q1 Campaign Launch"}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Fecha" : "Date"}</label>
+                  <Input
+                    type="date"
+                    value={newEventData.event_date}
+                    onChange={(e) => setNewEventData({ ...newEventData, event_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Presupuesto" : "Budget"}</label>
+                  <Input
+                    type="number"
+                    value={newEventData.budget}
+                    onChange={(e) => setNewEventData({ ...newEventData, budget: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    step="100"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
+                <Input
+                  value={newEventData.notes}
+                  onChange={(e) => setNewEventData({ ...newEventData, notes: e.target.value })}
+                  placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            {showCreateEvent ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowCreateEvent(false)}
+                  disabled={creatingEvent}
+                >
+                  {isEs ? "Volver" : "Back"}
+                </Button>
+                <Button 
+                  onClick={handleCreateInternalEvent}
+                  disabled={!newEventData.name || creatingEvent}
+                >
+                  {creatingEvent ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4 mr-2" />
+                  )}
+                  {isEs ? "Crear y Vincular" : "Create & Link"}
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+                {isEs ? "Cancelar" : "Cancel"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
