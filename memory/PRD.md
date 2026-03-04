@@ -6,73 +6,85 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - Orquestación de eventos/proyectos (Event Orchestration)  
 - Generación de demanda y marketing (Demand Studio)
 - Claridad empresarial y análisis (Business Clarity)
+- **Gestión de RRHH y Nómina (People Ops)** - NUEVO
 
 ## User Personas
 - **Agencias de Marketing/Eventos**: Usuarios principales que gestionan múltiples clientes y proyectos
 - **Colaboradores**: Miembros de equipo con acceso limitado a ciertas organizaciones
 - **Super Admins**: Administradores con acceso a herramientas de gestión avanzadas
+- **HR Admins**: Personal de RRHH con acceso a gestión de empleados y nómina
 
 ## Core Requirements
 1. Sistema multi-organización con selector de empresa
 2. Permisos granulares por sección (campañas, social media, etc.)
 3. Filtrado de datos por organización seleccionada
 4. Vinculación bidireccional entre módulos
+5. **Sistema de nómina completo con cálculos legales de RD**
 
 ---
 
 ## What's Been Implemented
 
-### Session: March 4, 2026
+### Session: March 4, 2026 (Continued)
 
-#### P0 - Producción (RESUELTO)
-- **Herramienta de Restauración de Emergencia**: Creada y usada exitosamente para reparar `company_id` y membresías corruptas
-- **Eliminación de OrgSwitcher**: Componente defectuoso eliminado completamente para prevenir recurrencia del bug
+#### P0 - Módulo de Nómina (Payroll) - COMPLETADO
+- **Frontend Payroll Dashboard** (`PayrollSection.js`):
+  - Vista de historial de nóminas con tabla paginada
+  - Tarjetas de resumen (Período Activo, Nóminas del Año, Pagado, Frecuencia)
+  - Diálogo de creación de nuevo período con auto-llenado de fechas
+  - Navegación a detalle de período
+  
+- **Frontend Period Detail View** (`PayrollPeriodView.js`):
+  - Tabla detallada de empleados con columnas: Salario Base, Horas Extra, Bonos, Bruto, AFP, ARS, ISR, Neto
+  - Edición inline de horas extra, bonos y deducciones
+  - Flujo de workflow: Borrador → Enviar a Aprobación → Aprobar → Procesar
+  - Vista e impresión de recibo de pago (Payslip)
+  - Descarga de archivo bancario (CSV)
+  
+- **Frontend Payroll Config** (`PayrollConfigSection.js`):
+  - Configuración de frecuencia de pago (quincenal/mensual)
+  - Tasas de AFP (2.87% empleado, 7.10% empleador)
+  - Tasas de ARS (3.04% empleado, 7.09% empleador)
+  - SRL (1.20%) e INFOTEP (1.0%)
+  - Escala ISR 2024 de República Dominicana
+  - Tasas de horas extras (35% y 100%)
+  - Configuración de Regalía Pascual
 
-#### P1 - Funcionalidades Core
-- **Filtrado por Organización**: Todos los módulos de Demand Studio (Campañas, Estadísticas, Gastos, Activaciones, Notas) y Social Media respetan el selector de organización global
-- **Permisos Granulares**: Backend y frontend implementados para soportar permisos por sección (ej. `campaigns: "viewer"`)
+- **Backend (ya existente)** (`people_ops.py` lines 642-1319):
+  - `GET /api/people-ops/payroll/config` - Configuración de nómina
+  - `POST /api/people-ops/payroll/config` - Guardar configuración
+  - `GET/POST /api/people-ops/payroll/periods` - CRUD de períodos
+  - `PUT /api/people-ops/payroll/entries/{id}` - Editar entradas con recálculo automático
+  - `POST /api/people-ops/payroll/periods/{id}/submit|approve|process|revert` - Workflow
+  - `GET /api/people-ops/payroll/entries/{id}/payslip` - Datos de recibo
+  - `GET /api/people-ops/payroll/periods/{id}/bank-file` - Archivo bancario CSV
 
-#### P1 - Vinculación Activation-Event (COMPLETADO)
-- **Backend Endpoints**:
-  - `GET /api/demand-studio/activations/{id}/linkable-events` - Lista eventos con estado de confirmación
-  - `GET /api/demand-studio/activations/{id}/linked-event-details` - Detalles completos del evento vinculado
-  - `GET /api/demand-studio/events/{eventId}/linked-activation` - Activation vinculada a un evento
-- **Frontend - ActivationsPage**:
-  - Drawer con resumen completo del evento vinculado
-  - Navegación condicional (Event Orchestration vs Event Details)
-  - Indicadores visuales de estado (Confirmado/En Proceso)
-  - Diálogo de selección mejorado con badges de estado
-
-#### P1 - Cost Center / Eventos Internos (NUEVO - COMPLETADO)
-- **Backend Endpoints**:
-  - `GET /api/demand-studio/internal-cost-center` - Obtiene/crea cliente interno "Marketing Interno - {Org}"
-  - `POST /api/demand-studio/activations/{id}/create-internal-event` - Crea evento interno vinculado
-- **Frontend - ActivationsPage**:
-  - Botón "Create Internal Event (Cost Center)" en diálogo de linkeo
-  - Formulario pre-llenado con datos de la activation
-  - Banner informativo de Cost Center
-- **Lógica**:
-  - Cliente interno con `is_internal_cost_center=true`
-  - Eventos internos con `is_internal_event=true` y `stage='Committed'`
-  - Aparecen directamente en Event Orchestration
-  - Separación contable de gastos internos vs clientes externos
+### Sesiones Anteriores
+- **Vinculación Activation-Event**: Completado
+- **Cost Center / Eventos Internos**: Completado
+- **Marketing ROI Dashboard**: Completado
+- **Directorio de Empleados**: Completado
 
 ---
 
 ## Prioritized Backlog
 
 ### P0 - Critical
-- (Ninguno actualmente)
+- (Ninguno actualmente - Payroll MVP completado)
 
 ### P1 - Alta Prioridad
-1. **Limpiar código de emergencia**: Eliminar `/super-admin/emergency` y `backend/routers/emergency_restore.py`
-2. **Auditoría de permisos granulares**: Verificar todos los endpoints POST/PUT/DELETE para roles de editor/admin
+1. **Completar Fases 2-4 de People Ops**:
+   - Tiempo y Asistencia (vacaciones, ausencias, horas)
+   - Préstamos y Adelantos (solicitud, aprobación, descuento automático)
+   - Offboarding (cálculo de liquidación según leyes RD)
+   - Reportes Regulatorios (DGT-3, TSS, DGII)
+2. **Limpiar código de emergencia**: Eliminar `/super-admin/emergency`
+3. **Auditoría de permisos granulares**
 
 ### P2 - Media Prioridad
 1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
 2. **Internacionalización**: Completar traducción de strings codificados
-3. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key para funciones IA
-4. **Dashboard de Marketing Interno**: Reportes de ROI del Cost Center
+3. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key
 
 ### P3 - Baja Prioridad / Futuro
 1. Conectar Social Media y Email al Brand Hub
@@ -87,34 +99,35 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 ### Backend
 ```
 /app/backend/
-├── server.py              # FastAPI main + routes
+├── server.py              
 ├── models/
-│   ├── crm.py             # Client con is_internal_cost_center
-│   ├── demand_studio.py   # MarketingActivation con linked_event_id
-│   └── events.py          # Event con linked_activation_id, is_internal_event
+│   ├── people_ops.py       # Employee, PayrollConfig, PayrollPeriod, PayrollEntry, PayslipData
+│   └── ...
 └── routers/
-    ├── demand_studio.py   # CRUD + event linking + internal cost center
-    └── emergency_restore.py # (A ELIMINAR)
+    ├── people_ops.py       # Employees + Cost Centers + Payroll (640+ lines)
+    └── ...
 ```
 
 ### Frontend
 ```
 /app/frontend/src/
 ├── pages/
-│   ├── demand-studio/
-│   │   └── ActivationsPage.js  # Drawer, linkeo, crear evento interno
-│   ├── EventOrchestrationPage.js # Banner de activation
-│   └── super-admin/
-│       └── EmergencyRestorePage.js # (A ELIMINAR)
-└── components/ui/
-    └── sheet.jsx           # Componente drawer usado
+│   └── PeopleOpsPage.js    # Main module with tabs (Directory, Payroll, Config)
+└── components/people-ops/
+    ├── EmployeeDirectory.js
+    ├── EmployeeProfile.js
+    ├── PayrollSection.js    # NEW - Payroll dashboard
+    ├── PayrollPeriodView.js # NEW - Period detail & workflow
+    ├── PayrollConfigSection.js # NEW - Deduction rates config
+    └── index.js
 ```
 
 ### Database Schema (MongoDB)
-- **clients**: `is_internal_cost_center: bool` para identificar Cost Centers
-- **marketing_activations**: `linked_event_id`, `linked_event_name`
-- **events**: `linked_activation_id`, `linked_activation_name`, `is_internal_event`, `marketing_budget`
-- **memberships**: Campo `permissions` para acceso granular
+- **employees**: Personal info, employment, compensation, benefits
+- **payroll_config**: Deduction rates, payment frequency, overtime rates
+- **payroll_periods**: Period metadata, totals, workflow status
+- **payroll_entries**: Individual employee entries per period
+- **salary_changes**: History of salary adjustments
 
 ---
 
