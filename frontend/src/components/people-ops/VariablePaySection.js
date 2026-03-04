@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Table,
   TableBody,
@@ -32,16 +33,18 @@ import {
 import {
   DollarSign, Plus, RefreshCw, Clock, Percent, Zap, 
   Calendar, Users, Eye, Send, CheckCircle, Play, ArrowLeft,
-  FileText, Download
+  FileText, Download, Trash2, UserPlus
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 
+const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 export function VariablePaySection() {
   const { language } = useLanguage();
   const isEs = language === "es";
-  const navigate = useNavigate();
   
+  const [activeTab, setActiveTab] = useState("overtime");
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -49,21 +52,27 @@ export function VariablePaySection() {
   const [selectedRun, setSelectedRun] = useState(null);
   const [runEntries, setRunEntries] = useState([]);
   const [loadingRun, setLoadingRun] = useState(false);
+  const [employees, setEmployees] = useState([]);
   
-  // New run form
+  // Form state
   const [newRun, setNewRun] = useState({
     run_name: "",
     pay_type: "overtime",
     period_start: "",
     period_end: "",
     payment_date: "",
-    notes: ""
+    notes: "",
+    pool_amount: 0,
+    manual_entries: []
   });
+  
+  // For bonus/incentive manual entries
+  const [manualEntry, setManualEntry] = useState({ employee_id: "", amount: "", notes: "" });
 
-  const fetchRuns = useCallback(async () => {
+  const fetchRuns = useCallback(async (payType) => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/settings/variable-pay-runs`, { withCredentials: true });
+      const res = await axios.get(`${API}/api/settings/variable-pay-runs?pay_type=${payType}`, { withCredentials: true });
       setRuns(res.data || []);
     } catch (err) {
       console.error("Error fetching runs:", err);
@@ -71,32 +80,55 @@ export function VariablePaySection() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchRuns(); }, [fetchRuns]);
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true });
+      setEmployees(res.data || []);
+    } catch (err) {
+      console.error("Error fetching employees:", err);
+    }
+  }, []);
+
+  useEffect(() => { 
+    fetchRuns(activeTab);
+    fetchEmployees();
+  }, [fetchRuns, fetchEmployees, activeTab]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setNewRun({ ...newRun, pay_type: tab, manual_entries: [], pool_amount: 0 });
+  };
 
   const handleCreateRun = async () => {
     setCreating(true);
     try {
+      const payload = {
+        ...newRun,
+        pay_type: activeTab
+      };
       const res = await axios.post(
         `${API}/api/settings/variable-pay-runs`,
-        newRun,
+        payload,
         { withCredentials: true }
       );
-      fetchRuns();
+      fetchRuns(activeTab);
       setShowCreateDialog(false);
       setNewRun({
         run_name: "",
-        pay_type: "overtime",
+        pay_type: activeTab,
         period_start: "",
         period_end: "",
         payment_date: "",
-        notes: ""
+        notes: "",
+        pool_amount: 0,
+        manual_entries: []
       });
       alert(isEs 
-        ? `Pago variable creado con ${res.data.entries_created} entradas` 
-        : `Variable pay run created with ${res.data.entries_created} entries`);
+        ? `Pago creado con ${res.data.entries_created} entradas` 
+        : `Pay run created with ${res.data.entries_created} entries`);
     } catch (err) {
       console.error("Error creating run:", err);
-      alert(err.response?.data?.detail || "Error creating variable pay run");
+      alert(err.response?.data?.detail || "Error creating pay run");
     }
     setCreating(false);
   };
@@ -124,7 +156,7 @@ export function VariablePaySection() {
         {},
         { withCredentials: true }
       );
-      fetchRuns();
+      fetchRuns(activeTab);
       if (selectedRun?.run_id === runId) {
         handleViewRun({ run_id: runId });
       }
@@ -132,6 +164,49 @@ export function VariablePaySection() {
       console.error(`Error ${action}:`, err);
       alert(err.response?.data?.detail || `Error: ${action}`);
     }
+  };
+
+  const handleDownloadBankFile = async (runId) => {
+    try {
+      const res = await axios.get(
+        `${API}/api/settings/variable-pay-runs/${runId}/bank-file`,
+        { withCredentials: true, responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `variable_pay_${runId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Error downloading bank file:", err);
+      alert(err.response?.data?.detail || "Error downloading file");
+    }
+  };
+
+  const addManualEntry = () => {
+    if (!manualEntry.employee_id || !manualEntry.amount) return;
+    const emp = employees.find(e => e.employee_id === manualEntry.employee_id);
+    setNewRun({
+      ...newRun,
+      manual_entries: [
+        ...newRun.manual_entries,
+        { 
+          ...manualEntry, 
+          amount: parseFloat(manualEntry.amount),
+          employee_name: emp?.full_name || ""
+        }
+      ]
+    });
+    setManualEntry({ employee_id: "", amount: "", notes: "" });
+  };
+
+  const removeManualEntry = (idx) => {
+    setNewRun({
+      ...newRun,
+      manual_entries: newRun.manual_entries.filter((_, i) => i !== idx)
+    });
   };
 
   const getStatusBadge = (status) => {
@@ -155,10 +230,20 @@ export function VariablePaySection() {
       overtime: isEs ? "Horas Extras" : "Overtime",
       commission: isEs ? "Comisiones" : "Commissions",
       bonus: isEs ? "Bonos" : "Bonuses",
-      incentive: isEs ? "Incentivos" : "Incentives",
-      mixed: isEs ? "Mixto" : "Mixed"
+      incentive: isEs ? "Incentivos" : "Incentives"
     };
     return labels[type] || type;
+  };
+
+  const getPayTypeIcon = (type) => {
+    const icons = {
+      overtime: Clock,
+      commission: Percent,
+      bonus: DollarSign,
+      incentive: Zap
+    };
+    const Icon = icons[type] || DollarSign;
+    return <Icon className="w-4 h-4" />;
   };
 
   // Run Detail View
@@ -172,7 +257,10 @@ export function VariablePaySection() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h2 className="text-lg font-semibold">{selectedRun.run_name}</h2>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                {getPayTypeIcon(selectedRun.pay_type)}
+                {selectedRun.run_name}
+              </h2>
               <p className="text-sm text-muted-foreground">
                 {getPayTypeLabel(selectedRun.pay_type)} • {selectedRun.payment_date}
               </p>
@@ -181,10 +269,15 @@ export function VariablePaySection() {
           <div className="flex items-center gap-2">
             {getStatusBadge(selectedRun.status)}
             
+            <Button variant="outline" size="sm" onClick={() => handleDownloadBankFile(selectedRun.run_id)}>
+              <Download className="w-4 h-4 mr-2" />
+              CSV
+            </Button>
+            
             {selectedRun.status === "draft" && (
               <Button onClick={() => handleAction(selectedRun.run_id, "submit")}>
                 <Send className="w-4 h-4 mr-2" />
-                {isEs ? "Enviar a Aprobación" : "Submit for Approval"}
+                {isEs ? "Enviar" : "Submit"}
               </Button>
             )}
             {selectedRun.status === "pending_approval" && (
@@ -196,7 +289,7 @@ export function VariablePaySection() {
             {selectedRun.status === "approved" && (
               <Button onClick={() => handleAction(selectedRun.run_id, "process")}>
                 <Play className="w-4 h-4 mr-2" />
-                {isEs ? "Procesar Pagos" : "Process Payments"}
+                {isEs ? "Procesar" : "Process"}
               </Button>
             )}
           </div>
@@ -212,19 +305,19 @@ export function VariablePaySection() {
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <p className="text-2xl font-bold">${selectedRun.total_gross?.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{formatCurrency(selectedRun.total_gross)}</p>
               <p className="text-xs text-muted-foreground">{isEs ? "Total Bruto" : "Gross Total"}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <p className="text-2xl font-bold text-red-600">-${selectedRun.total_deductions?.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-red-600">-{formatCurrency(selectedRun.total_deductions)}</p>
               <p className="text-xs text-muted-foreground">{isEs ? "Deducciones" : "Deductions"}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <p className="text-2xl font-bold text-emerald-600">${selectedRun.total_net?.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-emerald-600">{formatCurrency(selectedRun.total_net)}</p>
               <p className="text-xs text-muted-foreground">{isEs ? "Total Neto" : "Net Total"}</p>
             </CardContent>
           </Card>
@@ -250,9 +343,18 @@ export function VariablePaySection() {
                   <TableRow>
                     <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
                     <TableHead>{isEs ? "Departamento" : "Department"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Hrs Extra" : "Overtime"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Comisión" : "Commission"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Bono" : "Bonus"}</TableHead>
+                    {selectedRun.pay_type === "overtime" && (
+                      <TableHead className="text-right">{isEs ? "Horas" : "Hours"}</TableHead>
+                    )}
+                    {selectedRun.pay_type === "commission" && (
+                      <>
+                        <TableHead className="text-right">{isEs ? "Ventas" : "Sales"}</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                      </>
+                    )}
+                    {(selectedRun.pay_type === "bonus" || selectedRun.pay_type === "incentive") && (
+                      <TableHead className="text-right">{isEs ? "Pool %" : "Pool %"}</TableHead>
+                    )}
                     <TableHead className="text-right">{isEs ? "Bruto" : "Gross"}</TableHead>
                     <TableHead className="text-right">{isEs ? "Deducciones" : "Deductions"}</TableHead>
                     <TableHead className="text-right">{isEs ? "Neto" : "Net"}</TableHead>
@@ -268,25 +370,23 @@ export function VariablePaySection() {
                         </div>
                       </TableCell>
                       <TableCell>{entry.department || "-"}</TableCell>
-                      <TableCell className="text-right">
-                        {entry.overtime_amount > 0 ? (
-                          <div>
-                            <p>${entry.overtime_amount?.toLocaleString()}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {entry.overtime_hours_35 + entry.overtime_hours_100}h
-                            </p>
-                          </div>
-                        ) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {entry.commission_amount > 0 ? `$${entry.commission_amount?.toLocaleString()}` : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {entry.bonus_amount > 0 ? `$${entry.bonus_amount?.toLocaleString()}` : "-"}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">${entry.gross_amount?.toLocaleString()}</TableCell>
-                      <TableCell className="text-right text-red-600">-${entry.total_deductions?.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-bold text-emerald-600">${entry.net_amount?.toLocaleString()}</TableCell>
+                      {selectedRun.pay_type === "overtime" && (
+                        <TableCell className="text-right">
+                          {(entry.overtime_hours_35 || 0) + (entry.overtime_hours_100 || 0)}h
+                        </TableCell>
+                      )}
+                      {selectedRun.pay_type === "commission" && (
+                        <>
+                          <TableCell className="text-right">{formatCurrency(entry.total_sales)}</TableCell>
+                          <TableCell className="text-right">{entry.commission_rate}%</TableCell>
+                        </>
+                      )}
+                      {(selectedRun.pay_type === "bonus" || selectedRun.pay_type === "incentive") && (
+                        <TableCell className="text-right">{entry.pool_percentage || "-"}%</TableCell>
+                      )}
+                      <TableCell className="text-right font-medium">{formatCurrency(entry.gross_amount)}</TableCell>
+                      <TableCell className="text-right text-red-600">-{formatCurrency(entry.total_deductions)}</TableCell>
+                      <TableCell className="text-right font-bold text-emerald-600">{formatCurrency(entry.net_amount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -298,10 +398,9 @@ export function VariablePaySection() {
     );
   }
 
-  // Main List View
+  // Main View with Tabs
   return (
     <div className="space-y-6" data-testid="variable-pay-section">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -310,92 +409,128 @@ export function VariablePaySection() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {isEs 
-              ? "Procesa horas extras, comisiones, bonos e incentivos aprobados" 
-              : "Process approved overtime, commissions, bonuses and incentives"}
+              ? "Procesa pagos de horas extras, comisiones, bonos e incentivos" 
+              : "Process overtime, commission, bonus and incentive payments"}
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} data-testid="create-variable-pay-btn">
-          <Plus className="w-4 h-4 mr-2" />
-          {isEs ? "Nuevo Pago Variable" : "New Variable Pay Run"}
-        </Button>
       </div>
 
-      {/* Info Banner */}
-      <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 flex items-center gap-2">
-        <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
-        <p className="text-sm text-blue-800">
-          {isEs 
-            ? "Los pagos variables permiten procesar horas extras aprobadas, comisiones y bonos en ciclos separados de la nómina regular." 
-            : "Variable pay allows processing approved overtime, commissions and bonuses in cycles separate from regular payroll."}
-        </p>
-      </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid grid-cols-4 w-full max-w-xl">
+          <TabsTrigger value="overtime" className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            {isEs ? "Hrs Extra" : "Overtime"}
+          </TabsTrigger>
+          <TabsTrigger value="commission" className="flex items-center gap-2">
+            <Percent className="w-4 h-4" />
+            {isEs ? "Comisiones" : "Commissions"}
+          </TabsTrigger>
+          <TabsTrigger value="bonus" className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4" />
+            {isEs ? "Bonos" : "Bonuses"}
+          </TabsTrigger>
+          <TabsTrigger value="incentive" className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            {isEs ? "Incentivos" : "Incentives"}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Runs Table */}
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : runs.length === 0 ? (
-            <div className="text-center py-10">
-              <DollarSign className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-              <p className="text-muted-foreground">
-                {isEs ? "No hay pagos variables registrados" : "No variable pay runs recorded"}
+        {/* Each tab content is similar - list of runs + create button */}
+        {["overtime", "commission", "bonus", "incentive"].map((tabType) => (
+          <TabsContent key={tabType} value={tabType} className="space-y-4">
+            {/* Info Banner */}
+            <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 flex items-center gap-2">
+              {getPayTypeIcon(tabType)}
+              <p className="text-sm text-blue-800">
+                {tabType === "overtime" && (isEs 
+                  ? "Calcula pagos de horas extras aprobadas en el período seleccionado." 
+                  : "Calculate payments for approved overtime in the selected period.")}
+                {tabType === "commission" && (isEs 
+                  ? "Calcula comisiones basadas en ventas cerradas asignadas a vendedores." 
+                  : "Calculate commissions based on closed sales assigned to salespeople.")}
+                {tabType === "bonus" && (isEs 
+                  ? "Asigna bonos manualmente a empleados individuales." 
+                  : "Assign bonuses manually to individual employees.")}
+                {tabType === "incentive" && (isEs 
+                  ? "Distribuye incentivos usando un pool compartido según % configurado por empleado." 
+                  : "Distribute incentives using a shared pool based on employee-configured %.")}
               </p>
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={() => setShowCreateDialog(true)}
-              >
+            </div>
+
+            {/* Create Button */}
+            <div className="flex justify-end">
+              <Button onClick={() => setShowCreateDialog(true)} data-testid={`create-${tabType}-btn`}>
                 <Plus className="w-4 h-4 mr-2" />
-                {isEs ? "Crear Primer Pago Variable" : "Create First Variable Pay Run"}
+                {isEs ? `Nuevo ${getPayTypeLabel(tabType)}` : `New ${getPayTypeLabel(tabType)}`}
               </Button>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
-                  <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
-                  <TableHead>{isEs ? "Fecha Pago" : "Payment Date"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "Empleados" : "Employees"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "Total Neto" : "Net Total"}</TableHead>
-                  <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {runs.map((run) => (
-                  <TableRow key={run.run_id}>
-                    <TableCell className="font-medium">{run.run_name}</TableCell>
-                    <TableCell>{getPayTypeLabel(run.pay_type)}</TableCell>
-                    <TableCell>{run.payment_date || "-"}</TableCell>
-                    <TableCell className="text-right">{run.total_employees}</TableCell>
-                    <TableCell className="text-right font-medium">${run.total_net?.toLocaleString()}</TableCell>
-                    <TableCell>{getStatusBadge(run.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleViewRun(run)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+
+            {/* Runs List */}
+            <Card>
+              <CardContent className="pt-6">
+                {loading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : runs.length === 0 ? (
+                  <div className="text-center py-10">
+                    {getPayTypeIcon(tabType)}
+                    <p className="text-muted-foreground mt-2">
+                      {isEs ? `No hay pagos de ${getPayTypeLabel(tabType).toLowerCase()} registrados` : `No ${getPayTypeLabel(tabType).toLowerCase()} payments recorded`}
+                    </p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
+                        <TableHead>{isEs ? "Período" : "Period"}</TableHead>
+                        <TableHead>{isEs ? "Fecha Pago" : "Payment Date"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Empleados" : "Employees"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Total Neto" : "Net Total"}</TableHead>
+                        <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {runs.map((run) => (
+                        <TableRow key={run.run_id}>
+                          <TableCell className="font-medium">{run.run_name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {run.period_start} - {run.period_end}
+                          </TableCell>
+                          <TableCell>{run.payment_date || "-"}</TableCell>
+                          <TableCell className="text-right">{run.total_employees}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(run.total_net)}</TableCell>
+                          <TableCell>{getStatusBadge(run.status)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleViewRun(run)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{isEs ? "Nuevo Pago Variable" : "New Variable Pay Run"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {getPayTypeIcon(activeTab)}
+              {isEs ? `Nuevo Pago de ${getPayTypeLabel(activeTab)}` : `New ${getPayTypeLabel(activeTab)} Payment`}
+            </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -404,47 +539,31 @@ export function VariablePaySection() {
               <Input
                 value={newRun.run_name}
                 onChange={(e) => setNewRun({ ...newRun, run_name: e.target.value })}
-                placeholder={isEs ? "Ej: Horas Extras Marzo 2026" : "Ex: Overtime March 2026"}
+                placeholder={isEs ? `Ej: ${getPayTypeLabel(activeTab)} Marzo 2026` : `Ex: ${getPayTypeLabel(activeTab)} March 2026`}
               />
             </div>
 
-            <div>
-              <Label>{isEs ? "Tipo de Pago" : "Pay Type"}</Label>
-              <Select 
-                value={newRun.pay_type} 
-                onValueChange={(v) => setNewRun({ ...newRun, pay_type: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="overtime">{isEs ? "Horas Extras" : "Overtime"}</SelectItem>
-                  <SelectItem value="commission">{isEs ? "Comisiones" : "Commissions"}</SelectItem>
-                  <SelectItem value="bonus">{isEs ? "Bonos" : "Bonuses"}</SelectItem>
-                  <SelectItem value="incentive">{isEs ? "Incentivos" : "Incentives"}</SelectItem>
-                  <SelectItem value="mixed">{isEs ? "Mixto (Todos)" : "Mixed (All)"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{isEs ? "Fecha Inicio" : "Start Date"}</Label>
-                <Input
-                  type="date"
-                  value={newRun.period_start}
-                  onChange={(e) => setNewRun({ ...newRun, period_start: e.target.value })}
-                />
+            {/* Period dates for overtime and commission */}
+            {(activeTab === "overtime" || activeTab === "commission") && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>{isEs ? "Fecha Inicio" : "Start Date"}</Label>
+                  <Input
+                    type="date"
+                    value={newRun.period_start}
+                    onChange={(e) => setNewRun({ ...newRun, period_start: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>{isEs ? "Fecha Fin" : "End Date"}</Label>
+                  <Input
+                    type="date"
+                    value={newRun.period_end}
+                    onChange={(e) => setNewRun({ ...newRun, period_end: e.target.value })}
+                  />
+                </div>
               </div>
-              <div>
-                <Label>{isEs ? "Fecha Fin" : "End Date"}</Label>
-                <Input
-                  type="date"
-                  value={newRun.period_end}
-                  onChange={(e) => setNewRun({ ...newRun, period_end: e.target.value })}
-                />
-              </div>
-            </div>
+            )}
 
             <div>
               <Label>{isEs ? "Fecha de Pago" : "Payment Date"}</Label>
@@ -455,12 +574,107 @@ export function VariablePaySection() {
               />
             </div>
 
+            {/* Pool amount for incentive */}
+            {activeTab === "incentive" && (
+              <div className="p-4 border rounded-lg bg-purple-50 space-y-3">
+                <div>
+                  <Label className="text-purple-700">{isEs ? "Monto del Pool a Distribuir" : "Pool Amount to Distribute"}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={newRun.pool_amount || ""}
+                    onChange={(e) => setNewRun({ ...newRun, pool_amount: parseFloat(e.target.value) || 0 })}
+                    placeholder="10000"
+                  />
+                  <p className="text-xs text-purple-600 mt-1">
+                    {isEs 
+                      ? "Se distribuirá según el % de cada empleado configurado en su perfil" 
+                      : "Will be distributed based on each employee's % configured in their profile"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Manual entries for bonus */}
+            {activeTab === "bonus" && (
+              <div className="space-y-3">
+                <Label>{isEs ? "Asignar Bonos Manualmente" : "Assign Bonuses Manually"}</Label>
+                
+                {/* Add entry form */}
+                <div className="p-3 border rounded-lg bg-blue-50 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Select 
+                        value={manualEntry.employee_id} 
+                        onValueChange={(v) => setManualEntry({ ...manualEntry, employee_id: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar empleado" : "Select employee"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map(emp => (
+                            <SelectItem key={emp.employee_id} value={emp.employee_id}>
+                              {emp.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        placeholder={isEs ? "Monto" : "Amount"}
+                        value={manualEntry.amount}
+                        onChange={(e) => setManualEntry({ ...manualEntry, amount: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder={isEs ? "Notas (opcional)" : "Notes (optional)"}
+                      value={manualEntry.notes}
+                      onChange={(e) => setManualEntry({ ...manualEntry, notes: e.target.value })}
+                      className="flex-1"
+                    />
+                    <Button type="button" size="sm" onClick={addManualEntry}>
+                      <UserPlus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* List of manual entries */}
+                {newRun.manual_entries.length > 0 && (
+                  <div className="space-y-2">
+                    {newRun.manual_entries.map((entry, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <p className="font-medium text-sm">{entry.employee_name}</p>
+                          <p className="text-xs text-muted-foreground">{entry.notes}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{formatCurrency(entry.amount)}</span>
+                          <Button variant="ghost" size="icon" onClick={() => removeManualEntry(idx)}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="text-right font-medium">
+                      Total: {formatCurrency(newRun.manual_entries.reduce((sum, e) => sum + e.amount, 0))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <Label>{isEs ? "Notas (Opcional)" : "Notes (Optional)"}</Label>
-              <Input
+              <Textarea
                 value={newRun.notes}
                 onChange={(e) => setNewRun({ ...newRun, notes: e.target.value })}
                 placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
+                rows={2}
               />
             </div>
           </div>
@@ -469,9 +683,12 @@ export function VariablePaySection() {
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleCreateRun} disabled={creating || !newRun.run_name}>
+            <Button 
+              onClick={handleCreateRun} 
+              disabled={creating || !newRun.run_name || (activeTab === "bonus" && newRun.manual_entries.length === 0 && !newRun.pool_amount)}
+            >
               {creating && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
-              {isEs ? "Crear y Generar Entradas" : "Create & Generate Entries"}
+              {isEs ? "Crear y Calcular" : "Create & Calculate"}
             </Button>
           </DialogFooter>
         </DialogContent>

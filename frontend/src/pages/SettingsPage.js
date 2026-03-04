@@ -152,7 +152,7 @@ export default function SettingsPage() {
   
   const [newCategory, setNewCategory] = useState({ name: "", name_es: "", color: "#6B7280", icon: "package", sort_order: 0 });
   const [editCategory, setEditCategory] = useState(null);
-  const [newItemType, setNewItemType] = useState({ name: "", name_es: "" });
+  const [newItemType, setNewItemType] = useState({ name: "", name_es: "", is_commissionable: true });
   const [editItemType, setEditItemType] = useState(null);
   const [itemTypeDialogOpen, setItemTypeDialogOpen] = useState(false);
   const [newPicklist, setNewPicklist] = useState({ 
@@ -695,7 +695,7 @@ export default function SettingsPage() {
       toast.success(language === "es" ? "Tipo creado" : "Type created");
       fetchItemTypes();
       setItemTypeDialogOpen(false);
-      setNewItemType({ name: "", name_es: "" });
+      setNewItemType({ name: "", name_es: "", is_commissionable: true });
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to create type");
     }
@@ -707,7 +707,8 @@ export default function SettingsPage() {
     try {
       await axios.put(`${API}/settings/item-types/${editItemType.type_id}`, {
         name: editItemType.name,
-        name_es: editItemType.name_es
+        name_es: editItemType.name_es,
+        is_commissionable: editItemType.is_commissionable ?? true
       }, { withCredentials: true });
       toast.success(language === "es" ? "Tipo actualizado" : "Type updated");
       fetchItemTypes();
@@ -2405,9 +2406,19 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   {itemTypes.map(itype => (
                     <div key={itype.type_id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{language === "es" ? itype.name_es || itype.name : itype.name}</p>
-                        {itype.is_default && <span className="text-xs text-muted-foreground">{language === "es" ? "Por defecto" : "Default"}</span>}
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <p className="font-medium">{language === "es" ? itype.name_es || itype.name : itype.name}</p>
+                          <div className="flex items-center gap-2">
+                            {itype.is_default && <span className="text-xs text-muted-foreground">{language === "es" ? "Por defecto" : "Default"}</span>}
+                            {itype.is_commissionable !== false && (
+                              <span className="text-xs text-emerald-600">{language === "es" ? "Comisionable" : "Commissionable"}</span>
+                            )}
+                            {itype.is_commissionable === false && (
+                              <span className="text-xs text-gray-400">{language === "es" ? "No comisionable" : "Not commissionable"}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setEditItemType({...itype})} title={language === "es" ? "Editar" : "Edit"}>
@@ -2438,6 +2449,18 @@ export default function SettingsPage() {
                     <Label>{language === "es" ? "Nombre (ES)" : "Name (ES)"}</Label>
                     <Input value={newItemType.name_es} onChange={(e) => setNewItemType({ ...newItemType, name_es: e.target.value })} />
                   </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <Label>{language === "es" ? "Comisionable" : "Commissionable"}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es" ? "¿Se incluye en cálculo de comisiones?" : "Include in commission calculation?"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={newItemType.is_commissionable ?? true}
+                      onCheckedChange={(v) => setNewItemType({ ...newItemType, is_commissionable: v })}
+                    />
+                  </div>
                   <Button type="submit" className="w-full">{t("save")}</Button>
                 </form>
               </DialogContent>
@@ -2463,6 +2486,18 @@ export default function SettingsPage() {
                     <Input 
                       value={editItemType?.name_es || ""} 
                       onChange={(e) => setEditItemType({ ...editItemType, name_es: e.target.value })} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <Label>{language === "es" ? "Comisionable" : "Commissionable"}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es" ? "¿Se incluye en cálculo de comisiones?" : "Include in commission calculation?"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editItemType?.is_commissionable ?? true}
+                      onCheckedChange={(v) => setEditItemType({ ...editItemType, is_commissionable: v })}
                     />
                   </div>
                   <Button type="submit" className="w-full">{t("save")}</Button>

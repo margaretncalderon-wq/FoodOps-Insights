@@ -206,11 +206,33 @@ class EmployeeUpdate(BaseModel):
     bank_account: Optional[str] = None
     bank_account_type: Optional[str] = None
     
+    # Variable Pay Configuration
+    commission_rate: Optional[float] = None  # % commission on sales
+    incentive_pool_percentage: Optional[float] = None  # % share of incentive pool
+    overtime_payment_type: Optional[str] = None  # with_payroll, separate
+    overtime_payment_day: Optional[int] = None
+    commission_payment_type: Optional[str] = None  # with_payroll, separate, not_applicable
+    commission_payment_day: Optional[int] = None
+    bonus_payment_type: Optional[str] = None
+    bonus_payment_day: Optional[int] = None
+    incentive_payment_type: Optional[str] = None
+    incentive_payment_day: Optional[int] = None
+    
     # Benefits
     has_health_insurance: Optional[bool] = None
     has_pension: Optional[bool] = None
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
+    
+    # Allowances
+    has_lunch_allowance: Optional[bool] = None
+    lunch_allowance_amount: Optional[float] = None
+    has_transport_allowance: Optional[bool] = None
+    transport_allowance_amount: Optional[float] = None
+    has_phone_allowance: Optional[bool] = None
+    phone_allowance_amount: Optional[float] = None
+    has_fuel_allowance: Optional[bool] = None
+    fuel_allowance_amount: Optional[float] = None
     
     # Access
     user_id: Optional[str] = None

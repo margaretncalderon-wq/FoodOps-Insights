@@ -113,6 +113,7 @@ class EventUpdate(BaseModel):
     next_step: Optional[str] = None
     lost_reason: Optional[str] = None
     source: Optional[str] = None
+    assigned_to: Optional[str] = None  # user_id of assigned salesperson
 
 
 # ============== EVENT MENU MODELS ==============

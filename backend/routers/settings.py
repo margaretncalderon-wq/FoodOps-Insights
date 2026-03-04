@@ -276,6 +276,309 @@ async def create_variable_pay_run(data: dict, user: User = Depends(get_current_u
             total_deductions += total_ded
             total_net += net
     
+    # ==================== COMMISSION CALCULATION ====================
+    if pay_type in ["commission"]:
+        # Get item types to check commissionability
+        item_types = await db.item_types.find(
+            {"company_id": company_id},
+            {"_id": 0, "name": 1, "is_commissionable": 1}
+        ).to_list(100)
+        commissionable_types = {it.get("name") for it in item_types if it.get("is_commissionable", True)}
+        
+        # Get employees with commission rates
+        employees_with_commission = await db.employees.find(
+            {
+                "company_id": company_id,
+                "status": "active",
+                "commission_rate": {"$gt": 0}
+            },
+            {"_id": 0}
+        ).to_list(500)
+        
+        # Build user_id to employee_id mapping
+        user_to_emp = {}
+        for emp in employees_with_commission:
+            if emp.get("user_id"):
+                user_to_emp[emp["user_id"]] = emp
+        
+        # Get events closed in period assigned to employees
+        events_query = {
+            "company_id": company_id,
+            "stage": {"$in": ["Committed", "Won", "Closed"]}
+        }
+        if data.get("period_start") and data.get("period_end"):
+            events_query["updated_at"] = {
+                "$gte": data.get("period_start"),
+                "$lte": data.get("period_end") + "T23:59:59"
+            }
+        
+        closed_events = await db.events.find(events_query, {"_id": 0}).to_list(500)
+        
+        # Calculate commissions by employee
+        commissions_by_emp = {}
+        for event in closed_events:
+            assigned_to = event.get("assigned_to")
+            if not assigned_to or assigned_to not in user_to_emp:
+                continue
+            
+            emp = user_to_emp[assigned_to]
+            emp_id = emp.get("employee_id")
+            
+            # Get proposal/invoice total for this event (commissionable items only)
+            proposals = await db.proposals.find(
+                {"company_id": company_id, "event_id": event.get("event_id"), "status": "accepted"},
+                {"_id": 0, "items": 1, "grand_total": 1}
+            ).to_list(10)
+            
+            event_total = 0
+            for prop in proposals:
+                for item in prop.get("items", []):
+                    item_type = item.get("item_type", "Service")
+                    # Only count commissionable items
+                    if item_type in commissionable_types or not item_types:
+                        event_total += item.get("total", 0) or (item.get("quantity", 1) * item.get("unit_price", 0))
+            
+            # If no proposals, use event budget
+            if event_total == 0:
+                event_total = event.get("budget", 0) or 0
+            
+            if event_total > 0:
+                commission_rate = emp.get("commission_rate", 0)
+                commission_amount = event_total * (commission_rate / 100)
+                
+                if emp_id not in commissions_by_emp:
+                    commissions_by_emp[emp_id] = {
+                        "employee": emp,
+                        "total_sales": 0,
+                        "commission_amount": 0,
+                        "events": []
+                    }
+                
+                commissions_by_emp[emp_id]["total_sales"] += event_total
+                commissions_by_emp[emp_id]["commission_amount"] += commission_amount
+                commissions_by_emp[emp_id]["events"].append({
+                    "event_id": event.get("event_id"),
+                    "event_name": event.get("name"),
+                    "amount": event_total
+                })
+        
+        # Create entries for commission recipients
+        for emp_id, comm_data in commissions_by_emp.items():
+            emp = comm_data["employee"]
+            gross = comm_data["commission_amount"]
+            
+            if gross <= 0:
+                continue
+            
+            # Calculate deductions
+            afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
+            ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
+            isr = 0
+            if payroll_config.get("isr_enabled", True) and gross > 0:
+                annual_equiv = gross * 12
+                if annual_equiv > 416220:
+                    isr = gross * 0.15
+            
+            total_ded = afp + ars + isr
+            net = gross - total_ded
+            
+            entry_id = f"vpe_{uuid.uuid4().hex[:12]}"
+            entry = {
+                "entry_id": entry_id,
+                "run_id": run_id,
+                "company_id": company_id,
+                "employee_id": emp_id,
+                "employee_name": emp.get("full_name"),
+                "employee_number": emp.get("employee_number"),
+                "department": emp.get("department"),
+                "pay_type": "commission",
+                
+                # Commission details
+                "commission_rate": emp.get("commission_rate", 0),
+                "total_sales": round(comm_data["total_sales"], 2),
+                "commission_amount": round(gross, 2),
+                "commission_events": comm_data["events"],
+                
+                # Other types (none for commission-only)
+                "overtime_amount": 0,
+                "bonus_amount": 0,
+                "incentive_amount": 0,
+                
+                # Totals
+                "gross_amount": round(gross, 2),
+                "afp_employee": round(afp, 2),
+                "ars_employee": round(ars, 2),
+                "isr": round(isr, 2),
+                "total_deductions": round(total_ded, 2),
+                "net_amount": round(net, 2),
+                
+                # Bank info
+                "bank_name": emp.get("bank_name"),
+                "bank_account": emp.get("bank_account"),
+                
+                "notes": None,
+                "created_at": now
+            }
+            
+            await db.variable_pay_entries.insert_one(entry)
+            entries.append(entry)
+            
+            total_gross += gross
+            total_deductions += total_ded
+            total_net += net
+    
+    # ==================== BONUS/INCENTIVE (Manual entries - pool or fixed) ====================
+    if pay_type in ["bonus", "incentive"]:
+        # For bonus/incentive, we create empty entries and admin adds amounts manually
+        # OR we can use a pool distribution based on employee percentages
+        pool_amount = data.get("pool_amount", 0)
+        manual_entries = data.get("manual_entries", [])  # List of {employee_id, amount}
+        
+        if pool_amount > 0:
+            # Distribute pool based on incentive_pool_percentage
+            employees_with_pool = await db.employees.find(
+                {
+                    "company_id": company_id,
+                    "status": "active",
+                    "incentive_pool_percentage": {"$gt": 0}
+                },
+                {"_id": 0}
+            ).to_list(500)
+            
+            total_percentage = sum(e.get("incentive_pool_percentage", 0) for e in employees_with_pool)
+            
+            for emp in employees_with_pool:
+                pct = emp.get("incentive_pool_percentage", 0)
+                if pct <= 0 or total_percentage <= 0:
+                    continue
+                
+                # Distribute proportionally
+                gross = (pct / total_percentage) * pool_amount
+                
+                afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
+                ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
+                isr = 0
+                if payroll_config.get("isr_enabled", True) and gross > 0:
+                    annual_equiv = gross * 12
+                    if annual_equiv > 416220:
+                        isr = gross * 0.15
+                
+                total_ded = afp + ars + isr
+                net = gross - total_ded
+                
+                entry_id = f"vpe_{uuid.uuid4().hex[:12]}"
+                entry = {
+                    "entry_id": entry_id,
+                    "run_id": run_id,
+                    "company_id": company_id,
+                    "employee_id": emp.get("employee_id"),
+                    "employee_name": emp.get("full_name"),
+                    "employee_number": emp.get("employee_number"),
+                    "department": emp.get("department"),
+                    "pay_type": pay_type,
+                    
+                    # Pool distribution
+                    "pool_percentage": pct,
+                    "pool_amount": pool_amount,
+                    "incentive_amount": round(gross, 2) if pay_type == "incentive" else 0,
+                    "bonus_amount": round(gross, 2) if pay_type == "bonus" else 0,
+                    
+                    # Other types
+                    "overtime_amount": 0,
+                    "commission_amount": 0,
+                    
+                    # Totals
+                    "gross_amount": round(gross, 2),
+                    "afp_employee": round(afp, 2),
+                    "ars_employee": round(ars, 2),
+                    "isr": round(isr, 2),
+                    "total_deductions": round(total_ded, 2),
+                    "net_amount": round(net, 2),
+                    
+                    # Bank info
+                    "bank_name": emp.get("bank_name"),
+                    "bank_account": emp.get("bank_account"),
+                    
+                    "notes": None,
+                    "created_at": now
+                }
+                
+                await db.variable_pay_entries.insert_one(entry)
+                entries.append(entry)
+                
+                total_gross += gross
+                total_deductions += total_ded
+                total_net += net
+        
+        elif manual_entries:
+            # Manual entries - fixed amounts per employee
+            for me in manual_entries:
+                emp_id = me.get("employee_id")
+                gross = me.get("amount", 0)
+                
+                if not emp_id or gross <= 0:
+                    continue
+                
+                emp = await db.employees.find_one(
+                    {"employee_id": emp_id, "company_id": company_id},
+                    {"_id": 0}
+                )
+                if not emp:
+                    continue
+                
+                afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
+                ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
+                isr = 0
+                if payroll_config.get("isr_enabled", True) and gross > 0:
+                    annual_equiv = gross * 12
+                    if annual_equiv > 416220:
+                        isr = gross * 0.15
+                
+                total_ded = afp + ars + isr
+                net = gross - total_ded
+                
+                entry_id = f"vpe_{uuid.uuid4().hex[:12]}"
+                entry = {
+                    "entry_id": entry_id,
+                    "run_id": run_id,
+                    "company_id": company_id,
+                    "employee_id": emp_id,
+                    "employee_name": emp.get("full_name"),
+                    "employee_number": emp.get("employee_number"),
+                    "department": emp.get("department"),
+                    "pay_type": pay_type,
+                    
+                    # Fixed amount
+                    "incentive_amount": round(gross, 2) if pay_type == "incentive" else 0,
+                    "bonus_amount": round(gross, 2) if pay_type == "bonus" else 0,
+                    
+                    # Other types
+                    "overtime_amount": 0,
+                    "commission_amount": 0,
+                    
+                    # Totals
+                    "gross_amount": round(gross, 2),
+                    "afp_employee": round(afp, 2),
+                    "ars_employee": round(ars, 2),
+                    "isr": round(isr, 2),
+                    "total_deductions": round(total_ded, 2),
+                    "net_amount": round(net, 2),
+                    
+                    # Bank info
+                    "bank_name": emp.get("bank_name"),
+                    "bank_account": emp.get("bank_account"),
+                    
+                    "notes": me.get("notes"),
+                    "created_at": now
+                }
+                
+                await db.variable_pay_entries.insert_one(entry)
+                entries.append(entry)
+                
+                total_gross += gross
+                total_deductions += total_ded
+                total_net += net
+    
     # Update run totals
     await db.variable_pay_runs.update_one(
         {"run_id": run_id},
@@ -598,3 +901,65 @@ async def delete_variable_pay_run(run_id: str, user: User = Depends(get_current_
     await db.variable_pay_runs.delete_one({"run_id": run_id})
     
     return {"message": "Variable pay run deleted"}
+
+
+@settings_router.get("/variable-pay-runs/{run_id}/bank-file")
+async def get_variable_pay_bank_file(run_id: str, user: User = Depends(get_current_user)):
+    """Generate bank file (CSV) for variable pay run"""
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+    
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    run = await db.variable_pay_runs.find_one(
+        {"run_id": run_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    
+    entries = await db.variable_pay_entries.find(
+        {"run_id": run_id, "company_id": company_id, "net_amount": {"$gt": 0}},
+        {"_id": 0}
+    ).sort("employee_name", 1).to_list(500)
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "Employee Number",
+        "Employee Name",
+        "Bank Name",
+        "Bank Account",
+        "Net Amount",
+        "Pay Type",
+        "Reference"
+    ])
+    
+    # Data rows
+    for entry in entries:
+        writer.writerow([
+            entry.get("employee_number", ""),
+            entry.get("employee_name", ""),
+            entry.get("bank_name", ""),
+            entry.get("bank_account", ""),
+            entry.get("net_amount", 0),
+            entry.get("pay_type", ""),
+            f"{run.get('run_name', run_id)}"
+        ])
+    
+    output.seek(0)
+    
+    filename = f"variable_pay_{run_id}_{run.get('pay_type', 'mixed')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+

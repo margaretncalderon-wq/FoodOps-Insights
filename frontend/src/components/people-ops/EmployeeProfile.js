@@ -488,27 +488,48 @@ export function EmployeeProfile() {
                           <SelectItem value="not_applicable">{isEs ? "No aplica" : "Not applicable"}</SelectItem>
                         </SelectContent>
                       </Select>
-                      {editData.commission_payment_type === "separate" && (
-                        <div>
-                          <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="28"
-                            value={editData.commission_payment_day || 10}
-                            onChange={(e) => setEditData({ ...editData, commission_payment_day: parseInt(e.target.value) || 10 })}
-                          />
-                        </div>
+                      {editData.commission_payment_type !== "not_applicable" && (
+                        <>
+                          <div>
+                            <label className="text-xs text-muted-foreground">{isEs ? "% de Comisión sobre ventas" : "Commission % on sales"}</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.5"
+                              value={editData.commission_rate || ""}
+                              placeholder="0"
+                              onChange={(e) => setEditData({ ...editData, commission_rate: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          {editData.commission_payment_type === "separate" && (
+                            <div>
+                              <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="28"
+                                value={editData.commission_payment_day || 10}
+                                onChange={(e) => setEditData({ ...editData, commission_payment_day: parseInt(e.target.value) || 10 })}
+                              />
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {employee.commission_payment_type === "with_payroll" 
-                        ? (isEs ? "Con nómina regular" : "With regular payroll")
-                        : employee.commission_payment_type === "not_applicable"
-                        ? (isEs ? "No aplica" : "Not applicable")
-                        : (isEs ? `Pago separado - Día ${employee.commission_payment_day || 10}` : `Separate - Day ${employee.commission_payment_day || 10}`)}
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        {employee.commission_payment_type === "with_payroll" 
+                          ? (isEs ? "Con nómina regular" : "With regular payroll")
+                          : employee.commission_payment_type === "not_applicable"
+                          ? (isEs ? "No aplica" : "Not applicable")
+                          : (isEs ? `Pago separado - Día ${employee.commission_payment_day || 10}` : `Separate - Day ${employee.commission_payment_day || 10}`)}
+                      </p>
+                      {employee.commission_payment_type !== "not_applicable" && employee.commission_rate > 0 && (
+                        <p className="text-sm font-medium text-emerald-600">{employee.commission_rate}% {isEs ? "sobre ventas" : "on sales"}</p>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -578,27 +599,51 @@ export function EmployeeProfile() {
                           <SelectItem value="not_applicable">{isEs ? "No aplica" : "Not applicable"}</SelectItem>
                         </SelectContent>
                       </Select>
-                      {editData.incentive_payment_type === "separate" && (
-                        <div>
-                          <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="28"
-                            value={editData.incentive_payment_day || 5}
-                            onChange={(e) => setEditData({ ...editData, incentive_payment_day: parseInt(e.target.value) || 5 })}
-                          />
-                        </div>
+                      {editData.incentive_payment_type !== "not_applicable" && (
+                        <>
+                          <div>
+                            <label className="text-xs text-muted-foreground">{isEs ? "% Participación en Pool" : "Pool Share %"}</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.5"
+                              value={editData.incentive_pool_percentage || ""}
+                              placeholder="0"
+                              onChange={(e) => setEditData({ ...editData, incentive_pool_percentage: parseFloat(e.target.value) || 0 })}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {isEs ? "% que recibe cuando se distribuye un pool de incentivos" : "% received when an incentive pool is distributed"}
+                            </p>
+                          </div>
+                          {editData.incentive_payment_type === "separate" && (
+                            <div>
+                              <label className="text-xs text-muted-foreground">{isEs ? "Día de pago" : "Payment day"}</label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="28"
+                                value={editData.incentive_payment_day || 5}
+                                onChange={(e) => setEditData({ ...editData, incentive_payment_day: parseInt(e.target.value) || 5 })}
+                              />
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {employee.incentive_payment_type === "with_payroll" 
-                        ? (isEs ? "Con nómina regular" : "With regular payroll")
-                        : employee.incentive_payment_type === "not_applicable"
-                        ? (isEs ? "No aplica" : "Not applicable")
-                        : (isEs ? `Pago separado - Día ${employee.incentive_payment_day || 5}` : `Separate - Day ${employee.incentive_payment_day || 5}`)}
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        {employee.incentive_payment_type === "with_payroll" 
+                          ? (isEs ? "Con nómina regular" : "With regular payroll")
+                          : employee.incentive_payment_type === "not_applicable"
+                          ? (isEs ? "No aplica" : "Not applicable")
+                          : (isEs ? `Pago separado - Día ${employee.incentive_payment_day || 5}` : `Separate - Day ${employee.incentive_payment_day || 5}`)}
+                      </p>
+                      {employee.incentive_payment_type !== "not_applicable" && employee.incentive_pool_percentage > 0 && (
+                        <p className="text-sm font-medium text-purple-600">{employee.incentive_pool_percentage}% {isEs ? "del pool" : "pool share"}</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

@@ -4732,6 +4732,7 @@ class ItemTypeCreate(BaseModel):
     name: str
     name_es: Optional[str] = None
     sort_order: Optional[int] = 0
+    is_commissionable: Optional[bool] = True
 
 @settings_router.post("/item-types")
 async def create_item_type(data: ItemTypeCreate, user: User = Depends(get_current_user)):
@@ -4743,7 +4744,8 @@ async def create_item_type(data: ItemTypeCreate, user: User = Depends(get_curren
         "name": data.name,
         "name_es": data.name_es or data.name,
         "sort_order": data.sort_order,
-        "is_default": False
+        "is_default": False,
+        "is_commissionable": data.is_commissionable if data.is_commissionable is not None else True
     }
     await db.item_types.insert_one(type_doc)
     return {**type_doc, "_id": None}
@@ -4751,9 +4753,15 @@ async def create_item_type(data: ItemTypeCreate, user: User = Depends(get_curren
 @settings_router.put("/item-types/{type_id}")
 async def update_item_type(type_id: str, data: ItemTypeCreate, user: User = Depends(get_current_user)):
     """Update an item type"""
+    update_data = {
+        "name": data.name, 
+        "name_es": data.name_es, 
+        "sort_order": data.sort_order,
+        "is_commissionable": data.is_commissionable if data.is_commissionable is not None else True
+    }
     result = await db.item_types.update_one(
         {"type_id": type_id, "company_id": user.company_id},
-        {"$set": {"name": data.name, "name_es": data.name_es, "sort_order": data.sort_order}}
+        {"$set": update_data}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Item type not found")
