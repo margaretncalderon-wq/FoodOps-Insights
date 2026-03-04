@@ -1,0 +1,473 @@
+import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
+import axios from "axios";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
+import { Textarea } from "../ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+} from "../ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "../ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from "../ui/table";
+import {
+  Wallet, Plus, RefreshCw, CheckCircle, XCircle, Clock,
+  CreditCard, DollarSign, AlertCircle, History
+} from "lucide-react";
+
+import { API_BASE as API } from "../../utils/api";
+
+const formatCurrency = (amount) => 
+  `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const LOAN_TYPES = {
+  personal_loan: { label: "Préstamo Personal", labelEn: "Personal Loan", color: "bg-blue-100 text-blue-700" },
+  salary_advance: { label: "Adelanto de Salario", labelEn: "Salary Advance", color: "bg-emerald-100 text-emerald-700" },
+  emergency_loan: { label: "Préstamo de Emergencia", labelEn: "Emergency Loan", color: "bg-red-100 text-red-700" },
+  education_loan: { label: "Préstamo Educativo", labelEn: "Education Loan", color: "bg-purple-100 text-purple-700" }
+};
+
+const STATUS_CONFIG = {
+  pending: { label: "Pendiente", labelEn: "Pending", color: "bg-amber-100 text-amber-700" },
+  approved: { label: "Aprobado", labelEn: "Approved", color: "bg-blue-100 text-blue-700" },
+  active: { label: "Activo", labelEn: "Active", color: "bg-emerald-100 text-emerald-700" },
+  rejected: { label: "Rechazado", labelEn: "Rejected", color: "bg-red-100 text-red-700" },
+  paid_off: { label: "Pagado", labelEn: "Paid Off", color: "bg-gray-100 text-gray-700" },
+  cancelled: { label: "Cancelado", labelEn: "Cancelled", color: "bg-gray-100 text-gray-700" }
+};
+
+export function LoansSection() {
+  const { language } = useLanguage();
+  const isEs = language === "es";
+  
+  const [loans, setLoans] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  const [newLoan, setNewLoan] = useState({
+    employee_id: "",
+    loan_type: "personal_loan",
+    requested_amount: "",
+    installments: 6,
+    reason: ""
+  });
+
+  const [approveData, setApproveData] = useState({
+    approved_amount: "",
+    installments: 6,
+    start_date: ""
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [loansRes, empRes] = await Promise.all([
+        axios.get(`${API}/api/people-ops/loans?limit=50`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true })
+      ]);
+      setLoans(loansRes.data);
+      setEmployees(empRes.data);
+    } catch (err) {
+      console.error("Error fetching loans:", err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleCreateLoan = async () => {
+    if (!newLoan.employee_id || !newLoan.requested_amount) {
+      alert(isEs ? "Completa todos los campos requeridos" : "Complete all required fields");
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/api/people-ops/loans`, {
+        ...newLoan,
+        requested_amount: parseFloat(newLoan.requested_amount)
+      }, { withCredentials: true });
+      setDialogOpen(false);
+      setNewLoan({ employee_id: "", loan_type: "personal_loan", requested_amount: "", installments: 6, reason: "" });
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error creating loan request");
+    }
+    setSubmitting(false);
+  };
+
+  const handleOpenApprove = (loan) => {
+    setSelectedLoan(loan);
+    setApproveData({
+      approved_amount: loan.requested_amount,
+      installments: loan.installments,
+      start_date: new Date().toISOString().split("T")[0]
+    });
+    setApproveDialogOpen(true);
+  };
+
+  const handleApprove = async () => {
+    setSubmitting(true);
+    try {
+      await axios.post(
+        `${API}/api/people-ops/loans/${selectedLoan.loan_id}/approve`,
+        {
+          approved_amount: parseFloat(approveData.approved_amount),
+          installments: approveData.installments,
+          start_date: approveData.start_date
+        },
+        { withCredentials: true }
+      );
+      setApproveDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error approving loan");
+    }
+    setSubmitting(false);
+  };
+
+  const handleReject = async (loanId) => {
+    const reason = prompt(isEs ? "Motivo del rechazo:" : "Rejection reason:");
+    if (reason === null) return;
+    try {
+      await axios.post(`${API}/api/people-ops/loans/${loanId}/reject`, { reason }, { withCredentials: true });
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error");
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  }
+
+  const pendingCount = loans.filter(l => l.status === "pending").length;
+  const activeLoans = loans.filter(l => l.status === "active");
+  const totalOutstanding = activeLoans.reduce((sum, l) => sum + (l.remaining_balance || 0), 0);
+
+  return (
+    <div className="space-y-6" data-testid="loans-section">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            {isEs ? "Préstamos y Adelantos" : "Loans & Advances"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {isEs ? "Gestión de préstamos y adelantos de salario" : "Manage loans and salary advances"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button onClick={() => setDialogOpen(true)} data-testid="new-loan-btn">
+            <Plus className="w-4 h-4 mr-2" />
+            {isEs ? "Nueva Solicitud" : "New Request"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className={pendingCount > 0 ? "border-amber-300 bg-amber-50/30" : ""}>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-amber-600 text-sm">
+              <Clock className="w-4 h-4" />
+              {isEs ? "Pendientes" : "Pending"}
+            </div>
+            <p className="text-3xl font-bold mt-1">{pendingCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-emerald-600 text-sm">
+              <CheckCircle className="w-4 h-4" />
+              {isEs ? "Préstamos Activos" : "Active Loans"}
+            </div>
+            <p className="text-3xl font-bold mt-1">{activeLoans.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-blue-600 text-sm">
+              <DollarSign className="w-4 h-4" />
+              {isEs ? "Saldo Pendiente Total" : "Total Outstanding"}
+            </div>
+            <p className="text-2xl font-bold mt-1 text-blue-700">{formatCurrency(totalOutstanding)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <History className="w-4 h-4" />
+              {isEs ? "Pagados" : "Paid Off"}
+            </div>
+            <p className="text-3xl font-bold mt-1">
+              {loans.filter(l => l.status === "paid_off").length}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Loans Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loans.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{isEs ? "No hay préstamos" : "No loans"}</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
+                  <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Solicitado" : "Requested"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Aprobado" : "Approved"}</TableHead>
+                  <TableHead className="text-center">{isEs ? "Cuotas" : "Installments"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead>
+                  <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                  <TableHead>{isEs ? "Acciones" : "Actions"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loans.map((loan) => {
+                  const typeConfig = LOAN_TYPES[loan.loan_type] || LOAN_TYPES.personal_loan;
+                  return (
+                    <TableRow key={loan.loan_id} data-testid={`loan-${loan.loan_id}`}>
+                      <TableCell className="font-medium">{loan.employee_name}</TableCell>
+                      <TableCell>
+                        <Badge className={typeConfig.color}>
+                          {isEs ? typeConfig.label : typeConfig.labelEn}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(loan.requested_amount)}</TableCell>
+                      <TableCell className="text-right">
+                        {loan.approved_amount > 0 ? formatCurrency(loan.approved_amount) : "-"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {loan.status === "active" ? (
+                          <span>{loan.installments_paid} / {loan.installments}</span>
+                        ) : (
+                          loan.installments
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {loan.status === "active" ? (
+                          <span className="text-blue-600">{formatCurrency(loan.remaining_balance)}</span>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={STATUS_CONFIG[loan.status]?.color}>
+                          {isEs ? STATUS_CONFIG[loan.status]?.label : STATUS_CONFIG[loan.status]?.labelEn}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {loan.status === "pending" && (
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleOpenApprove(loan)}
+                              className="text-emerald-600"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleReject(loan.loan_id)}
+                              className="text-red-600"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* New Loan Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Nueva Solicitud de Préstamo" : "New Loan Request"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Empleado *" : "Employee *"}</label>
+              <Select value={newLoan.employee_id} onValueChange={(v) => setNewLoan({ ...newLoan, employee_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar empleado" : "Select employee"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Tipo de Préstamo *" : "Loan Type *"}</label>
+              <Select value={newLoan.loan_type} onValueChange={(v) => setNewLoan({ ...newLoan, loan_type: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(LOAN_TYPES).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>{isEs ? config.label : config.labelEn}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Monto Solicitado *" : "Requested Amount *"}</label>
+                <Input
+                  type="number"
+                  value={newLoan.requested_amount}
+                  onChange={(e) => setNewLoan({ ...newLoan, requested_amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Cuotas" : "Installments"}</label>
+                <Select 
+                  value={newLoan.installments.toString()} 
+                  onValueChange={(v) => setNewLoan({ ...newLoan, installments: parseInt(v) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 6, 8, 10, 12, 18, 24].map((n) => (
+                      <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {newLoan.requested_amount && (
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">{isEs ? "Cuota estimada por período:" : "Estimated installment per period:"}</p>
+                <p className="text-xl font-bold">
+                  {formatCurrency(parseFloat(newLoan.requested_amount) / newLoan.installments)}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Motivo *" : "Reason *"}</label>
+              <Textarea
+                value={newLoan.reason}
+                onChange={(e) => setNewLoan({ ...newLoan, reason: e.target.value })}
+                placeholder={isEs ? "Describa el motivo del préstamo..." : "Describe the reason for the loan..."}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleCreateLoan} disabled={submitting}>
+              {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+              {isEs ? "Solicitar" : "Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Dialog */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Aprobar Préstamo" : "Approve Loan"}</DialogTitle>
+          </DialogHeader>
+
+          {selectedLoan && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">{isEs ? "Empleado" : "Employee"}</p>
+                <p className="font-medium">{selectedLoan.employee_name}</p>
+                <p className="text-sm text-muted-foreground mt-2">{isEs ? "Solicitado" : "Requested"}</p>
+                <p className="font-bold">{formatCurrency(selectedLoan.requested_amount)}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Monto a Aprobar" : "Amount to Approve"}</label>
+                <Input
+                  type="number"
+                  value={approveData.approved_amount}
+                  onChange={(e) => setApproveData({ ...approveData, approved_amount: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Cuotas" : "Installments"}</label>
+                  <Select 
+                    value={approveData.installments.toString()} 
+                    onValueChange={(v) => setApproveData({ ...approveData, installments: parseInt(v) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 6, 8, 10, 12, 18, 24].map((n) => (
+                        <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Inicio Descuentos" : "Start Deductions"}</label>
+                  <Input
+                    type="date"
+                    value={approveData.start_date}
+                    onChange={(e) => setApproveData({ ...approveData, start_date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {approveData.approved_amount && (
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                  <p className="text-sm text-emerald-600">{isEs ? "Cuota por período:" : "Installment per period:"}</p>
+                  <p className="text-xl font-bold text-emerald-700">
+                    {formatCurrency(parseFloat(approveData.approved_amount) / approveData.installments)}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleApprove} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
+              {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+              {isEs ? "Aprobar" : "Approve"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

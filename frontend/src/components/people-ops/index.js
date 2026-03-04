@@ -4,3 +4,6 @@ export { CostCentersSection } from './CostCentersSection';
 export { PayrollSection } from './PayrollSection';
 export { PayrollPeriodView } from './PayrollPeriodView';
 export { PayrollConfigSection } from './PayrollConfigSection';
+export { TimeOffSection } from './TimeOffSection';
+export { LoansSection } from './LoansSection';
+export { OffboardingSection } from './OffboardingSection';

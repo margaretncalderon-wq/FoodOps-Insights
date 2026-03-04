@@ -10,11 +10,15 @@ import { EmployeeProfile } from "../components/people-ops/EmployeeProfile";
 import { PayrollSection } from "../components/people-ops/PayrollSection";
 import { PayrollPeriodView } from "../components/people-ops/PayrollPeriodView";
 import { PayrollConfigSection } from "../components/people-ops/PayrollConfigSection";
+import { TimeOffSection } from "../components/people-ops/TimeOffSection";
+import { LoansSection } from "../components/people-ops/LoansSection";
+import { OffboardingSection } from "../components/people-ops/OffboardingSection";
 
 // Icons
 import {
   Users, UserCircle, Wallet, Clock,
-  FileText, Lock, UserPlus, Settings
+  FileText, Lock, UserPlus, Settings,
+  Calendar, CreditCard, UserMinus
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -83,8 +87,26 @@ export default function PeopleOpsPage() {
       requiresAccess: "payroll"
     },
     { 
+      path: "/people-ops/time-off", 
+      label: isEs ? "Tiempo" : "Time Off", 
+      icon: Calendar,
+      requiresAccess: "payroll"
+    },
+    { 
+      path: "/people-ops/loans", 
+      label: isEs ? "Préstamos" : "Loans", 
+      icon: CreditCard,
+      requiresAccess: "payroll"
+    },
+    { 
+      path: "/people-ops/offboarding", 
+      label: isEs ? "Salidas" : "Offboarding", 
+      icon: UserMinus,
+      requiresAccess: "payroll"
+    },
+    { 
       path: "/people-ops/payroll-config", 
-      label: isEs ? "Config. Nómina" : "Payroll Config", 
+      label: isEs ? "Config" : "Config", 
       icon: Settings,
       requiresAccess: "config"
     },
@@ -176,6 +198,9 @@ export default function PeopleOpsPage() {
           <Route path="payroll" element={<PayrollSection />} />
           <Route path="payroll/:periodId" element={<PayrollPeriodView />} />
           <Route path="payroll-config" element={<PayrollConfigSection />} />
+          <Route path="time-off" element={<TimeOffSection />} />
+          <Route path="loans" element={<LoansSection />} />
+          <Route path="offboarding" element={<OffboardingSection />} />
         </Routes>
       </div>
     </Layout>

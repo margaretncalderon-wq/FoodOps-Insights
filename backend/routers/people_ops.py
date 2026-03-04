@@ -1316,3 +1316,917 @@ async def get_payslip_data(
         "afp_provider": employee.get("afp_provider") if employee else None,
         "ars_provider": employee.get("ars_provider") if employee else None
     }
+
+
+
+# ==================== BENEFITS / COMPENSACIÓN ENDPOINTS ====================
+
+@people_ops_router.get("/employees/{employee_id}/benefits")
+async def get_employee_benefits(employee_id: str, user: User = Depends(get_current_user)):
+    """Get all benefits for an employee"""
+    company_id = user.company_id or user.active_org_id
+    
+    benefits = await db.employee_benefits.find(
+        {"company_id": company_id, "employee_id": employee_id, "is_active": True},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return benefits
+
+
+@people_ops_router.post("/employees/{employee_id}/benefits")
+async def create_employee_benefit(
+    employee_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Add a benefit to an employee"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Verify employee exists
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    benefit_id = f"ben_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    benefit = {
+        "benefit_id": benefit_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "benefit_type": data.get("benefit_type", "other"),
+        "name": data.get("name"),
+        "amount": data.get("amount", 0),
+        "frequency": data.get("frequency", "monthly"),
+        "is_taxable": data.get("is_taxable", False),
+        "is_deduction": data.get("is_deduction", False),
+        "is_active": True,
+        "effective_date": data.get("effective_date"),
+        "end_date": data.get("end_date"),
+        "notes": data.get("notes"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.employee_benefits.insert_one(benefit)
+    if "_id" in benefit:
+        del benefit["_id"]
+    
+    return benefit
+
+
+@people_ops_router.delete("/benefits/{benefit_id}")
+async def delete_employee_benefit(benefit_id: str, user: User = Depends(get_current_user)):
+    """Deactivate a benefit"""
+    company_id = user.company_id or user.active_org_id
+    
+    result = await db.employee_benefits.update_one(
+        {"company_id": company_id, "benefit_id": benefit_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Benefit not found")
+    
+    return {"message": "Benefit deactivated"}
+
+
+# ==================== TIME OFF / VACACIONES ENDPOINTS ====================
+
+@people_ops_router.get("/time-off/requests")
+async def get_time_off_requests(
+    status: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    limit: int = 50,
+    user: User = Depends(get_current_user)
+):
+    """Get time off requests"""
+    company_id = user.company_id or user.active_org_id
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if employee_id:
+        query["employee_id"] = employee_id
+    
+    requests = await db.time_off_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return requests
+
+
+@people_ops_router.post("/time-off/requests")
+async def create_time_off_request(data: dict, user: User = Depends(get_current_user)):
+    """Create a time off request"""
+    company_id = user.company_id or user.active_org_id
+    
+    employee_id = data.get("employee_id")
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1, "vacation_days_available": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Validate vacation balance if vacation type
+    if data.get("time_off_type") == "vacation":
+        available = employee.get("vacation_days_available", 0)
+        requested = data.get("total_days", 0)
+        if requested > available:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Insufficient vacation days. Available: {available}, Requested: {requested}"
+            )
+    
+    request_id = f"tor_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    request = {
+        "request_id": request_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "time_off_type": data.get("time_off_type", "vacation"),
+        "start_date": data.get("start_date"),
+        "end_date": data.get("end_date"),
+        "total_days": data.get("total_days", 1),
+        "status": "pending",
+        "reason": data.get("reason"),
+        "notes": data.get("notes"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.time_off_requests.insert_one(request)
+    
+    return {"request_id": request_id, "message": "Time off request created"}
+
+
+@people_ops_router.post("/time-off/requests/{request_id}/approve")
+async def approve_time_off_request(request_id: str, user: User = Depends(get_current_user)):
+    """Approve a time off request"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    request = await db.time_off_requests.find_one(
+        {"company_id": company_id, "request_id": request_id},
+        {"_id": 0}
+    )
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    if request.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Request is not pending")
+    
+    # Update request
+    await db.time_off_requests.update_one(
+        {"request_id": request_id},
+        {"$set": {
+            "status": "approved",
+            "reviewed_by": user.user_id,
+            "reviewed_by_name": user.name,
+            "reviewed_at": now,
+            "updated_at": now
+        }}
+    )
+    
+    # Update employee vacation balance if vacation
+    if request.get("time_off_type") == "vacation":
+        await db.employees.update_one(
+            {"employee_id": request.get("employee_id")},
+            {"$inc": {
+                "vacation_days_used": request.get("total_days", 0),
+                "vacation_days_available": -request.get("total_days", 0)
+            }}
+        )
+    
+    return {"message": "Request approved"}
+
+
+@people_ops_router.post("/time-off/requests/{request_id}/reject")
+async def reject_time_off_request(
+    request_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Reject a time off request"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.time_off_requests.update_one(
+        {"company_id": company_id, "request_id": request_id, "status": "pending"},
+        {"$set": {
+            "status": "rejected",
+            "reviewed_by": user.user_id,
+            "reviewed_by_name": user.name,
+            "reviewed_at": now,
+            "rejection_reason": data.get("reason"),
+            "updated_at": now
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found or not pending")
+    
+    return {"message": "Request rejected"}
+
+
+@people_ops_router.get("/time-off/balances")
+async def get_time_off_balances(user: User = Depends(get_current_user)):
+    """Get vacation/time off balances for all employees"""
+    company_id = user.company_id or user.active_org_id
+    
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0, "employee_id": 1, "full_name": 1, 
+         "vacation_days_entitled": 1, "vacation_days_used": 1, "vacation_days_available": 1}
+    ).to_list(500)
+    
+    # Get pending requests
+    pending = await db.time_off_requests.find(
+        {"company_id": company_id, "status": "pending", "time_off_type": "vacation"},
+        {"_id": 0, "employee_id": 1, "total_days": 1}
+    ).to_list(500)
+    
+    pending_by_emp = {}
+    for p in pending:
+        eid = p.get("employee_id")
+        pending_by_emp[eid] = pending_by_emp.get(eid, 0) + p.get("total_days", 0)
+    
+    balances = []
+    for emp in employees:
+        balances.append({
+            "employee_id": emp.get("employee_id"),
+            "employee_name": emp.get("full_name"),
+            "year": datetime.now().year,
+            "vacation_entitled": emp.get("vacation_days_entitled", 14),
+            "vacation_used": emp.get("vacation_days_used", 0),
+            "vacation_pending": pending_by_emp.get(emp.get("employee_id"), 0),
+            "vacation_available": emp.get("vacation_days_available", 14)
+        })
+    
+    return balances
+
+
+# ==================== OVERTIME / HORAS EXTRAS ENDPOINTS ====================
+
+@people_ops_router.get("/overtime/requests")
+async def get_overtime_requests(
+    status: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    limit: int = 50,
+    user: User = Depends(get_current_user)
+):
+    """Get overtime requests"""
+    company_id = user.company_id or user.active_org_id
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if employee_id:
+        query["employee_id"] = employee_id
+    
+    requests = await db.overtime_requests.find(query, {"_id": 0}).sort("date", -1).to_list(limit)
+    return requests
+
+
+@people_ops_router.post("/overtime/requests")
+async def create_overtime_request(data: dict, user: User = Depends(get_current_user)):
+    """Create an overtime request"""
+    company_id = user.company_id or user.active_org_id
+    
+    employee_id = data.get("employee_id")
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1, "base_salary": 1, "payment_frequency": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Calculate hourly rate (monthly salary / 192 hours)
+    base_salary = employee.get("base_salary", 0)
+    freq = employee.get("payment_frequency", "biweekly")
+    monthly_salary = base_salary * 2 if freq == "biweekly" else base_salary * 4 if freq == "weekly" else base_salary
+    hourly_rate = monthly_salary / 192
+    
+    hours_35 = data.get("hours_35", 0)
+    hours_100 = data.get("hours_100", 0)
+    
+    # Get config for rates
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
+    rate_35 = config.get("overtime_rate_35", 1.35) if config else 1.35
+    rate_100 = config.get("overtime_rate_100", 2.0) if config else 2.0
+    
+    estimated_amount = (hours_35 * hourly_rate * rate_35) + (hours_100 * hourly_rate * rate_100)
+    
+    overtime_id = f"ot_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    overtime = {
+        "overtime_id": overtime_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "date": data.get("date"),
+        "hours_35": hours_35,
+        "hours_100": hours_100,
+        "total_hours": hours_35 + hours_100,
+        "estimated_amount": round(estimated_amount, 2),
+        "status": "pending",
+        "reason": data.get("reason"),
+        "notes": data.get("notes"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.overtime_requests.insert_one(overtime)
+    
+    return {"overtime_id": overtime_id, "estimated_amount": round(estimated_amount, 2)}
+
+
+@people_ops_router.post("/overtime/requests/{overtime_id}/approve")
+async def approve_overtime_request(overtime_id: str, user: User = Depends(get_current_user)):
+    """Approve an overtime request"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.overtime_requests.update_one(
+        {"company_id": company_id, "overtime_id": overtime_id, "status": "pending"},
+        {"$set": {
+            "status": "approved",
+            "approved_by": user.user_id,
+            "approved_by_name": user.name,
+            "approved_at": now,
+            "updated_at": now
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found or not pending")
+    
+    return {"message": "Overtime approved"}
+
+
+@people_ops_router.post("/overtime/requests/{overtime_id}/reject")
+async def reject_overtime_request(
+    overtime_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Reject an overtime request"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.overtime_requests.update_one(
+        {"company_id": company_id, "overtime_id": overtime_id, "status": "pending"},
+        {"$set": {
+            "status": "rejected",
+            "approved_by": user.user_id,
+            "approved_by_name": user.name,
+            "approved_at": now,
+            "rejection_reason": data.get("reason"),
+            "updated_at": now
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found or not pending")
+    
+    return {"message": "Overtime rejected"}
+
+
+# ==================== LOANS / PRÉSTAMOS ENDPOINTS ====================
+
+@people_ops_router.get("/loans")
+async def get_loans(
+    status: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    limit: int = 50,
+    user: User = Depends(get_current_user)
+):
+    """Get loans"""
+    company_id = user.company_id or user.active_org_id
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if employee_id:
+        query["employee_id"] = employee_id
+    
+    loans = await db.loans.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return loans
+
+
+@people_ops_router.post("/loans")
+async def create_loan_request(data: dict, user: User = Depends(get_current_user)):
+    """Create a loan request"""
+    company_id = user.company_id or user.active_org_id
+    
+    employee_id = data.get("employee_id")
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1, "base_salary": 1, "active_loan_balance": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Check if employee has existing active loan
+    existing_loan = await db.loans.find_one({
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "status": "active"
+    })
+    if existing_loan:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Employee has an active loan with balance: ${existing_loan.get('remaining_balance', 0):,.2f}"
+        )
+    
+    # Validate loan amount (max 2x monthly salary for personal loans)
+    base_salary = employee.get("base_salary", 0)
+    requested_amount = data.get("requested_amount", 0)
+    loan_type = data.get("loan_type", "personal_loan")
+    
+    if loan_type == "salary_advance":
+        max_amount = base_salary  # Max 1 salary for advances
+    else:
+        max_amount = base_salary * 2  # Max 2 salaries for loans
+    
+    if requested_amount > max_amount:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested amount exceeds maximum allowed: ${max_amount:,.2f}"
+        )
+    
+    loan_id = f"loan_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    installments = data.get("installments", 1)
+    installment_amount = requested_amount / installments
+    
+    loan = {
+        "loan_id": loan_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "loan_type": loan_type,
+        "requested_amount": requested_amount,
+        "approved_amount": 0,
+        "installments": installments,
+        "installment_amount": round(installment_amount, 2),
+        "total_paid": 0,
+        "remaining_balance": 0,
+        "installments_paid": 0,
+        "status": "pending",
+        "reason": data.get("reason"),
+        "notes": data.get("notes"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.loans.insert_one(loan)
+    
+    return {"loan_id": loan_id, "installment_amount": round(installment_amount, 2)}
+
+
+@people_ops_router.post("/loans/{loan_id}/approve")
+async def approve_loan(
+    loan_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Approve a loan request"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    loan = await db.loans.find_one(
+        {"company_id": company_id, "loan_id": loan_id, "status": "pending"},
+        {"_id": 0}
+    )
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found or not pending")
+    
+    approved_amount = data.get("approved_amount", loan.get("requested_amount"))
+    installments = data.get("installments", loan.get("installments"))
+    installment_amount = approved_amount / installments
+    
+    await db.loans.update_one(
+        {"loan_id": loan_id},
+        {"$set": {
+            "status": "active",
+            "approved_amount": approved_amount,
+            "remaining_balance": approved_amount,
+            "installments": installments,
+            "installment_amount": round(installment_amount, 2),
+            "start_date": data.get("start_date", now.isoformat()[:10]),
+            "approved_by": user.user_id,
+            "approved_by_name": user.name,
+            "approved_at": now,
+            "updated_at": now
+        }}
+    )
+    
+    # Update employee's active loan balance
+    await db.employees.update_one(
+        {"employee_id": loan.get("employee_id")},
+        {"$set": {"active_loan_balance": approved_amount}}
+    )
+    
+    return {"message": "Loan approved", "installment_amount": round(installment_amount, 2)}
+
+
+@people_ops_router.post("/loans/{loan_id}/reject")
+async def reject_loan(
+    loan_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Reject a loan request"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.loans.update_one(
+        {"company_id": company_id, "loan_id": loan_id, "status": "pending"},
+        {"$set": {
+            "status": "rejected",
+            "approved_by": user.user_id,
+            "approved_by_name": user.name,
+            "approved_at": now,
+            "rejection_reason": data.get("reason"),
+            "updated_at": now
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Loan not found or not pending")
+    
+    return {"message": "Loan rejected"}
+
+
+@people_ops_router.get("/loans/{loan_id}/payments")
+async def get_loan_payments(loan_id: str, user: User = Depends(get_current_user)):
+    """Get payment history for a loan"""
+    company_id = user.company_id or user.active_org_id
+    
+    payments = await db.loan_payments.find(
+        {"company_id": company_id, "loan_id": loan_id},
+        {"_id": 0}
+    ).sort("payment_date", -1).to_list(100)
+    
+    return payments
+
+
+# ==================== OFFBOARDING / TERMINACIÓN ENDPOINTS ====================
+
+@people_ops_router.get("/offboarding")
+async def get_offboarding_records(
+    status: Optional[str] = None,
+    limit: int = 50,
+    user: User = Depends(get_current_user)
+):
+    """Get offboarding records"""
+    company_id = user.company_id or user.active_org_id
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    
+    records = await db.offboarding.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return records
+
+
+@people_ops_router.post("/offboarding")
+async def create_offboarding(data: dict, user: User = Depends(get_current_user)):
+    """Create an offboarding/termination record with liquidation calculation"""
+    from models.people_ops import calculate_liquidation_rd, TerminationType
+    
+    company_id = user.company_id or user.active_org_id
+    employee_id = data.get("employee_id")
+    
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    if employee.get("status") == "terminated":
+        raise HTTPException(status_code=400, detail="Employee is already terminated")
+    
+    termination_type = data.get("termination_type", "resignation")
+    termination_date = data.get("termination_date")
+    hire_date = employee.get("hire_date")
+    base_salary = employee.get("base_salary", 0)
+    
+    # Get payment frequency to calculate monthly salary
+    freq = employee.get("payment_frequency", "biweekly")
+    if freq == "biweekly":
+        monthly_salary = base_salary * 2
+    elif freq == "weekly":
+        monthly_salary = base_salary * 4
+    else:
+        monthly_salary = base_salary
+    
+    # Get vacation days owed
+    vacation_days_owed = employee.get("vacation_days_available", 0)
+    
+    # Calculate regalia proportion (months worked in current year)
+    from datetime import datetime as dt
+    term_dt = dt.fromisoformat(termination_date)
+    regalia_months_worked = term_dt.month  # Simple: months in current year
+    
+    # Get pending loan balance
+    pending_deductions = employee.get("active_loan_balance", 0)
+    
+    # Calculate liquidation
+    liquidation = calculate_liquidation_rd(
+        termination_type=TerminationType(termination_type),
+        hire_date=hire_date,
+        termination_date=termination_date,
+        base_salary=monthly_salary,
+        vacation_days_owed=vacation_days_owed,
+        regalia_months_worked=regalia_months_worked,
+        pending_salary_days=data.get("pending_salary_days", 0),
+        pending_deductions=pending_deductions
+    )
+    
+    offboarding_id = f"off_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    offboarding = {
+        "offboarding_id": offboarding_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "employee_number": employee.get("employee_number"),
+        
+        "termination_type": termination_type,
+        "termination_date": termination_date,
+        "last_working_day": data.get("last_working_day", termination_date),
+        "hire_date": hire_date,
+        "years_of_service": liquidation["years_of_service"],
+        "reason": data.get("reason"),
+        "notes": data.get("notes"),
+        "status": "draft",
+        
+        "base_salary": monthly_salary,
+        "daily_salary": liquidation["daily_salary"],
+        
+        "preaviso_days": liquidation["preaviso_days"],
+        "preaviso_amount": liquidation["preaviso_amount"],
+        
+        "cesantia_days": liquidation["cesantia_days"],
+        "cesantia_amount": liquidation["cesantia_amount"],
+        
+        "vacation_days_owed": vacation_days_owed,
+        "vacation_amount": liquidation["vacation_amount"],
+        
+        "regalia_months_worked": regalia_months_worked,
+        "regalia_proportion": liquidation["regalia_proportion"],
+        
+        "pending_salary_days": data.get("pending_salary_days", 0),
+        "pending_salary_amount": liquidation["pending_salary_amount"],
+        
+        "pending_bonuses": data.get("pending_bonuses", 0),
+        "pending_deductions": pending_deductions,
+        "deductions_detail": f"Préstamo activo" if pending_deductions > 0 else None,
+        
+        "gross_liquidation": liquidation["gross_liquidation"],
+        "total_deductions": liquidation["total_deductions"],
+        "net_liquidation": liquidation["net_liquidation"],
+        
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.offboarding.insert_one(offboarding)
+    
+    return {
+        "offboarding_id": offboarding_id,
+        "liquidation": liquidation,
+        "breakdown": liquidation["breakdown"]
+    }
+
+
+@people_ops_router.put("/offboarding/{offboarding_id}")
+async def update_offboarding(
+    offboarding_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update offboarding record (allows manual adjustments)"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    # Only allow updates if status is draft
+    record = await db.offboarding.find_one(
+        {"company_id": company_id, "offboarding_id": offboarding_id},
+        {"_id": 0}
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    
+    if record.get("status") not in ["draft", "pending_approval"]:
+        raise HTTPException(status_code=400, detail="Cannot update processed records")
+    
+    # Update allowed fields
+    update_fields = {
+        "updated_at": now
+    }
+    
+    allowed_fields = [
+        "termination_date", "last_working_day", "reason", "notes",
+        "pending_salary_days", "pending_salary_amount", "pending_bonuses",
+        "pending_deductions", "deductions_detail"
+    ]
+    
+    for field in allowed_fields:
+        if field in data:
+            update_fields[field] = data[field]
+    
+    # Recalculate totals if amounts changed
+    if any(f in data for f in ["pending_salary_amount", "pending_bonuses", "pending_deductions"]):
+        gross = (
+            record.get("preaviso_amount", 0) +
+            record.get("cesantia_amount", 0) +
+            record.get("vacation_amount", 0) +
+            record.get("regalia_proportion", 0) +
+            data.get("pending_salary_amount", record.get("pending_salary_amount", 0)) +
+            data.get("pending_bonuses", record.get("pending_bonuses", 0))
+        )
+        deductions = data.get("pending_deductions", record.get("pending_deductions", 0))
+        update_fields["gross_liquidation"] = round(gross, 2)
+        update_fields["total_deductions"] = round(deductions, 2)
+        update_fields["net_liquidation"] = round(gross - deductions, 2)
+    
+    await db.offboarding.update_one(
+        {"offboarding_id": offboarding_id},
+        {"$set": update_fields}
+    )
+    
+    return {"message": "Record updated"}
+
+
+@people_ops_router.post("/offboarding/{offboarding_id}/submit")
+async def submit_offboarding(offboarding_id: str, user: User = Depends(get_current_user)):
+    """Submit offboarding for approval"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.offboarding.update_one(
+        {"company_id": company_id, "offboarding_id": offboarding_id, "status": "draft"},
+        {"$set": {"status": "pending_approval", "updated_at": now}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Record not found or not in draft status")
+    
+    return {"message": "Submitted for approval"}
+
+
+@people_ops_router.post("/offboarding/{offboarding_id}/approve")
+async def approve_offboarding(offboarding_id: str, user: User = Depends(get_current_user)):
+    """Approve offboarding and update employee status"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    record = await db.offboarding.find_one(
+        {"company_id": company_id, "offboarding_id": offboarding_id},
+        {"_id": 0}
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    
+    if record.get("status") != "pending_approval":
+        raise HTTPException(status_code=400, detail="Record is not pending approval")
+    
+    # Update offboarding record
+    await db.offboarding.update_one(
+        {"offboarding_id": offboarding_id},
+        {"$set": {
+            "status": "approved",
+            "approved_by": user.user_id,
+            "approved_by_name": user.name,
+            "approved_at": now,
+            "updated_at": now
+        }}
+    )
+    
+    # Update employee status
+    await db.employees.update_one(
+        {"employee_id": record.get("employee_id")},
+        {"$set": {
+            "status": "terminated",
+            "termination_date": record.get("termination_date"),
+            "updated_at": now
+        }}
+    )
+    
+    return {"message": "Offboarding approved, employee terminated"}
+
+
+@people_ops_router.post("/offboarding/{offboarding_id}/process")
+async def process_offboarding(offboarding_id: str, user: User = Depends(get_current_user)):
+    """Mark offboarding as processed (payment made)"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    result = await db.offboarding.update_one(
+        {"company_id": company_id, "offboarding_id": offboarding_id, "status": "approved"},
+        {"$set": {"status": "processed", "updated_at": now}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Record not found or not approved")
+    
+    return {"message": "Offboarding processed"}
+
+
+# ==================== COMPENSATION SUMMARY ====================
+
+@people_ops_router.get("/employees/{employee_id}/compensation-summary")
+async def get_employee_compensation_summary(employee_id: str, user: User = Depends(get_current_user)):
+    """Get full compensation summary for an employee"""
+    company_id = user.company_id or user.active_org_id
+    
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Get benefits
+    benefits = await db.employee_benefits.find(
+        {"company_id": company_id, "employee_id": employee_id, "is_active": True},
+        {"_id": 0}
+    ).to_list(50)
+    
+    # Calculate monthly totals
+    base_salary = employee.get("base_salary", 0)
+    freq = employee.get("payment_frequency", "biweekly")
+    
+    if freq == "biweekly":
+        monthly_base = base_salary * 2
+    elif freq == "weekly":
+        monthly_base = base_salary * 4
+    else:
+        monthly_base = base_salary
+    
+    monthly_benefits = 0
+    monthly_deductions = 0
+    benefits_detail = []
+    
+    for b in benefits:
+        amount = b.get("amount", 0)
+        bfreq = b.get("frequency", "monthly")
+        
+        # Convert to monthly
+        if bfreq == "biweekly":
+            monthly_amount = amount * 2
+        elif bfreq == "daily":
+            monthly_amount = amount * 22  # Approx working days
+        else:
+            monthly_amount = amount
+        
+        if b.get("is_deduction"):
+            monthly_deductions += monthly_amount
+        else:
+            monthly_benefits += monthly_amount
+        
+        benefits_detail.append({
+            "name": b.get("name"),
+            "type": b.get("benefit_type"),
+            "amount": amount,
+            "frequency": bfreq,
+            "monthly_equivalent": round(monthly_amount, 2),
+            "is_deduction": b.get("is_deduction", False),
+            "is_taxable": b.get("is_taxable", False)
+        })
+    
+    # Get active loan
+    active_loan = await db.loans.find_one(
+        {"company_id": company_id, "employee_id": employee_id, "status": "active"},
+        {"_id": 0, "loan_id": 1, "remaining_balance": 1, "installment_amount": 1}
+    )
+    
+    return {
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "base_salary": base_salary,
+        "payment_frequency": freq,
+        "monthly_base_salary": round(monthly_base, 2),
+        "monthly_benefits": round(monthly_benefits, 2),
+        "monthly_deductions": round(monthly_deductions, 2),
+        "total_monthly_compensation": round(monthly_base + monthly_benefits - monthly_deductions, 2),
+        "benefits_detail": benefits_detail,
+        "active_loan": {
+            "loan_id": active_loan.get("loan_id"),
+            "remaining_balance": active_loan.get("remaining_balance"),
+            "installment_amount": active_loan.get("installment_amount")
+        } if active_loan else None,
+        "vacation_days_available": employee.get("vacation_days_available", 14)
+    }

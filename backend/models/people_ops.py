@@ -585,3 +585,481 @@ def calculate_monthly_isr(monthly_salary: float) -> float:
     annual_isr = calculate_isr_rd(annual_salary)
     return annual_isr / 12
 
+
+
+
+# ==================== BENEFITS / COMPENSACIÓN ====================
+
+class BenefitType(str, Enum):
+    LUNCH_ALLOWANCE = "lunch_allowance"  # Subsidio de almuerzo
+    TRANSPORT_ALLOWANCE = "transport_allowance"  # Subsidio de transporte
+    PHONE_ALLOWANCE = "phone_allowance"  # Subsidio de teléfono
+    FUEL_ALLOWANCE = "fuel_allowance"  # Subsidio de combustible
+    HEALTH_INSURANCE_EXTRA = "health_insurance_extra"  # Seguro médico adicional
+    LIFE_INSURANCE = "life_insurance"  # Seguro de vida
+    GYM_ALLOWANCE = "gym_allowance"  # Gimnasio
+    EDUCATION_ALLOWANCE = "education_allowance"  # Educación
+    OTHER = "other"
+
+
+class BenefitFrequency(str, Enum):
+    MONTHLY = "monthly"
+    BIWEEKLY = "biweekly"
+    DAILY = "daily"  # For lunch vouchers per day worked
+    ONE_TIME = "one_time"
+
+
+class EmployeeBenefitCreate(BaseModel):
+    employee_id: str
+    benefit_type: BenefitType
+    name: str  # Display name
+    amount: float
+    frequency: BenefitFrequency = BenefitFrequency.MONTHLY
+    is_taxable: bool = False  # Subject to ISR
+    is_deduction: bool = False  # True if deducted from salary (e.g., parking)
+    effective_date: str
+    end_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class EmployeeBenefit(BaseModel):
+    benefit_id: str
+    company_id: str
+    employee_id: str
+    employee_name: Optional[str] = None
+    benefit_type: BenefitType
+    name: str
+    amount: float
+    frequency: BenefitFrequency
+    is_taxable: bool
+    is_deduction: bool
+    is_active: bool = True
+    effective_date: str
+    end_date: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ==================== TIME & ATTENDANCE ====================
+
+class TimeOffType(str, Enum):
+    VACATION = "vacation"  # Vacaciones
+    SICK_LEAVE = "sick_leave"  # Licencia médica
+    PERSONAL_LEAVE = "personal_leave"  # Permiso personal
+    MATERNITY = "maternity"  # Licencia de maternidad
+    PATERNITY = "paternity"  # Licencia de paternidad
+    BEREAVEMENT = "bereavement"  # Duelo
+    UNPAID_LEAVE = "unpaid_leave"  # Licencia sin sueldo
+    HOLIDAY = "holiday"  # Feriado (system-generated)
+    OTHER = "other"
+
+
+class TimeOffStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+
+
+class TimeOffRequestCreate(BaseModel):
+    employee_id: str
+    time_off_type: TimeOffType
+    start_date: str
+    end_date: str
+    total_days: float  # Can be half days
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class TimeOffRequest(BaseModel):
+    request_id: str
+    company_id: str
+    employee_id: str
+    employee_name: str
+    time_off_type: TimeOffType
+    start_date: str
+    end_date: str
+    total_days: float
+    status: TimeOffStatus = TimeOffStatus.PENDING
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+    
+    # Approval info
+    reviewed_by: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
+    
+    created_at: datetime
+    updated_at: datetime
+
+
+class TimeOffBalance(BaseModel):
+    employee_id: str
+    employee_name: str
+    year: int
+    vacation_entitled: float = 14.0  # RD default
+    vacation_used: float = 0.0
+    vacation_pending: float = 0.0  # Pending approval
+    vacation_available: float = 14.0
+    sick_leave_used: float = 0.0
+    personal_leave_used: float = 0.0
+
+
+# ==================== OVERTIME / HORAS EXTRAS ====================
+
+class OvertimeStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PROCESSED = "processed"  # Already included in payroll
+
+
+class OvertimeRequestCreate(BaseModel):
+    employee_id: str
+    date: str
+    hours_35: float = 0.0  # Normal overtime (35% extra)
+    hours_100: float = 0.0  # Holiday/night (100% extra)
+    reason: str
+    notes: Optional[str] = None
+
+
+class OvertimeRequest(BaseModel):
+    overtime_id: str
+    company_id: str
+    employee_id: str
+    employee_name: str
+    date: str
+    hours_35: float
+    hours_100: float
+    total_hours: float
+    estimated_amount: float  # Calculated based on hourly rate
+    status: OvertimeStatus = OvertimeStatus.PENDING
+    reason: str
+    notes: Optional[str] = None
+    
+    # Approval
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
+    
+    # Payroll linkage
+    payroll_period_id: Optional[str] = None
+    
+    created_at: datetime
+    updated_at: datetime
+
+
+# ==================== LOANS & ADVANCES / PRÉSTAMOS ====================
+
+class LoanType(str, Enum):
+    PERSONAL_LOAN = "personal_loan"  # Préstamo personal
+    SALARY_ADVANCE = "salary_advance"  # Adelanto de salario
+    EMERGENCY_LOAN = "emergency_loan"  # Préstamo de emergencia
+    EDUCATION_LOAN = "education_loan"  # Préstamo educativo
+
+
+class LoanStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ACTIVE = "active"  # Being deducted
+    PAID_OFF = "paid_off"
+    CANCELLED = "cancelled"
+
+
+class LoanRequestCreate(BaseModel):
+    employee_id: str
+    loan_type: LoanType
+    requested_amount: float
+    installments: int  # Number of payroll periods to deduct
+    reason: str
+    notes: Optional[str] = None
+
+
+class Loan(BaseModel):
+    loan_id: str
+    company_id: str
+    employee_id: str
+    employee_name: str
+    loan_type: LoanType
+    requested_amount: float
+    approved_amount: float = 0.0
+    installments: int
+    installment_amount: float = 0.0  # Amount per payroll period
+    total_paid: float = 0.0
+    remaining_balance: float = 0.0
+    installments_paid: int = 0
+    status: LoanStatus = LoanStatus.PENDING
+    reason: str
+    notes: Optional[str] = None
+    
+    # Approval
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
+    
+    # Dates
+    start_date: Optional[str] = None  # When deductions start
+    end_date: Optional[str] = None  # Expected end date
+    
+    created_at: datetime
+    updated_at: datetime
+
+
+class LoanPayment(BaseModel):
+    payment_id: str
+    loan_id: str
+    company_id: str
+    employee_id: str
+    payroll_period_id: str
+    amount: float
+    payment_date: str
+    remaining_balance_after: float
+    notes: Optional[str] = None
+    created_at: datetime
+
+
+# ==================== OFFBOARDING / TERMINACIÓN ====================
+
+class TerminationType(str, Enum):
+    RESIGNATION = "resignation"  # Renuncia voluntaria
+    DISMISSAL_JUSTIFIED = "dismissal_justified"  # Despido justificado (con causa)
+    DISMISSAL_UNJUSTIFIED = "dismissal_unjustified"  # Despido injustificado (sin causa)
+    MUTUAL_AGREEMENT = "mutual_agreement"  # Mutuo acuerdo
+    CONTRACT_END = "contract_end"  # Fin de contrato
+    RETIREMENT = "retirement"  # Jubilación
+    DEATH = "death"  # Fallecimiento
+
+
+class OffboardingStatus(str, Enum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    PROCESSED = "processed"
+    CANCELLED = "cancelled"
+
+
+class OffboardingCreate(BaseModel):
+    employee_id: str
+    termination_type: TerminationType
+    termination_date: str
+    last_working_day: str
+    reason: str
+    notes: Optional[str] = None
+
+
+class Offboarding(BaseModel):
+    offboarding_id: str
+    company_id: str
+    employee_id: str
+    employee_name: str
+    employee_number: Optional[str] = None
+    
+    # Termination Info
+    termination_type: TerminationType
+    termination_date: str
+    last_working_day: str
+    hire_date: str
+    years_of_service: float
+    reason: str
+    notes: Optional[str] = None
+    status: OffboardingStatus = OffboardingStatus.DRAFT
+    
+    # Liquidation Calculation (RD Labor Code)
+    base_salary: float = 0.0
+    daily_salary: float = 0.0
+    
+    # Preaviso (Notice Period) - Art. 76 CT
+    preaviso_days: int = 0
+    preaviso_amount: float = 0.0
+    
+    # Cesantía (Severance) - Art. 80 CT
+    cesantia_days: int = 0
+    cesantia_amount: float = 0.0
+    
+    # Vacaciones no disfrutadas
+    vacation_days_owed: float = 0.0
+    vacation_amount: float = 0.0
+    
+    # Proporción Regalía Pascual
+    regalia_months_worked: int = 0
+    regalia_proportion: float = 0.0
+    
+    # Salario pendiente
+    pending_salary_days: int = 0
+    pending_salary_amount: float = 0.0
+    
+    # Bonificaciones pendientes
+    pending_bonuses: float = 0.0
+    
+    # Deducciones pendientes (préstamos, etc.)
+    pending_deductions: float = 0.0
+    deductions_detail: Optional[str] = None
+    
+    # Total
+    gross_liquidation: float = 0.0
+    total_deductions: float = 0.0
+    net_liquidation: float = 0.0
+    
+    # Approval
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    
+    created_at: datetime
+    updated_at: datetime
+
+
+# ==================== RD LABOR CODE CONSTANTS ====================
+
+# Preaviso periods (Art. 76 Código de Trabajo RD)
+PREAVISO_PERIODS_RD = [
+    {"min_months": 3, "max_months": 6, "days": 7},
+    {"min_months": 6, "max_months": 12, "days": 14},
+    {"min_months": 12, "max_months": float('inf'), "days": 28},
+]
+
+# Cesantía calculation (Art. 80 Código de Trabajo RD)
+CESANTIA_PERIODS_RD = [
+    {"min_months": 3, "max_months": 6, "days_per_year": 6},
+    {"min_months": 6, "max_months": 12, "days_per_year": 13},
+    {"min_months": 12, "max_months": 60, "days_per_year": 21},  # Up to 5 years
+    {"min_months": 60, "max_months": float('inf'), "days_per_year": 23},  # 5+ years
+]
+
+# Maximum cesantía cap
+CESANTIA_MAX_DAYS = 630  # Maximum days for cesantía
+
+
+def calculate_preaviso_days(months_worked: float) -> int:
+    """Calculate preaviso days based on RD labor code"""
+    for period in PREAVISO_PERIODS_RD:
+        if period["min_months"] <= months_worked < period["max_months"]:
+            return period["days"]
+    return 28  # Default for 12+ months
+
+
+def calculate_cesantia_days(months_worked: float) -> int:
+    """Calculate cesantía days based on RD labor code"""
+    if months_worked < 3:
+        return 0
+    
+    years_worked = months_worked / 12
+    total_days = 0
+    
+    # Calculate progressively
+    if months_worked >= 3 and months_worked < 6:
+        total_days = int(years_worked * 6)
+    elif months_worked >= 6 and months_worked < 12:
+        total_days = int(years_worked * 13)
+    elif months_worked >= 12 and months_worked < 60:
+        total_days = int(years_worked * 21)
+    else:  # 5+ years
+        total_days = int(years_worked * 23)
+    
+    return min(total_days, CESANTIA_MAX_DAYS)
+
+
+def calculate_liquidation_rd(
+    termination_type: TerminationType,
+    hire_date: str,
+    termination_date: str,
+    base_salary: float,
+    vacation_days_owed: float = 0,
+    regalia_months_worked: int = 0,
+    pending_salary_days: int = 0,
+    pending_deductions: float = 0
+) -> dict:
+    """
+    Calculate full liquidation based on Dominican Republic Labor Code.
+    Returns detailed breakdown of all amounts.
+    """
+    from datetime import datetime as dt
+    
+    hire_dt = dt.fromisoformat(hire_date)
+    term_dt = dt.fromisoformat(termination_date)
+    
+    # Calculate service time
+    delta = term_dt - hire_dt
+    months_worked = delta.days / 30.44  # Average days per month
+    years_worked = months_worked / 12
+    
+    # Daily salary (monthly / 23.83 working days)
+    daily_salary = base_salary / 23.83
+    
+    result = {
+        "years_of_service": round(years_worked, 2),
+        "months_worked": round(months_worked, 1),
+        "daily_salary": round(daily_salary, 2),
+        "preaviso_days": 0,
+        "preaviso_amount": 0,
+        "cesantia_days": 0,
+        "cesantia_amount": 0,
+        "vacation_amount": 0,
+        "regalia_proportion": 0,
+        "pending_salary_amount": 0,
+        "gross_liquidation": 0,
+        "total_deductions": pending_deductions,
+        "net_liquidation": 0,
+        "breakdown": []
+    }
+    
+    # Preaviso & Cesantía only apply for unjustified dismissal
+    if termination_type == TerminationType.DISMISSAL_UNJUSTIFIED:
+        # Preaviso
+        preaviso_days = calculate_preaviso_days(months_worked)
+        preaviso_amount = preaviso_days * daily_salary
+        result["preaviso_days"] = preaviso_days
+        result["preaviso_amount"] = round(preaviso_amount, 2)
+        result["breakdown"].append(f"Preaviso ({preaviso_days} días): ${preaviso_amount:,.2f}")
+        
+        # Cesantía
+        cesantia_days = calculate_cesantia_days(months_worked)
+        cesantia_amount = cesantia_days * daily_salary
+        result["cesantia_days"] = cesantia_days
+        result["cesantia_amount"] = round(cesantia_amount, 2)
+        result["breakdown"].append(f"Cesantía ({cesantia_days} días): ${cesantia_amount:,.2f}")
+    
+    # Vacaciones no disfrutadas (applies to all termination types)
+    vacation_amount = vacation_days_owed * daily_salary
+    result["vacation_amount"] = round(vacation_amount, 2)
+    if vacation_days_owed > 0:
+        result["breakdown"].append(f"Vacaciones ({vacation_days_owed} días): ${vacation_amount:,.2f}")
+    
+    # Proporción de Regalía Pascual (applies to all)
+    if regalia_months_worked > 0:
+        regalia_proportion = (base_salary / 12) * regalia_months_worked
+        result["regalia_proportion"] = round(regalia_proportion, 2)
+        result["breakdown"].append(f"Regalía proporcional ({regalia_months_worked} meses): ${regalia_proportion:,.2f}")
+    
+    # Salario pendiente
+    pending_salary_amount = pending_salary_days * daily_salary
+    result["pending_salary_amount"] = round(pending_salary_amount, 2)
+    if pending_salary_days > 0:
+        result["breakdown"].append(f"Salario pendiente ({pending_salary_days} días): ${pending_salary_amount:,.2f}")
+    
+    # Calculate totals
+    result["gross_liquidation"] = round(
+        result["preaviso_amount"] +
+        result["cesantia_amount"] +
+        result["vacation_amount"] +
+        result["regalia_proportion"] +
+        result["pending_salary_amount"],
+        2
+    )
+    
+    result["net_liquidation"] = round(
+        result["gross_liquidation"] - result["total_deductions"],
+        2
+    )
+    
+    if pending_deductions > 0:
+        result["breakdown"].append(f"(-) Deducciones pendientes: -${pending_deductions:,.2f}")
+    
+    result["breakdown"].append(f"TOTAL NETO: ${result['net_liquidation']:,.2f}")
+    
+    return result
