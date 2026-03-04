@@ -7,7 +7,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - Generación de demanda y marketing (Demand Studio)
 - Claridad empresarial y análisis (Business Clarity)
 - **Gestión de RRHH y Nómina (People Ops)**
-- **Sistema de Pagos Variables** - NUEVO
+- **Sistema de Pagos Variables con 4 tipos independientes**
 
 ## User Personas
 - **Agencias de Marketing/Eventos**: Usuarios principales que gestionan múltiples clientes y proyectos
@@ -20,42 +20,53 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 2. Permisos granulares por sección (campañas, social media, etc.)
 3. Filtrado de datos por organización seleccionada
 4. Vinculación bidireccional entre módulos
-5. **Sistema de nómina completo con cálculos legales de RD**
-6. **Sistema de pagos variables independientes de la nómina regular**
+5. Sistema de nómina completo con cálculos legales de RD
+6. **Sistema de pagos variables con 4 flujos independientes: Overtime, Comisiones, Bonos, Incentivos**
 
 ---
 
 ## What's Been Implemented
 
-### Session: March 4-5, 2026 (NUEVA SESIÓN)
+### Session: March 4-5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
-#### P0 - Sistema de Pagos Variables - COMPLETADO
-- **Frontend Variable Pay Section** (`VariablePaySection.js`):
-  - Nueva pestaña "Pago Variable" en People Ops
-  - Vista de listado de Variable Pay Runs con tabla (Nombre, Tipo, Fecha Pago, Empleados, Total Neto, Estado)
-  - Diálogo de creación con: Nombre, Tipo de Pago (Overtime/Commission/Bonus/Incentive/Mixed), Período, Fecha de Pago
-  - Generación automática de entradas basada en horas extras aprobadas
-  - Vista detallada de cada run con desglose por empleado
-  - Flujo de aprobación completo: Draft → Pending → Approved → Completed
-  - Marcado automático de horas extras como "processed" al completar el run
+#### P0 - Sistema Completo de Pagos Variables - COMPLETADO ✅
 
-- **Backend Variable Pay Runs** (`settings.py` lines 83-490):
-  - `GET /api/settings/variable-pay-runs` - Listar runs
-  - `POST /api/settings/variable-pay-runs` - Crear run y generar entradas
-  - `GET /api/settings/variable-pay-runs/{id}` - Ver detalle con entradas
-  - `PUT /api/settings/variable-pay-entries/{id}` - Editar entrada (agregar comisiones, bonos)
-  - `POST /api/settings/variable-pay-runs/{id}/submit|approve|process|revert` - Workflow
-  - `DELETE /api/settings/variable-pay-runs/{id}` - Eliminar borrador
+**Frontend Variable Pay Section** (`VariablePaySection.js`):
+- **4 Tabs Separados**: Overtime | Comisiones | Bonos | Incentivos
+- Cada tipo con su propio listado, formulario de creación y flujo independiente
+- **Overtime Tab**: Calcula pagos basado en horas extras aprobadas en el período
+- **Comisiones Tab**: Calcula automáticamente basado en ventas cerradas (eventos Committed/Won asignados al vendedor)
+- **Bonos Tab**: Permite asignar montos fijos manualmente a empleados individuales
+- **Incentivos Tab**: Distribuye un pool de dinero según el % configurado por empleado
+- Vista detallada de cada run con desglose: Empleado, Departamento, Bruto, Deducciones, Neto
+- Descarga de archivo bancario CSV para cada run
+- Flujo de aprobación: Draft → Pending → Approved → Completed
 
-- **Configuración de Pagos Variables** (`PayrollConfigSection.js` + `settings.py`):
-  - Sección dedicada en Payroll Config para configurar fechas de pago por tipo
-  - Horas Extras: día de pago configurable o "con nómina"
-  - Comisiones: día de pago configurable o "con nómina"
-  - Bonos: día de pago configurable o "con nómina"
-  - Incentivos: día de pago configurable o "con nómina"
-  - Beneficios: configurable como "con nómina", "separado" o "reembolso"
-  - Resumen visual de todas las fechas de pago
-  - Backend separado: `GET/POST /api/settings/variable-pay-config`
+**Backend Variable Pay** (`settings.py`):
+- `GET/POST /api/settings/variable-pay-runs` - CRUD de runs
+- `GET /api/settings/variable-pay-runs/{id}` - Detalle con entries
+- `PUT /api/settings/variable-pay-entries/{id}` - Editar entrada
+- `POST /api/settings/variable-pay-runs/{id}/submit|approve|process|revert` - Workflow
+- `GET /api/settings/variable-pay-runs/{id}/bank-file` - CSV bancario
+- Lógica de cálculo para cada tipo:
+  - **Overtime**: Agrega horas extras aprobadas por empleado
+  - **Commission**: Busca eventos cerrados asignados, calcula % sobre total (solo items comisionables)
+  - **Bonus**: Crea entries desde lista manual de empleados con montos
+  - **Incentive**: Distribuye pool según `incentive_pool_percentage` de cada empleado
+
+**Nuevos Campos en Perfil de Empleado** (`EmployeeProfile.js`, `models/people_ops.py`):
+- `commission_rate`: % de comisión sobre ventas para este empleado
+- `incentive_pool_percentage`: % de participación en pool de incentivos
+- Sección de compensación actualizada para mostrar estos valores
+
+**Campo Comisionable en Tipos de Items** (`SettingsPage.js`, `server.py`):
+- `is_commissionable`: boolean en cada item type
+- UI en Settings > Tipos de Items con switch Comisionable/No Comisionable
+- Items no comisionables se excluyen del cálculo de comisiones
+
+**Asignación de Ventas** (`models/events.py`):
+- Campo `assigned_to` en EventUpdate para asignar eventos a vendedores
+- Usado para calcular comisiones basadas en ventas cerradas
 
 ### Sesiones Anteriores (Marzo 4, 2026)
   - Tasas de AFP (2.87% empleado, 7.10% empleador)
