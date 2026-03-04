@@ -76,6 +76,7 @@ const BusinessClarityPage = lazy(() => import("./pages/BusinessClarityPage"));
 const EventOrchestrationPage = lazy(() => import("./pages/EventOrchestrationPage"));
 const ClientEngagementPage = lazy(() => import("./pages/ClientEngagementPage"));
 const OperationsSuppliesPage = lazy(() => import("./pages/OperationsSuppliesPage"));
+const PeopleOpsPage = lazy(() => import("./pages/PeopleOpsPage"));
 const ImportExportPage = lazy(() => import("./pages/ImportExportPage"));
 const OnboardingPage = lazy(() => import("./pages/onboarding/OnboardingPage"));
 const DemandStudioPage = lazy(() => import("./pages/demand-studio/DemandStudioPage"));
@@ -316,6 +317,7 @@ function AppRouter() {
       <Route path="/food-ops/*" element={<ProtectedRoute><FoodOpsPage /></ProtectedRoute>} />
       <Route path="/ops-supplies/*" element={<ProtectedRoute><OperationsSuppliesPage /></ProtectedRoute>} />
       <Route path="/business-clarity/*" element={<ProtectedRoute><BusinessClarityPage /></ProtectedRoute>} />
+      <Route path="/people-ops/*" element={<ProtectedRoute><PeopleOpsPage /></ProtectedRoute>} />
       <Route path="/event-orchestration/*" element={<ProtectedRoute><EventOrchestrationPage /></ProtectedRoute>} />
       <Route path="/execution-hub" element={<ProtectedRoute><ExecutionHubPage /></ProtectedRoute>} />
       <Route path="/execution-hub/:goalId" element={<ProtectedRoute><ExecutionGoalDetail /></ProtectedRoute>} />

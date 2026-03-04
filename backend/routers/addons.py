@@ -668,6 +668,7 @@ CORE_MODULES = [
     {"key": "client_engagement", "path": "/client-engagement", "name_en": "Client Engagement", "name_es": "Client Engagement", "icon": "puzzle"},
     {"key": "execution_hub", "path": "/execution-hub", "name_en": "Execution Hub", "name_es": "Execution Hub", "icon": "target"},
     {"key": "business_clarity", "path": "/business-clarity", "name_en": "Business Clarity", "name_es": "Business Clarity", "icon": "briefcase"},
+    {"key": "people_ops", "path": "/people-ops", "name_en": "People Ops", "name_es": "People Ops", "icon": "users"},
     {"key": "settings", "path": "/settings", "name_en": "Settings", "name_es": "Configuración", "icon": "settings"},
 ]
 

@@ -1,0 +1,453 @@
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../../contexts/LanguageContext";
+import axios from "axios";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import {
+  Users, UserPlus, Search, Filter, Mail, Phone, Building2,
+  Briefcase, Calendar, RefreshCw, MoreHorizontal, ChevronRight
+} from "lucide-react";
+
+import { API_BASE as API } from "../../utils/api";
+
+const CONTRACT_TYPES = {
+  full_time: { label: "Full Time", labelEs: "Tiempo Completo", color: "bg-emerald-100 text-emerald-700" },
+  part_time: { label: "Part Time", labelEs: "Medio Tiempo", color: "bg-blue-100 text-blue-700" },
+  contract: { label: "Contract", labelEs: "Contrato", color: "bg-amber-100 text-amber-700" },
+  freelance: { label: "Freelance", labelEs: "Freelance", color: "bg-purple-100 text-purple-700" },
+  intern: { label: "Intern", labelEs: "Pasante", color: "bg-gray-100 text-gray-700" }
+};
+
+const STATUS_COLORS = {
+  active: "bg-emerald-100 text-emerald-700",
+  on_leave: "bg-amber-100 text-amber-700",
+  suspended: "bg-red-100 text-red-700",
+  terminated: "bg-gray-100 text-gray-700"
+};
+
+export function EmployeeDirectory() {
+  const { language } = useLanguage();
+  const isEs = language === "es";
+  const navigate = useNavigate();
+  
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [costCenters, setCostCenters] = useState([]);
+  const [stats, setStats] = useState(null);
+  
+  // New Employee Dialog
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    job_title: "",
+    department: "",
+    cost_center_id: "",
+    hire_date: new Date().toISOString().split("T")[0],
+    contract_type: "full_time",
+    base_salary: 0,
+    payment_frequency: "biweekly"
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [empRes, deptRes, ccRes, statsRes] = await Promise.all([
+        axios.get(`${API}/api/people-ops/employees?status=${statusFilter}${departmentFilter ? `&department=${departmentFilter}` : ''}`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/reference/departments`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/employees/stats/summary`, { withCredentials: true })
+      ]);
+      setEmployees(empRes.data);
+      setDepartments(deptRes.data);
+      setCostCenters(ccRes.data);
+      setStats(statsRes.data);
+    } catch (err) {
+      console.error("Error fetching employees:", err);
+    }
+    setLoading(false);
+  }, [statusFilter, departmentFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filteredEmployees = employees.filter(emp => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      emp.full_name?.toLowerCase().includes(search) ||
+      emp.email?.toLowerCase().includes(search) ||
+      emp.job_title?.toLowerCase().includes(search) ||
+      emp.department?.toLowerCase().includes(search)
+    );
+  });
+
+  const handleCreateEmployee = async () => {
+    if (!formData.first_name || !formData.last_name || !formData.email || !formData.job_title) {
+      alert(isEs ? "Completa los campos requeridos" : "Complete required fields");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/people-ops/employees`,
+        formData,
+        { withCredentials: true }
+      );
+      setDialogOpen(false);
+      setFormData({
+        first_name: "", last_name: "", email: "", phone: "",
+        job_title: "", department: "", cost_center_id: "",
+        hire_date: new Date().toISOString().split("T")[0],
+        contract_type: "full_time", base_salary: 0, payment_frequency: "biweekly"
+      });
+      // Navigate to new employee profile
+      navigate(`/people-ops/employee/${res.data.employee_id}`);
+    } catch (err) {
+      console.error("Error creating employee:", err);
+      alert(err.response?.data?.detail || "Error creating employee");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Users className="w-4 h-4" />
+                {isEs ? "Total Empleados" : "Total Employees"}
+              </div>
+              <p className="text-2xl font-bold mt-1">{stats.total_employees || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-emerald-200 bg-emerald-50/30">
+            <CardContent className="pt-4">
+              <div className="text-sm text-emerald-600">{isEs ? "Activos" : "Active"}</div>
+              <p className="text-2xl font-bold text-emerald-700 mt-1">{stats.active || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-sm text-muted-foreground">{isEs ? "En Licencia" : "On Leave"}</div>
+              <p className="text-2xl font-bold mt-1">{stats.on_leave || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-sm text-muted-foreground">{isEs ? "Departamentos" : "Departments"}</div>
+              <p className="text-2xl font-bold mt-1">{stats.by_department?.length || 0}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Filters & Actions */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-1 gap-3 items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={isEs ? "Buscar empleados..." : "Search employees..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{isEs ? "Activos" : "Active"}</SelectItem>
+              <SelectItem value="on_leave">{isEs ? "En Licencia" : "On Leave"}</SelectItem>
+              <SelectItem value="terminated">{isEs ? "Terminados" : "Terminated"}</SelectItem>
+            </SelectContent>
+          </Select>
+          {departments.length > 0 && (
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder={isEs ? "Departamento" : "Department"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">{isEs ? "Todos" : "All"}</SelectItem>
+                {departments.map(dept => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchData}>
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          <Button onClick={() => setDialogOpen(true)} data-testid="add-employee-btn">
+            <UserPlus className="w-4 h-4 mr-2" />
+            {isEs ? "Nuevo Empleado" : "New Employee"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Employee Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredEmployees.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{isEs ? "No hay empleados" : "No employees found"}</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
+                  <TableHead>{isEs ? "Puesto" : "Position"}</TableHead>
+                  <TableHead>{isEs ? "Departamento" : "Department"}</TableHead>
+                  <TableHead>{isEs ? "Contrato" : "Contract"}</TableHead>
+                  <TableHead>{isEs ? "Fecha Ingreso" : "Hire Date"}</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.map((emp) => (
+                  <TableRow 
+                    key={emp.employee_id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/people-ops/employee/${emp.employee_id}`)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                          <span className="text-sm font-medium text-violet-700">
+                            {emp.first_name?.[0]}{emp.last_name?.[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium">{emp.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{emp.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{emp.job_title}</TableCell>
+                    <TableCell>
+                      {emp.department && (
+                        <Badge variant="outline" className="text-xs">
+                          {emp.department}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`text-xs ${CONTRACT_TYPES[emp.contract_type]?.color || ''}`}>
+                        {isEs 
+                          ? CONTRACT_TYPES[emp.contract_type]?.labelEs 
+                          : CONTRACT_TYPES[emp.contract_type]?.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* New Employee Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Nuevo Empleado" : "New Employee"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {/* Personal Info */}
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Nombre *" : "First Name *"}</label>
+              <Input
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Apellido *" : "Last Name *"}</label>
+              <Input
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Email *</label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Teléfono" : "Phone"}</label>
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+
+            {/* Employment Info */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                {isEs ? "Información Laboral" : "Employment Info"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Puesto *" : "Job Title *"}</label>
+              <Input
+                value={formData.job_title}
+                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Departamento" : "Department"}</label>
+              <Input
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                placeholder={isEs ? "Ej: Ventas, Marketing..." : "E.g.: Sales, Marketing..."}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Cost Center</label>
+              <Select 
+                value={formData.cost_center_id} 
+                onValueChange={(v) => setFormData({ ...formData, cost_center_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {costCenters.map(cc => (
+                    <SelectItem key={cc.cost_center_id} value={cc.cost_center_id}>
+                      {cc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Fecha de Ingreso *" : "Hire Date *"}</label>
+              <Input
+                type="date"
+                value={formData.hire_date}
+                onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Tipo de Contrato" : "Contract Type"}</label>
+              <Select 
+                value={formData.contract_type} 
+                onValueChange={(v) => setFormData({ ...formData, contract_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full_time">{isEs ? "Tiempo Completo" : "Full Time"}</SelectItem>
+                  <SelectItem value="part_time">{isEs ? "Medio Tiempo" : "Part Time"}</SelectItem>
+                  <SelectItem value="contract">{isEs ? "Contrato" : "Contract"}</SelectItem>
+                  <SelectItem value="freelance">Freelance</SelectItem>
+                  <SelectItem value="intern">{isEs ? "Pasante" : "Intern"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Compensation */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                {isEs ? "Compensación" : "Compensation"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Salario Base" : "Base Salary"}</label>
+              <Input
+                type="number"
+                value={formData.base_salary}
+                onChange={(e) => setFormData({ ...formData, base_salary: parseFloat(e.target.value) || 0 })}
+                min="0"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Frecuencia de Pago" : "Payment Frequency"}</label>
+              <Select 
+                value={formData.payment_frequency} 
+                onValueChange={(v) => setFormData({ ...formData, payment_frequency: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+                  <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                  <SelectItem value="weekly">{isEs ? "Semanal" : "Weekly"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateEmployee} disabled={saving}>
+              {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
+              {isEs ? "Crear Empleado" : "Create Employee"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

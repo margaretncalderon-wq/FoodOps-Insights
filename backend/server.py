@@ -79,6 +79,7 @@ from routers.payments import payments_router
 from routers.automation import automation_router
 from routers.sharing import sharing_router
 from routers.notes import notes_router
+from routers.people_ops import people_ops_router
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
@@ -10237,6 +10238,7 @@ api_router.include_router(business_clarity_router)
 api_router.include_router(orchestration_router)
 api_router.include_router(production_router)
 api_router.include_router(delivery_notes_router)
+api_router.include_router(people_ops_router)
 
 # ============== OPS SUPPLIES AGREEMENTS ROUTER ==============
 ops_supplies_router = APIRouter(prefix="/ops-supplies", tags=["Operations Supplies"])
