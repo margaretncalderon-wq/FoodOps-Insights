@@ -16441,6 +16441,10 @@ api_router.include_router(account_sharing_router)  # /api/account-sharing/*
 from routers.activity_feed import activity_feed_router
 api_router.include_router(activity_feed_router)  # /api/activity-feed/*
 
+# Include Company Sharing router (granular permissions)
+from routers.company_sharing import company_sharing_router
+api_router.include_router(company_sharing_router)  # /api/company-sharing/*
+
 # User organizations endpoint - Get all organizations user has access to
 @api_router.get("/user/organizations")
 async def get_user_organizations(user: User = Depends(get_current_user)):

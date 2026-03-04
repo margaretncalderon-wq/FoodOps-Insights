@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { 
   Settings, Link2, Copy, Check, Webhook, 
   Facebook, ExternalLink, Zap, AlertCircle, Sparkles, Instagram,
-  Loader2, CheckCircle, XCircle, RefreshCw
+  Loader2, CheckCircle, XCircle, RefreshCw, Users, Building2, 
+  UserPlus, Trash2, Edit, Shield, Eye
 } from "lucide-react";
 import { toast } from "sonner";
 import BrandHub from "../../components/demand-studio/BrandHub";
+import CompanyShareSettings from "../../components/demand-studio/CompanyShareSettings";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -28,6 +30,13 @@ export default function DemandStudioSettings() {
   const [igConnection, setIgConnection] = useState(null);
   const [igLoading, setIgLoading] = useState(true);
   const [igSyncing, setIgSyncing] = useState(false);
+
+  // Team & Sharing state
+  const [members, setMembers] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
 
   // Handle OAuth callback parameters
   useEffect(() => {
@@ -134,6 +143,52 @@ export default function DemandStudioSettings() {
     }
   };
 
+  // Fetch company members
+  const fetchMembers = useCallback(async () => {
+    setMembersLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/company-sharing/members`, { withCredentials: true });
+      setMembers(res.data?.members || []);
+      setPendingInvites(res.data?.pending || []);
+    } catch (error) {
+      console.error("Error fetching members:", error);
+    } finally {
+      setMembersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
+
+  const handleRemoveMember = async (membershipId) => {
+    if (!confirm(isEs ? "¿Eliminar acceso de este colaborador?" : "Remove this collaborator's access?")) {
+      return;
+    }
+    try {
+      await axios.delete(`${API}/api/company-sharing/members/${membershipId}`, { withCredentials: true });
+      toast.success(isEs ? "Acceso eliminado" : "Access removed");
+      fetchMembers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error");
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId) => {
+    try {
+      await axios.delete(`${API}/api/company-sharing/invitations/${invitationId}`, { withCredentials: true });
+      toast.success(isEs ? "Invitación cancelada" : "Invitation cancelled");
+      fetchMembers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error");
+    }
+  };
+
+  const getEnabledSectionsCount = (permissions) => {
+    if (!permissions) return 0;
+    return Object.values(permissions).filter(p => p?.enabled).length;
+  };
+
   const webhookUrl = `${window.location.origin}/api/webhooks/leads/${companySlug}`;
   const testUrl = `${window.location.origin}/api/webhooks/test/${companySlug}`;
 
@@ -164,6 +219,10 @@ export default function DemandStudioSettings() {
           <TabsTrigger value="integrations" className="gap-1">
             <Webhook className="w-4 h-4" />
             {isEs ? "Integraciones" : "Integrations"}
+          </TabsTrigger>
+          <TabsTrigger value="team" className="gap-1">
+            <Users className="w-4 h-4" />
+            {isEs ? "Equipo" : "Team"}
           </TabsTrigger>
           <TabsTrigger value="brand-hub" className="gap-1">
             <Sparkles className="w-4 h-4" />
@@ -430,11 +489,144 @@ export default function DemandStudioSettings() {
           </Card>
         </TabsContent>
 
+        {/* Team & Sharing Tab */}
+        <TabsContent value="team" className="mt-6 space-y-6">
+          {/* Header */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-primary" />
+                    {isEs ? "Compartir Empresa" : "Share Company"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isEs 
+                      ? "Comparte acceso a tu empresa con colaboradores externos. Configura qué secciones pueden ver y con qué permisos."
+                      : "Share access to your company with external collaborators. Configure which sections they can access and with what permissions."
+                    }
+                  </CardDescription>
+                </div>
+                <Button onClick={() => { setEditingMember(null); setShareDialogOpen(true); }} data-testid="share-company-btn">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  {isEs ? "Compartir" : "Share"}
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* Members List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                {isEs ? "Colaboradores" : "Collaborators"}
+                {membersLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {members.length === 0 && !membersLoading ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>{isEs ? "No hay colaboradores aún" : "No collaborators yet"}</p>
+                  <p className="text-sm mt-1">
+                    {isEs ? "Comparte tu empresa con agencias o miembros externos" : "Share your company with agencies or external members"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {members.map((member) => (
+                    <div key={member.membership_id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                          {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || "?"}
+                        </div>
+                        <div>
+                          <p className="font-medium">{member.name || member.email}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary">
+                          {getEnabledSectionsCount(member.permissions)} {isEs ? "secciones" : "sections"}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => { setEditingMember(member); setShareDialogOpen(true); }}
+                          title={isEs ? "Editar permisos" : "Edit permissions"}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleRemoveMember(member.membership_id)}
+                          title={isEs ? "Eliminar acceso" : "Remove access"}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pending Invitations */}
+          {pendingInvites.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  {isEs ? "Invitaciones Pendientes" : "Pending Invitations"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pendingInvites.map((invite) => (
+                    <div key={invite.invitation_id} className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <div>
+                        <p className="font-medium">{invite.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isEs ? "Expira:" : "Expires:"} {new Date(invite.expires_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleRevokeInvitation(invite.invitation_id)}
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        {isEs ? "Cancelar" : "Cancel"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
         {/* Brand Hub Tab */}
         <TabsContent value="brand-hub" className="mt-6">
           <BrandHub />
         </TabsContent>
       </Tabs>
+
+      {/* Share Company Dialog */}
+      <CompanyShareSettings 
+        open={shareDialogOpen}
+        onOpenChange={(open) => {
+          setShareDialogOpen(open);
+          if (!open) {
+            setEditingMember(null);
+            fetchMembers();
+          }
+        }}
+        existingMembership={editingMember}
+      />
     </div>
   );
 }

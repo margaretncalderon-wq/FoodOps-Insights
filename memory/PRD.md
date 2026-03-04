@@ -1154,10 +1154,56 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 **Testing**: ✅ Endpoint y UI verificados funcionando
 
 **Pendiente (Fase 2):**
-- UI de configuración granular de permisos al compartir empresa
-- Backend para guardar permisos por sección
-- Validación de permisos en cada módulo
+- ~~UI de configuración granular de permisos al compartir empresa~~ ✅ COMPLETADO
+- Backend para guardar permisos por sección ✅ COMPLETADO
+- Validación de permisos en cada módulo (pendiente implementar en cada página)
 - Optimización: usar contexto en vez de reload al cambiar empresa
+
+### Session: Mar 04, 2026 - Granular Permission Configuration ✅
+
+#### Feature: Configuración de Permisos Granulares al Compartir Empresa
+
+**Requerimiento**: Al compartir una empresa, poder configurar qué secciones se comparten y con qué nivel de permiso (Admin/Editor/Viewer).
+
+**Backend - Nuevo Router company_sharing.py:**
+- `POST /api/company-sharing/invite` - Invitar colaborador con permisos por sección
+- `GET /api/company-sharing/members` - Listar miembros y sus permisos
+- `PATCH /api/company-sharing/members/{id}` - Actualizar permisos
+- `DELETE /api/company-sharing/members/{id}` - Revocar acceso
+- `GET /api/company-sharing/check-permission` - Verificar permiso para sección específica
+
+**Frontend - CompanyShareSettings.js:**
+- Modal con input de email
+- Lista de secciones con toggle on/off
+- Selector de rol por sección (Admin/Editor/Viewer)
+- Presets rápidos: "Full Access", "Social Agency", "View Only"
+- Indicador de secciones habilitadas (4/7)
+
+**Frontend - DemandStudioSettings.js:**
+- Nueva tab "Team" con lista de colaboradores
+- Botón "Share" para abrir modal de permisos
+- Botón editar para modificar permisos existentes
+- Botón eliminar para revocar acceso
+- Sección de invitaciones pendientes
+
+**Secciones Configurables:**
+- Social Media
+- Campaigns
+- Spend Ledger
+- Email Marketing
+- Notes
+- Insights
+- Activations
+
+**Files Created:**
+- `backend/routers/company_sharing.py` - Router de permisos granulares
+- `frontend/src/components/demand-studio/CompanyShareSettings.js` - Modal de configuración
+
+**Files Modified:**
+- `backend/server.py` - Registrado company_sharing_router
+- `frontend/src/pages/demand-studio/DemandStudioSettings.js` - Tab "Team"
+
+**Testing**: ✅ Endpoint y UI verificados funcionando
 
 ## Prioritized Backlog
 
