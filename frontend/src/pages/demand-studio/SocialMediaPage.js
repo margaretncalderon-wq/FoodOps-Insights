@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -72,6 +73,10 @@ export default function SocialMediaPage() {
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState("overview");
+  
+  // Get org context from parent (DemandStudioPage)
+  const outletContext = useOutletContext() || {};
+  const { selectedOrgId, selectedOrg, isOwnOrg } = outletContext;
   
   // Account-centric context - each account is a separate workspace
   const [accessibleAccounts, setAccessibleAccounts] = useState([]); // [{account_id, handle, platform, _access_type, _role, _shared_by}]
@@ -201,6 +206,14 @@ export default function SocialMediaPage() {
     fetchAvailableOrgs(); // Keep for backwards compatibility
   }, []);
 
+  // Refetch data when org changes from parent context
+  useEffect(() => {
+    if (selectedOrgId !== undefined) {
+      setLoading(true);
+      fetchData(isOwnOrg ? null : selectedOrgId, null);
+    }
+  }, [selectedOrgId, isOwnOrg]);
+
   // Handle account selection change
   const handleAccountChange = (accountId) => {
     if (accountId === "all") {
@@ -209,26 +222,29 @@ export default function SocialMediaPage() {
       setSelectedAccount(null);
       setIsViewingShared(false);
       setLoading(true);
-      fetchData(null, null);
+      fetchData(isOwnOrg ? null : selectedOrgId, null);
     } else {
       const account = accessibleAccounts.find(a => a.account_id === accountId);
       setSelectedAccountId(accountId);
       setSelectedAccount(account);
       setIsViewingShared(account?._access_type === "shared");
       setLoading(true);
-      fetchData(null, accountId);
+      fetchData(isOwnOrg ? null : selectedOrgId, accountId);
     }
   };
 
   const fetchData = async (orgId = null, accountId = null) => {
     try {
+      // Use selectedOrgId from context if available and not own org
+      const effectiveOrgId = orgId || (selectedOrgId && !isOwnOrg ? selectedOrgId : null);
+      
       // Build query params based on account or org
       let params = new URLSearchParams();
       if (accountId) {
         params.append("account_id", accountId);
       }
-      if (orgId) {
-        params.append("org_id", orgId);
+      if (effectiveOrgId) {
+        params.append("org_id", effectiveOrgId);
       }
       const queryString = params.toString() ? `?${params.toString()}` : "";
       const andParams = params.toString() ? `&${params.toString()}` : "";

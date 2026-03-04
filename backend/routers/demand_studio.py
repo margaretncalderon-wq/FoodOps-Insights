@@ -50,8 +50,7 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
         "$and": [
             {"$or": [{"company_id": org_id}, {"organization_id": org_id}]},
             {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
-        ],
-        "role": {"$in": ["social_contributor", "social_viewer", "admin", "manager"]}
+        ]
     })
     
     if not membership:

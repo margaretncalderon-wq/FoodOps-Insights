@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -50,6 +51,11 @@ const CATEGORIES = [
 export default function SpendLedgerPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  
+  // Get org context from parent (DemandStudioPage)
+  const outletContext = useOutletContext() || {};
+  const { selectedOrgId, selectedOrg, isOwnOrg } = outletContext;
+  
   const [spendRecords, setSpendRecords] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [channels, setChannels] = useState([]);
@@ -73,20 +79,27 @@ export default function SpendLedgerPage() {
 
   useEffect(() => {
     fetchData();
-  }, [filterCampaign, filterCategory]);
+  }, [filterCampaign, filterCategory, selectedOrgId]);
 
   const fetchData = async () => {
     try {
+      // Build URL with org_id if viewing shared org
+      const orgParam = selectedOrgId && !isOwnOrg ? `org_id=${selectedOrgId}` : "";
+      
       let spendUrl = `${API}/api/demand-studio/spend`;
       const params = [];
       if (filterCampaign !== "all") params.push(`campaign_id=${filterCampaign}`);
       if (filterCategory !== "all") params.push(`category=${filterCategory}`);
+      if (orgParam) params.push(orgParam);
       if (params.length) spendUrl += `?${params.join("&")}`;
+      
+      const campaignsUrl = orgParam ? `${API}/api/demand-studio/campaigns?${orgParam}` : `${API}/api/demand-studio/campaigns`;
+      const channelsUrl = orgParam ? `${API}/api/demand-studio/channels?${orgParam}` : `${API}/api/demand-studio/channels`;
       
       const [spendRes, campaignsRes, channelsRes] = await Promise.all([
         axios.get(spendUrl, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/campaigns`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/channels`, { withCredentials: true })
+        axios.get(campaignsUrl, { withCredentials: true }),
+        axios.get(channelsUrl, { withCredentials: true })
       ]);
       setSpendRecords(spendRes.data);
       setCampaigns(campaignsRes.data);

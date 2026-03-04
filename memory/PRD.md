@@ -1205,6 +1205,32 @@ INSTAGRAM_APP_SECRET=your_meta_app_secret
 
 **Testing**: ✅ Endpoint y UI verificados funcionando
 
+### Session: Mar 04, 2026 - Complete Multi-Organization Context ✅
+
+#### Bugfix: Los módulos ahora muestran datos de la empresa seleccionada
+
+**Problema**: Aunque el selector de empresa funcionaba, los módulos seguían mostrando los datos de la empresa propia del usuario.
+
+**Causa raíz**: 
+1. Los componentes hijos no estaban usando el contexto de organización del padre
+2. La función `get_effective_company_id` en el backend tenía filtros de roles muy restrictivos
+
+**Solución**:
+1. **Frontend**: Cada módulo ahora usa `useOutletContext()` para obtener el `selectedOrgId`
+2. **Frontend**: Los módulos pasan `org_id` en todas las llamadas API cuando corresponde
+3. **Backend**: Eliminado el filtro restrictivo de roles en `get_effective_company_id`
+4. **Optimización**: Removido `window.location.reload()` - los datos se refrescan automáticamente
+
+**Files Modified:**
+- `backend/routers/demand_studio.py` - Corregido filtro de roles en get_effective_company_id
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Usa outletContext, pasa org_id
+- `frontend/src/pages/demand-studio/CampaignsPage.js` - Usa outletContext, pasa org_id
+- `frontend/src/pages/demand-studio/SpendLedgerPage.js` - Usa outletContext, pasa org_id
+- `frontend/src/pages/demand-studio/NotesPage.js` - Usa outletContext, pasa org_id
+- `frontend/src/pages/demand-studio/DemandStudioPage.js` - Removido reload
+
+**Testing**: ✅ Verificado con curl y screenshots - los datos cambian correctamente al cambiar empresa
+
 ## Prioritized Backlog
 
 ### P0 (Critical - Next Session)

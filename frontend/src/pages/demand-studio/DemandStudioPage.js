@@ -77,8 +77,7 @@ export default function DemandStudioPage() {
       setSelectedOrgId(orgId);
       setSelectedOrg(org);
       localStorage.setItem("demandStudio_selectedOrgId", orgId);
-      // Trigger a page reload to refresh data with new org context
-      window.location.reload();
+      // No reload needed - child components will react to context change
     }
   };
 

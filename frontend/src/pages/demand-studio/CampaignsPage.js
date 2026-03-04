@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -81,6 +81,11 @@ export default function CampaignsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isEs = language === "es";
+  
+  // Get org context from parent (DemandStudioPage)
+  const outletContext = useOutletContext() || {};
+  const { selectedOrgId, selectedOrg, isOwnOrg } = outletContext;
+  
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,16 +123,18 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     fetchCampaigns();
-  }, [filterStatus, filterType, scopeFilter]);
+  }, [filterStatus, filterType, scopeFilter, selectedOrgId]);
 
   const fetchCampaigns = async () => {
     try {
-      // Build URL with scope filter
+      // Build URL with scope filter and org_id
       let url = `${API}/api/demand-studio/campaigns`;
       const params = [];
       if (filterStatus !== "all") params.push(`status=${filterStatus}`);
       if (filterType !== "all") params.push(`campaign_type=${filterType}`);
       if (scopeFilter !== "all") params.push(`scope=${scopeFilter}`);
+      // Add org_id if viewing shared org
+      if (selectedOrgId && !isOwnOrg) params.push(`org_id=${selectedOrgId}`);
       if (params.length) url += `?${params.join("&")}`;
       
       const response = await axios.get(url, { withCredentials: true });

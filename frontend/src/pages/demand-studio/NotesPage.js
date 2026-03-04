@@ -1,5 +1,6 @@
 // pages/demand-studio/NotesPage.js - Notes section for Demand Studio
 import { useState, useEffect, useCallback } from "react";
+import { useOutletContext } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -50,6 +51,10 @@ export default function NotesPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
   
+  // Get org context from parent (DemandStudioPage)
+  const outletContext = useOutletContext() || {};
+  const { selectedOrgId, selectedOrg, isOwnOrg } = outletContext;
+  
   const [notes, setNotes] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,9 +83,14 @@ export default function NotesPage() {
     setLoading(true);
     try {
       let url = `${API}/api/demand-studio/notes`;
+      const params = [];
       if (selectedFolder !== "all") {
-        url += `?folder_id=${selectedFolder}`;
+        params.push(`folder_id=${selectedFolder}`);
       }
+      if (selectedOrgId && !isOwnOrg) {
+        params.push(`org_id=${selectedOrgId}`);
+      }
+      if (params.length) url += `?${params.join("&")}`;
       const res = await axios.get(url, { withCredentials: true });
       setNotes(res.data || []);
     } catch (err) {
@@ -88,31 +98,33 @@ export default function NotesPage() {
       toast.error(isEs ? "Error al cargar notas" : "Error loading notes");
     }
     setLoading(false);
-  }, [selectedFolder, isEs]);
+  }, [selectedFolder, isEs, selectedOrgId, isOwnOrg]);
 
   const fetchFolders = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/demand-studio/notes/folders`, { withCredentials: true });
+      const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
+      const res = await axios.get(`${API}/api/demand-studio/notes/folders${orgParam}`, { withCredentials: true });
       setFolders(res.data || []);
     } catch (err) {
       console.error("Error fetching folders:", err);
     }
-  }, []);
+  }, [selectedOrgId, isOwnOrg]);
 
   const fetchCampaigns = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/demand-studio/campaigns`, { withCredentials: true });
+      const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
+      const res = await axios.get(`${API}/api/demand-studio/campaigns${orgParam}`, { withCredentials: true });
       setCampaigns(res.data || []);
     } catch (err) {
       console.error("Error fetching campaigns:", err);
     }
-  }, []);
+  }, [selectedOrgId, isOwnOrg]);
 
   useEffect(() => {
     fetchNotes();
     fetchFolders();
     fetchCampaigns();
-  }, [fetchNotes, fetchFolders, fetchCampaigns]);
+  }, [fetchNotes, fetchFolders, fetchCampaigns, selectedOrgId]);
 
   const handleSaveNote = async () => {
     if (!formData.title.trim()) {
