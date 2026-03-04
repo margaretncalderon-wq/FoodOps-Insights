@@ -32,7 +32,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - **Filtrado por Organización**: Todos los módulos de Demand Studio (Campañas, Estadísticas, Gastos, Activaciones, Notas) y Social Media respetan el selector de organización global
 - **Permisos Granulares**: Backend y frontend implementados para soportar permisos por sección (ej. `campaigns: "viewer"`)
 
-#### P1 - Vinculación Activation-Event (NUEVO)
+#### P1 - Vinculación Activation-Event (COMPLETADO)
 - **Backend Endpoints**:
   - `GET /api/demand-studio/activations/{id}/linkable-events` - Lista eventos con estado de confirmación
   - `GET /api/demand-studio/activations/{id}/linked-event-details` - Detalles completos del evento vinculado
@@ -42,8 +42,20 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
   - Navegación condicional (Event Orchestration vs Event Details)
   - Indicadores visuales de estado (Confirmado/En Proceso)
   - Diálogo de selección mejorado con badges de estado
-- **Frontend - EventOrchestrationPage**:
-  - Banner mostrando Activation vinculada con link de regreso
+
+#### P1 - Cost Center / Eventos Internos (NUEVO - COMPLETADO)
+- **Backend Endpoints**:
+  - `GET /api/demand-studio/internal-cost-center` - Obtiene/crea cliente interno "Marketing Interno - {Org}"
+  - `POST /api/demand-studio/activations/{id}/create-internal-event` - Crea evento interno vinculado
+- **Frontend - ActivationsPage**:
+  - Botón "Create Internal Event (Cost Center)" en diálogo de linkeo
+  - Formulario pre-llenado con datos de la activation
+  - Banner informativo de Cost Center
+- **Lógica**:
+  - Cliente interno con `is_internal_cost_center=true`
+  - Eventos internos con `is_internal_event=true` y `stage='Committed'`
+  - Aparecen directamente en Event Orchestration
+  - Separación contable de gastos internos vs clientes externos
 
 ---
 
@@ -60,6 +72,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
 2. **Internacionalización**: Completar traducción de strings codificados
 3. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key para funciones IA
+4. **Dashboard de Marketing Interno**: Reportes de ROI del Cost Center
 
 ### P3 - Baja Prioridad / Futuro
 1. Conectar Social Media y Email al Brand Hub
@@ -76,10 +89,11 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 /app/backend/
 ├── server.py              # FastAPI main + routes
 ├── models/
+│   ├── crm.py             # Client con is_internal_cost_center
 │   ├── demand_studio.py   # MarketingActivation con linked_event_id
-│   └── events.py          # Event con linked_activation_id
+│   └── events.py          # Event con linked_activation_id, is_internal_event
 └── routers/
-    ├── demand_studio.py   # CRUD + event linking endpoints
+    ├── demand_studio.py   # CRUD + event linking + internal cost center
     └── emergency_restore.py # (A ELIMINAR)
 ```
 
@@ -88,7 +102,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 /app/frontend/src/
 ├── pages/
 │   ├── demand-studio/
-│   │   └── ActivationsPage.js  # Drawer, linkeo de eventos
+│   │   └── ActivationsPage.js  # Drawer, linkeo, crear evento interno
 │   ├── EventOrchestrationPage.js # Banner de activation
 │   └── super-admin/
 │       └── EmergencyRestorePage.js # (A ELIMINAR)
@@ -97,8 +111,9 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 ```
 
 ### Database Schema (MongoDB)
+- **clients**: `is_internal_cost_center: bool` para identificar Cost Centers
 - **marketing_activations**: `linked_event_id`, `linked_event_name`
-- **events**: `linked_activation_id`, `linked_activation_name`, `marketing_budget`
+- **events**: `linked_activation_id`, `linked_activation_name`, `is_internal_event`, `marketing_budget`
 - **memberships**: Campo `permissions` para acceso granular
 
 ---
