@@ -560,27 +560,168 @@ async def diagnose_memberships(
     }
 
 
-@emergency_router.post("/fix-membership-status/{company_id}")
-async def fix_membership_status(
+@emergency_router.post("/fix-margaret")
+async def fix_margaret_account(user: User = Depends(get_current_user)):
+    """
+    Specific fix for margaret.n.calderon@gmail.com:
+    1. Find her correct company (Kora OS Test)
+    2. Update her company_id to point to it
+    3. Remove her membership from Staffdo if it exists
+    """
+    # Find Margaret's user
+    margaret = await db.users.find_one({"email": "margaret.n.calderon@gmail.com"})
+    if not margaret:
+        raise HTTPException(status_code=404, detail="Usuario margaret.n.calderon@gmail.com no encontrado")
+    
+    # Find Kora OS Test company
+    kora_company = await db.companies.find_one({"name": {"$regex": "kora.*os.*test", "$options": "i"}})
+    if not kora_company:
+        # Try other possible names
+        kora_company = await db.companies.find_one({"name": {"$regex": "kora", "$options": "i"}})
+    
+    if not kora_company:
+        # List all companies so user can identify the right one
+        all_companies = await db.companies.find({}, {"_id": 0, "company_id": 1, "name": 1}).to_list(50)
+        return {
+            "error": "No se encontró la empresa 'Kora OS Test'",
+            "available_companies": all_companies,
+            "instruction": "Usa /api/emergency/fix-margaret-to/{company_id} con el ID correcto"
+        }
+    
+    old_company_id = margaret.get("company_id")
+    new_company_id = kora_company["company_id"]
+    
+    # Update Margaret's company_id
+    await db.users.update_one(
+        {"email": "margaret.n.calderon@gmail.com"},
+        {
+            "$set": {
+                "company_id": new_company_id,
+                "active_org_id": new_company_id,
+                "fixed_at": datetime.now(timezone.utc).isoformat(),
+                "fixed_from": old_company_id
+            },
+            "$unset": {"view_as_org_id": ""}
+        }
+    )
+    
+    # Ensure Margaret has membership to her company
+    existing_membership = await db.memberships.find_one({
+        "user_id": margaret["user_id"],
+        "$or": [{"company_id": new_company_id}, {"organization_id": new_company_id}]
+    })
+    
+    if not existing_membership:
+        import uuid
+        await db.memberships.insert_one({
+            "membership_id": f"mem_{uuid.uuid4().hex[:12]}",
+            "user_id": margaret["user_id"],
+            "company_id": new_company_id,
+            "organization_id": new_company_id,
+            "role": "owner",
+            "status": "active",
+            "is_active": True,
+            "joined_at": datetime.now(timezone.utc).isoformat()
+        })
+        membership_created = True
+    else:
+        membership_created = False
+    
+    return {
+        "success": True,
+        "message": f"Margaret restaurada a {kora_company.get('name')}",
+        "old_company_id": old_company_id,
+        "new_company_id": new_company_id,
+        "company_name": kora_company.get("name"),
+        "membership_created": membership_created
+    }
+
+
+@emergency_router.post("/fix-margaret-to/{company_id}")
+async def fix_margaret_to_specific_company(
     company_id: str,
     user: User = Depends(get_current_user)
 ):
-    """
-    Fix all memberships for a company to have status='active'.
-    This makes them visible in Settings > Team.
-    """
+    """Fix Margaret's account to a specific company by ID"""
+    margaret = await db.users.find_one({"email": "margaret.n.calderon@gmail.com"})
+    if not margaret:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
     company = await db.companies.find_one({"company_id": company_id})
     if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
     
-    # Update all memberships to have status=active
-    result = await db.memberships.update_many(
+    old_company_id = margaret.get("company_id")
+    
+    await db.users.update_one(
+        {"email": "margaret.n.calderon@gmail.com"},
         {
-            "$or": [
-                {"company_id": company_id},
-                {"organization_id": company_id}
-            ]
-        },
+            "$set": {
+                "company_id": company_id,
+                "active_org_id": company_id,
+                "fixed_at": datetime.now(timezone.utc).isoformat()
+            },
+            "$unset": {"view_as_org_id": ""}
+        }
+    )
+    
+    # Ensure membership exists
+    existing = await db.memberships.find_one({
+        "user_id": margaret["user_id"],
+        "$or": [{"company_id": company_id}, {"organization_id": company_id}]
+    })
+    
+    if not existing:
+        import uuid
+        await db.memberships.insert_one({
+            "membership_id": f"mem_{uuid.uuid4().hex[:12]}",
+            "user_id": margaret["user_id"],
+            "company_id": company_id,
+            "organization_id": company_id,
+            "role": "owner",
+            "status": "active",
+            "is_active": True,
+            "joined_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    return {
+        "success": True,
+        "message": f"Margaret movida a {company.get('name')}",
+        "old_company_id": old_company_id,
+        "new_company_id": company_id
+    }
+
+
+@emergency_router.post("/fix-staffdo-users")
+async def fix_staffdo_users(user: User = Depends(get_current_user)):
+    """
+    Fix all Staffdo memberships to be visible in Settings > Team:
+    1. Find Staffdo company
+    2. Set all memberships to status='active'
+    3. Remove Margaret from Staffdo memberships
+    """
+    # Find Staffdo company
+    staffdo = await db.companies.find_one({"name": {"$regex": "staffdo", "$options": "i"}})
+    if not staffdo:
+        return {"error": "No se encontró la empresa Staffdo"}
+    
+    staffdo_id = staffdo["company_id"]
+    
+    # Find Margaret to exclude her
+    margaret = await db.users.find_one({"email": "margaret.n.calderon@gmail.com"})
+    margaret_user_id = margaret["user_id"] if margaret else None
+    
+    # Fix all Staffdo memberships (except Margaret's)
+    query = {
+        "$or": [{"company_id": staffdo_id}, {"organization_id": staffdo_id}]
+    }
+    
+    if margaret_user_id:
+        query["user_id"] = {"$ne": margaret_user_id}
+    
+    # Update memberships to active
+    result = await db.memberships.update_many(
+        query,
         {
             "$set": {
                 "status": "active",
@@ -590,10 +731,32 @@ async def fix_membership_status(
         }
     )
     
+    # Delete Margaret's membership from Staffdo
+    if margaret_user_id:
+        delete_result = await db.memberships.delete_many({
+            "user_id": margaret_user_id,
+            "$or": [{"company_id": staffdo_id}, {"organization_id": staffdo_id}]
+        })
+        margaret_removed = delete_result.deleted_count
+    else:
+        margaret_removed = 0
+    
+    # Get list of current Staffdo users
+    memberships = await db.memberships.find({
+        "$or": [{"company_id": staffdo_id}, {"organization_id": staffdo_id}]
+    }).to_list(100)
+    
+    users_list = []
+    for m in memberships:
+        u = await db.users.find_one({"user_id": m.get("user_id")}, {"_id": 0, "email": 1, "name": 1})
+        if u:
+            users_list.append({"email": u.get("email"), "name": u.get("name"), "status": m.get("status")})
+    
     return {
         "success": True,
-        "company_id": company_id,
-        "company_name": company.get("name"),
+        "staffdo_company_id": staffdo_id,
+        "staffdo_name": staffdo.get("name"),
         "memberships_fixed": result.modified_count,
-        "message": f"Se actualizaron {result.modified_count} membresías a status='active'"
+        "margaret_memberships_removed": margaret_removed,
+        "current_staffdo_users": users_list
     }
