@@ -11047,24 +11047,28 @@ async def check_usage_for_action(metric: str, user: User = Depends(get_current_u
 @org_router.get("/members")
 async def get_members(user: User = Depends(get_current_user), include_suspended: bool = False):
     """Get all members of the organization"""
-    # More flexible query - include memberships with status=active, or no status field at all
+    # Build query - include memberships with status=active, or no status field at all
     if include_suspended:
-        status_filter = {"$or": [
-            {"status": {"$in": ["active", "suspended"]}},
-            {"status": {"$exists": False}},
-            {"status": None}
-        ]}
+        query = {
+            "company_id": user.company_id,
+            "$or": [
+                {"status": "active"},
+                {"status": "suspended"},
+                {"status": {"$exists": False}},
+                {"status": None}
+            ]
+        }
     else:
-        status_filter = {"$or": [
-            {"status": "active"},
-            {"status": {"$exists": False}},
-            {"status": None}
-        ]}
+        query = {
+            "company_id": user.company_id,
+            "$or": [
+                {"status": "active"},
+                {"status": {"$exists": False}},
+                {"status": None}
+            ]
+        }
     
-    memberships = await db.memberships.find(
-        {"company_id": user.company_id, **status_filter},
-        {"_id": 0}
-    ).to_list(100)
+    memberships = await db.memberships.find(query, {"_id": 0}).to_list(100)
     
     # Get custom roles for this company to resolve role names
     custom_roles = await db.roles.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
@@ -11086,8 +11090,8 @@ async def get_members(user: User = Depends(get_current_user), include_suspended:
                 role_name_es = custom_roles_map[role_id].get("name_es", role_name)
             
             members.append({
-                "membership_id": mem["membership_id"],
-                "user_id": mem["user_id"],
+                "membership_id": mem.get("membership_id"),
+                "user_id": mem.get("user_id"),
                 "email": user_data.get("email"),
                 "name": user_data.get("name"),
                 "phone": user_data.get("phone"),
@@ -11096,8 +11100,8 @@ async def get_members(user: User = Depends(get_current_user), include_suspended:
                 "role_name": role_name,
                 "role_name_es": role_name_es,
                 "status": mem.get("status", "active"),
-                "joined_at": mem["joined_at"],
-                "is_current_user": mem["user_id"] == user.user_id
+                "joined_at": mem.get("joined_at", mem.get("created_at")),
+                "is_current_user": mem.get("user_id") == user.user_id
             })
     
     return members
