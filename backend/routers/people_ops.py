@@ -1,8 +1,11 @@
 # routers/people_ops.py - People Operations / RRHH Routes
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
+import csv
+import io
 
 from config import db
 from models.auth import User
@@ -12,6 +15,10 @@ from models.people_ops import (
     SalaryChangeCreate, SalaryChange,
     EmployeeDocumentCreate, EmployeeDocument,
     PayrollConfigCreate, PayrollConfig,
+    PayrollPeriodCreate, PayrollPeriod, PayrollStatus,
+    PayrollEntryCreate, PayrollEntry, PayrollEntryUpdate,
+    PaymentFrequency,
+    calculate_monthly_isr,
     COST_CENTER_TEMPLATES, AFP_PROVIDERS, ARS_PROVIDERS, BANKS_RD
 )
 from routers.auth import get_current_user
@@ -629,3 +636,683 @@ async def get_salary_history(
     ).sort("effective_date", -1).to_list(50)
     
     return changes
+
+
+# ==================== PAYROLL CONFIGURATION ====================
+
+@people_ops_router.get("/payroll/config")
+async def get_payroll_config(user: User = Depends(get_current_user)):
+    """Get payroll configuration for the organization"""
+    company_id, access_level = await check_people_ops_access(user, "view")
+    
+    config = await db.payroll_config.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not config:
+        # Return default config
+        return {
+            "config_id": None,
+            "company_id": company_id,
+            "payment_frequency": "biweekly",
+            "payment_day_1": 15,
+            "payment_day_2": 30,
+            "afp_employee_rate": 2.87,
+            "afp_employer_rate": 7.10,
+            "ars_employee_rate": 3.04,
+            "ars_employer_rate": 7.09,
+            "srl_rate": 1.20,
+            "infotep_rate": 1.0,
+            "isr_enabled": True,
+            "overtime_rate_35": 1.35,
+            "overtime_rate_100": 2.0,
+            "include_regalia": True,
+            "regalia_months": 12
+        }
+    
+    return config
+
+
+@people_ops_router.post("/payroll/config")
+async def save_payroll_config(
+    data: PayrollConfigCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create or update payroll configuration"""
+    company_id, access_level = await check_people_ops_access(user, "admin")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Check if config exists
+    existing = await db.payroll_config.find_one({"company_id": company_id})
+    
+    config_data = {
+        "company_id": company_id,
+        "payment_frequency": data.payment_frequency.value,
+        "payment_day_1": data.payment_day_1,
+        "payment_day_2": data.payment_day_2,
+        "afp_employee_rate": data.afp_employee_rate,
+        "afp_employer_rate": data.afp_employer_rate,
+        "ars_employee_rate": data.ars_employee_rate,
+        "ars_employer_rate": data.ars_employer_rate,
+        "srl_rate": data.srl_rate,
+        "infotep_rate": data.infotep_rate,
+        "isr_enabled": data.isr_enabled,
+        "overtime_rate_35": data.overtime_rate_35,
+        "overtime_rate_100": data.overtime_rate_100,
+        "include_regalia": data.include_regalia,
+        "regalia_months": data.regalia_months,
+        "updated_at": now.isoformat()
+    }
+    
+    if existing:
+        await db.payroll_config.update_one(
+            {"company_id": company_id},
+            {"$set": config_data}
+        )
+        config_data["config_id"] = existing.get("config_id")
+    else:
+        config_id = f"pconfig_{uuid.uuid4().hex[:12]}"
+        config_data["config_id"] = config_id
+        config_data["created_at"] = now.isoformat()
+        await db.payroll_config.insert_one(config_data)
+    
+    return config_data
+
+
+# ==================== PAYROLL PERIODS ====================
+
+@people_ops_router.get("/payroll/periods")
+async def get_payroll_periods(
+    status: Optional[str] = None,
+    limit: int = 20,
+    user: User = Depends(get_current_user)
+):
+    """Get all payroll periods"""
+    company_id, access_level = await check_people_ops_access(user, "view")
+    
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    
+    periods = await db.payroll_periods.find(
+        query,
+        {"_id": 0}
+    ).sort("payment_date", -1).to_list(limit)
+    
+    return periods
+
+
+@people_ops_router.post("/payroll/periods")
+async def create_payroll_period(
+    data: PayrollPeriodCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a new payroll period and generate entries for all active employees"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    now = datetime.now(timezone.utc)
+    period_id = f"period_{uuid.uuid4().hex[:12]}"
+    
+    # Get payroll config
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
+    if not config:
+        # Use defaults
+        config = {
+            "afp_employee_rate": 2.87,
+            "afp_employer_rate": 7.10,
+            "ars_employee_rate": 3.04,
+            "ars_employer_rate": 7.09,
+            "srl_rate": 1.20,
+            "infotep_rate": 1.0,
+            "isr_enabled": True,
+            "overtime_rate_35": 1.35,
+            "overtime_rate_100": 2.0
+        }
+    
+    # Create period
+    period_doc = {
+        "period_id": period_id,
+        "company_id": company_id,
+        "period_name": data.period_name,
+        "period_type": data.period_type.value,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "payment_date": data.payment_date,
+        "status": PayrollStatus.DRAFT.value,
+        "total_employees": 0,
+        "total_gross": 0.0,
+        "total_deductions": 0.0,
+        "total_net": 0.0,
+        "total_employer_cost": 0.0,
+        "notes": data.notes,
+        "approved_by": None,
+        "approved_at": None,
+        "processed_at": None,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.payroll_periods.insert_one(period_doc)
+    
+    # Get all active employees and create entries
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    total_gross = 0.0
+    total_deductions = 0.0
+    total_net = 0.0
+    total_employer_cost = 0.0
+    
+    for emp in employees:
+        # Calculate salary for period
+        base_salary = emp.get("base_salary", 0)
+        freq = emp.get("payment_frequency", "biweekly")
+        
+        # Adjust salary based on frequency
+        if freq == "monthly" and data.period_type.value == "biweekly":
+            period_salary = base_salary / 2
+        elif freq == "biweekly" and data.period_type.value == "monthly":
+            period_salary = base_salary * 2
+        else:
+            period_salary = base_salary
+        
+        # Calculate deductions
+        afp_emp = period_salary * (config.get("afp_employee_rate", 2.87) / 100)
+        ars_emp = period_salary * (config.get("ars_employee_rate", 3.04) / 100)
+        
+        # ISR calculation (monthly equivalent)
+        monthly_salary = period_salary * 2 if data.period_type.value == "biweekly" else period_salary
+        monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
+        period_isr = monthly_isr / 2 if data.period_type.value == "biweekly" else monthly_isr
+        
+        # Loan deduction
+        loan_deduction = 0.0
+        if emp.get("active_loan_balance", 0) > 0:
+            # Default: deduct 10% of salary towards loan
+            loan_deduction = min(period_salary * 0.1, emp.get("active_loan_balance", 0))
+        
+        total_emp_deductions = afp_emp + ars_emp + period_isr + loan_deduction
+        net_salary = period_salary - total_emp_deductions
+        
+        # Employer contributions
+        afp_employer = period_salary * (config.get("afp_employer_rate", 7.10) / 100)
+        ars_employer = period_salary * (config.get("ars_employer_rate", 7.09) / 100)
+        srl_employer = period_salary * (config.get("srl_rate", 1.20) / 100)
+        infotep_employer = period_salary * (config.get("infotep_rate", 1.0) / 100)
+        employer_cost = period_salary + afp_employer + ars_employer + srl_employer + infotep_employer
+        
+        entry_id = f"entry_{uuid.uuid4().hex[:12]}"
+        entry_doc = {
+            "entry_id": entry_id,
+            "period_id": period_id,
+            "company_id": company_id,
+            "employee_id": emp.get("employee_id"),
+            "employee_name": emp.get("full_name"),
+            "employee_number": emp.get("employee_number"),
+            "department": emp.get("department"),
+            
+            "base_salary": round(period_salary, 2),
+            "overtime_hours_35": 0,
+            "overtime_amount_35": 0,
+            "overtime_hours_100": 0,
+            "overtime_amount_100": 0,
+            "bonus": 0,
+            "commission": 0,
+            "other_earnings": 0,
+            "other_earnings_description": None,
+            "gross_salary": round(period_salary, 2),
+            
+            "afp_employee": round(afp_emp, 2),
+            "ars_employee": round(ars_emp, 2),
+            "isr": round(period_isr, 2),
+            "loan_deduction": round(loan_deduction, 2),
+            "other_deductions": 0,
+            "other_deductions_description": None,
+            "total_deductions": round(total_emp_deductions, 2),
+            
+            "net_salary": round(net_salary, 2),
+            
+            "afp_employer": round(afp_employer, 2),
+            "ars_employer": round(ars_employer, 2),
+            "srl_employer": round(srl_employer, 2),
+            "infotep_employer": round(infotep_employer, 2),
+            "total_employer_cost": round(employer_cost, 2),
+            
+            "bank_name": emp.get("bank_name"),
+            "bank_account": emp.get("bank_account"),
+            
+            "notes": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        
+        await db.payroll_entries.insert_one(entry_doc)
+        
+        total_gross += period_salary
+        total_deductions += total_emp_deductions
+        total_net += net_salary
+        total_employer_cost += employer_cost
+    
+    # Update period totals
+    await db.payroll_periods.update_one(
+        {"period_id": period_id},
+        {"$set": {
+            "total_employees": len(employees),
+            "total_gross": round(total_gross, 2),
+            "total_deductions": round(total_deductions, 2),
+            "total_net": round(total_net, 2),
+            "total_employer_cost": round(total_employer_cost, 2)
+        }}
+    )
+    
+    del period_doc["_id"]
+    period_doc["total_employees"] = len(employees)
+    period_doc["total_gross"] = round(total_gross, 2)
+    period_doc["total_deductions"] = round(total_deductions, 2)
+    period_doc["total_net"] = round(total_net, 2)
+    period_doc["total_employer_cost"] = round(total_employer_cost, 2)
+    
+    return period_doc
+
+
+@people_ops_router.get("/payroll/periods/{period_id}")
+async def get_payroll_period(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get a specific payroll period with all entries"""
+    company_id, access_level = await check_people_ops_access(user, "view")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not period:
+        raise HTTPException(status_code=404, detail="Payroll period not found")
+    
+    # Get all entries
+    entries = await db.payroll_entries.find(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    ).sort("employee_name", 1).to_list(1000)
+    
+    return {
+        "period": period,
+        "entries": entries
+    }
+
+
+@people_ops_router.put("/payroll/entries/{entry_id}")
+async def update_payroll_entry(
+    entry_id: str,
+    data: PayrollEntryUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Update a payroll entry (add overtime, bonus, etc.)"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    # Get entry
+    entry = await db.payroll_entries.find_one(
+        {"entry_id": entry_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="Payroll entry not found")
+    
+    # Check if period is still editable
+    period = await db.payroll_periods.find_one(
+        {"period_id": entry.get("period_id")},
+        {"_id": 0, "status": 1}
+    )
+    if period and period.get("status") not in ["draft", "pending_approval"]:
+        raise HTTPException(status_code=400, detail="Cannot edit entries for processed payroll")
+    
+    # Get config for rates
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
+    overtime_rate_35 = config.get("overtime_rate_35", 1.35) if config else 1.35
+    overtime_rate_100 = config.get("overtime_rate_100", 2.0) if config else 2.0
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate hourly rate from base salary (assuming 23.83 working days, 8 hours)
+    hourly_rate = entry.get("base_salary", 0) / (23.83 * 8 / 2) if entry.get("base_salary", 0) > 0 else 0
+    
+    update_data = {}
+    
+    if data.overtime_hours_35 is not None:
+        update_data["overtime_hours_35"] = data.overtime_hours_35
+        update_data["overtime_amount_35"] = round(data.overtime_hours_35 * hourly_rate * overtime_rate_35, 2)
+    
+    if data.overtime_hours_100 is not None:
+        update_data["overtime_hours_100"] = data.overtime_hours_100
+        update_data["overtime_amount_100"] = round(data.overtime_hours_100 * hourly_rate * overtime_rate_100, 2)
+    
+    if data.bonus is not None:
+        update_data["bonus"] = data.bonus
+    
+    if data.commission is not None:
+        update_data["commission"] = data.commission
+    
+    if data.other_earnings is not None:
+        update_data["other_earnings"] = data.other_earnings
+    
+    if data.other_earnings_description is not None:
+        update_data["other_earnings_description"] = data.other_earnings_description
+    
+    if data.loan_deduction is not None:
+        update_data["loan_deduction"] = data.loan_deduction
+    
+    if data.other_deductions is not None:
+        update_data["other_deductions"] = data.other_deductions
+    
+    if data.other_deductions_description is not None:
+        update_data["other_deductions_description"] = data.other_deductions_description
+    
+    if data.notes is not None:
+        update_data["notes"] = data.notes
+    
+    # Recalculate totals
+    base = entry.get("base_salary", 0)
+    ot_35 = update_data.get("overtime_amount_35", entry.get("overtime_amount_35", 0))
+    ot_100 = update_data.get("overtime_amount_100", entry.get("overtime_amount_100", 0))
+    bonus = update_data.get("bonus", entry.get("bonus", 0))
+    commission = update_data.get("commission", entry.get("commission", 0))
+    other_earn = update_data.get("other_earnings", entry.get("other_earnings", 0))
+    
+    gross = base + ot_35 + ot_100 + bonus + commission + other_earn
+    
+    # Recalculate deductions on new gross
+    afp_rate = config.get("afp_employee_rate", 2.87) / 100 if config else 0.0287
+    ars_rate = config.get("ars_employee_rate", 3.04) / 100 if config else 0.0304
+    
+    afp_emp = round(gross * afp_rate, 2)
+    ars_emp = round(gross * ars_rate, 2)
+    
+    # ISR on monthly equivalent
+    monthly_gross = gross * 2  # Assuming biweekly
+    monthly_isr = calculate_monthly_isr(monthly_gross) if (config and config.get("isr_enabled", True)) else 0
+    period_isr = round(monthly_isr / 2, 2)
+    
+    loan = update_data.get("loan_deduction", entry.get("loan_deduction", 0))
+    other_ded = update_data.get("other_deductions", entry.get("other_deductions", 0))
+    
+    total_deductions = afp_emp + ars_emp + period_isr + loan + other_ded
+    net = gross - total_deductions
+    
+    update_data["gross_salary"] = round(gross, 2)
+    update_data["afp_employee"] = afp_emp
+    update_data["ars_employee"] = ars_emp
+    update_data["isr"] = period_isr
+    update_data["total_deductions"] = round(total_deductions, 2)
+    update_data["net_salary"] = round(net, 2)
+    update_data["updated_at"] = now.isoformat()
+    
+    await db.payroll_entries.update_one(
+        {"entry_id": entry_id},
+        {"$set": update_data}
+    )
+    
+    # Recalculate period totals
+    await recalculate_period_totals(entry.get("period_id"))
+    
+    return {"message": "Entry updated", "net_salary": round(net, 2)}
+
+
+async def recalculate_period_totals(period_id: str):
+    """Recalculate totals for a payroll period"""
+    entries = await db.payroll_entries.find(
+        {"period_id": period_id},
+        {"_id": 0, "gross_salary": 1, "total_deductions": 1, "net_salary": 1, "total_employer_cost": 1}
+    ).to_list(1000)
+    
+    total_gross = sum(e.get("gross_salary", 0) for e in entries)
+    total_deductions = sum(e.get("total_deductions", 0) for e in entries)
+    total_net = sum(e.get("net_salary", 0) for e in entries)
+    total_employer = sum(e.get("total_employer_cost", 0) for e in entries)
+    
+    await db.payroll_periods.update_one(
+        {"period_id": period_id},
+        {"$set": {
+            "total_employees": len(entries),
+            "total_gross": round(total_gross, 2),
+            "total_deductions": round(total_deductions, 2),
+            "total_net": round(total_net, 2),
+            "total_employer_cost": round(total_employer, 2),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+
+# ==================== PAYROLL ACTIONS ====================
+
+@people_ops_router.post("/payroll/periods/{period_id}/submit")
+async def submit_payroll_for_approval(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Submit payroll period for approval"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+    
+    if period.get("status") != "draft":
+        raise HTTPException(status_code=400, detail="Only draft periods can be submitted")
+    
+    await db.payroll_periods.update_one(
+        {"period_id": period_id},
+        {"$set": {
+            "status": PayrollStatus.PENDING_APPROVAL.value,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Payroll submitted for approval"}
+
+
+@people_ops_router.post("/payroll/periods/{period_id}/approve")
+async def approve_payroll(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Approve payroll period (admin only)"""
+    company_id, access_level = await check_people_ops_access(user, "payroll_approve")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+    
+    if period.get("status") != "pending_approval":
+        raise HTTPException(status_code=400, detail="Only pending periods can be approved")
+    
+    now = datetime.now(timezone.utc)
+    await db.payroll_periods.update_one(
+        {"period_id": period_id},
+        {"$set": {
+            "status": PayrollStatus.APPROVED.value,
+            "approved_by": user.user_id,
+            "approved_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {"message": "Payroll approved"}
+
+
+@people_ops_router.post("/payroll/periods/{period_id}/process")
+async def process_payroll(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Mark payroll as processed/completed"""
+    company_id, access_level = await check_people_ops_access(user, "payroll_approve")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+    
+    if period.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="Only approved periods can be processed")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Update loan balances for employees
+    entries = await db.payroll_entries.find(
+        {"period_id": period_id, "loan_deduction": {"$gt": 0}},
+        {"_id": 0, "employee_id": 1, "loan_deduction": 1}
+    ).to_list(1000)
+    
+    for entry in entries:
+        await db.employees.update_one(
+            {"employee_id": entry["employee_id"]},
+            {"$inc": {"active_loan_balance": -entry["loan_deduction"]}}
+        )
+    
+    await db.payroll_periods.update_one(
+        {"period_id": period_id},
+        {"$set": {
+            "status": PayrollStatus.COMPLETED.value,
+            "processed_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {"message": "Payroll processed"}
+
+
+@people_ops_router.post("/payroll/periods/{period_id}/revert")
+async def revert_payroll_to_draft(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Revert payroll back to draft (admin only, only if not processed)"""
+    company_id, access_level = await check_people_ops_access(user, "payroll_approve")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+    
+    if period.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="Cannot revert completed payroll")
+    
+    await db.payroll_periods.update_one(
+        {"period_id": period_id},
+        {"$set": {
+            "status": PayrollStatus.DRAFT.value,
+            "approved_by": None,
+            "approved_at": None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Payroll reverted to draft"}
+
+
+# ==================== PAYROLL EXPORTS ====================
+
+@people_ops_router.get("/payroll/periods/{period_id}/bank-file")
+async def generate_bank_file(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Generate bank payment file (CSV) for the period"""
+    company_id, access_level = await check_people_ops_access(user, "view")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+    
+    entries = await db.payroll_entries.find(
+        {"period_id": period_id, "company_id": company_id, "bank_account": {"$exists": True, "$ne": None}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(["Nombre", "Banco", "Tipo Cuenta", "Numero Cuenta", "Monto", "Referencia"])
+    
+    # Data
+    for entry in entries:
+        writer.writerow([
+            entry.get("employee_name", ""),
+            entry.get("bank_name", ""),
+            "Ahorros",  # Default
+            entry.get("bank_account", ""),
+            entry.get("net_salary", 0),
+            f"{period.get('period_name', '')} - {entry.get('employee_number', '')}"
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=nomina_{period_id}.csv"}
+    )
+
+
+@people_ops_router.get("/payroll/entries/{entry_id}/payslip")
+async def get_payslip_data(
+    entry_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get data for generating a payslip"""
+    company_id, access_level = await check_people_ops_access(user, "view")
+    
+    entry = await db.payroll_entries.find_one(
+        {"entry_id": entry_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": entry.get("period_id")},
+        {"_id": 0}
+    )
+    
+    # Get employee details
+    employee = await db.employees.find_one(
+        {"employee_id": entry.get("employee_id")},
+        {"_id": 0, "national_id": 1, "afp_provider": 1, "ars_provider": 1}
+    )
+    
+    # Get company info
+    org = await db.organizations.find_one(
+        {"org_id": company_id},
+        {"_id": 0, "name": 1, "rnc": 1}
+    )
+    
+    return {
+        "entry": entry,
+        "period": period,
+        "company_name": org.get("name") if org else None,
+        "company_rnc": org.get("rnc") if org else None,
+        "employee_national_id": employee.get("national_id") if employee else None,
+        "afp_provider": employee.get("afp_provider") if employee else None,
+        "ars_provider": employee.get("ars_provider") if employee else None
+    }

@@ -1,3 +1,6 @@
 export { EmployeeDirectory } from './EmployeeDirectory';
 export { EmployeeProfile } from './EmployeeProfile';
 export { CostCentersSection } from './CostCentersSection';
+export { PayrollSection } from './PayrollSection';
+export { PayrollPeriodView } from './PayrollPeriodView';
+export { PayrollConfigSection } from './PayrollConfigSection';

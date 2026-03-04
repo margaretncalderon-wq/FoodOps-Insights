@@ -418,3 +418,170 @@ BANKS_RD = [
     "Banesco",
     "Citibank"
 ]
+
+
+# ==================== PAYROLL MODELS ====================
+
+class PayrollStatus(str, Enum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class PayrollPeriodCreate(BaseModel):
+    period_name: str  # e.g., "Quincena 1 - Marzo 2026"
+    period_type: PaymentFrequency = PaymentFrequency.BIWEEKLY
+    start_date: str
+    end_date: str
+    payment_date: str
+    notes: Optional[str] = None
+
+
+class PayrollPeriod(BaseModel):
+    period_id: str
+    company_id: str
+    period_name: str
+    period_type: PaymentFrequency
+    start_date: str
+    end_date: str
+    payment_date: str
+    status: PayrollStatus = PayrollStatus.DRAFT
+    
+    # Totals
+    total_employees: int = 0
+    total_gross: float = 0.0
+    total_deductions: float = 0.0
+    total_net: float = 0.0
+    total_employer_cost: float = 0.0  # Including employer contributions
+    
+    notes: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    processed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PayrollEntryCreate(BaseModel):
+    employee_id: str
+    # Earnings
+    base_salary: float = 0.0
+    overtime_hours_35: float = 0.0  # Normal overtime hours
+    overtime_hours_100: float = 0.0  # Holiday/night overtime hours
+    bonus: float = 0.0
+    commission: float = 0.0
+    other_earnings: float = 0.0
+    other_earnings_description: Optional[str] = None
+    
+    # Deductions (manual overrides)
+    loan_deduction: float = 0.0
+    other_deductions: float = 0.0
+    other_deductions_description: Optional[str] = None
+    
+    notes: Optional[str] = None
+
+
+class PayrollEntry(BaseModel):
+    entry_id: str
+    period_id: str
+    company_id: str
+    employee_id: str
+    employee_name: str
+    employee_number: Optional[str] = None
+    department: Optional[str] = None
+    
+    # Earnings
+    base_salary: float = 0.0
+    overtime_hours_35: float = 0.0
+    overtime_amount_35: float = 0.0
+    overtime_hours_100: float = 0.0
+    overtime_amount_100: float = 0.0
+    bonus: float = 0.0
+    commission: float = 0.0
+    other_earnings: float = 0.0
+    other_earnings_description: Optional[str] = None
+    gross_salary: float = 0.0
+    
+    # Employee Deductions
+    afp_employee: float = 0.0
+    ars_employee: float = 0.0
+    isr: float = 0.0
+    loan_deduction: float = 0.0
+    other_deductions: float = 0.0
+    other_deductions_description: Optional[str] = None
+    total_deductions: float = 0.0
+    
+    # Net Pay
+    net_salary: float = 0.0
+    
+    # Employer Contributions (for reporting)
+    afp_employer: float = 0.0
+    ars_employer: float = 0.0
+    srl_employer: float = 0.0
+    infotep_employer: float = 0.0
+    total_employer_cost: float = 0.0
+    
+    # Bank info for payment
+    bank_name: Optional[str] = None
+    bank_account: Optional[str] = None
+    
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PayrollEntryUpdate(BaseModel):
+    overtime_hours_35: Optional[float] = None
+    overtime_hours_100: Optional[float] = None
+    bonus: Optional[float] = None
+    commission: Optional[float] = None
+    other_earnings: Optional[float] = None
+    other_earnings_description: Optional[str] = None
+    loan_deduction: Optional[float] = None
+    other_deductions: Optional[float] = None
+    other_deductions_description: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PayslipData(BaseModel):
+    """Data structure for generating a payslip/receipt"""
+    entry: PayrollEntry
+    period: PayrollPeriod
+    company_name: str
+    company_rnc: Optional[str] = None
+    employee_national_id: Optional[str] = None
+    afp_provider: Optional[str] = None
+    ars_provider: Optional[str] = None
+
+
+class BankFileEntry(BaseModel):
+    """Entry for bank payment file"""
+    employee_name: str
+    bank_name: str
+    bank_account: str
+    amount: float
+    reference: str  # Period ID or custom reference
+
+
+# ISR Calculation Helper (Dominican Republic 2024)
+def calculate_isr_rd(annual_salary: float) -> float:
+    """Calculate ISR based on Dominican Republic tax brackets"""
+    if annual_salary <= 416220:
+        return 0
+    elif annual_salary <= 624329:
+        return (annual_salary - 416220) * 0.15
+    elif annual_salary <= 867123:
+        return 31216.35 + (annual_salary - 624329) * 0.20
+    else:
+        return 79775.15 + (annual_salary - 867123) * 0.25
+
+
+def calculate_monthly_isr(monthly_salary: float) -> float:
+    """Calculate monthly ISR from monthly salary"""
+    annual_salary = monthly_salary * 12
+    annual_isr = calculate_isr_rd(annual_salary)
+    return annual_isr / 12
+

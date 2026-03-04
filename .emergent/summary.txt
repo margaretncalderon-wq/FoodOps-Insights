@@ -1,63 +1,78 @@
 <analysis>**original_problem_statement:**
-El objetivo del usuario era solucionar un error crítico de seguridad en producción en su plataforma CRM Kora OS. Un componente heredado () estaba cambiando incorrectamente el  de los usuarios en la base de datos, causando que el usuario principal viera los datos de CRM de otra empresa (Staffdo) en lugar de los suyos, bloqueando su acceso en producción.
-
-Tras solucionar ese problema de máxima prioridad mediante una herramienta de restauración de emergencia, el trabajo se centró en:
-1.  Corregir un error de seguimiento en el que los módulos del Demand Studio (Campañas, Gastos, etc.) no se filtraban correctamente por la organización seleccionada.
-2.  Implementar un sistema de permisos granulares para controlar el acceso a diferentes secciones (redes sociales, campañas) cuando se comparte una empresa con un colaborador.
-3.  Implementar una nueva funcionalidad para vincular Activations de marketing (del Demand Studio) con Events (del módulo Event Orchestration).
+El objetivo inicial era solucionar un error crítico de seguridad ( corrompía el  del usuario), que ya ha sido resuelto. Posteriormente, el trabajo se centró en varias funcionalidades nuevas y mejoras:
+1.  Corregir el filtrado de datos por organización en varios módulos. (Completado)
+2.  Implementar un sistema de permisos granulares por sección. (Completado)
+3.  Crear una funcionalidad para vincular Activations de marketing con Events de orquestación, incluyendo una UI/UX bidireccional completa. (Completado)
+4.  Implementar un sistema de Cost Center para gestionar eventos de marketing interno, desvinculándolos de clientes externos. (Completado)
+5.  Crear un dashboard de Marketing ROI para analizar la inversión y el retorno de las campañas. (Completado)
+6.  Construir un módulo completo de People Ops para la gestión de RRHH y nómina, diseñado para ser escalable y cumplir con regulaciones específicas (ej. República Dominicana). (En Progreso)
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-La aplicación es una plataforma de marketing y CRM funcional.
-*   **Problema de Producción Resuelto:** Se creó y utilizó con éxito una herramienta de restauración de emergencia (ahora ubicada en ) para corregir el  del usuario y reparar las membresías de los usuarios afectados en la base de datos de producción. El usuario ha confirmado que el problema principal está resuelto.
-*   **Limpieza de Código Crítico:** El componente  y su endpoint de backend , que causaron el error, han sido eliminados por completo para prevenir futuras recurrencias.
-*   **Filtrado por Organización:** Todos los módulos del Demand Studio (Campañas, Estadísticas, Gastos, Activaciones, Notas) y el módulo de Social Media ahora respetan el selector de organización global y filtran los datos correctamente según la empresa seleccionada.
-*   **Permisos Granulares (Backend y Frontend):** Se ha implementado la lógica para soportar permisos por sección (p. ej., ). El backend ahora verifica estos permisos en los endpoints, y el frontend del Demand Studio muestra u oculta las pestañas correspondientes y añade un ícono de solo lectura (👁️) cuando es aplicable.
-*   **Linkeo de Activation-Event:** Se ha implementado la funcionalidad completa (backend y frontend) para permitir a los usuarios vincular una  (del Demand Studio) a un  (de Event Orchestration). Esto incluye una lógica clara para que los gastos de marketing (en la activación) y el presupuesto del evento (facturado al cliente) se mantengan separados y no se dupliquen.
+La aplicación es una plataforma CRM y de marketing funcional. El problema crítico de producción fue resuelto. Se ha implementado un sistema robusto para vincular activaciones de marketing con eventos, incluyendo un panel lateral (drawer) con detalles y navegación condicional. Se ha creado un sistema de Cost Center para gestionar el marketing interno, cuya configuración ahora reside en Settings. Se ha añadido un nuevo dashboard de Marketing ROI en la sección Business Clarity. Recientemente, se ha iniciado la construcción de un nuevo módulo principal llamado People Ops, que ya cuenta con una base para el directorio de empleados y la creación de perfiles. Además, se ha completado la estructura de backend (modelos y rutas) para un sistema de Nómina (Payroll) que vivirá dentro de People Ops.
 
 **Last working item**:
--   **Last item agent was working**: El agente acaba de terminar de implementar la interfaz de usuario (UI) en el frontend para vincular Activations con Events. Esto incluye un botón Link to Event en cada tarjeta de activación, un diálogo modal para buscar y seleccionar un evento vinculable, y la actualización de la tarjeta para mostrar el evento vinculado con un botón para desvincularlo.
--   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: Y
--   **Which testing method agent to use?**: frontend testing agent
+-   **Last item agent was working**: El agente estaba en medio de la implementación de un sistema de Nómina (Payroll). Acababa de crear todos los modelos de base de datos necesarios (, , ) y el router de backend completo () con todos los endpoints para crear, gestionar y procesar una nómina.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: backend testing agent (para verificar los nuevos endpoints de payroll), y luego frontend testing agent una vez que la UI esté construida.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-No hay problemas pendientes de alta prioridad. El bloqueador principal de producción ha sido resuelto.
+-   **Issue 1: Pequeño bug en formulario de creación de empleado (P1)**
+    -   **Description**: Al crear un empleado, el nombre completo se mostraba incorrectamente en la página de perfil (ej. ). El agente corrigió el registro dañado directamente en la base de datos y determinó que fue un error en su script de testing, pero la robustez del formulario de cara al usuario final no ha sido verificada.
+    -   **Attempted fixes**: Se actualizó el registro corrupto manualmente. El agente planeaba agregar  a los campos para hacer las pruebas más fiables.
+    -   **Next debug checklist**:
+        1.  Manualmente, crear un nuevo empleado a través de la UI para confirmar si el error es reproducible.
+        2.  Revisar el componente  y asegurarse de que el objeto  se construye correctamente antes de enviarlo a la API.
+    -   **Why fix this issue and what will be achieved with the fix?**: Asegurar la integridad de los datos de los empleados desde su creación.
+    -   **Status**: IN PROGRESS
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend
 
 **In progress Task List**:
--   **Task 1: Verificación del usuario de la UI de linkeo Activation-Event (P1)**
-    -   **Where to resume**: El agente acaba de presentar las credenciales de prueba al usuario. El siguiente paso es esperar la retroalimentación del usuario sobre la nueva funcionalidad de vinculación en el módulo de Activations.
-    -   **What will be achieved with this?**: Confirmación del usuario de que la nueva función para vincular Activations y Events cumple con sus expectativas y funciona correctamente.
-    -   **Status**: USER VERIFICATION PENDING
-    -   **Should Test frontend/backend/both after fix?**: NA
-    -   **Blocked on something**: User feedback.
+-   **Task 1: Implementar Frontend del Módulo de Nómina (P0)**
+    -   **Where to resume**: El backend para Payroll (modelos y endpoints) ya está creado. El siguiente paso es construir la interfaz de usuario dentro del módulo People Ops. Esto requiere crear una nueva pestaña Payroll y los siguientes componentes:
+        1.  **Configuración de Nómina**: Un formulario para que la empresa defina frecuencia de pago (mensual/quincenal), días de pago, y deducciones legales.
+        2.  **Dashboard de Nómina**: Una vista principal para ver el historial de nóminas, su estado (borrador, procesada) y un botón para iniciar una nueva corrida de nómina.
+        3.  **Vista de Pre-Nómina**: Una tabla detallada que, al iniciar una corrida, muestre a cada empleado con su salario base, bonos, horas extras, deducciones y salario neto, permitiendo ajustes antes de la aprobación.
+        4.  **Vista de Recibo de Pago (Payslip)**: Un componente para visualizar e imprimir el recibo de pago de un empleado individual.
+    -   **What will be achieved with this?**: Entregar la funcionalidad de nómina solicitada por el usuario.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on something**: None.
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks**:
-*   **P1: Limpiar código de emergencia:** Una vez que se confirme que la estabilidad ha vuelto, discutir con el usuario la eliminación de la página  y sus endpoints asociados en  para limpiar la deuda técnica.
-*   **P2: Auditoría final de permisos granulares:** Realizar una revisión completa de todos los endpoints  en la aplicación para garantizar que todos verifiquen correctamente los roles de editor o admin antes de permitir una escritura, completando la Fase 2 del feature.
+*   **P1: Completar Fases 2, 3 y 4 de People Ops:** Una vez que el módulo de Nómina (Payroll) esté funcional, continuar con el resto de las funcionalidades del módulo de RRHH:
+    *   **Tiempo y Asistencia**: Gestión de horas extras, vacaciones, ausencias.
+    *   **Préstamos y Adelantos**: Solicitud, aprobación y descuento automático en nómina.
+    *   **Offboarding**: Proceso de salida con cálculo automático de liquidación según leyes de RD.
+    *   **Reportes Regulatorios (RD)**: Generación de reportes para DGT-3, TSS, DGII.
+*   **P2: Limpiar código de emergencia:** Una vez que se confirme la estabilidad de la plataforma, discutir con el usuario la eliminación de la página  y su endpoint asociado .
+*   **P3: Auditoría final de permisos granulares:** Realizar una revisión completa de todos los endpoints  para asegurar que verifican los roles de editor o admin antes de permitir escrituras.
 
 **Future Tasks**:
 *   Conectar los módulos de Social Media y Correo electrónico al Brand Hub.
 *   Implementar seguimiento completo de UTM.
 *   Kora Comms - Fase 1 (integración de WhatsApp).
-*   Eliminar archivos y componentes redundantes (ej. ).
-*   Completar la internacionalización de la aplicación.
+*   Eliminar archivos y componentes redundantes (ej. , ).
+*   Completar la internacionalización (i18n) de la aplicación.
 *   Crear un asistente de configuración inicial para nuevos usuarios.
 
 **Completed work in this session**
--   **Solución de Error Crítico en Producción (DONE):** Se construyó una herramienta de emergencia multifacética () para reparar datos corruptos ( y membresías de usuario), que fue movida a una ruta de super-admin () y simplificada a un solo botón Arreglar todo. El usuario confirmó que su cuenta y los usuarios de Staffdo fueron restaurados con éxito.
--   **Eliminación de la Causa Raíz del Bug (DONE):** Se eliminó por completo el componente defectuoso  del frontend y su endpoint de backend asociado ().
--   **Corrección de Filtrado de Datos (DONE):** Se modificaron los endpoints de backend para  y  para que respetaran el  seleccionado, asegurando que los datos de campañas, gastos, estadísticas, etc., se filtraran correctamente al cambiar de empresa.
--   **Corrección de Visualización de Usuarios (DONE):** Se arregló el endpoint  para que mostrara correctamente a los miembros del equipo en la página de Settings, incluso si sus registros de membresía eran antiguos y carecían del campo .
--   **Implementación de Permisos Granulares (DONE):** Se implementó la lógica en el backend y frontend para soportar permisos por sección (ej. ). El frontend ahora oculta dinámicamente las pestañas a las que el usuario no tiene acceso.
--   **Feature - Linkeo de Activation/Event (DONE):** Se implementó la lógica de backend y la UI de frontend para permitir la vinculación bidireccional entre  y , asegurando que no haya duplicación de gastos.
+-   **Vinculación Bidireccional Activation-Event (DONE)**: Se implementó la UI/UX completa para vincular una activación de marketing a un evento, incluyendo un panel lateral () con detalles y navegación condicional basada en el estado del evento (confirmado vs en proceso).
+-   **Creación de Eventos Internos (Cost Center) (DONE)**: Se desarrolló un flujo para crear eventos de marketing interno sin un cliente externo, utilizando un Cost Center que se crea automáticamente.
+-   **Dashboard de Marketing ROI (DONE)**: Se creó una nueva sección en Business Clarity para analizar el retorno de la inversión de las activaciones de marketing, vinculando costos con leads y conversiones.
+-   **Módulo People Ops (Fundamentos) (DONE)**: Se creó el nuevo módulo principal People Ops, se implementó el directorio de empleados, el formulario de creación y los perfiles de empleado.
+-   **Refactorización de Cost Centers (DONE)**: La gestión de Cost Centers se movió del módulo People Ops a Settings, que es su lugar contable correcto, según la decisión del usuario.
+-   **Módulo de Nómina (Backend) (DONE)**: Se crearon todos los modelos de Pydantic (, ) y el router de FastAPI () con los endpoints necesarios para soportar la funcionalidad de nómina completa.
+-   **Bugfix en People Ops (DONE)**: Se corrigió un error que causaba un crash en la página del directorio de empleados debido a un valor inválido en un componente  de los filtros.
 
 **Earlier issues found/mentioned but not fixed**
--   **Presupuesto de la clave LLM de Emergent agotado (P2):** Las funciones de IA no funcionan hasta que el usuario añada fondos a su clave. Esto no es un error de código.
--   **Archivos  redundantes (P2, Deuda técnica):** Los archivos obsoletos (, ) todavía existen.
+-   **Presupuesto de la clave LLM de Emergent agotado (P2):** Las funciones de IA no funcionan hasta que el usuario añada fondos.
+-   **Archivos  redundantes (P2, Deuda técnica):** Los archivos  y  son obsoletos y deben eliminarse.
 -   **Internacionalización incompleta (P2):** Siguen existiendo cadenas de texto codificadas en la aplicación.
 
 **Known issue recurrence from previous fork**
@@ -67,64 +82,69 @@ No hay problemas pendientes de alta prioridad. El bloqueador principal de produc
 
 
 **Key Technical Concepts**
--   **Hotfix en Producción:** Creación de endpoints y una UI autenticada para permitir a un usuario reparar sus propios datos corruptos en un entorno de producción en vivo.
--   **Refactorización Defensiva:** Eliminación completa de un componente y su API asociada para prevenir la recurrencia de un error crítico.
--   **Filtrado por Contexto Global:** Pasar un  desde un componente principal a múltiples módulos y asegurar que los endpoints de backend lo utilicen para filtrar datos.
--   **Control de Acceso Basado en Roles (RBAC) Granular:** Implementación de un sistema de permisos donde el acceso se basa en roles específicos para diferentes secciones de la aplicación (ej. ).
--   **Vinculación de Modelos Desacoplada:** Conexión de dos módulos distintos ( y ) mediante campos de clave externa opcionales, permitiendo que se referencien mutuamente sin un acoplamiento fuerte.
+-   **Desarrollo Modular Escalable:** Creación de un nuevo módulo principal (People Ops) desde cero, con su propia estructura de archivos, rutas y permisos, diseñado para crecer por fases.
+-   **Separación de incumbencias (Refactor):** Se movió una funcionalidad (Cost Centers) de un módulo (People Ops) a otro más apropiado (Settings) basándose en la lógica de negocio (contable vs. RRHH).
+-   **Backend-Driven UI:** La aparición de módulos en el sidebar (como People Ops) se controla desde la configuración del backend (), no está codificada en el frontend.
+-   **Desarrollo por Fases:** Abordaje de una funcionalidad muy grande (RRHH/Nómina) dividiéndola en fases lógicas (Fundamentos -> Nómina -> Tiempo -> Préstamos -> Offboarding).
 
 **key DB schema**
--   **users:**  fue el campo corrompido en producción y reparado con la herramienta de emergencia.
--   **memberships:** Se modificó para incluir un campo  (JSON) para acceso granular. Se hicieron los queries más robustos para manejar registros sin el campo .
--   **marketing_activations:** Se añadió  y .
--   **events:** Se añadieron ,  y .
+-   **clients:**  (nuevo campo).
+-   **leads:**  (nuevo campo).
+-   **cost_centers:** (nueva colección) , , , etc.
+-   **employees:** (nueva colección) , , , , , , etc.
+-   **compensations:** (nueva colección) , , , , etc.
+-   **payroll_runs:** (nueva colección) , , , , .
+-   **payslips:** (nueva colección) , , , .
 
 **All files of reference**
-*   : Contiene la nueva UI para vincular eventos.
-*   : Contiene la nueva lógica para permisos y vinculación de eventos.
-*    y : Contienen los cambios en el esquema de la base de datos.
-*    y : Contienen el código de la herramienta de emergencia que ya no debería ser necesaria pero que sigue existiendo.
+*   : Contiene los endpoints recién creados para el sistema de nómina. Es el punto de partida para construir la UI.
+*   : Define la estructura de datos para la nómina.
+*   : Es el componente principal del nuevo módulo donde se deberá agregar la nueva pestaña y lógica de Payroll.
+*   : Contiene la UI de Cost Centers en su nueva ubicación.
+*   : Referencia de una implementación compleja reciente (drawer, diálogos, etc.).
 
 **Critical Info for New Agent**
 -   **¡RESPONDE EN ESPAÑOL!**
--   El problema crítico de corrupción de datos en producción **HA SIDO RESUELTO**. El usuario ya no está bloqueado.
--   El agente acaba de terminar de implementar la funcionalidad completa para vincular Activations con Events. El siguiente paso es obtener la aprobación del usuario sobre esta nueva característica.
--   Una vez que el usuario valide la nueva función, una buena siguiente tarea sería proponer la limpieza del código de emergencia () que se creó para resolver el problema de producción.
+-   La tarea principal es continuar la construcción del módulo **People Ops**, empezando por el **frontend del sistema de Nómina (Payroll)**. El backend para esto ya está listo.
+-   El usuario ha aprobado un plan ambicioso y a largo plazo para People Ops. Espera una solución completa y robusta que maneje la nómina y los RRHH para empresas de cualquier tamaño, incluyendo requisitos específicos de la República Dominicana.
+-   **Cost Centers** es un concepto financiero y su gestión ahora vive en **Settings**. No debe confundirse ni mezclarse con People Ops.
+-   Revisa el  sobre el bug en el formulario de creación de empleado. Aunque se corrigió el dato, es importante asegurar que el formulario en sí es robusto.
 
 **documents and test reports created in this job**
-- None
+-   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **user**: me gustaría ver cómo queda con la opción 1 (link bidireccional), pero no quiero gastos duplicados.
-2.  **agent**: implementó la opción 1 en el backend, asegurando que los gastos de marketing (activation) y los del evento (factura al cliente) se mantengan separados.
-3.  **user**: pidió implementar también la UI en el frontend.
-4.  **agent**: implementó la UI en el frontend para buscar, vincular y desvincular eventos desde una activación.
-5.  **user**: (implícito, de la conversación anterior) el módulo de social media no se filtraba por organización.
-6.  **agent**: arregló el frontend y backend para que el módulo de Social Media respete el selector de organización global.
-7.  **user**: pidió analizar cómo conectar una Activation con un Event Orchestration de forma limpia.
-8.  **agent**: analizó 4 opciones y recomendó la Opción 1: Link Bidireccional por ser la más limpia y desacoplada.
-9.  **user**: aceptó la implementación de la Opción 1.
-10. **agent**: proporcionó las credenciales de prueba y la URL de vista previa para que el usuario verifique la implementación final.
+1.  **user**: Pregunta sobre los Cost Centers y el módulo de RRHH/Nómina.
+2.  **agent**: Proporciona un análisis detallado de cómo los grandes SaaS manejan los módulos de RRHH y recomienda un plan de implementación por fases.
+3.  **user**: Confirma los requisitos para el módulo de RRHH (para empresas de todos los tamaños, múltiples tipos de contrato, reportes de RD) y que la nómina debe tener acceso restringido.
+4.  **agent**: Pregunta dónde ubicar el nuevo módulo de RRHH.
+5.  **user**: Decide que el módulo se llamará People Ops, será una sección principal y que en Business Clarity solo se mostrará un resumen del costo, no los detalles.
+6.  **agent**: Confirma el plan y pregunta si implementar Cost Centers y People Ops en paralelo o en secuencia.
+7.  **user**: Pide implementarlos en paralelo.
+8.  **agent**: (Después de una larga implementación) Proporciona credenciales de prueba.
+9.  **user**: Señala correctamente que Cost Centers no deberían vivir en people ops y pregunta qué falta para la nómina.
+10. **agent**: Reconoce el error, propone mover Cost Centers a Settings, y empezar a construir el módulo de Payroll, a lo que el usuario accede.
 
 **Project Health Check:**
--   **Broken**: None. The P0 production issue is resolved.
+-   **Broken**: Ninguna funcionalidad crítica está rota. El bug del formulario de empleado es menor.
 -   **Mocked**: None.
 -   **Blocked**: None.
 
 **3rd Party Integrations**
 *   **Zapier / Make**: Webhook para la entrada de leads.
 *   **Meta (Instagram)**: Flujo OAuth 2.0 para acceso de solo lectura.
-*   **Emergent LLM Key**: Integrado, pero el presupuesto del usuario está agotado.
+*   **Emergent LLM Key**: Integrado, pero el presupuesto del usuario está agotado, por lo que las funciones de IA están inactivas.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
+-   **Testing agent used after significant changes**: YES (usado para validar la vinculación Activation-Event y la creación de eventos internos).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: []
--   **Known regressions**: None. The critical regression was fixed.
+-   **Known regressions**: None.
 
 **Credentials to test flow:**
 *   **Email:** 
 *   **Password:** 
 
 **What agent forgot to execute**
--   El agente ha seguido el flujo de la conversación y no ha olvidado tareas solicitadas por el usuario en esta sesión. Se resolvieron los problemas críticos y luego se procedió con las nuevas solicitudes de funcionalidades.</analysis>
+-   El agente inicialmente colocó la UI de Cost Centers dentro de People Ops, lo cual era conceptualmente incorrecto. Sin embargo, esto fue rápidamente identificado por el usuario y corregido por el agente en la misma sesión. Fuera de eso, el agente ha seguido las directivas del usuario de forma consistente.</analysis>
