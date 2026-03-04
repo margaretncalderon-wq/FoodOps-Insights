@@ -839,8 +839,25 @@ async def get_activations(
         query["status"] = status
     
     activations = await db.marketing_activations.find(query, {"_id": 0}).sort("start_date", -1).to_list(500)
+    
+    # Enrich with linked event info
     for a in activations:
         a["_can_edit"] = can_write
+        if a.get("linked_event_id"):
+            event = await db.events.find_one(
+                {"event_id": a["linked_event_id"]},
+                {"_id": 0, "name": 1, "event_date": 1, "venue": 1, "status": 1, "client_id": 1}
+            )
+            if event:
+                a["linked_event"] = event
+                # Get client name
+                if event.get("client_id"):
+                    client = await db.clients.find_one(
+                        {"client_id": event["client_id"]},
+                        {"_id": 0, "name": 1}
+                    )
+                    a["linked_event"]["client_name"] = client.get("name") if client else None
+    
     return activations
 
 @demand_studio_router.post("/activations")
@@ -873,9 +890,31 @@ async def create_activation(
         "actual_spend": 0.0,
         "status": data.status,
         "notes": data.notes,
+        "linked_event_id": data.linked_event_id,
+        "linked_event_name": None,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
+    
+    # If linked_event_id provided, get event name and create bidirectional link
+    if data.linked_event_id:
+        event = await db.events.find_one(
+            {"event_id": data.linked_event_id, "company_id": company_id},
+            {"_id": 0, "name": 1}
+        )
+        if event:
+            activation["linked_event_name"] = event.get("name")
+            # Update event with activation link
+            await db.events.update_one(
+                {"event_id": data.linked_event_id},
+                {"$set": {
+                    "linked_activation_id": activation["activation_id"],
+                    "linked_activation_name": data.name,
+                    "marketing_budget": data.budget,
+                    "updated_at": now.isoformat()
+                }}
+            )
+    
     await db.marketing_activations.insert_one(activation)
     del activation["_id"]
     return activation
@@ -900,12 +939,190 @@ async def update_activation(activation_id: str, data: MarketingActivationCreate,
 async def delete_activation(activation_id: str, user: User = Depends(get_current_user)):
     """Delete an activation"""
     company_id = user.company_id or user.active_org_id
+    
+    # If linked to an event, unlink first
+    activation = await db.marketing_activations.find_one({"activation_id": activation_id})
+    if activation and activation.get("linked_event_id"):
+        await db.events.update_one(
+            {"event_id": activation["linked_event_id"]},
+            {"$set": {"linked_activation_id": None, "linked_activation_name": None, "marketing_budget": None}}
+        )
+    
     result = await db.marketing_activations.delete_one(
         {"activation_id": activation_id, "company_id": company_id}
     )
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Activation not found")
     return {"success": True}
+
+
+# ---- Activation <-> Event Link Endpoints ----
+
+@demand_studio_router.post("/activations/{activation_id}/link-event/{event_id}")
+async def link_activation_to_event(
+    activation_id: str, 
+    event_id: str, 
+    user: User = Depends(get_current_user)
+):
+    """Link an activation to an event (bidirectional)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Verify activation exists and belongs to user
+    activation = await db.marketing_activations.find_one({
+        "activation_id": activation_id, 
+        "company_id": company_id
+    })
+    if not activation:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    
+    # Verify event exists and belongs to user
+    event = await db.events.find_one({
+        "event_id": event_id, 
+        "company_id": company_id
+    })
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Check if activation is already linked to another event
+    if activation.get("linked_event_id") and activation["linked_event_id"] != event_id:
+        # Unlink from old event first
+        await db.events.update_one(
+            {"event_id": activation["linked_event_id"]},
+            {"$set": {"linked_activation_id": None, "linked_activation_name": None, "marketing_budget": None}}
+        )
+    
+    # Check if event is already linked to another activation
+    if event.get("linked_activation_id") and event["linked_activation_id"] != activation_id:
+        # Unlink from old activation first
+        await db.marketing_activations.update_one(
+            {"activation_id": event["linked_activation_id"]},
+            {"$set": {"linked_event_id": None, "linked_event_name": None}}
+        )
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Update activation with event link
+    await db.marketing_activations.update_one(
+        {"activation_id": activation_id},
+        {"$set": {
+            "linked_event_id": event_id,
+            "linked_event_name": event.get("name"),
+            "updated_at": now
+        }}
+    )
+    
+    # Update event with activation link
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {
+            "linked_activation_id": activation_id,
+            "linked_activation_name": activation.get("name"),
+            "marketing_budget": activation.get("budget", 0),
+            "updated_at": now
+        }}
+    )
+    
+    return {
+        "success": True,
+        "activation_id": activation_id,
+        "event_id": event_id,
+        "message": f"Activation '{activation.get('name')}' linked to Event '{event.get('name')}'"
+    }
+
+
+@demand_studio_router.delete("/activations/{activation_id}/unlink-event")
+async def unlink_activation_from_event(
+    activation_id: str, 
+    user: User = Depends(get_current_user)
+):
+    """Unlink an activation from its linked event"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Get activation
+    activation = await db.marketing_activations.find_one({
+        "activation_id": activation_id, 
+        "company_id": company_id
+    })
+    if not activation:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    
+    linked_event_id = activation.get("linked_event_id")
+    if not linked_event_id:
+        return {"success": True, "message": "Activation was not linked to any event"}
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Remove link from activation
+    await db.marketing_activations.update_one(
+        {"activation_id": activation_id},
+        {"$set": {
+            "linked_event_id": None,
+            "linked_event_name": None,
+            "updated_at": now
+        }}
+    )
+    
+    # Remove link from event
+    await db.events.update_one(
+        {"event_id": linked_event_id},
+        {"$set": {
+            "linked_activation_id": None,
+            "linked_activation_name": None,
+            "marketing_budget": None,
+            "updated_at": now
+        }}
+    )
+    
+    return {"success": True, "message": "Activation unlinked from event"}
+
+
+@demand_studio_router.get("/activations/{activation_id}/linkable-events")
+async def get_linkable_events(
+    activation_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get events that can be linked to this activation (same company, not already linked)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Get activation to check dates
+    activation = await db.marketing_activations.find_one({
+        "activation_id": activation_id,
+        "company_id": company_id
+    })
+    if not activation:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    
+    # Find events that are not linked or are linked to this activation
+    events = await db.events.find({
+        "company_id": company_id,
+        "$or": [
+            {"linked_activation_id": None},
+            {"linked_activation_id": {"$exists": False}},
+            {"linked_activation_id": activation_id}
+        ]
+    }, {
+        "_id": 0, 
+        "event_id": 1, 
+        "name": 1, 
+        "event_date": 1, 
+        "client_id": 1,
+        "venue": 1,
+        "status": 1,
+        "linked_activation_id": 1
+    }).sort("event_date", -1).to_list(100)
+    
+    # Enrich with client names
+    for event in events:
+        if event.get("client_id"):
+            client = await db.clients.find_one(
+                {"client_id": event["client_id"]},
+                {"_id": 0, "name": 1, "legal_name": 1}
+            )
+            event["client_name"] = client.get("name") or client.get("legal_name") if client else None
+        event["is_currently_linked"] = event.get("linked_activation_id") == activation_id
+    
+    return events
+
 
 # ---- Email Tracking CRUD ----
 

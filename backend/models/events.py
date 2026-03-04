@@ -74,6 +74,10 @@ class Event(BaseModel):
     next_step: Optional[str] = None
     lost_reason: Optional[str] = None
     source: Optional[str] = None
+    # Link to Demand Studio Activation
+    linked_activation_id: Optional[str] = None
+    linked_activation_name: Optional[str] = None  # Denormalized for display
+    marketing_budget: Optional[float] = None  # From linked activation
     # Existing fields
     timeline: List[Dict[str, Any]] = []
     tasks: List[Dict[str, Any]] = []

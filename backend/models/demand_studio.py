@@ -157,6 +157,8 @@ class MarketingActivationCreate(BaseModel):
     budget: float = 0.0
     status: str = "planned"  # planned, active, completed, cancelled
     notes: Optional[str] = None
+    # Link to Event Orchestration
+    linked_event_id: Optional[str] = None
 
 
 class MarketingActivation(BaseModel):
@@ -173,6 +175,9 @@ class MarketingActivation(BaseModel):
     actual_spend: float = 0.0
     status: str = "planned"
     notes: Optional[str] = None
+    # Link to Event Orchestration
+    linked_event_id: Optional[str] = None
+    linked_event_name: Optional[str] = None  # Denormalized for display
     created_at: datetime
     updated_at: datetime
 
