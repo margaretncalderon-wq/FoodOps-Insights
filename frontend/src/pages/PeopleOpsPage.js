@@ -14,12 +14,13 @@ import { TimeOffSection } from "../components/people-ops/TimeOffSection";
 import { OvertimeSection } from "../components/people-ops/OvertimeSection";
 import { LoansSection } from "../components/people-ops/LoansSection";
 import { OffboardingSection } from "../components/people-ops/OffboardingSection";
+import { VariablePaySection } from "../components/people-ops/VariablePaySection";
 
 // Icons
 import {
   Users, UserCircle, Wallet, Clock,
   FileText, Lock, UserPlus, Settings,
-  Calendar, CreditCard, UserMinus
+  Calendar, CreditCard, UserMinus, DollarSign
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -85,6 +86,12 @@ export default function PeopleOpsPage() {
       path: "/people-ops/payroll", 
       label: isEs ? "Nómina" : "Payroll", 
       icon: Wallet,
+      requiresAccess: "payroll"
+    },
+    { 
+      path: "/people-ops/variable-pay", 
+      label: isEs ? "Pago Variable" : "Variable Pay", 
+      icon: DollarSign,
       requiresAccess: "payroll"
     },
     { 
@@ -205,6 +212,7 @@ export default function PeopleOpsPage() {
           <Route path="payroll" element={<PayrollSection />} />
           <Route path="payroll/:periodId" element={<PayrollPeriodView />} />
           <Route path="payroll-config" element={<PayrollConfigSection />} />
+          <Route path="variable-pay" element={<VariablePaySection />} />
           <Route path="time-off" element={<TimeOffSection />} />
           <Route path="overtime" element={<OvertimeSection />} />
           <Route path="loans" element={<LoansSection />} />

@@ -224,4 +224,4 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - **Password**: Evoque2024!
 
 ## Preview URL
-https://hr-payslip.preview.emergentagent.com
+https://variable-pay-config.preview.emergentagent.com

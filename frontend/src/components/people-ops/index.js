@@ -8,3 +8,4 @@ export { TimeOffSection } from './TimeOffSection';
 export { OvertimeSection } from './OvertimeSection';
 export { LoansSection } from './LoansSection';
 export { OffboardingSection } from './OffboardingSection';
+export { VariablePaySection } from './VariablePaySection';
