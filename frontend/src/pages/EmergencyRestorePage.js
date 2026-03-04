@@ -129,6 +129,32 @@ export default function EmergencyRestorePage() {
     }
   };
 
+  // Fix membership status (make them visible in Settings > Team)
+  const handleFixMemberships = async (companyId, companyName) => {
+    setBulkRestoring(true);
+    setMessage(null);
+    
+    try {
+      const res = await axios.post(
+        `${API}/api/emergency/fix-membership-status/${companyId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setMessage({ 
+        type: "success", 
+        text: `✅ ${res.data.message}. Los usuarios ahora deberían aparecer en Settings > Team.`
+      });
+      
+      // Refresh company users
+      await fetchCompanyUsers(companyId);
+    } catch (err) {
+      setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.message) });
+    } finally {
+      setBulkRestoring(false);
+    }
+  };
+
   const handleRestore = async (companyId, companyName) => {
     if (!confirm(`¿Estás seguro de restaurar tu cuenta a "${companyName}"?`)) {
       return;
@@ -442,14 +468,26 @@ export default function EmergencyRestorePage() {
                                 {companyUsers.total_users} usuarios • {companyUsers.users_needing_fix || 0} necesitan arreglo
                               </p>
                             </div>
-                            <Button
-                              onClick={() => handleBulkRestore(c.company_id, c.name)}
-                              disabled={bulkRestoring}
-                              className="bg-purple-600 hover:bg-purple-700"
-                            >
-                              {bulkRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                              Restaurar Todos los Usuarios
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleFixMemberships(c.company_id, c.name)}
+                                disabled={bulkRestoring}
+                                className="border-amber-500 text-amber-400 hover:bg-amber-500/20"
+                              >
+                                {bulkRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                Arreglar Membresías
+                              </Button>
+                              <Button
+                                onClick={() => handleBulkRestore(c.company_id, c.name)}
+                                disabled={bulkRestoring}
+                                className="bg-purple-600 hover:bg-purple-700"
+                              >
+                                {bulkRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                Restaurar Todos los Usuarios
+                              </Button>
+                            </div>
                           </div>
                           
                           {companyUsers.users.length > 0 ? (

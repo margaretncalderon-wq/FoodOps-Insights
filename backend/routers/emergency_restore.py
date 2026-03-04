@@ -516,3 +516,84 @@ async def bulk_restore_company_users(
         "restored_users": restored_users,
         "skipped_users": skipped_users
     }
+
+
+@emergency_router.get("/diagnose-memberships/{company_id}")
+async def diagnose_memberships(
+    company_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Diagnose membership issues for a company.
+    Shows raw membership data to find why users aren't showing.
+    """
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Get raw memberships
+    memberships = await db.memberships.find({
+        "$or": [
+            {"company_id": company_id},
+            {"organization_id": company_id}
+        ]
+    }).to_list(100)
+    
+    # Clean up for JSON response
+    raw_memberships = []
+    for m in memberships:
+        m.pop("_id", None)
+        raw_memberships.append(m)
+    
+    # Check what status values exist
+    status_values = {}
+    for m in memberships:
+        status = m.get("status", "NO_STATUS_FIELD")
+        status_values[status] = status_values.get(status, 0) + 1
+    
+    return {
+        "company_id": company_id,
+        "company_name": company.get("name"),
+        "total_memberships": len(memberships),
+        "status_distribution": status_values,
+        "memberships": raw_memberships
+    }
+
+
+@emergency_router.post("/fix-membership-status/{company_id}")
+async def fix_membership_status(
+    company_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Fix all memberships for a company to have status='active'.
+    This makes them visible in Settings > Team.
+    """
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Update all memberships to have status=active
+    result = await db.memberships.update_many(
+        {
+            "$or": [
+                {"company_id": company_id},
+                {"organization_id": company_id}
+            ]
+        },
+        {
+            "$set": {
+                "status": "active",
+                "is_active": True,
+                "fixed_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {
+        "success": True,
+        "company_id": company_id,
+        "company_name": company.get("name"),
+        "memberships_fixed": result.modified_count,
+        "message": f"Se actualizaron {result.modified_count} membresías a status='active'"
+    }
