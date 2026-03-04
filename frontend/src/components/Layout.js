@@ -37,7 +37,7 @@ import {
   FolderKanban,
   MapPin,
 } from "lucide-react";
-import { OrgSwitcher } from "./org";
+// OrgSwitcher removed - caused critical bug that corrupted user company_id
 import { TrialExpirationModal } from "./TrialExpirationModal";
 import NotificationBell from "./notifications/NotificationBell";
 import ApprovalQueueBell from "./notifications/ApprovalQueueBell";
@@ -117,10 +117,6 @@ export const Layout = ({ children }) => {
               <p className="text-xs text-[#AED768]/80">Designed for clarity</p>
             </div>
           </Link>
-          {/* Organization Switcher */}
-          <div className="mt-4">
-            <OrgSwitcher />
-          </div>
         </div>
 
         {/* Navigation */}
