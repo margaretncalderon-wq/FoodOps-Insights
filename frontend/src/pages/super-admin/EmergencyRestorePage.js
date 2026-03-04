@@ -86,6 +86,26 @@ export default function EmergencyRestorePage() {
     }
   };
 
+  // Move users back from Demand Generation to Staffdo
+  const handleMoveUsersBackToStaffdo = async () => {
+    setFixing(true);
+    setFixResult(null);
+    try {
+      const res = await axios.post(
+        `${API}/api/emergency/move-users-back-to-staffdo`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setFixResult({ type: "success", data: res.data });
+      setMessage({ type: "success", text: `✅ ${res.data.users_moved_back} usuarios movidos de vuelta a Staffdo` });
+    } catch (err) {
+      setFixResult({ type: "error", data: err.response?.data || err.message });
+      setMessage({ type: "error", text: "Error: " + (err.response?.data?.detail || err.message) });
+    } finally {
+      setFixing(false);
+    }
+  };
+
   const fetchStatus = useCallback(async () => {
     if (!token) return;
     
@@ -351,12 +371,21 @@ export default function EmergencyRestorePage() {
               </Button>
               
               <Button
+                onClick={handleMoveUsersBackToStaffdo}
+                disabled={fixing}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
+                2. Mover usuarios de vuelta a Staffdo
+              </Button>
+              
+              <Button
                 onClick={handleFixStaffdoUsers}
                 disabled={fixing}
                 className="bg-orange-600 hover:bg-orange-700"
               >
                 {fixing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
-                2. Arreglar usuarios de Staffdo
+                3. Arreglar membresías de Staffdo
               </Button>
             </div>
             

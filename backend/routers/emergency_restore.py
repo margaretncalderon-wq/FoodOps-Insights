@@ -760,3 +760,97 @@ async def fix_staffdo_users(user: User = Depends(get_current_user)):
         "margaret_memberships_removed": margaret_removed,
         "current_staffdo_users": users_list
     }
+
+
+@emergency_router.post("/move-users-back-to-staffdo")
+async def move_users_back_to_staffdo(user: User = Depends(get_current_user)):
+    """
+    Find users that were incorrectly moved to 'Demand Generation' 
+    and move them back to Staffdo.
+    """
+    # Find Staffdo company
+    staffdo = await db.companies.find_one({"name": {"$regex": "staffdo", "$options": "i"}})
+    if not staffdo:
+        return {"error": "No se encontró la empresa Staffdo"}
+    
+    staffdo_id = staffdo["company_id"]
+    
+    # Find Demand Generation company
+    demand_gen = await db.companies.find_one({"name": {"$regex": "demand.*gen", "$options": "i"}})
+    if not demand_gen:
+        # Try other variations
+        demand_gen = await db.companies.find_one({"name": {"$regex": "demand", "$options": "i"}})
+    
+    if not demand_gen:
+        return {"error": "No se encontró la empresa 'Demand Generation'"}
+    
+    demand_gen_id = demand_gen["company_id"]
+    
+    # Find Margaret to exclude her
+    margaret = await db.users.find_one({"email": "margaret.n.calderon@gmail.com"})
+    margaret_user_id = margaret["user_id"] if margaret else None
+    
+    # Find all users that have membership to Staffdo but company_id points to Demand Generation
+    staffdo_memberships = await db.memberships.find({
+        "$or": [{"company_id": staffdo_id}, {"organization_id": staffdo_id}]
+    }).to_list(100)
+    
+    moved_users = []
+    skipped_users = []
+    
+    for m in staffdo_memberships:
+        member_user_id = m.get("user_id")
+        
+        # Skip Margaret
+        if member_user_id == margaret_user_id:
+            skipped_users.append({"reason": "Es Margaret", "user_id": member_user_id})
+            continue
+        
+        member = await db.users.find_one({"user_id": member_user_id})
+        if not member:
+            continue
+        
+        current_company = member.get("company_id")
+        
+        # If user's company_id is pointing to Demand Generation (or not to Staffdo), fix it
+        if current_company != staffdo_id:
+            await db.users.update_one(
+                {"user_id": member_user_id},
+                {
+                    "$set": {
+                        "company_id": staffdo_id,
+                        "active_org_id": staffdo_id,
+                        "restored_at": datetime.now(timezone.utc).isoformat(),
+                        "restored_from": current_company
+                    }
+                }
+            )
+            moved_users.append({
+                "email": member.get("email"),
+                "name": member.get("name"),
+                "from_company": current_company,
+                "to_company": staffdo_id
+            })
+        else:
+            skipped_users.append({
+                "email": member.get("email"),
+                "reason": "Ya está en Staffdo"
+            })
+    
+    # Also fix membership status
+    await db.memberships.update_many(
+        {"$or": [{"company_id": staffdo_id}, {"organization_id": staffdo_id}]},
+        {"$set": {"status": "active", "is_active": True}}
+    )
+    
+    return {
+        "success": True,
+        "staffdo_id": staffdo_id,
+        "staffdo_name": staffdo.get("name"),
+        "demand_gen_id": demand_gen_id,
+        "demand_gen_name": demand_gen.get("name"),
+        "users_moved_back": len(moved_users),
+        "users_skipped": len(skipped_users),
+        "moved_users": moved_users,
+        "skipped_users": skipped_users
+    }
