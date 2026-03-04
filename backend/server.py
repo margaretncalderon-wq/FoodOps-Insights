@@ -16455,6 +16455,10 @@ api_router.include_router(activity_feed_router)  # /api/activity-feed/*
 from routers.company_sharing import company_sharing_router
 api_router.include_router(company_sharing_router)  # /api/company-sharing/*
 
+# Include Emergency Restore router (TEMPORARY - delete after fix)
+from routers.emergency_restore import emergency_router
+api_router.include_router(emergency_router)  # /api/emergency/*
+
 # User organizations endpoint - Get all organizations user has access to
 @api_router.get("/user/organizations")
 async def get_user_organizations(user: User = Depends(get_current_user)):
