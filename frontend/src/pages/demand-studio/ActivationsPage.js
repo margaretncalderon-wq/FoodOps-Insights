@@ -21,7 +21,7 @@ import {
 } from "../../components/ui/select";
 import { 
   Plus, Zap, Calendar, MapPin, DollarSign, 
-  Trash2, Edit2, Loader2
+  Trash2, Edit2, Loader2, Link2, Unlink, CalendarDays
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -51,6 +51,13 @@ export default function ActivationsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingActivation, setEditingActivation] = useState(null);
+  
+  // Link Event Dialog
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkableEvents, setLinkableEvents] = useState([]);
+  const [selectedActivationForLink, setSelectedActivationForLink] = useState(null);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [linking, setLinking] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -109,6 +116,70 @@ export default function ActivationsPage() {
       fetchData();
     } catch (error) {
       console.error("Error deleting activation:", error);
+    }
+  };
+
+  // ---- Link Event Functions ----
+  const openLinkDialog = async (activation) => {
+    setSelectedActivationForLink(activation);
+    setLinkDialogOpen(true);
+    setLoadingEvents(true);
+    
+    try {
+      const res = await axios.get(
+        `${API}/api/demand-studio/activations/${activation.activation_id}/linkable-events`,
+        { withCredentials: true }
+      );
+      setLinkableEvents(res.data);
+    } catch (error) {
+      console.error("Error fetching linkable events:", error);
+      setLinkableEvents([]);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleLinkEvent = async (eventId) => {
+    if (!selectedActivationForLink) return;
+    setLinking(true);
+    
+    try {
+      await axios.post(
+        `${API}/api/demand-studio/activations/${selectedActivationForLink.activation_id}/link-event/${eventId}`,
+        {},
+        { withCredentials: true }
+      );
+      setLinkDialogOpen(false);
+      setSelectedActivationForLink(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error linking event:", error);
+      alert(isEs ? "Error al vincular evento" : "Error linking event");
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleUnlinkEvent = async (activationId) => {
+    if (!window.confirm(isEs ? "¿Desvincular este evento?" : "Unlink this event?")) return;
+    
+    try {
+      await axios.delete(
+        `${API}/api/demand-studio/activations/${activationId}/unlink-event`,
+        { withCredentials: true }
+      );
+      fetchData();
+    } catch (error) {
+      console.error("Error unlinking event:", error);
+    }
+  };
+
+  const formatEventDate = (dateStr) => {
+    if (!dateStr) return isEs ? "Sin fecha" : "No date";
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return dateStr;
     }
   };
 
@@ -255,11 +326,122 @@ export default function ActivationsPage() {
                     {activation.start_date} - {activation.end_date || isEs ? "En curso" : "Ongoing"}
                   </div>
                 )}
+
+                {/* Linked Event Section */}
+                {activation.linked_event_id ? (
+                  <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-primary">
+                          {isEs ? "Evento Vinculado" : "Linked Event"}
+                        </span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleUnlinkEvent(activation.activation_id)}
+                        className="h-7 text-xs text-muted-foreground hover:text-red-500"
+                      >
+                        <Unlink className="w-3 h-3 mr-1" />
+                        {isEs ? "Desvincular" : "Unlink"}
+                      </Button>
+                    </div>
+                    <div className="mt-2 text-sm">
+                      <p className="font-medium">{activation.linked_event?.name || activation.linked_event_name}</p>
+                      {activation.linked_event?.client_name && (
+                        <p className="text-muted-foreground text-xs">
+                          {isEs ? "Cliente:" : "Client:"} {activation.linked_event.client_name}
+                        </p>
+                      )}
+                      {activation.linked_event?.event_date && (
+                        <p className="text-muted-foreground text-xs">
+                          {formatEventDate(activation.linked_event.event_date)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-2"
+                    onClick={() => openLinkDialog(activation)}
+                  >
+                    <Link2 className="w-4 h-4 mr-2" />
+                    {isEs ? "Vincular a Evento" : "Link to Event"}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Link Event Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Vincular a Evento" : "Link to Event"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedActivationForLink && (
+            <p className="text-sm text-muted-foreground">
+              {isEs ? "Vinculando:" : "Linking:"} <strong>{selectedActivationForLink.name}</strong>
+            </p>
+          )}
+
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {loadingEvents ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : linkableEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {isEs ? "No hay eventos disponibles para vincular" : "No events available to link"}
+              </p>
+            ) : (
+              linkableEvents.map(event => (
+                <div 
+                  key={event.event_id}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    event.is_currently_linked 
+                      ? "bg-primary/10 border-primary" 
+                      : "hover:bg-muted/50"
+                  }`}
+                  onClick={() => !linking && handleLinkEvent(event.event_id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{event.name}</p>
+                      {event.client_name && (
+                        <p className="text-xs text-muted-foreground">{event.client_name}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatEventDate(event.event_date)}
+                        {event.venue && ` • ${event.venue}`}
+                      </p>
+                    </div>
+                    {event.is_currently_linked && (
+                      <Badge variant="outline" className="text-xs">
+                        {isEs ? "Actual" : "Current"}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
