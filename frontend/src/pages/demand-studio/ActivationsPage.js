@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -13,6 +14,14 @@ import {
   DialogFooter,
 } from "../../components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "../../components/ui/sheet";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +30,8 @@ import {
 } from "../../components/ui/select";
 import { 
   Plus, Zap, Calendar, MapPin, DollarSign, 
-  Trash2, Edit2, Loader2, Link2, Unlink, CalendarDays
+  Trash2, Edit2, Loader2, Link2, Unlink, CalendarDays,
+  Users, ExternalLink, CheckCircle, Clock, Building2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -46,6 +56,7 @@ const ACTIVATION_STATUSES = [
 export default function ActivationsPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const navigate = useNavigate();
   const [activations, setActivations] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +69,11 @@ export default function ActivationsPage() {
   const [selectedActivationForLink, setSelectedActivationForLink] = useState(null);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [linking, setLinking] = useState(false);
+  
+  // Event Details Drawer
+  const [eventDrawerOpen, setEventDrawerOpen] = useState(false);
+  const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+  const [loadingEventDetails, setLoadingEventDetails] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -168,9 +184,41 @@ export default function ActivationsPage() {
         `${API}/api/demand-studio/activations/${activationId}/unlink-event`,
         { withCredentials: true }
       );
+      setEventDrawerOpen(false);
+      setSelectedEventDetails(null);
       fetchData();
     } catch (error) {
       console.error("Error unlinking event:", error);
+    }
+  };
+
+  // Open Event Details Drawer
+  const openEventDrawer = async (activationId) => {
+    setEventDrawerOpen(true);
+    setLoadingEventDetails(true);
+    
+    try {
+      const res = await axios.get(
+        `${API}/api/demand-studio/activations/${activationId}/linked-event-details`,
+        { withCredentials: true }
+      );
+      setSelectedEventDetails({ ...res.data, activationId });
+    } catch (error) {
+      console.error("Error fetching event details:", error);
+      setSelectedEventDetails(null);
+    } finally {
+      setLoadingEventDetails(false);
+    }
+  };
+
+  // Navigate to event based on confirmation status
+  const navigateToEvent = (event) => {
+    if (event.is_confirmed) {
+      // Go to Event Orchestration
+      navigate(`/event-orchestration/${event.event_id}`);
+    } else {
+      // Go to Event Details page (works for all events)
+      navigate(`/events/${event.event_id}`);
     }
   };
 
@@ -329,7 +377,11 @@ export default function ActivationsPage() {
 
                 {/* Linked Event Section */}
                 {activation.linked_event_id ? (
-                  <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div 
+                    className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg cursor-pointer hover:bg-primary/10 transition-colors"
+                    onClick={() => openEventDrawer(activation.activation_id)}
+                    data-testid={`linked-event-${activation.activation_id}`}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CalendarDays className="w-4 h-4 text-primary" />
@@ -337,15 +389,7 @@ export default function ActivationsPage() {
                           {isEs ? "Evento Vinculado" : "Linked Event"}
                         </span>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleUnlinkEvent(activation.activation_id)}
-                        className="h-7 text-xs text-muted-foreground hover:text-red-500"
-                      >
-                        <Unlink className="w-3 h-3 mr-1" />
-                        {isEs ? "Desvincular" : "Unlink"}
-                      </Button>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground" />
                     </div>
                     <div className="mt-2 text-sm">
                       <p className="font-medium">{activation.linked_event?.name || activation.linked_event_name}</p>
@@ -354,11 +398,9 @@ export default function ActivationsPage() {
                           {isEs ? "Cliente:" : "Client:"} {activation.linked_event.client_name}
                         </p>
                       )}
-                      {activation.linked_event?.event_date && (
-                        <p className="text-muted-foreground text-xs">
-                          {formatEventDate(activation.linked_event.event_date)}
-                        </p>
-                      )}
+                      <p className="text-muted-foreground text-xs mt-1">
+                        {isEs ? "Clic para ver detalles" : "Click to view details"}
+                      </p>
                     </div>
                   </div>
                 ) : (
@@ -412,10 +454,24 @@ export default function ActivationsPage() {
                       : "hover:bg-muted/50"
                   }`}
                   onClick={() => !linking && handleLinkEvent(event.event_id)}
+                  data-testid={`linkable-event-${event.event_id}`}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{event.name}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{event.name}</p>
+                        {event.is_confirmed ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            {isEs ? "Confirmado" : "Confirmed"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {isEs ? "En proceso" : "In Progress"}
+                          </Badge>
+                        )}
+                      </div>
                       {event.client_name && (
                         <p className="text-xs text-muted-foreground">{event.client_name}</p>
                       )}
@@ -425,7 +481,7 @@ export default function ActivationsPage() {
                       </p>
                     </div>
                     {event.is_currently_linked && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs ml-2">
                         {isEs ? "Actual" : "Current"}
                       </Badge>
                     )}
@@ -576,6 +632,153 @@ export default function ActivationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Event Details Drawer */}
+      <Sheet open={eventDrawerOpen} onOpenChange={setEventDrawerOpen}>
+        <SheetContent className="sm:max-w-lg" data-testid="event-details-drawer">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-primary" />
+              {isEs ? "Detalles del Evento" : "Event Details"}
+            </SheetTitle>
+            <SheetDescription>
+              {isEs ? "Información del evento vinculado a esta activación" : "Information about the event linked to this activation"}
+            </SheetDescription>
+          </SheetHeader>
+
+          {loadingEventDetails ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : selectedEventDetails ? (
+            <div className="mt-6 space-y-6">
+              {/* Event Name & Status */}
+              <div>
+                <h3 className="text-lg font-semibold">{selectedEventDetails.name}</h3>
+                <div className="flex items-center gap-2 mt-2">
+                  {selectedEventDetails.is_confirmed ? (
+                    <Badge className="bg-emerald-100 text-emerald-700">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      {isEs ? "Confirmado" : "Confirmed"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-amber-600 border-amber-300">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {isEs ? "Pendiente de confirmación" : "Pending Confirmation"}
+                    </Badge>
+                  )}
+                  {selectedEventDetails.stage && (
+                    <Badge variant="secondary">{selectedEventDetails.stage}</Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Event Info Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                {selectedEventDetails.client_name && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Building2 className="w-4 h-4" />
+                      {isEs ? "Cliente" : "Client"}
+                    </p>
+                    <p className="font-medium">{selectedEventDetails.client_name}</p>
+                  </div>
+                )}
+                
+                <div>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {isEs ? "Fecha" : "Date"}
+                  </p>
+                  <p className="font-medium">
+                    {selectedEventDetails.event_date 
+                      ? formatEventDate(selectedEventDetails.event_date)
+                      : (isEs ? "Por definir" : "TBD")}
+                  </p>
+                </div>
+
+                {selectedEventDetails.guest_count && (
+                  <div>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Users className="w-4 h-4" />
+                      {isEs ? "Invitados" : "Guests"}
+                    </p>
+                    <p className="font-medium">{selectedEventDetails.guest_count}</p>
+                  </div>
+                )}
+
+                {selectedEventDetails.venue && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {isEs ? "Ubicación" : "Venue"}
+                    </p>
+                    <p className="font-medium">{selectedEventDetails.venue}</p>
+                  </div>
+                )}
+
+                {selectedEventDetails.total_price && (
+                  <div>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="w-4 h-4" />
+                      {isEs ? "Precio Total" : "Total Price"}
+                    </p>
+                    <p className="font-medium">{formatCurrency(selectedEventDetails.total_price)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Info Banner */}
+              <div className={`p-3 rounded-lg border ${
+                selectedEventDetails.is_confirmed 
+                  ? "bg-emerald-50 border-emerald-200" 
+                  : "bg-amber-50 border-amber-200"
+              }`}>
+                <p className="text-sm">
+                  {selectedEventDetails.is_confirmed 
+                    ? (isEs 
+                        ? "Este evento está confirmado y disponible en Event Orchestration para planificación detallada." 
+                        : "This event is confirmed and available in Event Orchestration for detailed planning.")
+                    : (isEs 
+                        ? "Este evento aún está en proceso de confirmación. Puedes verlo en el Pipeline de Client Engagement." 
+                        : "This event is still being confirmed. You can view it in the Client Engagement Pipeline.")}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3 pt-4 border-t">
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    setEventDrawerOpen(false);
+                    navigateToEvent(selectedEventDetails);
+                  }}
+                  data-testid="view-event-btn"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  {selectedEventDetails.is_confirmed 
+                    ? (isEs ? "Ver en Event Orchestration" : "View in Event Orchestration")
+                    : (isEs ? "Ver Detalles del Evento" : "View Event Details")}
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => handleUnlinkEvent(selectedEventDetails.activationId)}
+                  data-testid="unlink-event-btn"
+                >
+                  <Unlink className="w-4 h-4 mr-2" />
+                  {isEs ? "Desvincular Evento" : "Unlink Event"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              {isEs ? "No se pudo cargar la información del evento" : "Could not load event information"}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

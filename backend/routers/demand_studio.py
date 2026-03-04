@@ -1092,6 +1092,9 @@ async def get_linkable_events(
     if not activation:
         raise HTTPException(status_code=404, detail="Activation not found")
     
+    # Confirmed stages for Event Orchestration
+    CONFIRMED_STAGES = ["Committed", "Won", "Closed"]
+    
     # Find events that are not linked or are linked to this activation
     events = await db.events.find({
         "company_id": company_id,
@@ -1108,20 +1111,96 @@ async def get_linkable_events(
         "client_id": 1,
         "venue": 1,
         "status": 1,
+        "stage": 1,
+        "guest_count": 1,
         "linked_activation_id": 1
     }).sort("event_date", -1).to_list(100)
     
-    # Enrich with client names
+    # Enrich with client names and confirmation status
     for event in events:
         if event.get("client_id"):
             client = await db.clients.find_one(
                 {"client_id": event["client_id"]},
-                {"_id": 0, "name": 1, "legal_name": 1}
+                {"_id": 0, "name": 1, "legal_name": 1, "display_name": 1}
             )
-            event["client_name"] = client.get("name") or client.get("legal_name") if client else None
+            event["client_name"] = client.get("display_name") or client.get("name") or client.get("legal_name") if client else None
         event["is_currently_linked"] = event.get("linked_activation_id") == activation_id
+        event["is_confirmed"] = event.get("stage") in CONFIRMED_STAGES
     
     return events
+
+
+@demand_studio_router.get("/activations/{activation_id}/linked-event-details")
+async def get_linked_event_details(
+    activation_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get full details of the event linked to this activation"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Get activation
+    activation = await db.marketing_activations.find_one({
+        "activation_id": activation_id,
+        "company_id": company_id
+    }, {"_id": 0})
+    
+    if not activation:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    
+    if not activation.get("linked_event_id"):
+        raise HTTPException(status_code=404, detail="No event linked to this activation")
+    
+    # Get full event details
+    event = await db.events.find_one({
+        "event_id": activation["linked_event_id"],
+        "company_id": company_id
+    }, {"_id": 0})
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Linked event not found")
+    
+    # Enrich with client info
+    if event.get("client_id"):
+        client = await db.clients.find_one(
+            {"client_id": event["client_id"]},
+            {"_id": 0, "display_name": 1, "name": 1, "legal_name": 1}
+        )
+        event["client_name"] = client.get("display_name") or client.get("name") or client.get("legal_name") if client else None
+    
+    # Check confirmation status
+    CONFIRMED_STAGES = ["Committed", "Won", "Closed"]
+    event["is_confirmed"] = event.get("stage") in CONFIRMED_STAGES
+    
+    return event
+
+
+
+@demand_studio_router.get("/events/{event_id}/linked-activation")
+async def get_linked_activation_for_event(
+    event_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get the activation linked to this event (for Event Orchestration view)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Get activation linked to this event
+    activation = await db.marketing_activations.find_one({
+        "linked_event_id": event_id,
+        "company_id": company_id
+    }, {"_id": 0})
+    
+    if not activation:
+        return None
+    
+    # Enrich with campaign name if linked
+    if activation.get("campaign_id"):
+        campaign = await db.campaigns.find_one(
+            {"campaign_id": activation["campaign_id"]},
+            {"_id": 0, "name": 1}
+        )
+        activation["campaign_name"] = campaign.get("name") if campaign else None
+    
+    return activation
 
 
 # ---- Email Tracking CRUD ----

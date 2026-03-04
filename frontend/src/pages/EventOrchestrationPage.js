@@ -18,7 +18,7 @@ import {
   Music4, ArrowLeft, Calendar, Users, Clock, Package,
   Palette, GitBranch, FileCheck, Star, Search, RefreshCw,
   CheckCircle, AlertCircle, MapPin, Building2, FileText, Lock, ExternalLink,
-  LayoutGrid, Briefcase, FolderKanban, ClipboardList
+  LayoutGrid, Briefcase, FolderKanban, ClipboardList, Zap, DollarSign
 } from "lucide-react";
 
 // Tab Components
@@ -344,6 +344,7 @@ function EventDetail() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("blueprint");
+  const [linkedActivation, setLinkedActivation] = useState(null);
 
   // Get dynamic terminology
   const poConfig = useMemo(() => getProgramOrchestrationConfig(), [getProgramOrchestrationConfig]);
@@ -355,6 +356,17 @@ function EventDetail() {
     try {
       const res = await axios.get(`${API}/api/orchestration/blueprint/${eventId}`, { withCredentials: true });
       setEvent(res.data);
+      
+      // Also fetch linked activation
+      try {
+        const activationRes = await axios.get(
+          `${API}/api/demand-studio/events/${eventId}/linked-activation`,
+          { withCredentials: true }
+        );
+        setLinkedActivation(activationRes.data);
+      } catch {
+        setLinkedActivation(null);
+      }
     } catch (err) {
       console.error(err);
       toast.error(isEs ? "Error al cargar evento" : "Failed to load event");
@@ -479,6 +491,49 @@ function EventDetail() {
           )}
         </div>
       </div>
+
+      {/* Linked Activation Banner */}
+      {linkedActivation && (
+        <Card className="border-purple-200 bg-purple-50/50" data-testid="linked-activation-banner">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Zap className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-purple-900">
+                    {isEs ? "Activación de Marketing Vinculada" : "Linked Marketing Activation"}
+                  </p>
+                  <p className="text-xs text-purple-700">
+                    {linkedActivation.name}
+                    {linkedActivation.campaign_name && ` • ${linkedActivation.campaign_name}`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                {linkedActivation.budget > 0 && (
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">{isEs ? "Presupuesto Marketing" : "Marketing Budget"}</p>
+                    <p className="text-sm font-semibold text-purple-700">
+                      ${linkedActivation.budget?.toLocaleString() || 0}
+                    </p>
+                  </div>
+                )}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate("/demand-studio/activations")}
+                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  {isEs ? "Ver Activación" : "View Activation"}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
