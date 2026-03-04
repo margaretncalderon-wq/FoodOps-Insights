@@ -58,6 +58,13 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
   - Desglose: Mes Actual vs Acumulado del Año
   - Backend endpoint: `GET /api/business-clarity/payroll-summary`
 
+- **P&L Completo en Reportes Ejecutivos** - ACTUALIZADO:
+  - El reporte "Snapshot" ahora incluye costos de nómina
+  - Estructura P&L: Ingresos → Costos Directos → Utilidad Bruta → Costos Fijos → Nómina → **UTILIDAD OPERATIVA**
+  - Posición de Caja incluye: Cobrado, Pagado Proveedores, Pagado Nómina, Flujo Neto
+  - Detalle de nómina: Bruto, Neto a empleados, Costo total empleador
+  - Indicador visual si el costo de nómina es estimado vs real
+
 - **Backend (ya existente)** (`people_ops.py` lines 642-1319):
   - `GET /api/people-ops/payroll/config` - Configuración de nómina
   - `POST /api/people-ops/payroll/config` - Guardar configuración

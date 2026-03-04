@@ -377,38 +377,83 @@ export function ReportsSection() {
         <>
           {activeReport === "snapshot" && reportData && (
             <div className="space-y-4">
+              {/* P&L Summary */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <BarChart3 className="w-4 h-4" />
-                    {isEs ? "Utilidad Operativa (Devengado)" : "Operational Profit (Accrued)"}
+                    {isEs ? "Estado de Resultados (P&L)" : "Profit & Loss Statement (P&L)"}
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    {isEs ? "Ingresos facturados menos costos asignados" : "Invoiced revenue minus assigned costs"}
+                    {isEs ? "Ingresos menos todos los costos operativos" : "Revenue minus all operating costs"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{isEs ? "Facturado" : "Invoiced"}</p>
-                      <p className="text-xl font-bold">{formatCurrency(reportData.revenue?.total_invoiced)}</p>
+                  <div className="space-y-3">
+                    {/* Revenue */}
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                      <span className="font-medium text-emerald-700">{isEs ? "Ingresos (Facturado)" : "Revenue (Invoiced)"}</span>
+                      <span className="text-xl font-bold text-emerald-700">{formatCurrency(reportData.revenue?.total_invoiced)}</span>
                     </div>
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{isEs ? "Costos Asignados" : "Assigned Costs"}</p>
-                      <p className="text-xl font-bold text-red-600">{formatCurrency(reportData.expenses?.assigned || reportData.expenses?.total)}</p>
+                    
+                    {/* Direct Costs */}
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                      <span className="text-muted-foreground">{isEs ? "(-) Costos Directos (Eventos)" : "(-) Direct Costs (Events)"}</span>
+                      <span className="font-medium text-red-600">-{formatCurrency(reportData.expenses?.direct || reportData.expenses?.total)}</span>
                     </div>
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{isEs ? "Utilidad Bruta" : "Gross Profit"}</p>
-                      <p className="text-xl font-bold text-blue-600">{formatCurrency(reportData.profit?.gross)}</p>
+                    
+                    {/* Gross Profit */}
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-blue-50 border border-blue-100">
+                      <div>
+                        <span className="font-medium text-blue-700">{isEs ? "= Utilidad Bruta" : "= Gross Profit"}</span>
+                        <span className="ml-2 text-sm text-blue-600">({reportData.profit?.margin || 0}%)</span>
+                      </div>
+                      <span className="text-xl font-bold text-blue-700">{formatCurrency(reportData.profit?.gross)}</span>
                     </div>
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{isEs ? "Margen" : "Margin"}</p>
-                      <p className="text-xl font-bold">{reportData.profit?.margin || 0}%</p>
+                    
+                    {/* Fixed Costs */}
+                    {reportData.fixed_costs?.monthly > 0 && (
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                        <span className="text-muted-foreground">{isEs ? "(-) Costos Fijos Mensuales" : "(-) Monthly Fixed Costs"}</span>
+                        <span className="font-medium text-red-600">-{formatCurrency(reportData.fixed_costs?.monthly)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Payroll Costs */}
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-violet-50 border border-violet-100">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-violet-600" />
+                        <span className="text-violet-700">{isEs ? "(-) Costo de Personal" : "(-) Payroll Cost"}</span>
+                        {reportData.payroll?.is_estimated && (
+                          <Badge variant="outline" className="text-xs">{isEs ? "Estimado" : "Estimated"}</Badge>
+                        )}
+                      </div>
+                      <span className="font-medium text-violet-700">-{formatCurrency(reportData.payroll?.employer_cost)}</span>
+                    </div>
+                    
+                    {/* Operating Profit */}
+                    <div className={`flex justify-between items-center p-4 rounded-lg border-2 ${
+                      (reportData.profit?.operating || 0) >= 0 
+                        ? "bg-emerald-50 border-emerald-300" 
+                        : "bg-red-50 border-red-300"
+                    }`}>
+                      <div>
+                        <span className={`font-bold ${(reportData.profit?.operating || 0) >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                          {isEs ? "= UTILIDAD OPERATIVA" : "= OPERATING PROFIT"}
+                        </span>
+                        <span className={`ml-2 text-sm ${(reportData.profit?.operating || 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          ({reportData.profit?.operating_margin || 0}%)
+                        </span>
+                      </div>
+                      <span className={`text-2xl font-bold ${(reportData.profit?.operating || 0) >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                        {formatCurrency(reportData.profit?.operating)}
+                      </span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
+              {/* Cash Position */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -420,24 +465,68 @@ export function ReportsSection() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="p-3 rounded-lg bg-green-50 border border-green-100">
                       <p className="text-xs text-green-600">{isEs ? "Cobrado de Clientes" : "Collected from Clients"}</p>
-                      <p className="text-xl font-bold text-green-700">{formatCurrency(reportData.revenue?.total_collected)}</p>
+                      <p className="text-xl font-bold text-green-700">{formatCurrency(reportData.cash_position?.collected || reportData.revenue?.total_collected)}</p>
                     </div>
                     <div className="p-3 rounded-lg bg-red-50 border border-red-100">
                       <p className="text-xs text-red-600">{isEs ? "Pagado a Proveedores" : "Paid to Suppliers"}</p>
-                      <p className="text-xl font-bold text-red-700">{formatCurrency(reportData.expenses?.paid || 0)}</p>
+                      <p className="text-xl font-bold text-red-700">{formatCurrency(reportData.cash_position?.paid_suppliers || reportData.expenses?.paid || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-violet-50 border border-violet-100">
+                      <p className="text-xs text-violet-600">{isEs ? "Pagado Nómina" : "Paid Payroll"}</p>
+                      <p className="text-xl font-bold text-violet-700">{formatCurrency(reportData.cash_position?.paid_payroll || reportData.payroll?.net_paid || 0)}</p>
                     </div>
                     <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
                       <p className="text-xs text-blue-600">{isEs ? "Flujo Neto de Caja" : "Net Cash Flow"}</p>
-                      <p className="text-xl font-bold text-blue-700">
-                        {formatCurrency((reportData.revenue?.total_collected || 0) - (reportData.expenses?.paid || 0))}
+                      <p className={`text-xl font-bold ${(reportData.cash_position?.net_flow || 0) >= 0 ? "text-blue-700" : "text-red-700"}`}>
+                        {formatCurrency(reportData.cash_position?.net_flow || ((reportData.revenue?.total_collected || 0) - (reportData.expenses?.paid || 0) - (reportData.payroll?.net_paid || 0)))}
                       </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Payroll Detail if available */}
+              {reportData.payroll && (reportData.payroll.employer_cost > 0 || reportData.payroll.is_estimated) && (
+                <Card className="border-violet-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Users className="w-4 h-4 text-violet-600" />
+                      {isEs ? "Detalle de Costo de Personal" : "Payroll Cost Detail"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">{isEs ? "Salarios Brutos" : "Gross Salaries"}</p>
+                        <p className="text-lg font-bold">{formatCurrency(reportData.payroll?.gross_paid)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">{isEs ? "Pagado a Empleados" : "Paid to Employees"}</p>
+                        <p className="text-lg font-bold text-emerald-600">{formatCurrency(reportData.payroll?.net_paid)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-violet-50 border border-violet-100">
+                        <p className="text-xs text-violet-600">{isEs ? "Costo Total Empleador" : "Total Employer Cost"}</p>
+                        <p className="text-lg font-bold text-violet-700">{formatCurrency(reportData.payroll?.employer_cost)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">{isEs ? "Nóminas Procesadas" : "Payrolls Processed"}</p>
+                        <p className="text-lg font-bold">{reportData.payroll?.periods_count || 0}</p>
+                      </div>
+                    </div>
+                    {reportData.payroll?.is_estimated && (
+                      <div className="mt-3 p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                        <Info className="w-3 h-3 inline mr-1" />
+                        {isEs 
+                          ? "Este costo es una estimación basada en los salarios de empleados activos. Procesa nóminas para ver datos reales." 
+                          : "This cost is an estimate based on active employee salaries. Process payrolls to see actual data."}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="bg-amber-50/50 border-amber-200">
                 <CardContent className="pt-4">
@@ -445,8 +534,8 @@ export function ReportsSection() {
                     <Info className="w-4 h-4 text-amber-600 mt-0.5" />
                     <p className="text-sm text-amber-800">
                       {isEs 
-                        ? "La utilidad refleja costos asignados a eventos. Los gastos no asignados (overhead) pueden distorsionar los márgenes mostrados. Revisa 'Costos Sin Asignar' en el panel ejecutivo."
-                        : "Profit reflects costs assigned to events. Unassigned expenses (overhead) may distort displayed margins. Check 'Unassigned Costs' in the executive dashboard."}
+                        ? "La utilidad operativa muestra lo que realmente queda después de pagar todos los costos: eventos, costos fijos y nómina. Los gastos no asignados (overhead) pueden distorsionar los márgenes mostrados."
+                        : "Operating profit shows what's actually left after paying all costs: events, fixed costs and payroll. Unassigned expenses (overhead) may distort displayed margins."}
                     </p>
                   </div>
                 </CardContent>

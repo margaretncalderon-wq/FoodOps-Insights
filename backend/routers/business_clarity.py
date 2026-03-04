@@ -1101,7 +1101,7 @@ async def get_financial_snapshot(
     end_date: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
-    """Get financial snapshot report"""
+    """Get financial snapshot report including payroll costs"""
     query = {"company_id": user.company_id}
     
     # Date filtering
@@ -1119,7 +1119,7 @@ async def get_financial_snapshot(
     total_collected = sum(inv.get("paid_amount", 0) for inv in invoices)
     total_outstanding = total_invoiced - total_collected
     
-    # Expenses
+    # Direct Expenses (from expenses collection - assigned to events)
     expenses_query = {"company_id": user.company_id}
     if start_date:
         expenses_query["expense_date"] = {"$gte": start_date}
@@ -1130,10 +1130,67 @@ async def get_financial_snapshot(
             expenses_query["expense_date"] = {"$lte": end_date}
     
     expenses = await db.expenses.find(expenses_query, {"_id": 0}).to_list(1000)
-    total_expenses = sum(exp.get("amount", 0) for exp in expenses)
+    total_direct_expenses = sum(exp.get("amount", 0) for exp in expenses)
+    expenses_paid = sum(exp.get("amount", 0) for exp in expenses if exp.get("status") == "paid")
     
-    # Profit
-    gross_profit = total_collected - total_expenses
+    # Fixed Costs (from fixed_costs collection)
+    fixed_costs_query = {"company_id": user.company_id, "status": "active"}
+    fixed_costs = await db.fixed_costs.find(fixed_costs_query, {"_id": 0}).to_list(100)
+    total_fixed_monthly = sum(fc.get("amount", 0) for fc in fixed_costs)
+    
+    # ========== PAYROLL COSTS ==========
+    # Get completed payroll periods
+    payroll_query = {"company_id": user.company_id, "status": "completed"}
+    if start_date or end_date:
+        payroll_query["payment_date"] = {}
+        if start_date:
+            payroll_query["payment_date"]["$gte"] = start_date
+        if end_date:
+            payroll_query["payment_date"]["$lte"] = end_date
+        if not payroll_query["payment_date"]:
+            del payroll_query["payment_date"]
+    
+    payroll_periods = await db.payroll_periods.find(payroll_query, {"_id": 0}).to_list(100)
+    
+    total_payroll_gross = sum(p.get("total_gross", 0) for p in payroll_periods)
+    total_payroll_net = sum(p.get("total_net", 0) for p in payroll_periods)
+    total_employer_cost = sum(p.get("total_employer_cost", 0) for p in payroll_periods)
+    payroll_periods_count = len(payroll_periods)
+    
+    # If no payroll data, estimate from active employees
+    if total_employer_cost == 0:
+        active_employees = await db.employees.find(
+            {"company_id": user.company_id, "status": "active"},
+            {"_id": 0, "base_salary": 1, "payment_frequency": 1}
+        ).to_list(500)
+        
+        monthly_estimate = 0
+        for emp in active_employees:
+            salary = emp.get("base_salary", 0)
+            freq = emp.get("payment_frequency", "biweekly")
+            if freq == "biweekly":
+                monthly_estimate += salary * 2
+            elif freq == "weekly":
+                monthly_estimate += salary * 4
+            else:
+                monthly_estimate += salary
+        # Add ~16% employer contributions estimate
+        total_employer_cost = monthly_estimate * 1.16
+        is_payroll_estimated = True
+    else:
+        is_payroll_estimated = False
+    
+    # ========== PROFIT CALCULATIONS ==========
+    # Gross Profit = Revenue - Direct Costs
+    gross_profit = total_invoiced - total_direct_expenses
+    gross_margin = (gross_profit / total_invoiced * 100) if total_invoiced > 0 else 0
+    
+    # Operating Profit = Gross Profit - Fixed Costs - Payroll
+    operating_profit = gross_profit - total_fixed_monthly - total_employer_cost
+    operating_margin = (operating_profit / total_invoiced * 100) if total_invoiced > 0 else 0
+    
+    # Cash Position (Realized)
+    cash_flow = total_collected - expenses_paid - total_payroll_net
     
     return {
         "period": {"start": start_date, "end": end_date},
@@ -1144,12 +1201,34 @@ async def get_financial_snapshot(
             "collection_rate": round((total_collected / total_invoiced * 100) if total_invoiced > 0 else 0, 1)
         },
         "expenses": {
-            "total": round(total_expenses, 2),
+            "direct": round(total_direct_expenses, 2),
+            "paid": round(expenses_paid, 2),
+            "total": round(total_direct_expenses, 2),
+            "assigned": round(total_direct_expenses, 2),
             "count": len(expenses)
+        },
+        "fixed_costs": {
+            "monthly": round(total_fixed_monthly, 2),
+            "count": len(fixed_costs)
+        },
+        "payroll": {
+            "gross_paid": round(total_payroll_gross, 2),
+            "net_paid": round(total_payroll_net, 2),
+            "employer_cost": round(total_employer_cost, 2),
+            "periods_count": payroll_periods_count,
+            "is_estimated": is_payroll_estimated
         },
         "profit": {
             "gross": round(gross_profit, 2),
-            "margin": round((gross_profit / total_collected * 100) if total_collected > 0 else 0, 1)
+            "margin": round(gross_margin, 1),
+            "operating": round(operating_profit, 2),
+            "operating_margin": round(operating_margin, 1)
+        },
+        "cash_position": {
+            "collected": round(total_collected, 2),
+            "paid_suppliers": round(expenses_paid, 2),
+            "paid_payroll": round(total_payroll_net, 2),
+            "net_flow": round(cash_flow, 2)
         },
         "invoices_count": len(invoices),
         "generated_at": datetime.now(timezone.utc).isoformat()
