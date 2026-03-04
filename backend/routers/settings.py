@@ -86,6 +86,387 @@ async def save_variable_pay_config(data: dict, user: User = Depends(get_current_
     return {"message": "Configuration saved", "config": config}
 
 
+# ==================== VARIABLE PAY DASHBOARD SUMMARY ====================
+
+@settings_router.get("/variable-pay-summary")
+async def get_variable_pay_summary(user: User = Depends(get_current_user)):
+    """Get summary of pending variable pay items for dashboard widget"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Get variable pay config for payment days
+    config = await db.variable_pay_config.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    if not config:
+        config = {
+            "overtime_payment_type": "separate",
+            "overtime_payment_day": 5,
+            "commission_payment_type": "separate", 
+            "commission_payment_day": 10,
+            "bonus_payment_type": "separate",
+            "bonus_payment_day": 5,
+            "incentive_payment_type": "separate",
+            "incentive_payment_day": 5
+        }
+    
+    now = datetime.now(timezone.utc)
+    current_month = now.month
+    current_year = now.year
+    
+    # Get pending overtime (approved but not processed)
+    pending_overtime = await db.overtime_requests.find(
+        {"company_id": company_id, "status": "approved"},
+        {"_id": 0, "estimated_amount": 1}
+    ).to_list(500)
+    overtime_total = sum(ot.get("estimated_amount", 0) for ot in pending_overtime)
+    
+    # Get employees with commissions for potential commission calculation
+    employees_with_commission = await db.employees.find(
+        {"company_id": company_id, "status": "active", "commission_rate": {"$gt": 0}},
+        {"_id": 0, "employee_id": 1, "full_name": 1, "commission_rate": 1}
+    ).to_list(100)
+    
+    # Get draft variable pay runs
+    draft_runs = await db.variable_pay_runs.find(
+        {"company_id": company_id, "status": {"$in": ["draft", "pending_approval", "approved"]}},
+        {"_id": 0, "run_id": 1, "run_name": 1, "pay_type": 1, "total_net": 1, "status": 1, "payment_date": 1}
+    ).to_list(20)
+    
+    summary = {
+        "overtime": {
+            "pending_count": len(pending_overtime),
+            "pending_amount": round(overtime_total, 2),
+            "payment_day": config.get("overtime_payment_day", 5),
+            "payment_type": config.get("overtime_payment_type", "separate")
+        },
+        "commission": {
+            "employees_eligible": len(employees_with_commission),
+            "payment_day": config.get("commission_payment_day", 10),
+            "payment_type": config.get("commission_payment_type", "separate")
+        },
+        "bonus": {
+            "payment_day": config.get("bonus_payment_day", 5),
+            "payment_type": config.get("bonus_payment_type", "separate")
+        },
+        "incentive": {
+            "payment_day": config.get("incentive_payment_day", 5),
+            "payment_type": config.get("incentive_payment_type", "separate")
+        },
+        "pending_runs": draft_runs,
+        "current_month": current_month,
+        "current_year": current_year
+    }
+    
+    return summary
+
+
+# ==================== EMPLOYEE PAYMENT HISTORY ====================
+
+@settings_router.get("/employee-payment-history/{employee_id}")
+async def get_employee_payment_history(
+    employee_id: str,
+    year: Optional[int] = None,
+    pay_type: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get complete payment history for an employee"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    if not year:
+        year = datetime.now().year
+    
+    history = []
+    totals = {
+        "payroll": 0,
+        "overtime": 0,
+        "commission": 0,
+        "bonus": 0,
+        "incentive": 0,
+        "benefits_in_kind": 0,
+        "total_gross": 0,
+        "total_net": 0
+    }
+    
+    # 1. Get payroll entries
+    if not pay_type or pay_type == "payroll":
+        payroll_entries = await db.payroll_entries.find(
+            {"company_id": company_id, "employee_id": employee_id},
+            {"_id": 0}
+        ).to_list(100)
+        
+        for entry in payroll_entries:
+            # Get period info
+            period = await db.payroll_periods.find_one(
+                {"period_id": entry.get("period_id")},
+                {"_id": 0, "period_name": 1, "payment_date": 1, "status": 1}
+            )
+            if period and period.get("status") == "completed":
+                payment_date = period.get("payment_date", "")
+                if payment_date and str(year) in str(payment_date):
+                    history.append({
+                        "type": "payroll",
+                        "type_label": "Nómina",
+                        "date": payment_date,
+                        "description": period.get("period_name"),
+                        "gross": entry.get("gross_salary", 0),
+                        "deductions": entry.get("total_deductions", 0),
+                        "net": entry.get("net_salary", 0),
+                        "reference_id": entry.get("period_id")
+                    })
+                    totals["payroll"] += entry.get("net_salary", 0)
+                    totals["total_gross"] += entry.get("gross_salary", 0)
+                    totals["total_net"] += entry.get("net_salary", 0)
+    
+    # 2. Get variable pay entries (overtime, commission, bonus, incentive)
+    vp_query = {"company_id": company_id, "employee_id": employee_id}
+    if pay_type and pay_type != "payroll":
+        vp_query["pay_type"] = pay_type
+    
+    vp_entries = await db.variable_pay_entries.find(
+        vp_query,
+        {"_id": 0}
+    ).to_list(200)
+    
+    for entry in vp_entries:
+        # Get run info to check if completed
+        run = await db.variable_pay_runs.find_one(
+            {"run_id": entry.get("run_id")},
+            {"_id": 0, "run_name": 1, "payment_date": 1, "status": 1}
+        )
+        if run and run.get("status") == "completed":
+            payment_date = run.get("payment_date", "")
+            if payment_date and str(year) in str(payment_date):
+                pay_type_entry = entry.get("pay_type", "other")
+                type_labels = {
+                    "overtime": "Horas Extras",
+                    "commission": "Comisión",
+                    "bonus": "Bono",
+                    "incentive": "Incentivo"
+                }
+                history.append({
+                    "type": pay_type_entry,
+                    "type_label": type_labels.get(pay_type_entry, pay_type_entry),
+                    "date": payment_date,
+                    "description": run.get("run_name"),
+                    "gross": entry.get("gross_amount", 0),
+                    "deductions": entry.get("total_deductions", 0),
+                    "net": entry.get("net_amount", 0),
+                    "reference_id": entry.get("run_id"),
+                    "details": {
+                        "overtime_hours": (entry.get("overtime_hours_35", 0) or 0) + (entry.get("overtime_hours_100", 0) or 0),
+                        "commission_sales": entry.get("total_sales"),
+                        "commission_rate": entry.get("commission_rate"),
+                        "pool_percentage": entry.get("pool_percentage")
+                    }
+                })
+                totals[pay_type_entry] = totals.get(pay_type_entry, 0) + entry.get("net_amount", 0)
+                totals["total_gross"] += entry.get("gross_amount", 0)
+                totals["total_net"] += entry.get("net_amount", 0)
+    
+    # 3. Get benefits in kind (meals, etc.)
+    if not pay_type or pay_type == "benefits_in_kind":
+        benefits = await db.employee_benefits_log.find(
+            {"company_id": company_id, "employee_id": employee_id},
+            {"_id": 0}
+        ).to_list(500)
+        
+        for benefit in benefits:
+            benefit_date = benefit.get("date", "")
+            if benefit_date and str(year) in str(benefit_date):
+                history.append({
+                    "type": "benefits_in_kind",
+                    "type_label": "Beneficio en Especie",
+                    "date": benefit_date,
+                    "description": benefit.get("description", "Almuerzo/Beneficio"),
+                    "gross": benefit.get("value", 0),
+                    "deductions": 0,
+                    "net": benefit.get("value", 0),
+                    "reference_id": benefit.get("benefit_log_id"),
+                    "details": {
+                        "benefit_type": benefit.get("benefit_type"),
+                        "cost_center_id": benefit.get("cost_center_id")
+                    }
+                })
+                totals["benefits_in_kind"] += benefit.get("value", 0)
+    
+    # Sort by date descending
+    history.sort(key=lambda x: x.get("date", ""), reverse=True)
+    
+    return {
+        "employee_id": employee_id,
+        "year": year,
+        "history": history,
+        "totals": totals
+    }
+
+
+# ==================== BENEFITS IN KIND (MEALS, ETC.) ====================
+
+@settings_router.post("/benefits-in-kind")
+async def record_benefit_in_kind(data: dict, user: User = Depends(get_current_user)):
+    """Record a benefit in kind (meal, transport, etc.) for an employee"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    benefit_log_id = f"bik_{uuid.uuid4().hex[:12]}"
+    
+    benefit_doc = {
+        "benefit_log_id": benefit_log_id,
+        "company_id": company_id,
+        "employee_id": data.get("employee_id"),
+        "employee_name": data.get("employee_name"),
+        "benefit_type": data.get("benefit_type", "meal"),  # meal, transport, other
+        "description": data.get("description", ""),
+        "value": data.get("value", 0),
+        "date": data.get("date", now.strftime("%Y-%m-%d")),
+        "cost_center_id": data.get("cost_center_id"),
+        "cost_center_name": data.get("cost_center_name"),
+        "notes": data.get("notes"),
+        "created_at": now,
+        "created_by": user.user_id
+    }
+    
+    await db.employee_benefits_log.insert_one(benefit_doc)
+    
+    # Also create an expense entry for the cost center if provided
+    if data.get("cost_center_id"):
+        expense_id = f"exp_{uuid.uuid4().hex[:12]}"
+        expense_doc = {
+            "expense_id": expense_id,
+            "company_id": company_id,
+            "cost_center_id": data.get("cost_center_id"),
+            "description": f"Beneficio empleado: {data.get('employee_name')} - {data.get('description', benefit_doc['benefit_type'])}",
+            "amount": data.get("value", 0),
+            "date": data.get("date", now.strftime("%Y-%m-%d")),
+            "category": "employee_benefit",
+            "employee_id": data.get("employee_id"),
+            "benefit_log_id": benefit_log_id,
+            "created_at": now,
+            "created_by": user.user_id
+        }
+        await db.cost_center_expenses.insert_one(expense_doc)
+    
+    return {"message": "Benefit recorded", "benefit_log_id": benefit_log_id}
+
+
+@settings_router.post("/benefits-in-kind/bulk")
+async def record_bulk_benefits(data: dict, user: User = Depends(get_current_user)):
+    """Record benefits in kind for multiple employees at once (e.g., daily meals)"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    employee_ids = data.get("employee_ids", [])
+    benefit_type = data.get("benefit_type", "meal")
+    value_per_employee = data.get("value_per_employee", 0)
+    date = data.get("date", now.strftime("%Y-%m-%d"))
+    cost_center_id = data.get("cost_center_id")
+    cost_center_name = data.get("cost_center_name")
+    description = data.get("description", "")
+    
+    if not employee_ids:
+        raise HTTPException(status_code=400, detail="No employees provided")
+    
+    # Get employee names
+    employees = await db.employees.find(
+        {"employee_id": {"$in": employee_ids}, "company_id": company_id},
+        {"_id": 0, "employee_id": 1, "full_name": 1}
+    ).to_list(len(employee_ids))
+    
+    emp_names = {e["employee_id"]: e["full_name"] for e in employees}
+    
+    benefit_docs = []
+    total_value = 0
+    
+    for emp_id in employee_ids:
+        benefit_log_id = f"bik_{uuid.uuid4().hex[:12]}"
+        benefit_doc = {
+            "benefit_log_id": benefit_log_id,
+            "company_id": company_id,
+            "employee_id": emp_id,
+            "employee_name": emp_names.get(emp_id, emp_id),
+            "benefit_type": benefit_type,
+            "description": description,
+            "value": value_per_employee,
+            "date": date,
+            "cost_center_id": cost_center_id,
+            "cost_center_name": cost_center_name,
+            "notes": None,
+            "created_at": now,
+            "created_by": user.user_id
+        }
+        benefit_docs.append(benefit_doc)
+        total_value += value_per_employee
+    
+    if benefit_docs:
+        await db.employee_benefits_log.insert_many(benefit_docs)
+    
+    # Create single expense entry for the cost center
+    if cost_center_id and total_value > 0:
+        expense_id = f"exp_{uuid.uuid4().hex[:12]}"
+        expense_doc = {
+            "expense_id": expense_id,
+            "company_id": company_id,
+            "cost_center_id": cost_center_id,
+            "description": f"{description or benefit_type} - {len(employee_ids)} empleados",
+            "amount": total_value,
+            "date": date,
+            "category": "employee_benefit",
+            "employee_count": len(employee_ids),
+            "created_at": now,
+            "created_by": user.user_id
+        }
+        await db.cost_center_expenses.insert_one(expense_doc)
+    
+    return {
+        "message": f"Benefits recorded for {len(employee_ids)} employees",
+        "total_value": total_value,
+        "employee_count": len(employee_ids)
+    }
+
+
+@settings_router.get("/benefits-in-kind")
+async def get_benefits_log(
+    employee_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    benefit_type: Optional[str] = None,
+    limit: int = 100,
+    user: User = Depends(get_current_user)
+):
+    """Get benefits in kind log"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    query = {"company_id": company_id}
+    if employee_id:
+        query["employee_id"] = employee_id
+    if benefit_type:
+        query["benefit_type"] = benefit_type
+    if date_from and date_to:
+        query["date"] = {"$gte": date_from, "$lte": date_to}
+    elif date_from:
+        query["date"] = {"$gte": date_from}
+    elif date_to:
+        query["date"] = {"$lte": date_to}
+    
+    benefits = await db.employee_benefits_log.find(
+        query,
+        {"_id": 0}
+    ).sort("date", -1).to_list(limit)
+    
+    return benefits
+
+
 # ==================== VARIABLE PAY RUNS ====================
 
 @settings_router.get("/variable-pay-runs")

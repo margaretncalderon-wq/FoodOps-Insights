@@ -11,7 +11,7 @@ import {
   ArrowLeft, User, Briefcase, Wallet, Calendar, Building2,
   Mail, Phone, MapPin, RefreshCw, Edit2, Save, X,
   FileText, Clock, TrendingUp, AlertCircle, DollarSign, Sun, Moon,
-  Percent, Zap, CreditCard
+  Percent, Zap, CreditCard, History
 } from "lucide-react";
 import {
   Select,
@@ -23,6 +23,7 @@ import {
 import { Switch } from "../ui/switch";
 
 import { API_BASE as API } from "../../utils/api";
+import { PaymentHistoryTab } from "./EmployeeProfilePage/PaymentHistoryTab";
 
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -167,6 +168,10 @@ export function EmployeeProfile() {
           <TabsTrigger value="time" className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
             {isEs ? "Tiempo" : "Time"}
+          </TabsTrigger>
+          <TabsTrigger value="payment-history" className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            {isEs ? "Historial Pagos" : "Payment History"}
           </TabsTrigger>
         </TabsList>
 
@@ -794,6 +799,11 @@ export function EmployeeProfile() {
               <p>{isEs ? "Gestión de tiempo próximamente" : "Time management coming soon"}</p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Payment History Tab */}
+        <TabsContent value="payment-history">
+          <PaymentHistoryTab employeeId={employeeId} />
         </TabsContent>
       </Tabs>
     </div>

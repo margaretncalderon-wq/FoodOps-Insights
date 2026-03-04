@@ -9,3 +9,6 @@ export { OvertimeSection } from './OvertimeSection';
 export { LoansSection } from './LoansSection';
 export { OffboardingSection } from './OffboardingSection';
 export { VariablePaySection } from './VariablePaySection';
+export { VariablePayWidget } from './VariablePayWidget';
+export { PaymentHistoryTab } from './EmployeeProfilePage/PaymentHistoryTab';
+export { BenefitsInKindSection } from './BenefitsInKindSection';

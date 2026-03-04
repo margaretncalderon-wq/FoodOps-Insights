@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { VariablePayWidget } from "./VariablePayWidget";
 
 const formatCurrency = (amount) => 
   `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -262,6 +263,9 @@ export function PayrollSection() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Variable Pay Widget */}
+      <VariablePayWidget />
 
       {/* Actions */}
       <div className="flex items-center justify-between">

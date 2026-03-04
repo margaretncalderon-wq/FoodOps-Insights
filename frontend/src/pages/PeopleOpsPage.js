@@ -15,12 +15,13 @@ import { OvertimeSection } from "../components/people-ops/OvertimeSection";
 import { LoansSection } from "../components/people-ops/LoansSection";
 import { OffboardingSection } from "../components/people-ops/OffboardingSection";
 import { VariablePaySection } from "../components/people-ops/VariablePaySection";
+import { BenefitsInKindSection } from "../components/people-ops/BenefitsInKindSection";
 
 // Icons
 import {
   Users, UserCircle, Wallet, Clock,
   FileText, Lock, UserPlus, Settings,
-  Calendar, CreditCard, UserMinus, DollarSign
+  Calendar, CreditCard, UserMinus, DollarSign, Gift
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -116,6 +117,12 @@ export default function PeopleOpsPage() {
       path: "/people-ops/offboarding", 
       label: isEs ? "Salidas" : "Offboarding", 
       icon: UserMinus,
+      requiresAccess: "payroll"
+    },
+    { 
+      path: "/people-ops/benefits", 
+      label: isEs ? "Beneficios" : "Benefits", 
+      icon: Gift,
       requiresAccess: "payroll"
     },
     { 
@@ -217,6 +224,7 @@ export default function PeopleOpsPage() {
           <Route path="overtime" element={<OvertimeSection />} />
           <Route path="loans" element={<LoansSection />} />
           <Route path="offboarding" element={<OffboardingSection />} />
+          <Route path="benefits" element={<BenefitsInKindSection />} />
         </Routes>
       </div>
     </Layout>
