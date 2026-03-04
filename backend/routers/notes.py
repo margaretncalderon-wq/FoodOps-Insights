@@ -1,5 +1,5 @@
 # routers/notes.py - Notes endpoints for Demand Studio
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -10,6 +10,28 @@ from models.auth import User
 from routers.auth import get_current_user
 
 notes_router = APIRouter(prefix="/demand-studio/notes", tags=["notes"])
+
+
+async def get_effective_company_id(user: User, org_id: Optional[str] = None):
+    """Get the effective company_id based on user's access"""
+    own_company_id = user.company_id or user.active_org_id
+    
+    if not org_id or org_id == own_company_id:
+        return own_company_id, "owner"
+    
+    # Check if user has membership to the requested org
+    membership = await db.memberships.find_one(
+        {
+            "user_id": user.user_id,
+            "$or": [{"company_id": org_id}, {"organization_id": org_id}]
+        },
+        {"_id": 0, "role": 1}
+    )
+    
+    if not membership:
+        return None, None
+    
+    return org_id, membership.get("role", "viewer")
 
 class NoteCreate(BaseModel):
     title: str
@@ -32,9 +54,19 @@ class AIExtractActionsRequest(BaseModel):
 # ============== FOLDERS ==============
 
 @notes_router.get("/folders")
-async def get_folders(user: User = Depends(get_current_user)):
+async def get_folders(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Get all note folders for the organization"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        effective_company_id, role = await get_effective_company_id(user, org_id)
+        if not effective_company_id:
+            raise HTTPException(status_code=403, detail="No access to this organization")
+        company_id = effective_company_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     folders = await db.note_folders.find(
         {"company_id": company_id},
         {"_id": 0}
@@ -86,10 +118,17 @@ async def delete_folder(folder_id: str, user: User = Depends(get_current_user)):
 async def get_notes(
     folder_id: Optional[str] = None,
     tag: Optional[str] = None,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get all notes for the organization"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        effective_company_id, role = await get_effective_company_id(user, org_id)
+        if not effective_company_id:
+            raise HTTPException(status_code=403, detail="No access to this organization")
+        company_id = effective_company_id
+    else:
+        company_id = user.company_id or user.active_org_id
     
     query = {"company_id": company_id}
     if folder_id:

@@ -136,9 +136,20 @@ def can_user_perform_action(role: str, action: str) -> bool:
 
 
 @demand_studio_router.get("/stats")
-async def get_demand_studio_stats(user: User = Depends(get_current_user)):
+async def get_demand_studio_stats(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """Get dashboard statistics for Demand Studio"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided and user has access
+    if org_id:
+        effective_company_id, role = await get_effective_company_id(user, org_id)
+        if not effective_company_id:
+            raise HTTPException(status_code=403, detail="No access to this organization")
+        company_id = effective_company_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     if not company_id:
         return {
             "activeCampaigns": 0,
@@ -221,32 +232,41 @@ async def get_campaigns(
     status: Optional[str] = None,
     campaign_type: Optional[str] = None,
     scope: Optional[str] = None,  # "owned" | "shared" | None (both)
+    org_id: Optional[str] = None,  # Filter by specific organization
     user: User = Depends(get_current_user)
 ):
     """Get marketing campaigns with optional scope filter for collaboration"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided and user has access, otherwise use user's company
+    if org_id:
+        effective_company_id, role = await get_effective_company_id(user, org_id)
+        if not effective_company_id:
+            raise HTTPException(status_code=403, detail="No access to this organization")
+        company_id = effective_company_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     if not company_id:
         return []
     
     campaigns = []
     
-    # Get owned campaigns (unless scope is "shared" only)
-    if scope != "shared":
-        query = {"company_id": company_id}
-        if status:
-            query["status"] = status
-        if campaign_type:
-            query["campaign_type"] = campaign_type
-        
-        owned_campaigns = await db.marketing_campaigns.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-        
-        # Mark as owned
-        for c in owned_campaigns:
-            c["_access_type"] = "owned"
-        campaigns.extend(owned_campaigns)
+    # Get campaigns for the selected org
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if campaign_type:
+        query["campaign_type"] = campaign_type
     
-    # Get cross-org shared campaigns (unless scope is "owned" only)
-    if scope != "owned":
+    owned_campaigns = await db.marketing_campaigns.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Mark as owned or shared based on context
+    is_own_org = company_id == (user.company_id or user.active_org_id)
+    for c in owned_campaigns:
+        c["_access_type"] = "owned" if is_own_org else "shared"
+    campaigns.extend(owned_campaigns)
+    
+    # If viewing own org and scope allows, also get cross-org shared campaigns
+    if is_own_org and scope != "owned":
         shared_entities = await db.shared_entities.find({
             "target_org_id": company_id,
             "entity_type": "campaign",
@@ -513,10 +533,19 @@ async def get_spend(
     campaign_id: Optional[str] = None,
     channel_id: Optional[str] = None,
     category: Optional[str] = None,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get campaign spend records"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided and user has access
+    if org_id:
+        effective_company_id, role = await get_effective_company_id(user, org_id)
+        if not effective_company_id:
+            raise HTTPException(status_code=403, detail="No access to this organization")
+        company_id = effective_company_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     query = {"company_id": company_id}
     if campaign_id:
         query["campaign_id"] = campaign_id
@@ -646,10 +675,19 @@ async def delete_asset(asset_id: str, user: User = Depends(get_current_user)):
 async def get_activations(
     campaign_id: Optional[str] = None,
     status: Optional[str] = None,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get marketing activations"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided and user has access
+    if org_id:
+        effective_company_id, role = await get_effective_company_id(user, org_id)
+        if not effective_company_id:
+            raise HTTPException(status_code=403, detail="No access to this organization")
+        company_id = effective_company_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     query = {"company_id": company_id}
     if campaign_id:
         query["campaign_id"] = campaign_id
