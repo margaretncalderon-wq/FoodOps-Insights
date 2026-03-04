@@ -2945,3 +2945,145 @@ async def get_marketing_activations_for_roi(user: User = Depends(get_current_use
     
     return activations
 
+
+
+# ============== PAYROLL COST SUMMARY ==============
+
+@business_clarity_router.get("/payroll-summary")
+async def get_payroll_summary_for_clarity(user: User = Depends(get_current_user)):
+    """Get payroll cost summary for Business Clarity dashboard"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    current_year = now.year
+    current_month = now.month
+    
+    # Get all completed payroll periods for this year
+    periods = await db.payroll_periods.find(
+        {
+            "company_id": company_id,
+            "status": "completed"
+        },
+        {"_id": 0}
+    ).sort("payment_date", -1).to_list(100)
+    
+    # Calculate YTD totals
+    ytd_gross = 0
+    ytd_net = 0
+    ytd_employer_cost = 0
+    ytd_deductions = 0
+    periods_this_year = 0
+    
+    monthly_costs = {}  # month -> cost
+    
+    for period in periods:
+        payment_date = period.get("payment_date", "")
+        if payment_date:
+            try:
+                payment_dt = datetime.fromisoformat(payment_date.replace("Z", "+00:00")) if isinstance(payment_date, str) else payment_date
+                if payment_dt.year == current_year:
+                    periods_this_year += 1
+                    ytd_gross += period.get("total_gross", 0)
+                    ytd_net += period.get("total_net", 0)
+                    ytd_employer_cost += period.get("total_employer_cost", 0)
+                    ytd_deductions += period.get("total_deductions", 0)
+                    
+                    # Track by month
+                    month_key = payment_dt.month
+                    if month_key not in monthly_costs:
+                        monthly_costs[month_key] = {"gross": 0, "net": 0, "employer_cost": 0}
+                    monthly_costs[month_key]["gross"] += period.get("total_gross", 0)
+                    monthly_costs[month_key]["net"] += period.get("total_net", 0)
+                    monthly_costs[month_key]["employer_cost"] += period.get("total_employer_cost", 0)
+            except:
+                pass
+    
+    # Get current month's data
+    current_month_data = monthly_costs.get(current_month, {"gross": 0, "net": 0, "employer_cost": 0})
+    
+    # Get active employees count and total monthly payroll
+    active_employees = await db.employees.count_documents({
+        "company_id": company_id,
+        "status": "active"
+    })
+    
+    # Calculate estimated monthly payroll from employee base salaries
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0, "base_salary": 1, "payment_frequency": 1}
+    ).to_list(500)
+    
+    estimated_monthly_gross = 0
+    for emp in employees:
+        salary = emp.get("base_salary", 0)
+        freq = emp.get("payment_frequency", "biweekly")
+        if freq == "biweekly":
+            estimated_monthly_gross += salary * 2
+        elif freq == "weekly":
+            estimated_monthly_gross += salary * 4
+        else:
+            estimated_monthly_gross += salary
+    
+    # Get pending payroll (draft/pending_approval)
+    pending_periods = await db.payroll_periods.find(
+        {
+            "company_id": company_id,
+            "status": {"$in": ["draft", "pending_approval", "approved"]}
+        },
+        {"_id": 0, "period_id": 1, "period_name": 1, "status": 1, "total_net": 1, "payment_date": 1}
+    ).to_list(10)
+    
+    # Calculate average monthly cost (YTD)
+    months_with_data = len(monthly_costs)
+    avg_monthly_cost = ytd_employer_cost / months_with_data if months_with_data > 0 else estimated_monthly_gross * 1.16  # Estimate with 16% employer contributions
+    
+    # Get last 6 months trend
+    monthly_trend = []
+    for i in range(5, -1, -1):
+        month_num = current_month - i
+        year = current_year
+        if month_num <= 0:
+            month_num += 12
+            year -= 1
+        
+        month_name = datetime(year, month_num, 1).strftime("%b")
+        cost_data = monthly_costs.get(month_num, {"employer_cost": 0}) if year == current_year else {"employer_cost": 0}
+        monthly_trend.append({
+            "month": month_name,
+            "year": year,
+            "cost": round(cost_data.get("employer_cost", 0), 2)
+        })
+    
+    return {
+        "active_employees": active_employees,
+        "estimated_monthly_payroll": round(estimated_monthly_gross, 2),
+        "estimated_monthly_employer_cost": round(estimated_monthly_gross * 1.16, 2),  # Base + ~16% contributions
+        
+        "ytd": {
+            "gross_paid": round(ytd_gross, 2),
+            "net_paid": round(ytd_net, 2),
+            "total_employer_cost": round(ytd_employer_cost, 2),
+            "total_deductions": round(ytd_deductions, 2),
+            "periods_completed": periods_this_year
+        },
+        
+        "current_month": {
+            "gross": round(current_month_data["gross"], 2),
+            "net": round(current_month_data["net"], 2),
+            "employer_cost": round(current_month_data["employer_cost"], 2)
+        },
+        
+        "avg_monthly_cost": round(avg_monthly_cost, 2),
+        
+        "pending_payrolls": [{
+            "period_id": p.get("period_id"),
+            "period_name": p.get("period_name"),
+            "status": p.get("status"),
+            "amount": round(p.get("total_net", 0), 2),
+            "payment_date": p.get("payment_date")
+        } for p in pending_periods],
+        
+        "monthly_trend": monthly_trend
+    }

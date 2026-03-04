@@ -50,6 +50,14 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
   - Tasas de horas extras (35% y 100%)
   - Configuración de Regalía Pascual
 
+- **Integración con Business Clarity** (`PayrollCostSection.js`) - NUEVO:
+  - Nueva pestaña "Costo Personal" en Business Clarity
+  - KPIs: Empleados Activos, Costo Mensual Empleador, Pagado YTD, Costo Total YTD
+  - Lista de nóminas pendientes con acceso directo
+  - Gráfico de tendencia de costos mensuales (últimos 6 meses)
+  - Desglose: Mes Actual vs Acumulado del Año
+  - Backend endpoint: `GET /api/business-clarity/payroll-summary`
+
 - **Backend (ya existente)** (`people_ops.py` lines 642-1319):
   - `GET /api/people-ops/payroll/config` - Configuración de nómina
   - `POST /api/people-ops/payroll/config` - Guardar configuración
