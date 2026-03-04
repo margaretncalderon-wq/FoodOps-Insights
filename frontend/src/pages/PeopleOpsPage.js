@@ -7,12 +7,11 @@ import { Layout } from "../components/Layout";
 // Section Components
 import { EmployeeDirectory } from "../components/people-ops/EmployeeDirectory";
 import { EmployeeProfile } from "../components/people-ops/EmployeeProfile";
-import { CostCentersSection } from "../components/people-ops/CostCentersSection";
 
 // Icons
 import {
-  Users, Building2, UserCircle, Wallet, Clock,
-  FileText, Settings2, Lock, UserPlus
+  Users, UserCircle, Wallet, Clock,
+  FileText, Lock, UserPlus
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -74,17 +73,9 @@ export default function PeopleOpsPage() {
       icon: Users,
       requiresAccess: "directory"
     },
-    { 
-      path: "/people-ops/cost-centers", 
-      label: "Cost Centers", 
-      icon: Building2,
-      requiresAccess: "cost-centers"
-    },
-    // Future tabs (commented for now)
+    // Payroll and Time tabs will be added in future phases
     // { path: "/people-ops/payroll", label: isEs ? "Nómina" : "Payroll", icon: Wallet },
     // { path: "/people-ops/time", label: isEs ? "Tiempo" : "Time", icon: Clock },
-    // { path: "/people-ops/documents", label: isEs ? "Documentos" : "Documents", icon: FileText },
-    // { path: "/people-ops/config", label: isEs ? "Configuración" : "Config", icon: Settings2 },
   ];
 
   // Filter tabs based on access
@@ -170,10 +161,7 @@ export default function PeopleOpsPage() {
           <Route index element={<Navigate to="directory" replace />} />
           <Route path="directory" element={<EmployeeDirectory />} />
           <Route path="employee/:employeeId" element={<EmployeeProfile />} />
-          <Route path="cost-centers" element={<CostCentersSection />} />
-          {/* Future routes */}
-          {/* <Route path="payroll/*" element={<PayrollSection />} /> */}
-          {/* <Route path="time" element={<TimeSection />} /> */}
+          {/* Future routes for Payroll and Time */}
         </Routes>
       </div>
     </Layout>

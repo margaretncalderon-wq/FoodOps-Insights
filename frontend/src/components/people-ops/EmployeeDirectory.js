@@ -200,12 +200,12 @@ export function EmployeeDirectory() {
             </SelectContent>
           </Select>
           {departments.length > 0 && (
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <Select value={departmentFilter || "all"} onValueChange={(v) => setDepartmentFilter(v === "all" ? "" : v)}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder={isEs ? "Departamento" : "Department"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{isEs ? "Todos" : "All"}</SelectItem>
+                <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
                 {departments.map(dept => (
                   <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                 ))}
@@ -311,6 +311,7 @@ export function EmployeeDirectory() {
             <div>
               <label className="text-sm font-medium">{isEs ? "Nombre *" : "First Name *"}</label>
               <Input
+                data-testid="employee-first-name"
                 value={formData.first_name}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
               />
@@ -318,6 +319,7 @@ export function EmployeeDirectory() {
             <div>
               <label className="text-sm font-medium">{isEs ? "Apellido *" : "Last Name *"}</label>
               <Input
+                data-testid="employee-last-name"
                 value={formData.last_name}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
               />
@@ -325,6 +327,7 @@ export function EmployeeDirectory() {
             <div>
               <label className="text-sm font-medium">Email *</label>
               <Input
+                data-testid="employee-email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -333,6 +336,7 @@ export function EmployeeDirectory() {
             <div>
               <label className="text-sm font-medium">{isEs ? "Teléfono" : "Phone"}</label>
               <Input
+                data-testid="employee-phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
@@ -347,6 +351,7 @@ export function EmployeeDirectory() {
             <div>
               <label className="text-sm font-medium">{isEs ? "Puesto *" : "Job Title *"}</label>
               <Input
+                data-testid="employee-job-title"
                 value={formData.job_title}
                 onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
               />
@@ -354,6 +359,7 @@ export function EmployeeDirectory() {
             <div>
               <label className="text-sm font-medium">{isEs ? "Departamento" : "Department"}</label>
               <Input
+                data-testid="employee-department"
                 value={formData.department}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 placeholder={isEs ? "Ej: Ventas, Marketing..." : "E.g.: Sales, Marketing..."}

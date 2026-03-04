@@ -43,6 +43,7 @@ import GoogleCalendarSettingsSection from "../components/settings/GoogleCalendar
 import ImportExportSection from "../components/settings/ImportExportSection";
 import IndustryConfigSection from "../components/settings/IndustryConfigSection";
 import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
+import { CostCentersSection } from "../components/people-ops/CostCentersSection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
@@ -1054,6 +1055,10 @@ export default function SettingsPage() {
             <TabsTrigger value="import-export" className="gap-2">
               <FileStack className="w-4 h-4" />
               {language === "es" ? "Importar/Exportar" : "Import/Export"}
+            </TabsTrigger>
+            <TabsTrigger value="cost-centers" className="gap-2">
+              <Building2 className="w-4 h-4" />
+              Cost Centers
             </TabsTrigger>
             <TabsTrigger value="data-admin" className="gap-2 text-red-600">
               <Trash2 className="w-4 h-4" />
@@ -3861,6 +3866,11 @@ Mantel Blanco, , 10, 3`}
           {/* Import/Export Tab */}
           <TabsContent value="import-export">
             <ImportExportSection filter="business" />
+          </TabsContent>
+
+          {/* Cost Centers Tab */}
+          <TabsContent value="cost-centers">
+            <CostCentersSection />
           </TabsContent>
 
           {/* Data Admin Tab */}
