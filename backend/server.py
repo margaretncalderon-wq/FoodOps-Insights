@@ -16556,3 +16556,25 @@ app.include_router(api_router)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# TEMPORARY DEBUG ENDPOINT - DELETE AFTER FIX
+@api_router.get("/debug/whoami")
+async def debug_whoami(request: Request):
+    """Debug endpoint to see exactly what user is being resolved"""
+    from routers.auth import get_current_user
+    try:
+        user = await get_current_user(request)
+        # Get the actual company from DB
+        company = await db.companies.find_one({"company_id": user.company_id}, {"_id": 0, "name": 1, "legal_name": 1})
+        return {
+            "user_id": user.user_id,
+            "email": user.email,
+            "name": user.name,
+            "company_id": user.company_id,
+            "active_org_id": user.active_org_id,
+            "company_name": company.get("name") if company else "NOT FOUND",
+            "company_legal_name": company.get("legal_name") if company else None,
+            "is_super_admin": user.is_super_admin
+        }
+    except Exception as e:
+        return {"error": str(e)}
