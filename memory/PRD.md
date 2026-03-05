@@ -33,6 +33,37 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Importación Masiva de Inventario - COMPLETADO ✅
+
+**Backend** (`server.py`) - Nuevos endpoints:
+- `POST /api/inventory/import-from-file` - Importa inventario desde CSV/Excel
+- `GET /api/inventory/import-template` - Descarga plantilla CSV de ejemplo
+
+**Características:**
+- Soporta archivos CSV y Excel (.xlsx, .xls)
+- Mapeo automático de columnas en español e inglés
+- Validación de categorías y unidades
+- Opción para actualizar productos existentes o solo crear nuevos
+- Vista previa del archivo antes de importar
+- Reporte de resultados (creados, actualizados, omitidos, errores)
+
+**Frontend** (`FoodOpsPage.js`):
+- Botón "Import" en la sección de inventario
+- Modal de importación con:
+  - Instrucciones del formato de archivo
+  - Enlace para descargar plantilla CSV
+  - Selector de archivo
+  - Vista previa de las primeras filas (para CSV)
+  - Opción checkbox para actualizar existentes
+  - Resultados de importación con estadísticas
+
+**Columnas soportadas:**
+- name/nombre (requerido), brand/marca, category/categoría, unit/unidad
+- cost_per_unit/costo, stock_quantity/cantidad, par_level/minimo
+- sku/codigo, notes/notas, inventory_type/tipo
+
+---
+
 #### Reorganización de Demand Studio con Dropdowns - COMPLETADO ✅
 
 **Nueva estructura de navegación con dropdowns** (consistente con Business Clarity y Settings):

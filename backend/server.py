@@ -7491,6 +7491,255 @@ async def get_inventory_value_summary(user: User = Depends(get_current_user)):
     }
     return summary
 
+# ============== BULK IMPORT FROM FILE ==============
+
+@inventory_router.post("/import-from-file")
+async def import_inventory_from_file(
+    file: UploadFile = File(...),
+    update_existing: bool = False,
+    user: User = Depends(get_current_user)
+):
+    """
+    Import inventory items from CSV or Excel file.
+    
+    Expected columns (flexible matching):
+    - name (required): Product name
+    - brand: Product brand
+    - category: Category key (proteins, dairy, produce, dry_goods, etc.)
+    - unit: Unit of measure (kg, g, lb, oz, unit, etc.)
+    - cost_per_unit: Cost per unit
+    - stock_quantity: Initial stock quantity
+    - par_level: Minimum stock level
+    - sku: Product SKU code
+    - notes: Additional notes
+    - inventory_type: food or packaging (defaults to food)
+    """
+    import pandas as pd
+    import io
+    
+    # Validate file type
+    filename = file.filename.lower()
+    if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
+        raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+    
+    try:
+        contents = await file.read()
+        
+        # Parse file based on type
+        if filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+        
+        # Clean column names: lowercase, strip, replace spaces with underscores
+        df.columns = df.columns.str.lower().str.strip().str.replace(' ', '_')
+        
+        # Column mapping for flexibility
+        column_mapping = {
+            'nombre': 'name',
+            'producto': 'name',
+            'product': 'name',
+            'item': 'name',
+            'marca': 'brand',
+            'categoria': 'category',
+            'categoría': 'category',
+            'unidad': 'unit',
+            'precio': 'cost_per_unit',
+            'costo': 'cost_per_unit',
+            'cost': 'cost_per_unit',
+            'price': 'cost_per_unit',
+            'costo_unitario': 'cost_per_unit',
+            'cantidad': 'stock_quantity',
+            'stock': 'stock_quantity',
+            'quantity': 'stock_quantity',
+            'existencia': 'stock_quantity',
+            'minimo': 'par_level',
+            'min_stock': 'par_level',
+            'par': 'par_level',
+            'codigo': 'sku',
+            'code': 'sku',
+            'notas': 'notes',
+            'tipo': 'inventory_type',
+            'type': 'inventory_type'
+        }
+        
+        df.rename(columns=column_mapping, inplace=True)
+        
+        # Validate required column
+        if 'name' not in df.columns:
+            raise HTTPException(status_code=400, detail="File must have a 'name' or 'nombre' column")
+        
+        # Get valid categories from settings
+        valid_categories = await db.organization_settings.find_one(
+            {"company_id": user.company_id},
+            {"inventory_categories": 1}
+        )
+        valid_category_keys = []
+        if valid_categories and valid_categories.get("inventory_categories"):
+            valid_category_keys = [c.get("key") for c in valid_categories["inventory_categories"]]
+        
+        # Default categories if not set
+        if not valid_category_keys:
+            valid_category_keys = ["proteins", "dairy", "produce", "dry_goods", "beverages", 
+                                   "spices", "frozen", "canned", "packaging", "cleaning", "other"]
+        
+        now = datetime.now(timezone.utc)
+        created = 0
+        updated = 0
+        skipped = 0
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                name = str(row.get('name', '')).strip()
+                if not name or pd.isna(row.get('name')):
+                    skipped += 1
+                    continue
+                
+                # Check if item already exists
+                existing = await db.ingredients.find_one(
+                    {
+                        "company_id": user.company_id,
+                        "name": {"$regex": f"^{name}$", "$options": "i"}
+                    },
+                    {"_id": 0}
+                )
+                
+                # Parse values with defaults
+                def safe_float(val, default=0.0):
+                    if pd.isna(val):
+                        return default
+                    try:
+                        return float(val)
+                    except:
+                        return default
+                
+                def safe_str(val, default=""):
+                    if pd.isna(val):
+                        return default
+                    return str(val).strip()
+                
+                # Normalize category
+                category = safe_str(row.get('category'), 'other').lower().strip()
+                # Map common Spanish categories
+                category_map = {
+                    'proteinas': 'proteins', 'proteínas': 'proteins', 'carnes': 'proteins',
+                    'lácteos': 'dairy', 'lacteos': 'dairy',
+                    'frutas': 'produce', 'verduras': 'produce', 'vegetales': 'produce',
+                    'secos': 'dry_goods', 'granos': 'dry_goods',
+                    'bebidas': 'beverages',
+                    'especias': 'spices', 'condimentos': 'spices',
+                    'congelados': 'frozen',
+                    'enlatados': 'canned',
+                    'empaque': 'packaging', 'empaques': 'packaging',
+                    'limpieza': 'cleaning',
+                    'otros': 'other'
+                }
+                category = category_map.get(category, category)
+                if category not in valid_category_keys:
+                    category = 'other'
+                
+                # Normalize unit
+                unit = safe_str(row.get('unit'), 'unit').lower().strip()
+                unit_map = {
+                    'kilogramo': 'kg', 'kilogramos': 'kg', 'kilos': 'kg',
+                    'gramo': 'g', 'gramos': 'g',
+                    'libra': 'lb', 'libras': 'lb',
+                    'onza': 'oz', 'onzas': 'oz',
+                    'litro': 'L', 'litros': 'L',
+                    'mililitro': 'ml', 'mililitros': 'ml',
+                    'unidad': 'unit', 'unidades': 'unit', 'pza': 'unit', 'pieza': 'unit'
+                }
+                unit = unit_map.get(unit, unit)
+                
+                # Normalize inventory type
+                inv_type = safe_str(row.get('inventory_type'), 'food').lower().strip()
+                if inv_type not in ['food', 'packaging']:
+                    inv_type = 'food'
+                
+                item_data = {
+                    "name": name,
+                    "brand": safe_str(row.get('brand')),
+                    "category": category,
+                    "inventory_type": inv_type,
+                    "unit": unit,
+                    "cost_per_unit": safe_float(row.get('cost_per_unit')),
+                    "stock_quantity": safe_float(row.get('stock_quantity')),
+                    "par_level": safe_float(row.get('par_level')),
+                    "sku": safe_str(row.get('sku')),
+                    "notes": safe_str(row.get('notes')),
+                    "updated_at": now.isoformat()
+                }
+                
+                if existing:
+                    if update_existing:
+                        # Update existing item
+                        await db.ingredients.update_one(
+                            {"ingredient_id": existing["ingredient_id"]},
+                            {"$set": item_data}
+                        )
+                        updated += 1
+                    else:
+                        skipped += 1
+                else:
+                    # Create new item
+                    ingredient_id = f"ing_{uuid.uuid4().hex[:12]}"
+                    item_data["ingredient_id"] = ingredient_id
+                    item_data["company_id"] = user.company_id
+                    item_data["created_at"] = now.isoformat()
+                    item_data["reserved_quantity"] = 0
+                    item_data["pack_size"] = 1.0
+                    item_data["min_stock_level"] = item_data["par_level"]
+                    item_data["average_cost"] = item_data["cost_per_unit"]
+                    item_data["price_history"] = [{"price": item_data["cost_per_unit"], "date": now.isoformat()}]
+                    
+                    await db.ingredients.insert_one(item_data)
+                    created += 1
+                    
+            except Exception as e:
+                errors.append(f"Row {idx + 2}: {str(e)}")
+                continue
+        
+        return {
+            "success": True,
+            "created": created,
+            "updated": updated,
+            "skipped": skipped,
+            "total_rows": len(df),
+            "errors": errors[:10] if errors else []  # Return first 10 errors only
+        }
+        
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="The file is empty")
+    except Exception as e:
+        logger.error(f"Error importing inventory: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
+
+@inventory_router.get("/import-template")
+async def get_import_template(user: User = Depends(get_current_user)):
+    """Get a sample CSV template for inventory import"""
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header row
+    writer.writerow(['name', 'brand', 'category', 'unit', 'cost_per_unit', 'stock_quantity', 'par_level', 'sku', 'notes', 'inventory_type'])
+    
+    # Sample data rows
+    writer.writerow(['Chicken Breast', 'Tyson', 'proteins', 'kg', '8.50', '50', '20', 'CHK001', 'Fresh boneless', 'food'])
+    writer.writerow(['Olive Oil Extra Virgin', 'Bertolli', 'dry_goods', 'L', '12.00', '10', '5', 'OIL001', 'Premium quality', 'food'])
+    writer.writerow(['Tomatoes Roma', 'Local Farm', 'produce', 'kg', '2.50', '30', '15', '', 'Fresh daily', 'food'])
+    writer.writerow(['To-Go Containers', 'EcoWare', 'packaging', 'unit', '0.25', '500', '200', 'PKG001', '16oz with lid', 'packaging'])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=inventory_import_template.csv"}
+    )
+
 # ============== PURCHASE ORDERS ROUTES ==============
 
 @purchase_orders_router.get("")

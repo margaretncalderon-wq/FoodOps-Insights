@@ -68,6 +68,14 @@ function InventorySection() {
   const [selectedItemForHistory, setSelectedItemForHistory] = useState(null);
   const [priceHistory, setPriceHistory] = useState([]);
   
+  // Import Dialog State
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [updateExisting, setUpdateExisting] = useState(false);
+  
   // Forms
   const [itemForm, setItemForm] = useState({
     name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg",
@@ -258,6 +266,87 @@ function InventorySection() {
     }
   };
 
+  // ===== IMPORT FUNCTIONS =====
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const validTypes = ['.csv', '.xlsx', '.xls'];
+    const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    if (!validTypes.includes(ext)) {
+      toast.error(language === "es" ? "Solo archivos CSV o Excel" : "Only CSV or Excel files allowed");
+      return;
+    }
+    
+    setImportFile(file);
+    setImportResult(null);
+    
+    // Preview first few rows (client-side for CSV only)
+    if (ext === '.csv') {
+      try {
+        const text = await file.text();
+        const lines = text.split('\n').slice(0, 6);
+        const headers = lines[0]?.split(',').map(h => h.trim().replace(/"/g, ''));
+        const rows = lines.slice(1, 5).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          return headers.reduce((obj, h, i) => ({ ...obj, [h]: values[i] || '' }), {});
+        });
+        setImportPreview(rows);
+      } catch (err) {
+        setImportPreview([]);
+      }
+    } else {
+      setImportPreview([]);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) {
+      toast.error(language === "es" ? "Selecciona un archivo" : "Select a file");
+      return;
+    }
+    
+    setImporting(true);
+    setImportResult(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+      
+      const res = await axios.post(
+        `${API}/api/inventory/import-from-file?update_existing=${updateExisting}`,
+        formData,
+        { withCredentials: true, headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      
+      setImportResult(res.data);
+      if (res.data.created > 0 || res.data.updated > 0) {
+        toast.success(
+          language === "es"
+            ? `Importado: ${res.data.created} nuevos, ${res.data.updated} actualizados`
+            : `Imported: ${res.data.created} new, ${res.data.updated} updated`
+        );
+        fetchData();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error importing file");
+      setImportResult({ success: false, error: error.response?.data?.detail || "Unknown error" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    window.open(`${API}/api/inventory/import-template`, '_blank');
+  };
+
+  const resetImport = () => {
+    setImportFile(null);
+    setImportPreview([]);
+    setImportResult(null);
+    setUpdateExisting(false);
+  };
+
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === "all" || item.inventory_type === typeFilter;
@@ -328,6 +417,7 @@ function InventorySection() {
               <div className="flex items-center gap-2">
                 <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={t("search")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
                 <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("all")}</SelectItem>{INVENTORY_TYPES.map(type => (<SelectItem key={type.value} value={type.value}>{language === "es" ? type.labelEs : type.label}</SelectItem>))}</SelectContent></Select>
+                <Button variant="outline" onClick={() => { resetImport(); setImportDialogOpen(true); }} data-testid="import-inventory-btn"><FileUp className="w-4 h-4 mr-2" />{language === "es" ? "Importar" : "Import"}</Button>
                 <Button onClick={() => { setEditingItem(null); setItemForm({ name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "", sku: "", notes: "" }); setBrandSearch(""); setItemDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{t("addItem")}</Button>
               </div>
             </CardHeader>
@@ -691,6 +781,132 @@ function InventorySection() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Inventory Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) resetImport(); }}>
+        <DialogContent className="max-w-2xl" data-testid="import-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileUp className="w-5 h-5" />
+              {language === "es" ? "Importar Inventario" : "Import Inventory"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Instructions */}
+            <div className="p-4 bg-muted/50 rounded-lg text-sm">
+              <p className="font-medium mb-2">{language === "es" ? "Formato del archivo:" : "File format:"}</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>{language === "es" ? "Archivos CSV o Excel (.xlsx, .xls)" : "CSV or Excel files (.xlsx, .xls)"}</li>
+                <li>{language === "es" ? "Columnas: name (requerido), brand, category, unit, cost_per_unit, stock_quantity, par_level, sku, notes" : "Columns: name (required), brand, category, unit, cost_per_unit, stock_quantity, par_level, sku, notes"}</li>
+                <li>{language === "es" ? "Soporta nombres en español (nombre, marca, categoría, etc.)" : "Supports Spanish column names (nombre, marca, categoría, etc.)"}</li>
+              </ul>
+              <Button variant="link" className="p-0 h-auto mt-2" onClick={handleDownloadTemplate}>
+                {language === "es" ? "Descargar plantilla CSV" : "Download CSV template"}
+              </Button>
+            </div>
+
+            {/* File Upload */}
+            <div className="space-y-2">
+              <Label>{language === "es" ? "Seleccionar archivo" : "Select file"}</Label>
+              <Input 
+                type="file" 
+                accept=".csv,.xlsx,.xls" 
+                onChange={handleFileSelect}
+                data-testid="import-file-input"
+              />
+              {importFile && (
+                <p className="text-sm text-muted-foreground">
+                  {language === "es" ? "Archivo seleccionado:" : "Selected file:"} {importFile.name}
+                </p>
+              )}
+            </div>
+
+            {/* Preview (for CSV) */}
+            {importPreview.length > 0 && (
+              <div className="space-y-2">
+                <Label>{language === "es" ? "Vista previa (primeras filas):" : "Preview (first rows):"}</Label>
+                <div className="overflow-x-auto border rounded-lg max-h-40">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {Object.keys(importPreview[0] || {}).map(key => (
+                          <TableHead key={key} className="text-xs">{key}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importPreview.map((row, idx) => (
+                        <TableRow key={idx}>
+                          {Object.values(row).map((val, i) => (
+                            <TableCell key={i} className="text-xs py-1">{val}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* Update existing option */}
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                id="updateExisting" 
+                checked={updateExisting} 
+                onChange={(e) => setUpdateExisting(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="updateExisting" className="text-sm cursor-pointer">
+                {language === "es" 
+                  ? "Actualizar productos existentes (si el nombre coincide)" 
+                  : "Update existing products (if name matches)"}
+              </Label>
+            </div>
+
+            {/* Import Result */}
+            {importResult && (
+              <div className={`p-4 rounded-lg ${importResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                {importResult.success ? (
+                  <div className="space-y-1">
+                    <p className="font-medium text-green-700 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      {language === "es" ? "Importación completada" : "Import completed"}
+                    </p>
+                    <div className="text-sm text-green-600 grid grid-cols-3 gap-2">
+                      <div><span className="font-medium">{importResult.created}</span> {language === "es" ? "nuevos" : "new"}</div>
+                      <div><span className="font-medium">{importResult.updated}</span> {language === "es" ? "actualizados" : "updated"}</div>
+                      <div><span className="font-medium">{importResult.skipped}</span> {language === "es" ? "omitidos" : "skipped"}</div>
+                    </div>
+                    {importResult.errors?.length > 0 && (
+                      <div className="mt-2 text-xs text-amber-600">
+                        <p className="font-medium">{language === "es" ? "Errores:" : "Errors:"}</p>
+                        {importResult.errors.map((err, i) => <p key={i}>{err}</p>)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-red-700">{importResult.error}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleImport} disabled={!importFile || importing} data-testid="import-submit-btn">
+              {importing ? (
+                <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{language === "es" ? "Importando..." : "Importing..."}</>
+              ) : (
+                <><FileUp className="w-4 h-4 mr-2" />{language === "es" ? "Importar" : "Import"}</>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
