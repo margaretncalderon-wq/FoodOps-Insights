@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 
@@ -16,13 +16,12 @@ import { LoansSection } from "../components/people-ops/LoansSection";
 import { OffboardingSection } from "../components/people-ops/OffboardingSection";
 import { VariablePaySection } from "../components/people-ops/VariablePaySection";
 import { BenefitsInKindSection } from "../components/people-ops/BenefitsInKindSection";
-import { RegulatoryReportsSection } from "../components/people-ops/RegulatoryReportsSection";
 
 // Icons
 import {
   Users, UserCircle, Wallet, Clock,
   FileText, Lock, UserPlus, Settings,
-  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet
+  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet, ExternalLink
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -127,10 +126,11 @@ export default function PeopleOpsPage() {
       requiresAccess: "payroll"
     },
     { 
-      path: "/people-ops/reports", 
+      path: "/business-clarity/regulatory", 
       label: isEs ? "Reportes" : "Reports", 
       icon: FileSpreadsheet,
-      requiresAccess: "payroll"
+      requiresAccess: "payroll",
+      isExternal: true
     },
     { 
       path: "/people-ops/payroll-config", 
@@ -199,20 +199,32 @@ export default function PeopleOpsPage() {
           <div className="border-b">
             <nav className="flex gap-1 overflow-x-auto pb-px">
               {visibleTabs.map((tab) => (
-                <NavLink
-                  key={tab.path}
-                  to={tab.path}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      isActive
-                        ? "border-violet-600 text-violet-600"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                    }`
-                  }
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
-                </NavLink>
+                tab.isExternal ? (
+                  <NavLink
+                    key={tab.path}
+                    to={tab.path}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted transition-colors whitespace-nowrap"
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                    <ExternalLink className="w-3 h-3 opacity-50" />
+                  </NavLink>
+                ) : (
+                  <NavLink
+                    key={tab.path}
+                    to={tab.path}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                        isActive
+                          ? "border-violet-600 text-violet-600"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                      }`
+                    }
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </NavLink>
+                )
               ))}
             </nav>
           </div>
@@ -232,7 +244,6 @@ export default function PeopleOpsPage() {
           <Route path="loans" element={<LoansSection />} />
           <Route path="offboarding" element={<OffboardingSection />} />
           <Route path="benefits" element={<BenefitsInKindSection />} />
-          <Route path="reports" element={<RegulatoryReportsSection />} />
         </Routes>
       </div>
     </Layout>

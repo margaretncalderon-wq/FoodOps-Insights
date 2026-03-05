@@ -17,14 +17,15 @@ import {
   FixedCostsSection,
   CloseReconciliationSection,
   MarketingROISection,
-  PayrollCostSection
+  PayrollCostSection,
+  RegulatoryReportsSection
 } from "../components/business-clarity";
 
 // Icons
 import {
   FileText, TrendingUp, TrendingDown, PieChart, Banknote,
   UserCircle, Landmark, FileBarChart, Target, Lock,
-  Briefcase, BarChart3, Users
+  Briefcase, BarChart3, Users, Building2
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -89,6 +90,7 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
     { path: "/business-clarity/payroll-cost", label: isEs ? "Costo Personal" : "Payroll Cost", icon: Users },
     { path: "/business-clarity/marketing-roi", label: isEs ? "Marketing ROI" : "Marketing ROI", icon: BarChart3 },
+    { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
     { path: "/business-clarity/close", label: isEs ? "Cierre" : "Close", icon: Lock },
     { path: "/business-clarity/reports", label: isEs ? "Reportes" : "Reports", icon: FileBarChart },
   ];
@@ -165,6 +167,7 @@ export default function BusinessClarityPage() {
           <Route path="fixed-costs" element={<FixedCostsSection />} />
           <Route path="payroll-cost" element={<PayrollCostSection />} />
           <Route path="marketing-roi" element={<MarketingROISection />} />
+          <Route path="regulatory" element={<RegulatoryReportsSection />} />
           <Route path="close" element={<CloseReconciliationSection />} />
           <Route path="reports" element={<ReportsSection />} />
         </Routes>

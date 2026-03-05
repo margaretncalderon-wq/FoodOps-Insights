@@ -31,7 +31,23 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ## What's Been Implemented
 
-### Session: March 4-5, 2026 (ÚLTIMA ACTUALIZACIÓN)
+### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
+
+#### Reportes Regulatorios movidos a Business Clarity - COMPLETADO ✅
+
+**Cambio de Arquitectura**:
+- Los Reportes Regulatorios (DGT-3, TSS, IR-17, 606) se movieron de People Ops a Business Clarity
+- Nueva pestaña "Regulatory" en Business Clarity con acceso a todos los reportes
+- En People Ops, la pestaña "Reports" ahora es un enlace directo a Business Clarity → Regulatory
+- Los endpoints API se mantienen en `/api/people-ops/regulatory-reports` (sin cambios en backend)
+
+**Archivos modificados**:
+- `frontend/src/components/business-clarity/RegulatoryReportsSection.js` (movido desde people-ops)
+- `frontend/src/components/business-clarity/index.js` (añadido export)
+- `frontend/src/pages/BusinessClarityPage.js` (añadida ruta /regulatory)
+- `frontend/src/pages/PeopleOpsPage.js` (enlace externo a Business Clarity)
+
+### Session: March 4-5, 2026
 
 #### P0 - Widget de Próximos Pagos Variables - COMPLETADO ✅
 
@@ -175,7 +191,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - (Ninguno actualmente - People Ops Fases 1-4 completadas)
 
 ### P1 - Alta Prioridad
-1. **Reportes Regulatorios RD**: DGT-3, TSS, DGII (generación automática)
+1. **Implementar lógica completa de Reportes Regulatorios RD**: La UI existe en Business Clarity, falta la lógica real de generación con formato oficial
 2. **Descuento automático de préstamos en nómina**: Integrar loans con payroll entries
 3. **Limpiar código de emergencia**: Eliminar `/super-admin/emergency`
 4. **Auditoría de permisos granulares**
@@ -261,4 +277,4 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - **Password**: Evoque2024!
 
 ## Preview URL
-https://variable-pay-config.preview.emergentagent.com
+https://employee-payments-rd.preview.emergentagent.com

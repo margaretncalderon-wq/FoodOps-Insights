@@ -9,3 +9,4 @@ export { FixedCostsSection } from './FixedCostsSection';
 export { CloseReconciliationSection } from './CloseReconciliationSection';
 export { MarketingROISection } from './MarketingROISection';
 export { PayrollCostSection } from './PayrollCostSection';
+export { RegulatoryReportsSection } from './RegulatoryReportsSection';
