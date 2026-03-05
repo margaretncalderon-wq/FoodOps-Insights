@@ -33,34 +33,29 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
-#### Reorganización de Settings con Grupos Lógicos - COMPLETADO ✅
+#### Reorganización de Settings con Dropdowns - COMPLETADO ✅
 
-**Nueva estructura de navegación:**
+**Nueva estructura de navegación con dropdowns** (consistente con Business Clarity):
 
-| Grupo | Tabs incluidos |
-|-------|----------------|
-| **Company** | Branding, Terms, Templates |
-| **Finance** | Billing, Taxes, Centers |
-| **Team** | Users, Roles |
-| **Auto** | Rules, Apps |
-| **Product** | Features, Prefs |
-| **Growth** | Forms |
-| **Data** | Services, Items, Inventory |
-| **Util** | Import, Admin |
+| Dropdown | Opciones |
+|----------|----------|
+| **Company** ▼ | Branding, Terminology, Templates |
+| **Finance** ▼ | Billing, Taxes, Cost Centers |
+| **Team** ▼ | Users, Roles |
+| **Automation** ▼ | Rules, Integrations |
+| **Product** ▼ | Features, Preferences |
+| **Growth** ▼ | Lead Forms |
+| **Catalogs** ▼ | Service Categories, Item Types, Inventory Categories |
+| **Utilities** ▼ | Import/Export, Data Admin |
 
-**Cambios de nombres para claridad:**
-- "Terminology" → "Terms"
-- "Categories" → "Services" (para no confundir con Inventory Categories)
-- "Picklist" → "Items"
-- "Automations" → "Rules"
-- "Integrations" → "Apps"
-- "Preferences" → "Prefs"
-- "Cost Centers" → "Centers"
-- "Import/Export" → "Import"
-- "Data Admin" → "Admin"
+**Cambios:**
+- De 17 tabs planos → **8 dropdowns organizados**
+- Consistente con el patrón de UI de Business Clarity
+- Dropdown activo se resalta en verde
+- Item seleccionado dentro del dropdown también se resalta
 
 **Archivos modificados:**
-- `frontend/src/pages/SettingsPage.js` (navegación agrupada)
+- `frontend/src/pages/SettingsPage.js` (navegación con DropdownMenu)
 
 #### Mejoras de Inventario para Importación Limpia - COMPLETADO ✅
 

@@ -69,6 +69,9 @@ export default function SettingsPage() {
   const { t, language, changeLanguage } = useLanguage();
   const { term } = useTerminology();
   
+  // Active settings tab state for dropdown navigation
+  const [activeSettingsTab, setActiveSettingsTab] = useState("branding");
+  
   // Dynamic terminology
   const clientLabel = term("events", "client");
   const clientsLabel = term("events", "clients");
@@ -1003,119 +1006,218 @@ export default function SettingsPage() {
           <p className="text-muted-foreground mt-1">{t("companySettings")}</p>
         </div>
 
-        <Tabs defaultValue="branding" className="space-y-6">
-          {/* Grouped Navigation */}
-          <div className="border rounded-lg p-2 bg-muted/30">
-            <TabsList className="flex flex-wrap gap-1 h-auto bg-transparent">
-              {/* Company & Brand Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Empresa" : "Company"}</span>
-                <TabsTrigger value="branding" className="h-8 px-3 text-xs">{t("branding")}</TabsTrigger>
-                <TabsTrigger value="terminology" className="h-8 px-3 text-xs" data-testid="terminology-tab">
-                  <Languages className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Términos" : "Terms"}
-                </TabsTrigger>
-                <TabsTrigger value="templates" className="h-8 px-3 text-xs">
-                  <FileText className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Plantillas" : "Templates"}
-                </TabsTrigger>
-              </div>
+        <Tabs value={activeSettingsTab} onValueChange={setActiveSettingsTab} className="space-y-6">
+          {/* Navigation with Dropdowns - consistent with Business Clarity */}
+          <div className="border-b">
+            <nav className="flex gap-1 overflow-x-auto pb-px">
+              {/* Company & Brand Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["branding", "terminology", "templates"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <Palette className="w-4 h-4" />
+                    {language === "es" ? "Empresa" : "Company"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("branding")} className={activeSettingsTab === "branding" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Palette className="w-4 h-4 mr-2" />
+                    {t("branding")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("terminology")} className={activeSettingsTab === "terminology" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Languages className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Terminología" : "Terminology"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("templates")} className={activeSettingsTab === "templates" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Plantillas" : "Templates"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Billing & Finance Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Finanzas" : "Finance"}</span>
-                <TabsTrigger value="billing" className="h-8 px-3 text-xs">
-                  <DollarSign className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Facturación" : "Billing"}
-                </TabsTrigger>
-                <TabsTrigger value="taxes" className="h-8 px-3 text-xs">
-                  <Percent className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Impuestos" : "Taxes"}
-                </TabsTrigger>
-                <TabsTrigger value="cost-centers" className="h-8 px-3 text-xs">
-                  <Building2 className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Centros" : "Centers"}
-                </TabsTrigger>
-              </div>
+              {/* Finance Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["billing", "taxes", "cost-centers"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <DollarSign className="w-4 h-4" />
+                    {language === "es" ? "Finanzas" : "Finance"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("billing")} className={activeSettingsTab === "billing" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Facturación" : "Billing"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("taxes")} className={activeSettingsTab === "taxes" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Percent className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Impuestos" : "Taxes"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("cost-centers")} className={activeSettingsTab === "cost-centers" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Cost Centers
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* People & Access Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Equipo" : "Team"}</span>
-                <TabsTrigger value="team" className="h-8 px-3 text-xs">
-                  <Users className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Usuarios" : "Users"}
-                </TabsTrigger>
-                <TabsTrigger value="roles" className="h-8 px-3 text-xs">
-                  <Shield className="w-3 h-3 mr-1" />
-                  Roles
-                </TabsTrigger>
-              </div>
+              {/* Team Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["team", "roles"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <Users className="w-4 h-4" />
+                    {language === "es" ? "Equipo" : "Team"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("team")} className={activeSettingsTab === "team" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Users className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Usuarios" : "Users"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("roles")} className={activeSettingsTab === "roles" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Roles
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Automation & Integrations Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Auto" : "Auto"}</span>
-                <TabsTrigger value="automations" className="h-8 px-3 text-xs">
-                  <Zap className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Reglas" : "Rules"}
-                </TabsTrigger>
-                <TabsTrigger value="integrations" className="h-8 px-3 text-xs">
-                  <Plug className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Apps" : "Apps"}
-                </TabsTrigger>
-              </div>
+              {/* Automation Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["automations", "integrations"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <Zap className="w-4 h-4" />
+                    {language === "es" ? "Automatización" : "Automation"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("automations")} className={activeSettingsTab === "automations" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Zap className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Reglas" : "Rules"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("integrations")} className={activeSettingsTab === "integrations" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Plug className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Integraciones" : "Integrations"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Product & Experience Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Producto" : "Product"}</span>
-                <TabsTrigger value="features" className="h-8 px-3 text-xs">
-                  <ToggleLeft className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Módulos" : "Features"}
-                </TabsTrigger>
-                <TabsTrigger value="preferences" className="h-8 px-3 text-xs">
-                  <Sliders className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Prefs" : "Prefs"}
-                </TabsTrigger>
-              </div>
+              {/* Product Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["features", "preferences"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <ToggleLeft className="w-4 h-4" />
+                    {language === "es" ? "Producto" : "Product"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("features")} className={activeSettingsTab === "features" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <ToggleLeft className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Funciones" : "Features"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("preferences")} className={activeSettingsTab === "preferences" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Sliders className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Preferencias" : "Preferences"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Growth Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Ventas" : "Growth"}</span>
-                <TabsTrigger value="leadforms" className="h-8 px-3 text-xs">
-                  <FormInput className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Formularios" : "Forms"}
-                </TabsTrigger>
-              </div>
+              {/* Growth Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["leadforms"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <TrendingUp className="w-4 h-4" />
+                    {language === "es" ? "Crecimiento" : "Growth"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("leadforms")} className={activeSettingsTab === "leadforms" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <FormInput className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Formularios" : "Lead Forms"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Data & Catalogs Group */}
-              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Datos" : "Data"}</span>
-                <TabsTrigger value="categories" className="h-8 px-3 text-xs">
-                  <Tag className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Servicios" : "Services"}
-                </TabsTrigger>
-                <TabsTrigger value="picklist" className="h-8 px-3 text-xs">
-                  <ListChecks className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Ítems" : "Items"}
-                </TabsTrigger>
-                <TabsTrigger value="inventory-categories" className="h-8 px-3 text-xs">
-                  <Package className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Inventario" : "Inventory"}
-                </TabsTrigger>
-              </div>
+              {/* Data & Catalogs Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["categories", "picklist", "inventory-categories"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <Database className="w-4 h-4" />
+                    {language === "es" ? "Catálogos" : "Catalogs"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("categories")} className={activeSettingsTab === "categories" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Tag className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Categorías Servicios" : "Service Categories"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("picklist")} className={activeSettingsTab === "picklist" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <ListChecks className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Tipos de Ítems" : "Item Types"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("inventory-categories")} className={activeSettingsTab === "inventory-categories" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Package className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Categorías Inventario" : "Inventory Categories"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Utilities Group */}
-              <div className="flex items-center gap-1 px-2 py-1">
-                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Util" : "Util"}</span>
-                <TabsTrigger value="import-export" className="h-8 px-3 text-xs">
-                  <FileStack className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Importar" : "Import"}
-                </TabsTrigger>
-                <TabsTrigger value="data-admin" className="h-8 px-3 text-xs text-red-600">
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  {language === "es" ? "Admin" : "Admin"}
-                </TabsTrigger>
-              </div>
-            </TabsList>
+              {/* Utilities Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    ["import-export", "data-admin"].includes(activeSettingsTab)
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}>
+                    <Settings className="w-4 h-4" />
+                    {language === "es" ? "Utilidades" : "Utilities"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("import-export")} className={activeSettingsTab === "import-export" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <FileStack className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Importar/Exportar" : "Import/Export"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("data-admin")} className={`${activeSettingsTab === "data-admin" ? "bg-red-50 text-red-700" : "text-red-600"}`}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Admin Datos" : "Data Admin"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </nav>
           </div>
 
           {/* Billing Tab */}
