@@ -33,6 +33,34 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Generación de Reportes Regulatorios (DGT-3, TSS, IR-17) - COMPLETADO ✅
+
+**Reportes implementados para República Dominicana:**
+
+| Reporte | Entidad | Frecuencia | Contenido |
+|---------|---------|------------|-----------|
+| **TSS** | Tesorería Seguridad Social | Mensual | Aportes AFP + ARS |
+| **DGT-3** | Ministerio de Trabajo | Trimestral | Registro de Personal |
+| **IR-17** | DGII | Mensual | Retenciones ISR |
+| **606** | DGII | Mensual | Compras de Bienes |
+
+**Mejoras en la descarga de Excel:**
+- Formato oficial con cabeceras de la entidad regulatoria
+- Datos de la empresa (nombre, RNC) incluidos
+- Estilos profesionales (bordes, colores, formatos numéricos)
+- Columnas ajustadas automáticamente
+- Fila de totales con formato bold
+
+**Archivo modificado:**
+- `backend/routers/people_ops.py` - Función `download_regulatory_report()` reescrita
+
+**Verificado:**
+- TSS Feb 2026: $15,075.00 (AFP + ARS)
+- DGT-3 Q1 2026: $28,116.43 (Total aportes)
+- IR-17 Feb 2026: $13,041.43 (ISR retenido)
+
+---
+
 #### Reorganización de People Ops con Dropdowns - COMPLETADO ✅
 
 **Navegación anterior (9 tabs):**

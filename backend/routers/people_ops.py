@@ -2486,7 +2486,11 @@ async def download_regulatory_report(
     format: str = "xlsx",
     user: User = Depends(get_current_user)
 ):
-    """Download regulatory report as Excel or CSV"""
+    """Download regulatory report as Excel or CSV in official format"""
+    import openpyxl
+    from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+    
     company_id, _ = await check_people_ops_access(user, "view")
     
     report = await db.regulatory_reports.find_one(
@@ -2497,77 +2501,347 @@ async def download_regulatory_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     
-    entries = report.get("entries", [])
-    
-    # Create CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Header based on report type
-    if report["report_type"] == "tss":
-        writer.writerow([
-            "Cédula", "Nombre", "Salario",
-            "AFP Empleado", "AFP Empleador", "AFP Total",
-            "ARS Empleado", "ARS Empleador", "ARS Total"
-        ])
-        for entry in entries:
-            writer.writerow([
-                entry.get("national_id", ""),
-                entry.get("employee_name", ""),
-                entry.get("salary", 0),
-                entry.get("afp_employee", 0),
-                entry.get("afp_employer", 0),
-                entry.get("afp_total", 0),
-                entry.get("ars_employee", 0),
-                entry.get("ars_employer", 0),
-                entry.get("ars_total", 0)
-            ])
-    elif report["report_type"] == "dgii_ir17":
-        writer.writerow([
-            "Cédula", "Nombre", "Salario", "ISR Retenido"
-        ])
-        for entry in entries:
-            writer.writerow([
-                entry.get("national_id", ""),
-                entry.get("employee_name", ""),
-                entry.get("salary", 0),
-                entry.get("isr", 0)
-            ])
-    else:  # DGT-3 and others
-        writer.writerow([
-            "Cédula", "Nombre", "Salario",
-            "AFP Empleado", "AFP Empleador",
-            "ARS Empleado", "ARS Empleador",
-            "ISR"
-        ])
-        for entry in entries:
-            writer.writerow([
-                entry.get("national_id", ""),
-                entry.get("employee_name", ""),
-                entry.get("salary", 0),
-                entry.get("afp_employee", 0),
-                entry.get("afp_employer", 0),
-                entry.get("ars_employee", 0),
-                entry.get("ars_employer", 0),
-                entry.get("isr", 0)
-            ])
-    
-    # Add totals row
-    writer.writerow([])
-    writer.writerow([
-        "TOTALES", "",
-        report.get("total_salaries", 0),
-        report.get("total_afp", 0) if report["report_type"] != "dgii_ir17" else "",
-        "", "", "",
-        report.get("total_isr", 0) if report["report_type"] != "tss" else ""
-    ])
-    
-    output.seek(0)
-    
-    filename = f"{report['report_type']}_{report['period']}_{report['year']}.csv"
-    
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    # Get company info for header
+    company = await db.organizations.find_one(
+        {"org_id": company_id},
+        {"_id": 0, "name": 1, "rnc": 1, "address": 1}
     )
+    company_name = company.get("name", "Empresa") if company else "Empresa"
+    company_rnc = company.get("rnc", "") if company else ""
+    
+    entries = report.get("entries", [])
+    report_type = report["report_type"]
+    period_label = f"{report['period']} {report['year']}"
+    
+    if format == "xlsx":
+        # Create Excel workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        
+        # Styles
+        header_font = Font(bold=True, size=14)
+        subheader_font = Font(bold=True, size=11)
+        table_header_font = Font(bold=True, size=10, color="FFFFFF")
+        table_header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        currency_format = '#,##0.00'
+        
+        # ============ TSS REPORT FORMAT ============
+        if report_type == "tss":
+            ws.title = "TSS"
+            
+            # Header
+            ws.merge_cells('A1:I1')
+            ws['A1'] = "TESORERÍA DE LA SEGURIDAD SOCIAL (TSS)"
+            ws['A1'].font = header_font
+            ws['A1'].alignment = Alignment(horizontal='center')
+            
+            ws.merge_cells('A2:I2')
+            ws['A2'] = "PLANILLA DE APORTES MENSUALES AL SISTEMA DOMINICANO DE SEGURIDAD SOCIAL"
+            ws['A2'].font = subheader_font
+            ws['A2'].alignment = Alignment(horizontal='center')
+            
+            ws['A4'] = "Empresa:"
+            ws['B4'] = company_name
+            ws['D4'] = "RNC:"
+            ws['E4'] = company_rnc
+            ws['G4'] = "Período:"
+            ws['H4'] = period_label
+            
+            # Table header at row 6
+            headers = ["No.", "Cédula/NSS", "Nombre del Trabajador", "Salario Cotizable",
+                      "AFP Empleado", "AFP Empleador", "ARS Empleado", "ARS Empleador", "Total Aportes"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=6, column=col, value=header)
+                cell.font = table_header_font
+                cell.fill = table_header_fill
+                cell.border = border
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Data rows
+            row_num = 7
+            for idx, entry in enumerate(entries, 1):
+                total_aporte = (entry.get("afp_employee", 0) + entry.get("afp_employer", 0) +
+                              entry.get("ars_employee", 0) + entry.get("ars_employer", 0))
+                
+                row_data = [
+                    idx,
+                    entry.get("national_id", ""),
+                    entry.get("employee_name", ""),
+                    entry.get("salary", 0),
+                    entry.get("afp_employee", 0),
+                    entry.get("afp_employer", 0),
+                    entry.get("ars_employee", 0),
+                    entry.get("ars_employer", 0),
+                    total_aporte
+                ]
+                for col, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col, value=value)
+                    cell.border = border
+                    if col >= 4:  # Currency columns
+                        cell.number_format = currency_format
+                        cell.alignment = Alignment(horizontal='right')
+                row_num += 1
+            
+            # Totals row
+            ws.cell(row=row_num, column=1, value="TOTALES").font = Font(bold=True)
+            ws.cell(row=row_num, column=4, value=report.get("total_salaries", 0)).number_format = currency_format
+            ws.cell(row=row_num, column=5, value=sum(e.get("afp_employee", 0) for e in entries)).number_format = currency_format
+            ws.cell(row=row_num, column=6, value=sum(e.get("afp_employer", 0) for e in entries)).number_format = currency_format
+            ws.cell(row=row_num, column=7, value=sum(e.get("ars_employee", 0) for e in entries)).number_format = currency_format
+            ws.cell(row=row_num, column=8, value=sum(e.get("ars_employer", 0) for e in entries)).number_format = currency_format
+            ws.cell(row=row_num, column=9, value=report.get("total_amount", 0)).number_format = currency_format
+            for col in range(1, 10):
+                ws.cell(row=row_num, column=col).border = border
+                ws.cell(row=row_num, column=col).font = Font(bold=True)
+            
+            # Column widths
+            col_widths = [6, 15, 35, 15, 13, 13, 13, 13, 15]
+            for i, width in enumerate(col_widths, 1):
+                ws.column_dimensions[get_column_letter(i)].width = width
+        
+        # ============ DGT-3 REPORT FORMAT ============
+        elif report_type == "dgt3":
+            ws.title = "DGT-3"
+            
+            # Header
+            ws.merge_cells('A1:H1')
+            ws['A1'] = "MINISTERIO DE TRABAJO"
+            ws['A1'].font = header_font
+            ws['A1'].alignment = Alignment(horizontal='center')
+            
+            ws.merge_cells('A2:H2')
+            ws['A2'] = "FORMULARIO DGT-3 - REGISTRO DE PERSONAL"
+            ws['A2'].font = subheader_font
+            ws['A2'].alignment = Alignment(horizontal='center')
+            
+            ws['A4'] = "Empresa:"
+            ws['B4'] = company_name
+            ws['D4'] = "RNC:"
+            ws['E4'] = company_rnc
+            ws['G4'] = "Período:"
+            ws['H4'] = period_label
+            
+            # Table header at row 6
+            headers = ["No.", "Cédula", "Nombre del Trabajador", "Cargo",
+                      "Fecha Ingreso", "Salario Mensual", "AFP", "ARS"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=6, column=col, value=header)
+                cell.font = table_header_font
+                cell.fill = table_header_fill
+                cell.border = border
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Get employee details for position and hire date
+            emp_ids = [e.get("employee_id") for e in entries]
+            employees = await db.employees.find(
+                {"employee_id": {"$in": emp_ids}},
+                {"_id": 0, "employee_id": 1, "position": 1, "hire_date": 1}
+            ).to_list(500)
+            emp_map = {e["employee_id"]: e for e in employees}
+            
+            # Data rows
+            row_num = 7
+            for idx, entry in enumerate(entries, 1):
+                emp_detail = emp_map.get(entry.get("employee_id"), {})
+                hire_date = emp_detail.get("hire_date", "")
+                if hire_date and isinstance(hire_date, str):
+                    try:
+                        hire_date = datetime.fromisoformat(hire_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+                    except:
+                        pass
+                
+                row_data = [
+                    idx,
+                    entry.get("national_id", ""),
+                    entry.get("employee_name", ""),
+                    emp_detail.get("position", ""),
+                    hire_date,
+                    entry.get("salary", 0),
+                    entry.get("afp_total", 0),
+                    entry.get("ars_total", 0)
+                ]
+                for col, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col, value=value)
+                    cell.border = border
+                    if col >= 6:  # Currency columns
+                        cell.number_format = currency_format
+                        cell.alignment = Alignment(horizontal='right')
+                row_num += 1
+            
+            # Totals row
+            ws.cell(row=row_num, column=1, value="TOTALES").font = Font(bold=True)
+            ws.cell(row=row_num, column=6, value=report.get("total_salaries", 0)).number_format = currency_format
+            ws.cell(row=row_num, column=7, value=report.get("total_afp", 0)).number_format = currency_format
+            ws.cell(row=row_num, column=8, value=report.get("total_ars", 0)).number_format = currency_format
+            for col in range(1, 9):
+                ws.cell(row=row_num, column=col).border = border
+                ws.cell(row=row_num, column=col).font = Font(bold=True)
+            
+            # Column widths
+            col_widths = [6, 15, 35, 20, 12, 15, 12, 12]
+            for i, width in enumerate(col_widths, 1):
+                ws.column_dimensions[get_column_letter(i)].width = width
+        
+        # ============ IR-17 REPORT FORMAT ============
+        elif report_type == "dgii_ir17":
+            ws.title = "IR-17"
+            
+            ws.merge_cells('A1:F1')
+            ws['A1'] = "DIRECCIÓN GENERAL DE IMPUESTOS INTERNOS (DGII)"
+            ws['A1'].font = header_font
+            ws['A1'].alignment = Alignment(horizontal='center')
+            
+            ws.merge_cells('A2:F2')
+            ws['A2'] = "FORMULARIO IR-17 - DECLARACIÓN JURADA DE RETENCIONES"
+            ws['A2'].font = subheader_font
+            ws['A2'].alignment = Alignment(horizontal='center')
+            
+            ws['A4'] = "Empresa:"
+            ws['B4'] = company_name
+            ws['D4'] = "RNC:"
+            ws['E4'] = company_rnc
+            
+            ws['A5'] = "Período:"
+            ws['B5'] = period_label
+            
+            # Table header at row 7
+            headers = ["No.", "Cédula/RNC", "Nombre/Razón Social", "Monto Pagado", "ISR Retenido", "Tipo"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=7, column=col, value=header)
+                cell.font = table_header_font
+                cell.fill = table_header_fill
+                cell.border = border
+                cell.alignment = Alignment(horizontal='center')
+            
+            row_num = 8
+            for idx, entry in enumerate(entries, 1):
+                row_data = [
+                    idx,
+                    entry.get("national_id", ""),
+                    entry.get("employee_name", ""),
+                    entry.get("salary", 0),
+                    entry.get("isr", 0),
+                    "Empleado"
+                ]
+                for col, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col, value=value)
+                    cell.border = border
+                    if col in [4, 5]:
+                        cell.number_format = currency_format
+                        cell.alignment = Alignment(horizontal='right')
+                row_num += 1
+            
+            # Totals
+            ws.cell(row=row_num, column=1, value="TOTALES").font = Font(bold=True)
+            ws.cell(row=row_num, column=4, value=report.get("total_salaries", 0)).number_format = currency_format
+            ws.cell(row=row_num, column=5, value=report.get("total_isr", 0)).number_format = currency_format
+            for col in range(1, 7):
+                ws.cell(row=row_num, column=col).border = border
+                ws.cell(row=row_num, column=col).font = Font(bold=True)
+            
+            col_widths = [6, 15, 35, 15, 15, 12]
+            for i, width in enumerate(col_widths, 1):
+                ws.column_dimensions[get_column_letter(i)].width = width
+        
+        # ============ GENERIC/OTHER REPORTS ============
+        else:
+            ws.title = report_type.upper()
+            
+            ws.merge_cells('A1:H1')
+            ws['A1'] = f"REPORTE: {report_type.upper()}"
+            ws['A1'].font = header_font
+            ws['A1'].alignment = Alignment(horizontal='center')
+            
+            ws['A3'] = "Empresa:"
+            ws['B3'] = company_name
+            ws['D3'] = "Período:"
+            ws['E3'] = period_label
+            
+            headers = ["No.", "Cédula", "Nombre", "Salario", "AFP Empl.", "AFP Patr.", "ARS Empl.", "ARS Patr.", "ISR"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=5, column=col, value=header)
+                cell.font = table_header_font
+                cell.fill = table_header_fill
+                cell.border = border
+            
+            row_num = 6
+            for idx, entry in enumerate(entries, 1):
+                row_data = [idx, entry.get("national_id", ""), entry.get("employee_name", ""),
+                           entry.get("salary", 0), entry.get("afp_employee", 0), entry.get("afp_employer", 0),
+                           entry.get("ars_employee", 0), entry.get("ars_employer", 0), entry.get("isr", 0)]
+                for col, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col, value=value)
+                    cell.border = border
+                    if col >= 4:
+                        cell.number_format = currency_format
+                row_num += 1
+        
+        # Save to bytes
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        filename = f"{report_type}_{report['period']}_{report['year']}.xlsx"
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    
+    else:
+        # CSV format (simplified)
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Header based on report type
+        if report_type == "tss":
+            writer.writerow([
+                "No.", "Cédula", "Nombre", "Salario",
+                "AFP Empleado", "AFP Empleador", "ARS Empleado", "ARS Empleador", "Total"
+            ])
+            for idx, entry in enumerate(entries, 1):
+                total = (entry.get("afp_employee", 0) + entry.get("afp_employer", 0) +
+                        entry.get("ars_employee", 0) + entry.get("ars_employer", 0))
+                writer.writerow([
+                    idx, entry.get("national_id", ""), entry.get("employee_name", ""),
+                    entry.get("salary", 0), entry.get("afp_employee", 0), entry.get("afp_employer", 0),
+                    entry.get("ars_employee", 0), entry.get("ars_employer", 0), total
+                ])
+        elif report_type == "dgii_ir17":
+            writer.writerow(["No.", "Cédula", "Nombre", "Salario", "ISR Retenido"])
+            for idx, entry in enumerate(entries, 1):
+                writer.writerow([
+                    idx, entry.get("national_id", ""), entry.get("employee_name", ""),
+                    entry.get("salary", 0), entry.get("isr", 0)
+                ])
+        else:
+            writer.writerow([
+                "No.", "Cédula", "Nombre", "Salario", "AFP Empl.", "AFP Patr.",
+                "ARS Empl.", "ARS Patr.", "ISR"
+            ])
+            for idx, entry in enumerate(entries, 1):
+                writer.writerow([
+                    idx, entry.get("national_id", ""), entry.get("employee_name", ""),
+                    entry.get("salary", 0), entry.get("afp_employee", 0), entry.get("afp_employer", 0),
+                    entry.get("ars_employee", 0), entry.get("ars_employer", 0), entry.get("isr", 0)
+                ])
+        
+        # Totals row
+        writer.writerow([])
+        writer.writerow(["TOTALES", "", "", report.get("total_salaries", 0)])
+        
+        output.seek(0)
+        filename = f"{report_type}_{report['period']}_{report['year']}.csv"
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
