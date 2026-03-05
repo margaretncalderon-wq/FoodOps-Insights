@@ -21,7 +21,8 @@ import {
   RegulatoryReportsSection,
   SalesReportsSection,
   AdminReportsSection,
-  AccountingQueueSection
+  AccountingQueueSection,
+  AccountingDashboard
 } from "../components/business-clarity";
 
 // Icons
@@ -109,6 +110,7 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/payroll-cost", label: isEs ? "Costo Personal" : "Payroll Cost", icon: Users },
     { path: "/business-clarity/marketing-roi", label: "Marketing ROI", icon: BarChart3 },
     { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
+    { path: "/business-clarity/accounting-dashboard", label: isEs ? "Contabilización" : "Accounting", icon: BarChart3 },
     { path: "/business-clarity/accounting-queue", label: isEs ? "Cola Contable" : "Accounting Queue", icon: Target },
   ];
 
@@ -224,6 +226,7 @@ export default function BusinessClarityPage() {
           <Route path="close" element={<CloseReconciliationSection />} />
           <Route path="reports" element={<ReportsSection />} />
           <Route path="accounting-queue" element={<AccountingQueueSection />} />
+          <Route path="accounting-dashboard" element={<AccountingDashboard />} />
         </Routes>
       </div>
     </Layout>

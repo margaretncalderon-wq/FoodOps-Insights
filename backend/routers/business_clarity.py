@@ -4699,3 +4699,133 @@ async def get_accounting_by_type(
         } for r in results],
         "total": round(sum(r["total"] for r in results), 2)
     }
+
+
+
+@business_clarity_router.get("/accounting/trends")
+async def get_accounting_trends(
+    months: int = 6,
+    user: User = Depends(get_current_user)
+):
+    """Get spending trends by cost center over multiple months for dashboard visualization"""
+    now = datetime.now(timezone.utc)
+    
+    # Generate list of months to query
+    month_list = []
+    for i in range(months - 1, -1, -1):
+        year = now.year
+        month = now.month - i
+        while month <= 0:
+            month += 12
+            year -= 1
+        month_list.append({"year": year, "month": month, "label": f"{year}-{str(month).zfill(2)}"})
+    
+    # Get all cost centers
+    cost_centers = await db.cost_centers.find(
+        {"company_id": user.company_id, "is_active": True},
+        {"_id": 0}
+    ).to_list(50)
+    
+    # Build trend data
+    trends_by_cc = {}
+    monthly_totals = []
+    
+    for period in month_list:
+        start_date = f"{period['year']}-{str(period['month']).zfill(2)}-01"
+        if period['month'] == 12:
+            end_date = f"{period['year'] + 1}-01-01"
+        else:
+            end_date = f"{period['year']}-{str(period['month'] + 1).zfill(2)}-01"
+        
+        # Aggregate spending by cost center for this month
+        pipeline = [
+            {"$match": {
+                "company_id": user.company_id,
+                "is_reversed": False,
+                "transaction_date": {"$gte": start_date, "$lt": end_date}
+            }},
+            {"$group": {
+                "_id": "$cost_center_id",
+                "total": {"$sum": "$amount"},
+                "count": {"$sum": 1}
+            }}
+        ]
+        
+        results = await db.accounting_entries.aggregate(pipeline).to_list(100)
+        
+        month_total = 0
+        for r in results:
+            cc_id = r["_id"]
+            amount = round(r["total"], 2)
+            month_total += amount
+            
+            if cc_id not in trends_by_cc:
+                trends_by_cc[cc_id] = {
+                    "cost_center_id": cc_id,
+                    "name": "Sin asignar" if not cc_id else None,
+                    "data": []
+                }
+            
+            trends_by_cc[cc_id]["data"].append({
+                "month": period["label"],
+                "amount": amount,
+                "count": r["count"]
+            })
+        
+        # Fill zeros for cost centers with no data this month
+        for cc_id in trends_by_cc:
+            if not any(d["month"] == period["label"] for d in trends_by_cc[cc_id]["data"]):
+                trends_by_cc[cc_id]["data"].append({
+                    "month": period["label"],
+                    "amount": 0,
+                    "count": 0
+                })
+        
+        monthly_totals.append({
+            "month": period["label"],
+            "total": round(month_total, 2)
+        })
+    
+    # Add cost center names and budget info
+    cc_map = {cc["cost_center_id"]: cc for cc in cost_centers}
+    for cc_id, trend in trends_by_cc.items():
+        if cc_id and cc_id in cc_map:
+            trend["name"] = cc_map[cc_id].get("name")
+            trend["code"] = cc_map[cc_id].get("code")
+            annual_budget = cc_map[cc_id].get("annual_budget") or 0
+            trend["monthly_budget"] = round(annual_budget / 12, 2)
+        
+        # Sort data by month
+        trend["data"].sort(key=lambda x: x["month"])
+        
+        # Calculate trend (comparing last month to average of previous months)
+        if len(trend["data"]) >= 2:
+            last_month = trend["data"][-1]["amount"]
+            prev_avg = sum(d["amount"] for d in trend["data"][:-1]) / (len(trend["data"]) - 1) if len(trend["data"]) > 1 else 0
+            if prev_avg > 0:
+                trend["trend_pct"] = round(((last_month - prev_avg) / prev_avg) * 100, 1)
+            else:
+                trend["trend_pct"] = 100 if last_month > 0 else 0
+        else:
+            trend["trend_pct"] = 0
+    
+    # Convert to list and sort by total spend
+    trends_list = list(trends_by_cc.values())
+    trends_list.sort(key=lambda x: sum(d["amount"] for d in x["data"]), reverse=True)
+    
+    # Calculate overall stats
+    current_month_total = monthly_totals[-1]["total"] if monthly_totals else 0
+    prev_month_total = monthly_totals[-2]["total"] if len(monthly_totals) >= 2 else 0
+    mom_change = round(((current_month_total - prev_month_total) / prev_month_total * 100) if prev_month_total > 0 else 0, 1)
+    
+    return {
+        "months": [m["label"] for m in month_list],
+        "trends": trends_list,
+        "monthly_totals": monthly_totals,
+        "summary": {
+            "current_month": current_month_total,
+            "previous_month": prev_month_total,
+            "mom_change": mom_change,
+            "total_cost_centers": len([t for t in trends_list if t.get("cost_center_id")])
+        }
+    }

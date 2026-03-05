@@ -66,6 +66,19 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - Permite asignar CC desde dropdown
 - Accesible desde Reports > "Cola Contable"
 
+**Fase 4: Dashboard Visual de Contabilización** ✅ NEW
+- Nuevo endpoint `GET /api/business-clarity/accounting/trends?months=6`
+- Componente `AccountingDashboard.js` con gráficos interactivos
+- Summary cards: Este Mes, Mes Anterior, Cambio MoM, Total CC
+- Gráfico de barras apiladas por Centro de Costo
+- Gráfico de línea de tendencia total
+- Tarjetas individuales por CC con:
+  - Gasto actual vs presupuesto
+  - Barra de progreso (rojo si sobre presupuesto)
+  - Mini sparkline de tendencia
+  - Indicador de cambio porcentual
+- Accesible desde Reports > "Contabilización"
+
 **Testing:** 
 - Backend: 70% (7/10 tests) - issues menores de naming
 - Frontend: 100%
