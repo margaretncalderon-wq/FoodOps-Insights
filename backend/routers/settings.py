@@ -1344,3 +1344,274 @@ async def get_variable_pay_bank_file(run_id: str, user: User = Depends(get_curre
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+
+# ==================== REGULATORY REPORTS CONFIGURATION ====================
+
+# Available countries and their regulatory reports
+COUNTRY_REGULATORY_CONFIG = {
+    "DO": {  # Dominican Republic
+        "name": "República Dominicana",
+        "name_en": "Dominican Republic",
+        "currency": "DOP",
+        "reports": [
+            {
+                "id": "dgt3",
+                "name": "DGT-3",
+                "description": "Declaración de Personal Fijo",
+                "description_en": "Fixed Personnel Declaration",
+                "entity": "Ministerio de Trabajo",
+                "frequency": "quarterly",
+                "required": True
+            },
+            {
+                "id": "tss",
+                "name": "TSS",
+                "description": "Tesorería de la Seguridad Social",
+                "description_en": "Social Security Treasury",
+                "entity": "TSS",
+                "frequency": "monthly",
+                "required": True
+            },
+            {
+                "id": "dgii_ir17",
+                "name": "IR-17",
+                "description": "Declaración Jurada de Retenciones",
+                "description_en": "Withholding Tax Declaration",
+                "entity": "DGII",
+                "frequency": "monthly",
+                "required": True
+            },
+            {
+                "id": "dgii_606",
+                "name": "606",
+                "description": "Compras de Bienes y Servicios",
+                "description_en": "Purchases of Goods and Services",
+                "entity": "DGII",
+                "frequency": "monthly",
+                "required": True
+            }
+        ],
+        "payroll_deductions": {
+            "afp_employee": {"name": "AFP Empleado", "rate": 2.87, "max_salary": 241864.46},
+            "afp_employer": {"name": "AFP Empleador", "rate": 7.10, "max_salary": 241864.46},
+            "ars_employee": {"name": "ARS Empleado", "rate": 3.04, "max_salary": 241864.46},
+            "ars_employer": {"name": "ARS Empleador", "rate": 7.09, "max_salary": 241864.46},
+            "srl": {"name": "SRL", "rate": 1.20, "max_salary": None},
+            "infotep": {"name": "INFOTEP", "rate": 1.0, "max_salary": None}
+        },
+        "isr_brackets": [
+            {"min": 0, "max": 416220, "rate": 0, "fixed": 0},
+            {"min": 416220.01, "max": 624329, "rate": 15, "fixed": 0},
+            {"min": 624329.01, "max": 867123, "rate": 20, "fixed": 31216},
+            {"min": 867123.01, "max": float('inf'), "rate": 25, "fixed": 79775}
+        ]
+    },
+    "MX": {  # Mexico
+        "name": "México",
+        "name_en": "Mexico",
+        "currency": "MXN",
+        "reports": [
+            {
+                "id": "imss",
+                "name": "IMSS",
+                "description": "Cuotas Obrero-Patronales IMSS",
+                "description_en": "IMSS Worker-Employer Contributions",
+                "entity": "IMSS",
+                "frequency": "monthly",
+                "required": True
+            },
+            {
+                "id": "sat_nomina",
+                "name": "SAT Nómina",
+                "description": "Timbrado de Nómina",
+                "description_en": "Payroll Stamping",
+                "entity": "SAT",
+                "frequency": "per_payroll",
+                "required": True
+            },
+            {
+                "id": "infonavit",
+                "name": "INFONAVIT",
+                "description": "Aportaciones de Vivienda",
+                "description_en": "Housing Contributions",
+                "entity": "INFONAVIT",
+                "frequency": "bimonthly",
+                "required": True
+            }
+        ],
+        "payroll_deductions": {
+            "imss_employee": {"name": "IMSS Empleado", "rate": 2.775, "max_salary": None},
+            "imss_employer": {"name": "IMSS Empleador", "rate": 20.40, "max_salary": None},
+            "infonavit": {"name": "INFONAVIT", "rate": 5.0, "max_salary": None},
+            "rcv": {"name": "Retiro/Cesantía/Vejez", "rate": 5.15, "max_salary": None}
+        },
+        "isr_brackets": []  # Mexico uses complex monthly tables
+    },
+    "CO": {  # Colombia
+        "name": "Colombia",
+        "name_en": "Colombia",
+        "currency": "COP",
+        "reports": [
+            {
+                "id": "pila",
+                "name": "PILA",
+                "description": "Planilla Integrada de Liquidación de Aportes",
+                "description_en": "Integrated Contribution Settlement Form",
+                "entity": "MinTrabajo",
+                "frequency": "monthly",
+                "required": True
+            },
+            {
+                "id": "dian_retencion",
+                "name": "Retención",
+                "description": "Certificado de Retención en la Fuente",
+                "description_en": "Withholding Tax Certificate",
+                "entity": "DIAN",
+                "frequency": "annual",
+                "required": True
+            }
+        ],
+        "payroll_deductions": {
+            "eps_employee": {"name": "EPS Empleado", "rate": 4.0, "max_salary": None},
+            "eps_employer": {"name": "EPS Empleador", "rate": 8.5, "max_salary": None},
+            "pension_employee": {"name": "Pensión Empleado", "rate": 4.0, "max_salary": None},
+            "pension_employer": {"name": "Pensión Empleador", "rate": 12.0, "max_salary": None},
+            "arl": {"name": "ARL", "rate": 0.522, "max_salary": None}
+        },
+        "isr_brackets": []
+    },
+    "US": {  # United States
+        "name": "Estados Unidos",
+        "name_en": "United States",
+        "currency": "USD",
+        "reports": [
+            {
+                "id": "941",
+                "name": "Form 941",
+                "description": "Employer's Quarterly Federal Tax Return",
+                "description_en": "Employer's Quarterly Federal Tax Return",
+                "entity": "IRS",
+                "frequency": "quarterly",
+                "required": True
+            },
+            {
+                "id": "w2",
+                "name": "W-2",
+                "description": "Declaración de Salarios y Impuestos",
+                "description_en": "Wage and Tax Statement",
+                "entity": "IRS",
+                "frequency": "annual",
+                "required": True
+            },
+            {
+                "id": "940",
+                "name": "Form 940",
+                "description": "FUTA Tax Return",
+                "description_en": "FUTA Tax Return",
+                "entity": "IRS",
+                "frequency": "annual",
+                "required": True
+            }
+        ],
+        "payroll_deductions": {
+            "social_security_employee": {"name": "Social Security", "rate": 6.2, "max_salary": 168600},
+            "social_security_employer": {"name": "Social Security (Employer)", "rate": 6.2, "max_salary": 168600},
+            "medicare_employee": {"name": "Medicare", "rate": 1.45, "max_salary": None},
+            "medicare_employer": {"name": "Medicare (Employer)", "rate": 1.45, "max_salary": None},
+            "futa": {"name": "FUTA", "rate": 0.6, "max_salary": 7000}
+        },
+        "isr_brackets": []  # US uses complex federal + state tables
+    }
+}
+
+@settings_router.get("/regulatory-config")
+async def get_regulatory_config(user: User = Depends(get_current_user)):
+    """Get regulatory configuration for the organization"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Get company's regulatory country setting
+    config = await db.regulatory_config.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not config:
+        # Default to Dominican Republic
+        config = {
+            "company_id": company_id,
+            "country_code": "DO",
+            "auto_loan_deduction": True,
+            "loan_deduction_priority": "installment_first"  # or "percentage_first"
+        }
+    
+    # Enrich with country data
+    country_code = config.get("country_code", "DO")
+    country_data = COUNTRY_REGULATORY_CONFIG.get(country_code, COUNTRY_REGULATORY_CONFIG["DO"])
+    
+    return {
+        **config,
+        "country_name": country_data.get("name"),
+        "country_name_en": country_data.get("name_en"),
+        "available_reports": country_data.get("reports", []),
+        "payroll_deductions": country_data.get("payroll_deductions", {}),
+        "currency": country_data.get("currency")
+    }
+
+
+@settings_router.post("/regulatory-config")
+async def save_regulatory_config(data: dict, user: User = Depends(get_current_user)):
+    """Save regulatory configuration"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    
+    country_code = data.get("country_code", "DO")
+    if country_code not in COUNTRY_REGULATORY_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Unsupported country: {country_code}")
+    
+    config = {
+        "company_id": company_id,
+        "country_code": country_code,
+        "auto_loan_deduction": data.get("auto_loan_deduction", True),
+        "loan_deduction_priority": data.get("loan_deduction_priority", "installment_first"),
+        "updated_at": now,
+        "updated_by": user.user_id
+    }
+    
+    await db.regulatory_config.update_one(
+        {"company_id": company_id},
+        {"$set": config},
+        upsert=True
+    )
+    
+    # Enrich response with country data
+    country_data = COUNTRY_REGULATORY_CONFIG.get(country_code)
+    
+    return {
+        "message": "Configuration saved",
+        "config": {
+            **config,
+            "country_name": country_data.get("name"),
+            "available_reports": country_data.get("reports", [])
+        }
+    }
+
+
+@settings_router.get("/available-countries")
+async def get_available_countries(user: User = Depends(get_current_user)):
+    """Get list of available countries for regulatory compliance"""
+    countries = []
+    for code, data in COUNTRY_REGULATORY_CONFIG.items():
+        countries.append({
+            "code": code,
+            "name": data.get("name"),
+            "name_en": data.get("name_en"),
+            "currency": data.get("currency"),
+            "report_count": len(data.get("reports", []))
+        })
+    return countries
+

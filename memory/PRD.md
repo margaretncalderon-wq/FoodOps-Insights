@@ -33,6 +33,40 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### P0 - Reportes Regulatorios Configurables por País - COMPLETADO ✅
+
+**Backend** (`settings.py`):
+- `GET /api/settings/regulatory-config` - Obtener configuración regulatoria de la organización
+- `POST /api/settings/regulatory-config` - Guardar configuración (país, deducciones automáticas)
+- `GET /api/settings/available-countries` - Lista de países disponibles (DO, MX, CO, US)
+- Configuración completa de reportes por país:
+  - **República Dominicana (DO)**: DGT-3, TSS, IR-17, 606
+  - **México (MX)**: IMSS, SAT Nómina, INFONAVIT
+  - **Colombia (CO)**: PILA, DIAN Retención
+  - **Estados Unidos (US)**: Form 941, W-2, Form 940
+- Tasas de deducciones de nómina por país (AFP, ARS, IMSS, etc.)
+
+**Frontend** (`RegulatoryReportsSection.js`):
+- Reportes dinámicos según país configurado
+- Diálogo de configuración de país con:
+  - Selector de país de operación
+  - Toggle para descuento automático de préstamos
+  - Selector de prioridad de deducción (cuota fija vs % salario)
+  - Vista previa de reportes disponibles por país
+- Indicador del país actual y cantidad de reportes disponibles
+
+#### P1 - Descuento Automático de Préstamos en Nómina - COMPLETADO ✅
+
+**Backend** (`people_ops.py`):
+- Lógica mejorada para calcular deducciones de préstamos usando la cuota definida en el préstamo activo
+- Al crear período de nómina: se busca el préstamo activo del empleado y se usa su `installment_amount`
+- Al procesar nómina:
+  - Se actualiza `remaining_balance` del préstamo
+  - Se incrementa `total_paid` e `installments_paid`
+  - Se marca préstamo como "paid" automáticamente cuando balance llega a 0
+  - Se registra cada pago en nueva colección `loan_payments`
+- Campo `loan_id` añadido a `payroll_entries` para rastrear el préstamo deducido
+
 #### Reportes Regulatorios movidos a Business Clarity - COMPLETADO ✅
 
 **Cambio de Arquitectura**:
@@ -42,10 +76,12 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - Los endpoints API se mantienen en `/api/people-ops/regulatory-reports` (sin cambios en backend)
 
 **Archivos modificados**:
-- `frontend/src/components/business-clarity/RegulatoryReportsSection.js` (movido desde people-ops)
+- `frontend/src/components/business-clarity/RegulatoryReportsSection.js` (movido y mejorado)
 - `frontend/src/components/business-clarity/index.js` (añadido export)
 - `frontend/src/pages/BusinessClarityPage.js` (añadida ruta /regulatory)
 - `frontend/src/pages/PeopleOpsPage.js` (enlace externo a Business Clarity)
+- `backend/routers/settings.py` (nuevos endpoints de configuración regulatoria)
+- `backend/routers/people_ops.py` (mejora de lógica de préstamos)
 
 ### Session: March 4-5, 2026
 
@@ -188,19 +224,16 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 ## Prioritized Backlog
 
 ### P0 - Critical
-- (Ninguno actualmente - People Ops Fases 1-4 completadas)
+- (Ninguno actualmente - People Ops Fases 1-4 completadas, Reportes Regulatorios por país implementados)
 
 ### P1 - Alta Prioridad
-1. **Implementar lógica completa de Reportes Regulatorios RD**: La UI existe en Business Clarity, falta la lógica real de generación con formato oficial
-2. **Descuento automático de préstamos en nómina**: Integrar loans con payroll entries
-3. **Limpiar código de emergencia**: Eliminar `/super-admin/emergency`
-4. **Auditoría de permisos granulares**
+1. **Limpiar código de emergencia**: Eliminar `/super-admin/emergency`
+2. **Auditoría de permisos granulares**: Revisar endpoints POST/PUT/DELETE
 
 ### P2 - Media Prioridad
-1. **UI de Beneficios**: Crear componente frontend para gestionar beneficios por empleado
-2. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
-3. **Internacionalización**: Completar traducción de strings codificados
-4. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key
+1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
+2. **Internacionalización**: Completar traducción de strings codificados
+3. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key
 
 ### P3 - Baja Prioridad / Futuro
 1. Conectar Social Media y Email al Brand Hub

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
+import { Switch } from "../ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -31,57 +32,15 @@ import {
 } from "../ui/table";
 import {
   FileText, Download, RefreshCw, Calendar, Building2,
-  FileSpreadsheet, CheckCircle, AlertCircle, Clock, Eye
+  FileSpreadsheet, CheckCircle, AlertCircle, Clock, Eye,
+  Settings, Globe, Flag
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
 
 const formatCurrency = (amount) => 
   `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-// Report types configuration
-const REPORT_TYPES = [
-  {
-    id: "dgt3",
-    name: "DGT-3",
-    description: "Declaración de Personal Fijo",
-    descriptionEn: "Fixed Personnel Declaration",
-    entity: "Ministerio de Trabajo",
-    frequency: "Trimestral",
-    frequencyEn: "Quarterly",
-    icon: FileText
-  },
-  {
-    id: "tss",
-    name: "TSS",
-    description: "Tesorería de la Seguridad Social",
-    descriptionEn: "Social Security Treasury",
-    entity: "TSS",
-    frequency: "Mensual",
-    frequencyEn: "Monthly",
-    icon: Building2
-  },
-  {
-    id: "dgii_ir17",
-    name: "IR-17",
-    description: "Declaración Jurada de Retenciones",
-    descriptionEn: "Withholding Tax Declaration",
-    entity: "DGII",
-    frequency: "Mensual",
-    frequencyEn: "Monthly",
-    icon: FileSpreadsheet
-  },
-  {
-    id: "dgii_606",
-    name: "606",
-    description: "Compras de Bienes y Servicios",
-    descriptionEn: "Purchases of Goods and Services",
-    entity: "DGII",
-    frequency: "Mensual",
-    frequencyEn: "Monthly",
-    icon: FileSpreadsheet
-  }
-];
 
 const MONTHS = [
   { value: "01", label: "Enero", labelEn: "January" },
@@ -105,9 +64,26 @@ const QUARTERS = [
   { value: "Q4", label: "Q4 (Oct-Dic)", labelEn: "Q4 (Oct-Dec)" }
 ];
 
+const BIMONTHS = [
+  { value: "B1", label: "Ene-Feb", labelEn: "Jan-Feb" },
+  { value: "B2", label: "Mar-Abr", labelEn: "Mar-Apr" },
+  { value: "B3", label: "May-Jun", labelEn: "May-Jun" },
+  { value: "B4", label: "Jul-Ago", labelEn: "Jul-Aug" },
+  { value: "B5", label: "Sep-Oct", labelEn: "Sep-Oct" },
+  { value: "B6", label: "Nov-Dic", labelEn: "Nov-Dec" }
+];
+
+// Icon mapping for report types
+const getReportIcon = (reportId) => {
+  if (reportId.includes("dgt") || reportId.includes("pila")) return FileText;
+  if (reportId.includes("tss") || reportId.includes("imss") || reportId.includes("eps")) return Building2;
+  return FileSpreadsheet;
+};
+
 export function RegulatoryReportsSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const navigate = useNavigate();
   
   const [generatedReports, setGeneratedReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +91,13 @@ export function RegulatoryReportsSection() {
   const [showDialog, setShowDialog] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
+  
+  // Regulatory config state
+  const [regulatoryConfig, setRegulatoryConfig] = useState(null);
+  const [availableCountries, setAvailableCountries] = useState([]);
+  const [reportTypes, setReportTypes] = useState([]);
+  const [savingConfig, setSavingConfig] = useState(false);
   
   // Form state
   const [selectedReport, setSelectedReport] = useState("");
@@ -123,6 +106,23 @@ export function RegulatoryReportsSection() {
 
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear - 1, currentYear - 2];
+
+  // Fetch regulatory configuration
+  const fetchRegulatoryConfig = useCallback(async () => {
+    try {
+      const [configRes, countriesRes] = await Promise.all([
+        axios.get(`${API}/api/settings/regulatory-config`, { withCredentials: true }),
+        axios.get(`${API}/api/settings/available-countries`, { withCredentials: true })
+      ]);
+      setRegulatoryConfig(configRes.data);
+      setAvailableCountries(countriesRes.data || []);
+      setReportTypes(configRes.data?.available_reports || []);
+    } catch (err) {
+      console.error("Error fetching regulatory config:", err);
+      // Default to empty config if not found
+      setReportTypes([]);
+    }
+  }, []);
 
   const fetchGeneratedReports = useCallback(async () => {
     setLoading(true);
@@ -135,7 +135,32 @@ export function RegulatoryReportsSection() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchGeneratedReports(); }, [fetchGeneratedReports]);
+  useEffect(() => { 
+    fetchRegulatoryConfig();
+    fetchGeneratedReports(); 
+  }, [fetchRegulatoryConfig, fetchGeneratedReports]);
+
+  const handleSaveConfig = async () => {
+    if (!regulatoryConfig) return;
+    setSavingConfig(true);
+    try {
+      const res = await axios.post(`${API}/api/settings/regulatory-config`, {
+        country_code: regulatoryConfig.country_code,
+        auto_loan_deduction: regulatoryConfig.auto_loan_deduction,
+        loan_deduction_priority: regulatoryConfig.loan_deduction_priority
+      }, { withCredentials: true });
+      
+      setRegulatoryConfig(res.data.config);
+      setReportTypes(res.data.config?.available_reports || []);
+      setShowConfigDialog(false);
+      toast.success(isEs ? "Configuración guardada" : "Configuration saved");
+      fetchGeneratedReports();
+    } catch (err) {
+      console.error("Error saving config:", err);
+      toast.error(err.response?.data?.detail || "Error saving configuration");
+    }
+    setSavingConfig(false);
+  };
 
   const handleGenerateReport = async () => {
     if (!selectedReport || !selectedYear || !selectedPeriod) return;
@@ -152,9 +177,10 @@ export function RegulatoryReportsSection() {
       setShowPreview(true);
       setShowDialog(false);
       fetchGeneratedReports();
+      toast.success(isEs ? "Reporte generado exitosamente" : "Report generated successfully");
     } catch (err) {
       console.error("Error generating report:", err);
-      alert(err.response?.data?.detail || "Error generating report");
+      toast.error(err.response?.data?.detail || "Error generating report");
     }
     setGenerating(false);
   };
@@ -175,15 +201,36 @@ export function RegulatoryReportsSection() {
       link.remove();
     } catch (err) {
       console.error("Error downloading report:", err);
-      alert(err.response?.data?.detail || "Error downloading report");
+      toast.error(err.response?.data?.detail || "Error downloading report");
     }
   };
 
   const getReportTypeConfig = (typeId) => {
-    return REPORT_TYPES.find(rt => rt.id === typeId) || REPORT_TYPES[0];
+    return reportTypes.find(rt => rt.id === typeId) || reportTypes[0] || { name: typeId, entity: "" };
   };
 
-  const isQuarterly = selectedReport === "dgt3";
+  // Determine period type based on selected report frequency
+  const getSelectedReportFrequency = () => {
+    const report = reportTypes.find(rt => rt.id === selectedReport);
+    return report?.frequency || "monthly";
+  };
+
+  const selectedFrequency = getSelectedReportFrequency();
+  const isQuarterly = selectedFrequency === "quarterly";
+  const isBimonthly = selectedFrequency === "bimonthly";
+  const isAnnual = selectedFrequency === "annual";
+
+  // Get frequency label
+  const getFrequencyLabel = (freq) => {
+    const labels = {
+      monthly: isEs ? "Mensual" : "Monthly",
+      quarterly: isEs ? "Trimestral" : "Quarterly",
+      bimonthly: isEs ? "Bimestral" : "Bimonthly",
+      annual: isEs ? "Anual" : "Annual",
+      per_payroll: isEs ? "Por Nómina" : "Per Payroll"
+    };
+    return labels[freq] || freq;
+  };
 
   return (
     <div className="space-y-6" data-testid="regulatory-reports-section">
@@ -194,53 +241,91 @@ export function RegulatoryReportsSection() {
             <FileText className="w-5 h-5" />
             {isEs ? "Reportes Regulatorios" : "Regulatory Reports"}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {isEs 
-              ? "Genera reportes para DGT-3, TSS, DGII según regulaciones de RD" 
-              : "Generate reports for DGT-3, TSS, DGII per DR regulations"}
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            {regulatoryConfig ? (
+              <>
+                <Flag className="w-3 h-3" />
+                {isEs ? regulatoryConfig.country_name : regulatoryConfig.country_name_en}
+                {" - "}
+                {isEs 
+                  ? `${reportTypes.length} reportes disponibles` 
+                  : `${reportTypes.length} reports available`}
+              </>
+            ) : (
+              isEs ? "Cargando configuración..." : "Loading configuration..."
+            )}
           </p>
         </div>
-        <Button onClick={() => setShowDialog(true)} data-testid="generate-report-btn">
-          <FileSpreadsheet className="w-4 h-4 mr-2" />
-          {isEs ? "Generar Reporte" : "Generate Report"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowConfigDialog(true)} data-testid="config-btn">
+            <Settings className="w-4 h-4 mr-2" />
+            {isEs ? "Configurar País" : "Configure Country"}
+          </Button>
+          <Button onClick={() => setShowDialog(true)} disabled={reportTypes.length === 0} data-testid="generate-report-btn">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            {isEs ? "Generar Reporte" : "Generate Report"}
+          </Button>
+        </div>
       </div>
 
+      {/* No country configured message */}
+      {reportTypes.length === 0 && !loading && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <Globe className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="font-semibold mb-2">
+              {isEs ? "Configura tu país" : "Configure your country"}
+            </h3>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+              {isEs 
+                ? "Selecciona el país de tu organización para ver los reportes regulatorios disponibles y configurar las deducciones de nómina correspondientes."
+                : "Select your organization's country to see available regulatory reports and configure corresponding payroll deductions."}
+            </p>
+            <Button onClick={() => setShowConfigDialog(true)}>
+              <Settings className="w-4 h-4 mr-2" />
+              {isEs ? "Configurar País" : "Configure Country"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Report Type Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {REPORT_TYPES.map(rt => {
-          const Icon = rt.icon;
-          return (
-            <Card 
-              key={rt.id}
-              className="cursor-pointer hover:border-primary transition-colors"
-              onClick={() => {
-                setSelectedReport(rt.id);
-                setSelectedPeriod("");
-                setShowDialog(true);
-              }}
-            >
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-violet-600" />
+      {reportTypes.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {reportTypes.map(rt => {
+            const Icon = getReportIcon(rt.id);
+            return (
+              <Card 
+                key={rt.id}
+                className="cursor-pointer hover:border-primary transition-colors"
+                onClick={() => {
+                  setSelectedReport(rt.id);
+                  setSelectedPeriod("");
+                  setShowDialog(true);
+                }}
+              >
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">{rt.name}</p>
+                      <p className="text-xs text-muted-foreground">{rt.entity}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold">{rt.name}</p>
-                    <p className="text-xs text-muted-foreground">{rt.entity}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {isEs ? rt.description : rt.descriptionEn}
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {isEs ? rt.description : rt.description_en}
                 </p>
                 <Badge variant="outline" className="text-xs">
-                  {isEs ? rt.frequency : rt.frequencyEn}
+                  {getFrequencyLabel(rt.frequency)}
                 </Badge>
               </CardContent>
             </Card>
           );
         })}
       </div>
+      )}
 
       {/* Generated Reports History */}
       <Card>
@@ -332,11 +417,11 @@ export function RegulatoryReportsSection() {
                   <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {REPORT_TYPES.map(rt => (
+                  {reportTypes.map(rt => (
                     <SelectItem key={rt.id} value={rt.id}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{rt.name}</span>
-                        <span className="text-muted-foreground">- {isEs ? rt.description : rt.descriptionEn}</span>
+                        <span className="text-muted-foreground">- {isEs ? rt.description : rt.description_en}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -358,44 +443,56 @@ export function RegulatoryReportsSection() {
               </Select>
             </div>
 
-            <div>
-              <Label>{isEs ? (isQuarterly ? "Trimestre" : "Mes") : (isQuarterly ? "Quarter" : "Month")}</Label>
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {isQuarterly 
-                    ? QUARTERS.map(q => (
-                        <SelectItem key={q.value} value={q.value}>
-                          {isEs ? q.label : q.labelEn}
-                        </SelectItem>
-                      ))
-                    : MONTHS.map(m => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {isEs ? m.label : m.labelEn}
-                        </SelectItem>
-                      ))
-                  }
-                </SelectContent>
-              </Select>
-            </div>
+            {!isAnnual && (
+              <div>
+                <Label>
+                  {isEs 
+                    ? (isQuarterly ? "Trimestre" : isBimonthly ? "Bimestre" : "Mes") 
+                    : (isQuarterly ? "Quarter" : isBimonthly ? "Bimonth" : "Month")}
+                </Label>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isQuarterly 
+                      ? QUARTERS.map(q => (
+                          <SelectItem key={q.value} value={q.value}>
+                            {isEs ? q.label : q.labelEn}
+                          </SelectItem>
+                        ))
+                      : isBimonthly
+                        ? BIMONTHS.map(b => (
+                            <SelectItem key={b.value} value={b.value}>
+                              {isEs ? b.label : b.labelEn}
+                            </SelectItem>
+                          ))
+                        : MONTHS.map(m => (
+                            <SelectItem key={m.value} value={m.value}>
+                              {isEs ? m.label : m.labelEn}
+                            </SelectItem>
+                          ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            {selectedReport && (
+            {isAnnual && (
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <p className="text-sm text-amber-800">
+                  {isEs 
+                    ? "Este reporte es anual. Se generará para todo el año seleccionado."
+                    : "This is an annual report. It will be generated for the entire selected year."}
+                </p>
+              </div>
+            )}
+
+            {selectedReport && !isAnnual && (
               <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  {selectedReport === "dgt3" && (isEs 
-                    ? "El DGT-3 incluye: Empleados activos, salarios, AFP, ARS y otros beneficios."
-                    : "DGT-3 includes: Active employees, salaries, AFP, ARS and other benefits.")}
-                  {selectedReport === "tss" && (isEs 
-                    ? "El reporte TSS incluye: Aportes AFP y ARS del empleado y empleador."
-                    : "TSS report includes: AFP and ARS contributions from employee and employer.")}
-                  {selectedReport === "dgii_ir17" && (isEs 
-                    ? "El IR-17 incluye: ISR retenido a empleados durante el período."
-                    : "IR-17 includes: ISR withheld from employees during the period.")}
-                  {selectedReport === "dgii_606" && (isEs 
-                    ? "El 606 incluye: Compras y gastos del período con sus retenciones."
-                    : "606 includes: Purchases and expenses for the period with withholdings.")}
+                  {getReportTypeConfig(selectedReport)?.description || 
+                    (isEs ? "Selecciona un período para generar el reporte." : "Select a period to generate the report.")}
                 </p>
               </div>
             )}
@@ -407,7 +504,7 @@ export function RegulatoryReportsSection() {
             </Button>
             <Button 
               onClick={handleGenerateReport} 
-              disabled={generating || !selectedReport || !selectedPeriod}
+              disabled={generating || !selectedReport || (!isAnnual && !selectedPeriod)}
             >
               {generating && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Generar" : "Generate"}
@@ -493,6 +590,120 @@ export function RegulatoryReportsSection() {
                 {isEs ? "Descargar Excel" : "Download Excel"}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Country Configuration Dialog */}
+      <Dialog open={showConfigDialog} onOpenChange={setShowConfigDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              {isEs ? "Configuración Regulatoria" : "Regulatory Configuration"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Country Selection */}
+            <div className="space-y-2">
+              <Label>{isEs ? "País de Operación" : "Operating Country"}</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                {isEs 
+                  ? "Selecciona el país para cargar los reportes regulatorios y configuración de deducciones correspondientes."
+                  : "Select the country to load corresponding regulatory reports and deduction configuration."}
+              </p>
+              <Select 
+                value={regulatoryConfig?.country_code || "DO"} 
+                onValueChange={(v) => setRegulatoryConfig(prev => ({ ...prev, country_code: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCountries.map(country => (
+                    <SelectItem key={country.code} value={country.code}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{isEs ? country.name : country.name_en}</span>
+                        <span className="text-muted-foreground text-xs">({country.report_count} {isEs ? "reportes" : "reports"})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Payroll Deduction Settings */}
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="font-medium flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                {isEs ? "Deducciones de Nómina" : "Payroll Deductions"}
+              </h4>
+              
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium text-sm">
+                    {isEs ? "Descuento automático de préstamos" : "Automatic loan deduction"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isEs 
+                      ? "Descontar cuotas de préstamos activos automáticamente de la nómina"
+                      : "Automatically deduct active loan installments from payroll"}
+                  </p>
+                </div>
+                <Switch 
+                  checked={regulatoryConfig?.auto_loan_deduction ?? true}
+                  onCheckedChange={(v) => setRegulatoryConfig(prev => ({ ...prev, auto_loan_deduction: v }))}
+                />
+              </div>
+
+              {regulatoryConfig?.auto_loan_deduction && (
+                <div className="space-y-2 pl-4">
+                  <Label>{isEs ? "Prioridad de descuento" : "Deduction priority"}</Label>
+                  <Select 
+                    value={regulatoryConfig?.loan_deduction_priority || "installment_first"} 
+                    onValueChange={(v) => setRegulatoryConfig(prev => ({ ...prev, loan_deduction_priority: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="installment_first">
+                        {isEs ? "Cuota fija primero" : "Fixed installment first"}
+                      </SelectItem>
+                      <SelectItem value="percentage_first">
+                        {isEs ? "Porcentaje del salario primero" : "Salary percentage first"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Current Country Reports Preview */}
+            {regulatoryConfig?.country_code && (
+              <div className="space-y-2 pt-4 border-t">
+                <Label>{isEs ? "Reportes disponibles para este país" : "Available reports for this country"}</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(availableCountries.find(c => c.code === regulatoryConfig.country_code) ? reportTypes : []).map(rt => (
+                    <div key={rt.id} className="p-2 border rounded text-sm flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">{rt.name}</Badge>
+                      <span className="text-muted-foreground text-xs">{getFrequencyLabel(rt.frequency)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfigDialog(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveConfig} disabled={savingConfig}>
+              {savingConfig && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+              {isEs ? "Guardar Configuración" : "Save Configuration"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

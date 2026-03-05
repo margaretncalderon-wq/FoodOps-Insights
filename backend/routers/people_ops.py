@@ -829,11 +829,23 @@ async def create_payroll_period(
         monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
         period_isr = monthly_isr / 2 if data.period_type.value == "biweekly" else monthly_isr
         
-        # Loan deduction
+        # Loan deduction - improved logic using actual loan installment
         loan_deduction = 0.0
+        loan_id = None
         if emp.get("active_loan_balance", 0) > 0:
-            # Default: deduct 10% of salary towards loan
-            loan_deduction = min(period_salary * 0.1, emp.get("active_loan_balance", 0))
+            # Get active loan for this employee to use the defined installment amount
+            active_loan = await db.loans.find_one({
+                "company_id": company_id,
+                "employee_id": emp.get("employee_id"),
+                "status": "active"
+            }, {"_id": 0, "loan_id": 1, "installment_amount": 1, "remaining_balance": 1})
+            
+            if active_loan:
+                loan_id = active_loan.get("loan_id")
+                installment = active_loan.get("installment_amount", 0)
+                remaining = active_loan.get("remaining_balance", 0)
+                # Deduct the lesser of: installment amount or remaining balance
+                loan_deduction = min(installment, remaining)
         
         total_emp_deductions = afp_emp + ars_emp + period_isr + loan_deduction
         net_salary = period_salary - total_emp_deductions
@@ -870,6 +882,7 @@ async def create_payroll_period(
             "ars_employee": round(ars_emp, 2),
             "isr": round(period_isr, 2),
             "loan_deduction": round(loan_deduction, 2),
+            "loan_id": loan_id,  # Track which loan is being deducted
             "other_deductions": 0,
             "other_deductions_description": None,
             "total_deductions": round(total_emp_deductions, 2),
@@ -1171,17 +1184,66 @@ async def process_payroll(
     
     now = datetime.now(timezone.utc)
     
-    # Update loan balances for employees
+    # Update loan balances for employees and record loan payments
     entries = await db.payroll_entries.find(
         {"period_id": period_id, "loan_deduction": {"$gt": 0}},
-        {"_id": 0, "employee_id": 1, "loan_deduction": 1}
+        {"_id": 0, "employee_id": 1, "loan_deduction": 1, "loan_id": 1}
     ).to_list(1000)
     
     for entry in entries:
+        loan_amount = entry["loan_deduction"]
+        employee_id = entry["employee_id"]
+        loan_id = entry.get("loan_id")
+        
+        # Update employee's active loan balance
         await db.employees.update_one(
-            {"employee_id": entry["employee_id"]},
-            {"$inc": {"active_loan_balance": -entry["loan_deduction"]}}
+            {"employee_id": employee_id},
+            {"$inc": {"active_loan_balance": -loan_amount}}
         )
+        
+        # Update the loan record itself
+        if loan_id:
+            loan = await db.loans.find_one({"loan_id": loan_id}, {"_id": 0})
+            if loan:
+                new_balance = max(0, loan.get("remaining_balance", 0) - loan_amount)
+                new_paid = loan.get("total_paid", 0) + loan_amount
+                new_installments_paid = loan.get("installments_paid", 0) + 1
+                
+                update_data = {
+                    "remaining_balance": round(new_balance, 2),
+                    "total_paid": round(new_paid, 2),
+                    "installments_paid": new_installments_paid,
+                    "updated_at": now
+                }
+                
+                # Mark loan as paid if balance is 0
+                if new_balance <= 0:
+                    update_data["status"] = "paid"
+                    update_data["paid_date"] = now.isoformat()[:10]
+                    # Also clear employee's active loan balance
+                    await db.employees.update_one(
+                        {"employee_id": employee_id},
+                        {"$set": {"active_loan_balance": 0}}
+                    )
+                
+                await db.loans.update_one(
+                    {"loan_id": loan_id},
+                    {"$set": update_data}
+                )
+                
+                # Record loan payment
+                payment_record = {
+                    "payment_id": f"lpay_{uuid.uuid4().hex[:12]}",
+                    "loan_id": loan_id,
+                    "company_id": company_id,
+                    "employee_id": employee_id,
+                    "amount": loan_amount,
+                    "payment_type": "payroll_deduction",
+                    "payroll_period_id": period_id,
+                    "balance_after": round(new_balance, 2),
+                    "created_at": now
+                }
+                await db.loan_payments.insert_one(payment_record)
     
     await db.payroll_periods.update_one(
         {"period_id": period_id},
