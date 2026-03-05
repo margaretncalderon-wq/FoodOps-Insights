@@ -1693,6 +1693,143 @@ async def get_cost_center_transactions(
         "period": {"year": year, "month": month}
     }
 
+
+# ============== BUDGET ALERTS ==============
+
+@business_clarity_router.get("/budget-alerts")
+async def get_budget_alerts(
+    threshold_warning: int = 80,
+    threshold_critical: int = 100,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get budget alerts for cost centers that exceed thresholds.
+    
+    Returns alerts when:
+    - utilization >= 80% (warning)
+    - utilization >= 100% (critical/over budget)
+    """
+    now = datetime.now(timezone.utc)
+    year = now.year
+    month = now.month
+    
+    # Get all cost centers with budgets
+    cost_centers = await db.cost_centers.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Get fixed cost categories linked to cost centers
+    fc_categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id, "cost_center_id": {"$ne": None}},
+        {"_id": 0, "category_id": 1, "cost_center_id": 1}
+    ).to_list(100)
+    
+    cc_to_categories = {}
+    for cat in fc_categories:
+        cc_id = cat.get("cost_center_id")
+        if cc_id not in cc_to_categories:
+            cc_to_categories[cc_id] = []
+        cc_to_categories[cc_id].append(cat["category_id"])
+    
+    alerts = []
+    
+    for cc in cost_centers:
+        cc_id = cc.get("cost_center_id")
+        cc_code = cc.get("code") or cc.get("name")
+        cc_name = cc.get("name")
+        annual_budget = cc.get("annual_budget") or 0
+        monthly_budget = annual_budget / 12 if annual_budget > 0 else 0
+        
+        if monthly_budget <= 0:
+            continue  # Skip cost centers without budget
+        
+        # Calculate actual spend (same logic as report)
+        total_spend = 0.0
+        
+        # 1. Payroll
+        payroll_pipeline = [
+            {"$match": {"company_id": user.company_id, "cost_center": cc_code, "status": "active"}},
+            {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
+        ]
+        payroll_result = await db.employees.aggregate(payroll_pipeline).to_list(1)
+        total_spend += payroll_result[0]["total"] if payroll_result else 0
+        
+        # 2. Payables from linked categories
+        linked_categories = cc_to_categories.get(cc_id, [])
+        if linked_categories:
+            payables_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "fixed_cost_category_id": {"$in": linked_categories},
+                    "status": {"$ne": "cancelled"}
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]
+            payables_result = await db.supplier_payables.aggregate(payables_pipeline).to_list(1)
+            total_spend += payables_result[0]["total"] if payables_result else 0
+        
+        # Calculate utilization
+        utilization = (total_spend / monthly_budget) * 100
+        
+        # Generate alerts based on thresholds
+        if utilization >= threshold_critical:
+            alerts.append({
+                "alert_id": f"budget_{cc_id}_{year}_{month}",
+                "type": "critical",
+                "category": "budget",
+                "title": f"{'Presupuesto excedido' if user.company_id else 'Budget exceeded'}: {cc_name}",
+                "message": f"{cc_name} ha excedido su presupuesto mensual. Utilización: {utilization:.1f}%",
+                "message_en": f"{cc_name} has exceeded its monthly budget. Utilization: {utilization:.1f}%",
+                "cost_center_id": cc_id,
+                "cost_center_name": cc_name,
+                "cost_center_code": cc_code,
+                "budget": round(monthly_budget, 2),
+                "actual": round(total_spend, 2),
+                "utilization": round(utilization, 1),
+                "over_amount": round(total_spend - monthly_budget, 2),
+                "threshold": threshold_critical,
+                "period": f"{year}-{str(month).zfill(2)}",
+                "created_at": now.isoformat()
+            })
+        elif utilization >= threshold_warning:
+            alerts.append({
+                "alert_id": f"budget_{cc_id}_{year}_{month}",
+                "type": "warning",
+                "category": "budget",
+                "title": f"{'Presupuesto al límite' if user.company_id else 'Budget nearing limit'}: {cc_name}",
+                "message": f"{cc_name} está cerca de su límite de presupuesto. Utilización: {utilization:.1f}%",
+                "message_en": f"{cc_name} is nearing its budget limit. Utilization: {utilization:.1f}%",
+                "cost_center_id": cc_id,
+                "cost_center_name": cc_name,
+                "cost_center_code": cc_code,
+                "budget": round(monthly_budget, 2),
+                "actual": round(total_spend, 2),
+                "utilization": round(utilization, 1),
+                "remaining": round(monthly_budget - total_spend, 2),
+                "threshold": threshold_warning,
+                "period": f"{year}-{str(month).zfill(2)}",
+                "created_at": now.isoformat()
+            })
+    
+    # Sort by severity (critical first) then by utilization
+    alerts.sort(key=lambda x: (0 if x["type"] == "critical" else 1, -x["utilization"]))
+    
+    return {
+        "alerts": alerts,
+        "summary": {
+            "total": len(alerts),
+            "critical": len([a for a in alerts if a["type"] == "critical"]),
+            "warning": len([a for a in alerts if a["type"] == "warning"]),
+            "thresholds": {
+                "warning": threshold_warning,
+                "critical": threshold_critical
+            }
+        },
+        "period": f"{year}-{str(month).zfill(2)}",
+        "checked_at": now.isoformat()
+    }
+
 # ============== FIXED COSTS & BUDGET ==============
 
 # Fixed Cost Category Model

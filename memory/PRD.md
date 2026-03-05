@@ -33,6 +33,41 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Sistema de Alertas Automáticas de Presupuesto - COMPLETADO ✅
+
+**Backend** (`business_clarity.py`):
+- Nuevo endpoint `GET /api/business-clarity/budget-alerts`
+- Parámetros: `threshold_warning=80`, `threshold_critical=100`
+- Calcula utilización de cada Cost Center
+- Genera alertas cuando:
+  - **Warning** (amarillo): Utilización ≥ 80%
+  - **Critical** (rojo): Utilización ≥ 100%
+
+**Frontend** (`BudgetAlertsBell.js`):
+- Nuevo componente de campana en el header
+- **Se oculta automáticamente** si no hay alertas
+- Muestra badge con conteo de alertas
+- Dropdown con lista de alertas:
+  - Icono por severidad (warning/critical)
+  - Nombre y código del Cost Center
+  - Barra de progreso de utilización
+  - Presupuesto vs Gasto real
+  - Monto excedido (si aplica)
+- Link para ir al reporte completo
+
+**Comportamiento:**
+```
+utilization < 80%  → Sin alerta (bell oculto)
+utilization ≥ 80%  → Warning (bell amarillo)
+utilization ≥ 100% → Critical (bell rojo + badge)
+```
+
+**Verificado:**
+- Bell se oculta correctamente cuando no hay alertas
+- Endpoint retorna alertas ordenadas por severidad
+
+---
+
 #### Presupuestos Editables por Mes/Trimestre/Año - COMPLETADO ✅
 
 **Backend** (`people_ops.py`) - Nuevos endpoints:

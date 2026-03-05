@@ -41,6 +41,7 @@ import {
 import { TrialExpirationModal } from "./TrialExpirationModal";
 import NotificationBell from "./notifications/NotificationBell";
 import ApprovalQueueBell from "./notifications/ApprovalQueueBell";
+import BudgetAlertsBell from "./notifications/BudgetAlertsBell";
 import { GlobalActivityLog } from "./GlobalActivityLog";
 import BugReportButton from "./BugReportButton";
 
@@ -161,6 +162,7 @@ export const Layout = ({ children }) => {
               size="icon" 
               className="text-white/70 hover:text-white hover:bg-white/10"
             />
+            <BudgetAlertsBell />
             <ApprovalQueueBell />
             <NotificationBell />
           </div>
@@ -205,6 +207,7 @@ export const Layout = ({ children }) => {
             <span className="font-heading font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
           <div className="flex items-center gap-2">
+            <BudgetAlertsBell />
             <ApprovalQueueBell />
             <NotificationBell />
             <button
