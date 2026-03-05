@@ -1452,7 +1452,7 @@ async def get_cost_center_report(
     month: int = None,
     user: User = Depends(get_current_user)
 ):
-    """Get P&L summary by cost center with budget vs actual"""
+    """Get P&L summary by cost center with budget vs actual - using actual payroll data"""
     now = datetime.now(timezone.utc)
     year = year or now.year
     month = month or now.month
@@ -1486,6 +1486,21 @@ async def get_cost_center_report(
     else:
         end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
     
+    # Get completed payroll periods in this month
+    payroll_periods = await db.payroll_periods.find(
+        {
+            "company_id": user.company_id,
+            "status": "completed",
+            "payment_date": {
+                "$gte": start_date.isoformat()[:10],
+                "$lt": end_date.isoformat()[:10]
+            }
+        },
+        {"_id": 0, "period_id": 1}
+    ).to_list(10)
+    
+    period_ids = [p["period_id"] for p in payroll_periods]
+    
     records = []
     total_budget = 0
     total_actual = 0
@@ -1496,20 +1511,52 @@ async def get_cost_center_report(
         cc_id = cc.get("cost_center_id")
         cc_code = cc.get("code") or cc.get("name")
         cc_name = cc.get("name")
-        annual_budget = cc.get("annual_budget") or 0
-        monthly_budget = annual_budget / 12 if annual_budget > 0 else 0
         
-        # 1. Payroll costs for this cost center
-        payroll_pipeline = [
-            {"$match": {
-                "company_id": user.company_id,
-                "cost_center": cc_code,
-                "status": "active"
-            }},
-            {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
-        ]
-        payroll_result = await db.employees.aggregate(payroll_pipeline).to_list(1)
-        payroll_cost = payroll_result[0]["total"] if payroll_result else 0
+        # Use granular monthly budget if available, otherwise divide annual
+        monthly_budgets = cc.get("monthly_budgets") or {}
+        budget_key = f"{year}-{str(month).zfill(2)}"
+        if budget_key in monthly_budgets:
+            monthly_budget = monthly_budgets[budget_key]
+        else:
+            annual_budget = cc.get("annual_budget") or 0
+            monthly_budget = annual_budget / 12 if annual_budget > 0 else 0
+        
+        annual_budget = cc.get("annual_budget") or 0
+        
+        # 1. PAYROLL COSTS - Use actual payroll_entries with cost_center_id
+        payroll_cost = 0
+        is_payroll_actual = False
+        
+        if period_ids:
+            # Get actual payroll entries for this cost center from completed periods
+            payroll_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "period_id": {"$in": period_ids},
+                    "cost_center_id": cc_id
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$total_employer_cost"}}}
+            ]
+            payroll_result = await db.payroll_entries.aggregate(payroll_pipeline).to_list(1)
+            if payroll_result and payroll_result[0]["total"] > 0:
+                payroll_cost = payroll_result[0]["total"]
+                is_payroll_actual = True
+        
+        # Fallback: estimate from active employees if no completed payroll
+        if not is_payroll_actual:
+            emp_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "cost_center_id": cc_id,
+                    "status": "active"
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
+            ]
+            emp_result = await db.employees.aggregate(emp_pipeline).to_list(1)
+            if emp_result:
+                # Estimate with employer contributions (~16.4%)
+                base_salary = emp_result[0]["total"]
+                payroll_cost = base_salary * 1.164
         
         # 2. Supplier payables linked to this cost center's categories
         payables_cost = 0
@@ -1530,7 +1577,7 @@ async def get_cost_center_report(
             payables_result = await db.supplier_payables.aggregate(payables_pipeline).to_list(1)
             payables_cost = payables_result[0]["total"] if payables_result else 0
         
-        # 3. Direct expenses tagged to this cost center (if field exists)
+        # 3. Direct expenses tagged to this cost center
         direct_expenses_pipeline = [
             {"$match": {
                 "company_id": user.company_id,
@@ -1570,6 +1617,7 @@ async def get_cost_center_report(
             "monthly_budget": round(monthly_budget, 2),
             "actual_spend": round(actual_spend, 2),
             "payroll_cost": round(payroll_cost, 2),
+            "payroll_is_actual": is_payroll_actual,
             "payables_cost": round(payables_cost, 2),
             "direct_expenses": round(direct_expenses, 2),
             "variance": round(variance, 2),
@@ -1666,22 +1714,48 @@ async def get_cost_center_transactions(
                 "supplier": p.get("supplier_name", "")
             })
     
-    # 2. Employees in this cost center
-    employees = await db.employees.find(
-        {"company_id": user.company_id, "cost_center": cc_code, "status": "active"},
-        {"_id": 0, "full_name": 1, "base_salary": 1, "position": 1}
-    ).to_list(100)
+    # 2. Payroll entries for this cost center (actual payroll data)
+    payroll_entries = await db.payroll_entries.find(
+        {"company_id": user.company_id, "cost_center_id": cc_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
     
-    for emp in employees:
-        transactions.append({
-            "type": "payroll",
-            "description": f"{emp.get('full_name')} - {emp.get('position', '')}",
-            "amount": emp.get("base_salary", 0),
-            "date": "",
-            "category": "Payroll",
-            "status": "active",
-            "supplier": ""
-        })
+    if payroll_entries:
+        # Use actual payroll entries
+        for entry in payroll_entries:
+            transactions.append({
+                "type": "payroll",
+                "description": f"{entry.get('employee_name')} - Período Nómina",
+                "amount": entry.get("total_employer_cost", 0),
+                "date": entry.get("created_at", ""),
+                "category": "Payroll",
+                "status": "processed",
+                "supplier": "",
+                "details": {
+                    "gross_salary": entry.get("gross_salary", 0),
+                    "net_salary": entry.get("net_salary", 0),
+                    "period_id": entry.get("period_id")
+                }
+            })
+    else:
+        # Fallback: show employees with estimated payroll
+        employees = await db.employees.find(
+            {"company_id": user.company_id, "cost_center_id": cc_id, "status": "active"},
+            {"_id": 0, "full_name": 1, "base_salary": 1, "position": 1}
+        ).to_list(100)
+        
+        for emp in employees:
+            # Estimate with employer contributions (~16.4%)
+            estimated_cost = emp.get("base_salary", 0) * 1.164
+            transactions.append({
+                "type": "payroll",
+                "description": f"{emp.get('full_name')} - {emp.get('position', '')} (Estimado)",
+                "amount": round(estimated_cost, 2),
+                "date": "",
+                "category": "Payroll",
+                "status": "estimated",
+                "supplier": ""
+            })
     
     # Sort by amount descending
     transactions.sort(key=lambda x: x["amount"], reverse=True)

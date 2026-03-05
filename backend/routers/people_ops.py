@@ -1084,6 +1084,9 @@ async def create_payroll_period(
             "employee_name": emp.get("full_name"),
             "employee_number": emp.get("employee_number"),
             "department": emp.get("department"),
+            # Cost Center tracking - inherits from employee's assigned cost center
+            "cost_center_id": emp.get("cost_center_id"),
+            "cost_center_name": emp.get("cost_center_name"),
             
             "base_salary": round(period_salary, 2),
             "overtime_hours_35": 0,

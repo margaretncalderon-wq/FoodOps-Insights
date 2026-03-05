@@ -1149,7 +1149,14 @@ export function ReportsSection() {
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(cc.monthly_budget)}</TableCell>
                             <TableCell className="text-right font-medium">{formatCurrency(cc.actual_spend)}</TableCell>
-                            <TableCell className="text-right text-violet-600">{formatCurrency(cc.payroll_cost)}</TableCell>
+                            <TableCell className="text-right text-violet-600">
+                              <div className="flex items-center justify-end gap-1">
+                                {formatCurrency(cc.payroll_cost)}
+                                {!cc.payroll_is_actual && cc.payroll_cost > 0 && (
+                                  <span className="text-[10px] text-amber-500" title={isEs ? "Estimado basado en salarios" : "Estimated based on salaries"}>~</span>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right text-orange-600">{formatCurrency(cc.payables_cost + cc.direct_expenses)}</TableCell>
                             <TableCell className={`text-right font-medium ${cc.variance >= 0 ? "text-green-600" : "text-red-600"}`}>
                               {cc.variance >= 0 ? "+" : ""}{formatCurrency(cc.variance)}
@@ -1220,8 +1227,8 @@ export function ReportsSection() {
                       <p className="font-medium mb-1">{isEs ? "Sobre este reporte" : "About this report"}</p>
                       <p>
                         {isEs 
-                          ? "Este reporte muestra el presupuesto vs gasto real por centro de costo. El gasto incluye: nómina de empleados asignados al centro y pagos vinculados a categorías de costos fijos. Para vincular gastos a centros de costo, ve a Business Clarity > Fixed Costs y asigna categorías."
-                          : "This report shows budget vs actual spending by cost center. Spending includes: payroll for employees assigned to the center and payables linked to fixed cost categories. To link expenses to cost centers, go to Business Clarity > Fixed Costs and assign categories."}
+                          ? "Este reporte muestra el presupuesto vs gasto real por centro de costo. La nómina se registra directamente en el centro de costo del departamento de cada empleado (modelo distribuido). Los valores de nómina con ~ son estimaciones basadas en salarios base; se actualizan con datos reales al completar períodos de nómina."
+                          : "This report shows budget vs actual spending by cost center. Payroll is recorded directly to each employee's department cost center (distributed model). Payroll values with ~ are estimates based on base salaries; they update with actual data when payroll periods are completed."}
                       </p>
                     </div>
                   </div>

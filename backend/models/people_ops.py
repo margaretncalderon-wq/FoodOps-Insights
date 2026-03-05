@@ -526,6 +526,10 @@ class PayrollEntry(BaseModel):
     employee_number: Optional[str] = None
     department: Optional[str] = None
     
+    # Cost Center tracking - payroll costs are distributed to employee's department CC
+    cost_center_id: Optional[str] = None
+    cost_center_name: Optional[str] = None
+    
     # Earnings
     base_salary: float = 0.0
     overtime_hours_35: float = 0.0
