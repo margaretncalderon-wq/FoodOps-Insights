@@ -12,3 +12,4 @@ export { PayrollCostSection } from './PayrollCostSection';
 export { RegulatoryReportsSection } from './RegulatoryReportsSection';
 export { SalesReportsSection } from './SalesReportsSection';
 export { AdminReportsSection } from './AdminReportsSection';
+export { AccountingQueueSection } from './AccountingQueueSection';

@@ -1014,6 +1014,9 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
     
     # Build update data based on assignment type (mutually exclusive)
     update_data = {"updated_at": now.isoformat()}
+    cost_center_id_for_accounting = None
+    cost_center_name_for_accounting = None
+    
     if event_id:
         update_data["event_id"] = event_id
         update_data["cost_center"] = None
@@ -1022,6 +1025,18 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
         update_data["fixed_cost_category_id"] = fixed_cost_category_id
         update_data["event_id"] = None
         update_data["cost_center"] = None
+        # Get the cost center linked to this fixed cost category
+        fc_cat = await db.fixed_cost_categories.find_one(
+            {"category_id": fixed_cost_category_id, "company_id": user.company_id},
+            {"_id": 0, "cost_center_id": 1}
+        )
+        if fc_cat and fc_cat.get("cost_center_id"):
+            cost_center_id_for_accounting = fc_cat["cost_center_id"]
+            cc = await db.cost_centers.find_one(
+                {"cost_center_id": cost_center_id_for_accounting},
+                {"_id": 0, "name": 1}
+            )
+            cost_center_name_for_accounting = cc.get("name") if cc else None
     elif cost_center:
         update_data["cost_center"] = cost_center
         update_data["event_id"] = None
@@ -1042,6 +1057,20 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
             {"expense_id": payable_id},
             {"$set": update_data}
         )
+        
+        # Record accounting entry if assigned to a cost center
+        if cost_center_id_for_accounting:
+            from services.accounting_engine import AccountingEngine
+            try:
+                engine = AccountingEngine(db, user.company_id, user.user_id)
+                await engine.record_expense(
+                    {**expense, "expense_id": payable_id},
+                    cost_center_id_for_accounting,
+                    cost_center_name_for_accounting
+                )
+            except Exception as e:
+                print(f"Warning: Failed to record accounting entry: {e}")
+        
         return {"message": "Expense assigned successfully", "type": "expense"}
     
     # Try in supplier_payables
@@ -1055,9 +1084,115 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
             {"payable_id": payable_id},
             {"$set": update_data}
         )
+        
+        # Record accounting entry if assigned to a cost center
+        if cost_center_id_for_accounting:
+            from services.accounting_engine import AccountingEngine
+            try:
+                engine = AccountingEngine(db, user.company_id, user.user_id)
+                await engine.record_supplier_payable(
+                    {**payable, "payable_id": payable_id},
+                    cost_center_id_for_accounting,
+                    cost_center_name_for_accounting
+                )
+            except Exception as e:
+                print(f"Warning: Failed to record accounting entry: {e}")
+        
         return {"message": "Payable assigned successfully", "type": "payable"}
     
     raise HTTPException(status_code=404, detail="Payable not found")
+
+
+# Create new supplier payable with optional cost center assignment
+class CreateSupplierPayableRequest(BaseModel):
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    description: str
+    amount: float
+    due_date: Optional[str] = None
+    invoice_number: Optional[str] = None
+    fixed_cost_category_id: Optional[str] = None
+    event_id: Optional[str] = None
+
+
+@business_clarity_router.post("/supplier-payables")
+async def create_supplier_payable(
+    data: CreateSupplierPayableRequest,
+    user: User = Depends(get_current_user)
+):
+    """Create a new supplier payable with automatic accounting entry if linked to cost center"""
+    now = datetime.now(timezone.utc)
+    payable_id = f"pay_{uuid.uuid4().hex[:12]}"
+    
+    # Get supplier name if supplier_id provided
+    supplier_name = data.supplier_name
+    if data.supplier_id and not supplier_name:
+        supplier = await db.suppliers.find_one(
+            {"supplier_id": data.supplier_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        supplier_name = supplier.get("name") if supplier else None
+    
+    # Get cost center from fixed cost category
+    cost_center_id = None
+    cost_center_name = None
+    if data.fixed_cost_category_id:
+        fc_cat = await db.fixed_cost_categories.find_one(
+            {"category_id": data.fixed_cost_category_id, "company_id": user.company_id},
+            {"_id": 0, "cost_center_id": 1}
+        )
+        if fc_cat and fc_cat.get("cost_center_id"):
+            cost_center_id = fc_cat["cost_center_id"]
+            cc = await db.cost_centers.find_one(
+                {"cost_center_id": cost_center_id},
+                {"_id": 0, "name": 1}
+            )
+            cost_center_name = cc.get("name") if cc else None
+    
+    payable_doc = {
+        "payable_id": payable_id,
+        "company_id": user.company_id,
+        "supplier_id": data.supplier_id,
+        "supplier_name": supplier_name,
+        "description": data.description,
+        "amount": round(data.amount, 2),
+        "paid_amount": 0,
+        "balance_due": round(data.amount, 2),
+        "status": "pending",
+        "due_date": data.due_date,
+        "invoice_number": data.invoice_number,
+        "fixed_cost_category_id": data.fixed_cost_category_id,
+        "event_id": data.event_id,
+        "cost_center_id": cost_center_id,
+        "cost_center_name": cost_center_name,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    await db.supplier_payables.insert_one(payable_doc)
+    
+    # Record accounting entry if has cost center
+    accounting_entry_id = None
+    if cost_center_id:
+        from services.accounting_engine import AccountingEngine
+        try:
+            engine = AccountingEngine(db, user.company_id, user.user_id)
+            entry = await engine.record_supplier_payable(
+                payable_doc,
+                cost_center_id,
+                cost_center_name
+            )
+            accounting_entry_id = entry.get("entry_id")
+        except Exception as e:
+            print(f"Warning: Failed to record accounting entry for payable {payable_id}: {e}")
+    
+    payable_doc.pop("_id", None)
+    return {
+        "payable": payable_doc,
+        "accounting_entry_id": accounting_entry_id
+    }
+
 
 # ============== CLIENT CREDIT MANAGEMENT ==============
 
