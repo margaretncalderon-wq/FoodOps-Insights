@@ -1475,7 +1475,27 @@ async def process_payroll(
         }}
     )
     
-    return {"message": "Payroll processed"}
+    # Record accounting entries for this payroll period
+    # This creates entries in the centralized accounting_entries collection
+    from services.accounting_engine import AccountingEngine
+    try:
+        engine = AccountingEngine(db, company_id, user.user_id)
+        accounting_result = await engine.record_payroll_period(
+            period_id,
+            period.get("period_name", f"Periodo {period_id[:8]}")
+        )
+    except Exception as e:
+        # Log error but don't fail the payroll process
+        print(f"Warning: Failed to record accounting entries for payroll {period_id}: {e}")
+        accounting_result = {"entries_recorded": 0, "error": str(e)}
+    
+    return {
+        "message": "Payroll processed",
+        "accounting": {
+            "entries_recorded": accounting_result.get("entries_recorded", 0),
+            "total_amount": accounting_result.get("total_amount", 0)
+        }
+    }
 
 
 @people_ops_router.post("/payroll/periods/{period_id}/revert")

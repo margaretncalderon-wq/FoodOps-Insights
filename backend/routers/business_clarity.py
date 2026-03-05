@@ -4369,3 +4369,198 @@ async def get_purchases_report(
         } for p in sorted(payables, key=lambda x: x.get("created_at", ""), reverse=True)[:50]]
     }
 
+
+
+# ============== ACCOUNTING ENGINE / MOTOR DE CONTABILIZACIÓN ==============
+
+from services.accounting_engine import AccountingEngine, TransactionType
+
+@business_clarity_router.get("/accounting/entries")
+async def get_accounting_entries(
+    cost_center_id: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get accounting entries with optional filters"""
+    query = {
+        "company_id": user.company_id,
+        "is_reversed": False
+    }
+    
+    if cost_center_id:
+        query["cost_center_id"] = cost_center_id
+    if transaction_type:
+        query["transaction_type"] = transaction_type
+    if start_date:
+        query["transaction_date"] = {"$gte": start_date}
+    if end_date:
+        if "transaction_date" in query:
+            query["transaction_date"]["$lt"] = end_date
+        else:
+            query["transaction_date"] = {"$lt": end_date}
+    
+    entries = await db.accounting_entries.find(
+        query,
+        {"_id": 0}
+    ).sort("transaction_date", -1).to_list(500)
+    
+    return entries
+
+
+@business_clarity_router.get("/accounting/unassigned")
+async def get_unassigned_entries(user: User = Depends(get_current_user)):
+    """Get entries without a cost center assigned - for the 'assignment queue'"""
+    engine = AccountingEngine(db, user.company_id, user.user_id)
+    entries = await engine.get_unassigned_entries()
+    
+    return {
+        "count": len(entries),
+        "entries": entries
+    }
+
+
+class AssignCostCenterRequest(BaseModel):
+    entry_id: str
+    cost_center_id: str
+
+
+@business_clarity_router.post("/accounting/assign-cost-center")
+async def assign_entry_cost_center(
+    data: AssignCostCenterRequest,
+    user: User = Depends(get_current_user)
+):
+    """Assign a cost center to an unassigned accounting entry"""
+    # Get cost center name
+    cc = await db.cost_centers.find_one(
+        {"cost_center_id": data.cost_center_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1}
+    )
+    if not cc:
+        raise HTTPException(status_code=404, detail="Cost center not found")
+    
+    engine = AccountingEngine(db, user.company_id, user.user_id)
+    result = await engine.assign_cost_center(
+        data.entry_id,
+        data.cost_center_id,
+        cc["name"]
+    )
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to assign"))
+    
+    return result
+
+
+@business_clarity_router.get("/accounting/summary")
+async def get_accounting_summary(
+    year: int = None,
+    month: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get spending summary by cost center from accounting entries"""
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
+    
+    engine = AccountingEngine(db, user.company_id, user.user_id)
+    summary = await engine.get_cost_center_summary(year, month)
+    
+    # Get cost centers for budget info
+    cost_centers = await db.cost_centers.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    cc_map = {cc.get("cost_center_id"): cc for cc in cost_centers}
+    
+    # Enrich with budget data
+    for item in summary:
+        cc_id = item.get("cost_center_id")
+        if cc_id and cc_id in cc_map:
+            cc = cc_map[cc_id]
+            monthly_budgets = cc.get("monthly_budgets") or {}
+            budget_key = f"{year}-{str(month).zfill(2)}"
+            if budget_key in monthly_budgets:
+                item["budget"] = monthly_budgets[budget_key]
+            else:
+                annual = cc.get("annual_budget") or 0
+                item["budget"] = annual / 12
+            
+            item["variance"] = item["budget"] - item["total_amount"]
+            item["utilization"] = (item["total_amount"] / item["budget"] * 100) if item["budget"] > 0 else 0
+    
+    return {
+        "period": {"year": year, "month": month},
+        "summary": summary,
+        "totals": {
+            "total_amount": sum(s["total_amount"] for s in summary),
+            "total_transactions": sum(s["total_transactions"] for s in summary),
+            "unassigned_amount": sum(s["total_amount"] for s in summary if not s.get("cost_center_id"))
+        }
+    }
+
+
+class ReverseEntryRequest(BaseModel):
+    entry_id: str
+    reason: str
+
+
+@business_clarity_router.post("/accounting/reverse")
+async def reverse_accounting_entry(
+    data: ReverseEntryRequest,
+    user: User = Depends(get_current_user)
+):
+    """Reverse an accounting entry (create counter-entry for corrections)"""
+    engine = AccountingEngine(db, user.company_id, user.user_id)
+    result = await engine.reverse_entry(data.entry_id, data.reason)
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to reverse"))
+    
+    return result
+
+
+@business_clarity_router.get("/accounting/by-type-summary")
+async def get_accounting_by_type(
+    year: int = None,
+    month: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get spending summary grouped by transaction type"""
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
+    
+    start_date = f"{year}-{str(month).zfill(2)}-01"
+    if month == 12:
+        end_date = f"{year + 1}-01-01"
+    else:
+        end_date = f"{year}-{str(month + 1).zfill(2)}-01"
+    
+    pipeline = [
+        {"$match": {
+            "company_id": user.company_id,
+            "is_reversed": False,
+            "transaction_date": {"$gte": start_date, "$lt": end_date}
+        }},
+        {"$group": {
+            "_id": "$transaction_type",
+            "total": {"$sum": "$amount"},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"total": -1}}
+    ]
+    
+    results = await db.accounting_entries.aggregate(pipeline).to_list(20)
+    
+    return {
+        "period": {"year": year, "month": month},
+        "by_type": [{
+            "type": r["_id"],
+            "total": round(r["total"], 2),
+            "count": r["count"]
+        } for r in results],
+        "total": round(sum(r["total"] for r in results), 2)
+    }
