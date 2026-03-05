@@ -25,9 +25,15 @@ import {
 import {
   FileText, TrendingUp, TrendingDown, PieChart, Banknote,
   UserCircle, Landmark, FileBarChart, Target, Lock,
-  Briefcase, BarChart3, Users, Building2
+  Briefcase, BarChart3, Users, Building2, ChevronDown
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
@@ -79,7 +85,7 @@ export default function BusinessClarityPage() {
     return false;
   };
 
-  // Navigation tabs - flat structure
+  // Navigation tabs - organized in groups
   const navTabs = [
     { path: "/business-clarity/dashboard", label: isEs ? "Dashboard" : "Dashboard", icon: PieChart },
     { path: "/business-clarity/invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
@@ -88,12 +94,19 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/receivables", label: "AR", icon: TrendingUp },
     { path: "/business-clarity/payables", label: "AP", icon: TrendingDown },
     { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
-    { path: "/business-clarity/payroll-cost", label: isEs ? "Costo Personal" : "Payroll Cost", icon: Users },
-    { path: "/business-clarity/marketing-roi", label: isEs ? "Marketing ROI" : "Marketing ROI", icon: BarChart3 },
-    { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
     { path: "/business-clarity/close", label: isEs ? "Cierre" : "Close", icon: Lock },
-    { path: "/business-clarity/reports", label: isEs ? "Reportes" : "Reports", icon: FileBarChart },
   ];
+
+  // Reports dropdown items
+  const reportsMenu = [
+    { path: "/business-clarity/reports", label: isEs ? "Ejecutivos" : "Executive", icon: FileBarChart },
+    { path: "/business-clarity/payroll-cost", label: isEs ? "Costo Personal" : "Payroll Cost", icon: Users },
+    { path: "/business-clarity/marketing-roi", label: "Marketing ROI", icon: BarChart3 },
+    { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
+  ];
+
+  // Check if current path is in reports section
+  const isInReportsSection = reportsMenu.some(item => location.pathname.startsWith(item.path));
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -152,6 +165,37 @@ export default function BusinessClarityPage() {
                 {tab.label}
               </NavLink>
             ))}
+            
+            {/* Reports Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isInReportsSection
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}
+                >
+                  <FileBarChart className="w-4 h-4" />
+                  {isEs ? "Reportes" : "Reports"}
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {reportsMenu.map((item) => (
+                  <DropdownMenuItem
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    className={`flex items-center gap-2 cursor-pointer ${
+                      location.pathname === item.path ? "bg-emerald-50 text-emerald-700" : ""
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         </div>
 

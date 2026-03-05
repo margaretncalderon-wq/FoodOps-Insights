@@ -33,6 +33,21 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Reorganización de navegación Business Clarity - COMPLETADO ✅
+
+**Cambio de UX**:
+- Barra de navegación reducida de 12 pestañas a 9 elementos
+- Nuevo dropdown **"Reports"** que agrupa:
+  - Executive (reportes ejecutivos)
+  - Payroll Cost (costo de personal)
+  - Marketing ROI
+  - Regulatory (reportes regulatorios)
+- Pestañas principales: Dashboard, Invoices, Payments, Statements, AR, AP, Fixed Costs, Close
+- El dropdown indica visualmente cuando estás en una sección de reportes
+
+**Archivos modificados**:
+- `frontend/src/pages/BusinessClarityPage.js` (reorganización con DropdownMenu)
+
 #### P0 - Reportes Regulatorios Configurables por País - COMPLETADO ✅
 
 **Backend** (`settings.py`):
