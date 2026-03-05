@@ -1,0 +1,76 @@
+{
+  "summary": "Frontend testing completed for 3 new features: 1) Event Details Sales Rep Assignment, 2) Overtime Weekly Entry Mode, 3) Regulatory Reports Section. All features are working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/.screenshots/event_details.png",
+    "/app/.screenshots/sales_rep_dropdown.png",
+    "/app/.screenshots/overtime_section.png",
+    "/app/.screenshots/overtime_dialog.png",
+    "/app/.screenshots/overtime_weekly.png",
+    "/app/.screenshots/regulatory_reports.png",
+    "/app/.screenshots/generate_report_dialog.png",
+    "/app/.screenshots/report_preview.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "None - used existing data (María González employee, TSS report for Feb 2026)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 3 requested features are working: 1) Event Details page shows 'Assigned Sales Rep' card with selector dropdown showing active employees with user_id and commission rates, 2) Overtime section has improved dialog with 'Entry Mode' selector - 'Single Day' and 'Full Week' modes, weekly mode shows 7-day table with 35% and 100% columns, 3) People Ops > Reports tab shows DGT-3/TSS/IR-17/606 report cards with generate dialog and preview functionality including export to Excel.",
+  "tested_features": {
+    "event_details_sales_rep": {
+      "location": "Events > Event Details (e.g., /events/event_e98c7f31d5aa)",
+      "status": "PASS",
+      "details": [
+        "Sales rep card visible with data-testid 'sales-rep-card'",
+        "Shows 'Assigned Sales Rep' label with current assignee name",
+        "Select dropdown shows 'Unassigned' and active employees with user_id",
+        "Employee commission rate displayed as badge (e.g., 5%)",
+        "Commission info text shown below card when sales rep with commission is assigned"
+      ]
+    },
+    "overtime_weekly_entry": {
+      "location": "People Ops > Overtime",
+      "status": "PASS",
+      "details": [
+        "Overtime section visible with data-testid 'overtime-section'",
+        "'Log Hours' button opens dialog",
+        "Dialog has 'Entry Mode' selector with 'Single Day' (default) and 'Full Week' options",
+        "Single Day mode: Date picker, Hours 35% input, Hours 100% input",
+        "Full Week mode: Week start picker, 7-day table (Mon-Sun) with 35%/100% columns per day",
+        "Week Total row shows accumulated hours",
+        "Reason textarea and Cancel/Submit buttons present"
+      ]
+    },
+    "regulatory_reports_section": {
+      "location": "People Ops > Reports",
+      "status": "PASS",
+      "details": [
+        "Reports tab visible in People Ops navigation",
+        "Four report type cards: DGT-3 (Quarterly), TSS (Monthly), IR-17 (Monthly), 606 (Monthly)",
+        "Each card shows: Name, Entity, Description, Frequency badge",
+        "'Generate Report' button opens dialog with Report Type, Year, Period selectors",
+        "Generated Reports table shows history with Type, Period, Generated date, Employees, Total, Actions",
+        "View action opens preview dialog showing summary cards (Employees, Total Salaries, Total Contributions) and detail table",
+        "Download Excel button available in preview"
+      ]
+    }
+  }
+}

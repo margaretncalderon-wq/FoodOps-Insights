@@ -1992,7 +1992,7 @@ async def create_offboarding(data: dict, user: User = Depends(get_current_user))
         
         "pending_bonuses": data.get("pending_bonuses", 0),
         "pending_deductions": pending_deductions,
-        "deductions_detail": f"Préstamo activo" if pending_deductions > 0 else None,
+        "deductions_detail": "Préstamo activo" if pending_deductions > 0 else None,
         
         "gross_liquidation": liquidation["gross_liquidation"],
         "total_deductions": liquidation["total_deductions"],
@@ -2230,3 +2230,282 @@ async def get_employee_compensation_summary(employee_id: str, user: User = Depen
         } if active_loan else None,
         "vacation_days_available": employee.get("vacation_days_available", 14)
     }
+
+
+
+# ==================== REGULATORY REPORTS ====================
+
+@people_ops_router.get("/regulatory-reports")
+async def get_regulatory_reports(
+    report_type: Optional[str] = None,
+    year: Optional[int] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get list of generated regulatory reports"""
+    company_id, _ = await check_people_ops_access(user, "view")
+    
+    query = {"company_id": company_id}
+    if report_type:
+        query["report_type"] = report_type
+    if year:
+        query["year"] = year
+    
+    reports = await db.regulatory_reports.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    return reports
+
+
+@people_ops_router.post("/regulatory-reports/generate")
+async def generate_regulatory_report(data: dict, user: User = Depends(get_current_user)):
+    """Generate a regulatory report (DGT-3, TSS, IR-17, 606)"""
+    company_id, _ = await check_people_ops_access(user, "admin")
+    
+    report_type = data.get("report_type")
+    year = data.get("year")
+    period = data.get("period")  # Month (01-12) or Quarter (Q1-Q4)
+    
+    if not all([report_type, year, period]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    
+    now = datetime.now(timezone.utc)
+    report_id = f"rpt_{uuid.uuid4().hex[:12]}"
+    
+    # Get employees and their payroll data for the period
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Determine date range based on period
+    if period.startswith("Q"):
+        quarter_months = {
+            "Q1": ["01", "02", "03"],
+            "Q2": ["04", "05", "06"],
+            "Q3": ["07", "08", "09"],
+            "Q4": ["10", "11", "12"]
+        }
+        months = quarter_months.get(period, ["01", "02", "03"])
+        date_start = f"{year}-{months[0]}-01"
+        date_end = f"{year}-{months[-1]}-31"
+    else:
+        date_start = f"{year}-{period}-01"
+        date_end = f"{year}-{period}-31"
+    
+    # Get payroll data for the period
+    payroll_entries = await db.payroll_entries.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Get payroll periods to filter by date
+    periods = await db.payroll_periods.find(
+        {
+            "company_id": company_id,
+            "status": "completed",
+            "payment_date": {"$gte": date_start, "$lte": date_end}
+        },
+        {"_id": 0, "period_id": 1}
+    ).to_list(100)
+    period_ids = [p["period_id"] for p in periods]
+    
+    # Filter payroll entries by period
+    filtered_entries = [e for e in payroll_entries if e.get("period_id") in period_ids]
+    
+    # Aggregate by employee
+    employee_data = {}
+    for entry in filtered_entries:
+        emp_id = entry.get("employee_id")
+        if emp_id not in employee_data:
+            emp = next((e for e in employees if e.get("employee_id") == emp_id), None)
+            employee_data[emp_id] = {
+                "employee_id": emp_id,
+                "employee_name": emp.get("full_name") if emp else entry.get("employee_name"),
+                "national_id": emp.get("national_id") if emp else None,
+                "salary": 0,
+                "afp_employee": 0,
+                "afp_employer": 0,
+                "ars_employee": 0,
+                "ars_employer": 0,
+                "isr": 0,
+                "other_deductions": 0
+            }
+        
+        employee_data[emp_id]["salary"] += entry.get("gross_salary", 0)
+        employee_data[emp_id]["afp_employee"] += entry.get("afp_employee", 0)
+        employee_data[emp_id]["afp_employer"] += entry.get("afp_employer", 0)
+        employee_data[emp_id]["ars_employee"] += entry.get("ars_employee", 0)
+        employee_data[emp_id]["ars_employer"] += entry.get("ars_employer", 0)
+        employee_data[emp_id]["isr"] += entry.get("isr", 0)
+    
+    # Build report entries
+    report_entries = []
+    total_salaries = 0
+    total_afp = 0
+    total_ars = 0
+    total_isr = 0
+    
+    for emp_id, emp_data in employee_data.items():
+        afp_total = emp_data["afp_employee"] + emp_data["afp_employer"]
+        ars_total = emp_data["ars_employee"] + emp_data["ars_employer"]
+        
+        report_entries.append({
+            "employee_id": emp_id,
+            "employee_name": emp_data["employee_name"],
+            "national_id": emp_data["national_id"],
+            "salary": round(emp_data["salary"], 2),
+            "afp_employee": round(emp_data["afp_employee"], 2),
+            "afp_employer": round(emp_data["afp_employer"], 2),
+            "afp_total": round(afp_total, 2),
+            "ars_employee": round(emp_data["ars_employee"], 2),
+            "ars_employer": round(emp_data["ars_employer"], 2),
+            "ars_total": round(ars_total, 2),
+            "isr": round(emp_data["isr"], 2)
+        })
+        
+        total_salaries += emp_data["salary"]
+        total_afp += afp_total
+        total_ars += ars_total
+        total_isr += emp_data["isr"]
+    
+    # Calculate total amount based on report type
+    if report_type == "tss":
+        total_amount = total_afp + total_ars
+    elif report_type == "dgii_ir17":
+        total_amount = total_isr
+    else:
+        total_amount = total_afp + total_ars + total_isr
+    
+    # Save report
+    report_doc = {
+        "report_id": report_id,
+        "company_id": company_id,
+        "report_type": report_type,
+        "year": year,
+        "period": period,
+        "employee_count": len(report_entries),
+        "total_salaries": round(total_salaries, 2),
+        "total_afp": round(total_afp, 2),
+        "total_ars": round(total_ars, 2),
+        "total_isr": round(total_isr, 2),
+        "total_amount": round(total_amount, 2),
+        "entries": report_entries,
+        "created_at": now,
+        "created_by": user.user_id
+    }
+    
+    await db.regulatory_reports.insert_one(report_doc)
+    del report_doc["_id"]
+    
+    return report_doc
+
+
+@people_ops_router.get("/regulatory-reports/{report_id}")
+async def get_regulatory_report(report_id: str, user: User = Depends(get_current_user)):
+    """Get a specific regulatory report with all entries"""
+    company_id, _ = await check_people_ops_access(user, "view")
+    
+    report = await db.regulatory_reports.find_one(
+        {"report_id": report_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    return report
+
+
+@people_ops_router.get("/regulatory-reports/{report_id}/download")
+async def download_regulatory_report(
+    report_id: str, 
+    format: str = "xlsx",
+    user: User = Depends(get_current_user)
+):
+    """Download regulatory report as Excel or CSV"""
+    company_id, _ = await check_people_ops_access(user, "view")
+    
+    report = await db.regulatory_reports.find_one(
+        {"report_id": report_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    entries = report.get("entries", [])
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header based on report type
+    if report["report_type"] == "tss":
+        writer.writerow([
+            "Cédula", "Nombre", "Salario",
+            "AFP Empleado", "AFP Empleador", "AFP Total",
+            "ARS Empleado", "ARS Empleador", "ARS Total"
+        ])
+        for entry in entries:
+            writer.writerow([
+                entry.get("national_id", ""),
+                entry.get("employee_name", ""),
+                entry.get("salary", 0),
+                entry.get("afp_employee", 0),
+                entry.get("afp_employer", 0),
+                entry.get("afp_total", 0),
+                entry.get("ars_employee", 0),
+                entry.get("ars_employer", 0),
+                entry.get("ars_total", 0)
+            ])
+    elif report["report_type"] == "dgii_ir17":
+        writer.writerow([
+            "Cédula", "Nombre", "Salario", "ISR Retenido"
+        ])
+        for entry in entries:
+            writer.writerow([
+                entry.get("national_id", ""),
+                entry.get("employee_name", ""),
+                entry.get("salary", 0),
+                entry.get("isr", 0)
+            ])
+    else:  # DGT-3 and others
+        writer.writerow([
+            "Cédula", "Nombre", "Salario",
+            "AFP Empleado", "AFP Empleador",
+            "ARS Empleado", "ARS Empleador",
+            "ISR"
+        ])
+        for entry in entries:
+            writer.writerow([
+                entry.get("national_id", ""),
+                entry.get("employee_name", ""),
+                entry.get("salary", 0),
+                entry.get("afp_employee", 0),
+                entry.get("afp_employer", 0),
+                entry.get("ars_employee", 0),
+                entry.get("ars_employer", 0),
+                entry.get("isr", 0)
+            ])
+    
+    # Add totals row
+    writer.writerow([])
+    writer.writerow([
+        "TOTALES", "",
+        report.get("total_salaries", 0),
+        report.get("total_afp", 0) if report["report_type"] != "dgii_ir17" else "",
+        "", "", "",
+        report.get("total_isr", 0) if report["report_type"] != "tss" else ""
+    ])
+    
+    output.seek(0)
+    
+    filename = f"{report['report_type']}_{report['period']}_{report['year']}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

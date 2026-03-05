@@ -16,12 +16,13 @@ import { LoansSection } from "../components/people-ops/LoansSection";
 import { OffboardingSection } from "../components/people-ops/OffboardingSection";
 import { VariablePaySection } from "../components/people-ops/VariablePaySection";
 import { BenefitsInKindSection } from "../components/people-ops/BenefitsInKindSection";
+import { RegulatoryReportsSection } from "../components/people-ops/RegulatoryReportsSection";
 
 // Icons
 import {
   Users, UserCircle, Wallet, Clock,
   FileText, Lock, UserPlus, Settings,
-  Calendar, CreditCard, UserMinus, DollarSign, Gift
+  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 
@@ -126,6 +127,12 @@ export default function PeopleOpsPage() {
       requiresAccess: "payroll"
     },
     { 
+      path: "/people-ops/reports", 
+      label: isEs ? "Reportes" : "Reports", 
+      icon: FileSpreadsheet,
+      requiresAccess: "payroll"
+    },
+    { 
       path: "/people-ops/payroll-config", 
       label: isEs ? "Config" : "Config", 
       icon: Settings,
@@ -225,6 +232,7 @@ export default function PeopleOpsPage() {
           <Route path="loans" element={<LoansSection />} />
           <Route path="offboarding" element={<OffboardingSection />} />
           <Route path="benefits" element={<BenefitsInKindSection />} />
+          <Route path="reports" element={<RegulatoryReportsSection />} />
         </Routes>
       </div>
     </Layout>

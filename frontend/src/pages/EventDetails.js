@@ -38,7 +38,7 @@ import {
   ArrowLeft, Calendar, CalendarDays, MapPin, Users, DollarSign, 
   Plus, FileText, CheckCircle, PenLine, Share2, Link2, 
   MoreHorizontal, Copy, ExternalLink, ClipboardList, Settings2, Lock, ShoppingCart, Banknote,
-  ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive, Target, Rocket
+  ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive, Target, Rocket, UserCheck
 } from "lucide-react";
 import SendToExecutionModal from "../components/SendToExecutionModal";
 
@@ -65,11 +65,39 @@ export default function EventDetails() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", due_date: "" });
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
+  
+  // Sales rep assignment
+  const [salesReps, setSalesReps] = useState([]);
+  const [assigningRep, setAssigningRep] = useState(false);
 
   useEffect(() => {
     fetchEvent();
     fetchAllRecipes();
+    fetchSalesReps();
   }, [eventId]);
+
+  const fetchSalesReps = async () => {
+    try {
+      const res = await axios.get(`${API}/people-ops/employees?status=active`, { withCredentials: true });
+      // Filter employees with commission_rate or all active employees
+      setSalesReps(res.data || []);
+    } catch (err) {
+      console.error("Error fetching sales reps:", err);
+    }
+  };
+
+  const handleAssignSalesRep = async (userId) => {
+    setAssigningRep(true);
+    try {
+      await axios.put(`${API}/events/${eventId}`, { assigned_to: userId || null }, { withCredentials: true });
+      await fetchEvent();
+      toast.success(language === "es" ? "Vendedor asignado" : "Sales rep assigned");
+    } catch (err) {
+      console.error("Error assigning sales rep:", err);
+      toast.error(language === "es" ? "Error al asignar" : "Error assigning");
+    }
+    setAssigningRep(false);
+  };
 
   const fetchEvent = async () => {
     try {
@@ -393,6 +421,58 @@ export default function EventDetails() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Sales Rep Assignment */}
+        <Card data-testid="sales-rep-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <UserCheck className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "es" ? "Vendedor Asignado" : "Assigned Sales Rep"}
+                  </p>
+                  <p className="font-medium">
+                    {event?.assigned_to 
+                      ? (salesReps.find(r => r.user_id === event.assigned_to)?.full_name || event.assigned_to)
+                      : (language === "es" ? "Sin asignar" : "Unassigned")}
+                  </p>
+                </div>
+              </div>
+              <Select 
+                value={event?.assigned_to || "none"} 
+                onValueChange={(v) => handleAssignSalesRep(v === "none" ? null : v)}
+                disabled={assigningRep}
+              >
+                <SelectTrigger className="w-48" data-testid="sales-rep-select">
+                  <SelectValue placeholder={language === "es" ? "Seleccionar..." : "Select..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{language === "es" ? "Sin asignar" : "Unassigned"}</SelectItem>
+                  {salesReps.filter(r => r.user_id).map(rep => (
+                    <SelectItem key={rep.user_id} value={rep.user_id}>
+                      <div className="flex items-center gap-2">
+                        <span>{rep.full_name}</span>
+                        {rep.commission_rate > 0 && (
+                          <Badge variant="outline" className="text-xs">{rep.commission_rate}%</Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {event?.assigned_to && salesReps.find(r => r.user_id === event.assigned_to)?.commission_rate > 0 && (
+              <p className="text-xs text-emerald-600 mt-2 ml-13">
+                {language === "es" 
+                  ? `Comisión: ${salesReps.find(r => r.user_id === event.assigned_to)?.commission_rate}% sobre venta`
+                  : `Commission: ${salesReps.find(r => r.user_id === event.assigned_to)?.commission_rate}% on sale`}
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Tabs - Simplified */}
         <Tabs defaultValue="order" className="space-y-6">

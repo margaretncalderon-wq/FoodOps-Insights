@@ -25,6 +25,35 @@ import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => 
   `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Helper functions for weekly entry
+const getWeekStart = (date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+};
+
+const getWeekDays = (weekStart) => {
+  const days = [];
+  const start = new Date(weekStart);
+  const dayNames = {
+    es: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
+    en: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  };
+  
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push({
+      dayName: dayNames.es[i],
+      date: `${d.getDate()}/${d.getMonth() + 1}`,
+      fullDate: d.toISOString().split('T')[0]
+    });
+  }
+  return days;
+};
+
 const STATUS_CONFIG = {
   pending: { label: "Pendiente", labelEn: "Pending", color: "bg-amber-100 text-amber-700" },
   approved: { label: "Aprobada", labelEn: "Approved", color: "bg-emerald-100 text-emerald-700" },
@@ -47,7 +76,10 @@ export function OvertimeSection() {
     date: new Date().toISOString().split("T")[0],
     hours_35: 0,
     hours_100: 0,
-    reason: ""
+    reason: "",
+    entryMode: "single",
+    weekStart: getWeekStart(new Date()),
+    weeklyHours: Array(7).fill({ hours_35: 0, hours_100: 0 })
   });
 
   const fetchData = useCallback(async () => {
@@ -68,8 +100,8 @@ export function OvertimeSection() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleCreateRequest = async () => {
-    if (!newRequest.employee_id || (!newRequest.hours_35 && !newRequest.hours_100)) {
-      alert(isEs ? "Selecciona empleado e ingresa al menos un tipo de hora extra" : "Select employee and enter at least one overtime type");
+    if (!newRequest.employee_id) {
+      alert(isEs ? "Selecciona un empleado" : "Select an employee");
       return;
     }
     
@@ -80,11 +112,55 @@ export function OvertimeSection() {
     
     setSubmitting(true);
     try {
-      const response = await axios.post(`${API}/api/people-ops/overtime/requests`, {
-        ...newRequest,
-        hours_35: parseFloat(newRequest.hours_35) || 0,
-        hours_100: parseFloat(newRequest.hours_100) || 0
-      }, { withCredentials: true });
+      if (newRequest.entryMode === "weekly") {
+        // Weekly mode - create multiple requests
+        const validDays = newRequest.weeklyHours.filter(d => d && (d.hours_35 > 0 || d.hours_100 > 0));
+        
+        if (validDays.length === 0) {
+          alert(isEs ? "Ingresa al menos una hora extra" : "Enter at least one overtime hour");
+          setSubmitting(false);
+          return;
+        }
+        
+        let totalEstimated = 0;
+        for (const day of validDays) {
+          const response = await axios.post(`${API}/api/people-ops/overtime/requests`, {
+            employee_id: newRequest.employee_id,
+            date: day.date,
+            hours_35: day.hours_35 || 0,
+            hours_100: day.hours_100 || 0,
+            reason: newRequest.reason
+          }, { withCredentials: true });
+          totalEstimated += response.data.estimated_amount || 0;
+        }
+        
+        alert(isEs 
+          ? `${validDays.length} solicitud(es) creada(s). Monto estimado total: ${formatCurrency(totalEstimated)}`
+          : `${validDays.length} request(s) created. Total estimated: ${formatCurrency(totalEstimated)}`
+        );
+      } else {
+        // Single day mode
+        if (!newRequest.hours_35 && !newRequest.hours_100) {
+          alert(isEs ? "Ingresa al menos un tipo de hora extra" : "Enter at least one overtime type");
+          setSubmitting(false);
+          return;
+        }
+        
+        const response = await axios.post(`${API}/api/people-ops/overtime/requests`, {
+          employee_id: newRequest.employee_id,
+          date: newRequest.date,
+          hours_35: parseFloat(newRequest.hours_35) || 0,
+          hours_100: parseFloat(newRequest.hours_100) || 0,
+          reason: newRequest.reason
+        }, { withCredentials: true });
+        
+        if (response.data.estimated_amount) {
+          alert(isEs 
+            ? `Solicitud creada. Monto estimado: ${formatCurrency(response.data.estimated_amount)}`
+            : `Request created. Estimated amount: ${formatCurrency(response.data.estimated_amount)}`
+          );
+        }
+      }
       
       setDialogOpen(false);
       setNewRequest({
@@ -92,17 +168,12 @@ export function OvertimeSection() {
         date: new Date().toISOString().split("T")[0],
         hours_35: 0,
         hours_100: 0,
-        reason: ""
+        reason: "",
+        entryMode: "single",
+        weekStart: getWeekStart(new Date()),
+        weeklyHours: Array(7).fill({ hours_35: 0, hours_100: 0 })
       });
       fetchData();
-      
-      // Show estimated amount
-      if (response.data.estimated_amount) {
-        alert(isEs 
-          ? `Solicitud creada. Monto estimado: ${formatCurrency(response.data.estimated_amount)}`
-          : `Request created. Estimated amount: ${formatCurrency(response.data.estimated_amount)}`
-        );
-      }
     } catch (err) {
       alert(err.response?.data?.detail || "Error creating request");
     }
@@ -316,7 +387,7 @@ export function OvertimeSection() {
 
       {/* New Overtime Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isEs ? "Registrar Horas Extras" : "Log Overtime Hours"}</DialogTitle>
           </DialogHeader>
@@ -336,60 +407,168 @@ export function OvertimeSection() {
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">{isEs ? "Fecha *" : "Date *"}</label>
-              <Input
-                type="date"
-                value={newRequest.date}
-                onChange={(e) => setNewRequest({ ...newRequest, date: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium flex items-center gap-1">
-                  <Sun className="w-4 h-4 text-amber-500" />
-                  {isEs ? "Horas Normales (35%)" : "Normal Hours (35%)"}
-                </label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="12"
-                  value={newRequest.hours_35}
-                  onChange={(e) => setNewRequest({ ...newRequest, hours_35: e.target.value })}
-                  placeholder="0"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {isEs ? "Horas extra diurnas normales" : "Regular daytime overtime"}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium flex items-center gap-1">
-                  <Moon className="w-4 h-4 text-purple-500" />
-                  {isEs ? "Horas Nocturnas/Feriado (100%)" : "Night/Holiday Hours (100%)"}
-                </label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="12"
-                  value={newRequest.hours_100}
-                  onChange={(e) => setNewRequest({ ...newRequest, hours_100: e.target.value })}
-                  placeholder="0"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {isEs ? "Nocturnas, domingos, feriados" : "Night, Sunday, holidays"}
-                </p>
+            {/* Entry Mode Selection */}
+            <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+              <span className="text-sm font-medium">{isEs ? "Modo de Entrada:" : "Entry Mode:"}</span>
+              <div className="flex gap-2">
+                <Button 
+                  variant={newRequest.entryMode !== "weekly" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setNewRequest({ ...newRequest, entryMode: "single" })}
+                >
+                  {isEs ? "Día Individual" : "Single Day"}
+                </Button>
+                <Button 
+                  variant={newRequest.entryMode === "weekly" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setNewRequest({ ...newRequest, entryMode: "weekly", weekStart: getWeekStart(new Date()) })}
+                >
+                  {isEs ? "Semana Completa" : "Full Week"}
+                </Button>
               </div>
             </div>
 
-            {(parseFloat(newRequest.hours_35) > 0 || parseFloat(newRequest.hours_100) > 0) && (
-              <div className="p-3 rounded-lg bg-muted/50 text-center">
-                <span className="text-sm text-muted-foreground">{isEs ? "Total horas:" : "Total hours:"}</span>
-                <span className="ml-2 text-xl font-bold">
-                  {(parseFloat(newRequest.hours_35) || 0) + (parseFloat(newRequest.hours_100) || 0)}h
-                </span>
+            {/* Single Day Entry */}
+            {newRequest.entryMode !== "weekly" && (
+              <>
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Fecha *" : "Date *"}</label>
+                  <Input
+                    type="date"
+                    value={newRequest.date}
+                    onChange={(e) => setNewRequest({ ...newRequest, date: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <Sun className="w-4 h-4 text-amber-500" />
+                      {isEs ? "Horas Normales (35%)" : "Normal Hours (35%)"}
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="12"
+                      value={newRequest.hours_35}
+                      onChange={(e) => setNewRequest({ ...newRequest, hours_35: e.target.value })}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs ? "Lun-Vie después de horario" : "Mon-Fri after hours"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <Moon className="w-4 h-4 text-purple-500" />
+                      {isEs ? "Horas Nocturnas/Domingo (100%)" : "Night/Sunday Hours (100%)"}
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="12"
+                      value={newRequest.hours_100}
+                      onChange={(e) => setNewRequest({ ...newRequest, hours_100: e.target.value })}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs ? "Sábado, Domingo, Feriados, Nocturno" : "Sat, Sun, Holidays, Overnight"}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Weekly Entry */}
+            {newRequest.entryMode === "weekly" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Semana del" : "Week of"}</label>
+                  <Input
+                    type="date"
+                    value={newRequest.weekStart}
+                    onChange={(e) => setNewRequest({ ...newRequest, weekStart: e.target.value })}
+                  />
+                </div>
+                
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="p-2 text-left">{isEs ? "Día" : "Day"}</th>
+                        <th className="p-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Sun className="w-3 h-3 text-amber-500" />
+                            35%
+                          </div>
+                        </th>
+                        <th className="p-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Moon className="w-3 h-3 text-purple-500" />
+                            100%
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getWeekDays(newRequest.weekStart).map((day, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-muted/20"}>
+                          <td className="p-2">
+                            <div>
+                              <span className="font-medium">{day.dayName}</span>
+                              <span className="text-muted-foreground ml-2 text-xs">{day.date}</span>
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="12"
+                              className="w-20 h-8 text-center mx-auto"
+                              value={newRequest.weeklyHours?.[idx]?.hours_35 || ""}
+                              onChange={(e) => {
+                                const weeklyHours = [...(newRequest.weeklyHours || Array(7).fill({ hours_35: 0, hours_100: 0 }))];
+                                weeklyHours[idx] = { ...weeklyHours[idx], hours_35: parseFloat(e.target.value) || 0, date: day.fullDate };
+                                setNewRequest({ ...newRequest, weeklyHours });
+                              }}
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="12"
+                              className="w-20 h-8 text-center mx-auto"
+                              value={newRequest.weeklyHours?.[idx]?.hours_100 || ""}
+                              onChange={(e) => {
+                                const weeklyHours = [...(newRequest.weeklyHours || Array(7).fill({ hours_35: 0, hours_100: 0 }))];
+                                weeklyHours[idx] = { ...weeklyHours[idx], hours_100: parseFloat(e.target.value) || 0, date: day.fullDate };
+                                setNewRequest({ ...newRequest, weeklyHours });
+                              }}
+                              placeholder="0"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-muted/50 font-medium">
+                      <tr>
+                        <td className="p-2">{isEs ? "Total Semana" : "Week Total"}</td>
+                        <td className="p-2 text-center">
+                          {(newRequest.weeklyHours || []).reduce((sum, d) => sum + (d?.hours_35 || 0), 0)}h
+                        </td>
+                        <td className="p-2 text-center">
+                          {(newRequest.weeklyHours || []).reduce((sum, d) => sum + (d?.hours_100 || 0), 0)}h
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -398,15 +577,18 @@ export function OvertimeSection() {
               <Textarea
                 value={newRequest.reason}
                 onChange={(e) => setNewRequest({ ...newRequest, reason: e.target.value })}
-                placeholder={isEs ? "Describa el motivo de las horas extras..." : "Describe the reason for overtime..."}
+                placeholder={isEs ? "Describe el motivo de las horas extras..." : "Describe the reason for overtime..."}
+                rows={2}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
             <Button onClick={handleCreateRequest} disabled={submitting}>
-              {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+              {submitting && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Registrar" : "Submit"}
             </Button>
           </DialogFooter>

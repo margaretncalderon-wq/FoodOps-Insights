@@ -12,3 +12,4 @@ export { VariablePaySection } from './VariablePaySection';
 export { VariablePayWidget } from './VariablePayWidget';
 export { PaymentHistoryTab } from './EmployeeProfilePage/PaymentHistoryTab';
 export { BenefitsInKindSection } from './BenefitsInKindSection';
+export { RegulatoryReportsSection } from './RegulatoryReportsSection';
