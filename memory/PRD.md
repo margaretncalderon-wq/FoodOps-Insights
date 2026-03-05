@@ -33,6 +33,39 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Integración Fixed Costs ↔ Cost Centers - COMPLETADO ✅
+
+**Problema resuelto**: Los Fixed Costs y Cost Centers estaban desconectados. Ahora los gastos fijos se reflejan automáticamente en el "Gasto Actual" de los Cost Centers.
+
+**Cambios implementados:**
+
+1. **Backend** (`business_clarity.py`):
+   - Añadido campo `cost_center_id` a categorías de Fixed Costs
+   - Al crear/editar categoría, se puede vincular a un Cost Center
+
+2. **Backend** (`people_ops.py`):
+   - Endpoint `GET /cost-centers` ahora calcula `current_spend` sumando:
+     - Payables asignados a categorías de Fixed Costs vinculadas
+     - Payables directamente asignados al Cost Center
+     - Salarios de empleados en ese Cost Center
+   - Calcula automáticamente la `utilization` (% vs presupuesto)
+
+3. **Frontend** (`FixedCostsSection.js`):
+   - Nuevo selector "Cost Center (optional)" al crear/editar categoría
+   - Tabla de categorías muestra el Cost Center vinculado
+
+**Flujo de datos:**
+```
+Fixed Cost Category (ej: "Alquiler")
+        ↓ linked to
+Cost Center (ej: "FAC - Instalaciones")
+        ↓ calculates
+Gasto Actual = sum(payables + salaries)
+Utilización = (Gasto Actual / Presupuesto) × 100%
+```
+
+---
+
 #### Generación de Reportes Regulatorios (DGT-3, TSS, IR-17) - COMPLETADO ✅
 
 **Reportes implementados para República Dominicana:**

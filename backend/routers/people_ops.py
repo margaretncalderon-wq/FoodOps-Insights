@@ -74,7 +74,7 @@ async def get_employee_self_service(user: User):
 
 @people_ops_router.get("/cost-centers")
 async def get_cost_centers(user: User = Depends(get_current_user)):
-    """Get all cost centers for the organization"""
+    """Get all cost centers for the organization with calculated spend"""
     company_id = user.company_id or user.active_org_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
@@ -83,6 +83,70 @@ async def get_cost_centers(user: User = Depends(get_current_user)):
         {"company_id": company_id},
         {"_id": 0}
     ).sort("name", 1).to_list(100)
+    
+    # Calculate current spend for each cost center from:
+    # 1. Fixed Cost Categories linked to this cost center
+    # 2. Payables assigned to this cost center
+    # 3. Employee salaries in this cost center
+    
+    for cc in cost_centers:
+        cc_id = cc.get("cost_center_id")
+        total_spend = 0.0
+        
+        # 1. Get Fixed Cost actual from analysis (payables assigned to fixed cost categories linked to this CC)
+        linked_categories = await db.fixed_cost_categories.find(
+            {"company_id": company_id, "cost_center_id": cc_id},
+            {"_id": 0, "category_id": 1}
+        ).to_list(50)
+        
+        if linked_categories:
+            cat_ids = [c["category_id"] for c in linked_categories]
+            # Sum payables linked to these fixed cost categories
+            payables_pipeline = [
+                {"$match": {
+                    "company_id": company_id,
+                    "fixed_cost_category_id": {"$in": cat_ids},
+                    "status": {"$ne": "cancelled"}
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]
+            payables_result = await db.supplier_payables.aggregate(payables_pipeline).to_list(1)
+            if payables_result:
+                total_spend += payables_result[0].get("total", 0)
+        
+        # 2. Get payables directly assigned to this cost center
+        direct_payables_pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center": cc.get("code") or cc.get("name"),
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        direct_result = await db.supplier_payables.aggregate(direct_payables_pipeline).to_list(1)
+        if direct_result:
+            total_spend += direct_result[0].get("total", 0)
+        
+        # 3. Get employee salary costs (monthly) for this cost center
+        employees_pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center": cc.get("code") or cc.get("name"),
+                "status": "active"
+            }},
+            {"$group": {"_id": None, "total_salary": {"$sum": "$base_salary"}}}
+        ]
+        emp_result = await db.employees.aggregate(employees_pipeline).to_list(1)
+        if emp_result:
+            total_spend += emp_result[0].get("total_salary", 0)
+        
+        cc["current_spend"] = round(total_spend, 2)
+        
+        # Calculate utilization percentage if budget exists
+        if cc.get("annual_budget") and cc["annual_budget"] > 0:
+            cc["utilization"] = round((total_spend / cc["annual_budget"]) * 100, 1)
+        else:
+            cc["utilization"] = None
     
     return cost_centers
 

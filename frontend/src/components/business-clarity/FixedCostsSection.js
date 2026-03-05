@@ -24,11 +24,12 @@ export function FixedCostsSection() {
   const [budgets, setBudgets] = useState([]);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [costCenters, setCostCenters] = useState([]);
   
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", active: true });
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", active: true, cost_center_id: "" });
   const [budgetForm, setBudgetForm] = useState({ category_id: "", period: "MONTHLY", budget_amount: 0, start_date: "", notes: "" });
   
   const [selectedPeriod, setSelectedPeriod] = useState("MONTHLY");
@@ -38,14 +39,16 @@ export function FixedCostsSection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [catRes, budRes, analysisRes] = await Promise.all([
+      const [catRes, budRes, analysisRes, ccRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/fixed-costs/categories`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/fixed-costs/budgets`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/fixed-costs/analysis?period=${selectedPeriod}&year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true })
+        axios.get(`${API}/api/business-clarity/fixed-costs/analysis?period=${selectedPeriod}&year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true })
       ]);
       setCategories(catRes.data || []);
       setBudgets(budRes.data || []);
       setAnalysis(analysisRes.data);
+      setCostCenters(ccRes.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -65,7 +68,7 @@ export function FixedCostsSection() {
       }
       setCategoryDialogOpen(false);
       setEditingCategory(null);
-      setCategoryForm({ name: "", description: "", active: true });
+      setCategoryForm({ name: "", description: "", active: true, cost_center_id: "" });
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
@@ -320,7 +323,7 @@ export function FixedCostsSection() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Categorías de Costos Fijos" : "Fixed Cost Categories"}</CardTitle>
-                <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", active: true }); setCategoryDialogOpen(true); }}>
+                <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", active: true, cost_center_id: "" }); setCategoryDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -331,6 +334,7 @@ export function FixedCostsSection() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
+                    <TableHead>{isEs ? "Centro de Costo" : "Cost Center"}</TableHead>
                     <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -345,13 +349,20 @@ export function FixedCostsSection() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {cat.cost_center_name ? (
+                          <Badge variant="outline" className="bg-blue-50">{cat.cost_center_name}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={cat.active ? "default" : "secondary"}>
                           {cat.active ? (isEs ? "Activa" : "Active") : (isEs ? "Inactiva" : "Inactive")}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingCategory(cat); setCategoryForm({ name: cat.name, description: cat.description || "", active: cat.active }); setCategoryDialogOpen(true); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingCategory(cat); setCategoryForm({ name: cat.name, description: cat.description || "", active: cat.active, cost_center_id: cat.cost_center_id || "" }); setCategoryDialogOpen(true); }}>
                             <FileText className="w-4 h-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteCategory(cat.category_id)}>
@@ -363,7 +374,7 @@ export function FixedCostsSection() {
                   ))}
                   {categories.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                         {isEs ? "Sin categorías" : "No categories"}
                       </TableCell>
                     </TableRow>
@@ -429,6 +440,25 @@ export function FixedCostsSection() {
             <div>
               <Label>{isEs ? "Descripción" : "Description"}</Label>
               <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} placeholder={isEs ? "Descripción opcional..." : "Optional description..."} />
+            </div>
+            <div>
+              <Label>{isEs ? "Centro de Costo (opcional)" : "Cost Center (optional)"}</Label>
+              <Select value={categoryForm.cost_center_id || "none"} onValueChange={(v) => setCategoryForm({ ...categoryForm, cost_center_id: v === "none" ? null : v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar centro de costo..." : "Select cost center..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin vincular" : "Not linked"}</SelectItem>
+                  {costCenters.map(cc => (
+                    <SelectItem key={cc.cost_center_id} value={cc.cost_center_id}>
+                      {cc.code ? `${cc.code} - ` : ""}{cc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Los gastos de esta categoría se reflejarán en el centro de costo seleccionado" : "Expenses in this category will be reflected in the selected cost center"}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="active" checked={categoryForm.active} onChange={(e) => setCategoryForm({ ...categoryForm, active: e.target.checked })} />

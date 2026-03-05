@@ -1451,6 +1451,7 @@ class FixedCostCategoryCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     active: bool = True
+    cost_center_id: Optional[str] = None  # Link to Cost Center
 
 # Budget Model
 class BudgetCreate(BaseModel):
@@ -1477,12 +1478,23 @@ async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User =
     now = datetime.now(timezone.utc)
     category_id = f"fcc_{uuid.uuid4().hex[:12]}"
     
+    # Get cost center name if linked
+    cost_center_name = None
+    if data.cost_center_id:
+        cc = await db.cost_centers.find_one(
+            {"cost_center_id": data.cost_center_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        cost_center_name = cc.get("name") if cc else None
+    
     category = {
         "category_id": category_id,
         "company_id": user.company_id,
         "name": data.name,
         "description": data.description,
         "active": data.active,
+        "cost_center_id": data.cost_center_id,
+        "cost_center_name": cost_center_name,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
@@ -1497,12 +1509,23 @@ async def update_fixed_cost_category(category_id: str, data: FixedCostCategoryCr
     """Update a fixed cost category"""
     now = datetime.now(timezone.utc)
     
+    # Get cost center name if linked
+    cost_center_name = None
+    if data.cost_center_id:
+        cc = await db.cost_centers.find_one(
+            {"cost_center_id": data.cost_center_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        cost_center_name = cc.get("name") if cc else None
+    
     result = await db.fixed_cost_categories.update_one(
         {"category_id": category_id, "company_id": user.company_id},
         {"$set": {
             "name": data.name,
             "description": data.description,
             "active": data.active,
+            "cost_center_id": data.cost_center_id,
+            "cost_center_name": cost_center_name,
             "updated_at": now.isoformat()
         }}
     )
