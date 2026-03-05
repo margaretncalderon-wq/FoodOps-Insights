@@ -41,11 +41,6 @@ const INVENTORY_TYPES = [
 
 // Note: Equipment, Disposables, and Event Supplies have been moved to Operations Supplies module
 
-const CATEGORIES = [
-  "protein", "dairy", "produce", "dry_goods", "beverage", "spices", 
-  "frozen", "bakery", "packaging", "cleaning"
-];
-
 // ==================== INVENTORY SECTION ====================
 function InventorySection() {
   const { language } = useLanguage();
@@ -56,6 +51,12 @@ function InventorySection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("items");
+  
+  // Categories and brands from backend
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [brandSearch, setBrandSearch] = useState("");
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
   
   // Dialogs
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -69,10 +70,10 @@ function InventorySection() {
   
   // Forms
   const [itemForm, setItemForm] = useState({
-    name: "", category: "dry_goods", inventory_type: "food", unit: "kg",
+    name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg",
     cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, 
     preferred_supplier_id: "", secondary_supplier_id: "",
-    purchase_unit: "", purchase_pack_size: 1
+    purchase_unit: "", purchase_pack_size: 1, sku: "", notes: ""
   });
   
   const [supplierForm, setSupplierForm] = useState({
@@ -121,10 +122,11 @@ function InventorySection() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [itemsRes, suppliersRes, transactionsRes] = await Promise.all([
+      const [itemsRes, suppliersRes, transactionsRes, categoriesRes] = await Promise.all([
         axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
         axios.get(`${API}/api/suppliers`, { withCredentials: true }),
-        axios.get(`${API}/api/inventory/transactions`, { withCredentials: true })
+        axios.get(`${API}/api/inventory/transactions`, { withCredentials: true }),
+        axios.get(`${API}/api/settings/inventory-categories`, { withCredentials: true })
       ]);
       // Filter only culinary inventory types (food and packaging)
       const culinaryItems = (itemsRes.data || []).filter(item => 
@@ -133,13 +135,24 @@ function InventorySection() {
       setItems(culinaryItems);
       setSuppliers(suppliersRes.data);
       setTransactions(transactionsRes.data);
+      setCategories(categoriesRes.data || []);
     } catch (error) {
       toast.error("Error loading data");
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Fetch brands for autocomplete
+  const fetchBrands = useCallback(async (query = "") => {
+    try {
+      const res = await axios.get(`${API}/api/settings/inventory-brands?q=${query}`, { withCredentials: true });
+      setBrands(res.data || []);
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); fetchBrands(); }, [fetchData, fetchBrands]);
 
   const handleSaveItem = async () => {
     try {
@@ -151,8 +164,9 @@ function InventorySection() {
       toast.success(language === "es" ? "Guardado" : "Saved");
       setItemDialogOpen(false);
       setEditingItem(null);
-      setItemForm({ name: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "" });
+      setItemForm({ name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "", sku: "", notes: "" });
       fetchData();
+      fetchBrands(); // Refresh brands list after adding new item
     } catch (error) {
       toast.error("Error");
     }
@@ -172,12 +186,13 @@ function InventorySection() {
   const handleEditItem = (item) => {
     setEditingItem(item);
     setItemForm({
-      name: item.name || "", category: item.category || "dry_goods", inventory_type: item.inventory_type || "food",
+      name: item.name || "", brand: item.brand || "", category: item.category || "dry_goods", inventory_type: item.inventory_type || "food",
       unit: item.unit || "kg", cost_per_unit: item.cost_per_unit || 0, stock_quantity: item.stock_quantity || 0,
       par_level: item.par_level || 0, pack_size: item.pack_size || 1, preferred_supplier_id: item.preferred_supplier_id || "",
       secondary_supplier_id: item.secondary_supplier_id || "", purchase_unit: item.purchase_unit || "",
-      purchase_pack_size: item.purchase_pack_size || 1
+      purchase_pack_size: item.purchase_pack_size || 1, sku: item.sku || "", notes: item.notes || ""
     });
+    setBrandSearch(item.brand || "");
     setItemDialogOpen(true);
   };
 
@@ -313,12 +328,12 @@ function InventorySection() {
               <div className="flex items-center gap-2">
                 <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={t("search")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
                 <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("all")}</SelectItem>{INVENTORY_TYPES.map(type => (<SelectItem key={type.value} value={type.value}>{language === "es" ? type.labelEs : type.label}</SelectItem>))}</SelectContent></Select>
-                <Button onClick={() => { setEditingItem(null); setItemForm({ name: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "" }); setItemDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{t("addItem")}</Button>
+                <Button onClick={() => { setEditingItem(null); setItemForm({ name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "", sku: "", notes: "" }); setBrandSearch(""); setItemDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{t("addItem")}</Button>
               </div>
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{t("type")}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{language === "es" ? "En Mano" : "On Hand"}</TableHead><TableHead className="text-right">{language === "es" ? "Reservado" : "Reserved"}</TableHead><TableHead className="text-right">{language === "es" ? "Disponible" : "Available"}</TableHead><TableHead className="text-right">{t("parLevel")}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{language === "es" ? "Marca" : "Brand"}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{language === "es" ? "En Mano" : "On Hand"}</TableHead><TableHead className="text-right">{language === "es" ? "Disponible" : "Available"}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {filteredItems.map(item => {
                     const onHand = item.stock_quantity || 0;
@@ -326,31 +341,32 @@ function InventorySection() {
                     const available = onHand - reserved;
                     const isLowStock = item.par_level > 0 && onHand < item.par_level;
                     const hasReserved = reserved > 0;
+                    const categoryInfo = categories.find(c => c.key === item.category);
                     
                     return (
                     <TableRow key={item.ingredient_id} className={isLowStock ? "bg-red-50" : hasReserved ? "bg-amber-50/50" : ""}>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {item.name}
-                          {hasReserved && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">{language === "es" ? "Reservado" : "Reserved"}</Badge>}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            {item.name}
+                            {hasReserved && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">{language === "es" ? "Reservado" : "Reserved"}</Badge>}
+                          </div>
+                          {item.sku && <span className="text-xs text-muted-foreground">SKU: {item.sku}</span>}
                         </div>
                       </TableCell>
-                      <TableCell><Badge variant="outline">{INVENTORY_TYPES.find(t => t.value === item.inventory_type)?.[language === "es" ? "labelEs" : "label"] || item.inventory_type}</Badge></TableCell>
-                      <TableCell className="capitalize">{item.category?.replace("_", " ")}</TableCell>
-                      <TableCell className="text-right font-mono">{onHand} {item.unit}</TableCell>
-                      <TableCell className="text-right">
-                        {hasReserved ? (
-                          <span className="font-mono text-amber-700">{reserved} {item.unit}</span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
+                      <TableCell className="text-muted-foreground">{item.brand || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: categoryInfo?.color || "#6b7280" }} />
+                          <span className="text-sm">{language === "es" ? categoryInfo?.label_es : categoryInfo?.label_en || item.category?.replace("_", " ")}</span>
+                        </div>
                       </TableCell>
+                      <TableCell className="text-right font-mono">{onHand} {item.unit}</TableCell>
                       <TableCell className="text-right">
                         <span className={`font-mono ${available <= 0 ? "text-red-600 font-bold" : available < (item.par_level || 0) ? "text-amber-600" : "text-green-600"}`}>
                           {available} {item.unit}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">{item.par_level || 0} {item.unit}</TableCell>
                       <TableCell className="text-right">${(item.cost_per_unit || 0).toFixed(2)}/{item.unit}</TableCell>
                       <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
                       <TableCell>
@@ -458,10 +474,70 @@ function InventorySection() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingItem ? (language === "es" ? "Editar Artículo" : "Edit Item") : t("addItem")}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2"><Label>{t("name")}</Label><Input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></div>
+            {/* Basic Info */}
+            <div className="col-span-2"><Label>{t("name")} *</Label><Input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} placeholder={language === "es" ? "Nombre del producto" : "Product name"} /></div>
+            
+            {/* Brand with autocomplete */}
+            <div className="relative">
+              <Label>{language === "es" ? "Marca" : "Brand"}</Label>
+              <Input 
+                value={brandSearch} 
+                onChange={(e) => {
+                  setBrandSearch(e.target.value);
+                  setItemForm({ ...itemForm, brand: e.target.value });
+                  setShowBrandDropdown(true);
+                  fetchBrands(e.target.value);
+                }}
+                onFocus={() => { setShowBrandDropdown(true); fetchBrands(brandSearch); }}
+                onBlur={() => setTimeout(() => setShowBrandDropdown(false), 200)}
+                placeholder={language === "es" ? "Escribir marca..." : "Type brand..."}
+              />
+              {showBrandDropdown && brands.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  {brands.filter(b => b.toLowerCase().includes(brandSearch.toLowerCase())).map((brand, idx) => (
+                    <div 
+                      key={idx} 
+                      className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                      onClick={() => {
+                        setBrandSearch(brand);
+                        setItemForm({ ...itemForm, brand: brand });
+                        setShowBrandDropdown(false);
+                      }}
+                    >
+                      {brand}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* SKU */}
+            <div>
+              <Label>SKU / {language === "es" ? "Código" : "Code"}</Label>
+              <Input value={itemForm.sku || ""} onChange={(e) => setItemForm({ ...itemForm, sku: e.target.value })} placeholder={language === "es" ? "Código interno" : "Internal code"} />
+            </div>
+            
             <div><Label>{t("type")}</Label><Select value={itemForm.inventory_type} onValueChange={(v) => setItemForm({ ...itemForm, inventory_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_TYPES.map(type => (<SelectItem key={type.value} value={type.value}>{language === "es" ? type.labelEs : type.label}</SelectItem>))}</SelectContent></Select></div>
-            <div><Label>{t("category")}</Label><Select value={itemForm.category} onValueChange={(v) => setItemForm({ ...itemForm, category: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CATEGORIES.map(cat => (<SelectItem key={cat} value={cat} className="capitalize">{cat.replace("_", " ")}</SelectItem>))}</SelectContent></Select></div>
-            <div><Label>{t("unit")}</Label><Select value={itemForm.unit} onValueChange={(v) => setItemForm({ ...itemForm, unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["kg", "g", "lb", "oz", "L", "ml", "unit", "box", "case"].map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent></Select></div>
+            
+            {/* Category - Dynamic from settings */}
+            <div>
+              <Label>{t("category")} *</Label>
+              <Select value={itemForm.category} onValueChange={(v) => setItemForm({ ...itemForm, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.key} value={cat.key}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color || "#6b7280" }} />
+                        {language === "es" ? cat.label_es : cat.label_en}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div><Label>{t("unit")}</Label><Select value={itemForm.unit} onValueChange={(v) => setItemForm({ ...itemForm, unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["kg", "g", "lb", "oz", "L", "ml", "unit", "box", "case", "galón", "botella"].map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent></Select></div>
             <div><Label>{t("cost")} / {itemForm.unit}</Label><Input type="number" min="0" step="0.01" value={itemForm.cost_per_unit} onChange={(e) => setItemForm({ ...itemForm, cost_per_unit: parseFloat(e.target.value) || 0 })} /></div>
             <div><Label>{t("stock")}</Label><Input type="number" min="0" step="0.01" value={itemForm.stock_quantity} onChange={(e) => setItemForm({ ...itemForm, stock_quantity: parseFloat(e.target.value) || 0 })} /></div>
             <div><Label>{t("parLevel")}</Label><Input type="number" min="0" step="0.01" value={itemForm.par_level} onChange={(e) => setItemForm({ ...itemForm, par_level: parseFloat(e.target.value) || 0 })} /></div>
@@ -506,6 +582,12 @@ function InventorySection() {
                   <Input type="number" min="1" step="1" value={itemForm.purchase_pack_size} onChange={(e) => setItemForm({ ...itemForm, purchase_pack_size: parseInt(e.target.value) || 1 })} />
                 </div>
               </div>
+            </div>
+            
+            {/* Notes */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <Label>{language === "es" ? "Notas" : "Notes"}</Label>
+              <Input value={itemForm.notes || ""} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} placeholder={language === "es" ? "Notas adicionales..." : "Additional notes..."} />
             </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setItemDialogOpen(false)}>{t("cancel")}</Button><Button onClick={handleSaveItem}>{t("save")}</Button></DialogFooter>

@@ -1615,3 +1615,186 @@ async def get_available_countries(user: User = Depends(get_current_user)):
         })
     return countries
 
+
+# ==================== INVENTORY CATEGORIES ====================
+
+# Default inventory categories
+DEFAULT_INVENTORY_CATEGORIES = [
+    {"key": "protein", "label_es": "Proteínas", "label_en": "Proteins", "color": "#ef4444"},
+    {"key": "dairy", "label_es": "Lácteos", "label_en": "Dairy", "color": "#3b82f6"},
+    {"key": "produce", "label_es": "Vegetales/Frutas", "label_en": "Produce", "color": "#22c55e"},
+    {"key": "dry_goods", "label_es": "Secos/Granos", "label_en": "Dry Goods", "color": "#f59e0b"},
+    {"key": "beverage", "label_es": "Bebidas", "label_en": "Beverages", "color": "#8b5cf6"},
+    {"key": "spices", "label_es": "Especias/Condimentos", "label_en": "Spices/Seasonings", "color": "#ec4899"},
+    {"key": "frozen", "label_es": "Congelados", "label_en": "Frozen", "color": "#06b6d4"},
+    {"key": "canned", "label_es": "Enlatados", "label_en": "Canned", "color": "#64748b"},
+    {"key": "packaging", "label_es": "Empaque", "label_en": "Packaging", "color": "#78716c"},
+    {"key": "cleaning", "label_es": "Limpieza", "label_en": "Cleaning", "color": "#14b8a6"},
+    {"key": "other", "label_es": "Otros", "label_en": "Other", "color": "#6b7280"}
+]
+
+
+@settings_router.get("/inventory-categories")
+async def get_inventory_categories(user: User = Depends(get_current_user)):
+    """Get inventory categories for the company"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Get custom categories for this company
+    custom_cats = await db.inventory_categories.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    if custom_cats:
+        return custom_cats
+    
+    # Return defaults if no custom categories
+    return DEFAULT_INVENTORY_CATEGORIES
+
+
+@settings_router.post("/inventory-categories")
+async def save_inventory_categories(categories: list, user: User = Depends(get_current_user)):
+    """Save inventory categories for the company"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Delete existing categories
+    await db.inventory_categories.delete_many({"company_id": company_id})
+    
+    # Insert new categories
+    for cat in categories:
+        cat_doc = {
+            "company_id": company_id,
+            "key": cat.get("key"),
+            "label_es": cat.get("label_es"),
+            "label_en": cat.get("label_en"),
+            "color": cat.get("color", "#6b7280"),
+            "updated_at": now
+        }
+        await db.inventory_categories.insert_one(cat_doc)
+    
+    return {"message": "Categories saved", "count": len(categories)}
+
+
+@settings_router.post("/inventory-categories/add")
+async def add_inventory_category(data: dict, user: User = Depends(get_current_user)):
+    """Add a single inventory category"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Check if we have custom categories, if not, initialize with defaults
+    existing = await db.inventory_categories.count_documents({"company_id": company_id})
+    if existing == 0:
+        for cat in DEFAULT_INVENTORY_CATEGORIES:
+            await db.inventory_categories.insert_one({
+                "company_id": company_id,
+                **cat,
+                "updated_at": now
+            })
+    
+    # Generate key from label if not provided
+    key = data.get("key") or data.get("label_es", "").lower().replace(" ", "_").replace("/", "_")
+    
+    # Check if key already exists
+    existing_cat = await db.inventory_categories.find_one({"company_id": company_id, "key": key})
+    if existing_cat:
+        raise HTTPException(status_code=400, detail="Category with this key already exists")
+    
+    cat_doc = {
+        "company_id": company_id,
+        "key": key,
+        "label_es": data.get("label_es", data.get("label_en", "")),
+        "label_en": data.get("label_en", data.get("label_es", "")),
+        "color": data.get("color", "#6b7280"),
+        "updated_at": now
+    }
+    await db.inventory_categories.insert_one(cat_doc)
+    
+    return {"message": "Category added", "category": {k: v for k, v in cat_doc.items() if k != "_id"}}
+
+
+@settings_router.put("/inventory-categories/{category_key}")
+async def update_inventory_category(category_key: str, data: dict, user: User = Depends(get_current_user)):
+    """Update an inventory category"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    
+    update_data = {
+        "label_es": data.get("label_es"),
+        "label_en": data.get("label_en"),
+        "color": data.get("color"),
+        "updated_at": now
+    }
+    # Remove None values
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+    
+    result = await db.inventory_categories.update_one(
+        {"company_id": company_id, "key": category_key},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    return {"message": "Category updated"}
+
+
+@settings_router.delete("/inventory-categories/{category_key}")
+async def delete_inventory_category(category_key: str, user: User = Depends(get_current_user)):
+    """Delete an inventory category"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Check if any ingredients use this category
+    ingredients_using = await db.ingredients.count_documents({"company_id": company_id, "category": category_key})
+    if ingredients_using > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete: {ingredients_using} ingredients use this category. Reassign them first."
+        )
+    
+    result = await db.inventory_categories.delete_one({"company_id": company_id, "key": category_key})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    return {"message": "Category deleted"}
+
+
+# ==================== INVENTORY BRANDS (Autocomplete) ====================
+
+@settings_router.get("/inventory-brands")
+async def get_inventory_brands(user: User = Depends(get_current_user), q: str = None):
+    """Get list of brands used in inventory (for autocomplete)"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Get distinct brands from ingredients
+    pipeline = [
+        {"$match": {"company_id": company_id, "brand": {"$nin": [None, ""]}}},
+        {"$group": {"_id": "$brand"}},
+        {"$sort": {"_id": 1}},
+        {"$limit": 100}
+    ]
+    
+    if q:
+        pipeline[0]["$match"]["brand"] = {"$regex": q, "$options": "i"}
+    
+    result = await db.ingredients.aggregate(pipeline).to_list(100)
+    brands = [r["_id"] for r in result if r["_id"]]
+    
+    return brands
+

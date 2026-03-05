@@ -543,6 +543,7 @@ class Supplier(BaseModel):
 # Ingredient Models - Enhanced for recipe costing
 class IngredientCreate(BaseModel):
     name: str
+    brand: Optional[str] = None  # Marca del producto
     category: str  # protein, dairy, produce, dry_goods, beverage, packaging, etc.
     inventory_type: str = "food"  # food, packaging, disposable, equipment, event_supply
     unit: str  # g, kg, ml, L, oz, lb, unit
@@ -564,11 +565,15 @@ class IngredientCreate(BaseModel):
     purchase_date: Optional[str] = None  # For depreciation tracking
     useful_life_years: int = 5  # Expected lifespan for depreciation
     depreciation_rate: float = 20.0  # Annual depreciation percentage
+    sku: Optional[str] = None  # Código de producto
+    barcode: Optional[str] = None  # Código de barras
+    notes: Optional[str] = None  # Notas adicionales
 
 class Ingredient(BaseModel):
     ingredient_id: str
     company_id: str
     name: str
+    brand: Optional[str] = None  # Marca del producto
     category: str
     inventory_type: str = "food"
     item_type: str = "RAW"  # RAW or PREPARED
@@ -594,6 +599,9 @@ class Ingredient(BaseModel):
     purchase_date: Optional[str] = None
     useful_life_years: int = 5
     depreciation_rate: float = 20.0
+    sku: Optional[str] = None
+    barcode: Optional[str] = None
+    notes: Optional[str] = None
     created_at: datetime
 
 # Recipe Models - Enhanced for detailed costing

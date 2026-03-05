@@ -33,6 +33,38 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Mejoras de Inventario para Importación Limpia - COMPLETADO ✅
+
+**Nuevo campo `brand` (marca):**
+- Campo añadido al modelo `Ingredient` en backend
+- UI con autocomplete: al escribir aparecen las marcas ya usadas en el sistema
+- Columna "Brand" visible en la tabla de inventario
+
+**Categorías de inventario dinámicas:**
+- 11 categorías predefinidas: Proteins, Dairy, Produce, Dry Goods, Beverages, Spices, Frozen, Canned, Packaging, Cleaning, Other
+- Nueva sección en **Settings → "Inventory Cat."** para gestionar categorías
+- Crear, editar (nombre ES/EN + color), eliminar categorías
+- Las categorías ahora muestran indicador de color en toda la app
+- No se puede eliminar una categoría si tiene ingredientes asociados
+
+**Campos adicionales:**
+- `sku`: Código interno del producto
+- `notes`: Notas adicionales
+- `barcode`: Código de barras (preparado para futuro)
+
+**Endpoints nuevos:**
+- `GET /api/settings/inventory-categories` - Lista de categorías
+- `POST /api/settings/inventory-categories/add` - Crear categoría
+- `PUT /api/settings/inventory-categories/{key}` - Editar categoría
+- `DELETE /api/settings/inventory-categories/{key}` - Eliminar categoría
+- `GET /api/settings/inventory-brands?q=` - Autocomplete de marcas
+
+**Archivos modificados:**
+- `backend/server.py` (modelo Ingredient con brand, sku, notes)
+- `backend/routers/settings.py` (endpoints de categorías y marcas)
+- `frontend/src/pages/FoodOpsPage.js` (UI mejorada con brand y categorías dinámicas)
+- `frontend/src/pages/SettingsPage.js` (sección de categorías de inventario)
+
 #### Reportes de Ventas y Administrativos - COMPLETADO ✅
 
 **Backend** (`business_clarity.py`) - Nuevos endpoints:

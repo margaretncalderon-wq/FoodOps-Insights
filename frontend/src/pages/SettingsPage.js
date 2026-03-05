@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "../components/ui/dialog";
 import {
   Select,
@@ -31,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 
@@ -1060,6 +1061,10 @@ export default function SettingsPage() {
             <TabsTrigger value="cost-centers" className="gap-2">
               <Building2 className="w-4 h-4" />
               Cost Centers
+            </TabsTrigger>
+            <TabsTrigger value="inventory-categories" className="gap-2">
+              <Package className="w-4 h-4" />
+              {language === "es" ? "Cat. Inventario" : "Inventory Cat."}
             </TabsTrigger>
             <TabsTrigger value="data-admin" className="gap-2 text-red-600">
               <Trash2 className="w-4 h-4" />
@@ -3908,6 +3913,11 @@ Mantel Blanco, , 10, 3`}
             <CostCentersSection />
           </TabsContent>
 
+          {/* Inventory Categories Tab */}
+          <TabsContent value="inventory-categories">
+            <InventoryCategoriesSection language={language} />
+          </TabsContent>
+
           {/* Data Admin Tab */}
           <TabsContent value="data-admin">
             <DataAdminSection language={language} />
@@ -3915,6 +3925,199 @@ Mantel Blanco, , 10, 3`}
         </Tabs>
       </div>
     </Layout>
+  );
+}
+
+// Inventory Categories Section Component
+function InventoryCategoriesSection({ language }) {
+  const isEs = language === "es";
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newCategory, setNewCategory] = useState({ label_es: "", label_en: "", color: "#6b7280" });
+  const [saving, setSaving] = useState(false);
+
+  const fetchCategories = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/settings/inventory-categories`, { withCredentials: true });
+      setCategories(res.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  const handleAddCategory = async () => {
+    if (!newCategory.label_es && !newCategory.label_en) return;
+    setSaving(true);
+    try {
+      await axios.post(`${API}/settings/inventory-categories/add`, newCategory, { withCredentials: true });
+      toast.success(isEs ? "Categoría agregada" : "Category added");
+      setShowAddDialog(false);
+      setNewCategory({ label_es: "", label_en: "", color: "#6b7280" });
+      fetchCategories();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error adding category");
+    }
+    setSaving(false);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory) return;
+    setSaving(true);
+    try {
+      await axios.put(`${API}/settings/inventory-categories/${editingCategory.key}`, editingCategory, { withCredentials: true });
+      toast.success(isEs ? "Categoría actualizada" : "Category updated");
+      setEditingCategory(null);
+      fetchCategories();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error updating category");
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteCategory = async (categoryKey) => {
+    if (!window.confirm(isEs ? "¿Eliminar esta categoría?" : "Delete this category?")) return;
+    try {
+      await axios.delete(`${API}/settings/inventory-categories/${categoryKey}`, { withCredentials: true });
+      toast.success(isEs ? "Categoría eliminada" : "Category deleted");
+      fetchCategories();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error deleting category");
+    }
+  };
+
+  const PRESET_COLORS = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e", "#14b8a6", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#ec4899", "#f43f5e", "#64748b", "#78716c"];
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">{isEs ? "Categorías de Inventario" : "Inventory Categories"}</h3>
+          <p className="text-sm text-muted-foreground">
+            {isEs ? "Gestiona las categorías para organizar tu inventario de ingredientes" : "Manage categories to organize your ingredient inventory"}
+          </p>
+        </div>
+        <Button onClick={() => setShowAddDialog(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          {isEs ? "Agregar Categoría" : "Add Category"}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {categories.map(cat => (
+          <Card key={cat.key} className="relative group">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: cat.color || "#6b7280" }}>
+                  <Package className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">{isEs ? cat.label_es : cat.label_en}</p>
+                  <p className="text-xs text-muted-foreground">{cat.key}</p>
+                </div>
+              </div>
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingCategory({ ...cat })}>
+                  <Pencil className="w-3 h-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => handleDeleteCategory(cat.key)}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Add Category Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Nueva Categoría" : "New Category"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isEs ? "Nombre (Español)" : "Name (Spanish)"}</Label>
+              <Input value={newCategory.label_es} onChange={(e) => setNewCategory({ ...newCategory, label_es: e.target.value })} placeholder="Ej: Lácteos" />
+            </div>
+            <div>
+              <Label>{isEs ? "Nombre (Inglés)" : "Name (English)"}</Label>
+              <Input value={newCategory.label_en} onChange={(e) => setNewCategory({ ...newCategory, label_en: e.target.value })} placeholder="E.g., Dairy" />
+            </div>
+            <div>
+              <Label>{isEs ? "Color" : "Color"}</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {PRESET_COLORS.map(color => (
+                  <button
+                    key={color}
+                    className={`w-8 h-8 rounded-full border-2 ${newCategory.color === color ? "border-black scale-110" : "border-transparent"}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewCategory({ ...newCategory, color })}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleAddCategory} disabled={saving || (!newCategory.label_es && !newCategory.label_en)}>
+              {saving && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+              {isEs ? "Agregar" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Categoría" : "Edit Category"}</DialogTitle>
+          </DialogHeader>
+          {editingCategory && (
+            <div className="space-y-4">
+              <div>
+                <Label>{isEs ? "Nombre (Español)" : "Name (Spanish)"}</Label>
+                <Input value={editingCategory.label_es || ""} onChange={(e) => setEditingCategory({ ...editingCategory, label_es: e.target.value })} />
+              </div>
+              <div>
+                <Label>{isEs ? "Nombre (Inglés)" : "Name (English)"}</Label>
+                <Input value={editingCategory.label_en || ""} onChange={(e) => setEditingCategory({ ...editingCategory, label_en: e.target.value })} />
+              </div>
+              <div>
+                <Label>{isEs ? "Color" : "Color"}</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {PRESET_COLORS.map(color => (
+                    <button
+                      key={color}
+                      className={`w-8 h-8 rounded-full border-2 ${editingCategory.color === color ? "border-black scale-110" : "border-transparent"}`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setEditingCategory({ ...editingCategory, color })}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingCategory(null)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleUpdateCategory} disabled={saving}>
+              {saving && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+              {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
