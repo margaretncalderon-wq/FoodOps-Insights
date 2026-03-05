@@ -3166,3 +3166,723 @@ async def get_payroll_summary_for_clarity(user: User = Depends(get_current_user)
         
         "monthly_trend": monthly_trend
     }
+
+
+# ==================== SALES REPORTS ====================
+
+@business_clarity_router.get("/reports/sales/general")
+async def get_sales_general_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """General sales report - invoices and returns in a period"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Default to current month
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get invoices in period
+    invoices = await db.invoices.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Calculate totals
+    total_invoiced = sum(inv.get("total", 0) for inv in invoices if inv.get("status") != "cancelled")
+    total_collected = sum(inv.get("total", 0) - inv.get("balance_due", 0) for inv in invoices)
+    total_returns = sum(abs(inv.get("total", 0)) for inv in invoices if inv.get("total", 0) < 0)
+    
+    invoice_count = len([i for i in invoices if i.get("total", 0) > 0])
+    return_count = len([i for i in invoices if i.get("total", 0) < 0])
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "summary": {
+            "total_invoiced": round(total_invoiced, 2),
+            "total_collected": round(total_collected, 2),
+            "total_returns": round(total_returns, 2),
+            "net_sales": round(total_invoiced - total_returns, 2),
+            "invoice_count": invoice_count,
+            "return_count": return_count
+        },
+        "invoices": [{
+            "invoice_id": inv.get("invoice_id"),
+            "invoice_number": inv.get("invoice_number"),
+            "client_name": inv.get("client_name"),
+            "date": inv.get("created_at", "")[:10],
+            "total": inv.get("total", 0),
+            "balance_due": inv.get("balance_due", 0),
+            "status": inv.get("status")
+        } for inv in invoices[:100]]  # Limit to 100 for display
+    }
+
+
+@business_clarity_router.get("/reports/sales/by-client")
+async def get_sales_by_client_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Sales by client - total billing per client"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    invoices = await db.invoices.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"},
+        "status": {"$ne": "cancelled"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Group by client
+    client_sales = {}
+    for inv in invoices:
+        client_id = inv.get("client_id") or "unknown"
+        client_name = inv.get("client_name") or "Sin Cliente"
+        
+        if client_id not in client_sales:
+            client_sales[client_id] = {
+                "client_id": client_id,
+                "client_name": client_name,
+                "total_invoiced": 0,
+                "total_collected": 0,
+                "total_outstanding": 0,
+                "invoice_count": 0
+            }
+        
+        client_sales[client_id]["total_invoiced"] += inv.get("total", 0)
+        collected = inv.get("total", 0) - inv.get("balance_due", 0)
+        client_sales[client_id]["total_collected"] += collected
+        client_sales[client_id]["total_outstanding"] += inv.get("balance_due", 0)
+        client_sales[client_id]["invoice_count"] += 1
+    
+    # Sort by total invoiced
+    records = sorted(client_sales.values(), key=lambda x: x["total_invoiced"], reverse=True)
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "total_clients": len(records),
+        "records": [{
+            **r,
+            "total_invoiced": round(r["total_invoiced"], 2),
+            "total_collected": round(r["total_collected"], 2),
+            "total_outstanding": round(r["total_outstanding"], 2)
+        } for r in records]
+    }
+
+
+@business_clarity_router.get("/reports/sales/by-salesperson")
+async def get_sales_by_salesperson_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Sales by salesperson - invoices per seller"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get events (sales) with assigned salesperson
+    events = await db.events.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Get users for name lookup
+    users = await db.users.find({"company_id": company_id}, {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1}).to_list(500)
+    user_map = {u["user_id"]: u.get("name") or f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or "Usuario" for u in users}
+    
+    # Group by salesperson
+    sales_by_person = {}
+    for ev in events:
+        seller_id = ev.get("assigned_to") or ev.get("created_by") or "unassigned"
+        seller_name = user_map.get(seller_id, "Sin Asignar")
+        
+        if seller_id not in sales_by_person:
+            sales_by_person[seller_id] = {
+                "salesperson_id": seller_id,
+                "salesperson_name": seller_name,
+                "total_revenue": 0,
+                "event_count": 0,
+                "closed_count": 0
+            }
+        
+        sales_by_person[seller_id]["total_revenue"] += ev.get("final_price", 0) or ev.get("price", 0)
+        sales_by_person[seller_id]["event_count"] += 1
+        if ev.get("status") in ["completed", "closed", "paid"]:
+            sales_by_person[seller_id]["closed_count"] += 1
+    
+    records = sorted(sales_by_person.values(), key=lambda x: x["total_revenue"], reverse=True)
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "total_salespeople": len(records),
+        "records": [{
+            **r,
+            "total_revenue": round(r["total_revenue"], 2),
+            "close_rate": round((r["closed_count"] / r["event_count"] * 100) if r["event_count"] > 0 else 0, 1)
+        } for r in records]
+    }
+
+
+@business_clarity_router.get("/reports/sales/by-item")
+async def get_sales_by_item_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Sales by item - billing and quantity per item"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get invoice lines from events
+    events = await db.events.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Group by item
+    item_sales = {}
+    for ev in events:
+        for item in ev.get("items", []):
+            item_id = item.get("item_id") or item.get("item_type_id") or "unknown"
+            item_name = item.get("name") or item.get("item_name") or "Item"
+            
+            if item_id not in item_sales:
+                item_sales[item_id] = {
+                    "item_id": item_id,
+                    "item_name": item_name,
+                    "quantity_sold": 0,
+                    "total_revenue": 0,
+                    "avg_unit_price": 0
+                }
+            
+            qty = item.get("quantity", 1)
+            price = item.get("unit_price", 0) * qty if item.get("unit_price") else item.get("total", 0)
+            item_sales[item_id]["quantity_sold"] += qty
+            item_sales[item_id]["total_revenue"] += price
+    
+    # Calculate averages
+    for item in item_sales.values():
+        if item["quantity_sold"] > 0:
+            item["avg_unit_price"] = round(item["total_revenue"] / item["quantity_sold"], 2)
+    
+    records = sorted(item_sales.values(), key=lambda x: x["total_revenue"], reverse=True)
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "total_items": len(records),
+        "records": [{
+            **r,
+            "total_revenue": round(r["total_revenue"], 2)
+        } for r in records]
+    }
+
+
+@business_clarity_router.get("/reports/sales/item-profitability")
+async def get_item_profitability_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Item profitability - revenue, cost, and margin per item"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get item types with cost info
+    item_types = await db.item_types.find({"company_id": company_id}, {"_id": 0}).to_list(500)
+    item_cost_map = {it["item_type_id"]: it.get("unit_cost", 0) for it in item_types}
+    
+    # Get events for revenue
+    events = await db.events.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Calculate profitability per item
+    item_profit = {}
+    for ev in events:
+        for item in ev.get("items", []):
+            item_id = item.get("item_type_id") or item.get("item_id") or "unknown"
+            item_name = item.get("name") or item.get("item_name") or "Item"
+            
+            if item_id not in item_profit:
+                item_profit[item_id] = {
+                    "item_id": item_id,
+                    "item_name": item_name,
+                    "quantity_sold": 0,
+                    "total_revenue": 0,
+                    "total_cost": 0
+                }
+            
+            qty = item.get("quantity", 1)
+            revenue = item.get("unit_price", 0) * qty if item.get("unit_price") else item.get("total", 0)
+            cost = item_cost_map.get(item_id, 0) * qty
+            
+            item_profit[item_id]["quantity_sold"] += qty
+            item_profit[item_id]["total_revenue"] += revenue
+            item_profit[item_id]["total_cost"] += cost
+    
+    # Calculate margins
+    records = []
+    for item in item_profit.values():
+        profit = item["total_revenue"] - item["total_cost"]
+        margin = (profit / item["total_revenue"] * 100) if item["total_revenue"] > 0 else 0
+        records.append({
+            **item,
+            "total_revenue": round(item["total_revenue"], 2),
+            "total_cost": round(item["total_cost"], 2),
+            "profit": round(profit, 2),
+            "margin_percent": round(margin, 1)
+        })
+    
+    records = sorted(records, key=lambda x: x["profit"], reverse=True)
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "total_items": len(records),
+        "records": records
+    }
+
+
+@business_clarity_router.get("/reports/sales/client-statement/{client_id}")
+async def get_client_statement(
+    client_id: str,
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Client account statement - detailed transactions"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Get client info
+    client = await db.clients.find_one(
+        {"company_id": company_id, "client_id": client_id},
+        {"_id": 0}
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = (now - timedelta(days=365)).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get invoices for client
+    invoices = await db.invoices.find({
+        "company_id": company_id,
+        "client_id": client_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    
+    # Get payments for client
+    payments = await db.payments.find({
+        "company_id": company_id,
+        "client_id": client_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    
+    # Build transaction history
+    transactions = []
+    running_balance = 0
+    
+    for inv in invoices:
+        running_balance += inv.get("total", 0)
+        transactions.append({
+            "date": inv.get("created_at", "")[:10],
+            "type": "invoice",
+            "reference": inv.get("invoice_number"),
+            "description": f"Factura {inv.get('invoice_number')}",
+            "debit": round(inv.get("total", 0), 2),
+            "credit": 0,
+            "balance": round(running_balance, 2)
+        })
+    
+    for pay in payments:
+        running_balance -= pay.get("amount", 0)
+        transactions.append({
+            "date": pay.get("created_at", "")[:10],
+            "type": "payment",
+            "reference": pay.get("payment_id", "")[:12],
+            "description": f"Pago - {pay.get('payment_method', 'Efectivo')}",
+            "debit": 0,
+            "credit": round(pay.get("amount", 0), 2),
+            "balance": round(running_balance, 2)
+        })
+    
+    # Sort by date
+    transactions.sort(key=lambda x: x["date"])
+    
+    # Recalculate running balance after sorting
+    running_balance = 0
+    for t in transactions:
+        running_balance += t["debit"] - t["credit"]
+        t["balance"] = round(running_balance, 2)
+    
+    return {
+        "client": {
+            "client_id": client_id,
+            "name": client.get("name") or client.get("company_name"),
+            "email": client.get("email"),
+            "phone": client.get("phone")
+        },
+        "period": {"start": start_date, "end": end_date},
+        "opening_balance": 0,
+        "closing_balance": round(running_balance, 2),
+        "total_invoiced": round(sum(t["debit"] for t in transactions), 2),
+        "total_paid": round(sum(t["credit"] for t in transactions), 2),
+        "transactions": transactions
+    }
+
+
+# ==================== ADMINISTRATIVE REPORTS ====================
+
+@business_clarity_router.get("/reports/admin/income-expense")
+async def get_income_expense_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Income and expense report by category"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get invoices (income)
+    invoices = await db.invoices.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"},
+        "status": {"$ne": "cancelled"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Get supplier payables (expenses)
+    payables = await db.supplier_payables.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Get fixed costs
+    fixed_costs = await db.fixed_cost_entries.find({
+        "company_id": company_id,
+        "date": {"$gte": start_date, "$lte": end_date}
+    }, {"_id": 0}).to_list(1000)
+    
+    # Group income by category (using event type as category)
+    income_by_category = {}
+    for inv in invoices:
+        category = inv.get("category") or inv.get("event_type") or "Ventas"
+        if category not in income_by_category:
+            income_by_category[category] = {"category": category, "type": "income", "total": 0, "count": 0}
+        income_by_category[category]["total"] += inv.get("total", 0)
+        income_by_category[category]["count"] += 1
+    
+    # Group expenses by category
+    expense_by_category = {}
+    for pay in payables:
+        category = pay.get("category") or "Proveedores"
+        if category not in expense_by_category:
+            expense_by_category[category] = {"category": category, "type": "expense", "total": 0, "count": 0}
+        expense_by_category[category]["total"] += pay.get("amount", 0)
+        expense_by_category[category]["count"] += 1
+    
+    for fc in fixed_costs:
+        category = fc.get("category") or "Costos Fijos"
+        if category not in expense_by_category:
+            expense_by_category[category] = {"category": category, "type": "expense", "total": 0, "count": 0}
+        expense_by_category[category]["total"] += fc.get("amount", 0)
+        expense_by_category[category]["count"] += 1
+    
+    total_income = sum(c["total"] for c in income_by_category.values())
+    total_expense = sum(c["total"] for c in expense_by_category.values())
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "summary": {
+            "total_income": round(total_income, 2),
+            "total_expense": round(total_expense, 2),
+            "net_result": round(total_income - total_expense, 2)
+        },
+        "income_categories": [{**c, "total": round(c["total"], 2)} for c in sorted(income_by_category.values(), key=lambda x: x["total"], reverse=True)],
+        "expense_categories": [{**c, "total": round(c["total"], 2)} for c in sorted(expense_by_category.values(), key=lambda x: x["total"], reverse=True)]
+    }
+
+
+@business_clarity_router.get("/reports/admin/inventory-valuation")
+async def get_inventory_valuation_report(user: User = Depends(get_current_user)):
+    """Inventory valuation report - current stock value"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Get all inventory items (ingredients/products)
+    ingredients = await db.ingredients.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Get item types for additional inventory
+    item_types = await db.item_types.find(
+        {"company_id": company_id, "track_inventory": True},
+        {"_id": 0}
+    ).to_list(500)
+    
+    inventory_items = []
+    total_value = 0
+    total_items = 0
+    
+    # Process ingredients
+    for ing in ingredients:
+        qty = ing.get("stock_quantity", 0)
+        cost = ing.get("cost_per_unit", 0) or ing.get("unit_cost", 0)
+        value = qty * cost
+        
+        inventory_items.append({
+            "item_id": ing.get("ingredient_id"),
+            "item_name": ing.get("name"),
+            "category": ing.get("category", "Ingredientes"),
+            "quantity": qty,
+            "unit": ing.get("unit", "unidad"),
+            "unit_cost": round(cost, 2),
+            "total_value": round(value, 2),
+            "last_purchase": ing.get("last_purchase_date"),
+            "min_stock": ing.get("min_stock", 0)
+        })
+        total_value += value
+        total_items += qty
+    
+    # Process item types with inventory
+    for it in item_types:
+        qty = it.get("stock_quantity", 0)
+        cost = it.get("unit_cost", 0)
+        value = qty * cost
+        
+        inventory_items.append({
+            "item_id": it.get("item_type_id"),
+            "item_name": it.get("name"),
+            "category": it.get("category", "Productos"),
+            "quantity": qty,
+            "unit": "unidad",
+            "unit_cost": round(cost, 2),
+            "total_value": round(value, 2),
+            "last_purchase": it.get("updated_at"),
+            "min_stock": it.get("min_stock", 0)
+        })
+        total_value += value
+        total_items += qty
+    
+    # Sort by value
+    inventory_items.sort(key=lambda x: x["total_value"], reverse=True)
+    
+    # Group by category for summary
+    by_category = {}
+    for item in inventory_items:
+        cat = item["category"]
+        if cat not in by_category:
+            by_category[cat] = {"category": cat, "item_count": 0, "total_value": 0}
+        by_category[cat]["item_count"] += 1
+        by_category[cat]["total_value"] += item["total_value"]
+    
+    return {
+        "as_of": datetime.now(timezone.utc).isoformat()[:10],
+        "summary": {
+            "total_value": round(total_value, 2),
+            "total_items": len(inventory_items),
+            "total_units": round(total_items, 2)
+        },
+        "by_category": [{**c, "total_value": round(c["total_value"], 2)} for c in sorted(by_category.values(), key=lambda x: x["total_value"], reverse=True)],
+        "items": inventory_items
+    }
+
+
+@business_clarity_router.get("/reports/admin/transactions")
+async def get_transactions_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """All money movements in a period"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get incoming payments
+    payments_in = await db.payments.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Get outgoing payments (supplier payments)
+    payments_out = await db.supplier_payments.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    transactions = []
+    
+    for p in payments_in:
+        transactions.append({
+            "date": p.get("created_at", "")[:10],
+            "type": "income",
+            "type_label": "Cobro",
+            "reference": p.get("payment_id", "")[:12],
+            "description": p.get("client_name") or p.get("description") or "Pago recibido",
+            "method": p.get("payment_method", "Efectivo"),
+            "amount": round(p.get("amount", 0), 2),
+            "direction": "in"
+        })
+    
+    for p in payments_out:
+        transactions.append({
+            "date": p.get("created_at", "")[:10],
+            "type": "expense",
+            "type_label": "Pago",
+            "reference": p.get("payment_id", "")[:12],
+            "description": p.get("supplier_name") or p.get("description") or "Pago a proveedor",
+            "method": p.get("payment_method", "Transferencia"),
+            "amount": round(p.get("amount", 0), 2),
+            "direction": "out"
+        })
+    
+    # Sort by date descending
+    transactions.sort(key=lambda x: x["date"], reverse=True)
+    
+    total_in = sum(t["amount"] for t in transactions if t["direction"] == "in")
+    total_out = sum(t["amount"] for t in transactions if t["direction"] == "out")
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "summary": {
+            "total_income": round(total_in, 2),
+            "total_expense": round(total_out, 2),
+            "net_flow": round(total_in - total_out, 2),
+            "transaction_count": len(transactions)
+        },
+        "transactions": transactions[:200]  # Limit for display
+    }
+
+
+@business_clarity_router.get("/reports/admin/purchases")
+async def get_purchases_report(
+    user: User = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Supplier invoices/purchases report"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # Get supplier payables
+    payables = await db.supplier_payables.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(5000)
+    
+    # Group by supplier
+    by_supplier = {}
+    for p in payables:
+        supplier_id = p.get("supplier_id") or "unknown"
+        supplier_name = p.get("supplier_name") or "Proveedor"
+        
+        if supplier_id not in by_supplier:
+            by_supplier[supplier_id] = {
+                "supplier_id": supplier_id,
+                "supplier_name": supplier_name,
+                "total_amount": 0,
+                "paid_amount": 0,
+                "pending_amount": 0,
+                "invoice_count": 0
+            }
+        
+        amount = p.get("amount", 0)
+        paid = p.get("paid_amount", 0)
+        by_supplier[supplier_id]["total_amount"] += amount
+        by_supplier[supplier_id]["paid_amount"] += paid
+        by_supplier[supplier_id]["pending_amount"] += (amount - paid)
+        by_supplier[supplier_id]["invoice_count"] += 1
+    
+    suppliers = sorted(by_supplier.values(), key=lambda x: x["total_amount"], reverse=True)
+    
+    total_purchases = sum(p.get("amount", 0) for p in payables)
+    total_paid = sum(p.get("paid_amount", 0) for p in payables)
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "summary": {
+            "total_purchases": round(total_purchases, 2),
+            "total_paid": round(total_paid, 2),
+            "total_pending": round(total_purchases - total_paid, 2),
+            "invoice_count": len(payables),
+            "supplier_count": len(suppliers)
+        },
+        "by_supplier": [{
+            **s,
+            "total_amount": round(s["total_amount"], 2),
+            "paid_amount": round(s["paid_amount"], 2),
+            "pending_amount": round(s["pending_amount"], 2)
+        } for s in suppliers],
+        "recent_purchases": [{
+            "payable_id": p.get("payable_id"),
+            "invoice_number": p.get("invoice_number"),
+            "supplier_name": p.get("supplier_name"),
+            "date": p.get("created_at", "")[:10],
+            "due_date": p.get("due_date", "")[:10] if p.get("due_date") else None,
+            "amount": round(p.get("amount", 0), 2),
+            "status": p.get("status", "pending")
+        } for p in sorted(payables, key=lambda x: x.get("created_at", ""), reverse=True)[:50]]
+    }
+

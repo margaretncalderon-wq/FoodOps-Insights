@@ -33,6 +33,29 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Reportes de Ventas y Administrativos - COMPLETADO ✅
+
+**Backend** (`business_clarity.py`) - Nuevos endpoints:
+
+**Reportes de Ventas:**
+- `GET /api/business-clarity/reports/sales/general` - Ventas generales (facturas y devoluciones)
+- `GET /api/business-clarity/reports/sales/by-client` - Ventas por cliente
+- `GET /api/business-clarity/reports/sales/by-salesperson` - Ventas por vendedor
+- `GET /api/business-clarity/reports/sales/by-item` - Ventas por ítem
+- `GET /api/business-clarity/reports/sales/item-profitability` - Rentabilidad por ítem
+- `GET /api/business-clarity/reports/sales/client-statement/{client_id}` - Estado de cuenta cliente
+
+**Reportes Administrativos:**
+- `GET /api/business-clarity/reports/admin/income-expense` - Ingresos y gastos por categoría
+- `GET /api/business-clarity/reports/admin/inventory-valuation` - Inventario valorizado
+- `GET /api/business-clarity/reports/admin/transactions` - Todas las transacciones (movimientos de dinero)
+- `GET /api/business-clarity/reports/admin/purchases` - Compras a proveedores
+
+**Frontend** - Nuevos componentes:
+- `SalesReportsSection.js`: UI completa con 6 tipos de reportes de ventas
+- `AdminReportsSection.js`: UI completa con 4 tipos de reportes administrativos
+- Dropdown "Reports" actualizado con 6 opciones: Executive, Sales, Administrative, Payroll Cost, Marketing ROI, Regulatory
+
 #### Reorganización de navegación Business Clarity - COMPLETADO ✅
 
 **Cambio de UX**:

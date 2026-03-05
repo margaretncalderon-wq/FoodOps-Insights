@@ -10,3 +10,5 @@ export { CloseReconciliationSection } from './CloseReconciliationSection';
 export { MarketingROISection } from './MarketingROISection';
 export { PayrollCostSection } from './PayrollCostSection';
 export { RegulatoryReportsSection } from './RegulatoryReportsSection';
+export { SalesReportsSection } from './SalesReportsSection';
+export { AdminReportsSection } from './AdminReportsSection';
