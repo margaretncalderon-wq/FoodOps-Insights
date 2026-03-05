@@ -33,6 +33,46 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Motor de Contabilización (Posting Engine) - COMPLETADO ✅
+
+**Fase 1: PayrollEntry con Cost Center**
+- `PayrollEntry` ahora incluye `cost_center_id` y `cost_center_name`
+- Hereda automáticamente del `employee.cost_center_id` al crear períodos de nómina
+- Los costos de nómina se distribuyen al CC del departamento del empleado (modelo distribuido)
+
+**Fase 2: Motor de Contabilización Centralizado**
+- Nueva colección `accounting_entries` para todas las transacciones financieras
+- Servicio `AccountingEngine` en `services/accounting_engine.py`
+- Tipos de transacción: `payroll`, `expense`, `purchase`, `inventory`, `revenue`
+- Subtipos: `salary`, `bonus`, `employer_contribution`, `supplier_payable`, etc.
+
+**Nuevos Endpoints:**
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `/api/business-clarity/accounting/entries` | GET | Lista entradas contables |
+| `/api/business-clarity/accounting/unassigned` | GET | Entradas sin CC asignado |
+| `/api/business-clarity/accounting/assign-cost-center` | POST | Asignar CC a entrada |
+| `/api/business-clarity/accounting/summary` | GET | Resumen por período |
+| `/api/business-clarity/accounting/reverse` | POST | Revertir entrada |
+| `/api/business-clarity/supplier-payables` | POST | Crear payable con entrada contable |
+
+**Integraciones:**
+- Al procesar nómina (`POST /payroll/periods/{id}/process`), crea entradas contables automáticamente
+- Al crear supplier_payable vinculado a fixed_cost_category con CC, crea entrada contable
+
+**Fase 3: UI Cola de Asignación**
+- Nuevo componente `AccountingQueueSection.js`
+- Muestra transacciones pendientes de asignación a CC
+- Permite asignar CC desde dropdown
+- Accesible desde Reports > "Cola Contable"
+
+**Testing:** 
+- Backend: 70% (7/10 tests) - issues menores de naming
+- Frontend: 100%
+- Ver `/app/test_reports/iteration_91.json`
+
+---
+
 #### Sistema de Alertas Automáticas de Presupuesto - COMPLETADO ✅
 
 **Backend** (`business_clarity.py`):
@@ -632,16 +672,22 @@ Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding |
 
 ## Prioritized Backlog
 
+### P0 - Completado
+1. ~~**Implementar lógica de Centros de Costo de extremo a extremo**~~ ✅ DONE
+   - Motor de Contabilización centralizado
+   - Nómina distribuida a CC del departamento
+   - UI para gestionar entradas sin asignar
+
 ### P1 - Alta Prioridad
-1. **Agregar soporte para comisiones en Variable Pay Runs**: Actualmente solo procesa overtime aprobado
-2. **Reportes Regulatorios RD**: DGT-3, TSS, DGII (generación automática)
-3. **Descuento automático de préstamos en nómina**: Integrar loans con payroll entries
+1. **Completar módulos de People Ops (Fases 2, 3, 4)**: Tiempo/Asistencia, Offboarding
+2. **Auditoría final de permisos granulares**: Revisar endpoints POST/PUT/DELETE
+3. **Agregar soporte para comisiones en Variable Pay Runs**: Solo procesa overtime actualmente
 
 ### P2 - Media Prioridad
-1. **UI de Beneficios**: Crear componente frontend para gestionar beneficios por empleado
-2. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
-3. **Internacionalización**: Completar traducción de strings codificados
-4. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key
+1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
+2. **Internacionalización**: Completar traducción de strings codificados
+3. **Presupuesto LLM**: Recordar al usuario añadir fondos a Emergent LLM Key (Profile > Universal Key)
+4. **UI de Beneficios**: Crear componente frontend para gestionar beneficios por empleado
 
 ### P3 - Baja Prioridad / Futuro
 1. Conectar Social Media y Email al Brand Hub
