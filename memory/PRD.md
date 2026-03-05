@@ -33,6 +33,35 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Reorganización de Settings con Grupos Lógicos - COMPLETADO ✅
+
+**Nueva estructura de navegación:**
+
+| Grupo | Tabs incluidos |
+|-------|----------------|
+| **Company** | Branding, Terms, Templates |
+| **Finance** | Billing, Taxes, Centers |
+| **Team** | Users, Roles |
+| **Auto** | Rules, Apps |
+| **Product** | Features, Prefs |
+| **Growth** | Forms |
+| **Data** | Services, Items, Inventory |
+| **Util** | Import, Admin |
+
+**Cambios de nombres para claridad:**
+- "Terminology" → "Terms"
+- "Categories" → "Services" (para no confundir con Inventory Categories)
+- "Picklist" → "Items"
+- "Automations" → "Rules"
+- "Integrations" → "Apps"
+- "Preferences" → "Prefs"
+- "Cost Centers" → "Centers"
+- "Import/Export" → "Import"
+- "Data Admin" → "Admin"
+
+**Archivos modificados:**
+- `frontend/src/pages/SettingsPage.js` (navegación agrupada)
+
 #### Mejoras de Inventario para Importación Limpia - COMPLETADO ✅
 
 **Nuevo campo `brand` (marca):**

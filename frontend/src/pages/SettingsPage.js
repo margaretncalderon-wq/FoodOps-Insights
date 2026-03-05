@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 
@@ -1004,76 +1004,119 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="branding" className="space-y-6">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="branding">{t("branding")}</TabsTrigger>
-            <TabsTrigger value="billing" className="gap-2">
-              <DollarSign className="w-4 h-4" />
-              {language === "es" ? "Facturación" : "Billing"}
-            </TabsTrigger>
-            <TabsTrigger value="terminology" className="gap-2" data-testid="terminology-tab">
-              <Languages className="w-4 h-4" />
-              {language === "es" ? "Terminología" : "Terminology"}
-            </TabsTrigger>
-            <TabsTrigger value="team" className="gap-2">
-              <Users className="w-4 h-4" />
-              {language === "es" ? "Equipo" : "Team"}
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="gap-2">
-              <Shield className="w-4 h-4" />
-              {language === "es" ? "Roles" : "Roles"}
-            </TabsTrigger>
-            <TabsTrigger value="automations" className="gap-2">
-              <Zap className="w-4 h-4" />
-              {language === "es" ? "Automatizaciones" : "Automations"}
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="gap-2">
-              <Plug className="w-4 h-4" />
-              {language === "es" ? "Integraciones" : "Integrations"}
-            </TabsTrigger>
-            <TabsTrigger value="features" className="gap-2">
-              <ToggleLeft className="w-4 h-4" />
-              {language === "es" ? "Funciones" : "Features"}
-            </TabsTrigger>
-            <TabsTrigger value="leadforms" className="gap-2">
-              <FormInput className="w-4 h-4" />
-              {language === "es" ? "Formularios" : "Lead Forms"}
-            </TabsTrigger>
-            <TabsTrigger value="categories" className="gap-2">
-              <Tag className="w-4 h-4" />
-              {language === "es" ? "Categorías" : "Categories"}
-            </TabsTrigger>
-            <TabsTrigger value="picklist" className="gap-2">
-              <ListChecks className="w-4 h-4" />
-              {language === "es" ? "Ítems" : "Picklist"}
-            </TabsTrigger>
-            <TabsTrigger value="taxes" className="gap-2">
-              <Percent className="w-4 h-4" />
-              {language === "es" ? "Impuestos" : "Taxes"}
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="gap-2">
-              <FileText className="w-4 h-4" />
-              {language === "es" ? "Plantillas" : "Templates"}
-            </TabsTrigger>
-            <TabsTrigger value="import-export" className="gap-2">
-              <FileStack className="w-4 h-4" />
-              {language === "es" ? "Importar/Exportar" : "Import/Export"}
-            </TabsTrigger>
-            <TabsTrigger value="cost-centers" className="gap-2">
-              <Building2 className="w-4 h-4" />
-              Cost Centers
-            </TabsTrigger>
-            <TabsTrigger value="inventory-categories" className="gap-2">
-              <Package className="w-4 h-4" />
-              {language === "es" ? "Cat. Inventario" : "Inventory Cat."}
-            </TabsTrigger>
-            <TabsTrigger value="data-admin" className="gap-2 text-red-600">
-              <Trash2 className="w-4 h-4" />
-              {language === "es" ? "Admin Datos" : "Data Admin"}
-            </TabsTrigger>
-            <TabsTrigger value="preferences">
-              {language === "es" ? "Preferencias" : "Preferences"}
-            </TabsTrigger>
-          </TabsList>
+          {/* Grouped Navigation */}
+          <div className="border rounded-lg p-2 bg-muted/30">
+            <TabsList className="flex flex-wrap gap-1 h-auto bg-transparent">
+              {/* Company & Brand Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Empresa" : "Company"}</span>
+                <TabsTrigger value="branding" className="h-8 px-3 text-xs">{t("branding")}</TabsTrigger>
+                <TabsTrigger value="terminology" className="h-8 px-3 text-xs" data-testid="terminology-tab">
+                  <Languages className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Términos" : "Terms"}
+                </TabsTrigger>
+                <TabsTrigger value="templates" className="h-8 px-3 text-xs">
+                  <FileText className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Plantillas" : "Templates"}
+                </TabsTrigger>
+              </div>
+
+              {/* Billing & Finance Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Finanzas" : "Finance"}</span>
+                <TabsTrigger value="billing" className="h-8 px-3 text-xs">
+                  <DollarSign className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Facturación" : "Billing"}
+                </TabsTrigger>
+                <TabsTrigger value="taxes" className="h-8 px-3 text-xs">
+                  <Percent className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Impuestos" : "Taxes"}
+                </TabsTrigger>
+                <TabsTrigger value="cost-centers" className="h-8 px-3 text-xs">
+                  <Building2 className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Centros" : "Centers"}
+                </TabsTrigger>
+              </div>
+
+              {/* People & Access Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Equipo" : "Team"}</span>
+                <TabsTrigger value="team" className="h-8 px-3 text-xs">
+                  <Users className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Usuarios" : "Users"}
+                </TabsTrigger>
+                <TabsTrigger value="roles" className="h-8 px-3 text-xs">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Roles
+                </TabsTrigger>
+              </div>
+
+              {/* Automation & Integrations Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Auto" : "Auto"}</span>
+                <TabsTrigger value="automations" className="h-8 px-3 text-xs">
+                  <Zap className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Reglas" : "Rules"}
+                </TabsTrigger>
+                <TabsTrigger value="integrations" className="h-8 px-3 text-xs">
+                  <Plug className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Apps" : "Apps"}
+                </TabsTrigger>
+              </div>
+
+              {/* Product & Experience Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Producto" : "Product"}</span>
+                <TabsTrigger value="features" className="h-8 px-3 text-xs">
+                  <ToggleLeft className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Módulos" : "Features"}
+                </TabsTrigger>
+                <TabsTrigger value="preferences" className="h-8 px-3 text-xs">
+                  <Sliders className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Prefs" : "Prefs"}
+                </TabsTrigger>
+              </div>
+
+              {/* Growth Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Ventas" : "Growth"}</span>
+                <TabsTrigger value="leadforms" className="h-8 px-3 text-xs">
+                  <FormInput className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Formularios" : "Forms"}
+                </TabsTrigger>
+              </div>
+
+              {/* Data & Catalogs Group */}
+              <div className="flex items-center gap-1 px-2 py-1 border-r pr-3 mr-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Datos" : "Data"}</span>
+                <TabsTrigger value="categories" className="h-8 px-3 text-xs">
+                  <Tag className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Servicios" : "Services"}
+                </TabsTrigger>
+                <TabsTrigger value="picklist" className="h-8 px-3 text-xs">
+                  <ListChecks className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Ítems" : "Items"}
+                </TabsTrigger>
+                <TabsTrigger value="inventory-categories" className="h-8 px-3 text-xs">
+                  <Package className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Inventario" : "Inventory"}
+                </TabsTrigger>
+              </div>
+
+              {/* Utilities Group */}
+              <div className="flex items-center gap-1 px-2 py-1">
+                <span className="text-xs font-medium text-muted-foreground mr-1">{language === "es" ? "Util" : "Util"}</span>
+                <TabsTrigger value="import-export" className="h-8 px-3 text-xs">
+                  <FileStack className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Importar" : "Import"}
+                </TabsTrigger>
+                <TabsTrigger value="data-admin" className="h-8 px-3 text-xs text-red-600">
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  {language === "es" ? "Admin" : "Admin"}
+                </TabsTrigger>
+              </div>
+            </TabsList>
+          </div>
 
           {/* Billing Tab */}
           <TabsContent value="billing">
