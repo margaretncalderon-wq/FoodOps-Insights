@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../../components/Layout";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { 
   Megaphone, LayoutDashboard, Target, Zap, Mail, 
-  Receipt, BarChart3, Settings, ChevronRight, Hash, FileText,
-  Building2, ChevronDown, Check, Loader2
+  Receipt, BarChart3, Settings, Hash, FileText,
+  Building2, ChevronDown, Check, Loader2, Send
 } from "lucide-react";
 import {
   Select,
@@ -15,26 +15,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { Badge } from "../../components/ui/badge";
 
 const API = process.env.REACT_APP_BACKEND_URL;
-
-const navTabs = [
-  { path: "/demand-studio", label: "Overview", labelEs: "Resumen", icon: LayoutDashboard, end: true },
-  { path: "/demand-studio/campaigns", label: "Campaigns", labelEs: "Campañas", icon: Target },
-  { path: "/demand-studio/social-media", label: "Social Media", labelEs: "Social Media", icon: Hash },
-  { path: "/demand-studio/notes", label: "Notes", labelEs: "Notas", icon: FileText },
-  { path: "/demand-studio/activations", label: "Activations", labelEs: "Activaciones", icon: Zap },
-  { path: "/demand-studio/email-marketing", label: "Email Marketing", labelEs: "Email Marketing", icon: Mail },
-  { path: "/demand-studio/spend-ledger", label: "Spend Ledger", labelEs: "Libro de Gastos", icon: Receipt },
-  { path: "/demand-studio/insights", label: "Insights", labelEs: "Insights", icon: BarChart3 },
-  { path: "/demand-studio/settings", label: "Settings", labelEs: "Configuración", icon: Settings },
-];
 
 export default function DemandStudioPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
   const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Active tab state for navigation
+  const [activeTab, setActiveTab] = useState("overview");
   
   // Organization state
   const [organizations, setOrganizations] = useState([]);
@@ -45,18 +43,59 @@ export default function DemandStudioPage() {
   // Section permissions
   const [sectionPermissions, setSectionPermissions] = useState(null);
 
-  // Map nav tabs to section names
-  const tabSectionMap = {
-    "/demand-studio": null, // Overview always visible
+  // Map paths to tab keys
+  const pathToTab = {
+    "/demand-studio": "overview",
     "/demand-studio/campaigns": "campaigns",
-    "/demand-studio/social-media": "social_media",
-    "/demand-studio/notes": "notes",
     "/demand-studio/activations": "activations",
-    "/demand-studio/email-marketing": "email_marketing",
-    "/demand-studio/spend-ledger": "spend_ledger",
+    "/demand-studio/social-media": "social-media",
+    "/demand-studio/email-marketing": "email-marketing",
+    "/demand-studio/notes": "notes",
+    "/demand-studio/spend-ledger": "spend-ledger",
     "/demand-studio/insights": "insights",
-    "/demand-studio/settings": null, // Settings always visible for now
+    "/demand-studio/settings": "settings"
   };
+
+  // Section mapping for permissions
+  const tabSectionMap = {
+    "campaigns": "campaigns",
+    "activations": "activations",
+    "social-media": "social_media",
+    "email-marketing": "email_marketing",
+    "notes": "notes",
+    "spend-ledger": "spend_ledger",
+    "insights": "insights"
+  };
+
+  // Sync activeTab with current route
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const tab = pathToTab[currentPath] || "overview";
+    setActiveTab(tab);
+  }, [location.pathname]);
+
+  // Check if section is visible based on permissions
+  const isSectionVisible = (section) => {
+    if (!section) return true;
+    if (selectedOrg?.is_own || !sectionPermissions) return true;
+    return sectionPermissions[section]?.enabled !== false;
+  };
+
+  // Check if section is writable
+  const canWriteSection = (section) => {
+    if (!section) return true;
+    if (selectedOrg?.is_own || !sectionPermissions) return true;
+    return sectionPermissions[section]?.can_write !== false;
+  };
+
+  // Handle tab change with navigation
+  const handleTabChange = (tabKey, path) => {
+    setActiveTab(tabKey);
+    navigate(path);
+  };
+
+  // Check if tab group contains active tab
+  const isGroupActive = (tabs) => tabs.includes(activeTab);
 
   // Fetch user's organizations
   useEffect(() => {
@@ -115,24 +154,6 @@ export default function DemandStudioPage() {
       localStorage.setItem("demandStudio_selectedOrgId", orgId);
     }
   };
-
-  // Filter tabs based on permissions
-  const getVisibleTabs = () => {
-    // If own org or no permissions loaded, show all
-    if (selectedOrg?.is_own || !sectionPermissions) {
-      return navTabs;
-    }
-    
-    return navTabs.filter(tab => {
-      const section = tabSectionMap[tab.path];
-      // Always show tabs with no section mapping (Overview, Settings)
-      if (!section) return true;
-      // Check if section is enabled
-      return sectionPermissions[section]?.enabled !== false;
-    });
-  };
-
-  const visibleTabs = getVisibleTabs();
 
   // Separate owned and shared orgs
   const ownedOrgs = organizations.filter(o => o.is_own);
@@ -233,34 +254,185 @@ export default function DemandStudioPage() {
           )}
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Navigation with Dropdowns - consistent with Settings and Business Clarity */}
         <div className="border-b">
           <nav className="flex gap-1 overflow-x-auto pb-px">
-            {visibleTabs.map((tab) => {
-              const section = tabSectionMap[tab.path];
-              const canWrite = !section || !sectionPermissions || sectionPermissions[section]?.can_write !== false;
-              
-              return (
-                <NavLink
-                  key={tab.path}
-                  to={tab.path}
-                  end={tab.end}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      isActive
-                        ? "border-primary text-primary"
+            {/* Overview - Direct Tab */}
+            <button
+              onClick={() => handleTabChange("overview", "/demand-studio")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "overview"
+                  ? "border-purple-600 text-purple-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+              }`}
+              data-testid="nav-overview"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              {isEs ? "Resumen" : "Overview"}
+            </button>
+
+            {/* Planning Dropdown */}
+            {(isSectionVisible("campaigns") || isSectionVisible("activations")) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["campaigns", "activations"])
+                        ? "border-purple-600 text-purple-600"
                         : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                    }`
-                  }
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {isEs ? tab.labelEs : tab.label}
-                  {!canWrite && section && (
-                    <span className="text-[10px] text-muted-foreground">(👁)</span>
+                    }`}
+                    data-testid="nav-planning-dropdown"
+                  >
+                    <Target className="w-4 h-4" />
+                    {isEs ? "Planificación" : "Planning"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {isSectionVisible("campaigns") && (
+                    <DropdownMenuItem 
+                      onClick={() => handleTabChange("campaigns", "/demand-studio/campaigns")}
+                      className={activeTab === "campaigns" ? "bg-purple-50 text-purple-700" : ""}
+                      data-testid="nav-campaigns"
+                    >
+                      <Target className="w-4 h-4 mr-2" />
+                      {isEs ? "Campañas" : "Campaigns"}
+                      {!canWriteSection("campaigns") && <span className="ml-auto text-xs text-muted-foreground">👁</span>}
+                    </DropdownMenuItem>
                   )}
-                </NavLink>
-              );
-            })}
+                  {isSectionVisible("activations") && (
+                    <DropdownMenuItem 
+                      onClick={() => handleTabChange("activations", "/demand-studio/activations")}
+                      className={activeTab === "activations" ? "bg-purple-50 text-purple-700" : ""}
+                      data-testid="nav-activations"
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      {isEs ? "Activaciones" : "Activations"}
+                      {!canWriteSection("activations") && <span className="ml-auto text-xs text-muted-foreground">👁</span>}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Channels Dropdown (Social & Email) */}
+            {(isSectionVisible("social_media") || isSectionVisible("email_marketing")) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["social-media", "email-marketing"])
+                        ? "border-purple-600 text-purple-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                    data-testid="nav-channels-dropdown"
+                  >
+                    <Send className="w-4 h-4" />
+                    {isEs ? "Canales" : "Channels"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {isSectionVisible("social_media") && (
+                    <DropdownMenuItem 
+                      onClick={() => handleTabChange("social-media", "/demand-studio/social-media")}
+                      className={activeTab === "social-media" ? "bg-purple-50 text-purple-700" : ""}
+                      data-testid="nav-social-media"
+                    >
+                      <Hash className="w-4 h-4 mr-2" />
+                      Social Media
+                      {!canWriteSection("social_media") && <span className="ml-auto text-xs text-muted-foreground">👁</span>}
+                    </DropdownMenuItem>
+                  )}
+                  {isSectionVisible("email_marketing") && (
+                    <DropdownMenuItem 
+                      onClick={() => handleTabChange("email-marketing", "/demand-studio/email-marketing")}
+                      className={activeTab === "email-marketing" ? "bg-purple-50 text-purple-700" : ""}
+                      data-testid="nav-email-marketing"
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Marketing
+                      {!canWriteSection("email_marketing") && <span className="ml-auto text-xs text-muted-foreground">👁</span>}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Content - Notes Direct Tab */}
+            {isSectionVisible("notes") && (
+              <button
+                onClick={() => handleTabChange("notes", "/demand-studio/notes")}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "notes"
+                    ? "border-purple-600 text-purple-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`}
+                data-testid="nav-notes"
+              >
+                <FileText className="w-4 h-4" />
+                {isEs ? "Notas" : "Notes"}
+                {!canWriteSection("notes") && <span className="ml-1 text-xs text-muted-foreground">👁</span>}
+              </button>
+            )}
+
+            {/* Analytics Dropdown */}
+            {(isSectionVisible("spend_ledger") || isSectionVisible("insights")) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["spend-ledger", "insights"])
+                        ? "border-purple-600 text-purple-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                    data-testid="nav-analytics-dropdown"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    {isEs ? "Análisis" : "Analytics"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {isSectionVisible("spend_ledger") && (
+                    <DropdownMenuItem 
+                      onClick={() => handleTabChange("spend-ledger", "/demand-studio/spend-ledger")}
+                      className={activeTab === "spend-ledger" ? "bg-purple-50 text-purple-700" : ""}
+                      data-testid="nav-spend-ledger"
+                    >
+                      <Receipt className="w-4 h-4 mr-2" />
+                      {isEs ? "Libro de Gastos" : "Spend Ledger"}
+                      {!canWriteSection("spend_ledger") && <span className="ml-auto text-xs text-muted-foreground">👁</span>}
+                    </DropdownMenuItem>
+                  )}
+                  {isSectionVisible("insights") && (
+                    <DropdownMenuItem 
+                      onClick={() => handleTabChange("insights", "/demand-studio/insights")}
+                      className={activeTab === "insights" ? "bg-purple-50 text-purple-700" : ""}
+                      data-testid="nav-insights"
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Insights
+                      {!canWriteSection("insights") && <span className="ml-auto text-xs text-muted-foreground">👁</span>}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Settings - Direct Tab */}
+            <button
+              onClick={() => handleTabChange("settings", "/demand-studio/settings")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "settings"
+                  ? "border-purple-600 text-purple-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+              }`}
+              data-testid="nav-settings"
+            >
+              <Settings className="w-4 h-4" />
+              {isEs ? "Configuración" : "Settings"}
+            </button>
           </nav>
         </div>
 

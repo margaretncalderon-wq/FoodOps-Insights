@@ -33,6 +33,31 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Reorganización de Demand Studio con Dropdowns - COMPLETADO ✅
+
+**Nueva estructura de navegación con dropdowns** (consistente con Business Clarity y Settings):
+
+| Elemento | Tipo | Opciones |
+|----------|------|----------|
+| **Overview** | Tab directo | - |
+| **Planning** ▼ | Dropdown | Campaigns, Activations |
+| **Channels** ▼ | Dropdown | Social Media, Email Marketing |
+| **Notes** | Tab directo | - |
+| **Analytics** ▼ | Dropdown | Spend Ledger, Insights |
+| **Settings** | Tab directo | - |
+
+**Cambios:**
+- De tabs planos → **Dropdowns organizados**
+- "Social Media" y "Email Marketing" ahora agrupados bajo "Channels"
+- Consistente con el patrón de UI de Business Clarity y Settings
+- Dropdown activo se resalta en púrpura (color del módulo)
+- Mantiene sistema de permisos por sección
+
+**Archivos modificados:**
+- `frontend/src/pages/demand-studio/DemandStudioPage.js` (navegación con DropdownMenu)
+
+---
+
 #### Reorganización de Settings con Dropdowns - COMPLETADO ✅
 
 **Nueva estructura de navegación con dropdowns** (consistente con Business Clarity):
@@ -404,4 +429,4 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - **Password**: Evoque2024!
 
 ## Preview URL
-https://employee-payments-rd.preview.emergentagent.com
+https://channel-dropdown-nav.preview.emergentagent.com
