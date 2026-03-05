@@ -33,6 +33,36 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Reporte "By Cost Center" en Executive Reports - COMPLETADO ✅
+
+**Nueva vista añadida a Executive Reports:**
+
+| Vista | Propósito |
+|-------|-----------|
+| Snapshot | Resumen P&L general |
+| By Client | Revenue por cliente |
+| By Supplier | Gastos por proveedor |
+| By Event | Rentabilidad por evento |
+| **By Cost Center** | **P&L por centro de costo (NUEVO)** |
+| Assets | Valor de activos |
+
+**Características del reporte "By Cost Center":**
+- **4 Cards de resumen**: Total Budget, Actual Spend, Variance, Payroll
+- **Tabla Budget vs Actual** con columnas: Cost Center, Budget, Actual, Payroll, Other, Variance, Utilization
+- **Barra de utilización visual** (verde/amarillo/rojo)
+- **Drilldown a transacciones** al hacer click en una fila
+- **Período seleccionable** (mensual)
+
+**Endpoints creados:**
+- `GET /api/business-clarity/reports/by-cost-center` - Reporte principal
+- `GET /api/business-clarity/reports/cost-center/{id}/transactions` - Detalle de transacciones
+
+**Archivos modificados:**
+- `backend/routers/business_clarity.py` - Nuevos endpoints
+- `frontend/src/components/business-clarity/ReportsSection.js` - Nueva vista
+
+---
+
 #### Integración Fixed Costs ↔ Cost Centers - COMPLETADO ✅
 
 **Problema resuelto**: Los Fixed Costs y Cost Centers estaban desconectados. Ahora los gastos fijos se reflejan automáticamente en el "Gasto Actual" de los Cost Centers.

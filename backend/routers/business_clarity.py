@@ -1444,6 +1444,255 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
         "by_source": source_summary
     }
 
+# ============== REPORT BY COST CENTER ==============
+
+@business_clarity_router.get("/reports/by-cost-center")
+async def get_cost_center_report(
+    year: int = None,
+    month: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get P&L summary by cost center with budget vs actual"""
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
+    
+    # Get all cost centers
+    cost_centers = await db.cost_centers.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    if not cost_centers:
+        return {"records": [], "summary": {}, "period": {"year": year, "month": month}}
+    
+    # Get fixed cost categories linked to cost centers
+    fc_categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id, "cost_center_id": {"$ne": None}},
+        {"_id": 0, "category_id": 1, "cost_center_id": 1, "name": 1}
+    ).to_list(100)
+    
+    cc_to_categories = {}
+    for cat in fc_categories:
+        cc_id = cat.get("cost_center_id")
+        if cc_id not in cc_to_categories:
+            cc_to_categories[cc_id] = []
+        cc_to_categories[cc_id].append(cat["category_id"])
+    
+    # Period date range
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    records = []
+    total_budget = 0
+    total_actual = 0
+    total_payroll = 0
+    total_payables = 0
+    
+    for cc in cost_centers:
+        cc_id = cc.get("cost_center_id")
+        cc_code = cc.get("code") or cc.get("name")
+        cc_name = cc.get("name")
+        annual_budget = cc.get("annual_budget") or 0
+        monthly_budget = annual_budget / 12 if annual_budget > 0 else 0
+        
+        # 1. Payroll costs for this cost center
+        payroll_pipeline = [
+            {"$match": {
+                "company_id": user.company_id,
+                "cost_center": cc_code,
+                "status": "active"
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
+        ]
+        payroll_result = await db.employees.aggregate(payroll_pipeline).to_list(1)
+        payroll_cost = payroll_result[0]["total"] if payroll_result else 0
+        
+        # 2. Supplier payables linked to this cost center's categories
+        payables_cost = 0
+        linked_categories = cc_to_categories.get(cc_id, [])
+        if linked_categories:
+            payables_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "fixed_cost_category_id": {"$in": linked_categories},
+                    "status": {"$ne": "cancelled"},
+                    "created_at": {
+                        "$gte": start_date.isoformat(),
+                        "$lt": end_date.isoformat()
+                    }
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]
+            payables_result = await db.supplier_payables.aggregate(payables_pipeline).to_list(1)
+            payables_cost = payables_result[0]["total"] if payables_result else 0
+        
+        # 3. Direct expenses tagged to this cost center (if field exists)
+        direct_expenses_pipeline = [
+            {"$match": {
+                "company_id": user.company_id,
+                "cost_center": cc_code,
+                "date": {
+                    "$gte": start_date.isoformat(),
+                    "$lt": end_date.isoformat()
+                }
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        direct_result = await db.expenses.aggregate(direct_expenses_pipeline).to_list(1)
+        direct_expenses = direct_result[0]["total"] if direct_result else 0
+        
+        # Total actual spend
+        actual_spend = payroll_cost + payables_cost + direct_expenses
+        
+        # Calculate variance
+        variance = monthly_budget - actual_spend
+        variance_pct = ((variance / monthly_budget) * 100) if monthly_budget > 0 else 0
+        utilization = (actual_spend / monthly_budget * 100) if monthly_budget > 0 else 0
+        
+        # Get transactions count for drilldown
+        transactions_count = 0
+        if linked_categories:
+            transactions_count = await db.supplier_payables.count_documents({
+                "company_id": user.company_id,
+                "fixed_cost_category_id": {"$in": linked_categories},
+                "status": {"$ne": "cancelled"}
+            })
+        
+        records.append({
+            "cost_center_id": cc_id,
+            "code": cc_code,
+            "name": cc_name,
+            "annual_budget": round(annual_budget, 2),
+            "monthly_budget": round(monthly_budget, 2),
+            "actual_spend": round(actual_spend, 2),
+            "payroll_cost": round(payroll_cost, 2),
+            "payables_cost": round(payables_cost, 2),
+            "direct_expenses": round(direct_expenses, 2),
+            "variance": round(variance, 2),
+            "variance_pct": round(variance_pct, 1),
+            "utilization": round(utilization, 1),
+            "transactions_count": transactions_count,
+            "status": "over" if actual_spend > monthly_budget and monthly_budget > 0 else "under" if variance > 0 else "on_budget"
+        })
+        
+        total_budget += monthly_budget
+        total_actual += actual_spend
+        total_payroll += payroll_cost
+        total_payables += payables_cost
+    
+    # Sort by actual spend descending
+    records.sort(key=lambda x: x["actual_spend"], reverse=True)
+    
+    return {
+        "records": records,
+        "summary": {
+            "total_budget": round(total_budget, 2),
+            "total_actual": round(total_actual, 2),
+            "total_variance": round(total_budget - total_actual, 2),
+            "total_payroll": round(total_payroll, 2),
+            "total_payables": round(total_payables, 2),
+            "overall_utilization": round((total_actual / total_budget * 100) if total_budget > 0 else 0, 1)
+        },
+        "period": {
+            "year": year,
+            "month": month,
+            "label": f"{year}-{str(month).zfill(2)}"
+        }
+    }
+
+@business_clarity_router.get("/reports/cost-center/{cc_id}/transactions")
+async def get_cost_center_transactions(
+    cc_id: str,
+    year: int = None,
+    month: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get detailed transactions for a cost center"""
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
+    
+    # Get cost center info
+    cc = await db.cost_centers.find_one(
+        {"cost_center_id": cc_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not cc:
+        raise HTTPException(status_code=404, detail="Cost center not found")
+    
+    cc_code = cc.get("code") or cc.get("name")
+    
+    # Get linked categories
+    fc_categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id, "cost_center_id": cc_id},
+        {"_id": 0, "category_id": 1, "name": 1}
+    ).to_list(50)
+    
+    category_ids = [c["category_id"] for c in fc_categories]
+    category_names = {c["category_id"]: c["name"] for c in fc_categories}
+    
+    # Period range
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    transactions = []
+    
+    # 1. Payables linked to categories
+    if category_ids:
+        payables = await db.supplier_payables.find(
+            {
+                "company_id": user.company_id,
+                "fixed_cost_category_id": {"$in": category_ids},
+                "status": {"$ne": "cancelled"}
+            },
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(500)
+        
+        for p in payables:
+            transactions.append({
+                "type": "payable",
+                "description": p.get("description", "Supplier Payable"),
+                "amount": p.get("amount", 0),
+                "date": p.get("created_at", ""),
+                "category": category_names.get(p.get("fixed_cost_category_id"), ""),
+                "status": p.get("status", ""),
+                "supplier": p.get("supplier_name", "")
+            })
+    
+    # 2. Employees in this cost center
+    employees = await db.employees.find(
+        {"company_id": user.company_id, "cost_center": cc_code, "status": "active"},
+        {"_id": 0, "full_name": 1, "base_salary": 1, "position": 1}
+    ).to_list(100)
+    
+    for emp in employees:
+        transactions.append({
+            "type": "payroll",
+            "description": f"{emp.get('full_name')} - {emp.get('position', '')}",
+            "amount": emp.get("base_salary", 0),
+            "date": "",
+            "category": "Payroll",
+            "status": "active",
+            "supplier": ""
+        })
+    
+    # Sort by amount descending
+    transactions.sort(key=lambda x: x["amount"], reverse=True)
+    
+    return {
+        "cost_center": cc,
+        "transactions": transactions,
+        "total": sum(t["amount"] for t in transactions),
+        "period": {"year": year, "month": month}
+    }
+
 # ============== FIXED COSTS & BUDGET ==============
 
 # Fixed Cost Category Model

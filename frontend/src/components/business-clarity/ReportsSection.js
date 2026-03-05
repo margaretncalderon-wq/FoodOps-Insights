@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import {
   Users, Download, RefreshCw, Wallet, PieChart, Calendar,
   FileBarChart, BarChart3, Building2, AlertTriangle, CheckCircle, AlertCircle, Info, FileText, Lock, Unlock,
-  Package, TrendingDown, DollarSign, Receipt
+  Package, TrendingDown, DollarSign, Receipt, Layers, ChevronDown, ChevronRight
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -27,6 +27,8 @@ export function ReportsSection() {
   const [periodStatus, setPeriodStatus] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState("current");
   const [closedPeriods, setClosedPeriods] = useState([]);
+  const [expandedCC, setExpandedCC] = useState(null);
+  const [ccTransactions, setCcTransactions] = useState([]);
 
   useEffect(() => {
     // Fetch closed periods
@@ -43,7 +45,15 @@ export function ReportsSection() {
 
   useEffect(() => {
     setLoading(true);
-    const endpoints = { snapshot: "/api/business-clarity/reports/financial-snapshot", clients: "/api/business-clarity/reports/client-revenue", suppliers: "/api/business-clarity/reports/supplier-spend", events: "/api/business-clarity/reports/event-profitability", assets: "/api/business-clarity/reports/asset-value" };
+    const now = new Date();
+    const endpoints = { 
+      snapshot: "/api/business-clarity/reports/financial-snapshot", 
+      clients: "/api/business-clarity/reports/client-revenue", 
+      suppliers: "/api/business-clarity/reports/supplier-spend", 
+      events: "/api/business-clarity/reports/event-profitability", 
+      assets: "/api/business-clarity/reports/asset-value",
+      costcenters: `/api/business-clarity/reports/by-cost-center?year=${now.getFullYear()}&month=${now.getMonth() + 1}`
+    };
     axios.get(`${API}${endpoints[activeReport]}`, { withCredentials: true })
       .then(res => setReportData(res.data))
       .catch(console.error)
@@ -305,8 +315,33 @@ export function ReportsSection() {
     { key: "clients", label: isEs ? "Por Cliente" : "By Client", icon: Users },
     { key: "suppliers", label: isEs ? "Por Proveedor" : "By Supplier", icon: Building2 },
     { key: "events", label: isEs ? "Por Evento" : "By Event", icon: Calendar },
+    { key: "costcenters", label: isEs ? "Por Centro Costo" : "By Cost Center", icon: Layers },
     { key: "assets", label: isEs ? "Activos" : "Assets", icon: Package },
   ];
+
+  const loadCCTransactions = async (ccId) => {
+    try {
+      const now = new Date();
+      const res = await axios.get(
+        `${API}/api/business-clarity/reports/cost-center/${ccId}/transactions?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
+        { withCredentials: true }
+      );
+      setCcTransactions(res.data.transactions || []);
+    } catch (err) {
+      console.error(err);
+      setCcTransactions([]);
+    }
+  };
+
+  const toggleCCExpand = (ccId) => {
+    if (expandedCC === ccId) {
+      setExpandedCC(null);
+      setCcTransactions([]);
+    } else {
+      setExpandedCC(ccId);
+      loadCCTransactions(ccId);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -995,6 +1030,198 @@ export function ReportsSection() {
                         {isEs 
                           ? "Este reporte muestra el valor de tus activos operacionales (equipos y suministros) y el seguimiento de pérdidas. Las pérdidas registradas en el conteo de inventario se reflejan aquí, separando las absorbidas como gasto operativo de las facturadas a clientes."
                           : "This report shows the value of your operational assets (equipment and supplies) and loss tracking. Losses registered during inventory counts are reflected here, separating those absorbed as operational expense from those billed to clients."}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeReport === "costcenters" && reportData && (
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Wallet className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm text-blue-600">{isEs ? "Presupuesto Total" : "Total Budget"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-800">{formatCurrency(reportData.summary?.total_budget)}</p>
+                    <p className="text-xs text-blue-600 mt-1">{isEs ? "Mensual" : "Monthly"}</p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-amber-50 border-amber-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-5 h-5 text-amber-600" />
+                      <span className="text-sm text-amber-600">{isEs ? "Gasto Real" : "Actual Spend"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-800">{formatCurrency(reportData.summary?.total_actual)}</p>
+                    <p className="text-xs text-amber-600 mt-1">{reportData.summary?.overall_utilization}% {isEs ? "utilización" : "utilization"}</p>
+                  </CardContent>
+                </Card>
+                
+                <Card className={`${(reportData.summary?.total_variance || 0) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className={`w-5 h-5 ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`} />
+                      <span className={`text-sm ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {isEs ? "Variación" : "Variance"}
+                      </span>
+                    </div>
+                    <p className={`text-2xl font-bold ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-800" : "text-red-800"}`}>
+                      {formatCurrency(reportData.summary?.total_variance)}
+                    </p>
+                    <p className={`text-xs mt-1 ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {(reportData.summary?.total_variance || 0) >= 0 ? (isEs ? "Bajo presupuesto" : "Under budget") : (isEs ? "Sobre presupuesto" : "Over budget")}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-violet-50 border-violet-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-5 h-5 text-violet-600" />
+                      <span className="text-sm text-violet-600">{isEs ? "Nómina" : "Payroll"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-violet-800">{formatCurrency(reportData.summary?.total_payroll)}</p>
+                    <p className="text-xs text-violet-600 mt-1">{isEs ? "Costo de personal" : "Personnel cost"}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Period Info */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  {isEs ? "Período:" : "Period:"} {reportData.period?.label}
+                </div>
+              </div>
+
+              {/* Budget vs Actual Table */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Layers className="w-4 h-4" />
+                    {isEs ? "Presupuesto vs Real por Centro de Costo" : "Budget vs Actual by Cost Center"}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {isEs ? "Click en una fila para ver transacciones detalladas" : "Click a row to see detailed transactions"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead></TableHead>
+                        <TableHead>{isEs ? "Centro de Costo" : "Cost Center"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Presupuesto" : "Budget"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Gasto Real" : "Actual"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Nómina" : "Payroll"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Otros" : "Other"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Variación" : "Variance"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Utilización" : "Utilization"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(reportData.records || []).map(cc => (
+                        <>
+                          <TableRow 
+                            key={cc.cost_center_id} 
+                            className={`cursor-pointer hover:bg-muted/50 ${cc.status === "over" ? "bg-red-50/50" : ""}`}
+                            onClick={() => toggleCCExpand(cc.cost_center_id)}
+                          >
+                            <TableCell className="w-8">
+                              {expandedCC === cc.cost_center_id ? (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{cc.code ? `${cc.code} - ` : ""}{cc.name}</p>
+                                <p className="text-xs text-muted-foreground">{cc.transactions_count} {isEs ? "transacciones" : "transactions"}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(cc.monthly_budget)}</TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(cc.actual_spend)}</TableCell>
+                            <TableCell className="text-right text-violet-600">{formatCurrency(cc.payroll_cost)}</TableCell>
+                            <TableCell className="text-right text-orange-600">{formatCurrency(cc.payables_cost + cc.direct_expenses)}</TableCell>
+                            <TableCell className={`text-right font-medium ${cc.variance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {cc.variance >= 0 ? "+" : ""}{formatCurrency(cc.variance)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full ${cc.utilization > 100 ? "bg-red-500" : cc.utilization > 80 ? "bg-amber-500" : "bg-green-500"}`}
+                                    style={{ width: `${Math.min(cc.utilization, 100)}%` }}
+                                  />
+                                </div>
+                                <span className={`text-xs ${cc.utilization > 100 ? "text-red-600" : cc.utilization > 80 ? "text-amber-600" : "text-green-600"}`}>
+                                  {cc.utilization}%
+                                </span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          
+                          {/* Expanded Transactions */}
+                          {expandedCC === cc.cost_center_id && (
+                            <TableRow>
+                              <TableCell colSpan={8} className="bg-muted/30 p-4">
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium">{isEs ? "Transacciones" : "Transactions"}</p>
+                                  {ccTransactions.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">{isEs ? "Sin transacciones" : "No transactions"}</p>
+                                  ) : (
+                                    <div className="space-y-1 max-h-60 overflow-y-auto">
+                                      {ccTransactions.map((t, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-2 bg-background rounded text-sm">
+                                          <div className="flex items-center gap-3">
+                                            <Badge variant={t.type === "payroll" ? "secondary" : "outline"} className="text-xs">
+                                              {t.type === "payroll" ? (isEs ? "Nómina" : "Payroll") : (isEs ? "Pago" : "Payable")}
+                                            </Badge>
+                                            <span>{t.description}</span>
+                                            {t.category && <span className="text-xs text-muted-foreground">({t.category})</span>}
+                                          </div>
+                                          <span className="font-medium">{formatCurrency(t.amount)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      ))}
+                      {(reportData.records || []).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            {isEs ? "Sin centros de costo configurados" : "No cost centers configured"}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="bg-blue-50/50 border-blue-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium mb-1">{isEs ? "Sobre este reporte" : "About this report"}</p>
+                      <p>
+                        {isEs 
+                          ? "Este reporte muestra el presupuesto vs gasto real por centro de costo. El gasto incluye: nómina de empleados asignados al centro y pagos vinculados a categorías de costos fijos. Para vincular gastos a centros de costo, ve a Business Clarity > Fixed Costs y asigna categorías."
+                          : "This report shows budget vs actual spending by cost center. Spending includes: payroll for employees assigned to the center and payables linked to fixed cost categories. To link expenses to cost centers, go to Business Clarity > Fixed Costs and assign categories."}
                       </p>
                     </div>
                   </div>
