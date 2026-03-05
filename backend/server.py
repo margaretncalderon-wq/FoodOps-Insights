@@ -7493,6 +7493,209 @@ async def get_inventory_value_summary(user: User = Depends(get_current_user)):
 
 # ============== BULK IMPORT FROM FILE ==============
 
+@inventory_router.post("/validate-import-file")
+async def validate_import_file(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Validate an import file and return preview with validation status per row.
+    Does NOT import - just validates and returns preview data.
+    """
+    import pandas as pd
+    import io
+    
+    filename = file.filename.lower()
+    if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
+        raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+    
+    try:
+        contents = await file.read()
+        
+        if filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+        
+        # Clean column names
+        df.columns = df.columns.str.lower().str.strip().str.replace(' ', '_')
+        
+        # Column mapping
+        column_mapping = {
+            'nombre': 'name', 'producto': 'name', 'product': 'name', 'item': 'name',
+            'marca': 'brand',
+            'categoria': 'category', 'categoría': 'category',
+            'unidad': 'unit',
+            'precio': 'cost_per_unit', 'costo': 'cost_per_unit', 'cost': 'cost_per_unit',
+            'price': 'cost_per_unit', 'costo_unitario': 'cost_per_unit',
+            'cantidad': 'stock_quantity', 'stock': 'stock_quantity', 'quantity': 'stock_quantity',
+            'existencia': 'stock_quantity',
+            'minimo': 'par_level', 'min_stock': 'par_level', 'par': 'par_level',
+            'codigo': 'sku', 'code': 'sku',
+            'notas': 'notes',
+            'tipo': 'inventory_type', 'type': 'inventory_type'
+        }
+        df.rename(columns=column_mapping, inplace=True)
+        
+        if 'name' not in df.columns:
+            return {
+                "valid": False,
+                "error": "File must have a 'name' or 'nombre' column",
+                "columns_found": list(df.columns),
+                "rows": []
+            }
+        
+        # Get valid categories
+        valid_categories = await db.organization_settings.find_one(
+            {"company_id": user.company_id}, {"inventory_categories": 1}
+        )
+        valid_category_keys = []
+        if valid_categories and valid_categories.get("inventory_categories"):
+            valid_category_keys = [c.get("key") for c in valid_categories["inventory_categories"]]
+        if not valid_category_keys:
+            valid_category_keys = ["proteins", "dairy", "produce", "dry_goods", "beverages", 
+                                   "spices", "frozen", "canned", "packaging", "cleaning", "other"]
+        
+        # Category mapping for Spanish
+        category_map = {
+            'proteinas': 'proteins', 'proteínas': 'proteins', 'carnes': 'proteins',
+            'lácteos': 'dairy', 'lacteos': 'dairy',
+            'frutas': 'produce', 'verduras': 'produce', 'vegetales': 'produce',
+            'secos': 'dry_goods', 'granos': 'dry_goods',
+            'bebidas': 'beverages', 'especias': 'spices', 'condimentos': 'spices',
+            'congelados': 'frozen', 'enlatados': 'canned',
+            'empaque': 'packaging', 'empaques': 'packaging',
+            'limpieza': 'cleaning', 'otros': 'other'
+        }
+        
+        # Valid units
+        valid_units = ['kg', 'g', 'lb', 'oz', 'l', 'ml', 'unit', 'pcs', 'ea', 'box', 'case', 'bag']
+        unit_map = {
+            'kilogramo': 'kg', 'kilogramos': 'kg', 'kilos': 'kg',
+            'gramo': 'g', 'gramos': 'g', 'libra': 'lb', 'libras': 'lb',
+            'onza': 'oz', 'onzas': 'oz', 'litro': 'l', 'litros': 'l',
+            'mililitro': 'ml', 'mililitros': 'ml',
+            'unidad': 'unit', 'unidades': 'unit', 'pza': 'unit', 'pieza': 'unit'
+        }
+        
+        # Get existing items for duplicate check
+        existing_items = await db.ingredients.find(
+            {"company_id": user.company_id},
+            {"name": 1, "_id": 0}
+        ).to_list(10000)
+        existing_names = {item["name"].lower() for item in existing_items}
+        
+        # Validate each row
+        rows = []
+        total_valid = 0
+        total_warnings = 0
+        total_errors = 0
+        
+        for idx, row in df.iterrows():
+            row_data = {
+                "row_number": idx + 2,  # +2 because header is row 1 and pandas is 0-indexed
+                "status": "valid",
+                "errors": [],
+                "warnings": [],
+                "data": {}
+            }
+            
+            # Check name
+            name = str(row.get('name', '')).strip() if pd.notna(row.get('name')) else ''
+            row_data["data"]["name"] = name
+            
+            if not name:
+                row_data["status"] = "error"
+                row_data["errors"].append("Name is required")
+            elif name.lower() in existing_names:
+                row_data["warnings"].append("Product already exists (will be skipped unless 'update existing' is checked)")
+            
+            # Check brand
+            brand = str(row.get('brand', '')).strip() if pd.notna(row.get('brand')) else ''
+            row_data["data"]["brand"] = brand
+            
+            # Check category
+            category = str(row.get('category', '')).strip().lower() if pd.notna(row.get('category')) else ''
+            mapped_category = category_map.get(category, category)
+            if mapped_category and mapped_category not in valid_category_keys:
+                row_data["warnings"].append(f"Unknown category '{category}', will use 'other'")
+                mapped_category = 'other'
+            row_data["data"]["category"] = mapped_category or 'other'
+            
+            # Check unit
+            unit = str(row.get('unit', '')).strip().lower() if pd.notna(row.get('unit')) else 'unit'
+            mapped_unit = unit_map.get(unit, unit)
+            if mapped_unit not in valid_units:
+                row_data["warnings"].append(f"Unknown unit '{unit}', will use as-is")
+            row_data["data"]["unit"] = mapped_unit
+            
+            # Check cost
+            try:
+                cost = float(row.get('cost_per_unit', 0)) if pd.notna(row.get('cost_per_unit')) else 0
+                if cost < 0:
+                    row_data["errors"].append("Cost cannot be negative")
+                    row_data["status"] = "error"
+                row_data["data"]["cost_per_unit"] = cost
+            except (ValueError, TypeError):
+                row_data["warnings"].append("Invalid cost value, will use 0")
+                row_data["data"]["cost_per_unit"] = 0
+            
+            # Check stock
+            try:
+                stock = float(row.get('stock_quantity', 0)) if pd.notna(row.get('stock_quantity')) else 0
+                if stock < 0:
+                    row_data["errors"].append("Stock cannot be negative")
+                    row_data["status"] = "error"
+                row_data["data"]["stock_quantity"] = stock
+            except (ValueError, TypeError):
+                row_data["warnings"].append("Invalid stock value, will use 0")
+                row_data["data"]["stock_quantity"] = 0
+            
+            # Check par_level
+            try:
+                par = float(row.get('par_level', 0)) if pd.notna(row.get('par_level')) else 0
+                row_data["data"]["par_level"] = par
+            except (ValueError, TypeError):
+                row_data["data"]["par_level"] = 0
+            
+            # SKU and notes
+            row_data["data"]["sku"] = str(row.get('sku', '')).strip() if pd.notna(row.get('sku')) else ''
+            row_data["data"]["notes"] = str(row.get('notes', '')).strip() if pd.notna(row.get('notes')) else ''
+            
+            # Inventory type
+            inv_type = str(row.get('inventory_type', '')).strip().lower() if pd.notna(row.get('inventory_type')) else 'food'
+            if inv_type not in ['food', 'packaging']:
+                inv_type = 'food'
+            row_data["data"]["inventory_type"] = inv_type
+            
+            # Set final status
+            if row_data["errors"]:
+                row_data["status"] = "error"
+                total_errors += 1
+            elif row_data["warnings"]:
+                row_data["status"] = "warning"
+                total_warnings += 1
+            else:
+                total_valid += 1
+            
+            rows.append(row_data)
+        
+        return {
+            "valid": total_errors == 0,
+            "total_rows": len(rows),
+            "valid_rows": total_valid,
+            "warning_rows": total_warnings,
+            "error_rows": total_errors,
+            "columns_found": list(df.columns),
+            "rows": rows
+        }
+        
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="The file is empty")
+    except Exception as e:
+        logger.error(f"Error validating import file: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
+
 @inventory_router.post("/import-from-file")
 async def import_inventory_from_file(
     file: UploadFile = File(...),

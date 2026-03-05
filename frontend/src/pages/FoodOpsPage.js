@@ -71,10 +71,12 @@ function InventorySection() {
   // Import Dialog State
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
-  const [importPreview, setImportPreview] = useState([]);
+  const [importPreview, setImportPreview] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [updateExisting, setUpdateExisting] = useState(false);
+  const [importStep, setImportStep] = useState("select"); // "select", "preview", "result"
   
   // Forms
   const [itemForm, setItemForm] = useState({
@@ -280,23 +282,42 @@ function InventorySection() {
     
     setImportFile(file);
     setImportResult(null);
+    setImportPreview(null);
+    setImportStep("select");
+  };
+
+  const handleValidateFile = async () => {
+    if (!importFile) {
+      toast.error(language === "es" ? "Selecciona un archivo" : "Select a file");
+      return;
+    }
     
-    // Preview first few rows (client-side for CSV only)
-    if (ext === '.csv') {
-      try {
-        const text = await file.text();
-        const lines = text.split('\n').slice(0, 6);
-        const headers = lines[0]?.split(',').map(h => h.trim().replace(/"/g, ''));
-        const rows = lines.slice(1, 5).map(line => {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          return headers.reduce((obj, h, i) => ({ ...obj, [h]: values[i] || '' }), {});
-        });
-        setImportPreview(rows);
-      } catch (err) {
-        setImportPreview([]);
+    setValidating(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+      
+      const res = await axios.post(
+        `${API}/api/inventory/validate-import-file`,
+        formData,
+        { withCredentials: true, headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      
+      setImportPreview(res.data);
+      setImportStep("preview");
+      
+      if (res.data.error_rows > 0) {
+        toast.warning(
+          language === "es"
+            ? `${res.data.error_rows} filas con errores encontradas`
+            : `${res.data.error_rows} rows with errors found`
+        );
       }
-    } else {
-      setImportPreview([]);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error validating file");
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -320,6 +341,8 @@ function InventorySection() {
       );
       
       setImportResult(res.data);
+      setImportStep("result");
+      
       if (res.data.created > 0 || res.data.updated > 0) {
         toast.success(
           language === "es"
@@ -331,6 +354,7 @@ function InventorySection() {
     } catch (error) {
       toast.error(error.response?.data?.detail || "Error importing file");
       setImportResult({ success: false, error: error.response?.data?.detail || "Unknown error" });
+      setImportStep("result");
     } finally {
       setImporting(false);
     }
@@ -342,9 +366,10 @@ function InventorySection() {
 
   const resetImport = () => {
     setImportFile(null);
-    setImportPreview([]);
+    setImportPreview(null);
     setImportResult(null);
     setUpdateExisting(false);
+    setImportStep("select");
   };
 
   const filteredItems = items.filter(item => {
@@ -786,126 +811,236 @@ function InventorySection() {
 
       {/* Import Inventory Dialog */}
       <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) resetImport(); }}>
-        <DialogContent className="max-w-2xl" data-testid="import-dialog">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="import-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileUp className="w-5 h-5" />
               {language === "es" ? "Importar Inventario" : "Import Inventory"}
+              {importStep !== "select" && (
+                <Badge variant="outline" className="ml-2">
+                  {importStep === "preview" ? (language === "es" ? "Paso 2: Validación" : "Step 2: Validation") : (language === "es" ? "Paso 3: Resultado" : "Step 3: Result")}
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {/* Instructions */}
-            <div className="p-4 bg-muted/50 rounded-lg text-sm">
-              <p className="font-medium mb-2">{language === "es" ? "Formato del archivo:" : "File format:"}</p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>{language === "es" ? "Archivos CSV o Excel (.xlsx, .xls)" : "CSV or Excel files (.xlsx, .xls)"}</li>
-                <li>{language === "es" ? "Columnas: name (requerido), brand, category, unit, cost_per_unit, stock_quantity, par_level, sku, notes" : "Columns: name (required), brand, category, unit, cost_per_unit, stock_quantity, par_level, sku, notes"}</li>
-                <li>{language === "es" ? "Soporta nombres en español (nombre, marca, categoría, etc.)" : "Supports Spanish column names (nombre, marca, categoría, etc.)"}</li>
-              </ul>
-              <Button variant="link" className="p-0 h-auto mt-2" onClick={handleDownloadTemplate}>
-                {language === "es" ? "Descargar plantilla CSV" : "Download CSV template"}
-              </Button>
-            </div>
-
-            {/* File Upload */}
-            <div className="space-y-2">
-              <Label>{language === "es" ? "Seleccionar archivo" : "Select file"}</Label>
-              <Input 
-                type="file" 
-                accept=".csv,.xlsx,.xls" 
-                onChange={handleFileSelect}
-                data-testid="import-file-input"
-              />
-              {importFile && (
-                <p className="text-sm text-muted-foreground">
-                  {language === "es" ? "Archivo seleccionado:" : "Selected file:"} {importFile.name}
-                </p>
-              )}
-            </div>
-
-            {/* Preview (for CSV) */}
-            {importPreview.length > 0 && (
-              <div className="space-y-2">
-                <Label>{language === "es" ? "Vista previa (primeras filas):" : "Preview (first rows):"}</Label>
-                <div className="overflow-x-auto border rounded-lg max-h-40">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {Object.keys(importPreview[0] || {}).map(key => (
-                          <TableHead key={key} className="text-xs">{key}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {importPreview.map((row, idx) => (
-                        <TableRow key={idx}>
-                          {Object.values(row).map((val, i) => (
-                            <TableCell key={i} className="text-xs py-1">{val}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Step 1: File Selection */}
+            {importStep === "select" && (
+              <>
+                {/* Instructions */}
+                <div className="p-4 bg-muted/50 rounded-lg text-sm">
+                  <p className="font-medium mb-2">{language === "es" ? "Formato del archivo:" : "File format:"}</p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>{language === "es" ? "Archivos CSV o Excel (.xlsx, .xls)" : "CSV or Excel files (.xlsx, .xls)"}</li>
+                    <li>{language === "es" ? "Columnas: name (requerido), brand, category, unit, cost_per_unit, stock_quantity, par_level, sku, notes" : "Columns: name (required), brand, category, unit, cost_per_unit, stock_quantity, par_level, sku, notes"}</li>
+                    <li>{language === "es" ? "Soporta nombres en español (nombre, marca, categoría, etc.)" : "Supports Spanish column names (nombre, marca, categoría, etc.)"}</li>
+                  </ul>
+                  <Button variant="link" className="p-0 h-auto mt-2" onClick={handleDownloadTemplate}>
+                    {language === "es" ? "Descargar plantilla CSV" : "Download CSV template"}
+                  </Button>
                 </div>
-              </div>
+
+                {/* File Upload */}
+                <div className="space-y-2">
+                  <Label>{language === "es" ? "Seleccionar archivo" : "Select file"}</Label>
+                  <Input 
+                    type="file" 
+                    accept=".csv,.xlsx,.xls" 
+                    onChange={handleFileSelect}
+                    data-testid="import-file-input"
+                  />
+                  {importFile && (
+                    <p className="text-sm text-muted-foreground">
+                      {language === "es" ? "Archivo seleccionado:" : "Selected file:"} {importFile.name}
+                    </p>
+                  )}
+                </div>
+              </>
             )}
 
-            {/* Update existing option */}
-            <div className="flex items-center gap-2">
-              <input 
-                type="checkbox" 
-                id="updateExisting" 
-                checked={updateExisting} 
-                onChange={(e) => setUpdateExisting(e.target.checked)}
-                className="rounded"
-              />
-              <Label htmlFor="updateExisting" className="text-sm cursor-pointer">
-                {language === "es" 
-                  ? "Actualizar productos existentes (si el nombre coincide)" 
-                  : "Update existing products (if name matches)"}
-              </Label>
-            </div>
+            {/* Step 2: Validation Preview */}
+            {importStep === "preview" && importPreview && (
+              <>
+                {/* Summary Stats */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <p className="text-2xl font-bold">{importPreview.total_rows}</p>
+                    <p className="text-xs text-muted-foreground">{language === "es" ? "Total filas" : "Total rows"}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg text-center border border-green-200">
+                    <p className="text-2xl font-bold text-green-700">{importPreview.valid_rows}</p>
+                    <p className="text-xs text-green-600">{language === "es" ? "Válidas" : "Valid"}</p>
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-lg text-center border border-amber-200">
+                    <p className="text-2xl font-bold text-amber-700">{importPreview.warning_rows}</p>
+                    <p className="text-xs text-amber-600">{language === "es" ? "Advertencias" : "Warnings"}</p>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-lg text-center border border-red-200">
+                    <p className="text-2xl font-bold text-red-700">{importPreview.error_rows}</p>
+                    <p className="text-xs text-red-600">{language === "es" ? "Errores" : "Errors"}</p>
+                  </div>
+                </div>
 
-            {/* Import Result */}
-            {importResult && (
-              <div className={`p-4 rounded-lg ${importResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                {/* Validation Table */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="max-h-[300px] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead className="w-16 text-xs">{language === "es" ? "Fila" : "Row"}</TableHead>
+                          <TableHead className="w-20 text-xs">{language === "es" ? "Estado" : "Status"}</TableHead>
+                          <TableHead className="text-xs">{language === "es" ? "Nombre" : "Name"}</TableHead>
+                          <TableHead className="text-xs">{language === "es" ? "Marca" : "Brand"}</TableHead>
+                          <TableHead className="text-xs">{language === "es" ? "Categoría" : "Category"}</TableHead>
+                          <TableHead className="text-xs">{language === "es" ? "Unidad" : "Unit"}</TableHead>
+                          <TableHead className="text-xs text-right">{language === "es" ? "Costo" : "Cost"}</TableHead>
+                          <TableHead className="text-xs text-right">{language === "es" ? "Stock" : "Stock"}</TableHead>
+                          <TableHead className="text-xs">{language === "es" ? "Problemas" : "Issues"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {importPreview.rows?.map((row, idx) => (
+                          <TableRow 
+                            key={idx} 
+                            className={
+                              row.status === "error" ? "bg-red-50" : 
+                              row.status === "warning" ? "bg-amber-50" : ""
+                            }
+                          >
+                            <TableCell className="text-xs font-mono">{row.row_number}</TableCell>
+                            <TableCell>
+                              {row.status === "valid" && <Badge variant="outline" className="text-green-700 border-green-300 text-xs">OK</Badge>}
+                              {row.status === "warning" && <Badge variant="outline" className="text-amber-700 border-amber-300 text-xs">{language === "es" ? "Aviso" : "Warn"}</Badge>}
+                              {row.status === "error" && <Badge variant="destructive" className="text-xs">{language === "es" ? "Error" : "Error"}</Badge>}
+                            </TableCell>
+                            <TableCell className="text-xs font-medium">{row.data?.name || "-"}</TableCell>
+                            <TableCell className="text-xs">{row.data?.brand || "-"}</TableCell>
+                            <TableCell className="text-xs">{row.data?.category || "-"}</TableCell>
+                            <TableCell className="text-xs">{row.data?.unit || "-"}</TableCell>
+                            <TableCell className="text-xs text-right">${row.data?.cost_per_unit?.toFixed(2) || "0.00"}</TableCell>
+                            <TableCell className="text-xs text-right">{row.data?.stock_quantity || 0}</TableCell>
+                            <TableCell className="text-xs max-w-[200px]">
+                              {row.errors?.length > 0 && (
+                                <span className="text-red-600">{row.errors.join("; ")}</span>
+                              )}
+                              {row.warnings?.length > 0 && (
+                                <span className="text-amber-600">{row.warnings.join("; ")}</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Update existing option */}
+                <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
+                  <input 
+                    type="checkbox" 
+                    id="updateExisting" 
+                    checked={updateExisting} 
+                    onChange={(e) => setUpdateExisting(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="updateExisting" className="text-sm cursor-pointer">
+                    {language === "es" 
+                      ? "Actualizar productos existentes (si el nombre coincide)" 
+                      : "Update existing products (if name matches)"}
+                  </Label>
+                </div>
+
+                {importPreview.error_rows > 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                    <AlertTriangle className="w-4 h-4 inline mr-2" />
+                    {language === "es" 
+                      ? `${importPreview.error_rows} fila(s) con errores serán omitidas al importar.` 
+                      : `${importPreview.error_rows} row(s) with errors will be skipped during import.`}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Step 3: Import Result */}
+            {importStep === "result" && importResult && (
+              <div className={`p-6 rounded-lg ${importResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                 {importResult.success ? (
-                  <div className="space-y-1">
-                    <p className="font-medium text-green-700 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      {language === "es" ? "Importación completada" : "Import completed"}
+                  <div className="space-y-4">
+                    <p className="font-medium text-green-700 flex items-center gap-2 text-lg">
+                      <CheckCircle className="w-6 h-6" />
+                      {language === "es" ? "Importación completada exitosamente" : "Import completed successfully"}
                     </p>
-                    <div className="text-sm text-green-600 grid grid-cols-3 gap-2">
-                      <div><span className="font-medium">{importResult.created}</span> {language === "es" ? "nuevos" : "new"}</div>
-                      <div><span className="font-medium">{importResult.updated}</span> {language === "es" ? "actualizados" : "updated"}</div>
-                      <div><span className="font-medium">{importResult.skipped}</span> {language === "es" ? "omitidos" : "skipped"}</div>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="p-4 bg-white rounded-lg">
+                        <p className="text-3xl font-bold text-green-600">{importResult.created}</p>
+                        <p className="text-sm text-muted-foreground">{language === "es" ? "Nuevos productos" : "New products"}</p>
+                      </div>
+                      <div className="p-4 bg-white rounded-lg">
+                        <p className="text-3xl font-bold text-blue-600">{importResult.updated}</p>
+                        <p className="text-sm text-muted-foreground">{language === "es" ? "Actualizados" : "Updated"}</p>
+                      </div>
+                      <div className="p-4 bg-white rounded-lg">
+                        <p className="text-3xl font-bold text-gray-600">{importResult.skipped}</p>
+                        <p className="text-sm text-muted-foreground">{language === "es" ? "Omitidos" : "Skipped"}</p>
+                      </div>
                     </div>
                     {importResult.errors?.length > 0 && (
-                      <div className="mt-2 text-xs text-amber-600">
-                        <p className="font-medium">{language === "es" ? "Errores:" : "Errors:"}</p>
-                        {importResult.errors.map((err, i) => <p key={i}>{err}</p>)}
+                      <div className="mt-4 p-3 bg-amber-50 rounded-lg text-sm text-amber-700">
+                        <p className="font-medium mb-1">{language === "es" ? "Errores encontrados:" : "Errors found:"}</p>
+                        {importResult.errors.map((err, i) => <p key={i} className="text-xs">{err}</p>)}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-red-700">{importResult.error}</p>
+                  <div className="text-center">
+                    <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-2" />
+                    <p className="text-red-700 font-medium">{language === "es" ? "Error en la importación" : "Import failed"}</p>
+                    <p className="text-red-600 text-sm mt-1">{importResult.error}</p>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
-              {language === "es" ? "Cancelar" : "Cancel"}
-            </Button>
-            <Button onClick={handleImport} disabled={!importFile || importing} data-testid="import-submit-btn">
-              {importing ? (
-                <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{language === "es" ? "Importando..." : "Importing..."}</>
-              ) : (
-                <><FileUp className="w-4 h-4 mr-2" />{language === "es" ? "Importar" : "Import"}</>
-              )}
-            </Button>
+          <DialogFooter className="gap-2 border-t pt-4">
+            {importStep === "select" && (
+              <>
+                <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                  {language === "es" ? "Cancelar" : "Cancel"}
+                </Button>
+                <Button onClick={handleValidateFile} disabled={!importFile || validating} data-testid="validate-btn">
+                  {validating ? (
+                    <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{language === "es" ? "Validando..." : "Validating..."}</>
+                  ) : (
+                    <><Search className="w-4 h-4 mr-2" />{language === "es" ? "Validar archivo" : "Validate file"}</>
+                  )}
+                </Button>
+              </>
+            )}
+            {importStep === "preview" && (
+              <>
+                <Button variant="outline" onClick={() => { setImportStep("select"); setImportPreview(null); }}>
+                  {language === "es" ? "Volver" : "Back"}
+                </Button>
+                <Button 
+                  onClick={handleImport} 
+                  disabled={importing || (importPreview?.valid_rows === 0 && importPreview?.warning_rows === 0)} 
+                  data-testid="import-submit-btn"
+                >
+                  {importing ? (
+                    <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{language === "es" ? "Importando..." : "Importing..."}</>
+                  ) : (
+                    <><FileUp className="w-4 h-4 mr-2" />{language === "es" ? `Importar ${(importPreview?.valid_rows || 0) + (importPreview?.warning_rows || 0)} productos` : `Import ${(importPreview?.valid_rows || 0) + (importPreview?.warning_rows || 0)} products`}</>
+                  )}
+                </Button>
+              </>
+            )}
+            {importStep === "result" && (
+              <Button onClick={() => setImportDialogOpen(false)}>
+                {language === "es" ? "Cerrar" : "Close"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
