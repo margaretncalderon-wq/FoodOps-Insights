@@ -10,7 +10,7 @@ import io
 from config import db
 from models.auth import User
 from models.people_ops import (
-    CostCenterCreate, CostCenter, CostCenterUpdate,
+    CostCenterCreate, CostCenter, CostCenterUpdate, CostCenterBudgetUpdate,
     EmployeeCreate, Employee, EmployeeUpdate,
     SalaryChangeCreate, SalaryChange,
     EmployeeDocumentCreate, EmployeeDocument,
@@ -316,6 +316,160 @@ async def delete_cost_center(
         raise HTTPException(status_code=404, detail="Cost center not found")
     
     return {"message": "Cost center deleted"}
+
+
+@people_ops_router.put("/cost-centers/{cost_center_id}/budget")
+async def update_cost_center_budget(
+    cost_center_id: str,
+    data: CostCenterBudgetUpdate,
+    user: User = Depends(get_current_user)
+):
+    """
+    Update budget for a specific period.
+    
+    budget_type: "annual" | "quarterly" | "monthly"
+    year: 2026
+    period: 1-4 for quarterly, 1-12 for monthly (ignored for annual)
+    amount: budget amount
+    """
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Build update based on budget type
+    update_data = {"updated_at": now.isoformat()}
+    
+    if data.budget_type == "annual":
+        update_data["annual_budget"] = data.amount
+        # Also distribute to quarterly and monthly if not set
+        quarterly_amount = data.amount / 4
+        monthly_amount = data.amount / 12
+        update_data["quarterly_budgets"] = {
+            f"{data.year}-Q1": quarterly_amount,
+            f"{data.year}-Q2": quarterly_amount,
+            f"{data.year}-Q3": quarterly_amount,
+            f"{data.year}-Q4": quarterly_amount
+        }
+        update_data["monthly_budgets"] = {
+            f"{data.year}-{str(m).zfill(2)}": monthly_amount
+            for m in range(1, 13)
+        }
+    
+    elif data.budget_type == "quarterly":
+        if not data.period or data.period < 1 or data.period > 4:
+            raise HTTPException(status_code=400, detail="Quarter must be 1-4")
+        
+        key = f"{data.year}-Q{data.period}"
+        # Get existing quarterly budgets
+        existing = await db.cost_centers.find_one(
+            {"cost_center_id": cost_center_id, "company_id": company_id},
+            {"_id": 0, "quarterly_budgets": 1, "monthly_budgets": 1}
+        )
+        quarterly_budgets = existing.get("quarterly_budgets", {}) if existing else {}
+        monthly_budgets = existing.get("monthly_budgets", {}) if existing else {}
+        
+        quarterly_budgets[key] = data.amount
+        update_data["quarterly_budgets"] = quarterly_budgets
+        
+        # Distribute to months in this quarter
+        monthly_amount = data.amount / 3
+        start_month = (data.period - 1) * 3 + 1
+        for m in range(start_month, start_month + 3):
+            monthly_budgets[f"{data.year}-{str(m).zfill(2)}"] = monthly_amount
+        update_data["monthly_budgets"] = monthly_budgets
+        
+        # Update annual as sum of quarterly
+        total_annual = sum(quarterly_budgets.values())
+        update_data["annual_budget"] = total_annual
+    
+    elif data.budget_type == "monthly":
+        if not data.period or data.period < 1 or data.period > 12:
+            raise HTTPException(status_code=400, detail="Month must be 1-12")
+        
+        key = f"{data.year}-{str(data.period).zfill(2)}"
+        # Get existing monthly budgets
+        existing = await db.cost_centers.find_one(
+            {"cost_center_id": cost_center_id, "company_id": company_id},
+            {"_id": 0, "monthly_budgets": 1, "quarterly_budgets": 1}
+        )
+        monthly_budgets = existing.get("monthly_budgets", {}) if existing else {}
+        quarterly_budgets = existing.get("quarterly_budgets", {}) if existing else {}
+        
+        monthly_budgets[key] = data.amount
+        update_data["monthly_budgets"] = monthly_budgets
+        
+        # Recalculate quarterly from monthly
+        quarter = (data.period - 1) // 3 + 1
+        q_key = f"{data.year}-Q{quarter}"
+        q_start = (quarter - 1) * 3 + 1
+        q_total = sum(
+            monthly_budgets.get(f"{data.year}-{str(m).zfill(2)}", 0)
+            for m in range(q_start, q_start + 3)
+        )
+        quarterly_budgets[q_key] = q_total
+        update_data["quarterly_budgets"] = quarterly_budgets
+        
+        # Update annual as sum of all monthly for the year
+        total_annual = sum(
+            v for k, v in monthly_budgets.items() if k.startswith(str(data.year))
+        )
+        update_data["annual_budget"] = total_annual
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid budget_type. Use: annual, quarterly, monthly")
+    
+    result = await db.cost_centers.update_one(
+        {"cost_center_id": cost_center_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Cost center not found")
+    
+    return {"message": f"Budget updated for {data.budget_type}", "updated": update_data}
+
+
+@people_ops_router.get("/cost-centers/{cost_center_id}/budgets")
+async def get_cost_center_budgets(
+    cost_center_id: str,
+    year: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all budget data for a cost center"""
+    company_id = user.company_id or user.active_org_id
+    year = year or datetime.now().year
+    
+    cc = await db.cost_centers.find_one(
+        {"cost_center_id": cost_center_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not cc:
+        raise HTTPException(status_code=404, detail="Cost center not found")
+    
+    monthly = cc.get("monthly_budgets", {})
+    quarterly = cc.get("quarterly_budgets", {})
+    annual = cc.get("annual_budget", 0) or 0
+    
+    # Filter by year
+    monthly_filtered = {k: v for k, v in monthly.items() if k.startswith(str(year))}
+    quarterly_filtered = {k: v for k, v in quarterly.items() if k.startswith(str(year))}
+    
+    return {
+        "cost_center": {
+            "cost_center_id": cc.get("cost_center_id"),
+            "name": cc.get("name"),
+            "code": cc.get("code")
+        },
+        "year": year,
+        "annual_budget": annual,
+        "quarterly_budgets": quarterly_filtered,
+        "monthly_budgets": monthly_filtered,
+        "total_from_monthly": sum(monthly_filtered.values()),
+        "total_from_quarterly": sum(quarterly_filtered.values())
+    }
 
 
 # ==================== EMPLOYEES ====================

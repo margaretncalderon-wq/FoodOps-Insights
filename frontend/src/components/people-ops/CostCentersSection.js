@@ -4,6 +4,7 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
 import {
@@ -23,13 +24,44 @@ import {
   TableRow,
 } from "../ui/table";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import {
   Building2, Plus, Edit2, Trash2, RefreshCw, Download,
-  DollarSign, Users, CheckCircle, AlertCircle
+  DollarSign, Users, CheckCircle, AlertCircle, Calendar, BarChart3
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
 
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+const MONTHS = [
+  { value: 1, label: "January", labelEs: "Enero" },
+  { value: 2, label: "February", labelEs: "Febrero" },
+  { value: 3, label: "March", labelEs: "Marzo" },
+  { value: 4, label: "April", labelEs: "Abril" },
+  { value: 5, label: "May", labelEs: "Mayo" },
+  { value: 6, label: "June", labelEs: "Junio" },
+  { value: 7, label: "July", labelEs: "Julio" },
+  { value: 8, label: "August", labelEs: "Agosto" },
+  { value: 9, label: "September", labelEs: "Septiembre" },
+  { value: 10, label: "October", labelEs: "Octubre" },
+  { value: 11, label: "November", labelEs: "Noviembre" },
+  { value: 12, label: "December", labelEs: "Diciembre" },
+];
+
+const QUARTERS = [
+  { value: 1, label: "Q1 (Jan-Mar)", labelEs: "T1 (Ene-Mar)" },
+  { value: 2, label: "Q2 (Apr-Jun)", labelEs: "T2 (Abr-Jun)" },
+  { value: 3, label: "Q3 (Jul-Sep)", labelEs: "T3 (Jul-Sep)" },
+  { value: 4, label: "Q4 (Oct-Dec)", labelEs: "T4 (Oct-Dic)" },
+];
 
 export function CostCentersSection() {
   const { language } = useLanguage();
@@ -39,7 +71,9 @@ export function CostCentersSection() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [editingCC, setEditingCC] = useState(null);
+  const [selectedCCForBudget, setSelectedCCForBudget] = useState(null);
   const [saving, setSaving] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -48,6 +82,15 @@ export function CostCentersSection() {
     description: "",
     annual_budget: ""
   });
+
+  const [budgetForm, setBudgetForm] = useState({
+    budget_type: "annual",
+    year: new Date().getFullYear(),
+    period: 1,
+    amount: ""
+  });
+
+  const [budgetData, setBudgetData] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -92,9 +135,32 @@ export function CostCentersSection() {
     setDialogOpen(true);
   };
 
+  const openBudgetDialog = async (cc) => {
+    setSelectedCCForBudget(cc);
+    setBudgetForm({
+      budget_type: "annual",
+      year: new Date().getFullYear(),
+      period: 1,
+      amount: cc.annual_budget || ""
+    });
+    
+    // Fetch budget data
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/cost-centers/${cc.cost_center_id}/budgets?year=${new Date().getFullYear()}`,
+        { withCredentials: true }
+      );
+      setBudgetData(res.data);
+    } catch (err) {
+      setBudgetData(null);
+    }
+    
+    setBudgetDialogOpen(true);
+  };
+
   const handleSave = async () => {
     if (!formData.name) {
-      alert(isEs ? "El nombre es requerido" : "Name is required");
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
       return;
     }
     
@@ -111,19 +177,56 @@ export function CostCentersSection() {
           payload,
           { withCredentials: true }
         );
+        toast.success(isEs ? "Cost center actualizado" : "Cost center updated");
       } else {
         await axios.post(
           `${API}/api/people-ops/cost-centers`,
           payload,
           { withCredentials: true }
         );
+        toast.success(isEs ? "Cost center creado" : "Cost center created");
       }
       
       setDialogOpen(false);
       fetchData();
     } catch (err) {
       console.error("Error saving cost center:", err);
-      alert(err.response?.data?.detail || "Error saving cost center");
+      toast.error(err.response?.data?.detail || "Error saving cost center");
+    }
+    setSaving(false);
+  };
+
+  const handleSaveBudget = async () => {
+    if (!budgetForm.amount || isNaN(parseFloat(budgetForm.amount))) {
+      toast.error(isEs ? "Ingrese un monto válido" : "Enter a valid amount");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await axios.put(
+        `${API}/api/people-ops/cost-centers/${selectedCCForBudget.cost_center_id}/budget`,
+        {
+          budget_type: budgetForm.budget_type,
+          year: budgetForm.year,
+          period: budgetForm.budget_type !== "annual" ? budgetForm.period : null,
+          amount: parseFloat(budgetForm.amount)
+        },
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? "Presupuesto actualizado" : "Budget updated");
+      
+      // Refresh budget data
+      const res = await axios.get(
+        `${API}/api/people-ops/cost-centers/${selectedCCForBudget.cost_center_id}/budgets?year=${budgetForm.year}`,
+        { withCredentials: true }
+      );
+      setBudgetData(res.data);
+      fetchData();
+    } catch (err) {
+      console.error("Error saving budget:", err);
+      toast.error(err.response?.data?.detail || "Error saving budget");
     }
     setSaving(false);
   };
@@ -139,10 +242,11 @@ export function CostCentersSection() {
         `${API}/api/people-ops/cost-centers/${cc.cost_center_id}`,
         { withCredentials: true }
       );
+      toast.success(isEs ? "Cost center eliminado" : "Cost center deleted");
       fetchData();
     } catch (err) {
       console.error("Error deleting cost center:", err);
-      alert(err.response?.data?.detail || "Error deleting cost center");
+      toast.error(err.response?.data?.detail || "Error deleting cost center");
     }
   };
 
@@ -154,7 +258,7 @@ export function CostCentersSection() {
         { withCredentials: true }
       );
       fetchData();
-      alert(isEs 
+      toast.success(isEs 
         ? `Se crearon ${res.data.created?.length || 0} cost centers` 
         : `Created ${res.data.created?.length || 0} cost centers`
       );
@@ -187,12 +291,13 @@ export function CostCentersSection() {
               {isEs ? "Presupuesto Total" : "Total Budget"}
             </div>
             <p className="text-2xl font-bold mt-1">{formatCurrency(totalBudget)}</p>
+            <p className="text-xs text-muted-foreground">{isEs ? "Anual" : "Annual"}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <DollarSign className="w-4 h-4" />
+              <BarChart3 className="w-4 h-4" />
               {isEs ? "Gasto Actual" : "Current Spend"}
             </div>
             <p className="text-2xl font-bold mt-1">{formatCurrency(totalSpend)}</p>
@@ -272,8 +377,8 @@ export function CostCentersSection() {
                 <TableRow>
                   <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
                   <TableHead>{isEs ? "Código" : "Code"}</TableHead>
-                  <TableHead>{isEs ? "Presupuesto Anual" : "Annual Budget"}</TableHead>
-                  <TableHead>{isEs ? "Gasto Actual" : "Current Spend"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Presupuesto Anual" : "Annual Budget"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Gasto Actual" : "Current Spend"}</TableHead>
                   <TableHead>{isEs ? "Utilización" : "Utilization"}</TableHead>
                   <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
                   <TableHead></TableHead>
@@ -301,8 +406,10 @@ export function CostCentersSection() {
                           <Badge variant="outline" className="font-mono">{cc.code}</Badge>
                         )}
                       </TableCell>
-                      <TableCell>{cc.annual_budget ? formatCurrency(cc.annual_budget) : "-"}</TableCell>
-                      <TableCell>{formatCurrency(cc.current_spend)}</TableCell>
+                      <TableCell className="text-right">
+                        {cc.annual_budget ? formatCurrency(cc.annual_budget) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(cc.current_spend)}</TableCell>
                       <TableCell>
                         {cc.annual_budget > 0 ? (
                           <div className="flex items-center gap-2">
@@ -325,6 +432,9 @@ export function CostCentersSection() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openBudgetDialog(cc)} title={isEs ? "Editar Presupuesto" : "Edit Budget"}>
+                            <Calendar className="w-4 h-4" />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => openEditDialog(cc)}>
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -360,7 +470,7 @@ export function CostCentersSection() {
 
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">{isEs ? "Nombre *" : "Name *"}</label>
+              <Label>{isEs ? "Nombre *" : "Name *"}</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -368,7 +478,7 @@ export function CostCentersSection() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Código" : "Code"}</label>
+              <Label>{isEs ? "Código" : "Code"}</Label>
               <Input
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
@@ -380,7 +490,7 @@ export function CostCentersSection() {
               </p>
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Descripción" : "Description"}</label>
+              <Label>{isEs ? "Descripción" : "Description"}</Label>
               <Input
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -388,7 +498,7 @@ export function CostCentersSection() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Presupuesto Anual" : "Annual Budget"}</label>
+              <Label>{isEs ? "Presupuesto Anual" : "Annual Budget"}</Label>
               <Input
                 type="number"
                 value={formData.annual_budget}
@@ -396,6 +506,9 @@ export function CostCentersSection() {
                 placeholder="0.00"
                 min="0"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Puedes editar presupuestos detallados después de crear" : "You can edit detailed budgets after creating"}
+              </p>
             </div>
           </div>
 
@@ -406,6 +519,139 @@ export function CostCentersSection() {
             <Button onClick={handleSave} disabled={saving}>
               {saving && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
               {editingCC ? (isEs ? "Guardar" : "Save") : (isEs ? "Crear" : "Create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Budget Edit Dialog */}
+      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              {isEs ? "Editar Presupuesto" : "Edit Budget"}: {selectedCCForBudget?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs 
+                ? "Configura el presupuesto por año, trimestre o mes" 
+                : "Configure budget by year, quarter, or month"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs value={budgetForm.budget_type} onValueChange={(v) => setBudgetForm({ ...budgetForm, budget_type: v, amount: "" })}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="annual">{isEs ? "Anual" : "Annual"}</TabsTrigger>
+              <TabsTrigger value="quarterly">{isEs ? "Trimestral" : "Quarterly"}</TabsTrigger>
+              <TabsTrigger value="monthly">{isEs ? "Mensual" : "Monthly"}</TabsTrigger>
+            </TabsList>
+
+            <div className="mt-4 space-y-4">
+              {/* Year Selector */}
+              <div>
+                <Label>{isEs ? "Año" : "Year"}</Label>
+                <Select 
+                  value={budgetForm.year.toString()} 
+                  onValueChange={(v) => setBudgetForm({ ...budgetForm, year: parseInt(v) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026, 2027].map(y => (
+                      <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Period Selector (for quarterly/monthly) */}
+              <TabsContent value="quarterly" className="mt-0">
+                <div>
+                  <Label>{isEs ? "Trimestre" : "Quarter"}</Label>
+                  <Select 
+                    value={budgetForm.period.toString()} 
+                    onValueChange={(v) => setBudgetForm({ ...budgetForm, period: parseInt(v) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QUARTERS.map(q => (
+                        <SelectItem key={q.value} value={q.value.toString()}>
+                          {isEs ? q.labelEs : q.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="monthly" className="mt-0">
+                <div>
+                  <Label>{isEs ? "Mes" : "Month"}</Label>
+                  <Select 
+                    value={budgetForm.period.toString()} 
+                    onValueChange={(v) => setBudgetForm({ ...budgetForm, period: parseInt(v) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTHS.map(m => (
+                        <SelectItem key={m.value} value={m.value.toString()}>
+                          {isEs ? m.labelEs : m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
+
+              {/* Amount Input */}
+              <div>
+                <Label>{isEs ? "Monto del Presupuesto" : "Budget Amount"}</Label>
+                <Input
+                  type="number"
+                  value={budgetForm.amount}
+                  onChange={(e) => setBudgetForm({ ...budgetForm, amount: e.target.value })}
+                  placeholder="0.00"
+                  min="0"
+                />
+              </div>
+
+              {/* Current Budget Info */}
+              {budgetData && (
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                  <p className="font-medium mb-2">{isEs ? "Presupuesto Actual" : "Current Budget"} ({budgetData.year}):</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-muted-foreground">{isEs ? "Anual:" : "Annual:"}</span>
+                      <span className="ml-2 font-medium">{formatCurrency(budgetData.annual_budget)}</span>
+                    </div>
+                    {budgetData.quarterly_budgets && Object.keys(budgetData.quarterly_budgets).length > 0 && (
+                      <>
+                        {Object.entries(budgetData.quarterly_budgets).sort().map(([key, val]) => (
+                          <div key={key}>
+                            <span className="text-muted-foreground">{key}:</span>
+                            <span className="ml-2">{formatCurrency(val)}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Tabs>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setBudgetDialogOpen(false)}>
+              {isEs ? "Cerrar" : "Close"}
+            </Button>
+            <Button onClick={handleSaveBudget} disabled={saving}>
+              {saving && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+              {isEs ? "Guardar Presupuesto" : "Save Budget"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -17,6 +17,14 @@ class CostCenterCreate(BaseModel):
     is_system: bool = False  # True for predefined templates
 
 
+class CostCenterBudgetUpdate(BaseModel):
+    """Update budget by period - monthly, quarterly, or annual"""
+    budget_type: str = "annual"  # annual, quarterly, monthly
+    year: int
+    period: Optional[int] = None  # 1-4 for quarterly, 1-12 for monthly
+    amount: float
+
+
 class CostCenter(BaseModel):
     cost_center_id: str
     company_id: str
@@ -24,6 +32,9 @@ class CostCenter(BaseModel):
     code: Optional[str] = None
     description: Optional[str] = None
     annual_budget: Optional[float] = None
+    # Granular budgets
+    monthly_budgets: Optional[dict] = None  # {"2026-01": 5000, "2026-02": 6000, ...}
+    quarterly_budgets: Optional[dict] = None  # {"2026-Q1": 15000, "2026-Q2": 18000, ...}
     current_spend: float = 0.0  # Calculated from expenses
     responsible_user_id: Optional[str] = None
     responsible_name: Optional[str] = None

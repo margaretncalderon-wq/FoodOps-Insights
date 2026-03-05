@@ -33,6 +33,47 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Presupuestos Editables por Mes/Trimestre/Año - COMPLETADO ✅
+
+**Backend** (`people_ops.py`) - Nuevos endpoints:
+- `PUT /api/people-ops/cost-centers/{id}/budget` - Actualiza presupuesto por período
+- `GET /api/people-ops/cost-centers/{id}/budgets` - Obtiene todos los presupuestos
+
+**Tipos de presupuesto soportados:**
+| Tipo | Campo DB | Cascada |
+|------|----------|---------|
+| `annual` | `annual_budget` | Distribuye a quarterly y monthly |
+| `quarterly` | `quarterly_budgets[2026-Q1]` | Suma a annual, distribuye a monthly |
+| `monthly` | `monthly_budgets[2026-03]` | Recalcula quarterly y annual |
+
+**Frontend** (`CostCentersSection.js`) - Mejoras:
+- Nuevo botón 📅 para editar presupuesto en la tabla
+- Diálogo con tabs: Anual / Trimestral / Mensual
+- Selectores de año, trimestre o mes
+- Vista de presupuesto actual
+
+**Datos de ejemplo configurados:**
+| Cost Center | Presupuesto Anual |
+|-------------|-------------------|
+| Operaciones | $360,000 |
+| Ventas | $300,000 |
+| IT | $240,000 |
+| Marketing | $180,000 |
+| Administración | $144,000 |
+| RRHH | $120,000 |
+| Instalaciones | $96,000 |
+| **TOTAL** | **$1,440,000** |
+
+**Categorías de Fixed Costs vinculadas:**
+- Software & Licencias → IT
+- Infraestructura Cloud → IT
+- Alquiler de Oficina → Instalaciones
+- Servicios Públicos → Instalaciones
+- Publicidad Digital → Marketing
+- Contabilidad & Legal → Administración
+
+---
+
 #### Reporte "By Cost Center" en Executive Reports - COMPLETADO ✅
 
 **Nueva vista añadida a Executive Reports:**
