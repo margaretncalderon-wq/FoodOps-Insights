@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 
@@ -19,11 +19,17 @@ import { BenefitsInKindSection } from "../components/people-ops/BenefitsInKindSe
 
 // Icons
 import {
-  Users, UserCircle, Wallet, Clock,
-  FileText, Lock, UserPlus, Settings,
-  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet, ExternalLink
+  Users, Wallet, Clock,
+  Lock, Settings,
+  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet, ExternalLink, ChevronDown
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 
 import { API_BASE as API } from "../utils/api";
 
@@ -47,8 +53,37 @@ export default function PeopleOpsPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
   const location = useLocation();
+  const navigate = useNavigate();
   const [userRole, setUserRole] = useState(null);
   const [stats, setStats] = useState(null);
+  const [activeTab, setActiveTab] = useState("directory");
+
+  // Map paths to tab keys
+  const pathToTab = {
+    "/people-ops/directory": "directory",
+    "/people-ops/payroll": "payroll",
+    "/people-ops/variable-pay": "variable-pay",
+    "/people-ops/payroll-config": "payroll-config",
+    "/people-ops/time-off": "time-off",
+    "/people-ops/overtime": "overtime",
+    "/people-ops/loans": "loans",
+    "/people-ops/benefits": "benefits",
+    "/people-ops/offboarding": "offboarding"
+  };
+
+  // Sync activeTab with current route
+  useEffect(() => {
+    const currentPath = location.pathname;
+    // Handle employee profile paths
+    if (currentPath.includes("/employee/")) {
+      setActiveTab("directory");
+    } else if (currentPath.includes("/payroll/")) {
+      setActiveTab("payroll");
+    } else {
+      const tab = pathToTab[currentPath] || "directory";
+      setActiveTab(tab);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     // Get current user role
@@ -74,76 +109,16 @@ export default function PeopleOpsPage() {
   };
 
   const hasFullAccess = userRole && ["owner", "admin", "hr"].includes(userRole);
+  const hasPayrollAccess = hasAccessToPage("payroll");
 
-  // Navigation tabs
-  const navTabs = [
-    { 
-      path: "/people-ops/directory", 
-      label: isEs ? "Directorio" : "Directory", 
-      icon: Users,
-      requiresAccess: "directory"
-    },
-    { 
-      path: "/people-ops/payroll", 
-      label: isEs ? "Nómina" : "Payroll", 
-      icon: Wallet,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/people-ops/variable-pay", 
-      label: isEs ? "Pago Variable" : "Variable Pay", 
-      icon: DollarSign,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/people-ops/time-off", 
-      label: isEs ? "Ausencias" : "Time Off", 
-      icon: Calendar,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/people-ops/overtime", 
-      label: isEs ? "Hrs Extra" : "Overtime", 
-      icon: Clock,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/people-ops/loans", 
-      label: isEs ? "Préstamos" : "Loans", 
-      icon: CreditCard,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/people-ops/offboarding", 
-      label: isEs ? "Salidas" : "Offboarding", 
-      icon: UserMinus,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/people-ops/benefits", 
-      label: isEs ? "Beneficios" : "Benefits", 
-      icon: Gift,
-      requiresAccess: "payroll"
-    },
-    { 
-      path: "/business-clarity/regulatory", 
-      label: isEs ? "Reportes" : "Reports", 
-      icon: FileSpreadsheet,
-      requiresAccess: "payroll",
-      isExternal: true
-    },
-    { 
-      path: "/people-ops/payroll-config", 
-      label: isEs ? "Config" : "Config", 
-      icon: Settings,
-      requiresAccess: "config"
-    },
-  ];
+  // Handle tab change with navigation
+  const handleTabChange = (tabKey, path) => {
+    setActiveTab(tabKey);
+    navigate(path);
+  };
 
-  // Filter tabs based on access
-  const visibleTabs = navTabs.filter(tab => 
-    !tab.requiresAccess || hasAccessToPage(tab.requiresAccess)
-  );
+  // Check if tab group contains active tab
+  const isGroupActive = (tabs) => tabs.includes(activeTab);
 
   return (
     <Layout>
@@ -194,41 +169,168 @@ export default function PeopleOpsPage() {
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        {visibleTabs.length > 0 && (
-          <div className="border-b">
-            <nav className="flex gap-1 overflow-x-auto pb-px">
-              {visibleTabs.map((tab) => (
-                tab.isExternal ? (
-                  <NavLink
-                    key={tab.path}
-                    to={tab.path}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted transition-colors whitespace-nowrap"
+        {/* Navigation with Dropdowns */}
+        <div className="border-b">
+          <nav className="flex gap-1 overflow-x-auto pb-px">
+            {/* Directory - Direct Tab */}
+            <button
+              onClick={() => handleTabChange("directory", "/people-ops/directory")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "directory"
+                  ? "border-violet-600 text-violet-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+              }`}
+              data-testid="nav-directory"
+            >
+              <Users className="w-4 h-4" />
+              {isEs ? "Directorio" : "Directory"}
+            </button>
+
+            {/* Payroll Dropdown */}
+            {hasPayrollAccess && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["payroll", "variable-pay", "payroll-config"])
+                        ? "border-violet-600 text-violet-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                    data-testid="nav-payroll-dropdown"
                   >
-                    <tab.icon className="w-4 h-4" />
-                    {tab.label}
-                    <ExternalLink className="w-3 h-3 opacity-50" />
-                  </NavLink>
-                ) : (
-                  <NavLink
-                    key={tab.path}
-                    to={tab.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                        isActive
-                          ? "border-violet-600 text-violet-600"
-                          : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                      }`
-                    }
+                    <Wallet className="w-4 h-4" />
+                    {isEs ? "Nómina" : "Payroll"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("payroll", "/people-ops/payroll")}
+                    className={activeTab === "payroll" ? "bg-violet-50 text-violet-700" : ""}
                   >
-                    <tab.icon className="w-4 h-4" />
-                    {tab.label}
-                  </NavLink>
-                )
-              ))}
-            </nav>
-          </div>
-        )}
+                    <Wallet className="w-4 h-4 mr-2" />
+                    {isEs ? "Períodos" : "Periods"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("variable-pay", "/people-ops/variable-pay")}
+                    className={activeTab === "variable-pay" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    {isEs ? "Pago Variable" : "Variable Pay"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("payroll-config", "/people-ops/payroll-config")}
+                    className={activeTab === "payroll-config" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    {isEs ? "Configuración" : "Config"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Time & Attendance Dropdown */}
+            {hasPayrollAccess && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["time-off", "overtime"])
+                        ? "border-violet-600 text-violet-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                    data-testid="nav-time-dropdown"
+                  >
+                    <Clock className="w-4 h-4" />
+                    {isEs ? "Tiempo" : "Time"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("time-off", "/people-ops/time-off")}
+                    className={activeTab === "time-off" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    {isEs ? "Ausencias" : "Time Off"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("overtime", "/people-ops/overtime")}
+                    className={activeTab === "overtime" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <Clock className="w-4 h-4 mr-2" />
+                    {isEs ? "Horas Extra" : "Overtime"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Benefits Dropdown */}
+            {hasPayrollAccess && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["loans", "benefits"])
+                        ? "border-violet-600 text-violet-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                    data-testid="nav-benefits-dropdown"
+                  >
+                    <Gift className="w-4 h-4" />
+                    {isEs ? "Beneficios" : "Benefits"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("loans", "/people-ops/loans")}
+                    className={activeTab === "loans" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    {isEs ? "Préstamos" : "Loans"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("benefits", "/people-ops/benefits")}
+                    className={activeTab === "benefits" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <Gift className="w-4 h-4 mr-2" />
+                    {isEs ? "En Especie" : "In-Kind"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Offboarding - Direct Tab */}
+            {hasPayrollAccess && (
+              <button
+                onClick={() => handleTabChange("offboarding", "/people-ops/offboarding")}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "offboarding"
+                    ? "border-violet-600 text-violet-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`}
+                data-testid="nav-offboarding"
+              >
+                <UserMinus className="w-4 h-4" />
+                {isEs ? "Salidas" : "Offboarding"}
+              </button>
+            )}
+
+            {/* Reports - External Link */}
+            {hasPayrollAccess && (
+              <button
+                onClick={() => navigate("/business-clarity/regulatory")}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted transition-colors whitespace-nowrap"
+                data-testid="nav-reports"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                {isEs ? "Reportes" : "Reports"}
+                <ExternalLink className="w-3 h-3 opacity-50" />
+              </button>
+            )}
+          </nav>
+        </div>
 
         {/* Content */}
         <Routes>

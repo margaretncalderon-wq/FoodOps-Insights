@@ -33,6 +33,33 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Reorganización de People Ops con Dropdowns - COMPLETADO ✅
+
+**Navegación anterior (9 tabs):**
+Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding | Benefits | Reports | Config
+
+**Nueva navegación con dropdowns (6 elementos):**
+
+| Elemento | Tipo | Opciones |
+|----------|------|----------|
+| **Directory** | Tab directo | - |
+| **Payroll** ▼ | Dropdown | Periods, Variable Pay, Config |
+| **Time** ▼ | Dropdown | Time Off, Overtime |
+| **Benefits** ▼ | Dropdown | Loans, In-Kind |
+| **Offboarding** | Tab directo | - |
+| **Reports** | Link externo | → Business Clarity/Regulatory |
+
+**Cambios:**
+- De 9 tabs planos → 6 elementos organizados
+- Agrupación lógica por funcionalidad
+- Consistente con Business Clarity, Settings y Demand Studio
+- Mantiene sistema de permisos por rol
+
+**Archivo modificado:**
+- `frontend/src/pages/PeopleOpsPage.js`
+
+---
+
 #### Importación Masiva de Inventario con Validación Avanzada - COMPLETADO ✅
 
 **Backend** (`server.py`) - Endpoints:
