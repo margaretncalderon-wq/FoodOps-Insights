@@ -91,6 +91,7 @@ const InsightsPage = lazy(() => import("./pages/demand-studio/InsightsPage"));
 const DemandStudioSettings = lazy(() => import("./pages/demand-studio/DemandStudioSettings"));
 const AgencyDashboard = lazy(() => import("./pages/demand-studio/AgencyDashboard"));
 const NotesPage = lazy(() => import("./pages/demand-studio/NotesPage"));
+const YouTubeCallbackPage = lazy(() => import("./pages/demand-studio/YouTubeCallbackPage"));
 
 // Execution Hub pages
 const ExecutionHubPage = lazy(() => import("./pages/ExecutionHubPage"));
@@ -335,6 +336,7 @@ function AppRouter() {
         <Route path="insights" element={<InsightsPage />} />
         <Route path="settings" element={<DemandStudioSettings />} />
         <Route path="agency" element={<AgencyDashboard />} />
+        <Route path="youtube-callback" element={<YouTubeCallbackPage />} />
       </Route>
       <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentPreview /></ProtectedRoute>} />
       <Route path="/import-export" element={<ProtectedRoute><ImportExportPage /></ProtectedRoute>} />

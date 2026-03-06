@@ -114,6 +114,24 @@ export function SocialMetricsSection() {
       setSyncing(false);
     }
   };
+
+  // Connect YouTube via OAuth
+  const [connectingYouTube, setConnectingYouTube] = useState(false);
+  
+  const handleConnectYouTube = async () => {
+    setConnectingYouTube(true);
+    try {
+      const res = await axios.get(`${API}/api/demand-studio/social-metrics/youtube/auth-url`, { 
+        withCredentials: true 
+      });
+      // Redirect to Google OAuth
+      window.location.href = res.data.auth_url;
+    } catch (err) {
+      console.error("Failed to get YouTube auth URL:", err);
+      toast.error(isEs ? "Error al iniciar conexión con YouTube" : "Failed to start YouTube connection");
+      setConnectingYouTube(false);
+    }
+  };
   
   const handleAddManual = async () => {
     try {
@@ -446,10 +464,21 @@ export function SocialMetricsSection() {
                   <Button 
                     variant="outline" 
                     className="w-full" 
-                    disabled={!platform.available}
+                    disabled={!platform.available || (platform.platform === "youtube" && connectingYouTube)}
+                    onClick={platform.platform === "youtube" ? handleConnectYouTube : undefined}
+                    data-testid={`connect-${platform.platform}-btn`}
                   >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    {isEs ? "Conectar" : "Connect"}
+                    {platform.platform === "youtube" && connectingYouTube ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        {isEs ? "Conectando..." : "Connecting..."}
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-4 h-4 mr-2" />
+                        {isEs ? "Conectar" : "Connect"}
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>

@@ -1,5 +1,5 @@
 # routers/demand_studio.py - Demand Studio routes
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -3391,6 +3391,96 @@ async def get_social_connections(
     return connections
 
 
+# ============== YOUTUBE OAUTH FLOW ==============
+
+from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL
+
+@demand_studio_router.get("/social-metrics/youtube/auth-url")
+async def get_youtube_auth_url(
+    user: User = Depends(get_current_user)
+):
+    """Get the OAuth URL to connect YouTube channel"""
+    redirect_uri = f"{FRONTEND_URL}/demand-studio/youtube-callback"
+    
+    # YouTube Data API scopes for reading channel and video data
+    scopes = [
+        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/yt-analytics.readonly"
+    ]
+    
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth"
+        f"?client_id={GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        "&response_type=code"
+        f"&scope={'+'.join(scopes)}"
+        "&access_type=offline"
+        "&prompt=consent"
+    )
+    
+    return {"auth_url": auth_url, "redirect_uri": redirect_uri}
+
+
+@demand_studio_router.post("/social-metrics/youtube/callback")
+async def youtube_oauth_callback(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """Handle YouTube OAuth callback - exchange code for tokens and connect channel"""
+    body = await request.json()
+    code = body.get("code")
+    redirect_uri = body.get("redirect_uri", f"{FRONTEND_URL}/demand-studio/youtube-callback")
+    org_id = body.get("org_id")
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Authorization code required")
+    
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    if role not in ["owner", "admin", "editor"]:
+        raise HTTPException(status_code=403, detail="No permission to connect accounts")
+    
+    # Exchange code for tokens
+    import httpx
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri
+            }
+        )
+        
+        if token_response.status_code != 200:
+            logging.error(f"YouTube token error: {token_response.text}")
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+        
+        tokens = token_response.json()
+        access_token = tokens.get("access_token")
+        refresh_token = tokens.get("refresh_token")
+        expires_in = tokens.get("expires_in", 3600)
+    
+    # Connect the YouTube channel
+    from datetime import timedelta
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+    
+    manager = SocialMetricsManager(db, effective_company_id, user.user_id)
+    result = await manager.connect_youtube(access_token, refresh_token, expires_at)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    
+    # Sync initial metrics
+    if result.get("connection_id"):
+        sync_result = await manager.sync_youtube_metrics(result["connection_id"])
+        result["initial_sync"] = sync_result
+    
+    return result
+
+
 @demand_studio_router.post("/social-metrics/connect/youtube")
 async def connect_youtube_account(
     access_token: str,
@@ -3398,7 +3488,7 @@ async def connect_youtube_account(
     org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
-    """Connect a YouTube channel using OAuth token"""
+    """Connect a YouTube channel using OAuth token (legacy endpoint)"""
     effective_company_id, role = await get_effective_company_id(user, org_id)
     
     if role not in ["owner", "admin", "editor"]:

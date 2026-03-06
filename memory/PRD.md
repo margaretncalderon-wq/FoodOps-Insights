@@ -59,6 +59,28 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ---
 
+#### Integración OAuth con YouTube - COMPLETADO ✅
+
+**Backend** (`demand_studio.py`):
+- Nuevo endpoint `GET /social-metrics/youtube/auth-url` - Genera URL OAuth con scopes de YouTube
+- Nuevo endpoint `POST /social-metrics/youtube/callback` - Intercambia código por tokens y conecta canal
+- Scopes: `youtube.readonly`, `yt-analytics.readonly`
+- Sincronización automática de métricas al conectar
+
+**Frontend**:
+- Nuevo componente `YouTubeCallbackPage.js` - Maneja el callback OAuth
+- Botón "Connect" para YouTube en la sección de Conexiones
+- Estados visuales: procesando, éxito, error
+- Redirige automáticamente a Social Media tras conexión exitosa
+
+**Archivos creados/modificados**:
+- `backend/routers/demand_studio.py` (endpoints OAuth)
+- `frontend/src/pages/demand-studio/YouTubeCallbackPage.js` (nuevo)
+- `frontend/src/components/demand-studio/SocialMetricsSection.js` (botón connect)
+- `frontend/src/App.js` (ruta youtube-callback)
+
+---
+
 ### Session: March 5, 2026
 
 #### Motor de Contabilización (Posting Engine) - COMPLETADO ✅
