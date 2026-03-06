@@ -402,7 +402,7 @@ export function PayablesSection() {
                           <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
                             {COST_CENTERS.find(c => c.value === rec.cost_center)?.[isEs ? "labelEs" : "label"] || rec.cost_center}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">{isEs ? "→ Overhead" : "→ Overhead"}</span>
+                          <span className="text-xs text-muted-foreground">{isEs ? "→ Centro de Costo" : "→ Cost Center"}</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">

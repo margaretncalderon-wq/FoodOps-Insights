@@ -35,6 +35,18 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Bug Fix: Etiqueta "Overhead" en Centro de Costo - CORREGIDO ✅
+
+**Problema reportado**: En la tabla de Cuentas por Pagar, cuando un gasto estaba asignado a un centro de costo específico (ej: "Logistics"), la UI mostraba "→ Overhead" lo cual era confuso/incorrecto.
+
+**Causa raíz**: En `PayablesSection.js` línea 405, el texto secundario para gastos con `cost_center` asignado decía "→ Overhead" en lugar de indicar correctamente que es un centro de costo.
+
+**Solución**: Cambiado el texto de "→ Overhead" a "→ Centro de Costo" / "→ Cost Center" para reflejar correctamente que el gasto está clasificado en un centro de costo específico.
+
+**Testing**: Verificado visualmente - el gasto "Ferreteria" asignado a "Logistics" ahora muestra correctamente "Logistics → Cost Center".
+
+---
+
 #### Refactor Navegación Business Clarity + Vendors Unificados - COMPLETADO ✅
 
 **Navegación refactorizada** (7 tabs principales):
@@ -997,4 +1009,4 @@ Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding |
 - **Password**: Evoque2024!
 
 ## Preview URL
-https://partners-hub-3.preview.emergentagent.com
+https://payables-debug.preview.emergentagent.com
