@@ -33,6 +33,30 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Auditoría de Permisos Granulares - COMPLETADO ✅
+
+**Backend** (`business_clarity.py`):
+- Nuevo endpoint `GET /permissions/audit` - Matriz completa de permisos
+- Nuevo endpoint `GET /permissions/my-access` - Permisos del usuario actual
+- Constante `PERMISSION_MATRIX` con estructura detallada por módulo
+
+**Frontend** (`RolesSettingsSection.js`):
+- Agregados nuevos módulos de permisos:
+  - **Business Clarity**: View, Invoices, Payments, Payables, Fixed Costs
+  - **Financial Reports**: Executive, Sales, P&L, Budget Alerts, Regulatory
+  - **People Ops / HR**: Employees, Payroll (view/edit/approve), Time Off, Offboarding, Cost Centers
+  - **Demand Studio**: View, Campaigns, Content, Social Metrics, Connect Accounts
+  - **Settings**: View, Manage, Users, Roles
+
+- Agregados nuevos roles predefinidos:
+  - **HR (Recursos Humanos)**: Acceso a People Ops y aprobación de vacaciones
+  - **Marketing**: Acceso a Demand Studio y campañas
+  - **Manager (Gerente)**: Vista limitada de equipo y aprobación de time off
+
+**Acceso**: Settings → Team → Roles
+
+---
+
 #### Alertas Automáticas de Presupuesto - COMPLETADO ✅
 
 **Backend** (`business_clarity.py`):

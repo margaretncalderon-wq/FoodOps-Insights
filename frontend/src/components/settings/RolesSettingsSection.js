@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { 
   Shield, Plus, Edit, Trash2, RefreshCw, Lock, Eye, 
-  PenLine, Settings2, Users, Calendar, Utensils, Landmark
+  PenLine, Settings2, Users, Calendar, Utensils, Landmark,
+  UserCog, Megaphone, FileBarChart, DollarSign, Clock, Briefcase
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -21,6 +22,8 @@ import { API_BASE as API } from "../../utils/api";
 const PERMISSION_GROUPS = [
   {
     module: "events",
+    label: "Events",
+    labelEs: "Eventos",
     icon: Calendar,
     permissions: [
       { key: "events.view", label: "View Events", labelEs: "Ver Eventos" },
@@ -31,6 +34,8 @@ const PERMISSION_GROUPS = [
   },
   {
     module: "crm",
+    label: "CRM",
+    labelEs: "CRM",
     icon: Users,
     permissions: [
       { key: "crm.view", label: "View Clients", labelEs: "Ver Clientes" },
@@ -41,6 +46,8 @@ const PERMISSION_GROUPS = [
   },
   {
     module: "culinary",
+    label: "Culinary Intelligence",
+    labelEs: "Inteligencia Culinaria",
     icon: Utensils,
     permissions: [
       { key: "culinary.view", label: "View Culinary Intelligence", labelEs: "Ver Inteligencia Culinaria" },
@@ -50,21 +57,70 @@ const PERMISSION_GROUPS = [
   },
   {
     module: "finance",
+    label: "Business Clarity",
+    labelEs: "Business Clarity",
     icon: Landmark,
     permissions: [
       { key: "finance.view", label: "View Business Clarity", labelEs: "Ver Business Clarity" },
       { key: "finance.invoices", label: "Manage Invoices", labelEs: "Gestionar Facturas" },
       { key: "finance.payments", label: "Record Payments", labelEs: "Registrar Pagos" },
-      { key: "finance.reports", label: "View Reports", labelEs: "Ver Reportes" },
+      { key: "finance.payables", label: "Manage Payables", labelEs: "Gestionar Cuentas por Pagar" },
+      { key: "finance.fixed_costs", label: "Manage Fixed Costs", labelEs: "Gestionar Costos Fijos" },
+    ]
+  },
+  {
+    module: "reports",
+    label: "Financial Reports",
+    labelEs: "Reportes Financieros",
+    icon: FileBarChart,
+    permissions: [
+      { key: "reports.executive", label: "Executive Reports", labelEs: "Reportes Ejecutivos" },
+      { key: "reports.sales", label: "Sales Reports", labelEs: "Reportes de Ventas" },
+      { key: "reports.pl", label: "P&L Statement", labelEs: "Estado de Resultados (P&L)" },
+      { key: "reports.budget_alerts", label: "Budget Alerts", labelEs: "Alertas de Presupuesto" },
+      { key: "reports.regulatory", label: "Regulatory Reports", labelEs: "Reportes Regulatorios" },
+    ]
+  },
+  {
+    module: "people_ops",
+    label: "People Ops / HR",
+    labelEs: "People Ops / RRHH",
+    icon: UserCog,
+    permissions: [
+      { key: "people_ops.employees.view", label: "View Employees", labelEs: "Ver Empleados" },
+      { key: "people_ops.employees.edit", label: "Edit Employees", labelEs: "Editar Empleados" },
+      { key: "people_ops.payroll.view", label: "View Payroll", labelEs: "Ver Nómina" },
+      { key: "people_ops.payroll.edit", label: "Edit Payroll", labelEs: "Editar Nómina" },
+      { key: "people_ops.payroll.approve", label: "Approve Payroll", labelEs: "Aprobar Nómina" },
+      { key: "people_ops.time_off.view", label: "View Time Off", labelEs: "Ver Vacaciones" },
+      { key: "people_ops.time_off.approve", label: "Approve Time Off", labelEs: "Aprobar Vacaciones" },
+      { key: "people_ops.offboarding", label: "Manage Offboarding", labelEs: "Gestionar Offboarding" },
+      { key: "people_ops.cost_centers", label: "Manage Cost Centers", labelEs: "Gestionar Centros de Costo" },
+    ]
+  },
+  {
+    module: "demand_studio",
+    label: "Demand Studio",
+    labelEs: "Demand Studio",
+    icon: Megaphone,
+    permissions: [
+      { key: "demand_studio.view", label: "View Demand Studio", labelEs: "Ver Demand Studio" },
+      { key: "demand_studio.campaigns", label: "Manage Campaigns", labelEs: "Gestionar Campañas" },
+      { key: "demand_studio.content", label: "Create Content", labelEs: "Crear Contenido" },
+      { key: "demand_studio.social_metrics", label: "Social Metrics", labelEs: "Métricas Sociales" },
+      { key: "demand_studio.connect_accounts", label: "Connect Social Accounts", labelEs: "Conectar Cuentas Sociales" },
     ]
   },
   {
     module: "settings",
+    label: "Settings",
+    labelEs: "Configuración",
     icon: Settings2,
     permissions: [
       { key: "settings.view", label: "View Settings", labelEs: "Ver Configuración" },
       { key: "settings.manage", label: "Manage Settings", labelEs: "Gestionar Configuración" },
       { key: "settings.users", label: "Manage Users", labelEs: "Gestionar Usuarios" },
+      { key: "settings.roles", label: "Manage Roles", labelEs: "Gestionar Roles" },
     ]
   },
 ];
@@ -83,18 +139,69 @@ const DEFAULT_ROLES = [
     role_id: "finance", 
     name: "Finance", 
     name_es: "Finanzas",
-    description: "Access to Business Clarity and financial reports",
-    description_es: "Acceso a Business Clarity y reportes financieros",
-    permissions: ["events.view", "crm.view", "finance.view", "finance.invoices", "finance.payments", "finance.reports"],
+    description: "Access to Business Clarity, financial reports and budget management",
+    description_es: "Acceso a Business Clarity, reportes financieros y gestión de presupuesto",
+    permissions: [
+      "events.view", "crm.view", 
+      "finance.view", "finance.invoices", "finance.payments", "finance.payables", "finance.fixed_costs",
+      "reports.executive", "reports.sales", "reports.pl", "reports.budget_alerts", "reports.regulatory",
+      "people_ops.cost_centers"
+    ],
+    is_system: true
+  },
+  { 
+    role_id: "hr", 
+    name: "Human Resources", 
+    name_es: "Recursos Humanos",
+    description: "Access to People Ops, employees and payroll management",
+    description_es: "Acceso a People Ops, gestión de empleados y nómina",
+    permissions: [
+      "events.view", "crm.view",
+      "people_ops.employees.view", "people_ops.employees.edit",
+      "people_ops.payroll.view", "people_ops.payroll.edit",
+      "people_ops.time_off.view", "people_ops.time_off.approve",
+      "people_ops.offboarding",
+      "reports.budget_alerts"
+    ],
     is_system: true
   },
   { 
     role_id: "operations", 
     name: "Operations", 
     name_es: "Operaciones",
-    description: "Access to Events and Culinary Intelligence",
-    description_es: "Acceso a Eventos e Inteligencia Culinaria",
-    permissions: ["events.view", "events.create", "events.edit", "crm.view", "culinary.view", "culinary.manage", "culinary.purchases"],
+    description: "Access to Events, Culinary Intelligence and inventory",
+    description_es: "Acceso a Eventos, Inteligencia Culinaria e inventario",
+    permissions: [
+      "events.view", "events.create", "events.edit", 
+      "crm.view", 
+      "culinary.view", "culinary.manage", "culinary.purchases"
+    ],
+    is_system: true
+  },
+  { 
+    role_id: "marketing", 
+    name: "Marketing", 
+    name_es: "Marketing",
+    description: "Access to Demand Studio, campaigns and social metrics",
+    description_es: "Acceso a Demand Studio, campañas y métricas sociales",
+    permissions: [
+      "events.view", "crm.view",
+      "demand_studio.view", "demand_studio.campaigns", "demand_studio.content", 
+      "demand_studio.social_metrics", "demand_studio.connect_accounts"
+    ],
+    is_system: true
+  },
+  { 
+    role_id: "manager", 
+    name: "Manager", 
+    name_es: "Gerente",
+    description: "Limited access to view team and approve time off",
+    description_es: "Acceso limitado para ver equipo y aprobar vacaciones",
+    permissions: [
+      "events.view", "crm.view",
+      "people_ops.employees.view", "people_ops.time_off.view", "people_ops.time_off.approve",
+      "reports.sales"
+    ],
     is_system: true
   },
 ];
@@ -333,7 +440,7 @@ export default function RolesSettingsSection() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Icon className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium capitalize">{group.module}</span>
+                          <span className="font-medium">{isEs ? group.labelEs : group.label}</span>
                         </div>
                         <Button
                           variant="ghost"
