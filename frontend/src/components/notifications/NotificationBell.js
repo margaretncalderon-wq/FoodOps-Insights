@@ -135,6 +135,8 @@ export default function NotificationBell() {
     switch (type) {
       case "campaign_access_granted":
         return <Target className="w-4 h-4 text-purple-500" />;
+      case "follow_up_reminder":
+        return <Bell className="w-4 h-4 text-amber-600" />;
       default:
         return <Bell className="w-4 h-4 text-blue-500" />;
     }
@@ -202,9 +204,16 @@ export default function NotificationBell() {
                       {getNotificationIcon(notification.notification_type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notification.read ? "font-semibold" : ""}`}>
-                        {notification.title}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm text-foreground ${!notification.read ? "font-semibold" : ""}`}>
+                          {notification.title?.replace(/^[⚠️📅🔔]\s*/, '')}
+                        </p>
+                        {notification.priority === "high" && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">
+                            {isEs ? "Urgente" : "Urgent"}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>

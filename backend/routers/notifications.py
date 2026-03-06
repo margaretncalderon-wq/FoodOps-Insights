@@ -323,17 +323,17 @@ async def generate_follow_up_reminders(
         is_today = fu_date == today
         is_tomorrow = fu_date == tomorrow
         
-        # Build notification
+        # Build notification - cleaner titles without emojis for better readability
         if is_overdue:
-            title = f"⚠️ Seguimiento vencido: {fu['name']}"
+            title = f"Seguimiento vencido: {fu['name']}"
             message = f"El seguimiento ({fu['follow_up_type']}) programado para {fu_date} está vencido."
             priority = "high"
         elif is_today:
-            title = f"📅 Seguimiento hoy: {fu['name']}"
+            title = f"Seguimiento hoy: {fu['name']}"
             message = f"Tienes un seguimiento ({fu['follow_up_type']}) programado para hoy."
             priority = "high"
         else:
-            title = f"🔔 Seguimiento mañana: {fu['name']}"
+            title = f"Seguimiento mañana: {fu['name']}"
             message = f"Tienes un seguimiento ({fu['follow_up_type']}) programado para mañana."
             priority = "normal"
         
