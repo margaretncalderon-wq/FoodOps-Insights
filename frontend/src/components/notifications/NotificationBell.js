@@ -163,14 +163,13 @@ export default function NotificationBell() {
         <div className="absolute left-0 bottom-full mb-2 w-80 bg-background border rounded-lg shadow-lg z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b bg-muted/50">
-            <h3 className="font-semibold text-sm">
+            <h3 className="font-semibold text-sm text-blue-900">
               {isEs ? "Notificaciones" : "Notifications"}
             </h3>
             {unreadCount > 0 && (
               <Button 
-                variant="ghost" 
                 size="sm" 
-                className="text-xs h-7"
+                className="text-xs h-7 bg-[#AED768] hover:bg-[#9BC75A] text-blue-900 font-medium"
                 onClick={markAllAsRead}
               >
                 <CheckCheck className="w-3 h-3 mr-1" />
