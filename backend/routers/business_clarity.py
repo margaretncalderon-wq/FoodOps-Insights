@@ -5516,3 +5516,420 @@ async def get_accounting_trends(
             "total_cost_centers": len([t for t in trends_list if t.get("cost_center_id")])
         }
     }
+
+
+
+# ============== PETTY CASH (CAJA CHICA) ==============
+
+class PettyCashTransactionCreate(BaseModel):
+    transaction_type: str  # "deposit" or "withdrawal"
+    amount: float
+    description: str
+    category: Optional[str] = None  # office_supplies, transportation, food, cleaning, misc
+    receipt_number: Optional[str] = None
+    vendor_name: Optional[str] = None
+    transaction_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@business_clarity_router.get("/petty-cash")
+async def get_petty_cash(
+    user: User = Depends(get_current_user),
+    limit: int = 50
+):
+    """Get petty cash balance and recent transactions"""
+    company_id = user.company_id
+    
+    # Get petty cash fund record
+    fund = await db.petty_cash_funds.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not fund:
+        # Create default fund
+        fund = {
+            "fund_id": f"pcf_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "fund_limit": 5000.00,
+            "current_balance": 0.00,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.petty_cash_funds.insert_one(fund)
+    
+    # Get recent transactions
+    transactions = await db.petty_cash_transactions.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("transaction_date", -1).limit(limit).to_list(limit)
+    
+    # Calculate totals
+    total_deposits = sum(t.get("amount", 0) for t in transactions if t.get("transaction_type") == "deposit")
+    total_withdrawals = sum(t.get("amount", 0) for t in transactions if t.get("transaction_type") == "withdrawal")
+    
+    return {
+        "fund": fund,
+        "transactions": transactions,
+        "summary": {
+            "current_balance": fund.get("current_balance", 0),
+            "fund_limit": fund.get("fund_limit", 5000),
+            "total_deposits": total_deposits,
+            "total_withdrawals": total_withdrawals,
+            "transaction_count": len(transactions)
+        }
+    }
+
+
+@business_clarity_router.post("/petty-cash/transactions")
+async def create_petty_cash_transaction(
+    data: PettyCashTransactionCreate,
+    user: User = Depends(get_current_user)
+):
+    """Record a petty cash deposit or withdrawal"""
+    check_finance_permission(user, "manage petty cash")
+    
+    company_id = user.company_id
+    now = datetime.now(timezone.utc)
+    
+    # Get current fund
+    fund = await db.petty_cash_funds.find_one({"company_id": company_id}, {"_id": 0})
+    if not fund:
+        fund = {
+            "fund_id": f"pcf_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "fund_limit": 5000.00,
+            "current_balance": 0.00,
+            "created_at": now.isoformat()
+        }
+        await db.petty_cash_funds.insert_one(fund)
+    
+    current_balance = fund.get("current_balance", 0)
+    
+    # Validate withdrawal
+    if data.transaction_type == "withdrawal":
+        if data.amount > current_balance:
+            raise HTTPException(status_code=400, detail=f"Insufficient funds. Available: {current_balance}")
+        new_balance = current_balance - data.amount
+    else:  # deposit
+        new_balance = current_balance + data.amount
+    
+    # Create transaction
+    transaction_id = f"pct_{uuid.uuid4().hex[:12]}"
+    transaction = {
+        "transaction_id": transaction_id,
+        "company_id": company_id,
+        "transaction_type": data.transaction_type,
+        "amount": round(data.amount, 2),
+        "description": data.description,
+        "category": data.category,
+        "receipt_number": data.receipt_number,
+        "vendor_name": data.vendor_name,
+        "transaction_date": data.transaction_date or now.strftime("%Y-%m-%d"),
+        "balance_after": round(new_balance, 2),
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    await db.petty_cash_transactions.insert_one(transaction)
+    
+    # Update fund balance
+    await db.petty_cash_funds.update_one(
+        {"company_id": company_id},
+        {"$set": {"current_balance": round(new_balance, 2), "updated_at": now.isoformat()}}
+    )
+    
+    return {
+        "transaction": {k: v for k, v in transaction.items() if k != "_id"},
+        "new_balance": round(new_balance, 2)
+    }
+
+
+@business_clarity_router.put("/petty-cash/fund-limit")
+async def update_petty_cash_fund_limit(
+    fund_limit: float,
+    user: User = Depends(get_current_user)
+):
+    """Update the petty cash fund limit"""
+    check_finance_permission(user, "manage petty cash")
+    
+    await db.petty_cash_funds.update_one(
+        {"company_id": user.company_id},
+        {
+            "$set": {
+                "fund_limit": round(fund_limit, 2),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "new_limit": round(fund_limit, 2)}
+
+
+# ============== CASH FLOW REPORT ==============
+
+@business_clarity_router.get("/cash-flow")
+async def get_cash_flow_report(
+    user: User = Depends(get_current_user),
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    period: str = "month"  # day, week, month
+):
+    """Get cash flow report with inflows and outflows"""
+    company_id = user.company_id
+    now = datetime.now(timezone.utc)
+    
+    # Default to current month if no dates
+    if not start_date:
+        start_date = now.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = now.strftime("%Y-%m-%d")
+    
+    # ===== INFLOWS (Money Coming In) =====
+    
+    # 1. Payments received from clients
+    client_payments = await db.payments.find({
+        "company_id": company_id,
+        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    }, {"_id": 0}).to_list(1000)
+    
+    total_client_payments = sum(p.get("amount", 0) for p in client_payments)
+    
+    # 2. Petty cash deposits
+    petty_deposits = await db.petty_cash_transactions.find({
+        "company_id": company_id,
+        "transaction_type": "deposit",
+        "transaction_date": {"$gte": start_date, "$lte": end_date}
+    }, {"_id": 0}).to_list(500)
+    
+    total_petty_deposits = sum(t.get("amount", 0) for t in petty_deposits)
+    
+    # ===== OUTFLOWS (Money Going Out) =====
+    
+    # 1. Supplier payable payments
+    payable_payments_pipeline = [
+        {"$match": {"company_id": company_id}},
+        {"$unwind": {"path": "$payments", "preserveNullAndEmptyArrays": False}},
+        {"$match": {
+            "payments.payment_date": {"$gte": start_date, "$lte": end_date}
+        }},
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": "$payments.amount"},
+            "count": {"$sum": 1},
+            "payments": {"$push": "$payments"}
+        }}
+    ]
+    
+    payable_result = await db.supplier_payables.aggregate(payable_payments_pipeline).to_list(1)
+    total_supplier_payments = payable_result[0]["total"] if payable_result else 0
+    supplier_payment_count = payable_result[0]["count"] if payable_result else 0
+    
+    # 2. Petty cash withdrawals
+    petty_withdrawals = await db.petty_cash_transactions.find({
+        "company_id": company_id,
+        "transaction_type": "withdrawal",
+        "transaction_date": {"$gte": start_date, "$lte": end_date}
+    }, {"_id": 0}).to_list(500)
+    
+    total_petty_withdrawals = sum(t.get("amount", 0) for t in petty_withdrawals)
+    
+    # 3. Payroll payments (if any recorded)
+    payroll_payments = await db.payroll_runs.find({
+        "company_id": company_id,
+        "status": "paid",
+        "payment_date": {"$gte": start_date, "$lte": end_date}
+    }, {"_id": 0, "total_net_pay": 1, "payment_date": 1}).to_list(100)
+    
+    total_payroll = sum(p.get("total_net_pay", 0) for p in payroll_payments)
+    
+    # ===== PENDING (Future Cash Needs) =====
+    
+    # Pending payables by due date
+    pending_payables = await db.supplier_payables.find({
+        "company_id": company_id,
+        "status": {"$in": ["pending", "partial"]},
+        "balance_due": {"$gt": 0}
+    }, {"_id": 0, "payable_id": 1, "supplier_name": 1, "description": 1, "balance_due": 1, "due_date": 1}).to_list(500)
+    
+    # Group pending by due period
+    overdue = []
+    due_this_week = []
+    due_this_month = []
+    due_later = []
+    
+    today = now.strftime("%Y-%m-%d")
+    week_end = (now + timedelta(days=7)).strftime("%Y-%m-%d")
+    month_end = (now.replace(day=1) + timedelta(days=32)).replace(day=1).strftime("%Y-%m-%d")
+    
+    for pay in pending_payables:
+        due = pay.get("due_date")
+        if not due:
+            due_later.append(pay)
+        elif due < today:
+            overdue.append(pay)
+        elif due <= week_end:
+            due_this_week.append(pay)
+        elif due < month_end:
+            due_this_month.append(pay)
+        else:
+            due_later.append(pay)
+    
+    # ===== SUMMARY =====
+    
+    total_inflows = total_client_payments + total_petty_deposits
+    total_outflows = total_supplier_payments + total_petty_withdrawals + total_payroll
+    net_cash_flow = total_inflows - total_outflows
+    
+    return {
+        "period": {
+            "start_date": start_date,
+            "end_date": end_date
+        },
+        "inflows": {
+            "client_payments": {
+                "total": round(total_client_payments, 2),
+                "count": len(client_payments)
+            },
+            "petty_cash_deposits": {
+                "total": round(total_petty_deposits, 2),
+                "count": len(petty_deposits)
+            },
+            "total": round(total_inflows, 2)
+        },
+        "outflows": {
+            "supplier_payments": {
+                "total": round(total_supplier_payments, 2),
+                "count": supplier_payment_count
+            },
+            "petty_cash_withdrawals": {
+                "total": round(total_petty_withdrawals, 2),
+                "count": len(petty_withdrawals)
+            },
+            "payroll": {
+                "total": round(total_payroll, 2),
+                "count": len(payroll_payments)
+            },
+            "total": round(total_outflows, 2)
+        },
+        "net_cash_flow": round(net_cash_flow, 2),
+        "pending_obligations": {
+            "overdue": {
+                "total": round(sum(p.get("balance_due", 0) for p in overdue), 2),
+                "count": len(overdue),
+                "items": overdue[:5]
+            },
+            "due_this_week": {
+                "total": round(sum(p.get("balance_due", 0) for p in due_this_week), 2),
+                "count": len(due_this_week),
+                "items": due_this_week[:5]
+            },
+            "due_this_month": {
+                "total": round(sum(p.get("balance_due", 0) for p in due_this_month), 2),
+                "count": len(due_this_month)
+            },
+            "due_later": {
+                "total": round(sum(p.get("balance_due", 0) for p in due_later), 2),
+                "count": len(due_later)
+            },
+            "total_pending": round(sum(p.get("balance_due", 0) for p in pending_payables), 2)
+        }
+    }
+
+
+# ============== PAYMENT RECORDS (RECEIVED & MADE) ==============
+
+@business_clarity_router.get("/all-payments")
+async def get_all_payments(
+    user: User = Depends(get_current_user),
+    payment_direction: Optional[str] = None,  # "received" or "made"
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 100
+):
+    """Get all payments - both received (from clients) and made (to suppliers)"""
+    company_id = user.company_id
+    
+    all_payments = []
+    
+    # ===== RECEIVED PAYMENTS (from clients) =====
+    if not payment_direction or payment_direction == "received":
+        client_payments = await db.payments.find(
+            {"company_id": company_id},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(500)
+        
+        for pay in client_payments:
+            # Get client name
+            client = await db.clients.find_one(
+                {"client_id": pay.get("client_id")},
+                {"_id": 0, "name": 1, "company_name": 1}
+            )
+            client_name = client.get("company_name") or client.get("name") if client else "Unknown"
+            
+            all_payments.append({
+                "payment_id": pay.get("payment_id"),
+                "direction": "received",
+                "direction_label": "Received",
+                "direction_label_es": "Recibido",
+                "entity_type": "client",
+                "entity_name": client_name,
+                "amount": pay.get("amount", 0),
+                "payment_method": pay.get("payment_method"),
+                "reference": pay.get("reference"),
+                "payment_date": pay.get("created_at", "")[:10],
+                "status": pay.get("status", "applied"),
+                "notes": pay.get("notes")
+            })
+    
+    # ===== MADE PAYMENTS (to suppliers) =====
+    if not payment_direction or payment_direction == "made":
+        # Get from supplier_payables with embedded payments
+        payables_with_payments = await db.supplier_payables.find(
+            {"company_id": company_id, "payments": {"$exists": True, "$ne": []}},
+            {"_id": 0}
+        ).to_list(500)
+        
+        for payable in payables_with_payments:
+            supplier_name = payable.get("supplier_name") or "Unknown Supplier"
+            for pmt in payable.get("payments", []):
+                all_payments.append({
+                    "payment_id": pmt.get("payment_id"),
+                    "payable_id": payable.get("payable_id"),
+                    "direction": "made",
+                    "direction_label": "Made",
+                    "direction_label_es": "Realizado",
+                    "entity_type": "supplier",
+                    "entity_name": supplier_name,
+                    "description": payable.get("description"),
+                    "amount": pmt.get("amount", 0),
+                    "payment_method": pmt.get("payment_method"),
+                    "reference": pmt.get("reference"),
+                    "payment_date": pmt.get("payment_date"),
+                    "notes": pmt.get("notes")
+                })
+    
+    # Sort by date descending
+    all_payments.sort(key=lambda x: x.get("payment_date", ""), reverse=True)
+    
+    # Apply date filters
+    if start_date:
+        all_payments = [p for p in all_payments if p.get("payment_date", "") >= start_date]
+    if end_date:
+        all_payments = [p for p in all_payments if p.get("payment_date", "") <= end_date]
+    
+    # Calculate totals
+    received_total = sum(p["amount"] for p in all_payments if p["direction"] == "received")
+    made_total = sum(p["amount"] for p in all_payments if p["direction"] == "made")
+    
+    return {
+        "payments": all_payments[:limit],
+        "summary": {
+            "total_received": round(received_total, 2),
+            "total_made": round(made_total, 2),
+            "net": round(received_total - made_total, 2),
+            "received_count": len([p for p in all_payments if p["direction"] == "received"]),
+            "made_count": len([p for p in all_payments if p["direction"] == "made"])
+        }
+    }

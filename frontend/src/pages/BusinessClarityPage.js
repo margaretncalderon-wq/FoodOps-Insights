@@ -23,7 +23,8 @@ import {
   AdminReportsSection,
   AccountingQueueSection,
   AccountingDashboard,
-  ProfitLossDashboard
+  ProfitLossDashboard,
+  CashFlowSection
 } from "../components/business-clarity";
 
 // Icons
@@ -31,7 +32,7 @@ import {
   FileText, TrendingUp, TrendingDown, PieChart, Banknote,
   UserCircle, Landmark, FileBarChart, Target, Lock,
   Briefcase, BarChart3, Users, Building2, ChevronDown,
-  ShoppingCart, Wallet
+  ShoppingCart, Wallet, ArrowRightLeft, PiggyBank
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import {
@@ -96,6 +97,7 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/dashboard", label: isEs ? "Dashboard" : "Dashboard", icon: PieChart },
     { path: "/business-clarity/invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
     { path: "/business-clarity/payments", label: isEs ? "Pagos" : "Payments", icon: Banknote },
+    { path: "/business-clarity/cash-flow", label: isEs ? "Flujo de Caja" : "Cash Flow", icon: ArrowRightLeft },
     { path: "/business-clarity/statements", label: isEs ? "Estados" : "Statements", icon: UserCircle },
     { path: "/business-clarity/receivables", label: "AR", icon: TrendingUp },
     { path: "/business-clarity/payables", label: "AP", icon: TrendingDown },
@@ -216,6 +218,7 @@ export default function BusinessClarityPage() {
           <Route path="dashboard" element={<DashboardSection />} />
           <Route path="invoices" element={<InvoicesSection />} />
           <Route path="payments" element={<PaymentsSection />} />
+          <Route path="cash-flow" element={<CashFlowSection />} />
           <Route path="statements" element={<StatementsSection />} />
           <Route path="receivables" element={<ReceivablesSection />} />
           <Route path="payables" element={<PayablesSection />} />
