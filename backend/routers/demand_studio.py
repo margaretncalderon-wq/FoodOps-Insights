@@ -2317,7 +2317,7 @@ async def get_my_stats(user: User = Depends(get_current_user)):
         }
     
     # For other roles, redirect to full stats
-    return await get_demand_studio_stats(user)
+    return await get_demand_studio_stats(org_id=None, user=user)
 
 @demand_studio_router.get("/marketing-partners")
 async def get_marketing_partners(user: User = Depends(get_current_user)):

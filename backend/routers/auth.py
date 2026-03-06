@@ -338,6 +338,7 @@ async def register(data: UserCreate, request: Request, response: Response):
         "password_hash": hash_password(data.password),
         "picture": None,
         "company_id": company_id,
+        "company_name": company_name,  # Store company name with user
         "role": "admin",
         "created_at": now.isoformat()
     }
@@ -357,7 +358,7 @@ async def register(data: UserCreate, request: Request, response: Response):
     except Exception as e:
         logger.warning(f"Failed to send welcome email to {data.email}: {e}")
     
-    user = User(user_id=user_id, email=data.email, name=data.name, picture=None, company_id=company_id, role="admin", created_at=now)
+    user = User(user_id=user_id, email=data.email, name=data.name, picture=None, company_id=company_id, company_name=company_name, role="admin", created_at=now)
     return TokenResponse(access_token=token, user=user)
 
 
@@ -372,6 +373,21 @@ async def login(data: UserLogin, request: Request, response: Response):
     
     # Back-fill missing data for existing users
     await ensure_user_data_complete(user_doc.get("company_id"), user_doc["user_id"])
+    
+    # Get company_name from user or from companies collection if not stored
+    company_name = user_doc.get("company_name")
+    if not company_name and user_doc.get("company_id"):
+        company = await db.companies.find_one(
+            {"company_id": user_doc["company_id"]},
+            {"_id": 0, "name": 1}
+        )
+        company_name = company.get("name") if company else None
+        # Back-fill company_name to user document
+        if company_name:
+            await db.users.update_one(
+                {"user_id": user_doc["user_id"]},
+                {"$set": {"company_name": company_name}}
+            )
 
     token = create_jwt_token(user_doc["user_id"])
     set_auth_cookie(response, token, request)
@@ -379,6 +395,7 @@ async def login(data: UserLogin, request: Request, response: Response):
     user = User(
         user_id=user_doc["user_id"], email=user_doc["email"], name=user_doc["name"],
         picture=user_doc.get("picture"), company_id=user_doc.get("company_id"),
+        company_name=company_name,
         role=user_doc.get("role", "admin"),
         is_super_admin=user_doc.get("is_super_admin", False),
         created_at=datetime.fromisoformat(user_doc["created_at"]) if isinstance(user_doc["created_at"], str) else user_doc["created_at"]

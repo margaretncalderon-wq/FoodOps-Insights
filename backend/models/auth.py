@@ -24,6 +24,7 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     company_id: Optional[str] = None
+    company_name: Optional[str] = None  # Organization/company name for display
     role: str = "admin"  # Legacy role at company level
     active_org_id: Optional[str] = None  # Current active organization
     is_super_admin: bool = False  # Platform-level super admin flag
