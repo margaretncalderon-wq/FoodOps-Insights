@@ -980,7 +980,7 @@ async def get_my_pending(user: User = Depends(get_current_user)):
             "follow_up_date": lead.get("next_follow_up_date"),
             "follow_up_type": lead.get("follow_up_type", "Call"),
             "is_overdue": is_overdue,
-            "link": f"/crm/leads/{lead['lead_id']}"
+            "link": f"/client-engagement/crm/leads/{lead['lead_id']}"
         })
     
     # Get clients with follow-ups due today or overdue
@@ -1006,7 +1006,7 @@ async def get_my_pending(user: User = Depends(get_current_user)):
             "follow_up_date": client.get("next_follow_up_date"),
             "follow_up_type": client.get("follow_up_type", "CheckIn"),
             "is_overdue": is_overdue,
-            "link": f"/crm/clients/{client['client_id']}"
+            "link": f"/client-engagement/crm/clients/{client['client_id']}"
         })
     
     # Sort follow-ups: overdue first, then by date
