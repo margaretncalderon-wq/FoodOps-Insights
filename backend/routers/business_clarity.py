@@ -17,6 +17,7 @@ from models.business_clarity import (
 )
 from routers.auth import get_current_user
 from utils.activity_logger import log_activity, user_info
+from services.accounting_engine import AccountingEngine, TransactionType
 
 # Stripe integration
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
@@ -26,6 +27,43 @@ business_clarity_router = APIRouter(prefix="/business-clarity", tags=["Business 
 
 # Stripe API Key
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
+
+
+# ============== PERMISSION HELPERS ==============
+
+def check_finance_permission(user: User, action: str = "modify"):
+    """
+    Check if user has finance-level permissions.
+    Finance actions require: owner, admin, or finance role.
+    """
+    allowed_roles = ["owner", "admin", "finance"]
+    if user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Permission denied: {action} requires Finance, Admin, or Owner role"
+        )
+
+def check_edit_permission(user: User, action: str = "edit"):
+    """
+    Check if user has edit-level permissions.
+    Edit actions require: owner, admin, finance, or editor role.
+    """
+    allowed_roles = ["owner", "admin", "finance", "editor"]
+    if user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Permission denied: {action} requires Editor+ role"
+        )
+
+def check_owner_permission(user: User, action: str = "admin action"):
+    """
+    Check if user is owner (for critical operations).
+    """
+    if user.role != "owner":
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Permission denied: {action} requires Owner role"
+        )
 
 @business_clarity_router.get("/dashboard")
 async def get_business_clarity_dashboard(user: User = Depends(get_current_user), target_margin: int = 30):
@@ -199,6 +237,8 @@ async def get_all_invoices(
 @business_clarity_router.post("/invoices")
 async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_user)):
     """Create a new invoice"""
+    check_edit_permission(user, "create invoices")
+    
     now = datetime.now(timezone.utc)
     
     # Calculate totals
@@ -235,6 +275,19 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
     }
     
     await db.invoices.insert_one(invoice)
+    
+    # Get client name for accounting entry
+    client = await db.clients.find_one({"client_id": data.client_id}, {"_id": 0, "name": 1})
+    invoice["client_name"] = client.get("name") if client else "Cliente"
+    
+    # Record in accounting engine (revenue)
+    try:
+        accounting_engine = AccountingEngine(db, user.company_id, user.user_id)
+        await accounting_engine.record_invoice(invoice)
+    except Exception as e:
+        # Log error but don't fail the invoice creation
+        import logging
+        logging.error(f"Failed to record invoice in accounting engine: {e}")
     
     # Log activity
     await log_activity(
@@ -286,6 +339,8 @@ async def get_invoice(invoice_id: str, user: User = Depends(get_current_user)):
 @business_clarity_router.post("/payments")
 async def create_payment(data: PaymentCreate, user: User = Depends(get_current_user)):
     """Create a payment record"""
+    check_finance_permission(user, "record payments")
+    
     now = datetime.now(timezone.utc)
     
     payment = {
@@ -1121,6 +1176,8 @@ async def create_supplier_payable(
     user: User = Depends(get_current_user)
 ):
     """Create a new supplier payable with automatic accounting entry if linked to cost center"""
+    check_finance_permission(user, "create supplier payables")
+    
     now = datetime.now(timezone.utc)
     payable_id = f"pay_{uuid.uuid4().hex[:12]}"
     
@@ -2070,6 +2127,8 @@ async def get_fixed_cost_categories(user: User = Depends(get_current_user)):
 @business_clarity_router.post("/fixed-costs/categories")
 async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
     """Create a new fixed cost category"""
+    check_finance_permission(user, "manage fixed cost categories")
+    
     now = datetime.now(timezone.utc)
     category_id = f"fcc_{uuid.uuid4().hex[:12]}"
     
@@ -2102,6 +2161,8 @@ async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User =
 @business_clarity_router.put("/fixed-costs/categories/{category_id}")
 async def update_fixed_cost_category(category_id: str, data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
     """Update a fixed cost category"""
+    check_finance_permission(user, "manage fixed cost categories")
+    
     now = datetime.now(timezone.utc)
     
     # Get cost center name if linked
@@ -2132,6 +2193,8 @@ async def update_fixed_cost_category(category_id: str, data: FixedCostCategoryCr
 @business_clarity_router.delete("/fixed-costs/categories/{category_id}")
 async def delete_fixed_cost_category(category_id: str, user: User = Depends(get_current_user)):
     """Delete a fixed cost category"""
+    check_finance_permission(user, "delete fixed cost categories")
+    
     result = await db.fixed_cost_categories.delete_one(
         {"category_id": category_id, "company_id": user.company_id}
     )
@@ -4093,6 +4156,91 @@ async def get_item_profitability_report(
         "period": {"start": start_date, "end": end_date},
         "total_items": len(records),
         "records": records
+    }
+
+
+# ============== ACCOUNTING ENGINE REPORTS ==============
+
+@business_clarity_router.get("/reports/profit-loss")
+async def get_profit_loss_report(
+    user: User = Depends(get_current_user),
+    year: int = None,
+    month: int = None
+):
+    """
+    Get Profit & Loss summary from the accounting engine.
+    Aggregates all revenue, costs, and calculates gross profit.
+    """
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+    
+    accounting_engine = AccountingEngine(db, company_id, user.user_id)
+    summary = await accounting_engine.get_profit_loss_summary(year, month)
+    
+    return {
+        "year": year,
+        "month": month,
+        **summary
+    }
+
+
+@business_clarity_router.get("/reports/cost-center-actual")
+async def get_cost_center_actual_report(
+    user: User = Depends(get_current_user),
+    year: int = None,
+    month: int = None
+):
+    """
+    Get actual spending by cost center from accounting entries.
+    This shows REAL transacted amounts vs budgeted.
+    """
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+    
+    accounting_engine = AccountingEngine(db, company_id, user.user_id)
+    summary = await accounting_engine.get_cost_center_summary(year, month)
+    
+    # Get budgets for comparison
+    budgets = await db.cost_center_budgets.find({
+        "company_id": company_id,
+        "year": year,
+        "month": month
+    }, {"_id": 0}).to_list(100)
+    
+    budget_map = {b["cost_center_id"]: b.get("budget_amount", 0) for b in budgets}
+    
+    # Enhance with budget comparison
+    for item in summary:
+        cc_id = item.get("cost_center_id")
+        if cc_id:
+            item["budget"] = budget_map.get(cc_id, 0)
+            item["variance"] = round(item["budget"] - item["total_amount"], 2) if item["budget"] else None
+            item["utilization_percent"] = round(
+                (item["total_amount"] / item["budget"]) * 100, 1
+            ) if item["budget"] > 0 else None
+    
+    return {
+        "year": year,
+        "month": month,
+        "cost_centers": summary,
+        "totals": {
+            "total_actual": round(sum(s["total_amount"] for s in summary), 2),
+            "total_budget": round(sum(budget_map.values()), 2)
+        }
     }
 
 

@@ -533,3 +533,243 @@ class AccountingEngine:
         
         reversal_doc.pop("_id", None)
         return {"success": True, "reversal_entry": reversal_doc}
+    
+    # ================== INVENTORY METHODS ==================
+    
+    async def record_inventory_movement(
+        self,
+        movement: Dict[str, Any],
+        movement_type: str = "in",  # "in" or "out"
+        cost_center_id: Optional[str] = None,
+        cost_center_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Record an inventory movement as an accounting entry.
+        
+        - INVENTORY_IN: Increases inventory value (positive amount)
+        - INVENTORY_OUT: Decreases inventory value (negative for cost tracking)
+        
+        For outgoing inventory (consumption), the cost is tracked as expense.
+        """
+        transaction_date = movement.get("date") or movement.get("created_at", datetime.now(timezone.utc).isoformat())[:10]
+        
+        # Calculate the monetary value of the movement
+        quantity = movement.get("quantity", 0)
+        unit_cost = movement.get("unit_cost") or movement.get("cost_per_unit", 0)
+        amount = abs(quantity * unit_cost)
+        
+        # For inventory out (consumption), record as positive cost (expense)
+        # For inventory in (purchase), record as inventory asset increase
+        if movement_type == "out":
+            subtype = TransactionSubtype.INVENTORY_OUT
+            amount = amount  # Positive = cost/expense
+            description = f"Consumo inventario - {movement.get('item_name', 'Item')}"
+        else:
+            subtype = TransactionSubtype.INVENTORY_IN
+            amount = amount  # Could be negative for asset tracking, but we use positive
+            description = f"Entrada inventario - {movement.get('item_name', 'Item')}"
+        
+        entry = await self.record_entry(AccountingEntryCreate(
+            transaction_type=TransactionType.INVENTORY,
+            subtype=subtype,
+            amount=amount,
+            cost_center_id=cost_center_id or movement.get("cost_center_id"),
+            cost_center_name=cost_center_name or movement.get("cost_center_name"),
+            source_type="inventory_movement",
+            source_id=movement.get("movement_id") or movement.get("ingredient_id"),
+            source_ref=movement.get("item_name") or movement.get("name"),
+            transaction_date=transaction_date,
+            description=description,
+            metadata={
+                "item_id": movement.get("ingredient_id") or movement.get("item_id"),
+                "item_name": movement.get("item_name") or movement.get("name"),
+                "quantity": quantity,
+                "unit_cost": unit_cost,
+                "unit": movement.get("unit"),
+                "movement_type": movement_type,
+                "reason": movement.get("reason") or movement.get("notes")
+            }
+        ))
+        
+        return entry
+    
+    async def record_inventory_adjustment(
+        self,
+        adjustment: Dict[str, Any],
+        cost_center_id: Optional[str] = None,
+        cost_center_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Record an inventory adjustment (e.g., from physical count).
+        Can be positive (surplus found) or negative (shortage/loss).
+        """
+        transaction_date = adjustment.get("date", datetime.now(timezone.utc).isoformat()[:10])
+        
+        quantity_diff = adjustment.get("quantity_difference", 0)
+        unit_cost = adjustment.get("unit_cost", 0)
+        amount = quantity_diff * unit_cost  # Negative if shortage
+        
+        entry = await self.record_entry(AccountingEntryCreate(
+            transaction_type=TransactionType.INVENTORY,
+            subtype=TransactionSubtype.INVENTORY_ADJUSTMENT,
+            amount=abs(amount),  # Always positive, metadata has direction
+            cost_center_id=cost_center_id,
+            cost_center_name=cost_center_name,
+            source_type="inventory_adjustment",
+            source_id=adjustment.get("adjustment_id") or f"adj_{uuid.uuid4().hex[:8]}",
+            source_ref=adjustment.get("item_name"),
+            transaction_date=transaction_date,
+            description=f"Ajuste inventario - {adjustment.get('item_name', 'Item')} ({'+' if quantity_diff > 0 else ''}{quantity_diff})",
+            metadata={
+                "item_id": adjustment.get("item_id"),
+                "item_name": adjustment.get("item_name"),
+                "quantity_before": adjustment.get("quantity_before"),
+                "quantity_after": adjustment.get("quantity_after"),
+                "quantity_difference": quantity_diff,
+                "unit_cost": unit_cost,
+                "reason": adjustment.get("reason", "Physical count adjustment"),
+                "is_loss": amount < 0
+            }
+        ))
+        
+        return entry
+    
+    # ================== REVENUE/SALES METHODS ==================
+    
+    async def record_invoice(
+        self,
+        invoice: Dict[str, Any],
+        cost_center_id: Optional[str] = None,
+        cost_center_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Record an invoice as a revenue entry.
+        Revenue is recorded as negative (credit) in accounting terms,
+        but we store as positive for easy aggregation and mark type as REVENUE.
+        """
+        transaction_date = invoice.get("issue_date", invoice.get("created_at", datetime.now(timezone.utc).isoformat()))[:10]
+        
+        amount = invoice.get("total", 0)
+        
+        entry = await self.record_entry(AccountingEntryCreate(
+            transaction_type=TransactionType.REVENUE,
+            subtype=TransactionSubtype.SALE,
+            amount=amount,
+            cost_center_id=cost_center_id or invoice.get("cost_center_id"),
+            cost_center_name=cost_center_name or invoice.get("cost_center_name"),
+            source_type="invoice",
+            source_id=invoice.get("invoice_id"),
+            source_ref=invoice.get("invoice_number"),
+            transaction_date=transaction_date,
+            description=f"Factura {invoice.get('invoice_number', '')} - {invoice.get('client_name', 'Cliente')}",
+            metadata={
+                "invoice_number": invoice.get("invoice_number"),
+                "client_id": invoice.get("client_id"),
+                "client_name": invoice.get("client_name"),
+                "event_id": invoice.get("event_id"),
+                "subtotal": invoice.get("subtotal"),
+                "tax_amount": invoice.get("tax_amount") or (invoice.get("total", 0) - invoice.get("subtotal", 0)),
+                "discount_percent": invoice.get("discount_percent", 0),
+                "lines_count": len(invoice.get("lines", []))
+            }
+        ))
+        
+        return entry
+    
+    async def record_service_revenue(
+        self,
+        service: Dict[str, Any],
+        cost_center_id: Optional[str] = None,
+        cost_center_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Record service revenue (for non-invoice based income).
+        """
+        transaction_date = service.get("date", datetime.now(timezone.utc).isoformat()[:10])
+        
+        entry = await self.record_entry(AccountingEntryCreate(
+            transaction_type=TransactionType.REVENUE,
+            subtype=TransactionSubtype.SERVICE,
+            amount=service.get("amount", 0),
+            cost_center_id=cost_center_id,
+            cost_center_name=cost_center_name,
+            source_type="service_revenue",
+            source_id=service.get("service_id") or f"srv_{uuid.uuid4().hex[:8]}",
+            source_ref=service.get("description"),
+            transaction_date=transaction_date,
+            description=service.get("description", "Service revenue"),
+            metadata=service.get("metadata", {})
+        ))
+        
+        return entry
+    
+    # ================== REPORTING METHODS ==================
+    
+    async def get_profit_loss_summary(
+        self,
+        year: int,
+        month: int
+    ) -> Dict[str, Any]:
+        """
+        Get a profit/loss summary for a period.
+        Returns revenue, costs, and gross profit.
+        """
+        start_date = f"{year}-{str(month).zfill(2)}-01"
+        if month == 12:
+            end_date = f"{year + 1}-01-01"
+        else:
+            end_date = f"{year}-{str(month + 1).zfill(2)}-01"
+        
+        # Aggregate by transaction type
+        pipeline = [
+            {"$match": {
+                "company_id": self.company_id,
+                "is_reversed": False,
+                "transaction_date": {"$gte": start_date, "$lt": end_date}
+            }},
+            {"$group": {
+                "_id": "$transaction_type",
+                "total": {"$sum": "$amount"},
+                "count": {"$sum": 1}
+            }}
+        ]
+        
+        results = await self.db.accounting_entries.aggregate(pipeline).to_list(10)
+        
+        summary = {
+            "period": f"{year}-{str(month).zfill(2)}",
+            "revenue": 0,
+            "payroll": 0,
+            "expenses": 0,
+            "purchases": 0,
+            "inventory_cost": 0,
+            "total_costs": 0,
+            "gross_profit": 0,
+            "transactions_count": 0
+        }
+        
+        for r in results:
+            tx_type = r["_id"]
+            amount = round(r["total"], 2)
+            count = r["count"]
+            
+            if tx_type == "revenue":
+                summary["revenue"] = amount
+            elif tx_type == "payroll":
+                summary["payroll"] = amount
+            elif tx_type == "expense":
+                summary["expenses"] = amount
+            elif tx_type == "purchase":
+                summary["purchases"] = amount
+            elif tx_type == "inventory":
+                summary["inventory_cost"] = amount
+            
+            summary["transactions_count"] += count
+        
+        summary["total_costs"] = round(
+            summary["payroll"] + summary["expenses"] + 
+            summary["purchases"] + summary["inventory_cost"], 2
+        )
+        summary["gross_profit"] = round(summary["revenue"] - summary["total_costs"], 2)
+        
+        return summary

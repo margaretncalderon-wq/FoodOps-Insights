@@ -1713,6 +1713,8 @@ async def delete_ingredient(ingredient_id: str, user: User = Depends(get_current
 @inventory_router.post("/ingredients/{ingredient_id}/adjust")
 async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_current_user)):
     """Adjust stock quantity (waste, breakage, count correction)"""
+    from services.accounting_engine import AccountingEngine
+    
     now = datetime.now(timezone.utc)
     adjustment = data.get("adjustment", 0)
     adjustment_qty = data.get("adjustment_qty")  # Absolute quantity
@@ -1729,17 +1731,21 @@ async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_
     else:
         new_quantity = ingredient.get("stock_quantity", 0) + adjustment
     
+    quantity_diff = new_quantity - ingredient.get("stock_quantity", 0)
+    
     await db.ingredients.update_one(
         {"ingredient_id": ingredient_id},
         {"$set": {"stock_quantity": new_quantity, "updated_at": now.isoformat()}}
     )
     
+    adjustment_id = f"adj_{uuid.uuid4().hex[:8]}"
+    
     # Log adjustment
     await db.inventory_adjustments.insert_one({
-        "adjustment_id": f"adj_{uuid.uuid4().hex[:8]}",
+        "adjustment_id": adjustment_id,
         "company_id": user.company_id,
         "ingredient_id": ingredient_id,
-        "adjustment": new_quantity - ingredient.get("stock_quantity", 0),
+        "adjustment": quantity_diff,
         "adjustment_type": adjustment_type,
         "reason": reason,
         "previous_quantity": ingredient.get("stock_quantity", 0),
@@ -1747,6 +1753,26 @@ async def adjust_stock(ingredient_id: str, data: dict, user: User = Depends(get_
         "user_id": user.user_id,
         "created_at": now.isoformat()
     })
+    
+    # Record in accounting engine if there's a cost impact
+    unit_cost = ingredient.get("cost_per_unit", 0) or ingredient.get("unit_cost", 0)
+    if quantity_diff != 0 and unit_cost > 0:
+        try:
+            accounting_engine = AccountingEngine(db, user.company_id, user.user_id)
+            await accounting_engine.record_inventory_adjustment({
+                "adjustment_id": adjustment_id,
+                "item_id": ingredient_id,
+                "item_name": ingredient.get("name"),
+                "quantity_before": ingredient.get("stock_quantity", 0),
+                "quantity_after": new_quantity,
+                "quantity_difference": quantity_diff,
+                "unit_cost": unit_cost,
+                "reason": reason,
+                "date": now.isoformat()[:10]
+            })
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to record inventory adjustment in accounting: {e}")
     
     return {"new_quantity": new_quantity, "success": True}
 
