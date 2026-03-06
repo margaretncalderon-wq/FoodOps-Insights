@@ -12,7 +12,7 @@ import {
   Activity, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight,
   FileCheck, Users, Zap, Bell, RefreshCw, ChefHat, MapPin, Building2,
   GitBranch, Lock, Unlock, Target, FolderKanban, BarChart3, TrendingUp, UserCircle,
-  ArrowUpRight, ArrowDownLeft
+  ArrowUpRight, ArrowDownLeft, Phone, Mail, User as UserIcon
 } from "lucide-react";
 
 // ==================== SYSTEM PULSE ====================
@@ -562,7 +562,7 @@ export default function SystemPulse() {
           </Card>
 
           {/* -------------------- EXECUTION HUB - MY PENDING -------------------- */}
-          {executionPending && (executionPending.active_goals > 0 || executionPending.pending_tasks > 0) && (
+          {executionPending && (executionPending.active_goals > 0 || executionPending.pending_tasks > 0 || executionPending.follow_ups_due > 0) && (
             <Card data-testid="execution-pending-section">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -571,9 +571,9 @@ export default function SystemPulse() {
                     <CardTitle className="text-lg">
                       {t("myPending")}
                     </CardTitle>
-                    {(executionPending.active_goals + executionPending.pending_tasks) > 0 && (
+                    {(executionPending.active_goals + executionPending.pending_tasks + executionPending.follow_ups_due) > 0 && (
                       <Badge className="bg-[#AED768]/20 text-[#AED768] text-xs">
-                        {executionPending.active_goals + executionPending.pending_tasks}
+                        {executionPending.active_goals + executionPending.pending_tasks + executionPending.follow_ups_due}
                       </Badge>
                     )}
                   </div>
@@ -668,6 +668,60 @@ export default function SystemPulse() {
                               {new Date(task.due_date).toLocaleDateString()}
                             </span>
                           )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Follow-ups Section */}
+                {executionPending.follow_ups?.length > 0 && (
+                  <div className="space-y-2 mt-3 pt-3 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                        {isEs ? "Seguimientos Pendientes" : "Pending Follow-ups"}
+                      </p>
+                      {executionPending.follow_ups_due > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          {executionPending.follow_ups_due}
+                        </Badge>
+                      )}
+                    </div>
+                    {executionPending.follow_ups.slice(0, 4).map((fu) => (
+                      <Link
+                        key={`${fu.entity_type}-${fu.entity_id}`}
+                        to={fu.link}
+                        className={`block p-2 rounded-lg transition-colors ${
+                          fu.is_overdue 
+                            ? "bg-red-500/10 hover:bg-red-500/20" 
+                            : "bg-muted/30 hover:bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {fu.follow_up_type === "Call" && <Phone className="w-3 h-3 text-blue-500" />}
+                            {fu.follow_up_type === "Email" && <Mail className="w-3 h-3 text-green-500" />}
+                            {fu.follow_up_type === "Meeting" && <UserIcon className="w-3 h-3 text-purple-500" />}
+                            {!["Call", "Email", "Meeting"].includes(fu.follow_up_type) && <Clock className="w-3 h-3 text-orange-500" />}
+                            <span className={`text-sm truncate max-w-[150px] ${fu.is_overdue ? "text-red-400" : ""}`}>
+                              {fu.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                fu.is_overdue 
+                                  ? "border-red-500/50 text-red-400" 
+                                  : "border-orange-500/50 text-orange-400"
+                              }`}
+                            >
+                              {fu.is_overdue 
+                                ? (isEs ? "Vencido" : "Overdue")
+                                : (isEs ? "Hoy" : "Today")}
+                            </Badge>
+                            <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                          </div>
                         </div>
                       </Link>
                     ))}

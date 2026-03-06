@@ -947,13 +947,80 @@ async def get_my_pending(user: User = Depends(get_current_user)):
     # Count blocked goals
     blocked_count = len([g for g in owned_goals if g.get("status") == "blocked"])
     
+    # ===== FOLLOW-UPS DUE TODAY OR OVERDUE =====
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
+    company_id = user.company_id
+    
+    follow_ups = []
+    
+    # Get leads with follow-ups due today or overdue (owned by user or all if admin)
+    lead_query = {
+        "company_id": company_id,
+        "next_follow_up_date": {"$ne": None, "$lte": tomorrow},
+        "status": {"$nin": ["Converted", "Discarded"]}
+    }
+    # If user has owner_id, filter by it (sales users see only their own)
+    user_role = getattr(user, 'role_id', None)
+    if user_role == "sales":
+        lead_query["owner_id"] = user.user_id
+    
+    leads_with_fu = await db.leads.find(lead_query, {
+        "_id": 0, "lead_id": 1, "lead_name": 1, "contact_name": 1, "company_name": 1,
+        "next_follow_up_date": 1, "follow_up_type": 1, "owner_id": 1
+    }).to_list(50)
+    
+    for lead in leads_with_fu:
+        fu_date = lead.get("next_follow_up_date", "")[:10] if lead.get("next_follow_up_date") else ""
+        is_overdue = fu_date and fu_date < today
+        follow_ups.append({
+            "entity_type": "lead",
+            "entity_id": lead["lead_id"],
+            "name": lead.get("lead_name") or lead.get("contact_name") or lead.get("company_name"),
+            "follow_up_date": lead.get("next_follow_up_date"),
+            "follow_up_type": lead.get("follow_up_type", "Call"),
+            "is_overdue": is_overdue,
+            "link": f"/crm/leads/{lead['lead_id']}"
+        })
+    
+    # Get clients with follow-ups due today or overdue
+    client_query = {
+        "company_id": company_id,
+        "next_follow_up_date": {"$ne": None, "$lte": tomorrow}
+    }
+    if user_role == "sales":
+        client_query["owner_id"] = user.user_id
+    
+    clients_with_fu = await db.clients.find(client_query, {
+        "_id": 0, "client_id": 1, "display_name": 1, "company_name": 1,
+        "next_follow_up_date": 1, "follow_up_type": 1, "owner_id": 1
+    }).to_list(50)
+    
+    for client in clients_with_fu:
+        fu_date = client.get("next_follow_up_date", "")[:10] if client.get("next_follow_up_date") else ""
+        is_overdue = fu_date and fu_date < today
+        follow_ups.append({
+            "entity_type": "client",
+            "entity_id": client["client_id"],
+            "name": client.get("display_name") or client.get("company_name"),
+            "follow_up_date": client.get("next_follow_up_date"),
+            "follow_up_type": client.get("follow_up_type", "CheckIn"),
+            "is_overdue": is_overdue,
+            "link": f"/crm/clients/{client['client_id']}"
+        })
+    
+    # Sort follow-ups: overdue first, then by date
+    follow_ups.sort(key=lambda x: (not x.get("is_overdue", False), x.get("follow_up_date", "")))
+    
     return MyPendingStats(
         active_goals=len(owned_goals),
         pending_tasks=len(assigned_tasks),
         blocked_goals=blocked_count,
         decisions_waiting=0,  # TODO: implement if needed
+        follow_ups_due=len(follow_ups),
         goals=owned_goals,
-        tasks=assigned_tasks
+        tasks=assigned_tasks,
+        follow_ups=follow_ups
     )
 
 

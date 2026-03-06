@@ -235,5 +235,7 @@ class MyPendingStats(BaseModel):
     pending_tasks: int = 0
     blocked_goals: int = 0
     decisions_waiting: int = 0
+    follow_ups_due: int = 0  # Follow-ups due today or overdue
     goals: List[Dict[str, Any]] = []
     tasks: List[Dict[str, Any]] = []
+    follow_ups: List[Dict[str, Any]] = []
