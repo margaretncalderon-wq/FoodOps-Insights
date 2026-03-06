@@ -35,6 +35,26 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Formulario "Nuevo Gasto" en Business Clarity - COMPLETADO ✅
+
+**Frontend** (`components/business-clarity/PayablesSection.js`):
+- Botón "+ New Expense" en sección AP (Accounts Payable)
+- Dialog modal con campos:
+  - Proveedor (dropdown de proveedores existentes)
+  - Nombre de proveedor manual (si no hay proveedor seleccionado)
+  - Descripción (requerido)
+  - Monto (requerido)
+  - Número de factura
+  - Fecha de vencimiento
+  - Asignación: Sin asignar (Overhead) / Evento / Categoría de Costo Fijo
+- Mensaje informativo dinámico según tipo de asignación
+- Validación de campos requeridos
+- Toast de éxito y actualización automática de tabla
+
+**Testing**: 100% backend (15/15 tests), 100% frontend
+
+---
+
 #### Archivos Adjuntos para Partners - COMPLETADO ✅
 
 **Backend** (`routers/partners.py`):
