@@ -35,6 +35,23 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Integración Cash Flow con P&L - COMPLETADO ✅
+
+**Frontend** (`ProfitLossDashboard.js`):
+- Nueva sección "P&L vs Cash Flow" que compara:
+  - **P&L (Base Devengado)**: Ingresos reconocidos, Costos reconocidos, Utilidad bruta
+  - **Cash Flow (Base Efectivo)**: Efectivo recibido, Efectivo pagado, Flujo neto
+- **Análisis de Variación**:
+  - Cash vs Revenue: Indica si hay cuentas por cobrar pendientes
+  - Payments vs Costs: Indica si hay costos por pagar
+  - P&L vs Cash Difference: Compara posición contable vs efectivo real
+- **Obligaciones Pendientes**: Badges visuales para montos vencidos, esta semana, este mes
+- Sincronización de filtros de fecha entre P&L y Cash Flow
+
+**Testing**: Verificado visualmente - la sección muestra correctamente la comparación de datos contables vs efectivo.
+
+---
+
 #### Bug Fix: Etiqueta "Overhead" en Centro de Costo - CORREGIDO ✅
 
 **Problema reportado**: En la tabla de Cuentas por Pagar, cuando un gasto estaba asignado a un centro de costo específico (ej: "Logistics"), la UI mostraba "→ Overhead" lo cual era confuso/incorrecto.

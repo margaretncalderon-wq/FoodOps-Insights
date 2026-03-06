@@ -10,7 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import {
   TrendingUp, TrendingDown, RefreshCw, DollarSign, 
   Receipt, Users, Package, Building2, ArrowUpRight, ArrowDownRight,
-  Wallet, PieChart as PieChartIcon, AlertTriangle, AlertCircle, Bell
+  Wallet, PieChart as PieChartIcon, AlertTriangle, AlertCircle, Bell,
+  ArrowUpCircle, ArrowDownCircle, Banknote, Scale
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
@@ -54,21 +55,35 @@ export function ProfitLossDashboard() {
   const [plData, setPlData] = useState(null);
   const [costCenterData, setCostCenterData] = useState(null);
   const [budgetAlerts, setBudgetAlerts] = useState(null);
+  const [cashFlowData, setCashFlowData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   
+  // Calculate date range for cash flow based on selected month/year
+  const getDateRange = () => {
+    const year = parseInt(selectedYear);
+    const month = parseInt(selectedMonth);
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return { startDate, endDate };
+  };
+  
   const fetchData = useCallback(async () => {
     setLoading(true);
+    const { startDate, endDate } = getDateRange();
     try {
-      const [plRes, ccRes, alertsRes] = await Promise.all([
+      const [plRes, ccRes, alertsRes, cashFlowRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/reports/profit-loss?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/reports/cost-center-actual?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/reports/budget-alerts?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true })
+        axios.get(`${API}/api/business-clarity/reports/budget-alerts?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true }),
+        axios.get(`${API}/api/business-clarity/cash-flow?start_date=${startDate}&end_date=${endDate}`, { withCredentials: true })
       ]);
       setPlData(plRes.data);
       setCostCenterData(ccRes.data);
       setBudgetAlerts(alertsRes.data);
+      setCashFlowData(cashFlowRes.data);
     } catch (err) {
       console.error(err);
       toast.error(isEs ? "Error al cargar datos" : "Failed to load data");
@@ -336,6 +351,178 @@ export function ProfitLossDashboard() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Cash Flow Integration Section */}
+      <Card className="border-2 border-cyan-200" data-testid="cash-flow-integration">
+        <CardHeader className="pb-2 bg-gradient-to-r from-cyan-50 to-blue-50">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Scale className="w-5 h-5 text-cyan-600" />
+            {isEs ? "P&L vs Flujo de Caja" : "P&L vs Cash Flow"}
+          </CardTitle>
+          <CardDescription>
+            {isEs 
+              ? "Comparación entre resultados contables y movimiento real de efectivo"
+              : "Comparison between accounting results and actual cash movement"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* P&L Summary (Accrual Basis) */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet className="w-5 h-5 text-blue-600" />
+                <h4 className="font-medium">{isEs ? "P&L (Base Devengado)" : "P&L (Accrual Basis)"}</h4>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
+                  <span className="text-sm text-emerald-700">{isEs ? "Ingresos Reconocidos" : "Recognized Revenue"}</span>
+                  <span className="font-bold text-emerald-800">{formatCurrency(plData?.revenue || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <span className="text-sm text-red-700">{isEs ? "Costos Reconocidos" : "Recognized Costs"}</span>
+                  <span className="font-bold text-red-800">{formatCurrency(plData?.total_costs || 0)}</span>
+                </div>
+                <div className={`flex justify-between items-center p-3 rounded-lg ${
+                  (plData?.gross_profit || 0) >= 0 ? "bg-blue-50" : "bg-amber-50"
+                }`}>
+                  <span className={`text-sm ${(plData?.gross_profit || 0) >= 0 ? "text-blue-700" : "text-amber-700"}`}>
+                    {isEs ? "Utilidad Bruta" : "Gross Profit"}
+                  </span>
+                  <span className={`font-bold ${(plData?.gross_profit || 0) >= 0 ? "text-blue-800" : "text-amber-800"}`}>
+                    {formatCurrency(plData?.gross_profit || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Cash Flow Summary (Cash Basis) */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Banknote className="w-5 h-5 text-cyan-600" />
+                <h4 className="font-medium">{isEs ? "Flujo de Caja (Base Efectivo)" : "Cash Flow (Cash Basis)"}</h4>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <ArrowUpCircle className="w-4 h-4 text-emerald-600" />
+                    <span className="text-sm text-emerald-700">{isEs ? "Efectivo Recibido" : "Cash Received"}</span>
+                  </div>
+                  <span className="font-bold text-emerald-800">{formatCurrency(cashFlowData?.inflows?.total || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <ArrowDownCircle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm text-red-700">{isEs ? "Efectivo Pagado" : "Cash Paid"}</span>
+                  </div>
+                  <span className="font-bold text-red-800">{formatCurrency(cashFlowData?.outflows?.total || 0)}</span>
+                </div>
+                <div className={`flex justify-between items-center p-3 rounded-lg ${
+                  (cashFlowData?.net_cash_flow || 0) >= 0 ? "bg-cyan-50" : "bg-amber-50"
+                }`}>
+                  <span className={`text-sm ${(cashFlowData?.net_cash_flow || 0) >= 0 ? "text-cyan-700" : "text-amber-700"}`}>
+                    {isEs ? "Flujo Neto" : "Net Cash Flow"}
+                  </span>
+                  <span className={`font-bold ${(cashFlowData?.net_cash_flow || 0) >= 0 ? "text-cyan-800" : "text-amber-800"}`}>
+                    {formatCurrency(cashFlowData?.net_cash_flow || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Variance Analysis */}
+          {cashFlowData && plData && (
+            <div className="mt-6 pt-4 border-t">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                {isEs ? "Análisis de Variación" : "Variance Analysis"}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Inflows vs Revenue */}
+                <Card className="bg-slate-50">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {isEs ? "Efectivo vs Ingresos" : "Cash vs Revenue"}
+                    </p>
+                    <p className={`text-lg font-bold ${
+                      (cashFlowData?.inflows?.total || 0) >= (plData?.revenue || 0) ? "text-emerald-600" : "text-amber-600"
+                    }`}>
+                      {formatCurrency((cashFlowData?.inflows?.total || 0) - (plData?.revenue || 0))}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(cashFlowData?.inflows?.total || 0) >= (plData?.revenue || 0)
+                        ? (isEs ? "Cobranza adelantada" : "Collections ahead")
+                        : (isEs ? "Por cobrar pendiente" : "Pending receivables")}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                {/* Outflows vs Costs */}
+                <Card className="bg-slate-50">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {isEs ? "Pagos vs Costos" : "Payments vs Costs"}
+                    </p>
+                    <p className={`text-lg font-bold ${
+                      (cashFlowData?.outflows?.total || 0) <= (plData?.total_costs || 0) ? "text-emerald-600" : "text-amber-600"
+                    }`}>
+                      {formatCurrency((plData?.total_costs || 0) - (cashFlowData?.outflows?.total || 0))}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(cashFlowData?.outflows?.total || 0) <= (plData?.total_costs || 0)
+                        ? (isEs ? "Costos por pagar" : "Costs pending payment")
+                        : (isEs ? "Pagos adelantados" : "Advance payments")}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                {/* Net Comparison */}
+                <Card className="bg-slate-50">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {isEs ? "Diferencia P&L vs Cash" : "P&L vs Cash Difference"}
+                    </p>
+                    <p className={`text-lg font-bold ${
+                      (cashFlowData?.net_cash_flow || 0) >= (plData?.gross_profit || 0) ? "text-emerald-600" : "text-amber-600"
+                    }`}>
+                      {formatCurrency((cashFlowData?.net_cash_flow || 0) - (plData?.gross_profit || 0))}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(cashFlowData?.net_cash_flow || 0) >= (plData?.gross_profit || 0)
+                        ? (isEs ? "Mejor posición de caja" : "Better cash position")
+                        : (isEs ? "Efectivo por recibir" : "Cash yet to receive")}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+          
+          {/* Pending Obligations Highlight */}
+          {cashFlowData?.pending_obligations && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <span className="text-muted-foreground font-medium">{isEs ? "Obligaciones Pendientes:" : "Pending Obligations:"}</span>
+                {cashFlowData.pending_obligations.overdue?.total > 0 && (
+                  <Badge variant="destructive">
+                    {isEs ? "Vencido" : "Overdue"}: {formatCurrency(cashFlowData.pending_obligations.overdue.total)}
+                  </Badge>
+                )}
+                {cashFlowData.pending_obligations.due_this_week?.total > 0 && (
+                  <Badge variant="outline" className="border-amber-500 text-amber-700">
+                    {isEs ? "Esta semana" : "This week"}: {formatCurrency(cashFlowData.pending_obligations.due_this_week.total)}
+                  </Badge>
+                )}
+                {cashFlowData.pending_obligations.due_this_month?.total > 0 && (
+                  <Badge variant="outline">
+                    {isEs ? "Este mes" : "This month"}: {formatCurrency(cashFlowData.pending_obligations.due_this_month.total)}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
