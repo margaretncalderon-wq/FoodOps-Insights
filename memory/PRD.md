@@ -35,6 +35,27 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Registro de Pagos en Cuentas por Pagar (AP) - COMPLETADO ✅
+
+**Backend** (`routers/business_clarity.py`):
+- `POST /api/business-clarity/payables/{id}/payments` - Registrar pago parcial/total
+- `POST /api/business-clarity/payables/{id}/mark-paid` - Marcar como pagado
+- `GET /api/business-clarity/payables/{id}/payments` - Historial de pagos
+- Soporte para métodos: transferencia, efectivo, cheque, tarjeta, otro
+- Validaciones: monto positivo, no exceder saldo
+- Estados: pending → partial → paid
+
+**Frontend** (`PayablesSection.js`):
+- Botones de acción: $ (registrar pago), ✓ (marcar como pagado)
+- Dialog de pago con: resumen (Total/Pagado/Saldo), monto, fecha, método, referencia, notas
+- Botones rápidos: "Pago Total" y "50%"
+- Historial de pagos visible en el dialog
+- Badges de estado: Pending (gris), Partial (ámbar), Paid (verde)
+
+**Testing**: 93.75% backend (15/16 tests), 100% frontend
+
+---
+
 #### Formulario "Nuevo Gasto" en Business Clarity - COMPLETADO ✅
 
 **Frontend** (`components/business-clarity/PayablesSection.js`):
