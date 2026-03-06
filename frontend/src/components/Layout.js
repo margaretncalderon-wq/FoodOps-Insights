@@ -36,6 +36,7 @@ import {
   ClipboardCheck,
   FolderKanban,
   MapPin,
+  Handshake,
 } from "lucide-react";
 // OrgSwitcher removed - caused critical bug that corrupted user company_id
 import { TrialExpirationModal } from "./TrialExpirationModal";
@@ -57,6 +58,8 @@ const iconMap = {
   megaphone: Megaphone,
   briefcase: Briefcase,
   settings: Settings,
+  users: Users,
+  handshake: Handshake,
   // New icons for multi-industry support
   "clipboard-list": ClipboardList,
   "clipboard-check": ClipboardCheck,

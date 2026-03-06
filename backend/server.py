@@ -17010,6 +17010,10 @@ api_router.include_router(brand_hub_router)  # /api/brand-hub/*
 from routers.settings import settings_router
 api_router.include_router(settings_router)  # /api/settings/*
 
+# Include Partners router
+from routers.partners import partners_router
+api_router.include_router(partners_router)  # /api/partners/*
+
 # General file upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):

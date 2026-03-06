@@ -93,6 +93,11 @@ const AgencyDashboard = lazy(() => import("./pages/demand-studio/AgencyDashboard
 const NotesPage = lazy(() => import("./pages/demand-studio/NotesPage"));
 const YouTubeCallbackPage = lazy(() => import("./pages/demand-studio/YouTubeCallbackPage"));
 
+// Partners pages
+const PartnersPage = lazy(() => import("./pages/Partners/PartnersPage"));
+const PartnerDetailPage = lazy(() => import("./pages/Partners/PartnerDetailPage"));
+const PartnerFormPage = lazy(() => import("./pages/Partners/PartnerFormPage"));
+
 // Execution Hub pages
 const ExecutionHubPage = lazy(() => import("./pages/ExecutionHubPage"));
 const ExecutionGoalDetail = lazy(() => import("./pages/ExecutionGoalDetail"));
@@ -324,6 +329,13 @@ function AppRouter() {
       <Route path="/execution-hub/:goalId" element={<ProtectedRoute><ExecutionGoalDetail /></ProtectedRoute>} />
       <Route path="/collaborations" element={<ProtectedRoute><CollaborationDashboard /></ProtectedRoute>} />
       <Route path="/venues" element={<ProtectedRoute><VenuesPage /></ProtectedRoute>} />
+      
+      {/* Partners Module */}
+      <Route path="/partners" element={<ProtectedRoute><PartnersPage /></ProtectedRoute>} />
+      <Route path="/partners/new" element={<ProtectedRoute><PartnerFormPage /></ProtectedRoute>} />
+      <Route path="/partners/:partnerId" element={<ProtectedRoute><PartnerDetailPage /></ProtectedRoute>} />
+      <Route path="/partners/:partnerId/edit" element={<ProtectedRoute><PartnerFormPage /></ProtectedRoute>} />
+      
       <Route path="/demand-studio" element={<ProtectedRoute><DemandStudioPage /></ProtectedRoute>}>
         <Route index element={<DemandStudioOverview />} />
         <Route path="campaigns" element={<CampaignsPage />} />

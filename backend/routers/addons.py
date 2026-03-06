@@ -667,6 +667,7 @@ CORE_MODULES = [
     {"key": "system_pulse", "path": "/dashboard", "name_en": "System Pulse", "name_es": "System Pulse", "icon": "activity"},
     {"key": "client_engagement", "path": "/client-engagement", "name_en": "Client Engagement", "name_es": "Client Engagement", "icon": "puzzle"},
     {"key": "execution_hub", "path": "/execution-hub", "name_en": "Execution Hub", "name_es": "Execution Hub", "icon": "target"},
+    {"key": "partners", "path": "/partners", "name_en": "Partners", "name_es": "Partners", "icon": "handshake"},
     {"key": "business_clarity", "path": "/business-clarity", "name_en": "Business Clarity", "name_es": "Business Clarity", "icon": "briefcase"},
     {"key": "people_ops", "path": "/people-ops", "name_en": "People Ops", "name_es": "People Ops", "icon": "users"},
     {"key": "settings", "path": "/settings", "name_en": "Settings", "name_es": "Configuración", "icon": "settings"},
@@ -814,8 +815,10 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         "module_venues": 5,
         "execution_hub": 6,
         "module_demand_studio": 7,
-        "business_clarity": 8,
-        "settings": 9,
+        "partners": 8,
+        "business_clarity": 9,
+        "people_ops": 10,
+        "settings": 11,
     }
     enabled_modules.sort(key=lambda x: module_order.get(x["key"], 99))
     
