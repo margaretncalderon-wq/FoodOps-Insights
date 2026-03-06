@@ -14,3 +14,4 @@ export { SalesReportsSection } from './SalesReportsSection';
 export { AdminReportsSection } from './AdminReportsSection';
 export { AccountingQueueSection } from './AccountingQueueSection';
 export { AccountingDashboard } from './AccountingDashboard';
+export { ProfitLossDashboard } from './ProfitLossDashboard';

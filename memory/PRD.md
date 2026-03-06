@@ -33,6 +33,20 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Dashboard Visual P&L - COMPLETADO ✅
+
+**Frontend** (`ProfitLossDashboard.js`):
+- **4 KPIs principales**: Revenue, Total Costs, Gross Profit/Loss, Gross Margin %
+- **Gráfico de pastel**: Desglose de costos por categoría (Nómina, Compras, Gastos, Inventario)
+- **Gráfico de barras horizontal**: Gastos reales vs presupuesto por Centro de Costo
+- **Tarjetas de detalle**: Porcentaje de cada tipo de costo sobre el total
+- **Resumen de totales**: Presupuestado, Real, Variación, # Centros de Costo
+- Selector de mes/año para análisis histórico
+
+**Acceso**: Business Clarity → Reports → P&L / Resultados
+
+---
+
 #### Hub Central de Marketing "Insights" - COMPLETADO ✅
 
 **Frontend** (`InsightsPage.js`):

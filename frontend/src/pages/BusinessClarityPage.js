@@ -22,7 +22,8 @@ import {
   SalesReportsSection,
   AdminReportsSection,
   AccountingQueueSection,
-  AccountingDashboard
+  AccountingDashboard,
+  ProfitLossDashboard
 } from "../components/business-clarity";
 
 // Icons
@@ -105,6 +106,7 @@ export default function BusinessClarityPage() {
   // Reports dropdown items
   const reportsMenu = [
     { path: "/business-clarity/reports", label: isEs ? "Ejecutivos" : "Executive", icon: FileBarChart },
+    { path: "/business-clarity/profit-loss", label: isEs ? "P&L / Resultados" : "P&L / Results", icon: Wallet },
     { path: "/business-clarity/sales-reports", label: isEs ? "Ventas" : "Sales", icon: ShoppingCart },
     { path: "/business-clarity/admin-reports", label: isEs ? "Administrativos" : "Administrative", icon: Wallet },
     { path: "/business-clarity/payroll-cost", label: isEs ? "Costo Personal" : "Payroll Cost", icon: Users },
@@ -227,6 +229,7 @@ export default function BusinessClarityPage() {
           <Route path="reports" element={<ReportsSection />} />
           <Route path="accounting-queue" element={<AccountingQueueSection />} />
           <Route path="accounting-dashboard" element={<AccountingDashboard />} />
+          <Route path="profit-loss" element={<ProfitLossDashboard />} />
         </Routes>
       </div>
     </Layout>
