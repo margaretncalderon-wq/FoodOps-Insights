@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import {
   TrendingUp, TrendingDown, RefreshCw, DollarSign, 
   Receipt, Users, Package, Building2, ArrowUpRight, ArrowDownRight,
-  Wallet, PieChart as PieChartIcon
+  Wallet, PieChart as PieChartIcon, AlertTriangle, AlertCircle, Bell
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
@@ -52,6 +53,7 @@ export function ProfitLossDashboard() {
   
   const [plData, setPlData] = useState(null);
   const [costCenterData, setCostCenterData] = useState(null);
+  const [budgetAlerts, setBudgetAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
@@ -59,12 +61,14 @@ export function ProfitLossDashboard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [plRes, ccRes] = await Promise.all([
+      const [plRes, ccRes, alertsRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/reports/profit-loss?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/reports/cost-center-actual?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true })
+        axios.get(`${API}/api/business-clarity/reports/cost-center-actual?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true }),
+        axios.get(`${API}/api/business-clarity/reports/budget-alerts?year=${selectedYear}&month=${selectedMonth}`, { withCredentials: true })
       ]);
       setPlData(plRes.data);
       setCostCenterData(ccRes.data);
+      setBudgetAlerts(alertsRes.data);
     } catch (err) {
       console.error(err);
       toast.error(isEs ? "Error al cargar datos" : "Failed to load data");
@@ -184,6 +188,58 @@ export function ProfitLossDashboard() {
           </Button>
         </div>
       </div>
+      
+      {/* Budget Alerts Section */}
+      {budgetAlerts?.alerts?.length > 0 && (
+        <div className="space-y-3" data-testid="budget-alerts-section">
+          <div className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-amber-600" />
+            <h3 className="font-medium">
+              {isEs ? "Alertas de Presupuesto" : "Budget Alerts"}
+              <Badge variant="outline" className="ml-2">
+                {budgetAlerts.alerts.length}
+              </Badge>
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {budgetAlerts.alerts.map((alert, idx) => (
+              <Alert 
+                key={idx}
+                variant={alert.severity === "exceeded" ? "destructive" : "default"}
+                className={`
+                  ${alert.severity === "exceeded" ? "border-red-500 bg-red-50" : ""}
+                  ${alert.severity === "critical" ? "border-orange-500 bg-orange-50" : ""}
+                  ${alert.severity === "warning" ? "border-yellow-500 bg-yellow-50" : ""}
+                `}
+                data-testid={`budget-alert-${alert.cost_center_id}`}
+              >
+                {alert.severity === "exceeded" && <AlertCircle className="h-4 w-4 text-red-600" />}
+                {alert.severity === "critical" && <AlertTriangle className="h-4 w-4 text-orange-600" />}
+                {alert.severity === "warning" && <AlertTriangle className="h-4 w-4 text-yellow-600" />}
+                <AlertTitle className="text-sm font-medium">
+                  {alert.cost_center_name}
+                  <Badge 
+                    className={`ml-2 text-xs ${
+                      alert.severity === "exceeded" ? "bg-red-600" :
+                      alert.severity === "critical" ? "bg-orange-500" : "bg-yellow-500"
+                    }`}
+                  >
+                    {alert.utilization_percent}%
+                  </Badge>
+                </AlertTitle>
+                <AlertDescription className="text-xs mt-1">
+                  <span className="font-medium">{formatCurrencyK(alert.actual)}</span>
+                  {" / "}
+                  <span className="text-muted-foreground">{formatCurrencyK(alert.budget)}</span>
+                  <span className={`ml-2 ${alert.variance < 0 ? "text-red-600" : "text-green-600"}`}>
+                    ({alert.variance >= 0 ? "+" : ""}{formatCurrencyK(alert.variance)} {isEs ? "restante" : "remaining"})
+                  </span>
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Main KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

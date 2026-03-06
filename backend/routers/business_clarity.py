@@ -4254,6 +4254,112 @@ async def get_cost_center_actual_report(
     }
 
 
+@business_clarity_router.get("/reports/budget-alerts")
+async def get_budget_alerts(
+    user: User = Depends(get_current_user),
+    year: int = None,
+    month: int = None,
+    warning_threshold: float = 80.0,
+    critical_threshold: float = 90.0
+):
+    """
+    Get budget alerts for cost centers that exceed thresholds.
+    - Warning: >= 80% utilization (yellow)
+    - Critical: >= 90% utilization (red)
+    - Exceeded: > 100% utilization (dark red)
+    """
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+    
+    # Get actual spending
+    accounting_engine = AccountingEngine(db, company_id, user.user_id)
+    summary = await accounting_engine.get_cost_center_summary(year, month)
+    
+    # Get budgets
+    month_key = f"{year}-{str(month).zfill(2)}"
+    cost_centers = await db.cost_centers.find(
+        {"company_id": company_id},
+        {"_id": 0, "cost_center_id": 1, "name": 1, "monthly_budgets": 1, "annual_budget": 1}
+    ).to_list(100)
+    
+    budget_map = {}
+    name_map = {}
+    for cc in cost_centers:
+        cc_id = cc.get("cost_center_id")
+        name_map[cc_id] = cc.get("name")
+        monthly_budgets = cc.get("monthly_budgets", {})
+        if month_key in monthly_budgets:
+            budget_map[cc_id] = monthly_budgets[month_key]
+        elif cc.get("annual_budget"):
+            budget_map[cc_id] = cc["annual_budget"] / 12
+    
+    # Build alerts
+    alerts = []
+    for item in summary:
+        cc_id = item.get("cost_center_id")
+        if not cc_id:
+            continue
+            
+        actual = item.get("total_amount", 0)
+        budget = budget_map.get(cc_id, 0)
+        
+        if budget <= 0:
+            continue
+            
+        utilization = (actual / budget) * 100
+        
+        if utilization >= critical_threshold:
+            severity = "exceeded" if utilization > 100 else "critical"
+            alerts.append({
+                "cost_center_id": cc_id,
+                "cost_center_name": item.get("cost_center_name") or name_map.get(cc_id),
+                "actual": round(actual, 2),
+                "budget": round(budget, 2),
+                "utilization_percent": round(utilization, 1),
+                "variance": round(budget - actual, 2),
+                "severity": severity,
+                "message": f"{'Excedido' if severity == 'exceeded' else 'Crítico'}: {round(utilization, 1)}% del presupuesto utilizado"
+            })
+        elif utilization >= warning_threshold:
+            alerts.append({
+                "cost_center_id": cc_id,
+                "cost_center_name": item.get("cost_center_name") or name_map.get(cc_id),
+                "actual": round(actual, 2),
+                "budget": round(budget, 2),
+                "utilization_percent": round(utilization, 1),
+                "variance": round(budget - actual, 2),
+                "severity": "warning",
+                "message": f"Advertencia: {round(utilization, 1)}% del presupuesto utilizado"
+            })
+    
+    # Sort by severity (exceeded > critical > warning) and utilization
+    severity_order = {"exceeded": 0, "critical": 1, "warning": 2}
+    alerts.sort(key=lambda x: (severity_order.get(x["severity"], 3), -x["utilization_percent"]))
+    
+    return {
+        "year": year,
+        "month": month,
+        "thresholds": {
+            "warning": warning_threshold,
+            "critical": critical_threshold
+        },
+        "alerts": alerts,
+        "summary": {
+            "total_alerts": len(alerts),
+            "exceeded_count": len([a for a in alerts if a["severity"] == "exceeded"]),
+            "critical_count": len([a for a in alerts if a["severity"] == "critical"]),
+            "warning_count": len([a for a in alerts if a["severity"] == "warning"])
+        }
+    }
+
+
 @business_clarity_router.get("/reports/sales/client-statement/{client_id}")
 async def get_client_statement(
     client_id: str,
