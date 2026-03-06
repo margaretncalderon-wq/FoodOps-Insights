@@ -4214,20 +4214,30 @@ async def get_cost_center_actual_report(
     accounting_engine = AccountingEngine(db, company_id, user.user_id)
     summary = await accounting_engine.get_cost_center_summary(year, month)
     
-    # Get budgets for comparison
-    budgets = await db.cost_center_budgets.find({
-        "company_id": company_id,
-        "year": year,
-        "month": month
-    }, {"_id": 0}).to_list(100)
+    # Get budgets from cost_centers collection (monthly_budgets field)
+    month_key = f"{year}-{str(month).zfill(2)}"
+    cost_centers = await db.cost_centers.find(
+        {"company_id": company_id},
+        {"_id": 0, "cost_center_id": 1, "monthly_budgets": 1, "annual_budget": 1}
+    ).to_list(100)
     
-    budget_map = {b["cost_center_id"]: b.get("budget_amount", 0) for b in budgets}
+    # Build budget map from monthly_budgets or annual_budget/12
+    budget_map = {}
+    for cc in cost_centers:
+        cc_id = cc.get("cost_center_id")
+        monthly_budgets = cc.get("monthly_budgets", {})
+        if month_key in monthly_budgets:
+            budget_map[cc_id] = monthly_budgets[month_key]
+        elif cc.get("annual_budget"):
+            budget_map[cc_id] = cc["annual_budget"] / 12
     
     # Enhance with budget comparison
+    total_budget = 0
     for item in summary:
         cc_id = item.get("cost_center_id")
         if cc_id:
             item["budget"] = budget_map.get(cc_id, 0)
+            total_budget += item["budget"]
             item["variance"] = round(item["budget"] - item["total_amount"], 2) if item["budget"] else None
             item["utilization_percent"] = round(
                 (item["total_amount"] / item["budget"]) * 100, 1
@@ -4239,7 +4249,7 @@ async def get_cost_center_actual_report(
         "cost_centers": summary,
         "totals": {
             "total_actual": round(sum(s["total_amount"] for s in summary), 2),
-            "total_budget": round(sum(budget_map.values()), 2)
+            "total_budget": round(total_budget, 2)
         }
     }
 
