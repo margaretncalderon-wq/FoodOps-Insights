@@ -38,22 +38,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 **Frontend** (`InsightsPage.js`):
 - Dashboard centralizado que unifica métricas de Marketing
 - **4 KPIs principales**: Seguidores, Emails Enviados, Leads, Gasto Total
-- **3 Tarjetas de resumen**:
-  - **Redes Sociales**: Desglose por plataforma (Instagram, TikTok, YouTube), métricas de reach y engagement
-  - **Email Marketing**: Enviados, Open Rate, CTR, estado vacío con CTA
-  - **Campañas**: Total, Activas, Presupuesto vs Gasto, Leads vinculados
-- Gráfico de tendencia de redes sociales (últimos 14 días)
-- Acciones rápidas: Agregar métricas sociales, Crear email, Nueva campaña
-- Enlaces "Ver más" navegan a secciones detalladas
-
-**Endpoints utilizados**:
-| Endpoint | Datos |
-|----------|-------|
-| `/api/demand-studio/insights` | Campañas y métricas de ROI |
-| `/api/demand-studio/social-metrics/dashboard` | Métricas de redes sociales |
-| `/api/demand-studio/emails` | Campañas de email marketing |
-
-**Bug corregido**: Navegación al Email Marketing apuntaba a ruta incorrecta (`/email` → `/email-marketing`)
+- **3 Tarjetas de resumen**: Redes Sociales, Email Marketing, Campañas
 
 **Testing**: Frontend 100% - Ver `/app/test_reports/iteration_92.json`
 
@@ -62,22 +47,47 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 #### Integración OAuth con YouTube - COMPLETADO ✅
 
 **Backend** (`demand_studio.py`):
-- Nuevo endpoint `GET /social-metrics/youtube/auth-url` - Genera URL OAuth con scopes de YouTube
-- Nuevo endpoint `POST /social-metrics/youtube/callback` - Intercambia código por tokens y conecta canal
+- Endpoints OAuth: `GET /social-metrics/youtube/auth-url`, `POST /social-metrics/youtube/callback`
 - Scopes: `youtube.readonly`, `yt-analytics.readonly`
-- Sincronización automática de métricas al conectar
 
-**Frontend**:
-- Nuevo componente `YouTubeCallbackPage.js` - Maneja el callback OAuth
-- Botón "Connect" para YouTube en la sección de Conexiones
-- Estados visuales: procesando, éxito, error
-- Redirige automáticamente a Social Media tras conexión exitosa
+**Frontend**: Botón "Connect" para YouTube + página de callback (`YouTubeCallbackPage.js`)
 
-**Archivos creados/modificados**:
-- `backend/routers/demand_studio.py` (endpoints OAuth)
-- `frontend/src/pages/demand-studio/YouTubeCallbackPage.js` (nuevo)
-- `frontend/src/components/demand-studio/SocialMetricsSection.js` (botón connect)
-- `frontend/src/App.js` (ruta youtube-callback)
+---
+
+#### Motor de Contabilización - Inventario y Ventas - COMPLETADO ✅
+
+**Backend** (`accounting_engine.py`):
+- `record_invoice()` - Registra facturas como revenue automáticamente
+- `record_inventory_movement()` - Registra movimientos de inventario con impacto financiero
+- `record_inventory_adjustment()` - Registra ajustes por conteo físico
+- `get_profit_loss_summary()` - Nuevo endpoint P&L
+
+**Integración automática**:
+- `POST /api/business-clarity/invoices` → Crea asiento contable de ingreso
+- `POST /api/inventory/ingredients/{id}/adjust` → Crea asiento si hay costo unitario
+
+**Nuevos endpoints**:
+- `GET /api/business-clarity/reports/profit-loss` - P&L (Revenue, Payroll, Purchases, Inventory)
+- `GET /api/business-clarity/reports/cost-center-actual` - Gastos reales vs presupuesto
+
+**Testing**: Backend 100% - Ver `/app/test_reports/iteration_93.json`
+
+---
+
+#### Auditoría de Permisos Granulares - COMPLETADO ✅
+
+**Funciones de verificación** (`business_clarity.py`):
+- `check_edit_permission()` - Roles: owner, admin, finance, editor
+- `check_finance_permission()` - Roles: owner, admin, finance
+- `check_owner_permission()` - Solo owner
+
+**Endpoints protegidos**:
+| Endpoint | Permiso |
+|----------|---------|
+| `POST /invoices` | editor+ |
+| `POST /payments` | finance+ |
+| `POST /supplier-payables` | finance+ |
+| `POST/PUT/DELETE /fixed-costs/categories` | finance+ |
 
 ---
 
