@@ -10,6 +10,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - **Sistema de Pagos Variables con 4 tipos independientes**
 - **Historial de pagos por empleado**
 - **Beneficios en especie (almuerzo/catering) con tracking y Cost Center**
+- **Módulo de Partners para gestión de proveedores, agencias y socios externos**
 
 ## User Personas
 - **Agencias de Marketing/Eventos**: Usuarios principales que gestionan múltiples clientes y proyectos
@@ -26,12 +27,43 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 6. Sistema de pagos variables con 4 flujos independientes: Overtime, Comisiones, Bonos, Incentivos
 7. **Historial completo de pagos por empleado**
 8. **Tracking de beneficios en especie con cargo a Cost Center**
+9. **Gestión integral de Partners con integración financiera**
 
 ---
 
 ## What's Been Implemented
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
+
+#### Módulo Partners - COMPLETADO ✅
+
+**Backend** (`routers/partners.py`, `models/partners.py`):
+- CRUD completo: Create, Read, Update, Delete partners
+- Endpoints de integración financiera:
+  - `GET /api/partners/{id}/financial-summary` - Resumen financiero
+  - `GET /api/partners/{id}/transactions` - Transacciones vinculadas
+  - `GET /api/partners/{id}/invoices` - Facturas vinculadas  
+  - `GET /api/partners/{id}/purchase-orders` - Órdenes de compra
+  - `GET /api/partners/{id}/payables` - Cuentas por pagar
+  - `GET /api/partners/{id}/events` - Eventos relacionados
+- Filtros avanzados: por status, tipo, categoría, ubicación, búsqueda
+- Opciones de dropdown dinámicas
+
+**Frontend** (`pages/Partners/`):
+- `PartnersPage.js` - Lista con KPI cards, filtros, búsqueda
+- `PartnerDetailPage.js` - Detalle con 4 tabs: Details, Commercial, Finance, Performance
+- `PartnerFormPage.js` - Formulario completo con 5 tabs: Basic, Location, Contact, Commercial, System
+- Tab Finance muestra datos de integración cuando hay supplier vinculado
+- Mensaje "No Linked Supplier" con botón para vincular
+
+**Navegación**:
+- Módulo Partners agregado a `CORE_MODULES` en `addons.py`
+- Icono: handshake
+- Rutas: `/partners`, `/partners/new`, `/partners/:id`, `/partners/:id/edit`
+
+**Testing**: 100% backend (15/15 tests), 100% frontend
+
+---
 
 #### Usuarios de Prueba con Diferentes Roles - COMPLETADO ✅
 
