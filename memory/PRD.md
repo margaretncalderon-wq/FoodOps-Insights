@@ -35,6 +35,28 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Refactor Navegación Business Clarity + Vendors Unificados - COMPLETADO ✅
+
+**Navegación refactorizada** (7 tabs principales):
+- Dashboard (link directo)
+- **Billing ▼**: Invoices, Client Payments, Statements
+- **Receivables ▼**: AR Aging, Collections, Payment Tracking
+- **Payables ▼**: Vendor Bills, Vendor Payments, AP Aging
+- **Financials ▼**: Fixed Costs, Reports, P&L, Sales Reports, Admin, Payroll Cost, Marketing ROI, Regulatory, Accounting
+- Cash Flow (link directo)
+- Close (link directo)
+
+**Vendors unificados**:
+- `GET /api/business-clarity/vendors` - Lista unificada de Partners + Suppliers
+- `POST /api/business-clarity/vendors` - Crear nuevo vendor (se guarda como Partner)
+- Dropdown muestra badges "Partner" o "Supplier" para identificar fuente
+- Formulario de gastos ahora REQUIERE selección de vendor (sin entrada manual)
+- Botón "+" para crear nuevo vendor directo desde el formulario
+
+**Testing**: 100% backend (12/12 tests), 100% frontend
+
+---
+
 #### Módulo de Flujo de Caja Completo - COMPLETADO ✅
 
 **Backend** (`routers/business_clarity.py`):
