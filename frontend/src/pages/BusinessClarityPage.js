@@ -32,7 +32,8 @@ import {
   FileText, TrendingUp, TrendingDown, PieChart, Banknote,
   UserCircle, Landmark, FileBarChart, Target, Lock,
   Briefcase, BarChart3, Users, Building2, ChevronDown,
-  ShoppingCart, Wallet, ArrowRightLeft, PiggyBank
+  ShoppingCart, Wallet, ArrowRightLeft, PiggyBank, Receipt,
+  CreditCard, Clock, FileCheck, Calculator
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import {
@@ -92,34 +93,84 @@ export default function BusinessClarityPage() {
     return false;
   };
 
-  // Navigation tabs - organized in groups
-  const navTabs = [
-    { path: "/business-clarity/dashboard", label: isEs ? "Dashboard" : "Dashboard", icon: PieChart },
-    { path: "/business-clarity/invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
-    { path: "/business-clarity/payments", label: isEs ? "Pagos" : "Payments", icon: Banknote },
-    { path: "/business-clarity/cash-flow", label: isEs ? "Flujo de Caja" : "Cash Flow", icon: ArrowRightLeft },
-    { path: "/business-clarity/statements", label: isEs ? "Estados" : "Statements", icon: UserCircle },
-    { path: "/business-clarity/receivables", label: "AR", icon: TrendingUp },
-    { path: "/business-clarity/payables", label: "AP", icon: TrendingDown },
-    { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
-    { path: "/business-clarity/close", label: isEs ? "Cierre" : "Close", icon: Lock },
+  // Navigation structure - Main tabs and dropdown groups
+  const mainTabs = [
+    { path: "/business-clarity/dashboard", label: isEs ? "Dashboard" : "Dashboard", icon: PieChart, type: "link" },
   ];
 
-  // Reports dropdown items
-  const reportsMenu = [
-    { path: "/business-clarity/reports", label: isEs ? "Ejecutivos" : "Executive", icon: FileBarChart },
+  // Billing dropdown
+  const billingMenu = [
+    { path: "/business-clarity/invoices", label: isEs ? "Facturas" : "Invoices", icon: FileText },
+    { path: "/business-clarity/payments", label: isEs ? "Pagos de Clientes" : "Client Payments", icon: Banknote },
+    { path: "/business-clarity/statements", label: isEs ? "Estados de Cuenta" : "Statements", icon: UserCircle },
+  ];
+
+  // Receivables dropdown
+  const receivablesMenu = [
+    { path: "/business-clarity/receivables", label: isEs ? "Antigüedad AR" : "AR Aging", icon: TrendingUp },
+    { path: "/business-clarity/receivables", label: isEs ? "Cobranzas" : "Collections", icon: CreditCard, disabled: false },
+    { path: "/business-clarity/receivables", label: isEs ? "Seguimiento Pagos" : "Payment Tracking", icon: Clock, disabled: false },
+  ];
+
+  // Payables dropdown
+  const payablesMenu = [
+    { path: "/business-clarity/payables", label: isEs ? "Facturas Proveedores" : "Vendor Bills", icon: Receipt },
+    { path: "/business-clarity/payables", label: isEs ? "Pagos a Proveedores" : "Vendor Payments", icon: Banknote },
+    { path: "/business-clarity/payables", label: isEs ? "Antigüedad AP" : "AP Aging", icon: TrendingDown },
+  ];
+
+  // Financials dropdown
+  const financialsMenu = [
+    { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
+    { path: "/business-clarity/reports", label: isEs ? "Reportes Ejecutivos" : "Executive Reports", icon: FileBarChart },
     { path: "/business-clarity/profit-loss", label: isEs ? "P&L / Resultados" : "P&L / Results", icon: Wallet },
-    { path: "/business-clarity/sales-reports", label: isEs ? "Ventas" : "Sales", icon: ShoppingCart },
-    { path: "/business-clarity/admin-reports", label: isEs ? "Administrativos" : "Administrative", icon: Wallet },
-    { path: "/business-clarity/payroll-cost", label: isEs ? "Costo Personal" : "Payroll Cost", icon: Users },
+    { path: "/business-clarity/sales-reports", label: isEs ? "Reportes de Ventas" : "Sales Reports", icon: ShoppingCart },
+    { path: "/business-clarity/admin-reports", label: isEs ? "Administrativos" : "Administrative", icon: Calculator },
+    { path: "/business-clarity/payroll-cost", label: isEs ? "Costo de Personal" : "Payroll Cost", icon: Users },
     { path: "/business-clarity/marketing-roi", label: "Marketing ROI", icon: BarChart3 },
     { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
-    { path: "/business-clarity/accounting-dashboard", label: isEs ? "Contabilización" : "Accounting", icon: BarChart3 },
+    { path: "/business-clarity/accounting-dashboard", label: isEs ? "Contabilización" : "Accounting", icon: FileCheck },
     { path: "/business-clarity/accounting-queue", label: isEs ? "Cola Contable" : "Accounting Queue", icon: Target },
   ];
 
-  // Check if current path is in reports section
-  const isInReportsSection = reportsMenu.some(item => location.pathname.startsWith(item.path));
+  // Check if current path is in a section
+  const isInBillingSection = billingMenu.some(item => location.pathname === item.path);
+  const isInReceivablesSection = receivablesMenu.some(item => location.pathname === item.path);
+  const isInPayablesSection = payablesMenu.some(item => location.pathname === item.path);
+  const isInFinancialsSection = financialsMenu.some(item => location.pathname === item.path);
+
+  // Dropdown component for nav sections
+  const NavDropdown = ({ label, icon: Icon, items, isActive }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            isActive
+              ? "border-emerald-600 text-emerald-600"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+          }`}
+        >
+          <Icon className="w-4 h-4" />
+          {label}
+          <ChevronDown className="w-3 h-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        {items.map((item, idx) => (
+          <DropdownMenuItem
+            key={`${item.path}-${idx}`}
+            onClick={() => !item.disabled && navigate(item.path)}
+            className={`flex items-center gap-2 cursor-pointer ${
+              location.pathname === item.path ? "bg-emerald-50 text-emerald-700" : ""
+            } ${item.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <item.icon className="w-4 h-4" />
+            {item.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -162,53 +213,82 @@ export default function BusinessClarityPage() {
         {/* Navigation Tabs */}
         <div className="border-b">
           <nav className="flex gap-1 overflow-x-auto pb-px">
-            {navTabs.map((tab) => (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isActive
-                      ? "border-emerald-600 text-emerald-600"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                  }`
-                }
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </NavLink>
-            ))}
-            
-            {/* Reports Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isInReportsSection
-                      ? "border-emerald-600 text-emerald-600"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                  }`}
-                >
-                  <FileBarChart className="w-4 h-4" />
-                  {isEs ? "Reportes" : "Reports"}
-                  <ChevronDown className="w-3 h-3" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {reportsMenu.map((item) => (
-                  <DropdownMenuItem
-                    key={item.path}
-                    onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-2 cursor-pointer ${
-                      location.pathname === item.path ? "bg-emerald-50 text-emerald-700" : ""
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    {item.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Dashboard - Direct Link */}
+            <NavLink
+              to="/business-clarity/dashboard"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`
+              }
+            >
+              <PieChart className="w-4 h-4" />
+              Dashboard
+            </NavLink>
+
+            {/* Billing Dropdown */}
+            <NavDropdown 
+              label={isEs ? "Facturación" : "Billing"} 
+              icon={FileText} 
+              items={billingMenu}
+              isActive={isInBillingSection}
+            />
+
+            {/* Receivables Dropdown */}
+            <NavDropdown 
+              label={isEs ? "Cobros" : "Receivables"} 
+              icon={TrendingUp} 
+              items={receivablesMenu}
+              isActive={isInReceivablesSection}
+            />
+
+            {/* Payables Dropdown */}
+            <NavDropdown 
+              label={isEs ? "Pagos" : "Payables"} 
+              icon={TrendingDown} 
+              items={payablesMenu}
+              isActive={isInPayablesSection}
+            />
+
+            {/* Financials Dropdown */}
+            <NavDropdown 
+              label={isEs ? "Finanzas" : "Financials"} 
+              icon={Wallet} 
+              items={financialsMenu}
+              isActive={isInFinancialsSection}
+            />
+
+            {/* Cash Flow - Direct Link */}
+            <NavLink
+              to="/business-clarity/cash-flow"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`
+              }
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              {isEs ? "Flujo de Caja" : "Cash Flow"}
+            </NavLink>
+
+            {/* Close - Direct Link */}
+            <NavLink
+              to="/business-clarity/close"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`
+              }
+            >
+              <Lock className="w-4 h-4" />
+              {isEs ? "Cierre" : "Close"}
+            </NavLink>
           </nav>
         </div>
 

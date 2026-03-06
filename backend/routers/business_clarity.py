@@ -5933,3 +5933,121 @@ async def get_all_payments(
             "made_count": len([p for p in all_payments if p["direction"] == "made"])
         }
     }
+
+
+
+# ============== UNIFIED VENDORS (Partners + Suppliers) ==============
+
+@business_clarity_router.get("/vendors")
+async def get_unified_vendors(
+    user: User = Depends(get_current_user),
+    search: Optional[str] = None
+):
+    """Get unified list of vendors from both Partners and Suppliers collections"""
+    company_id = user.company_id
+    vendors = []
+    
+    # Get from Partners (preferred partners marked as suppliers/vendors)
+    partners_query = {"company_id": company_id}
+    if search:
+        partners_query["$or"] = [
+            {"partner_name": {"$regex": search, "$options": "i"}},
+            {"legal_name": {"$regex": search, "$options": "i"}}
+        ]
+    
+    partners = await db.partners.find(
+        partners_query,
+        {"_id": 0, "partner_id": 1, "partner_name": 1, "legal_name": 1, "partner_type": 1, "status": 1, "email": 1, "phone": 1}
+    ).to_list(500)
+    
+    for p in partners:
+        vendors.append({
+            "vendor_id": p["partner_id"],
+            "name": p["partner_name"],
+            "legal_name": p.get("legal_name"),
+            "source": "partners",
+            "type": p.get("partner_type"),
+            "status": p.get("status"),
+            "email": p.get("email"),
+            "phone": p.get("phone")
+        })
+    
+    # Get from Suppliers (culinary suppliers)
+    suppliers_query = {"company_id": company_id}
+    if search:
+        suppliers_query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"contact_name": {"$regex": search, "$options": "i"}}
+        ]
+    
+    suppliers = await db.suppliers.find(
+        suppliers_query,
+        {"_id": 0, "supplier_id": 1, "name": 1, "contact_name": 1, "email": 1, "phone": 1, "category": 1}
+    ).to_list(500)
+    
+    for s in suppliers:
+        # Check if already in vendors (linked partner)
+        existing = next((v for v in vendors if v.get("linked_supplier_id") == s["supplier_id"]), None)
+        if not existing:
+            vendors.append({
+                "vendor_id": s["supplier_id"],
+                "name": s["name"],
+                "legal_name": None,
+                "source": "suppliers",
+                "type": s.get("category", "supplier"),
+                "status": "active",
+                "email": s.get("email"),
+                "phone": s.get("phone")
+            })
+    
+    # Sort by name
+    vendors.sort(key=lambda x: x["name"].lower() if x.get("name") else "")
+    
+    return {
+        "vendors": vendors,
+        "total": len(vendors),
+        "from_partners": len(partners),
+        "from_suppliers": len(suppliers)
+    }
+
+
+@business_clarity_router.post("/vendors")
+async def create_vendor(
+    name: str,
+    vendor_type: str = "supplier",
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Create a new vendor (creates a Partner record)"""
+    company_id = user.company_id
+    now = datetime.now(timezone.utc)
+    
+    # Create as Partner for unified management
+    partner_id = f"partner_{uuid.uuid4().hex[:12]}"
+    
+    partner_data = {
+        "partner_id": partner_id,
+        "company_id": company_id,
+        "partner_name": name,
+        "legal_name": name,
+        "partner_type": "supplier" if vendor_type == "supplier" else vendor_type,
+        "status": "approved",
+        "is_preferred": False,
+        "email": email,
+        "phone": phone,
+        "created_at": now.isoformat(),
+        "created_by": user.user_id,
+        "updated_at": now.isoformat(),
+        "updated_by": user.user_id
+    }
+    
+    await db.partners.insert_one(partner_data)
+    
+    return {
+        "vendor_id": partner_id,
+        "name": name,
+        "source": "partners",
+        "type": vendor_type,
+        "status": "approved"
+    }

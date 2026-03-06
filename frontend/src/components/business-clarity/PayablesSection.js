@@ -40,8 +40,7 @@ export function PayablesSection() {
   const [newExpenseDialogOpen, setNewExpenseDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [newExpense, setNewExpense] = useState({
-    supplier_id: "",
-    supplier_name: "",
+    vendor_id: "",
     description: "",
     amount: "",
     invoice_number: "",
@@ -51,6 +50,11 @@ export function PayablesSection() {
     fixed_cost_category_id: "",
     cost_center_id: ""
   });
+  
+  // New vendor dialog
+  const [newVendorDialogOpen, setNewVendorDialogOpen] = useState(false);
+  const [newVendor, setNewVendor] = useState({ name: "", email: "", phone: "", vendor_type: "supplier" });
+  const [creatingVendor, setCreatingVendor] = useState(false);
   
   // Payment dialog states
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -79,17 +83,17 @@ export function PayablesSection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [payablesRes, eventsRes, categoriesRes, suppliersRes, costCentersRes] = await Promise.all([
+      const [payablesRes, eventsRes, categoriesRes, vendorsRes, costCentersRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/accounts-payable`, { withCredentials: true }),
         axios.get(`${API}/api/events`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/fixed-costs/categories`, { withCredentials: true }),
-        axios.get(`${API}/api/suppliers`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/business-clarity/vendors`, { withCredentials: true }).catch(() => ({ data: { vendors: [] } })),
         axios.get(`${API}/api/business-clarity/cost-centers`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setData(payablesRes.data);
       setEvents(eventsRes.data || []);
       setFixedCostCategories(categoriesRes.data || []);
-      setSuppliers(suppliersRes.data || []);
+      setSuppliers(vendorsRes.data.vendors || []);
       setCostCenters(costCentersRes.data || []);
     } catch (err) {
       console.error(err);
@@ -134,16 +138,23 @@ export function PayablesSection() {
   };
 
   const handleCreateExpense = async () => {
+    if (!newExpense.vendor_id) {
+      toast.error(isEs ? "Debes seleccionar un proveedor" : "You must select a vendor");
+      return;
+    }
     if (!newExpense.description || !newExpense.amount) {
       toast.error(isEs ? "Descripción y monto son requeridos" : "Description and amount are required");
       return;
     }
     
+    // Get vendor name from selected vendor
+    const selectedVendor = suppliers.find(v => v.vendor_id === newExpense.vendor_id);
+    
     setSubmitting(true);
     try {
       const payload = {
-        supplier_id: newExpense.supplier_id || null,
-        supplier_name: newExpense.supplier_name || null,
+        supplier_id: newExpense.vendor_id,
+        supplier_name: selectedVendor?.name || null,
         description: newExpense.description,
         amount: parseFloat(newExpense.amount),
         invoice_number: newExpense.invoice_number || null,
@@ -157,8 +168,7 @@ export function PayablesSection() {
       toast.success(isEs ? "Gasto registrado exitosamente" : "Expense recorded successfully");
       setNewExpenseDialogOpen(false);
       setNewExpense({
-        supplier_id: "",
-        supplier_name: "",
+        vendor_id: "",
         description: "",
         amount: "",
         invoice_number: "",
@@ -242,6 +252,34 @@ export function PayablesSection() {
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || (isEs ? "Error" : "Error"));
+    }
+  };
+
+  const handleCreateVendor = async () => {
+    if (!newVendor.name.trim()) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+    
+    setCreatingVendor(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/business-clarity/vendors?name=${encodeURIComponent(newVendor.name)}&vendor_type=${newVendor.vendor_type}&email=${newVendor.email || ""}&phone=${newVendor.phone || ""}`,
+        {},
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? "Proveedor creado exitosamente" : "Vendor created successfully");
+      setNewVendorDialogOpen(false);
+      setNewVendor({ name: "", email: "", phone: "", vendor_type: "supplier" });
+      
+      // Refresh vendors and auto-select the new one
+      await fetchData();
+      setNewExpense({ ...newExpense, vendor_id: res.data.vendor_id });
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al crear proveedor" : "Error creating vendor"));
+    } finally {
+      setCreatingVendor(false);
     }
   };
 
@@ -565,37 +603,52 @@ export function PayablesSection() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* Supplier Selection */}
+            {/* Vendor Selection - REQUIRED */}
             <div className="space-y-2">
-              <Label>{isEs ? "Proveedor" : "Supplier"}</Label>
-              <Select 
-                value={newExpense.supplier_id} 
-                onValueChange={(v) => setNewExpense({ ...newExpense, supplier_id: v, supplier_name: "" })}
-              >
-                <SelectTrigger data-testid="expense-supplier-select">
-                  <SelectValue placeholder={isEs ? "Selecciona proveedor (opcional)" : "Select supplier (optional)"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{isEs ? "Sin proveedor" : "No supplier"}</SelectItem>
-                  {suppliers.map(sup => (
-                    <SelectItem key={sup.supplier_id} value={sup.supplier_id}>{sup.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Manual supplier name if no supplier selected */}
-            {(!newExpense.supplier_id || newExpense.supplier_id === "none") && (
-              <div className="space-y-2">
-                <Label>{isEs ? "Nombre del Proveedor (Manual)" : "Supplier Name (Manual)"}</Label>
-                <Input
-                  placeholder={isEs ? "Ej: Ferretería López" : "e.g. Lopez Hardware"}
-                  value={newExpense.supplier_name}
-                  onChange={(e) => setNewExpense({ ...newExpense, supplier_name: e.target.value })}
-                  data-testid="expense-supplier-name-input"
-                />
+              <Label>{isEs ? "Proveedor" : "Vendor"} *</Label>
+              <div className="flex gap-2">
+                <Select 
+                  value={newExpense.vendor_id} 
+                  onValueChange={(v) => setNewExpense({ ...newExpense, vendor_id: v })}
+                >
+                  <SelectTrigger data-testid="expense-vendor-select" className="flex-1">
+                    <SelectValue placeholder={isEs ? "Selecciona proveedor..." : "Select vendor..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.length === 0 ? (
+                      <SelectItem value="no-vendors" disabled>
+                        {isEs ? "No hay proveedores. Crea uno primero." : "No vendors. Create one first."}
+                      </SelectItem>
+                    ) : (
+                      suppliers.map(vendor => (
+                        <SelectItem key={vendor.vendor_id} value={vendor.vendor_id}>
+                          <div className="flex items-center gap-2">
+                            <span>{vendor.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {vendor.source === "partners" ? "Partner" : "Supplier"}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setNewVendorDialogOpen(true)}
+                  title={isEs ? "Crear nuevo proveedor" : "Create new vendor"}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
               </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                {isEs 
+                  ? "Proveedores unificados de Partners y Suppliers" 
+                  : "Unified vendors from Partners and Suppliers"}
+              </p>
+            </div>
             
             {/* Description */}
             <div className="space-y-2">
@@ -911,6 +964,92 @@ export function PayablesSection() {
                 <>
                   <CreditCard className="w-4 h-4 mr-2" />
                   {isEs ? "Registrar Pago" : "Record Payment"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Vendor Dialog */}
+      <Dialog open={newVendorDialogOpen} onOpenChange={setNewVendorDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Crear Nuevo Proveedor" : "Create New Vendor"}</DialogTitle>
+            <DialogDescription>
+              {isEs ? "El proveedor se guardará en el catálogo de Partners" : "The vendor will be saved in the Partners catalog"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre" : "Name"} *</Label>
+              <Input
+                placeholder={isEs ? "Nombre del proveedor" : "Vendor name"}
+                value={newVendor.name}
+                onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })}
+                data-testid="new-vendor-name-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>{isEs ? "Tipo" : "Type"}</Label>
+              <Select 
+                value={newVendor.vendor_type} 
+                onValueChange={(v) => setNewVendor({ ...newVendor, vendor_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supplier">{isEs ? "Proveedor" : "Supplier"}</SelectItem>
+                  <SelectItem value="agency">{isEs ? "Agencia" : "Agency"}</SelectItem>
+                  <SelectItem value="freelancer">Freelancer</SelectItem>
+                  <SelectItem value="contractor">{isEs ? "Contratista" : "Contractor"}</SelectItem>
+                  <SelectItem value="utility">{isEs ? "Servicio Público" : "Utility"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={newVendor.email}
+                  onChange={(e) => setNewVendor({ ...newVendor, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                <Input
+                  placeholder="+1 555 123 4567"
+                  value={newVendor.phone}
+                  onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewVendorDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleCreateVendor} 
+              disabled={creatingVendor}
+              data-testid="save-new-vendor-btn"
+            >
+              {creatingVendor ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isEs ? "Creando..." : "Creating..."}
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isEs ? "Crear Proveedor" : "Create Vendor"}
                 </>
               )}
             </Button>
