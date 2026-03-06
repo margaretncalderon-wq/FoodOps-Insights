@@ -35,6 +35,28 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Archivos Adjuntos para Partners - COMPLETADO ✅
+
+**Backend** (`routers/partners.py`):
+- `GET /api/partners/{id}/attachments` - Lista de archivos adjuntos
+- `POST /api/partners/{id}/attachments` - Subir archivo (multipart form)
+- `DELETE /api/partners/{id}/attachments/{att_id}` - Eliminar archivo
+- `GET /api/uploads/partner_attachments/{filename}` - Servir archivos
+- Tipos de documento: catalog, coi, contract, license, portfolio, price_list, w9, nda, sow, other
+- Formatos soportados: PDF, imágenes (JPEG, PNG, WebP, GIF), Word, Excel
+- Límite: 10MB por archivo
+
+**Frontend** (`PartnerDetailPage.js`):
+- Nuevo tab "Documents" con badge contador
+- Formulario de upload: archivo, tipo, descripción, fecha vencimiento
+- Lista de archivos: thumbnail/icono, nombre, tipo, tamaño, descripción
+- Previsualización en modal para imágenes y PDFs
+- Botones: Vista previa, Descargar, Eliminar con confirmación
+
+**Testing**: 100% backend (13/13 tests), 100% frontend
+
+---
+
 #### Módulo Partners - COMPLETADO ✅
 
 **Backend** (`routers/partners.py`, `models/partners.py`):
