@@ -368,7 +368,9 @@ async def login(data: UserLogin, request: Request, response: Response):
     if not user_doc:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    if not verify_password(data.password, user_doc.get("password_hash", "")):
+    # Support both 'password' and 'password_hash' field names for backwards compatibility
+    stored_password = user_doc.get("password_hash") or user_doc.get("password", "")
+    if not stored_password or not verify_password(data.password, stored_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Back-fill missing data for existing users

@@ -33,6 +33,26 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Usuarios de Prueba con Diferentes Roles - COMPLETADO ✅
+
+**Usuarios creados:**
+| Usuario | Email | Role | Permisos |
+|---------|-------|------|----------|
+| María García | hr.manager@kora.com | HR | People Ops, empleados, nómina, vacaciones |
+| Carlos López | finance.manager@kora.com | Finance | Business Clarity, reportes financieros |
+| Ana Martínez | marketing@kora.com | Marketing | Demand Studio, campañas, contenido |
+
+**Contraseña para todos:** `Test2024!`
+
+**Roles creados:**
+- `role_e5eb2bb447a7` - Human Resources
+- `role_8003a56d09c0` - Marketing
+- `role_2bb0653ce05a` - Manager
+
+**Fix aplicado:** Auth router ahora soporta ambos campos `password` y `password_hash` para compatibilidad
+
+---
+
 #### Auditoría de Permisos Granulares - COMPLETADO ✅
 
 **Backend** (`business_clarity.py`):
