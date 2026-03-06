@@ -1,73 +1,69 @@
 <analysis>**original_problem_statement:**
-El objetivo inicial era construir un módulo de People Ops (RRHH). El foco luego cambió a mejorar la UI/UX y expandir la funcionalidad de reportes.
+El objetivo inicial era construir un módulo de People Ops (RRHH), que luego pivotó hacia una revisión completa de la lógica de contabilidad de costos para implementar **Centros de Costo (Cost Centers) de extremo a extremo**.
 
-La solicitud más reciente y de mayor prioridad del usuario es una revisión completa de la lógica de contabilidad de costos: **Implementar una lógica de Centros de Costo (Cost Centers) de extremo a extremo en toda la aplicación**. Esto implica garantizar que todas las transacciones financieras (nómina, compras, inventario, ventas) se asignen y registren consistentemente en el centro de costo correcto. Una regla crítica es que los costos de nómina deben registrarse en el centro de costo funcional del departamento de cada empleado (ej. el salario de un empleado de Marketing va al C.C. de Marketing), no en un centro de costo central de RRHH.
+Recientemente, el foco cambió a peticiones del usuario sobre el módulo Demand Studio:
+1.  **Corregir errores:** Solucionar un bug donde aparecía un nombre de compañía incorrecto al compartir contenido y otros errores que impedían la visualización de datos.
+2.  **Añadir Métricas de Redes Sociales:** Integrar métricas como seguidores, alcance, etc., para Meta (Facebook/Instagram), TikTok y YouTube, soportando tanto la sincronización automática vía API como la entrada manual de datos.
+3.  **Crear un Hub de Marketing Centralizado:** Unificar los KPIs de Redes Sociales, Email Marketing y Campañas en un único dashboard principal llamado Insights.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-La aplicación es un ERP/CRM con funcionalidades robustas. En esta sesión, se ha reorganizado la interfaz de usuario de los módulos Business Clarity, Settings, Demand Generation y People Ops para usar menús desplegables, mejorando la consistencia y la experiencia del usuario.
+La aplicación es un ERP/CRM. El trabajo reciente se ha centrado en dos áreas principales:
 
-Funcionalidades clave implementadas o mejoradas:
-*   **Reportes:** Se añadió una vista Por Centro de Costo a los Reportes Ejecutivos, que muestra presupuesto vs. gasto real.
-*   **Inventario:** Se implementó una función de importación masiva desde archivos CSV/Excel, que incluye una validación avanzada fila por fila con vista previa de errores.
-*   **People Ops:** Se implementó la lógica de backend para generar reportes regulatorios de República Dominicana (DGT-3, TSS). Se verificó que el cálculo de liquidación laboral está correctamente implementado según la ley local.
-*   **Centros de Costo:** El sistema de Centros de Costo se ha integrado con los Costos Fijos (Fixed Costs), se pueden establecer presupuestos granulares (mensuales/anuales) y se ha implementado un sistema de alertas de presupuesto (aunque no se ha probado con datos de gasto reales).
+1.  **Motor de Contabilización (Posting Engine):** Se ha creado un sistema de backend () para centralizar el registro de todas las transacciones financieras en una colección .
+    *   **Nómina (Payroll)** y **Cuentas por Pagar (Supplier Payables)** ya están integrados: al procesarse, crean automáticamente asientos contables asignados al centro de costo correcto.
+    *   Se creó una **UI para cola de asignación** () para gestionar transacciones sin centro de costo asignado.
+    *   Se implementó un **dashboard visual** () con gráficos para analizar el gasto por centro de costo.
+    *   La funcionalidad fue validada por el .
+
+2.  **Demand Studio - Métricas y Correcciones:**
+    *   Se corrigieron bugs críticos relacionados con el nombre de la compañía y un endpoint () que devolvía un error 500.
+    *   Se construyó la **estructura base para Métricas de Redes Sociales**: se crearon los modelos de datos en el backend, los endpoints para gestionar conexiones y la entrada manual de datos, y una UI completa () con un dashboard y un formulario. Actualmente, solo funciona con datos manuales.
+    *   Se ha reescrito la página de **Insights** () para que actúe como un hub central, mostrando resúmenes de alto nivel de diferentes áreas de marketing.
 
 **Last working item**:
-*   **Last item agent was working**: El agente estaba comenzando la fase de **DESCUBRIMIENTO (Step 0)** de la tarea de implementación de la lógica de Centros de Costo de extremo a extremo. El usuario proporcionó un documento de requisitos muy detallado, y el agente estaba a punto de auditar el código y los modelos de datos existentes para planificar la implementación.
-*   **Status**: NOT STARTED
+*   **Last item agent was working**: El agente estaba implementando el **Hub Central de Marketing en la página Insights**. Acababa de rediseñar el componente de frontend () para que contuviera tarjetas de resumen de Redes Sociales, Email Marketing y Campañas, y acababa de verificar el nuevo layout con una captura de pantalla.
+*   **Status**: IN PROGRESS
 *   **Agent Testing Done**: N
-*   **Which testing method agent to use?**: both. Esta es una tarea de gran envergadura que afecta a todo el sistema. Se requerirá:
-    *   **Backend testing agent**: Para crear pruebas unitarias y de integración (usando ============================= test session starts ==============================
-platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
-rootdir: /app
-plugins: anyio-4.12.1
-collected 980 items / 2 errors
-
-==================================== ERRORS ====================================
-___________ ERROR collecting backend/tests/test_backfill_advanced.py ___________
-backend/tests/test_backfill_advanced.py:23: in <module>
-    raise ValueError("REACT_APP_BACKEND_URL environment variable must be set")
-E   ValueError: REACT_APP_BACKEND_URL environment variable must be set
-__________ ERROR collecting backend/tests/test_user_data_backfill.py ___________
-backend/tests/test_user_data_backfill.py:26: in <module>
-    raise ValueError("REACT_APP_BACKEND_URL environment variable must be set")
-E   ValueError: REACT_APP_BACKEND_URL environment variable must be set
-=========================== short test summary info ============================
-ERROR backend/tests/test_backfill_advanced.py - ValueError: REACT_APP_BACKEND...
-ERROR backend/tests/test_user_data_backfill.py - ValueError: REACT_APP_BACKEN...
-!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
-============================== 2 errors in 0.93s ===============================) para el nuevo Motor de Contabilización (Posting Engine) y la lógica de asignación de costos.
-    -   **Frontend testing agent**: Para verificar los nuevos selectores de UI, las colas de registros sin centro de costo y asegurar que todos los reportes reflejen los datos correctamente.
+*   **Which testing method agent to use?**: Frontend testing agent. El agente debe verificar que la nueva página Insights se renderiza correctamente, que los datos de resumen para cada tarjeta se obtienen de sus respectivos endpoints, y que los enlaces Ver detalle navegan a las secciones correctas.
 *   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-*   **Issue 1: Implementar lógica de Centros de Costo de extremo a extremo (P0)**
-    -   **Description**: Realizar la integración completa de los Centros de Costo en todos los módulos financieros (Nómina, Compras, Inventario, Ventas) según los requisitos detallados del usuario. La nómina debe distribuirse a los centros de costo departamentales.
-    -   **Status**: NOT STARTED
-*   **Issue 2: Archivos  redundantes (P2)**
-    -   **Description**: Los archivos  y  son obsoletos y deben eliminarse.
-    -   **Status**: NOT STARTED
-*   **Issue 3: Internacionalización incompleta (P2)**
-    -   **Description**: Todavía existen cadenas de texto codificadas directamente en el código que deben ser migradas a un sistema de i18n.
-    -   **Status**: NOT STARTED
-*   **Issue 4: Presupuesto de la clave LLM de Emergent agotado (P2)**
-    -   **Description**: Las funciones de IA de la plataforma están inactivas porque el presupuesto de la clave universal de Emergent se ha agotado.
-    -   **Status**: BLOCKED (Requiere acción del usuario para añadir balance).
+*   **Issue 1: Completar la implementación del Hub Central Insights (P0)**
+    *   **Description**: La UI del hub está creada, pero es estática. Es necesario conectar cada tarjeta de resumen (Redes Sociales, Email, Campañas) a sus endpoints de backend correspondientes para mostrar datos reales y dinámicos.
+    *   **Status**: IN PROGRESS
+*   **Issue 2: Implementar la conexión automática con APIs de Redes Sociales (P1)**
+    *   **Description**: La estructura de backend y la UI para métricas sociales están listas, pero solo aceptan datos manuales. Se debe implementar el flujo de conexión OAuth y la sincronización de datos para YouTube, luego Meta (Facebook/Instagram) y finalmente TikTok.
+    *   **Status**: IN PROGRESS
+*   **Issue 3: Integrar un proveedor de Email Marketing (P1)**
+    *   **Description**: El usuario solicitó la capacidad de conectar un proveedor de email (ej. Mailchimp, Brevo) para automatizar la recolección de métricas. Se debe diseñar e implementar esta integración, de manera similar a la de redes sociales.
+    *   **Status**: NOT STARTED
+*   **Issue 4: Completar la integración del Motor de Contabilización (P2)**
+    *   **Description**: El motor de contabilización se integró con Nómina y Cuentas por Pagar. Sin embargo, la tarea original requería una integración de extremo a extremo, lo que implica conectar también los módulos de **Inventario** y **Ventas**.
+    *   **Status**: IN PROGRESS
+*   **Issue 5: Archivos  redundantes (P2)**
+    *   **Description**: Los archivos  y  son obsoletos y deben eliminarse.
+    *   **Status**: NOT STARTED
 
 **In progress Task List**:
-*   **Task 1: Implementar lógica de Centros de Costo de extremo a extremo (P0)**
-    -   **Where to resume**: En el **Paso 0: DESCUBRIMIENTO**. El agente debe comenzar por auditar el código base para identificar todos los modelos y rutas existentes relacionados con: centros de costo, asientos contables/transacciones, órdenes de compra/facturas, movimientos de inventario, nómina y empleados. El objetivo es reutilizar la estructura actual tanto como sea posible, como lo solicitó el usuario.
-    -   **What will be achieved with this?**: Un sistema de contabilidad de costos totalmente integrado donde cada actividad financiera se rastrea por centro de costo, proporcionando un análisis detallado de pérdidas y ganancias (P&L) y presupuesto vs. real por departamento.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: Both
-    -   **Blocked on something**: No
+*   **Task 1: Finalizar el Hub Central Insights (P0)**
+    *   **Where to resume**: . Implementar las llamadas a los endpoints de backend para cada tarjeta de resumen (Social, Email, Campañas) y mostrar los datos obtenidos.
+    *   **What will be achieved with this?**: Un dashboard unificado que proporciona una vista de 360 grados del rendimiento de marketing de un vistazo.
+    *   **Status**: IN PROGRESS
+    *   **Should Test frontend/backend/both after fix?**: Frontend
+    *   **Blocked on something**: No.
+*   **Task 2: Habilitar sincronización automática de Métricas Sociales (P1)**
+    *   **Where to resume**:  y . Comenzar con la integración de la API de YouTube, ya que la autenticación de Google ya está presente en la aplicación.
+    *   **What will be achieved with this?**: Permitir a los usuarios conectar sus cuentas de redes sociales para sincronizar métricas automáticamente.
+    *   **Status**: IN PROGRESS
+    *   **Should Test frontend/backend/both after fix?**: Both
+    *   **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
-
 **Upcoming Tasks**:
-*   **P1: Completar Módulos de People Ops (Fases 2, 3, 4)**: Desarrollar las UIs y lógicas completas para Tiempo y Asistencia y el flujo completo de Offboarding.
+*   **P1: Integrar proveedor de Email Marketing**: Diseñar e implementar la conexión API para Mailchimp o Brevo.
+*   **P1: Completar Módulos de People Ops**: Desarrollar las UIs para Tiempo y Asistencia y el flujo completo de Offboarding.
 *   **P2: Auditoría final de permisos granulares**: Realizar una revisión completa de todos los endpoints  para asegurar que verifican los roles correctos.
 
 **Future Tasks**:
@@ -78,77 +74,77 @@ ERROR backend/tests/test_user_data_backfill.py - ValueError: REACT_APP_BACKEN...
 *   Crear un asistente de configuración inicial para nuevos usuarios.
 
 **Completed work in this session**
--   **Reorganización de UI con Dropdowns (DONE)**: Se refactorizó la navegación en  y  para usar menús desplegables, creando una UI más limpia.
--   **Importación Masiva de Inventario (DONE)**: Se implementó un endpoint de backend () y un modal de frontend para importar inventario desde archivos CSV/Excel, incluyendo una validación avanzada fila por fila con vista previa de errores.
--   **Generación de Reportes Regulatorios (DONE)**: Se implementó la lógica en  para generar reportes DGT-3 y TSS (Rep. Dominicana) en formato Excel con los cálculos correctos.
--   **Integración de Centros de Costo y Costos Fijos (DONE)**: Se conectó el módulo de Fixed Costs para que los gastos se puedan vincular a un Cost Center, reflejando el gasto en los reportes.
--   **Reporte Ejecutivo Por Centro de Costo (DONE)**: Se añadió una nueva pestaña en los reportes ejecutivos para analizar el presupuesto vs. el gasto real por centro de costo.
--   **Presupuestos Editables para Centros de Costo (DONE)**: Se mejoró la UI para permitir la edición de presupuestos por mes, trimestre y año.
--   **Sistema de Alertas de Presupuesto (DONE)**: Se implementó un sistema de notificaciones en la UI que se activa cuando el gasto de un centro de costo supera umbrales configurables (ej. 80%).
+-   **Motor de Contabilización (Fases 1, 2, 3)**: Se implementó un Posting Engine centralizado, se integró con Nómina y Cuentas por Pagar, se creó una UI para asignar transacciones pendientes y un dashboard visual de gastos. (DONE)
+-   **Corrección de Bugs en Demand Studio**: Se solucionó un bug que mostraba un nombre de compañía incorrecto y un error 500 en el endpoint de estadísticas. (DONE)
+-   **Base de Métricas de Redes Sociales**: Se crearon los modelos de datos, endpoints y una UI completa para un dashboard de métricas sociales que, por ahora, funciona con entrada manual. (DONE)
+-   **Inicio del Hub Central Insights**: Se rediseñó la página de Insights para convertirla en un dashboard centralizado de marketing. (IN PROGRESS)
+
+**Known issue recurrence from previous fork**
+-   **Presupuesto de la clave LLM de Emergent agotado**: Las funciones de IA de la plataforma están inactivas. Este es un problema recurrente que está bloqueado por el usuario.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Contabilidad de Costos de Extremo a Extremo**: El concepto central de la próxima fase. El sistema se está moviendo hacia un modelo donde cada transacción financiera debe estar asociada a un Centro de Costo.
--   **Procesamiento de Datos en Lote**: Se utilizó  y  en el backend para un parseo, validación e inserción eficiente de datos desde archivos Excel/CSV.
--   **Gestión de Estado Avanzada en Frontend**: El modal de importación demuestra un flujo de varios pasos (selección -> validación -> vista previa -> importación) gestionado dentro de un único componente React.
--   **Alertas Configurables**: Se implementó un sistema que verifica reglas de negocio (utilización del presupuesto) y desencadena notificaciones en la UI.
+-   **Posting Engine**: Un servicio centralizado () para estandarizar el registro de todas las transacciones financieras en una única colección MongoDB ().
+-   **Hub de Marketing Centralizado**: El concepto de usar la página Insights como un dashboard de alto nivel que agrega KPIs de diferentes módulos (Social Media, Email, Campañas).
+-   **Integración Híbrida de Datos**: El sistema de métricas se está construyendo para soportar tanto la sincronización automática vía API como la entrada manual de datos como fallback.
 
 **key DB schema**
--   **fixed_cost_categories**: Añadido .
--   **cost_centers**: Añadido  para almacenar presupuestos por mes (ej. ).
+-   ** (NEW)**: 
+-   ****: Añadido  y .
+-   ****: Añadido .
+-   ** (NEW)**: 
+-   ** (NEW)**: 
 
 **All files of reference**
-*Archivos clave para la próxima tarea (Auditoría de Centros de Costo):*
--   **Requisitos del Usuario**: El mensaje #413 del historial de chat es el documento de requisitos principal.
--   **Modelos a Auditar**:  (CostCenter),  (FixedCost*),  (Employee, PayrollRun), .
--   **Rutas a Auditar**: , , , .
-
-**Areas that need refactoring**:
--   La nueva solicitud del usuario para una lógica de Centros de Costo de extremo a extremo implica una refactorización arquitectónica importante para centralizar toda la lógica de contabilización financiera en un único Motor de Contabilización (Posting Engine).
+*   : El Hub Central de Marketing que se está construyendo actualmente.
+*   : El servicio donde se debe implementar la lógica de conexión con las APIs de YouTube, Meta, etc.
+*   : El dashboard de frontend para las métricas sociales.
+*   : El núcleo del sistema de contabilidad de costos.
 
 **Critical Info for New Agent**
--   **¡DEBES RESPONDER EN ESPAÑOL!** La comunicación con el usuario debe ser exclusivamente en español.
--   La próxima tarea es enorme y compleja. Sigue con precisión los requisitos detallados proporcionados por el usuario en el mensaje #413 del historial.
--   El primer paso es el **Paso 0: DESCUBRIMIENTO**. No comiences a codificar de inmediato. Audita el sistema existente para identificar qué componentes se pueden reutilizar y planificar la implementación.
--   El principio fundamental es realizar **cambios no disruptivos (non-breaking changes)**. Reutiliza los modelos y campos existentes siempre que sea posible. Si se necesitan campos nuevos, deben ser opcionales y tener valores predeterminados seguros.
--   La lógica de la nómina debe ser **distribuida**: el costo del salario de un empleado se asigna al centro de costo de su propio departamento, no a un centro de costo central de RRHH.
+-   **¡DEBES RESPONDER EN ESPAÑOL!** La comunicación con el usuario es exclusivamente en español.
+-   El foco actual está en los módulos de marketing. Continúa trabajando en el **Hub Central Insights (P0)**, que es la tarea activa.
+-   Una vez finalizado el Hub, la siguiente prioridad es implementar la **conexión automática de APIs para Redes Sociales (P1)**, empezando por YouTube, como se acordó con el usuario.
+-   No olvides que la tarea original de **integrar Inventario y Ventas al Motor de Contabilización (P2)** sigue pendiente y debería abordarse después de las tareas de marketing.
 
 **documents and test reports created in this job**
--    (actualizado múltiples veces).
+*    (actualizado)
+*    (Resultado de la prueba del Agente de Testing sobre las funciones de contabilidad)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **user**: Proporciona requisitos extremadamente detallados para implementar una lógica de Centros de Costo de extremo a extremo, especificando un modelo de nómina distribuido. (Tarea actual).
-9.  **user**: Pregunta por qué Nómina (Payroll) aparece como un dato separado en el reporte de Centros de Costo y no se asigna a RRHH. Esto desencadenó la especificación detallada.
-8.  **user**: Acepta la propuesta de implementar alertas automáticas de presupuesto.
-7.  **user**: Pide que los presupuestos de los Centros de Costo sean editables por mes/trimestre/año para poder ver el reporte con datos reales.
-6.  **user**: Solicita agregar la vista Por Centro de Costo a los Reportes Ejecutivos en lugar de crear un dashboard separado.
-5.  **user**: Aclara que los Centros de Costo son para toda la empresa y que los Costos Fijos deben asignarse a ellos.
-4.  **user**: Pregunta sobre la relación entre Costos Fijos y Centros de Costo y solicita la implementación del cálculo de liquidación laboral.
-3.  **user**: Solicita la generación de los reportes regulatorios DGT-3 y TSS.
-2.  **user**: Pide reorganizar la navegación de People Ops usando menús desplegables.
-1.  **user**: Después de ver la validación de la importación, pide organizar la sección de People Ops.
+10. **si**: (Sí) Aprueba comenzar la implementación del Hub Central en Insights.
+9.  **¿Usas algún proveedor de email actualmente? no... ¿Quieres que empiece con el Hub Central en Insights ahora? si**: Aclara que no usa un proveedor de email y aprueba iniciar el trabajo en el Hub Central.
+8.  **...hay manera de conectarse con algun proveedor ? ...si un hub central que muestre el resumen de todo...**: Pregunta por la integración de proveedores de email y confirma la arquitectura del Hub Central.
+7.  **1. y para email marketing tenemos metrics? 2. en analítics insights que veo entonces ?...**: Pregunta sobre las métricas existentes para email y qué se muestra en la sección de Insights.
+6.  **si dale**: (Sí, dale) Aprueba el plan de implementación de métricas sociales.
+5.  **cada usuario de kora o compañía debe hacer estos pasos ? o yo los hago...**: Pregunta para aclarar el proceso de configuración de las integraciones de redes sociales.
+4.  **1- meta, titok y YouTube 2- ambos 3-no me gustaria 4- si**: Responde a las preguntas del agente para definir el alcance de la implementación de métricas sociales.
+3.  **P0: como podemos agregar metrics a demand studio? seguidores alcance etc? no hagas nada solo analiza las opciones**: Solicita un análisis de opciones para agregar métricas de redes sociales a Demand Studio.
+2.  **demand studio tiene errores cuando se comparte sale el nombre de la persona...**: Reporta bugs en Demand Studio relacionados con el nombre de la compañía y la visualización de datos.
+1.  **continua ¿Cómo deseas proceder?**: Pide al agente que continúe con las fases propuestas para el Motor de Contabilización.
 
 **Project Health Check:**
--   **Broken**: None.
--   **Mocked**: El sistema de alertas de presupuesto está implementado, pero su funcionalidad no se ha verificado con datos reales, ya que requiere que se registren gastos que superen los umbrales del presupuesto.
--   **Blocked**: Las funcionalidades que dependen de IA están inactivas porque el presupuesto de la  se ha agotado.
+*   **Broken**: Ninguna funcionalidad principal está rota.
+*   **Mocked**: La funcionalidad de métricas de redes sociales actualmente solo funciona con datos ingresados manualmente; las integraciones de API no están construidas.
+*   **Blocked**: Las funcionalidades que dependen de IA están inactivas porque el presupuesto de la  se ha agotado.
 
 **3rd Party Integrations**
--   Zapier / Make
--   Meta (Instagram)
--   Emergent LLM Key (Presupuesto agotado)
+*   Zapier / Make
+*   Meta (Instagram)
+*   Emergent LLM Key (Presupuesto agotado)
+*   **Planificadas**: YouTube Data API, TikTok Business API, Mailchimp/Brevo API.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
--   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: []
--   **Known regressions**: None.
+*   **Testing agent used after significant changes**: YES (Para las funcionalidades del Motor de Contabilización).
+*   **Troubleshoot agent used after agent stuck in loop**: NO
+*   **Test files created**: []
+*   **Known regressions**: None
 
 **Credentials to test flow:**
--   **Email:** 
--   **Password:** 
+*   **Email:** 
+*   **Password:** 
 
 **What agent forgot to execute**
-No se identificaron tareas olvidadas en esta sesión. El agente completó con éxito todas las solicitudes del usuario, incluida una tarea pendiente de la sesión anterior (importación masiva). La nueva tarea de gran envergadura fue asignada justo al final.</analysis>
+El agente ha seguido las directivas del usuario, priorizando las nuevas solicitudes de marketing sobre la finalización de la tarea original de contabilidad. No hay tareas olvidadas; el trabajo ha sido repriorizado.</analysis>

@@ -1,0 +1,83 @@
+{
+  "summary": "Insights Hub (Central de Marketing) frontend testing completed. Page loads correctly with dynamic data from endpoints. Fixed navigation bug where Email Marketing link was pointing to incorrect route (/demand-studio/email instead of /demand-studio/email-marketing).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/.screenshots/insights_hub_loaded.png",
+    "/app/.screenshots/insights_page.png",
+    "/app/.screenshots/email_marketing_nav.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/frontend/src/pages/demand-studio/InsightsPage.js"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Insights Hub is working correctly. All navigation links verified working: Social Media → /demand-studio/social-media, Email Marketing → /demand-studio/email-marketing (fixed), Campaigns → /demand-studio/campaigns. Data displayed: 15.4K Instagram followers, 4 total campaigns (1 active), $1,000 budget, 5 leads linked, 0 email campaigns (empty state shown correctly).",
+  "tested_features": {
+    "page_load": {
+      "status": "PASS",
+      "details": "InsightsPage loads at /demand-studio/insights with data-testid='insights-hub'"
+    },
+    "kpi_cards": {
+      "status": "PASS",
+      "details": "All 4 KPI cards display: Followers (15.4K), Emails Sent (0), Leads (5), Total Spend ($0)"
+    },
+    "social_media_section": {
+      "status": "PASS",
+      "details": "Shows Instagram 15.4K followers, TikTok/Youtube no data, 45.0K reach, 4.2% engagement"
+    },
+    "email_marketing_section": {
+      "status": "PASS",
+      "details": "Shows empty state 'No email campaigns' with 'Create campaign' button"
+    },
+    "campaigns_section": {
+      "status": "PASS",
+      "details": "Shows 4 Total, 1 Active, $1,000 budget, $0 spent, 5 leads, 0 opportunities"
+    },
+    "refresh_button": {
+      "status": "PASS",
+      "details": "Refresh button present and functional"
+    },
+    "navigation_social_media": {
+      "status": "PASS",
+      "details": "'See more' navigates to /demand-studio/social-media"
+    },
+    "navigation_email_marketing": {
+      "status": "PASS (FIXED)",
+      "details": "'See more' now navigates to /demand-studio/email-marketing (was pointing to /demand-studio/email)"
+    },
+    "navigation_campaigns": {
+      "status": "PASS",
+      "details": "'See more' navigates to /demand-studio/campaigns"
+    },
+    "quick_actions": {
+      "status": "PASS",
+      "details": "All 3 Quick Action buttons present: Add social metrics, Create email, New campaign"
+    }
+  },
+  "bug_fixed": {
+    "description": "Email Marketing navigation was pointing to wrong route",
+    "file": "/app/frontend/src/pages/demand-studio/InsightsPage.js",
+    "old_value": "navigate('/demand-studio/email')",
+    "new_value": "navigate('/demand-studio/email-marketing')",
+    "lines_affected": [279, 337, 476]
+  }
+}
