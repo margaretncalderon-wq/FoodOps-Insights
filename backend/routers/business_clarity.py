@@ -65,6 +65,200 @@ def check_owner_permission(user: User, action: str = "admin action"):
             detail=f"Permission denied: {action} requires Owner role"
         )
 
+
+# ============== PERMISSIONS AUDIT ==============
+
+PERMISSION_MATRIX = {
+    "people_ops": {
+        "name": "People Ops / RRHH",
+        "description": "Gestión de empleados, nómina, vacaciones, offboarding",
+        "modules": {
+            "employees": {
+                "name": "Empleados",
+                "view": ["owner", "admin", "hr", "manager"],
+                "edit": ["owner", "admin", "hr"],
+                "delete": ["owner", "admin"]
+            },
+            "payroll": {
+                "name": "Nómina",
+                "view": ["owner", "admin", "hr"],
+                "edit": ["owner", "admin", "hr"],
+                "approve": ["owner", "admin"]
+            },
+            "time_off": {
+                "name": "Vacaciones/Licencias",
+                "view": ["owner", "admin", "hr", "manager"],
+                "edit": ["owner", "admin", "hr"],
+                "approve": ["owner", "admin", "hr", "manager"]
+            },
+            "offboarding": {
+                "name": "Offboarding/Liquidaciones",
+                "view": ["owner", "admin", "hr"],
+                "edit": ["owner", "admin", "hr"],
+                "approve": ["owner", "admin"]
+            },
+            "cost_centers": {
+                "name": "Centros de Costo",
+                "view": ["owner", "admin", "hr", "finance"],
+                "edit": ["owner", "admin"],
+                "budget": ["owner", "admin", "finance"]
+            }
+        }
+    },
+    "business_clarity": {
+        "name": "Business Clarity / Finanzas",
+        "description": "Facturas, pagos, reportes financieros, cuentas por pagar/cobrar",
+        "modules": {
+            "invoices": {
+                "name": "Facturas",
+                "view": ["owner", "admin", "finance", "editor", "viewer"],
+                "create": ["owner", "admin", "finance", "editor"],
+                "edit": ["owner", "admin", "finance", "editor"],
+                "delete": ["owner", "admin", "finance"]
+            },
+            "payments": {
+                "name": "Pagos",
+                "view": ["owner", "admin", "finance", "viewer"],
+                "create": ["owner", "admin", "finance"],
+                "edit": ["owner", "admin", "finance"],
+                "delete": ["owner", "admin"]
+            },
+            "supplier_payables": {
+                "name": "Cuentas por Pagar",
+                "view": ["owner", "admin", "finance", "viewer"],
+                "create": ["owner", "admin", "finance"],
+                "approve": ["owner", "admin", "finance"]
+            },
+            "fixed_costs": {
+                "name": "Costos Fijos",
+                "view": ["owner", "admin", "finance", "viewer"],
+                "edit": ["owner", "admin", "finance"],
+                "delete": ["owner", "admin", "finance"]
+            },
+            "reports": {
+                "name": "Reportes Financieros",
+                "executive": ["owner", "admin", "finance"],
+                "sales": ["owner", "admin", "finance", "editor"],
+                "pl_statement": ["owner", "admin", "finance"],
+                "budget_alerts": ["owner", "admin", "finance", "hr"],
+                "regulatory": ["owner", "admin", "finance"]
+            },
+            "close_period": {
+                "name": "Cierre de Período",
+                "view": ["owner", "admin", "finance"],
+                "execute": ["owner", "admin"]
+            }
+        }
+    },
+    "demand_studio": {
+        "name": "Demand Studio / Marketing",
+        "description": "Campañas, contenido, métricas de redes sociales",
+        "modules": {
+            "campaigns": {
+                "name": "Campañas",
+                "view": ["owner", "admin", "editor", "viewer"],
+                "create": ["owner", "admin", "editor"],
+                "edit": ["owner", "admin", "editor"]
+            },
+            "social_metrics": {
+                "name": "Métricas Sociales",
+                "view": ["owner", "admin", "editor", "viewer"],
+                "connect": ["owner", "admin", "editor"],
+                "manual_entry": ["owner", "admin", "editor"]
+            },
+            "content": {
+                "name": "Contenido",
+                "view": ["owner", "admin", "editor", "viewer"],
+                "create": ["owner", "admin", "editor"],
+                "publish": ["owner", "admin", "editor"]
+            }
+        }
+    }
+}
+
+
+@business_clarity_router.get("/permissions/audit")
+async def get_permissions_audit(
+    user: User = Depends(get_current_user),
+    module: str = None
+):
+    """
+    Get the permissions matrix for auditing who has access to what.
+    Only owners and admins can view this.
+    """
+    if user.role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner/admin can view permissions audit")
+    
+    if module and module in PERMISSION_MATRIX:
+        return {
+            "module": module,
+            "permissions": PERMISSION_MATRIX[module],
+            "requesting_user": {
+                "user_id": user.user_id,
+                "role": user.role,
+                "email": user.email
+            }
+        }
+    
+    return {
+        "permissions_matrix": PERMISSION_MATRIX,
+        "role_descriptions": {
+            "owner": "Acceso completo a todos los módulos y configuraciones",
+            "admin": "Acceso completo excepto configuraciones críticas de seguridad",
+            "hr": "Acceso a People Ops, limitado en aprobación de nómina",
+            "finance": "Acceso a Business Clarity y reportes financieros",
+            "manager": "Vista limitada de su equipo en People Ops",
+            "editor": "Crear y editar contenido, facturas, campañas",
+            "viewer": "Solo lectura en módulos asignados"
+        },
+        "requesting_user": {
+            "user_id": user.user_id,
+            "role": user.role,
+            "email": user.email
+        }
+    }
+
+
+@business_clarity_router.get("/permissions/my-access")
+async def get_my_permissions(user: User = Depends(get_current_user)):
+    """
+    Get what the current user can access based on their role.
+    """
+    role = user.role
+    my_access = {}
+    
+    for area_key, area_data in PERMISSION_MATRIX.items():
+        area_access = {
+            "name": area_data["name"],
+            "description": area_data["description"],
+            "modules": {}
+        }
+        
+        for module_key, module_data in area_data["modules"].items():
+            module_access = {"name": module_data["name"], "permissions": []}
+            
+            for action, allowed_roles in module_data.items():
+                if action == "name":
+                    continue
+                if isinstance(allowed_roles, list) and role in allowed_roles:
+                    module_access["permissions"].append(action)
+            
+            if module_access["permissions"]:
+                area_access["modules"][module_key] = module_access
+        
+        if area_access["modules"]:
+            my_access[area_key] = area_access
+    
+    return {
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "role": role
+        },
+        "access": my_access
+    }
+
+
 @business_clarity_router.get("/dashboard")
 async def get_business_clarity_dashboard(user: User = Depends(get_current_user), target_margin: int = 30):
     """Get Business Clarity executive dashboard"""
