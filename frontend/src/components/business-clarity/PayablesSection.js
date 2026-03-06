@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Label } from "../ui/label";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
-  FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target
+  FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, Loader2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -23,6 +25,8 @@ export function PayablesSection() {
   const [data, setData] = useState(null);
   const [events, setEvents] = useState([]);
   const [fixedCostCategories, setFixedCostCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [costCenters, setCostCenters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
@@ -30,6 +34,22 @@ export function PayablesSection() {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [selectedCostCenter, setSelectedCostCenter] = useState("");
   const [selectedFixedCostCategory, setSelectedFixedCostCategory] = useState("");
+  
+  // New expense form states
+  const [newExpenseDialogOpen, setNewExpenseDialogOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [newExpense, setNewExpense] = useState({
+    supplier_id: "",
+    supplier_name: "",
+    description: "",
+    amount: "",
+    invoice_number: "",
+    due_date: "",
+    assignment_type: "none",
+    event_id: "",
+    fixed_cost_category_id: "",
+    cost_center_id: ""
+  });
 
   const COST_CENTERS = [
     { value: "operations", label: "Operations", labelEs: "Operaciones" },
@@ -44,14 +64,18 @@ export function PayablesSection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [payablesRes, eventsRes, categoriesRes] = await Promise.all([
+      const [payablesRes, eventsRes, categoriesRes, suppliersRes, costCentersRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/accounts-payable`, { withCredentials: true }),
         axios.get(`${API}/api/events`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/fixed-costs/categories`, { withCredentials: true })
+        axios.get(`${API}/api/business-clarity/fixed-costs/categories`, { withCredentials: true }),
+        axios.get(`${API}/api/suppliers`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/business-clarity/cost-centers`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setData(payablesRes.data);
       setEvents(eventsRes.data || []);
       setFixedCostCategories(categoriesRes.data || []);
+      setSuppliers(suppliersRes.data || []);
+      setCostCenters(costCentersRes.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -94,6 +118,49 @@ export function PayablesSection() {
     }
   };
 
+  const handleCreateExpense = async () => {
+    if (!newExpense.description || !newExpense.amount) {
+      toast.error(isEs ? "Descripción y monto son requeridos" : "Description and amount are required");
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const payload = {
+        supplier_id: newExpense.supplier_id || null,
+        supplier_name: newExpense.supplier_name || null,
+        description: newExpense.description,
+        amount: parseFloat(newExpense.amount),
+        invoice_number: newExpense.invoice_number || null,
+        due_date: newExpense.due_date || null,
+        event_id: newExpense.assignment_type === "event" ? newExpense.event_id : null,
+        fixed_cost_category_id: newExpense.assignment_type === "fixed_cost" ? newExpense.fixed_cost_category_id : null
+      };
+      
+      await axios.post(`${API}/api/business-clarity/supplier-payables`, payload, { withCredentials: true });
+      
+      toast.success(isEs ? "Gasto registrado exitosamente" : "Expense recorded successfully");
+      setNewExpenseDialogOpen(false);
+      setNewExpense({
+        supplier_id: "",
+        supplier_name: "",
+        description: "",
+        amount: "",
+        invoice_number: "",
+        due_date: "",
+        assignment_type: "none",
+        event_id: "",
+        fixed_cost_category_id: "",
+        cost_center_id: ""
+      });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al registrar gasto" : "Error recording expense"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
   const unassignedRecords = (data?.records || []).filter(r => !r.event_id && !r.cost_center && !r.fixed_cost_category_id);
@@ -108,12 +175,17 @@ export function PayablesSection() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{isEs ? "Cuentas por Pagar" : "Accounts Payable"}</h2>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger>
-              <Badge variant="outline" className="gap-1">
-                <Info className="w-3 h-3" />
-                {isEs ? "Fuga de Margen" : "Margin Leakage"}
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setNewExpenseDialogOpen(true)} data-testid="new-expense-btn">
+            <Plus className="w-4 h-4 mr-2" />
+            {isEs ? "Nuevo Gasto" : "New Expense"}
+          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="outline" className="gap-1">
+                  <Info className="w-3 h-3" />
+                  {isEs ? "Fuga de Margen" : "Margin Leakage"}
               </Badge>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
@@ -123,6 +195,7 @@ export function PayablesSection() {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -349,6 +422,193 @@ export function PayablesSection() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
             <Button onClick={handleSaveAssignment}>{isEs ? "Guardar" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Expense Dialog */}
+      <Dialog open={newExpenseDialogOpen} onOpenChange={setNewExpenseDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Registrar Nuevo Gasto" : "Record New Expense"}</DialogTitle>
+            <DialogDescription>
+              {isEs ? "Agrega un gasto o factura de proveedor" : "Add a supplier expense or invoice"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Supplier Selection */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Proveedor" : "Supplier"}</Label>
+              <Select 
+                value={newExpense.supplier_id} 
+                onValueChange={(v) => setNewExpense({ ...newExpense, supplier_id: v, supplier_name: "" })}
+              >
+                <SelectTrigger data-testid="expense-supplier-select">
+                  <SelectValue placeholder={isEs ? "Selecciona proveedor (opcional)" : "Select supplier (optional)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin proveedor" : "No supplier"}</SelectItem>
+                  {suppliers.map(sup => (
+                    <SelectItem key={sup.supplier_id} value={sup.supplier_id}>{sup.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Manual supplier name if no supplier selected */}
+            {(!newExpense.supplier_id || newExpense.supplier_id === "none") && (
+              <div className="space-y-2">
+                <Label>{isEs ? "Nombre del Proveedor (Manual)" : "Supplier Name (Manual)"}</Label>
+                <Input
+                  placeholder={isEs ? "Ej: Ferretería López" : "e.g. Lopez Hardware"}
+                  value={newExpense.supplier_name}
+                  onChange={(e) => setNewExpense({ ...newExpense, supplier_name: e.target.value })}
+                  data-testid="expense-supplier-name-input"
+                />
+              </div>
+            )}
+            
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Descripción" : "Description"} *</Label>
+              <Textarea
+                placeholder={isEs ? "Describe el gasto..." : "Describe the expense..."}
+                value={newExpense.description}
+                onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                data-testid="expense-description-input"
+              />
+            </div>
+            
+            {/* Amount and Invoice Number */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Monto" : "Amount"} *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={newExpense.amount}
+                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                  data-testid="expense-amount-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "No. Factura" : "Invoice #"}</Label>
+                <Input
+                  placeholder={isEs ? "Ej: FAC-001" : "e.g. INV-001"}
+                  value={newExpense.invoice_number}
+                  onChange={(e) => setNewExpense({ ...newExpense, invoice_number: e.target.value })}
+                  data-testid="expense-invoice-input"
+                />
+              </div>
+            </div>
+            
+            {/* Due Date */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Fecha de Vencimiento" : "Due Date"}</Label>
+              <Input
+                type="date"
+                value={newExpense.due_date}
+                onChange={(e) => setNewExpense({ ...newExpense, due_date: e.target.value })}
+                data-testid="expense-due-date-input"
+              />
+            </div>
+            
+            {/* Assignment Type */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Asignar a" : "Assign to"}</Label>
+              <Select 
+                value={newExpense.assignment_type} 
+                onValueChange={(v) => setNewExpense({ ...newExpense, assignment_type: v, event_id: "", fixed_cost_category_id: "" })}
+              >
+                <SelectTrigger data-testid="expense-assignment-type-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin asignar (Overhead)" : "Unassigned (Overhead)"}</SelectItem>
+                  <SelectItem value="event">{isEs ? "Evento" : "Event"}</SelectItem>
+                  <SelectItem value="fixed_cost">{isEs ? "Categoría de Costo Fijo" : "Fixed Cost Category"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Event Selection */}
+            {newExpense.assignment_type === "event" && (
+              <div className="space-y-2">
+                <Label>{isEs ? "Evento" : "Event"}</Label>
+                <Select 
+                  value={newExpense.event_id} 
+                  onValueChange={(v) => setNewExpense({ ...newExpense, event_id: v })}
+                >
+                  <SelectTrigger data-testid="expense-event-select">
+                    <SelectValue placeholder={isEs ? "Selecciona evento..." : "Select event..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {events.map(ev => (
+                      <SelectItem key={ev.event_id} value={ev.event_id}>
+                        {ev.name || ev.event_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Fixed Cost Category Selection */}
+            {newExpense.assignment_type === "fixed_cost" && (
+              <div className="space-y-2">
+                <Label>{isEs ? "Categoría de Costo Fijo" : "Fixed Cost Category"}</Label>
+                <Select 
+                  value={newExpense.fixed_cost_category_id} 
+                  onValueChange={(v) => setNewExpense({ ...newExpense, fixed_cost_category_id: v })}
+                >
+                  <SelectTrigger data-testid="expense-fixed-cost-select">
+                    <SelectValue placeholder={isEs ? "Selecciona categoría..." : "Select category..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fixedCostCategories.map(cat => (
+                      <SelectItem key={cat.category_id} value={cat.category_id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Info Card */}
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="pt-3 pb-3">
+                <p className="text-xs text-blue-700">
+                  {newExpense.assignment_type === "event" 
+                    ? (isEs ? "📊 Este gasto se incluirá en el cálculo de rentabilidad del evento seleccionado." : "📊 This expense will be included in the selected event's profitability calculation.")
+                    : newExpense.assignment_type === "fixed_cost"
+                      ? (isEs ? "📊 Este gasto se comparará contra el presupuesto de la categoría seleccionada." : "📊 This expense will be compared against the selected category's budget.")
+                      : (isEs ? "📊 Este gasto será clasificado como overhead general y afectará el margen global." : "📊 This expense will be classified as general overhead and will affect global margin.")
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewExpenseDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateExpense} disabled={submitting} data-testid="save-expense-btn">
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isEs ? "Guardando..." : "Saving..."}
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isEs ? "Registrar Gasto" : "Record Expense"}
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

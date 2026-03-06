@@ -1200,10 +1200,10 @@ async def get_accounts_payable(user: User = Depends(get_current_user)):
     
     # Add supplier payables
     for pay in payables:
-        supplier_name = None
+        supplier_name = pay.get("supplier_name")  # First check stored supplier_name
         event_name = None
         
-        if pay.get("supplier_id"):
+        if not supplier_name and pay.get("supplier_id"):
             supplier = await db.suppliers.find_one({"supplier_id": pay["supplier_id"]}, {"_id": 0, "name": 1})
             supplier_name = supplier.get("name") if supplier else None
         if pay.get("event_id"):
