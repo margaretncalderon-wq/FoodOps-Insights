@@ -35,6 +35,25 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Módulo de Flujo de Caja Completo - COMPLETADO ✅
+
+**Backend** (`routers/business_clarity.py`):
+- `GET /api/business-clarity/cash-flow` - Reporte de flujo de caja con inflows/outflows
+- `GET /api/business-clarity/petty-cash` - Balance y transacciones de caja chica
+- `POST /api/business-clarity/petty-cash/transactions` - Registrar depósito/retiro
+- `PUT /api/business-clarity/petty-cash/fund-limit` - Actualizar límite del fondo
+- `GET /api/business-clarity/all-payments` - Todos los pagos (recibidos y realizados)
+
+**Frontend** (`CashFlowSection.js`):
+- **Tab Cash Flow**: Summary cards (Inflows/Outflows/Net/Pending), detalle de ingresos y egresos, proyección de salidas de efectivo (vencido, esta semana, este mes, posterior)
+- **Tab Payments**: Lista unificada de pagos recibidos (clientes) y realizados (proveedores) con badges de color
+- **Tab Petty Cash**: Balance actual, límite del fondo, historial de transacciones, dialog para nuevo depósito/retiro
+- Filtros de fecha en todos los tabs
+
+**Testing**: 100% backend (21/21 tests), 100% frontend
+
+---
+
 #### Registro de Pagos en Cuentas por Pagar (AP) - COMPLETADO ✅
 
 **Backend** (`routers/business_clarity.py`):
