@@ -31,7 +31,35 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ## What's Been Implemented
 
-### Session: March 5, 2026 (ÚLTIMA ACTUALIZACIÓN)
+### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
+
+#### Hub Central de Marketing "Insights" - COMPLETADO ✅
+
+**Frontend** (`InsightsPage.js`):
+- Dashboard centralizado que unifica métricas de Marketing
+- **4 KPIs principales**: Seguidores, Emails Enviados, Leads, Gasto Total
+- **3 Tarjetas de resumen**:
+  - **Redes Sociales**: Desglose por plataforma (Instagram, TikTok, YouTube), métricas de reach y engagement
+  - **Email Marketing**: Enviados, Open Rate, CTR, estado vacío con CTA
+  - **Campañas**: Total, Activas, Presupuesto vs Gasto, Leads vinculados
+- Gráfico de tendencia de redes sociales (últimos 14 días)
+- Acciones rápidas: Agregar métricas sociales, Crear email, Nueva campaña
+- Enlaces "Ver más" navegan a secciones detalladas
+
+**Endpoints utilizados**:
+| Endpoint | Datos |
+|----------|-------|
+| `/api/demand-studio/insights` | Campañas y métricas de ROI |
+| `/api/demand-studio/social-metrics/dashboard` | Métricas de redes sociales |
+| `/api/demand-studio/emails` | Campañas de email marketing |
+
+**Bug corregido**: Navegación al Email Marketing apuntaba a ruta incorrecta (`/email` → `/email-marketing`)
+
+**Testing**: Frontend 100% - Ver `/app/test_reports/iteration_92.json`
+
+---
+
+### Session: March 5, 2026
 
 #### Motor de Contabilización (Posting Engine) - COMPLETADO ✅
 
