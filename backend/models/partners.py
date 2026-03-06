@@ -5,6 +5,22 @@ from datetime import datetime
 from enum import Enum
 
 
+class PartnerAttachment(BaseModel):
+    """Attachment for a partner (catalogs, COI, contracts, etc.)"""
+    attachment_id: str
+    file_name: str
+    original_name: str
+    file_type: str  # catalog, coi, contract, license, portfolio, other
+    mime_type: str
+    file_size: int
+    file_url: str
+    thumbnail_url: Optional[str] = None
+    description: Optional[str] = None
+    expiration_date: Optional[str] = None
+    uploaded_at: str
+    uploaded_by: str
+
+
 class PartnerStatus(str, Enum):
     PREFERRED = "preferred"
     APPROVED = "approved"
@@ -155,6 +171,9 @@ class PartnerCreate(BaseModel):
     compliance_docs_on_file: bool = False
     linked_contract_id: Optional[str] = None
     linked_culinary_supplier_id: Optional[str] = None
+    
+    # Attachments (managed separately via upload endpoint)
+    attachments: Optional[List[dict]] = []
 
 
 class PartnerUpdate(BaseModel):

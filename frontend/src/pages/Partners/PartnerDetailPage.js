@@ -14,13 +14,18 @@ import {
   ArrowLeft, Edit, Trash2, Star, MapPin, Phone, Mail, Globe,
   Building2, FileText, AlertTriangle, Clock, CheckCircle2,
   Link2, DollarSign, Calendar, TrendingUp, ExternalLink, Instagram, Linkedin,
-  Receipt, ShoppingCart, CreditCard, BarChart3, Package, Loader2
+  Receipt, ShoppingCart, CreditCard, BarChart3, Package, Loader2,
+  Upload, File, Image, X, Eye, Download, Paperclip
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "../../components/ui/alert-dialog";
 import { Skeleton } from "../../components/ui/skeleton";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -52,6 +57,13 @@ export default function PartnerDetailPage() {
   const [invoices, setInvoices] = useState([]);
   const [events, setEvents] = useState([]);
   const [loadingIntegration, setLoadingIntegration] = useState(false);
+  
+  // Attachments states
+  const [attachments, setAttachments] = useState([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadForm, setUploadForm] = useState({ file: null, file_type: "other", description: "", expiration_date: "" });
+  const [previewAttachment, setPreviewAttachment] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,6 +111,75 @@ export default function PartnerDetailPage() {
     } finally {
       setLoadingIntegration(false);
     }
+  };
+
+  const loadAttachments = async () => {
+    setLoadingAttachments(true);
+    try {
+      const res = await axios.get(`${API}/api/partners/${partnerId}/attachments`, { withCredentials: true });
+      setAttachments(res.data.attachments || []);
+    } catch (err) {
+      console.error("Error loading attachments:", err);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (partner) {
+      loadAttachments();
+    }
+  }, [partner?.partner_id]);
+
+  const handleFileUpload = async (e) => {
+    e.preventDefault();
+    if (!uploadForm.file) {
+      toast.error(isEs ? "Selecciona un archivo" : "Select a file");
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", uploadForm.file);
+    formData.append("file_type", uploadForm.file_type);
+    if (uploadForm.description) formData.append("description", uploadForm.description);
+    if (uploadForm.expiration_date) formData.append("expiration_date", uploadForm.expiration_date);
+
+    try {
+      await axios.post(`${API}/api/partners/${partnerId}/attachments`, formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      toast.success(isEs ? "Archivo subido exitosamente" : "File uploaded successfully");
+      setUploadForm({ file: null, file_type: "other", description: "", expiration_date: "" });
+      loadAttachments();
+    } catch (err) {
+      toast.error(isEs ? "Error al subir archivo" : "Failed to upload file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      await axios.delete(`${API}/api/partners/${partnerId}/attachments/${attachmentId}`, { withCredentials: true });
+      toast.success(isEs ? "Archivo eliminado" : "File deleted");
+      loadAttachments();
+    } catch (err) {
+      toast.error(isEs ? "Error al eliminar archivo" : "Failed to delete file");
+    }
+  };
+
+  const getFileIcon = (mimeType) => {
+    if (mimeType?.startsWith("image/")) return <Image className="w-5 h-5 text-blue-500" />;
+    if (mimeType === "application/pdf") return <FileText className="w-5 h-5 text-red-500" />;
+    return <File className="w-5 h-5 text-gray-500" />;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleDelete = async () => {
@@ -231,6 +312,13 @@ export default function PartnerDetailPage() {
               <TabsList>
                 <TabsTrigger value="details">{isEs ? "Detalles" : "Details"}</TabsTrigger>
                 <TabsTrigger value="commercial">{isEs ? "Comercial" : "Commercial"}</TabsTrigger>
+                <TabsTrigger value="documents" className="flex items-center gap-1">
+                  <Paperclip className="w-4 h-4" />
+                  {isEs ? "Documentos" : "Documents"}
+                  {attachments.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">{attachments.length}</Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="finance">{isEs ? "Finanzas" : "Finance"}</TabsTrigger>
                 <TabsTrigger value="performance">{isEs ? "Rendimiento" : "Performance"}</TabsTrigger>
               </TabsList>
@@ -438,6 +526,235 @@ export default function PartnerDetailPage() {
                           )}
                         </div>
                       </>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Documents Tab - Attachments */}
+              <TabsContent value="documents" className="space-y-6 mt-4">
+                {/* Upload Form */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      {isEs ? "Subir Documento" : "Upload Document"}
+                    </CardTitle>
+                    <CardDescription>
+                      {isEs 
+                        ? "Sube catálogos, COI, contratos, portafolios y otros documentos"
+                        : "Upload catalogs, COI, contracts, portfolios and other documents"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleFileUpload} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>{isEs ? "Archivo" : "File"}</Label>
+                          <Input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx"
+                            onChange={(e) => setUploadForm({ ...uploadForm, file: e.target.files[0] })}
+                            data-testid="attachment-file-input"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            PDF, Images, Word, Excel (max 10MB)
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{isEs ? "Tipo de Documento" : "Document Type"}</Label>
+                          <Select 
+                            value={uploadForm.file_type} 
+                            onValueChange={(v) => setUploadForm({ ...uploadForm, file_type: v })}
+                          >
+                            <SelectTrigger data-testid="attachment-type-select">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(options.attachment_types || []).map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {isEs ? opt.label_es : opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>{isEs ? "Descripción (Opcional)" : "Description (Optional)"}</Label>
+                          <Input
+                            placeholder={isEs ? "Ej: Catálogo 2026" : "e.g. Catalog 2026"}
+                            value={uploadForm.description}
+                            onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                            data-testid="attachment-description-input"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{isEs ? "Fecha de Vencimiento (Opcional)" : "Expiration Date (Optional)"}</Label>
+                          <Input
+                            type="date"
+                            value={uploadForm.expiration_date}
+                            onChange={(e) => setUploadForm({ ...uploadForm, expiration_date: e.target.value })}
+                            data-testid="attachment-expiration-input"
+                          />
+                        </div>
+                      </div>
+                      <Button type="submit" disabled={uploading || !uploadForm.file} data-testid="upload-attachment-btn">
+                        {uploading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            {isEs ? "Subiendo..." : "Uploading..."}
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            {isEs ? "Subir Documento" : "Upload Document"}
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+
+                {/* Attachments List */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Paperclip className="w-4 h-4" />
+                      {isEs ? "Documentos Adjuntos" : "Attached Documents"}
+                      <Badge variant="secondary">{attachments.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingAttachments ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-16" />
+                        <Skeleton className="h-16" />
+                      </div>
+                    ) : attachments.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Paperclip className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>{isEs ? "Sin documentos adjuntos" : "No attached documents"}</p>
+                        <p className="text-sm">{isEs ? "Sube catálogos, COI, contratos y más" : "Upload catalogs, COI, contracts and more"}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {attachments.map((att) => (
+                          <div 
+                            key={att.attachment_id} 
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                            data-testid={`attachment-${att.attachment_id}`}
+                          >
+                            <div className="flex items-center gap-4">
+                              {/* Thumbnail/Icon */}
+                              <div className="w-12 h-12 rounded-lg border flex items-center justify-center bg-muted/30 overflow-hidden">
+                                {att.mime_type?.startsWith("image/") ? (
+                                  <img 
+                                    src={`${API}${att.file_url}`} 
+                                    alt={att.original_name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  getFileIcon(att.mime_type)
+                                )}
+                              </div>
+                              {/* File Info */}
+                              <div>
+                                <p className="font-medium">{att.original_name}</p>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Badge variant="outline" className="text-xs">
+                                    {(options.attachment_types || []).find(t => t.value === att.file_type)?.[isEs ? "label_es" : "label"] || att.file_type}
+                                  </Badge>
+                                  <span>{formatFileSize(att.file_size)}</span>
+                                  {att.expiration_date && (
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(att.expiration_date) < new Date() ? (
+                                        <span className="text-red-500">{isEs ? "Vencido" : "Expired"}</span>
+                                      ) : (
+                                        att.expiration_date
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                                {att.description && (
+                                  <p className="text-sm text-muted-foreground mt-1">{att.description}</p>
+                                )}
+                              </div>
+                            </div>
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                              {/* Preview for images and PDFs */}
+                              {(att.mime_type?.startsWith("image/") || att.mime_type === "application/pdf") && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" title={isEs ? "Vista previa" : "Preview"}>
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-4xl max-h-[90vh]">
+                                    <DialogHeader>
+                                      <DialogTitle>{att.original_name}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="flex items-center justify-center overflow-auto">
+                                      {att.mime_type?.startsWith("image/") ? (
+                                        <img 
+                                          src={`${API}${att.file_url}`} 
+                                          alt={att.original_name}
+                                          className="max-w-full max-h-[70vh] object-contain"
+                                        />
+                                      ) : (
+                                        <iframe
+                                          src={`${API}${att.file_url}`}
+                                          title={att.original_name}
+                                          className="w-full h-[70vh]"
+                                        />
+                                      )}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                              {/* Download */}
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                title={isEs ? "Descargar" : "Download"}
+                                onClick={() => window.open(`${API}${att.file_url}`, "_blank")}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                              {/* Delete */}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>{isEs ? "¿Eliminar documento?" : "Delete document?"}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {isEs 
+                                        ? `¿Estás seguro de eliminar "${att.original_name}"? Esta acción no se puede deshacer.`
+                                        : `Are you sure you want to delete "${att.original_name}"? This action cannot be undone.`}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>{isEs ? "Cancelar" : "Cancel"}</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteAttachment(att.attachment_id)}
+                                      className="bg-red-500 hover:bg-red-600"
+                                    >
+                                      {isEs ? "Eliminar" : "Delete"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </CardContent>
                 </Card>

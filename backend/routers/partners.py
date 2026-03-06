@@ -1,10 +1,12 @@
 # routers/partners.py - Partner Management Routes
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
+import shutil
+from pathlib import Path
 
-from config import db
+from config import db, UPLOADS_DIR
 from models.auth import User
 from models.partners import (
     PartnerCreate, PartnerUpdate, Partner,
@@ -13,9 +15,39 @@ from models.partners import (
     CAPABILITY_OPTIONS
 )
 from routers.auth import get_current_user
-from utils.activity_logger import log_activity, user_info
+from utils.activity_logger import log_activity
 
 partners_router = APIRouter(prefix="/partners", tags=["Partners"])
+
+# Ensure partners attachments directory exists
+PARTNER_ATTACHMENTS_DIR = UPLOADS_DIR / "partner_attachments"
+PARTNER_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Allowed file types for partner attachments
+ALLOWED_ATTACHMENT_TYPES = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+}
+
+ATTACHMENT_TYPE_OPTIONS = [
+    {"value": "catalog", "label": "Catalog", "label_es": "Catálogo"},
+    {"value": "coi", "label": "COI (Certificate of Insurance)", "label_es": "COI (Certificado de Seguro)"},
+    {"value": "contract", "label": "Contract", "label_es": "Contrato"},
+    {"value": "license", "label": "License", "label_es": "Licencia"},
+    {"value": "portfolio", "label": "Portfolio", "label_es": "Portafolio"},
+    {"value": "price_list", "label": "Price List", "label_es": "Lista de Precios"},
+    {"value": "w9", "label": "W9 / Tax Form", "label_es": "W9 / Formulario Fiscal"},
+    {"value": "nda", "label": "NDA", "label_es": "NDA"},
+    {"value": "sow", "label": "SOW (Scope of Work)", "label_es": "SOW (Alcance de Trabajo)"},
+    {"value": "other", "label": "Other", "label_es": "Otro"},
+]
 
 
 # ============== OPTIONS ENDPOINTS ==============
@@ -31,6 +63,7 @@ async def get_partner_options():
         "service_area_type": SERVICE_AREA_TYPE_OPTIONS,
         "pricing_level": PRICING_LEVEL_OPTIONS,
         "capabilities": CAPABILITY_OPTIONS,
+        "attachment_types": ATTACHMENT_TYPE_OPTIONS,
     }
 
 
@@ -906,3 +939,260 @@ async def get_partner_financial_summary(
             for m in monthly_result
         ]
     }
+
+
+
+# ============== ATTACHMENT ENDPOINTS ==============
+
+@partners_router.get("/{partner_id}/attachments")
+async def get_partner_attachments(
+    partner_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get all attachments for a partner"""
+    company_id = user.company_id or user.active_org_id
+    
+    # First check if partner exists
+    partner_exists = await db.partners.find_one(
+        {"partner_id": partner_id, "company_id": company_id},
+        {"_id": 0, "partner_id": 1, "attachments": 1}
+    )
+    
+    if not partner_exists:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    attachments = partner_exists.get("attachments", [])
+    
+    # Group by type
+    by_type = {}
+    for att in attachments:
+        file_type = att.get("file_type", "other")
+        if file_type not in by_type:
+            by_type[file_type] = []
+        by_type[file_type].append(att)
+    
+    return {
+        "attachments": attachments,
+        "by_type": by_type,
+        "total": len(attachments)
+    }
+
+
+@partners_router.post("/{partner_id}/attachments")
+async def upload_partner_attachment(
+    partner_id: str,
+    file: UploadFile = File(...),
+    file_type: str = Form(default="other"),
+    description: str = Form(default=None),
+    expiration_date: str = Form(default=None),
+    user: User = Depends(get_current_user)
+):
+    """Upload an attachment to a partner (catalog, COI, contract, etc.)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Verify partner exists
+    partner = await db.partners.find_one(
+        {"partner_id": partner_id, "company_id": company_id},
+        {"_id": 0, "partner_id": 1, "partner_name": 1}
+    )
+    
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    # Validate file type
+    if file.content_type not in ALLOWED_ATTACHMENT_TYPES:
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid file type. Allowed: PDF, images (JPEG, PNG, WebP, GIF), Word, Excel"
+        )
+    
+    # Check file size (max 10MB)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum 10MB")
+    
+    # Generate unique filename
+    attachment_id = f"att_{uuid.uuid4().hex[:12]}"
+    ext = ALLOWED_ATTACHMENT_TYPES.get(file.content_type, "bin")
+    safe_name = file.filename.replace(" ", "_")[:50] if file.filename else "file"
+    filename = f"{partner_id}_{attachment_id}.{ext}"
+    filepath = PARTNER_ATTACHMENTS_DIR / filename
+    
+    # Save file
+    with open(filepath, "wb") as buffer:
+        buffer.write(content)
+    
+    # Generate file URL
+    file_url = f"/api/uploads/partner_attachments/{filename}"
+    
+    # Generate thumbnail for images
+    thumbnail_url = None
+    if file.content_type.startswith("image/"):
+        thumbnail_url = file_url  # Use same URL for images
+    
+    # Create attachment record
+    attachment = {
+        "attachment_id": attachment_id,
+        "file_name": filename,
+        "original_name": file.filename or safe_name,
+        "file_type": file_type,
+        "mime_type": file.content_type,
+        "file_size": len(content),
+        "file_url": file_url,
+        "thumbnail_url": thumbnail_url,
+        "description": description,
+        "expiration_date": expiration_date,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_by": user.user_id
+    }
+    
+    # Add to partner's attachments array
+    await db.partners.update_one(
+        {"partner_id": partner_id, "company_id": company_id},
+        {
+            "$push": {"attachments": attachment},
+            "$set": {
+                "documents_on_file": True,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": user.user_id
+            }
+        }
+    )
+    
+    # Log activity
+    await log_activity(
+        module="partners",
+        action="partner_attachment_uploaded",
+        entity_type="partner_attachment",
+        entity_id=attachment_id,
+        entity_name=file.filename or "attachment",
+        user_id=user.user_id,
+        user_name=user.name or user.email,
+        user_email=user.email,
+        company_id=company_id,
+        metadata={
+            "partner_id": partner_id,
+            "partner_name": partner.get("partner_name"),
+            "file_type": file_type,
+            "file_size": len(content)
+        }
+    )
+    
+    return attachment
+
+
+@partners_router.delete("/{partner_id}/attachments/{attachment_id}")
+async def delete_partner_attachment(
+    partner_id: str,
+    attachment_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete an attachment from a partner"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Get partner and find attachment
+    partner = await db.partners.find_one(
+        {"partner_id": partner_id, "company_id": company_id},
+        {"_id": 0, "attachments": 1, "partner_name": 1}
+    )
+    
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    attachments = partner.get("attachments", [])
+    attachment = next((a for a in attachments if a.get("attachment_id") == attachment_id), None)
+    
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    # Delete file from disk
+    filename = attachment.get("file_name")
+    if filename:
+        filepath = PARTNER_ATTACHMENTS_DIR / filename
+        if filepath.exists():
+            filepath.unlink()
+    
+    # Remove from partner's attachments
+    await db.partners.update_one(
+        {"partner_id": partner_id, "company_id": company_id},
+        {
+            "$pull": {"attachments": {"attachment_id": attachment_id}},
+            "$set": {
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": user.user_id
+            }
+        }
+    )
+    
+    # Check if any attachments remain
+    updated_partner = await db.partners.find_one(
+        {"partner_id": partner_id, "company_id": company_id},
+        {"_id": 0, "attachments": 1}
+    )
+    if not updated_partner.get("attachments"):
+        await db.partners.update_one(
+            {"partner_id": partner_id, "company_id": company_id},
+            {"$set": {"documents_on_file": False}}
+        )
+    
+    # Log activity
+    await log_activity(
+        module="partners",
+        action="partner_attachment_deleted",
+        entity_type="partner_attachment",
+        entity_id=attachment_id,
+        entity_name=attachment.get("original_name", "attachment"),
+        user_id=user.user_id,
+        user_name=user.name or user.email,
+        user_email=user.email,
+        company_id=company_id,
+        metadata={
+            "partner_id": partner_id,
+            "partner_name": partner.get("partner_name"),
+            "file_type": attachment.get("file_type")
+        }
+    )
+    
+    return {"success": True, "deleted_attachment_id": attachment_id}
+
+
+@partners_router.put("/{partner_id}/attachments/{attachment_id}")
+async def update_partner_attachment(
+    partner_id: str,
+    attachment_id: str,
+    file_type: str = None,
+    description: str = None,
+    expiration_date: str = None,
+    user: User = Depends(get_current_user)
+):
+    """Update attachment metadata (type, description, expiration)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Build update
+    update_fields = {}
+    if file_type is not None:
+        update_fields["attachments.$.file_type"] = file_type
+    if description is not None:
+        update_fields["attachments.$.description"] = description
+    if expiration_date is not None:
+        update_fields["attachments.$.expiration_date"] = expiration_date
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    update_fields["updated_by"] = user.user_id
+    
+    result = await db.partners.update_one(
+        {
+            "partner_id": partner_id, 
+            "company_id": company_id,
+            "attachments.attachment_id": attachment_id
+        },
+        {"$set": update_fields}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Partner or attachment not found")
+    
+    return {"success": True, "updated_attachment_id": attachment_id}
