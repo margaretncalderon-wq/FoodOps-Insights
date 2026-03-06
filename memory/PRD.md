@@ -35,6 +35,45 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Proyección de Cash Flow 30/60/90 días - COMPLETADO ✅
+
+**Backend** (`business_clarity.py`):
+- Nuevo endpoint `/api/business-clarity/cash-flow/projection`
+- Calcula proyecciones basadas en:
+  - Cuentas por Cobrar (AR): Facturas abiertas agrupadas por período de vencimiento
+  - Cuentas por Pagar (AP): Payables y expenses pendientes agrupados por período
+- Incluye `liquidity_alert` cuando hay flujo negativo proyectado
+
+**Frontend** (`CashFlowSection.js`):
+- Nueva pestaña "Proyección" en el módulo Cash Flow
+- Tarjetas de resumen para 30/60/90 días con:
+  - Expected Inflows, Expected Outflows, Net Projection
+  - Bordes verdes/rojos según sea positivo/negativo
+- Detalle de AR y AP por período (vencido, 30 días, 30-60, 60-90)
+- Alerta visual de liquidez cuando hay proyección negativa
+
+---
+
+#### Notificaciones de Seguimiento (Follow-ups) - COMPLETADO ✅
+
+**Backend** (`notifications.py`):
+- Nuevo endpoint `POST /api/notifications/generate-follow-up-reminders`
+- Genera notificaciones automáticas para seguimientos:
+  - Vencidos: ⚠️ Prioridad alta, título "Seguimiento vencido"
+  - Hoy: 📅 Prioridad alta, título "Seguimiento hoy"
+  - Mañana: 🔔 Prioridad normal, título "Seguimiento mañana"
+- Previene duplicados usando metadata de entity_id + fecha
+
+**Frontend**:
+- `NotificationBell.js`: Llama a generar notificaciones al cargar
+- `FollowUpsSection.js`: También genera notificaciones al cargar follow-ups
+- Notificaciones aparecen en la campana del header
+
+**Modelo** (`models/crm.py`):
+- Agregados campos `next_follow_up_date` y `follow_up_type` a `ClientCreate`
+
+---
+
 #### Integración Cash Flow con P&L - COMPLETADO ✅
 
 **Frontend** (`ProfitLossDashboard.js`):

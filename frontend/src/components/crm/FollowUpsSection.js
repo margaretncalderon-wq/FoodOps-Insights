@@ -57,6 +57,14 @@ export default function FollowUpsSection() {
       }
       const res = await axios.get(url, { withCredentials: true });
       setFollowUps(res.data);
+      
+      // Trigger notification generation for follow-up reminders
+      try {
+        await axios.post(`${API}/api/notifications/generate-follow-up-reminders`, {}, { withCredentials: true });
+      } catch (notifErr) {
+        // Silently fail - notifications are not critical
+        console.log("Follow-up notifications generation skipped:", notifErr.message);
+      }
     } catch (err) {
       console.error(err);
     }

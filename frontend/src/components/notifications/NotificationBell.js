@@ -36,6 +36,19 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchUnreadCount();
+    
+    // Generate follow-up reminders on initial load (once per session)
+    const generateFollowUpReminders = async () => {
+      try {
+        await axios.post(`${API}/api/notifications/generate-follow-up-reminders`, {}, { withCredentials: true });
+        // Refresh count after generating
+        setTimeout(fetchUnreadCount, 1000);
+      } catch (err) {
+        // Silently fail
+      }
+    };
+    generateFollowUpReminders();
+    
     // Poll for new notifications every 60 seconds (reduced from 30)
     const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);

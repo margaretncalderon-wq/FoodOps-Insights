@@ -13,7 +13,7 @@ Events that trigger notifications:
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 import uuid
 
@@ -241,3 +241,124 @@ async def create_notification_internal(
     )
     
     return {"notification_id": notification_id}
+
+
+@notifications_router.post("/generate-follow-up-reminders")
+async def generate_follow_up_reminders(
+    user: User = Depends(get_current_user)
+):
+    """
+    Generate notifications for follow-ups that are overdue or due today/tomorrow.
+    This endpoint should be called when the user opens the CRM or follow-up view.
+    It will only create notifications that don't already exist for the same entity.
+    """
+    company_id = user.company_id
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    tomorrow = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    notifications_created = 0
+    
+    # Get leads with follow-ups that are overdue or due today/tomorrow
+    lead_query = {
+        "company_id": company_id,
+        "next_follow_up_date": {"$ne": None, "$lte": tomorrow},
+        "status": {"$nin": ["Converted", "Discarded"]}
+    }
+    leads = await db.leads.find(lead_query, {"_id": 0, "lead_id": 1, "lead_name": 1, 
+                                              "contact_name": 1, "company_name": 1,
+                                              "next_follow_up_date": 1, "owner_id": 1,
+                                              "follow_up_type": 1}).to_list(100)
+    
+    # Get clients with follow-ups that are overdue or due today/tomorrow
+    client_query = {
+        "company_id": company_id,
+        "next_follow_up_date": {"$ne": None, "$lte": tomorrow}
+    }
+    clients = await db.clients.find(client_query, {"_id": 0, "client_id": 1, "display_name": 1,
+                                                    "company_name": 1, "next_follow_up_date": 1,
+                                                    "owner_id": 1, "follow_up_type": 1}).to_list(100)
+    
+    # Combine all follow-ups
+    all_follow_ups = []
+    for lead in leads:
+        all_follow_ups.append({
+            "entity_type": "lead",
+            "entity_id": lead["lead_id"],
+            "name": lead.get("lead_name") or lead.get("contact_name") or lead.get("company_name"),
+            "follow_up_date": lead.get("next_follow_up_date"),
+            "follow_up_type": lead.get("follow_up_type", "Llamada"),
+            "owner_id": lead.get("owner_id")
+        })
+    
+    for client in clients:
+        all_follow_ups.append({
+            "entity_type": "client",
+            "entity_id": client["client_id"],
+            "name": client.get("display_name") or client.get("company_name"),
+            "follow_up_date": client.get("next_follow_up_date"),
+            "follow_up_type": client.get("follow_up_type", "Seguimiento"),
+            "owner_id": client.get("owner_id")
+        })
+    
+    # For each follow-up, check if notification already exists and create if not
+    for fu in all_follow_ups:
+        # Determine target user (owner or current user)
+        target_user_id = fu.get("owner_id") or user.user_id
+        
+        # Check if notification already exists for this entity and date
+        existing = await db.notifications.find_one({
+            "user_id": target_user_id,
+            "type": "follow_up_reminder",
+            "metadata.entity_id": fu["entity_id"],
+            "metadata.follow_up_date": fu["follow_up_date"]
+        })
+        
+        if existing:
+            continue
+        
+        # Determine urgency
+        fu_date = fu["follow_up_date"][:10] if fu["follow_up_date"] else None
+        is_overdue = fu_date and fu_date < today
+        is_today = fu_date == today
+        is_tomorrow = fu_date == tomorrow
+        
+        # Build notification
+        if is_overdue:
+            title = f"⚠️ Seguimiento vencido: {fu['name']}"
+            message = f"El seguimiento ({fu['follow_up_type']}) programado para {fu_date} está vencido."
+            priority = "high"
+        elif is_today:
+            title = f"📅 Seguimiento hoy: {fu['name']}"
+            message = f"Tienes un seguimiento ({fu['follow_up_type']}) programado para hoy."
+            priority = "high"
+        else:
+            title = f"🔔 Seguimiento mañana: {fu['name']}"
+            message = f"Tienes un seguimiento ({fu['follow_up_type']}) programado para mañana."
+            priority = "normal"
+        
+        # Create notification
+        await create_notification(
+            user_id=target_user_id,
+            notification_type="follow_up_reminder",
+            title=title,
+            message=message,
+            link=f"/crm/{fu['entity_type']}s/{fu['entity_id']}",
+            metadata={
+                "entity_type": fu["entity_type"],
+                "entity_id": fu["entity_id"],
+                "entity_name": fu["name"],
+                "follow_up_date": fu["follow_up_date"],
+                "follow_up_type": fu["follow_up_type"],
+                "is_overdue": is_overdue,
+                "is_today": is_today
+            },
+            priority=priority
+        )
+        notifications_created += 1
+    
+    return {
+        "notifications_created": notifications_created,
+        "total_follow_ups_checked": len(all_follow_ups)
+    }
+

@@ -5838,6 +5838,208 @@ async def get_cash_flow_report(
     }
 
 
+# ============== CASH FLOW PROJECTION ==============
+
+@business_clarity_router.get("/cash-flow/projection")
+async def get_cash_flow_projection(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get cash flow projection for the next 30/60/90 days.
+    Based on:
+    - Expected inflows: Open invoices (accounts receivable) by due date
+    - Expected outflows: Pending payables by due date, recurring fixed costs
+    """
+    company_id = user.company_id
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    
+    # Calculate date ranges
+    day_30 = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+    day_60 = (now + timedelta(days=60)).strftime("%Y-%m-%d")
+    day_90 = (now + timedelta(days=90)).strftime("%Y-%m-%d")
+    
+    # ===== EXPECTED INFLOWS (Accounts Receivable) =====
+    open_invoices = await db.invoices.find({
+        "company_id": company_id,
+        "status": {"$ne": "paid"},
+        "balance_due": {"$gt": 0}
+    }, {"_id": 0, "invoice_id": 1, "client_id": 1, "invoice_number": 1, 
+        "balance_due": 1, "due_date": 1, "total": 1}).to_list(500)
+    
+    # Group by period
+    ar_overdue = []
+    ar_30_days = []
+    ar_60_days = []
+    ar_90_days = []
+    ar_beyond = []
+    
+    for inv in open_invoices:
+        due = inv.get("due_date", "")[:10] if inv.get("due_date") else None
+        balance = inv.get("balance_due", 0)
+        
+        # Get client name
+        if inv.get("client_id"):
+            client = await db.clients.find_one(
+                {"client_id": inv["client_id"]}, 
+                {"_id": 0, "display_name": 1, "company_name": 1}
+            )
+            inv["client_name"] = client.get("display_name") or client.get("company_name") if client else None
+        
+        if not due or due < today:
+            ar_overdue.append(inv)
+        elif due <= day_30:
+            ar_30_days.append(inv)
+        elif due <= day_60:
+            ar_60_days.append(inv)
+        elif due <= day_90:
+            ar_90_days.append(inv)
+        else:
+            ar_beyond.append(inv)
+    
+    # ===== EXPECTED OUTFLOWS (Accounts Payable) =====
+    pending_payables = await db.supplier_payables.find({
+        "company_id": company_id,
+        "status": {"$in": ["pending", "partial"]},
+        "balance_due": {"$gt": 0}
+    }, {"_id": 0, "payable_id": 1, "supplier_name": 1, "description": 1,
+        "balance_due": 1, "due_date": 1, "amount": 1}).to_list(500)
+    
+    # Also get unpaid expenses
+    pending_expenses = await db.expenses.find({
+        "company_id": company_id,
+        "payment_status": {"$ne": "Paid"}
+    }, {"_id": 0, "expense_id": 1, "vendor_name": 1, "description": 1,
+        "amount": 1, "due_date": 1}).to_list(500)
+    
+    # Combine payables and expenses
+    all_payables = []
+    for p in pending_payables:
+        all_payables.append({
+            "id": p.get("payable_id"),
+            "name": p.get("supplier_name") or p.get("description"),
+            "amount": p.get("balance_due", p.get("amount", 0)),
+            "due_date": p.get("due_date"),
+            "type": "payable"
+        })
+    for e in pending_expenses:
+        all_payables.append({
+            "id": e.get("expense_id"),
+            "name": e.get("vendor_name") or e.get("description"),
+            "amount": e.get("amount", 0),
+            "due_date": e.get("due_date"),
+            "type": "expense"
+        })
+    
+    # Group by period
+    ap_overdue = []
+    ap_30_days = []
+    ap_60_days = []
+    ap_90_days = []
+    ap_beyond = []
+    
+    for p in all_payables:
+        due = p.get("due_date", "")[:10] if p.get("due_date") else None
+        
+        if not due or due < today:
+            ap_overdue.append(p)
+        elif due <= day_30:
+            ap_30_days.append(p)
+        elif due <= day_60:
+            ap_60_days.append(p)
+        elif due <= day_90:
+            ap_90_days.append(p)
+        else:
+            ap_beyond.append(p)
+    
+    # ===== CALCULATE PROJECTIONS =====
+    def sum_amounts(items, key="balance_due"):
+        return round(sum(i.get(key, i.get("amount", 0)) for i in items), 2)
+    
+    # Cumulative projections
+    inflow_30 = sum_amounts(ar_overdue) + sum_amounts(ar_30_days)
+    inflow_60 = inflow_30 + sum_amounts(ar_60_days)
+    inflow_90 = inflow_60 + sum_amounts(ar_90_days)
+    
+    outflow_30 = sum_amounts(ap_overdue, "amount") + sum_amounts(ap_30_days, "amount")
+    outflow_60 = outflow_30 + sum_amounts(ap_60_days, "amount")
+    outflow_90 = outflow_60 + sum_amounts(ap_90_days, "amount")
+    
+    # Net projections
+    net_30 = inflow_30 - outflow_30
+    net_60 = inflow_60 - outflow_60
+    net_90 = inflow_90 - outflow_90
+    
+    return {
+        "as_of_date": today,
+        "projection": {
+            "30_days": {
+                "expected_inflows": inflow_30,
+                "expected_outflows": outflow_30,
+                "net_projection": net_30,
+                "date_range": f"{today} - {day_30}"
+            },
+            "60_days": {
+                "expected_inflows": inflow_60,
+                "expected_outflows": outflow_60,
+                "net_projection": net_60,
+                "date_range": f"{today} - {day_60}"
+            },
+            "90_days": {
+                "expected_inflows": inflow_90,
+                "expected_outflows": outflow_90,
+                "net_projection": net_90,
+                "date_range": f"{today} - {day_90}"
+            }
+        },
+        "inflows_detail": {
+            "overdue": {
+                "total": sum_amounts(ar_overdue),
+                "count": len(ar_overdue),
+                "items": ar_overdue[:5]
+            },
+            "next_30_days": {
+                "total": sum_amounts(ar_30_days),
+                "count": len(ar_30_days),
+                "items": ar_30_days[:5]
+            },
+            "30_to_60_days": {
+                "total": sum_amounts(ar_60_days),
+                "count": len(ar_60_days),
+                "items": ar_60_days[:3]
+            },
+            "60_to_90_days": {
+                "total": sum_amounts(ar_90_days),
+                "count": len(ar_90_days),
+                "items": ar_90_days[:3]
+            }
+        },
+        "outflows_detail": {
+            "overdue": {
+                "total": sum_amounts(ap_overdue, "amount"),
+                "count": len(ap_overdue),
+                "items": ap_overdue[:5]
+            },
+            "next_30_days": {
+                "total": sum_amounts(ap_30_days, "amount"),
+                "count": len(ap_30_days),
+                "items": ap_30_days[:5]
+            },
+            "30_to_60_days": {
+                "total": sum_amounts(ap_60_days, "amount"),
+                "count": len(ap_60_days),
+                "items": ap_60_days[:3]
+            },
+            "60_to_90_days": {
+                "total": sum_amounts(ap_90_days, "amount"),
+                "count": len(ap_90_days),
+                "items": ap_90_days[:3]
+            }
+        },
+        "liquidity_alert": net_30 < 0 or net_60 < 0 or net_90 < 0
+    }
+
+
 # ============== PAYMENT RECORDS (RECEIVED & MADE) ==============
 
 @business_clarity_router.get("/all-payments")

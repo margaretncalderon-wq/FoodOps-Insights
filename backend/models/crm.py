@@ -214,6 +214,9 @@ class ClientCreate(BaseModel):
     social_instagram: Optional[str] = None  # Instagram handle
     # Internal cost center flag
     is_internal_cost_center: bool = False  # True for internal marketing/cost center "client"
+    # Follow-up fields
+    next_follow_up_date: Optional[str] = None  # Date for next follow-up
+    follow_up_type: Optional[str] = None  # Type: Call, Email, Meeting, CheckIn
 
 
 class Client(BaseModel):

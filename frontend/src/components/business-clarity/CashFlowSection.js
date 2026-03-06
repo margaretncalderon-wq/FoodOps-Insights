@@ -16,8 +16,9 @@ import { ScrollArea } from "../ui/scroll-area";
 import {
   Plus, RefreshCw, TrendingUp, TrendingDown, Wallet, ArrowUpCircle, ArrowDownCircle,
   DollarSign, AlertTriangle, Calendar, Clock, PiggyBank, CreditCard, Loader2,
-  ArrowRightLeft, Receipt
+  ArrowRightLeft, Receipt, Target, ChevronRight
 } from "lucide-react";
+import { Progress } from "../ui/progress";
 
 import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -32,6 +33,7 @@ export function CashFlowSection() {
   const [pettyCashData, setPettyCashData] = useState(null);
   const [allPayments, setAllPayments] = useState([]);
   const [paymentsSummary, setPaymentsSummary] = useState(null);
+  const [projectionData, setProjectionData] = useState(null);
   
   // Petty Cash Dialog
   const [pettyCashDialogOpen, setPettyCashDialogOpen] = useState(false);
@@ -66,15 +68,17 @@ export function CashFlowSection() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cashFlowRes, pettyCashRes, paymentsRes] = await Promise.all([
+      const [cashFlowRes, pettyCashRes, paymentsRes, projectionRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/cash-flow?start_date=${startDate}&end_date=${endDate}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/petty-cash`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/all-payments?start_date=${startDate}&end_date=${endDate}`, { withCredentials: true })
+        axios.get(`${API}/api/business-clarity/all-payments?start_date=${startDate}&end_date=${endDate}`, { withCredentials: true }),
+        axios.get(`${API}/api/business-clarity/cash-flow/projection`, { withCredentials: true })
       ]);
       setCashFlowData(cashFlowRes.data);
       setPettyCashData(pettyCashRes.data);
       setAllPayments(paymentsRes.data.payments || []);
       setPaymentsSummary(paymentsRes.data.summary);
+      setProjectionData(projectionRes.data);
     } catch (err) {
       console.error(err);
       toast.error(isEs ? "Error al cargar datos" : "Error loading data");
@@ -164,6 +168,10 @@ export function CashFlowSection() {
           <TabsTrigger value="overview" className="gap-2">
             <TrendingUp className="w-4 h-4" />
             {isEs ? "Flujo de Caja" : "Cash Flow"}
+          </TabsTrigger>
+          <TabsTrigger value="projection" className="gap-2" data-testid="projection-tab">
+            <Target className="w-4 h-4" />
+            {isEs ? "Proyección" : "Projection"}
           </TabsTrigger>
           <TabsTrigger value="payments" className="gap-2">
             <ArrowRightLeft className="w-4 h-4" />
@@ -350,6 +358,271 @@ export function CashFlowSection() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Cash Flow Projection Tab */}
+        <TabsContent value="projection" className="space-y-6 mt-4" data-testid="projection-content">
+          {/* Liquidity Alert */}
+          {projectionData?.liquidity_alert && (
+            <Card className="border-red-300 bg-red-50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                  <div>
+                    <p className="font-medium text-red-800">
+                      {isEs ? "¡Alerta de Liquidez!" : "Liquidity Alert!"}
+                    </p>
+                    <p className="text-sm text-red-700">
+                      {isEs 
+                        ? "Se proyecta flujo de caja negativo en alguno de los próximos períodos. Revisa las cuentas por cobrar y por pagar."
+                        : "Negative cash flow projected in upcoming periods. Review receivables and payables."}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Projection Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 30 Days */}
+            <Card className={`border-2 ${(projectionData?.projection?.["30_days"]?.net_projection || 0) >= 0 ? "border-green-200" : "border-red-200"}`}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {isEs ? "30 Días" : "30 Days"}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {projectionData?.projection?.["30_days"]?.date_range}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-green-700">{isEs ? "Ingresos Esperados" : "Expected Inflows"}</span>
+                  <span className="font-semibold text-green-700">
+                    {formatCurrency(projectionData?.projection?.["30_days"]?.expected_inflows)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-red-700">{isEs ? "Egresos Esperados" : "Expected Outflows"}</span>
+                  <span className="font-semibold text-red-700">
+                    {formatCurrency(projectionData?.projection?.["30_days"]?.expected_outflows)}
+                  </span>
+                </div>
+                <div className="border-t pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{isEs ? "Flujo Neto" : "Net Flow"}</span>
+                    <span className={`text-lg font-bold ${(projectionData?.projection?.["30_days"]?.net_projection || 0) >= 0 ? "text-green-700" : "text-red-700"}`}>
+                      {formatCurrency(projectionData?.projection?.["30_days"]?.net_projection)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 60 Days */}
+            <Card className={`border-2 ${(projectionData?.projection?.["60_days"]?.net_projection || 0) >= 0 ? "border-green-200" : "border-red-200"}`}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {isEs ? "60 Días" : "60 Days"}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {projectionData?.projection?.["60_days"]?.date_range}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-green-700">{isEs ? "Ingresos Esperados" : "Expected Inflows"}</span>
+                  <span className="font-semibold text-green-700">
+                    {formatCurrency(projectionData?.projection?.["60_days"]?.expected_inflows)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-red-700">{isEs ? "Egresos Esperados" : "Expected Outflows"}</span>
+                  <span className="font-semibold text-red-700">
+                    {formatCurrency(projectionData?.projection?.["60_days"]?.expected_outflows)}
+                  </span>
+                </div>
+                <div className="border-t pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{isEs ? "Flujo Neto" : "Net Flow"}</span>
+                    <span className={`text-lg font-bold ${(projectionData?.projection?.["60_days"]?.net_projection || 0) >= 0 ? "text-green-700" : "text-red-700"}`}>
+                      {formatCurrency(projectionData?.projection?.["60_days"]?.net_projection)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 90 Days */}
+            <Card className={`border-2 ${(projectionData?.projection?.["90_days"]?.net_projection || 0) >= 0 ? "border-green-200" : "border-red-200"}`}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {isEs ? "90 Días" : "90 Days"}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {projectionData?.projection?.["90_days"]?.date_range}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-green-700">{isEs ? "Ingresos Esperados" : "Expected Inflows"}</span>
+                  <span className="font-semibold text-green-700">
+                    {formatCurrency(projectionData?.projection?.["90_days"]?.expected_inflows)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-red-700">{isEs ? "Egresos Esperados" : "Expected Outflows"}</span>
+                  <span className="font-semibold text-red-700">
+                    {formatCurrency(projectionData?.projection?.["90_days"]?.expected_outflows)}
+                  </span>
+                </div>
+                <div className="border-t pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{isEs ? "Flujo Neto" : "Net Flow"}</span>
+                    <span className={`text-lg font-bold ${(projectionData?.projection?.["90_days"]?.net_projection || 0) >= 0 ? "text-green-700" : "text-red-700"}`}>
+                      {formatCurrency(projectionData?.projection?.["90_days"]?.net_projection)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Expected Inflows (AR) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 text-green-700">
+                  <ArrowUpCircle className="w-5 h-5" />
+                  {isEs ? "Ingresos Esperados (Cuentas por Cobrar)" : "Expected Inflows (Accounts Receivable)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Overdue AR */}
+                  {projectionData?.inflows_detail?.overdue?.total > 0 && (
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-red-700">{isEs ? "Vencido" : "Overdue"}</span>
+                        <span className="font-bold text-red-700">{formatCurrency(projectionData?.inflows_detail?.overdue?.total)}</span>
+                      </div>
+                      <p className="text-xs text-red-600">{projectionData?.inflows_detail?.overdue?.count} {isEs ? "facturas" : "invoices"}</p>
+                      {projectionData?.inflows_detail?.overdue?.items?.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {projectionData.inflows_detail.overdue.items.slice(0, 3).map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-xs">
+                              <span className="truncate max-w-[150px]">{item.client_name || item.invoice_number}</span>
+                              <span>{formatCurrency(item.balance_due)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Next 30 days AR */}
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-green-700">{isEs ? "Próximos 30 días" : "Next 30 days"}</span>
+                      <span className="font-bold text-green-700">{formatCurrency(projectionData?.inflows_detail?.next_30_days?.total)}</span>
+                    </div>
+                    <p className="text-xs text-green-600">{projectionData?.inflows_detail?.next_30_days?.count} {isEs ? "facturas" : "invoices"}</p>
+                  </div>
+                  
+                  {/* 30-60 days AR */}
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">{isEs ? "30-60 días" : "30-60 days"}</span>
+                      <span className="font-semibold">{formatCurrency(projectionData?.inflows_detail?.["30_to_60_days"]?.total)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* 60-90 days AR */}
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">{isEs ? "60-90 días" : "60-90 days"}</span>
+                      <span className="font-semibold">{formatCurrency(projectionData?.inflows_detail?.["60_to_90_days"]?.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Expected Outflows (AP) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 text-red-700">
+                  <ArrowDownCircle className="w-5 h-5" />
+                  {isEs ? "Egresos Esperados (Cuentas por Pagar)" : "Expected Outflows (Accounts Payable)"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Overdue AP */}
+                  {projectionData?.outflows_detail?.overdue?.total > 0 && (
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-red-700">{isEs ? "Vencido" : "Overdue"}</span>
+                        <span className="font-bold text-red-700">{formatCurrency(projectionData?.outflows_detail?.overdue?.total)}</span>
+                      </div>
+                      <p className="text-xs text-red-600">{projectionData?.outflows_detail?.overdue?.count} {isEs ? "pagos" : "payments"}</p>
+                      {projectionData?.outflows_detail?.overdue?.items?.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {projectionData.outflows_detail.overdue.items.slice(0, 3).map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-xs">
+                              <span className="truncate max-w-[150px]">{item.name}</span>
+                              <span>{formatCurrency(item.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Next 30 days AP */}
+                  <div className="p-3 bg-amber-50 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-amber-700">{isEs ? "Próximos 30 días" : "Next 30 days"}</span>
+                      <span className="font-bold text-amber-700">{formatCurrency(projectionData?.outflows_detail?.next_30_days?.total)}</span>
+                    </div>
+                    <p className="text-xs text-amber-600">{projectionData?.outflows_detail?.next_30_days?.count} {isEs ? "pagos" : "payments"}</p>
+                  </div>
+                  
+                  {/* 30-60 days AP */}
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">{isEs ? "30-60 días" : "30-60 days"}</span>
+                      <span className="font-semibold">{formatCurrency(projectionData?.outflows_detail?.["30_to_60_days"]?.total)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* 60-90 days AP */}
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">{isEs ? "60-90 días" : "60-90 days"}</span>
+                      <span className="font-semibold">{formatCurrency(projectionData?.outflows_detail?.["60_to_90_days"]?.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Projection Methodology Note */}
+          <Card className="bg-slate-50">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">
+                <strong>{isEs ? "Metodología:" : "Methodology:"}</strong>{" "}
+                {isEs 
+                  ? "Las proyecciones se basan en las fechas de vencimiento de las facturas por cobrar (AR) y las cuentas por pagar (AP) pendientes. Las proyecciones son acumulativas (30 días incluye todo hasta ese punto)."
+                  : "Projections are based on due dates of outstanding receivables (AR) and payables (AP). Projections are cumulative (30 days includes everything up to that point)."}
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
