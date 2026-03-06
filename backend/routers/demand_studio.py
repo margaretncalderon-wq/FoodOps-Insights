@@ -3364,3 +3364,245 @@ async def get_global_marketing_calendar(
         "activations": activations,
         "emails": emails
     }
+
+
+
+# ============== SOCIAL METRICS ENDPOINTS ==============
+
+from services.social_metrics import SocialMetricsManager, YouTubeMetricsService
+from models.demand_studio import (
+    ManualMetricsEntryCreate, ConnectedSocialAccountCreate
+)
+
+
+@demand_studio_router.get("/social-metrics/connections")
+async def get_social_connections(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all connected social accounts"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    connections = await db.connected_social_accounts.find(
+        {"company_id": effective_company_id},
+        {"_id": 0, "access_token": 0, "refresh_token": 0}
+    ).to_list(50)
+    
+    return connections
+
+
+@demand_studio_router.post("/social-metrics/connect/youtube")
+async def connect_youtube_account(
+    access_token: str,
+    refresh_token: Optional[str] = None,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Connect a YouTube channel using OAuth token"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    if role not in ["owner", "admin", "editor"]:
+        raise HTTPException(status_code=403, detail="No permission to connect accounts")
+    
+    manager = SocialMetricsManager(db, effective_company_id, user.user_id)
+    result = await manager.connect_youtube(access_token, refresh_token)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    
+    return result
+
+
+@demand_studio_router.post("/social-metrics/sync/{connection_id}")
+async def sync_social_metrics(
+    connection_id: str,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Sync metrics for a connected account"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    # Get connection
+    connection = await db.connected_social_accounts.find_one(
+        {"connection_id": connection_id, "company_id": effective_company_id},
+        {"_id": 0}
+    )
+    
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    
+    manager = SocialMetricsManager(db, effective_company_id, user.user_id)
+    
+    if connection["platform"] == "youtube":
+        result = await manager.sync_youtube_metrics(connection_id)
+    else:
+        raise HTTPException(status_code=400, detail=f"Sync not implemented for {connection['platform']}")
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    
+    return result
+
+
+@demand_studio_router.delete("/social-metrics/connections/{connection_id}")
+async def disconnect_social_account(
+    connection_id: str,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Disconnect a social account"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="No permission to disconnect accounts")
+    
+    result = await db.connected_social_accounts.delete_one(
+        {"connection_id": connection_id, "company_id": effective_company_id}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    
+    return {"message": "Account disconnected", "connection_id": connection_id}
+
+
+@demand_studio_router.get("/social-metrics/dashboard")
+async def get_social_metrics_dashboard(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get social metrics dashboard data"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    manager = SocialMetricsManager(db, effective_company_id, user.user_id)
+    return await manager.get_dashboard_data()
+
+
+@demand_studio_router.get("/social-metrics/snapshots")
+async def get_metrics_snapshots(
+    platform: Optional[str] = None,
+    connection_id: Optional[str] = None,
+    days: int = 30,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get historical metrics snapshots"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    from datetime import timedelta
+    start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    query = {
+        "company_id": effective_company_id,
+        "snapshot_date": {"$gte": start_date}
+    }
+    
+    if platform:
+        query["platform"] = platform
+    if connection_id:
+        query["connection_id"] = connection_id
+    
+    snapshots = await db.social_metrics_snapshots.find(
+        query,
+        {"_id": 0}
+    ).sort("snapshot_date", -1).to_list(500)
+    
+    return snapshots
+
+
+@demand_studio_router.get("/social-metrics/posts")
+async def get_post_metrics(
+    platform: Optional[str] = None,
+    connection_id: Optional[str] = None,
+    limit: int = 30,
+    sort_by: str = "reach",  # reach, likes, comments, published_at
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get metrics for individual posts"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    query = {"company_id": effective_company_id}
+    
+    if platform:
+        query["platform"] = platform
+    if connection_id:
+        query["connection_id"] = connection_id
+    
+    sort_field = sort_by if sort_by in ["reach", "likes", "comments", "video_views"] else "reach"
+    
+    posts = await db.social_post_metrics.find(
+        query,
+        {"_id": 0}
+    ).sort(sort_field, -1).limit(limit).to_list(limit)
+    
+    return posts
+
+
+@demand_studio_router.post("/social-metrics/manual")
+async def add_manual_metrics(
+    data: ManualMetricsEntryCreate,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Add manual metrics entry"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    if role not in ["owner", "admin", "editor"]:
+        raise HTTPException(status_code=403, detail="No permission to add metrics")
+    
+    manager = SocialMetricsManager(db, effective_company_id, user.user_id)
+    result = await manager.add_manual_entry(data.dict())
+    
+    return result
+
+
+@demand_studio_router.get("/social-metrics/manual")
+async def get_manual_metrics(
+    platform: Optional[str] = None,
+    days: int = 90,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get manual metrics entries"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    from datetime import timedelta
+    start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    query = {
+        "company_id": effective_company_id,
+        "entry_date": {"$gte": start_date}
+    }
+    
+    if platform:
+        query["platform"] = platform
+    
+    entries = await db.manual_social_metrics.find(
+        query,
+        {"_id": 0}
+    ).sort("entry_date", -1).to_list(200)
+    
+    return entries
+
+
+@demand_studio_router.delete("/social-metrics/manual/{entry_id}")
+async def delete_manual_metrics(
+    entry_id: str,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Delete a manual metrics entry"""
+    effective_company_id, role = await get_effective_company_id(user, org_id)
+    
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="No permission to delete metrics")
+    
+    result = await db.manual_social_metrics.delete_one(
+        {"entry_id": entry_id, "company_id": effective_company_id}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    return {"message": "Entry deleted", "entry_id": entry_id}

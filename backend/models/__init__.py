@@ -13,7 +13,12 @@ from models.demand_studio import (
     ContentPillarCreate, ContentPillar,
     SocialPostCreate, SocialPost,
     SocialPostAssetLinkCreate, SocialPostSpendLinkCreate,
-    ContentIdeaCreate, ContentIdea
+    ContentIdeaCreate, ContentIdea,
+    # Social Metrics Models
+    ConnectedSocialAccountCreate, ConnectedSocialAccount,
+    SocialMetricsSnapshotCreate, SocialMetricsSnapshot,
+    SocialPostMetricsCreate, SocialPostMetrics,
+    ManualMetricsEntryCreate, ManualMetricsEntry
 )
 from models.business_clarity import (
     PaymentCreate, Payment, PaymentApplicationCreate,

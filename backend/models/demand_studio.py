@@ -468,3 +468,196 @@ class ContentIdea(BaseModel):
     created_by_user_id: str
     created_at: datetime
     updated_at: datetime
+
+
+
+# ============== SOCIAL METRICS MODELS ==============
+
+class SocialPlatform(str, Enum):
+    """Supported social platforms for metrics"""
+    INSTAGRAM = "instagram"
+    FACEBOOK = "facebook"
+    TIKTOK = "tiktok"
+    YOUTUBE = "youtube"
+    LINKEDIN = "linkedin"
+
+
+class ConnectedSocialAccountCreate(BaseModel):
+    """Create a connected social account with OAuth"""
+    platform: str  # instagram, facebook, tiktok, youtube
+    platform_account_id: str  # ID from the platform
+    account_name: str  # Display name / username
+    profile_picture: Optional[str] = None
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_expires_at: Optional[datetime] = None
+    scopes: List[str] = []
+
+
+class ConnectedSocialAccount(BaseModel):
+    """Connected social account with OAuth tokens"""
+    connection_id: str
+    company_id: str
+    platform: str
+    platform_account_id: str
+    account_name: str
+    profile_picture: Optional[str] = None
+    # OAuth tokens (encrypted in DB)
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_expires_at: Optional[datetime] = None
+    scopes: List[str] = []
+    # Connection status
+    status: str = "active"  # active, expired, revoked, error
+    last_sync_at: Optional[datetime] = None
+    sync_error: Optional[str] = None
+    # Basic metrics (latest snapshot)
+    followers_count: int = 0
+    following_count: int = 0
+    posts_count: int = 0
+    # Metadata
+    created_at: datetime
+    updated_at: datetime
+
+
+class SocialMetricsSnapshotCreate(BaseModel):
+    """Create a metrics snapshot for a connected account"""
+    connection_id: str
+    platform: str
+    # Account-level metrics
+    followers_count: int = 0
+    following_count: int = 0
+    posts_count: int = 0
+    # Period metrics (usually last 28 days)
+    reach: int = 0
+    impressions: int = 0
+    engagement_count: int = 0  # total interactions
+    engagement_rate: float = 0.0
+    profile_views: int = 0
+    website_clicks: int = 0
+    # Growth
+    followers_gained: int = 0
+    followers_lost: int = 0
+    # Source
+    source: str = "api"  # api, manual
+
+
+class SocialMetricsSnapshot(BaseModel):
+    """Point-in-time snapshot of social metrics"""
+    snapshot_id: str
+    company_id: str
+    connection_id: str
+    platform: str
+    snapshot_date: str  # YYYY-MM-DD
+    # Account-level metrics
+    followers_count: int = 0
+    following_count: int = 0
+    posts_count: int = 0
+    # Period metrics
+    reach: int = 0
+    impressions: int = 0
+    engagement_count: int = 0
+    engagement_rate: float = 0.0
+    profile_views: int = 0
+    website_clicks: int = 0
+    # Growth
+    followers_gained: int = 0
+    followers_lost: int = 0
+    net_followers: int = 0
+    # Source
+    source: str = "api"  # api, manual
+    created_at: datetime
+
+
+class SocialPostMetricsCreate(BaseModel):
+    """Create metrics for a specific post"""
+    connection_id: str
+    platform: str
+    platform_post_id: str  # ID from the platform
+    post_type: str = "post"  # post, reel, story, video, short
+    # Post info
+    caption: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    permalink: Optional[str] = None
+    published_at: Optional[str] = None
+    # Metrics
+    reach: int = 0
+    impressions: int = 0
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    saves: int = 0
+    video_views: int = 0
+    watch_time_seconds: int = 0
+    engagement_rate: float = 0.0
+
+
+class SocialPostMetrics(BaseModel):
+    """Metrics for a specific social post"""
+    post_metrics_id: str
+    company_id: str
+    connection_id: str
+    platform: str
+    platform_post_id: str
+    post_type: str = "post"
+    # Post info
+    caption: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    permalink: Optional[str] = None
+    published_at: Optional[str] = None
+    # Metrics
+    reach: int = 0
+    impressions: int = 0
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    saves: int = 0
+    video_views: int = 0
+    watch_time_seconds: int = 0
+    engagement_rate: float = 0.0
+    # Internal link to our SocialPost if exists
+    linked_post_id: Optional[str] = None
+    # Sync info
+    last_synced_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
+class ManualMetricsEntryCreate(BaseModel):
+    """Manual entry for metrics when not connected via OAuth"""
+    platform: str  # instagram, facebook, tiktok, youtube, other
+    account_name: str
+    entry_date: str  # YYYY-MM-DD
+    # Metrics
+    followers_count: Optional[int] = None
+    reach: Optional[int] = None
+    impressions: Optional[int] = None
+    engagement_count: Optional[int] = None
+    engagement_rate: Optional[float] = None
+    profile_views: Optional[int] = None
+    website_clicks: Optional[int] = None
+    video_views: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class ManualMetricsEntry(BaseModel):
+    """Manual metrics entry"""
+    entry_id: str
+    company_id: str
+    platform: str
+    account_name: str
+    entry_date: str
+    # Metrics
+    followers_count: Optional[int] = None
+    reach: Optional[int] = None
+    impressions: Optional[int] = None
+    engagement_count: Optional[int] = None
+    engagement_rate: Optional[float] = None
+    profile_views: Optional[int] = None
+    website_clicks: Optional[int] = None
+    video_views: Optional[int] = None
+    notes: Optional[str] = None
+    # Audit
+    created_by_user_id: str
+    created_at: datetime
+    updated_at: datetime

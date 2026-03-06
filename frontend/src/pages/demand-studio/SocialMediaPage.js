@@ -35,6 +35,7 @@ import StudioEditor from "../../components/demand-studio/StudioEditor";
 import SocialSharing from "../../components/demand-studio/SocialSharing";
 import AccountSharing from "../../components/demand-studio/AccountSharing";
 import ActivityFeed from "../../components/demand-studio/ActivityFeed";
+import { SocialMetricsSection } from "../../components/demand-studio/SocialMetricsSection";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -720,6 +721,10 @@ export default function SocialMediaPage() {
               <Grid3X3 className="w-4 h-4" />
               <span className="hidden sm:inline">Feed</span>
             </TabsTrigger>
+            <TabsTrigger value="metrics" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">{isEs ? "Métricas" : "Metrics"}</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Config" : "Settings"}</span>
@@ -1207,6 +1212,11 @@ export default function SocialMediaPage() {
         {/* Feed Tab */}
         <TabsContent value="feed">
           <FeedTab campaigns={campaigns} pillars={pillars} />
+        </TabsContent>
+
+        {/* Metrics Tab */}
+        <TabsContent value="metrics">
+          <SocialMetricsSection />
         </TabsContent>
 
         {/* Settings Tab */}
