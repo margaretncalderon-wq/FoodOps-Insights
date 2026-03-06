@@ -13,7 +13,8 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
-  FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, Loader2
+  FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, Loader2,
+  DollarSign, CreditCard, CheckCircle, Clock, History
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -50,6 +51,20 @@ export function PayablesSection() {
     fixed_cost_category_id: "",
     cost_center_id: ""
   });
+  
+  // Payment dialog states
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedForPayment, setSelectedForPayment] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    payment_date: "",
+    payment_method: "transfer",
+    reference: "",
+    notes: ""
+  });
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const COST_CENTERS = [
     { value: "operations", label: "Operations", labelEs: "Operaciones" },
@@ -160,6 +175,83 @@ export function PayablesSection() {
       setSubmitting(false);
     }
   };
+
+  // Payment functions
+  const openPaymentDialog = async (payable) => {
+    setSelectedForPayment(payable);
+    setPaymentForm({
+      amount: payable.balance_due?.toString() || "",
+      payment_date: new Date().toISOString().split("T")[0],
+      payment_method: "transfer",
+      reference: "",
+      notes: ""
+    });
+    setPaymentDialogOpen(true);
+    
+    // Load payment history
+    setLoadingHistory(true);
+    try {
+      const res = await axios.get(`${API}/api/business-clarity/payables/${payable.payable_id}/payments`, { withCredentials: true });
+      setPaymentHistory(res.data.payments || []);
+    } catch (err) {
+      setPaymentHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleRegisterPayment = async () => {
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
+      toast.error(isEs ? "Ingresa un monto válido" : "Enter a valid amount");
+      return;
+    }
+
+    setProcessingPayment(true);
+    try {
+      await axios.post(
+        `${API}/api/business-clarity/payables/${selectedForPayment.payable_id}/payments`,
+        {
+          amount: parseFloat(paymentForm.amount),
+          payment_date: paymentForm.payment_date || null,
+          payment_method: paymentForm.payment_method || null,
+          reference: paymentForm.reference || null,
+          notes: paymentForm.notes || null
+        },
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? "Pago registrado exitosamente" : "Payment recorded successfully");
+      setPaymentDialogOpen(false);
+      setSelectedForPayment(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al registrar pago" : "Error recording payment"));
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleMarkAsPaid = async (payable) => {
+    try {
+      await axios.post(
+        `${API}/api/business-clarity/payables/${payable.payable_id}/mark-paid`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Marcado como pagado" : "Marked as paid");
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error" : "Error"));
+    }
+  };
+
+  const PAYMENT_METHODS = [
+    { value: "transfer", label: "Bank Transfer", labelEs: "Transferencia" },
+    { value: "cash", label: "Cash", labelEs: "Efectivo" },
+    { value: "check", label: "Check", labelEs: "Cheque" },
+    { value: "card", label: "Card", labelEs: "Tarjeta" },
+    { value: "other", label: "Other", labelEs: "Otro" }
+  ];
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
@@ -284,12 +376,48 @@ export function PayablesSection() {
                     <TableCell className="text-right">{formatCurrency(rec.amount)}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(rec.balance_due)}</TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleAssignCost(rec)} title={isEs ? "Asignar costo" : "Assign cost"}>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleAssignCost(rec)} 
+                          title={isEs ? "Asignar costo" : "Assign cost"}
+                        >
                           <FileText className="w-4 h-4" />
                         </Button>
-                        <Badge variant={rec.status === "paid" ? "default" : "outline"}>
-                          {rec.status === "paid" ? (isEs ? "Pagado" : "Paid") : (isEs ? "Pendiente" : "Pending")}
+                        {rec.status !== "paid" && rec.balance_due > 0 && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => openPaymentDialog(rec)}
+                              title={isEs ? "Registrar pago" : "Record payment"}
+                              className="text-green-600 hover:text-green-700"
+                              data-testid={`payment-btn-${rec.payable_id}`}
+                            >
+                              <DollarSign className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleMarkAsPaid(rec)}
+                              title={isEs ? "Marcar como pagado" : "Mark as paid"}
+                              className="text-blue-600 hover:text-blue-700"
+                              data-testid={`mark-paid-btn-${rec.payable_id}`}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                        <Badge 
+                          variant={rec.status === "paid" ? "default" : rec.status === "partial" ? "secondary" : "outline"}
+                          className={rec.status === "paid" ? "bg-green-500" : rec.status === "partial" ? "bg-amber-100 text-amber-700" : ""}
+                        >
+                          {rec.status === "paid" 
+                            ? (isEs ? "Pagado" : "Paid") 
+                            : rec.status === "partial" 
+                              ? (isEs ? "Parcial" : "Partial")
+                              : (isEs ? "Pendiente" : "Pending")}
                         </Badge>
                       </div>
                     </TableCell>
@@ -606,6 +734,183 @@ export function PayablesSection() {
                 <>
                   <Plus className="w-4 h-4 mr-2" />
                   {isEs ? "Registrar Gasto" : "Record Expense"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Registration Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-600" />
+              {isEs ? "Registrar Pago" : "Record Payment"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedForPayment?.description} - {selectedForPayment?.supplier_name || (isEs ? "Sin proveedor" : "No supplier")}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Summary Card */}
+            <Card className="bg-slate-50">
+              <CardContent className="pt-4 pb-4">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Total" : "Total"}</p>
+                    <p className="font-bold">{formatCurrency(selectedForPayment?.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Pagado" : "Paid"}</p>
+                    <p className="font-bold text-green-600">{formatCurrency(selectedForPayment?.paid_amount || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Saldo" : "Balance"}</p>
+                    <p className="font-bold text-orange-600">{formatCurrency(selectedForPayment?.balance_due)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Payment Amount */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Monto del Pago" : "Payment Amount"} *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                data-testid="payment-amount-input"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setPaymentForm({ ...paymentForm, amount: selectedForPayment?.balance_due?.toString() || "0" })}
+                >
+                  {isEs ? "Pago Total" : "Full Payment"}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setPaymentForm({ ...paymentForm, amount: ((selectedForPayment?.balance_due || 0) / 2).toFixed(2) })}
+                >
+                  50%
+                </Button>
+              </div>
+            </div>
+            
+            {/* Payment Date and Method */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Fecha de Pago" : "Payment Date"}</Label>
+                <Input
+                  type="date"
+                  value={paymentForm.payment_date}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
+                  data-testid="payment-date-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Método" : "Method"}</Label>
+                <Select 
+                  value={paymentForm.payment_method} 
+                  onValueChange={(v) => setPaymentForm({ ...paymentForm, payment_method: v })}
+                >
+                  <SelectTrigger data-testid="payment-method-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(m => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {isEs ? m.labelEs : m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Reference */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Referencia / No. Cheque" : "Reference / Check #"}</Label>
+              <Input
+                placeholder={isEs ? "Ej: TRF-12345" : "e.g. TRF-12345"}
+                value={paymentForm.reference}
+                onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                data-testid="payment-reference-input"
+              />
+            </div>
+            
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Notas" : "Notes"}</Label>
+              <Textarea
+                placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                rows={2}
+              />
+            </div>
+            
+            {/* Payment History */}
+            {paymentHistory.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  {isEs ? "Historial de Pagos" : "Payment History"}
+                </Label>
+                <div className="border rounded-lg max-h-32 overflow-y-auto">
+                  {loadingHistory ? (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                      {isEs ? "Cargando..." : "Loading..."}
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {paymentHistory.map((pmt, idx) => (
+                        <div key={idx} className="p-2 text-sm flex justify-between items-center">
+                          <div>
+                            <span className="font-medium">{formatCurrency(pmt.amount)}</span>
+                            <span className="text-muted-foreground ml-2">
+                              {pmt.payment_method && `(${PAYMENT_METHODS.find(m => m.value === pmt.payment_method)?.[isEs ? "labelEs" : "label"] || pmt.payment_method})`}
+                            </span>
+                          </div>
+                          <span className="text-muted-foreground text-xs">{pmt.payment_date}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleRegisterPayment} 
+              disabled={processingPayment}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="confirm-payment-btn"
+            >
+              {processingPayment ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isEs ? "Procesando..." : "Processing..."}
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  {isEs ? "Registrar Pago" : "Record Payment"}
                 </>
               )}
             </Button>

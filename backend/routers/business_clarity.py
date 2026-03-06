@@ -1352,6 +1352,235 @@ async def assign_payable(payable_id: str, data: PayableAssignment, user: User = 
     raise HTTPException(status_code=404, detail="Payable not found")
 
 
+# ============== PAYMENT REGISTRATION FOR PAYABLES ==============
+
+class RegisterPaymentRequest(BaseModel):
+    amount: float
+    payment_date: Optional[str] = None
+    payment_method: Optional[str] = None  # cash, transfer, check, card
+    reference: Optional[str] = None  # payment reference/check number
+    notes: Optional[str] = None
+
+
+@business_clarity_router.post("/payables/{payable_id}/payments")
+async def register_payable_payment(
+    payable_id: str,
+    data: RegisterPaymentRequest,
+    user: User = Depends(get_current_user)
+):
+    """Register a payment (partial or full) for a payable/expense"""
+    check_finance_permission(user, "register payments")
+    
+    now = datetime.now(timezone.utc)
+    payment_date = data.payment_date or now.strftime("%Y-%m-%d")
+    
+    # Try to find in supplier_payables first
+    payable = await db.supplier_payables.find_one({
+        "payable_id": payable_id,
+        "company_id": user.company_id
+    })
+    
+    collection = "supplier_payables"
+    id_field = "payable_id"
+    
+    if not payable:
+        # Try expenses collection
+        payable = await db.expenses.find_one({
+            "expense_id": payable_id,
+            "company_id": user.company_id
+        })
+        collection = "expenses"
+        id_field = "expense_id"
+    
+    if not payable:
+        raise HTTPException(status_code=404, detail="Payable not found")
+    
+    # Calculate new amounts
+    current_paid = payable.get("paid_amount", 0) or 0
+    total_amount = payable.get("amount", 0) or payable.get("total", 0)
+    balance_due = payable.get("balance_due", total_amount - current_paid)
+    
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be positive")
+    
+    if data.amount > balance_due + 0.01:  # Small tolerance for rounding
+        raise HTTPException(status_code=400, detail=f"Payment amount ({data.amount}) exceeds balance due ({balance_due})")
+    
+    new_paid = round(current_paid + data.amount, 2)
+    new_balance = round(total_amount - new_paid, 2)
+    new_status = "paid" if new_balance <= 0.01 else "partial"
+    
+    # Create payment record
+    payment_id = f"pmt_{uuid.uuid4().hex[:12]}"
+    payment_record = {
+        "payment_id": payment_id,
+        "payable_id": payable_id,
+        "amount": round(data.amount, 2),
+        "payment_date": payment_date,
+        "payment_method": data.payment_method,
+        "reference": data.reference,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    # Update the payable
+    update_data = {
+        "paid_amount": new_paid,
+        "balance_due": new_balance,
+        "status": new_status,
+        "updated_at": now.isoformat(),
+        "updated_by": user.user_id
+    }
+    
+    # Add payment to history
+    if collection == "supplier_payables":
+        await db.supplier_payables.update_one(
+            {"payable_id": payable_id, "company_id": user.company_id},
+            {
+                "$set": update_data,
+                "$push": {"payments": payment_record}
+            }
+        )
+    else:
+        await db.expenses.update_one(
+            {"expense_id": payable_id, "company_id": user.company_id},
+            {
+                "$set": update_data,
+                "$push": {"payments": payment_record}
+            }
+        )
+    
+    return {
+        "success": True,
+        "payment": payment_record,
+        "payable": {
+            "payable_id": payable_id,
+            "total_amount": total_amount,
+            "paid_amount": new_paid,
+            "balance_due": new_balance,
+            "status": new_status
+        }
+    }
+
+
+@business_clarity_router.post("/payables/{payable_id}/mark-paid")
+async def mark_payable_as_paid(
+    payable_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Mark a payable as fully paid (convenience endpoint)"""
+    check_finance_permission(user, "register payments")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Try supplier_payables first
+    payable = await db.supplier_payables.find_one({
+        "payable_id": payable_id,
+        "company_id": user.company_id
+    })
+    
+    collection = "supplier_payables"
+    id_field = "payable_id"
+    
+    if not payable:
+        payable = await db.expenses.find_one({
+            "expense_id": payable_id,
+            "company_id": user.company_id
+        })
+        collection = "expenses"
+        id_field = "expense_id"
+    
+    if not payable:
+        raise HTTPException(status_code=404, detail="Payable not found")
+    
+    total_amount = payable.get("amount", 0) or payable.get("total", 0)
+    current_paid = payable.get("paid_amount", 0) or 0
+    remaining = round(total_amount - current_paid, 2)
+    
+    # Create payment record for remaining amount
+    payment_id = f"pmt_{uuid.uuid4().hex[:12]}"
+    payment_record = {
+        "payment_id": payment_id,
+        "payable_id": payable_id,
+        "amount": remaining,
+        "payment_date": now.strftime("%Y-%m-%d"),
+        "payment_method": None,
+        "reference": None,
+        "notes": "Marked as paid",
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    update_data = {
+        "paid_amount": total_amount,
+        "balance_due": 0,
+        "status": "paid",
+        "updated_at": now.isoformat(),
+        "updated_by": user.user_id
+    }
+    
+    if collection == "supplier_payables":
+        await db.supplier_payables.update_one(
+            {"payable_id": payable_id, "company_id": user.company_id},
+            {
+                "$set": update_data,
+                "$push": {"payments": payment_record}
+            }
+        )
+    else:
+        await db.expenses.update_one(
+            {"expense_id": payable_id, "company_id": user.company_id},
+            {
+                "$set": update_data,
+                "$push": {"payments": payment_record}
+            }
+        )
+    
+    return {
+        "success": True,
+        "message": "Payable marked as paid",
+        "payable_id": payable_id,
+        "total_paid": total_amount
+    }
+
+
+@business_clarity_router.get("/payables/{payable_id}/payments")
+async def get_payable_payments(
+    payable_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get payment history for a specific payable"""
+    # Try supplier_payables first
+    payable = await db.supplier_payables.find_one(
+        {"payable_id": payable_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    
+    if not payable:
+        payable = await db.expenses.find_one(
+            {"expense_id": payable_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+    
+    if not payable:
+        raise HTTPException(status_code=404, detail="Payable not found")
+    
+    payments = payable.get("payments", [])
+    total_amount = payable.get("amount", 0) or payable.get("total", 0)
+    paid_amount = payable.get("paid_amount", 0) or 0
+    
+    return {
+        "payments": payments,
+        "summary": {
+            "total_amount": total_amount,
+            "paid_amount": paid_amount,
+            "balance_due": round(total_amount - paid_amount, 2),
+            "payment_count": len(payments)
+        }
+    }
+
+
 # Create new supplier payable with optional cost center assignment
 class CreateSupplierPayableRequest(BaseModel):
     supplier_id: Optional[str] = None
