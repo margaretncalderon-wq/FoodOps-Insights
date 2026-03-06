@@ -205,7 +205,7 @@ export default function NotificationBell() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className={`text-sm text-foreground ${!notification.read ? "font-semibold" : ""}`}>
+                        <p className={`text-sm text-gray-900 dark:text-gray-100 ${!notification.read ? "font-semibold" : ""}`}>
                           {notification.title?.replace(/^[⚠️📅🔔]\s*/, '')}
                         </p>
                         {notification.priority === "high" && (
@@ -214,7 +214,7 @@ export default function NotificationBell() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
