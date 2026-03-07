@@ -35,6 +35,61 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ## What's Been Implemented
 
+### Session: March 7, 2026 (LATE UPDATE 5) - Exportación Excel y Formatos DGII
+
+#### ✅ Feature: Exportación Formatos 606 y 607 para DGII
+**Fecha**: Marzo 7, 2026
+
+**Backend** (`/app/backend/routers/itbis.py`):
+1. Endpoint `GET /api/finance/itbis/format-606`:
+   - Genera archivo Excel con formato oficial 606 (Compras)
+   - Incluye todos los campos requeridos por DGII
+   - Filtra por mes/año
+   - Incluye NCF, proveedor, montos, ITBIS, formas de pago
+
+2. Endpoint `GET /api/finance/itbis/format-607`:
+   - Genera archivo Excel con formato oficial 607 (Ventas)
+   - Incluye todos los campos requeridos por DGII
+   - Filtra por mes/año
+   - Incluye NCF, cliente, montos, ITBIS, formas de cobro
+
+**Frontend** (`/app/frontend/src/components/business-clarity/ITBISSection.js`):
+- Botones habilitados: "Descargar 606 (Compras)" y "Descargar 607 (Ventas)"
+- Descarga directa en formato .xlsx
+- Nota informativa: "Formatos oficiales de DGII para declaración de ITBIS"
+
+---
+
+#### ✅ Feature: Exportación de Listados a Excel con Período Personalizado
+**Fecha**: Marzo 7, 2026
+
+**Backend** (`/app/backend/routers/exports.py` - NUEVO):
+Router dedicado para exportaciones generales con endpoints:
+1. `GET /api/exports/expenses` - Gastos/Cuentas por Pagar
+2. `GET /api/exports/invoices` - Facturas
+3. `GET /api/exports/payments-received` - Pagos Recibidos de Clientes
+4. `GET /api/exports/payments-made` - Pagos Realizados a Proveedores
+5. `GET /api/exports/purchase-orders` - Órdenes de Compra
+6. `GET /api/exports/fixed-costs` - Costos Fijos/Overhead
+
+**Parámetros**:
+- `start_date`: Fecha inicio (YYYY-MM-DD)
+- `end_date`: Fecha fin (YYYY-MM-DD)
+
+**Formato Excel**:
+- Encabezado con información de empresa y período
+- Columnas formateadas con bordes y colores
+- Montos con formato numérico correcto
+- Ancho de columnas auto-ajustado
+
+**Frontend** (PayablesSection.js, InvoicesSection.js):
+- Botón "Exportar" en cada sección
+- Diálogo con selector de fechas personalizado
+- Botones rápidos: "Este Mes", "Mes Anterior", "Este Año"
+- Descarga directa del archivo Excel
+
+---
+
 ### Session: March 7, 2026 (LATE UPDATE 4) - ITBIS y PO Invoice Fields
 
 #### ✅ Feature: Reporte ITBIS en Business Clarity

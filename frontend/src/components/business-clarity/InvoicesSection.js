@@ -5,9 +5,12 @@ import { toast } from "sonner";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { CreditCard, RefreshCw } from "lucide-react";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
+import { CreditCard, RefreshCw, Download } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -19,6 +22,15 @@ export function InvoicesSection() {
   const [loading, setLoading] = useState(true);
   const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [filter, setFilter] = useState("all");
+  
+  // Export dialog
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [exportEndDate, setExportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -74,6 +86,10 @@ export function InvoicesSection() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+            <Download className="w-4 h-4 mr-1" />
+            {isEs ? "Exportar" : "Export"}
+          </Button>
           {selectedInvoices.length > 0 && (
             <Button size="sm" onClick={handlePayWithStripe} className="gap-2">
               <CreditCard className="w-4 h-4" />{isEs ? "Pagar" : "Pay"} ({selectedInvoices.length})
@@ -118,6 +134,94 @@ export function InvoicesSection() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Export Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              {isEs ? "Exportar Facturas a Excel" : "Export Invoices to Excel"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs ? "Selecciona el rango de fechas para exportar" : "Select the date range to export"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Fecha Inicio" : "Start Date"}</Label>
+                <Input
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Fecha Fin" : "End Date"}</Label>
+                <Input
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(1);
+                  setExportStartDate(d.toISOString().split('T')[0]);
+                  setExportEndDate(new Date().toISOString().split('T')[0]);
+                }}
+              >
+                {isEs ? "Este Mes" : "This Month"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - 1, 1);
+                  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                  setExportStartDate(d.toISOString().split('T')[0]);
+                  setExportEndDate(end.toISOString().split('T')[0]);
+                }}
+              >
+                {isEs ? "Mes Anterior" : "Last Month"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const d = new Date();
+                  d.setMonth(0, 1);
+                  setExportStartDate(d.toISOString().split('T')[0]);
+                  setExportEndDate(new Date().toISOString().split('T')[0]);
+                }}
+              >
+                {isEs ? "Este Año" : "This Year"}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => {
+                window.open(`${API}/api/exports/invoices?start_date=${exportStartDate}&end_date=${exportEndDate}`, '_blank');
+                setExportDialogOpen(false);
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isEs ? "Descargar Excel" : "Download Excel"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

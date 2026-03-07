@@ -17224,6 +17224,10 @@ api_router.include_router(migration_router)  # /api/migration/*
 from routers.itbis import itbis_router
 api_router.include_router(itbis_router)  # /api/finance/itbis/*
 
+# Include Exports router
+from routers.exports import exports_router
+api_router.include_router(exports_router)  # /api/exports/*
+
 # General file upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):

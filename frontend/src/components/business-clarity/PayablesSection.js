@@ -14,7 +14,7 @@ import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
   FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, Loader2,
-  DollarSign, CreditCard, CheckCircle, Clock, History
+  DollarSign, CreditCard, CheckCircle, Clock, History, Download
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -69,6 +69,15 @@ export function PayablesSection() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // Export dialog
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [exportEndDate, setExportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const COST_CENTERS = [
     { value: "operations", label: "Operations", labelEs: "Operaciones" },
@@ -306,6 +315,10 @@ export function PayablesSection() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{isEs ? "Cuentas por Pagar" : "Accounts Payable"}</h2>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setExportDialogOpen(true)}>
+            <Download className="w-4 h-4 mr-2" />
+            {isEs ? "Exportar" : "Export"}
+          </Button>
           <Button onClick={() => setNewExpenseDialogOpen(true)} data-testid="new-expense-btn">
             <Plus className="w-4 h-4 mr-2" />
             {isEs ? "Nuevo Gasto" : "New Expense"}
@@ -1052,6 +1065,94 @@ export function PayablesSection() {
                   {isEs ? "Crear Proveedor" : "Create Vendor"}
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              {isEs ? "Exportar Gastos a Excel" : "Export Expenses to Excel"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs ? "Selecciona el rango de fechas para exportar" : "Select the date range to export"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isEs ? "Fecha Inicio" : "Start Date"}</Label>
+                <Input
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Fecha Fin" : "End Date"}</Label>
+                <Input
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(1);
+                  setExportStartDate(d.toISOString().split('T')[0]);
+                  setExportEndDate(new Date().toISOString().split('T')[0]);
+                }}
+              >
+                {isEs ? "Este Mes" : "This Month"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - 1, 1);
+                  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                  setExportStartDate(d.toISOString().split('T')[0]);
+                  setExportEndDate(end.toISOString().split('T')[0]);
+                }}
+              >
+                {isEs ? "Mes Anterior" : "Last Month"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const d = new Date();
+                  d.setMonth(0, 1);
+                  setExportStartDate(d.toISOString().split('T')[0]);
+                  setExportEndDate(new Date().toISOString().split('T')[0]);
+                }}
+              >
+                {isEs ? "Este Año" : "This Year"}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => {
+                window.open(`${API}/api/exports/expenses?start_date=${exportStartDate}&end_date=${exportEndDate}`, '_blank');
+                setExportDialogOpen(false);
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isEs ? "Descargar Excel" : "Download Excel"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -306,23 +306,29 @@ export function ITBISSection() {
       <Card>
         <CardContent className="py-4">
           <div className="flex flex-wrap gap-3 justify-center">
-            <Button variant="outline" disabled>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                window.open(`${API}/api/finance/itbis/format-606?month=${month}&year=${year}`, '_blank');
+              }}
+            >
               <Download className="w-4 h-4 mr-2" />
-              {isEs ? "Exportar para IT-1" : "Export for IT-1"}
+              {isEs ? "Descargar 606 (Compras)" : "Download 606 (Purchases)"}
             </Button>
-            <Button variant="outline" disabled>
-              <FileText className="w-4 h-4 mr-2" />
-              {isEs ? "Ver Formato 606" : "View Format 606"}
-            </Button>
-            <Button variant="outline" disabled>
-              <FileText className="w-4 h-4 mr-2" />
-              {isEs ? "Ver Formato 607" : "View Format 607"}
+            <Button 
+              variant="outline"
+              onClick={() => {
+                window.open(`${API}/api/finance/itbis/format-607?month=${month}&year=${year}`, '_blank');
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isEs ? "Descargar 607 (Ventas)" : "Download 607 (Sales)"}
             </Button>
           </div>
           <p className="text-xs text-center text-muted-foreground mt-3">
             {isEs 
-              ? "Los formatos de exportación estarán disponibles próximamente"
-              : "Export formats will be available soon"
+              ? "Formatos oficiales de DGII para declaración de ITBIS"
+              : "Official DGII formats for ITBIS declaration"
             }
           </p>
         </CardContent>
