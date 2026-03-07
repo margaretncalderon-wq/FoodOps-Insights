@@ -1177,6 +1177,76 @@ Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding |
 
 ---
 
+### Session: March 7, 2026 (LATE UPDATE) - People Ops Talent Modules
+
+#### ✅ Feature: Módulos de Talento en People Ops
+
+**Solicitud del usuario**: "agrega recruitment, onboarding and performance to our people ops"
+
+**Solución implementada**:
+
+1. **Nuevo Dropdown "Talento"** en la navegación de People Ops que agrupa:
+   - Reclutamiento (Recruitment)
+   - Onboarding
+   - Desempeño (Performance)
+
+2. **Módulo de Reclutamiento** (`/people-ops/recruitment`):
+   - Vista de Vacantes (Job Postings) con tabla, filtros por estado
+   - Vista de Candidatos con tracking por fuente
+   - Vista Pipeline estilo Kanban con etapas: New → Screening → Interview → Assessment → Offer → Hired/Rejected
+   - Stats: Open Positions, Total Candidates, In Pipeline, Hired (Month)
+   - Diálogo para crear vacantes con: título, departamento, ubicación, tipo de empleo, rango salarial, descripción, requisitos
+
+3. **Módulo de Onboarding** (`/people-ops/onboarding`):
+   - Tarjetas de onboarding activos con barra de progreso
+   - Checklist de tareas por categoría: Documentación, Equipamiento, Accesos, Capacitación, Cumplimiento
+   - Estados: Not Started, In Progress, Completed, Blocked
+   - Stats: Total Onboardings, In Progress, Completed, Blocked
+   - Diálogo con: empleado, fecha inicio, fecha meta, notas
+
+4. **Módulo de Desempeño** (`/people-ops/performance`):
+   - Vista de Evaluaciones (Reviews) con tabla y filtros por año/período
+   - Vista de Metas (Goals) con tarjetas y barra de progreso
+   - Sistema de calificación por 7 competencias con estrellas
+   - Períodos: Q1-Q4, Annual, Probation
+   - Stats: Reviews, Avg Rating, Active Goals, Goals Achieved
+   - Diálogos completos para crear evaluaciones y metas
+
+**Archivos creados/modificados**:
+- Frontend:
+  - `/app/frontend/src/components/people-ops/RecruitmentSection.js` (NUEVO)
+  - `/app/frontend/src/components/people-ops/OnboardingSection.js` (NUEVO)
+  - `/app/frontend/src/components/people-ops/PerformanceSection.js` (NUEVO)
+  - `/app/frontend/src/pages/PeopleOpsPage.js` (MODIFICADO - rutas y navegación)
+  - `/app/frontend/src/components/people-ops/index.js` (MODIFICADO - exports)
+- Backend:
+  - `/app/backend/routers/people_ops.py` (MODIFICADO - nuevos endpoints para recruitment, onboarding, performance)
+
+**Nuevos endpoints backend**:
+- `GET/POST /api/people-ops/recruitment/jobs` - CRUD vacantes
+- `PUT /api/people-ops/recruitment/jobs/{job_id}` - Actualizar vacante
+- `GET/POST /api/people-ops/recruitment/candidates` - CRUD candidatos
+- `PUT /api/people-ops/recruitment/candidates/{candidate_id}` - Actualizar candidato
+- `PATCH /api/people-ops/recruitment/candidates/{candidate_id}/stage` - Cambiar etapa
+- `GET/POST /api/people-ops/onboarding` - CRUD onboardings
+- `PATCH /api/people-ops/onboarding/{id}/task/{task_id}` - Toggle tarea checklist
+- `PATCH /api/people-ops/onboarding/{id}/status` - Cambiar estado
+- `GET/POST /api/people-ops/performance/reviews` - CRUD evaluaciones
+- `PUT /api/people-ops/performance/reviews/{id}` - Actualizar evaluación
+- `GET/POST /api/people-ops/performance/goals` - CRUD metas
+- `PUT /api/people-ops/performance/goals/{id}` - Actualizar meta
+
+**Nuevas colecciones MongoDB**:
+- `job_postings`
+- `recruitment_candidates`
+- `employee_onboardings`
+- `performance_reviews`
+- `performance_goals`
+
+**Testing**: Frontend 100% pass (iteration_100.json)
+
+---
+
 ## Test Credentials
 - **Email**: demo.agency@kora.com
 - **Password**: Evoque2024!
