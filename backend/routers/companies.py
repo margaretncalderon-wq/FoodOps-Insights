@@ -285,6 +285,14 @@ async def update_company(
         "updated_at": datetime.utcnow()
     }
     
+    # Only update status if provided
+    if data.status:
+        update_data["status"] = data.status
+    
+    # Only update owner_id if provided
+    if data.owner_id is not None:
+        update_data["owner_id"] = data.owner_id
+    
     await db.company_entities.update_one(
         {"company_entity_id": company_entity_id},
         {"$set": update_data}

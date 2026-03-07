@@ -2114,8 +2114,11 @@ async def get_owners_sales_report(
     if user_role == "sales":
         owner_id = user.user_id  # Force filter to self
     
-    # Build base query
+    # Build base query for leads
     query = {"company_id": user.company_id}
+    
+    # Build query for company_entities (uses organization_id instead of company_id)
+    company_query = {"organization_id": user.company_id}
     
     # Date filters
     if date_from or date_to:
@@ -2125,12 +2128,14 @@ async def get_owners_sales_report(
         if date_to:
             date_filter["$lte"] = date_to + "T23:59:59"
         query["created_at"] = date_filter
+        company_query["created_at"] = date_filter
     
     # Fetch all leads matching criteria
     leads = await db.leads.find(query, {"_id": 0}).to_list(10000)
     
     # Also fetch B2B companies/accounts (they appear in CRM list too)
-    companies_b2b = await db.company_entities.find(query, {"_id": 0}).to_list(10000)
+    # Note: company_entities uses organization_id field
+    companies_b2b = await db.company_entities.find(company_query, {"_id": 0}).to_list(10000)
     
     # Merge leads and companies into a unified list
     # Companies use owner_id same as leads

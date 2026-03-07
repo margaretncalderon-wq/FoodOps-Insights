@@ -34,6 +34,9 @@ class CompanyCreate(BaseModel):
     has_credit: bool = False
     credit_limit: float = 0.0
     payment_terms: str = "immediate"
+    # Status and assignment
+    status: Optional[str] = None
+    owner_id: Optional[str] = None
 
 
 class Company(BaseModel):
