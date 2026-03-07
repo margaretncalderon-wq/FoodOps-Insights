@@ -100,13 +100,11 @@ export default function VenuesPage() {
     notes: "",
   });
 
-  const token = localStorage.getItem("token");
-
   const fetchVenues = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API}/locations/venues`, {
-        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
       });
       setVenues(response.data);
     } catch (error) {
@@ -115,7 +113,7 @@ export default function VenuesPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, language]);
+  }, [language]);
 
   useEffect(() => {
     fetchVenues();
@@ -204,12 +202,12 @@ export default function VenuesPage() {
         await axios.put(
           `${API}/locations/venues/${editingVenue.venue_id}`,
           venueForm,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { withCredentials: true }
         );
         toast.success(t("venueUpdated"));
       } else {
         await axios.post(`${API}/locations/venues`, venueForm, {
-          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
         });
         toast.success(t("venueCreated"));
       }
@@ -225,7 +223,7 @@ export default function VenuesPage() {
     if (!window.confirm(t("confirmDeleteGoal"))) return;
     try {
       await axios.delete(`${API}/locations/venues/${venueId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
       });
       toast.success(t("venueDeleted"));
       fetchVenues();
@@ -246,14 +244,14 @@ export default function VenuesPage() {
         await axios.put(
           `${API}/locations/venues/${selectedVenueId}/rooms/${editingRoom.room_id}`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { withCredentials: true }
         );
         toast.success(t("roomUpdated"));
       } else {
         await axios.post(
           `${API}/locations/venues/${selectedVenueId}/rooms`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { withCredentials: true }
         );
         toast.success(t("roomCreated"));
       }
@@ -269,7 +267,7 @@ export default function VenuesPage() {
     if (!window.confirm(t("confirmDeleteGoal"))) return;
     try {
       await axios.delete(`${API}/locations/venues/${venueId}/rooms/${roomId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
       });
       toast.success(t("roomDeleted"));
       fetchVenues();
