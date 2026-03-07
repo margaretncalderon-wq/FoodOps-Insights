@@ -3086,3 +3086,506 @@ async def download_regulatory_report(
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
+
+
+
+# ==================== RECRUITMENT ====================
+
+@people_ops_router.get("/recruitment/jobs")
+async def get_job_postings(
+    status: str = "open",
+    user: User = Depends(get_current_user)
+):
+    """Get all job postings"""
+    company_id, access_level = await check_people_ops_access(user)
+    
+    query = {"company_id": company_id}
+    if status and status != "all":
+        query["status"] = status
+    
+    jobs = await db.job_postings.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return jobs
+
+
+@people_ops_router.post("/recruitment/jobs")
+async def create_job_posting(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new job posting"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    now = datetime.now(timezone.utc)
+    job = {
+        "id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "title": data.get("title"),
+        "department": data.get("department"),
+        "location": data.get("location"),
+        "employment_type": data.get("employment_type", "full_time"),
+        "salary_min": data.get("salary_min"),
+        "salary_max": data.get("salary_max"),
+        "description": data.get("description"),
+        "requirements": data.get("requirements"),
+        "status": data.get("status", "open"),
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.job_postings.insert_one(job)
+    return {"id": job["id"], "message": "Job posting created"}
+
+
+@people_ops_router.put("/recruitment/jobs/{job_id}")
+async def update_job_posting(
+    job_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a job posting"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    update_data = {
+        "title": data.get("title"),
+        "department": data.get("department"),
+        "location": data.get("location"),
+        "employment_type": data.get("employment_type"),
+        "salary_min": data.get("salary_min"),
+        "salary_max": data.get("salary_max"),
+        "description": data.get("description"),
+        "requirements": data.get("requirements"),
+        "status": data.get("status"),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    # Remove None values
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+    
+    result = await db.job_postings.update_one(
+        {"id": job_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Job posting not found")
+    
+    return {"message": "Job posting updated"}
+
+
+@people_ops_router.get("/recruitment/candidates")
+async def get_candidates(
+    job_id: Optional[str] = None,
+    stage: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all candidates"""
+    company_id, access_level = await check_people_ops_access(user)
+    
+    query = {"company_id": company_id}
+    if job_id:
+        query["job_posting_id"] = job_id
+    if stage:
+        query["stage"] = stage
+    
+    candidates = await db.recruitment_candidates.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return candidates
+
+
+@people_ops_router.post("/recruitment/candidates")
+async def create_candidate(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new candidate"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    now = datetime.now(timezone.utc)
+    candidate = {
+        "id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "first_name": data.get("first_name"),
+        "last_name": data.get("last_name"),
+        "email": data.get("email"),
+        "phone": data.get("phone"),
+        "job_posting_id": data.get("job_posting_id"),
+        "source": data.get("source"),
+        "resume_url": data.get("resume_url"),
+        "notes": data.get("notes"),
+        "stage": data.get("stage", "new"),
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.recruitment_candidates.insert_one(candidate)
+    return {"id": candidate["id"], "message": "Candidate created"}
+
+
+@people_ops_router.put("/recruitment/candidates/{candidate_id}")
+async def update_candidate(
+    candidate_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a candidate"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    update_data = {
+        "first_name": data.get("first_name"),
+        "last_name": data.get("last_name"),
+        "email": data.get("email"),
+        "phone": data.get("phone"),
+        "job_posting_id": data.get("job_posting_id"),
+        "source": data.get("source"),
+        "resume_url": data.get("resume_url"),
+        "notes": data.get("notes"),
+        "stage": data.get("stage"),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+    
+    result = await db.recruitment_candidates.update_one(
+        {"id": candidate_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    return {"message": "Candidate updated"}
+
+
+@people_ops_router.patch("/recruitment/candidates/{candidate_id}/stage")
+async def update_candidate_stage(
+    candidate_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update candidate stage"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    new_stage = data.get("stage")
+    if not new_stage:
+        raise HTTPException(status_code=400, detail="Stage is required")
+    
+    result = await db.recruitment_candidates.update_one(
+        {"id": candidate_id, "company_id": company_id},
+        {"$set": {
+            "stage": new_stage,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    return {"message": "Stage updated"}
+
+
+# ==================== ONBOARDING ====================
+
+@people_ops_router.get("/onboarding")
+async def get_onboardings(
+    status: str = "in_progress",
+    user: User = Depends(get_current_user)
+):
+    """Get all onboardings"""
+    company_id, access_level = await check_people_ops_access(user)
+    
+    query = {"company_id": company_id}
+    if status and status != "all":
+        query["status"] = status
+    
+    onboardings = await db.employee_onboardings.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return onboardings
+
+
+@people_ops_router.post("/onboarding")
+async def create_onboarding(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new onboarding process"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    # Check if employee already has an active onboarding
+    existing = await db.employee_onboardings.find_one({
+        "company_id": company_id,
+        "employee_id": data.get("employee_id"),
+        "status": {"$nin": ["completed"]}
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Employee already has an active onboarding")
+    
+    now = datetime.now(timezone.utc)
+    onboarding = {
+        "id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "employee_id": data.get("employee_id"),
+        "start_date": data.get("start_date"),
+        "target_completion_date": data.get("target_completion_date"),
+        "notes": data.get("notes"),
+        "checklist": data.get("checklist", []),
+        "status": data.get("status", "not_started"),
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.employee_onboardings.insert_one(onboarding)
+    return {"id": onboarding["id"], "message": "Onboarding created"}
+
+
+@people_ops_router.patch("/onboarding/{onboarding_id}/task/{task_id}")
+async def update_onboarding_task(
+    onboarding_id: str,
+    task_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a specific task in onboarding checklist"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    onboarding = await db.employee_onboardings.find_one({
+        "id": onboarding_id,
+        "company_id": company_id
+    })
+    
+    if not onboarding:
+        raise HTTPException(status_code=404, detail="Onboarding not found")
+    
+    # Update the specific task
+    checklist = onboarding.get("checklist", [])
+    task_found = False
+    for task in checklist:
+        if task.get("id") == task_id:
+            task["completed"] = data.get("completed", False)
+            task["completed_at"] = datetime.now(timezone.utc).isoformat() if data.get("completed") else None
+            task["completed_by"] = user.user_id if data.get("completed") else None
+            task_found = True
+            break
+    
+    if not task_found:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check if all tasks completed
+    all_completed = all(t.get("completed", False) for t in checklist)
+    new_status = onboarding.get("status")
+    if all_completed and new_status != "completed":
+        new_status = "in_progress"  # Keep in progress until manually marked complete
+    elif not any(t.get("completed", False) for t in checklist):
+        new_status = "not_started"
+    else:
+        new_status = "in_progress"
+    
+    await db.employee_onboardings.update_one(
+        {"id": onboarding_id, "company_id": company_id},
+        {"$set": {
+            "checklist": checklist,
+            "status": new_status,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    return {"message": "Task updated"}
+
+
+@people_ops_router.patch("/onboarding/{onboarding_id}/status")
+async def update_onboarding_status(
+    onboarding_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update onboarding status"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    new_status = data.get("status")
+    if not new_status:
+        raise HTTPException(status_code=400, detail="Status is required")
+    
+    result = await db.employee_onboardings.update_one(
+        {"id": onboarding_id, "company_id": company_id},
+        {"$set": {
+            "status": new_status,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Onboarding not found")
+    
+    return {"message": "Status updated"}
+
+
+# ==================== PERFORMANCE ====================
+
+@people_ops_router.get("/performance/reviews")
+async def get_performance_reviews(
+    year: Optional[int] = None,
+    period: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get performance reviews"""
+    company_id, access_level = await check_people_ops_access(user)
+    
+    query = {"company_id": company_id}
+    if year:
+        query["year"] = year
+    if period and period != "all":
+        query["period"] = period
+    if employee_id:
+        query["employee_id"] = employee_id
+    
+    reviews = await db.performance_reviews.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return reviews
+
+
+@people_ops_router.post("/performance/reviews")
+async def create_performance_review(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new performance review"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    now = datetime.now(timezone.utc)
+    review = {
+        "id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "employee_id": data.get("employee_id"),
+        "period": data.get("period", "annual"),
+        "year": data.get("year", now.year),
+        "ratings": data.get("ratings", {}),
+        "self_assessment": data.get("self_assessment"),
+        "manager_assessment": data.get("manager_assessment"),
+        "goals_achieved": data.get("goals_achieved"),
+        "areas_for_improvement": data.get("areas_for_improvement"),
+        "development_plan": data.get("development_plan"),
+        "overall_rating": data.get("overall_rating", 3),
+        "status": data.get("status", "draft"),
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.performance_reviews.insert_one(review)
+    return {"id": review["id"], "message": "Review created"}
+
+
+@people_ops_router.put("/performance/reviews/{review_id}")
+async def update_performance_review(
+    review_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a performance review"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    update_data = {
+        "employee_id": data.get("employee_id"),
+        "period": data.get("period"),
+        "year": data.get("year"),
+        "ratings": data.get("ratings"),
+        "self_assessment": data.get("self_assessment"),
+        "manager_assessment": data.get("manager_assessment"),
+        "goals_achieved": data.get("goals_achieved"),
+        "areas_for_improvement": data.get("areas_for_improvement"),
+        "development_plan": data.get("development_plan"),
+        "overall_rating": data.get("overall_rating"),
+        "status": data.get("status"),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+    
+    result = await db.performance_reviews.update_one(
+        {"id": review_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
+    return {"message": "Review updated"}
+
+
+@people_ops_router.get("/performance/goals")
+async def get_performance_goals(
+    employee_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get performance goals"""
+    company_id, access_level = await check_people_ops_access(user)
+    
+    query = {"company_id": company_id}
+    if employee_id:
+        query["employee_id"] = employee_id
+    if status and status != "all":
+        query["status"] = status
+    
+    goals = await db.performance_goals.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return goals
+
+
+@people_ops_router.post("/performance/goals")
+async def create_performance_goal(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new performance goal"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    now = datetime.now(timezone.utc)
+    goal = {
+        "id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "employee_id": data.get("employee_id"),
+        "title": data.get("title"),
+        "description": data.get("description"),
+        "target_date": data.get("target_date"),
+        "progress": data.get("progress", 0),
+        "status": data.get("status", "in_progress"),
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.performance_goals.insert_one(goal)
+    return {"id": goal["id"], "message": "Goal created"}
+
+
+@people_ops_router.put("/performance/goals/{goal_id}")
+async def update_performance_goal(
+    goal_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a performance goal"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    update_data = {
+        "employee_id": data.get("employee_id"),
+        "title": data.get("title"),
+        "description": data.get("description"),
+        "target_date": data.get("target_date"),
+        "progress": data.get("progress"),
+        "status": data.get("status"),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+    
+    result = await db.performance_goals.update_one(
+        {"id": goal_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    return {"message": "Goal updated"}

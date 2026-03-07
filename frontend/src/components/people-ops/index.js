@@ -13,3 +13,6 @@ export { VariablePayWidget } from './VariablePayWidget';
 export { PaymentHistoryTab } from './EmployeeProfilePage/PaymentHistoryTab';
 export { BenefitsInKindSection } from './BenefitsInKindSection';
 export { RegulatoryReportsSection } from './RegulatoryReportsSection';
+export { RecruitmentSection } from './RecruitmentSection';
+export { OnboardingSection } from './OnboardingSection';
+export { PerformanceSection } from './PerformanceSection';

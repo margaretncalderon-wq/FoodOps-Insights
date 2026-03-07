@@ -16,12 +16,16 @@ import { LoansSection } from "../components/people-ops/LoansSection";
 import { OffboardingSection } from "../components/people-ops/OffboardingSection";
 import { VariablePaySection } from "../components/people-ops/VariablePaySection";
 import { BenefitsInKindSection } from "../components/people-ops/BenefitsInKindSection";
+import { RecruitmentSection } from "../components/people-ops/RecruitmentSection";
+import { OnboardingSection } from "../components/people-ops/OnboardingSection";
+import { PerformanceSection } from "../components/people-ops/PerformanceSection";
 
 // Icons
 import {
   Users, Wallet, Clock,
   Lock, Settings,
-  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet, ExternalLink, ChevronDown
+  Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet, ExternalLink, ChevronDown,
+  UserPlus, Target, Award
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import {
@@ -68,7 +72,10 @@ export default function PeopleOpsPage() {
     "/people-ops/overtime": "overtime",
     "/people-ops/loans": "loans",
     "/people-ops/benefits": "benefits",
-    "/people-ops/offboarding": "offboarding"
+    "/people-ops/offboarding": "offboarding",
+    "/people-ops/recruitment": "recruitment",
+    "/people-ops/onboarding": "onboarding",
+    "/people-ops/performance": "performance"
   };
 
   // Sync activeTab with current route
@@ -317,6 +324,49 @@ export default function PeopleOpsPage() {
               </button>
             )}
 
+            {/* Talent Dropdown - Recruitment, Onboarding, Performance */}
+            {hasPayrollAccess && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isGroupActive(["recruitment", "onboarding", "performance"])
+                        ? "border-violet-600 text-violet-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                    data-testid="nav-talent-dropdown"
+                  >
+                    <Award className="w-4 h-4" />
+                    {isEs ? "Talento" : "Talent"}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("recruitment", "/people-ops/recruitment")}
+                    className={activeTab === "recruitment" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    {isEs ? "Reclutamiento" : "Recruitment"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("onboarding", "/people-ops/onboarding")}
+                    className={activeTab === "onboarding" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Onboarding
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("performance", "/people-ops/performance")}
+                    className={activeTab === "performance" ? "bg-violet-50 text-violet-700" : ""}
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    {isEs ? "Desempeño" : "Performance"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {/* Reports - External Link */}
             {hasPayrollAccess && (
               <button
@@ -346,6 +396,9 @@ export default function PeopleOpsPage() {
           <Route path="loans" element={<LoansSection />} />
           <Route path="offboarding" element={<OffboardingSection />} />
           <Route path="benefits" element={<BenefitsInKindSection />} />
+          <Route path="recruitment" element={<RecruitmentSection />} />
+          <Route path="onboarding" element={<OnboardingSection />} />
+          <Route path="performance" element={<PerformanceSection />} />
         </Routes>
       </div>
     </Layout>
