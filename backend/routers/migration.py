@@ -264,7 +264,7 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
                 logger.info(f"First row keys: {list(row.keys())}")
                 logger.info(f"First row data: {row}")
             
-            # Try multiple field name variations
+            # Try multiple field name variations - including slash variants
             name = (
                 row.get("name") or 
                 row.get("nombre") or 
@@ -272,6 +272,9 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
                 row.get("nombre_cliente") or
                 row.get("razon_social") or
                 row.get("razón_social") or
+                row.get("nombre/razon_social") or  # Slash variant
+                row.get("nombre/razón_social") or
+                row.get("razon_social/nombre") or
                 ""
             ).strip()
             
@@ -279,12 +282,13 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
                 logger.warning(f"Row {idx}: No name found, skipping. Keys: {list(row.keys())}")
                 continue
             
-            # Try multiple RNC field name variations
+            # Try multiple RNC field name variations - including slash variants
             rnc = (
                 row.get("rnc") or 
                 row.get("rnc_cedula") or 
-                row.get("rnc/cedula") or
+                row.get("rnc/cedula") or  # Slash variant
                 row.get("cedula") or
+                row.get("cedula/rnc") or
                 row.get("tax_id") or
                 row.get("ruc") or
                 ""
