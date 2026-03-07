@@ -1245,6 +1245,40 @@ Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding |
 
 **Testing**: Frontend 100% pass (iteration_100.json)
 
+### Session: March 7, 2026 (LATE UPDATE 2) - Scorecard Flexible para Candidatos
+
+#### ✅ Feature: Scorecard Flexible por Posición
+
+**Solicitud del usuario**: "agreguemos un scorecard al candidatos. podria ser flexible dependiendo de la posicion? con notas en cada criterio"
+
+**Solución implementada**:
+
+1. **Criterios por Vacante**: Al crear/editar una vacante, se pueden definir criterios de evaluación específicos
+   - Plantillas predefinidas: Cocina, Servicio, Administrativo, General
+   - Criterios personalizados con nombre en inglés/español
+   - Botón "Add Criterion" para agregar más criterios
+
+2. **Scorecard por Candidato**: 
+   - Columna "Score" en la tabla de candidatos mostrando porcentaje (ej: 80% 12/15)
+   - Botón "Evaluar" para candidatos sin scorecard
+   - Click en el score para editar evaluación existente
+
+3. **Dialog de Scorecard**:
+   - Muestra criterios heredados de la vacante
+   - Calificación por estrellas (1-5) por cada criterio
+   - Campo de notas individual por criterio
+   - Total Score calculado automáticamente
+   - Botón "Save Scorecard" para guardar evaluación
+
+**Archivos modificados**:
+- Frontend: `/app/frontend/src/components/people-ops/RecruitmentSection.js`
+- Backend: `/app/backend/routers/people_ops.py` (endpoints create/update job, scorecard)
+
+**Nuevos endpoints**:
+- `POST /api/people-ops/recruitment/jobs` - Ahora incluye `scorecard_criteria`
+- `PUT /api/people-ops/recruitment/jobs/{id}` - Ahora incluye `scorecard_criteria`
+- `PATCH /api/people-ops/recruitment/candidates/{id}/scorecard` - Guardar scorecard del candidato
+
 ---
 
 ## Test Credentials

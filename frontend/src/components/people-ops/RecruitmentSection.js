@@ -37,7 +37,8 @@ import {
 import {
   UserPlus, Search, Briefcase, Calendar, RefreshCw, MoreHorizontal,
   FileText, Mail, Phone, Building2, MapPin, DollarSign, Clock,
-  CheckCircle2, XCircle, Users, ArrowRight, Filter, Plus, Eye
+  CheckCircle2, XCircle, Users, ArrowRight, Filter, Plus, Eye,
+  Star, Trash2, ClipboardList, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,6 +59,37 @@ const JOB_STATUS = {
   on_hold: { label: "On Hold", labelEs: "En Pausa", color: "bg-amber-100 text-amber-700" },
   closed: { label: "Closed", labelEs: "Cerrada", color: "bg-gray-100 text-gray-700" },
   filled: { label: "Filled", labelEs: "Cubierta", color: "bg-blue-100 text-blue-700" }
+};
+
+// Default scorecard templates by job category
+const SCORECARD_TEMPLATES = {
+  kitchen: [
+    { id: "culinary_technique", label: "Culinary Technique", labelEs: "Técnica Culinaria" },
+    { id: "creativity", label: "Creativity", labelEs: "Creatividad" },
+    { id: "kitchen_leadership", label: "Kitchen Leadership", labelEs: "Liderazgo de Cocina" },
+    { id: "cost_management", label: "Cost Management", labelEs: "Manejo de Costos" },
+    { id: "hygiene_safety", label: "Hygiene & Safety", labelEs: "Higiene y Seguridad" }
+  ],
+  service: [
+    { id: "customer_service", label: "Customer Service", labelEs: "Atención al Cliente" },
+    { id: "presentation", label: "Presentation", labelEs: "Presentación" },
+    { id: "communication", label: "Communication", labelEs: "Comunicación" },
+    { id: "speed", label: "Speed & Efficiency", labelEs: "Rapidez y Eficiencia" },
+    { id: "languages", label: "Languages", labelEs: "Idiomas" }
+  ],
+  admin: [
+    { id: "organization", label: "Organization", labelEs: "Organización" },
+    { id: "software_skills", label: "Software Skills", labelEs: "Habilidades de Software" },
+    { id: "communication", label: "Communication", labelEs: "Comunicación" },
+    { id: "problem_solving", label: "Problem Solving", labelEs: "Resolución de Problemas" },
+    { id: "attention_detail", label: "Attention to Detail", labelEs: "Atención al Detalle" }
+  ],
+  general: [
+    { id: "experience", label: "Relevant Experience", labelEs: "Experiencia Relevante" },
+    { id: "skills", label: "Technical Skills", labelEs: "Habilidades Técnicas" },
+    { id: "culture_fit", label: "Culture Fit", labelEs: "Ajuste Cultural" },
+    { id: "motivation", label: "Motivation", labelEs: "Motivación" }
+  ]
 };
 
 export function RecruitmentSection() {
@@ -85,7 +117,8 @@ export function RecruitmentSection() {
     salary_max: "",
     description: "",
     requirements: "",
-    status: "open"
+    status: "open",
+    scorecard_criteria: []
   });
 
   // Candidate Dialog
@@ -100,8 +133,14 @@ export function RecruitmentSection() {
     source: "",
     resume_url: "",
     notes: "",
-    stage: "new"
+    stage: "new",
+    scorecard: []
   });
+
+  // Scorecard Dialog
+  const [scorecardDialogOpen, setScorecardDialogOpen] = useState(false);
+  const [scorecardCandidate, setScorecardCandidate] = useState(null);
+  const [scorecardForm, setScorecardForm] = useState([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -188,7 +227,8 @@ export function RecruitmentSection() {
       salary_max: "",
       description: "",
       requirements: "",
-      status: "open"
+      status: "open",
+      scorecard_criteria: []
     });
     setSelectedJob(null);
   };
@@ -203,9 +243,116 @@ export function RecruitmentSection() {
       source: "",
       resume_url: "",
       notes: "",
-      stage: "new"
+      stage: "new",
+      scorecard: []
     });
     setSelectedCandidate(null);
+  };
+
+  // Scorecard functions
+  const addCriterion = () => {
+    const newCriterion = {
+      id: `criterion_${Date.now()}`,
+      label: "",
+      labelEs: ""
+    };
+    setJobForm({ ...jobForm, scorecard_criteria: [...jobForm.scorecard_criteria, newCriterion] });
+  };
+
+  const updateCriterion = (index, field, value) => {
+    const updated = [...jobForm.scorecard_criteria];
+    updated[index] = { ...updated[index], [field]: value };
+    setJobForm({ ...jobForm, scorecard_criteria: updated });
+  };
+
+  const removeCriterion = (index) => {
+    const updated = jobForm.scorecard_criteria.filter((_, i) => i !== index);
+    setJobForm({ ...jobForm, scorecard_criteria: updated });
+  };
+
+  const applyTemplate = (templateKey) => {
+    const template = SCORECARD_TEMPLATES[templateKey] || [];
+    setJobForm({ ...jobForm, scorecard_criteria: [...template] });
+  };
+
+  const openScorecardDialog = (candidate) => {
+    const job = jobPostings.find(j => j.id === candidate.job_posting_id);
+    const criteria = job?.scorecard_criteria || [];
+    
+    // Initialize scorecard form with existing scores or empty
+    const existingScorecard = candidate.scorecard || [];
+    const initialScorecard = criteria.map(criterion => {
+      const existing = existingScorecard.find(s => s.criterion_id === criterion.id);
+      return {
+        criterion_id: criterion.id,
+        label: criterion.label,
+        labelEs: criterion.labelEs,
+        rating: existing?.rating || 0,
+        notes: existing?.notes || ""
+      };
+    });
+    
+    setScorecardCandidate(candidate);
+    setScorecardForm(initialScorecard);
+    setScorecardDialogOpen(true);
+  };
+
+  const updateScorecardRating = (index, rating) => {
+    const updated = [...scorecardForm];
+    updated[index] = { ...updated[index], rating };
+    setScorecardForm(updated);
+  };
+
+  const updateScorecardNotes = (index, notes) => {
+    const updated = [...scorecardForm];
+    updated[index] = { ...updated[index], notes };
+    setScorecardForm(updated);
+  };
+
+  const handleSaveScorecard = async () => {
+    if (!scorecardCandidate) return;
+    setSaving(true);
+    try {
+      await axios.patch(
+        `${API}/api/people-ops/recruitment/candidates/${scorecardCandidate.id}/scorecard`,
+        { scorecard: scorecardForm },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Scorecard guardado" : "Scorecard saved");
+      setScorecardDialogOpen(false);
+      setScorecardCandidate(null);
+      fetchData();
+    } catch (err) {
+      toast.error(isEs ? "Error al guardar scorecard" : "Error saving scorecard");
+    }
+    setSaving(false);
+  };
+
+  const calculateTotalScore = (scorecard) => {
+    if (!scorecard || scorecard.length === 0) return null;
+    const total = scorecard.reduce((sum, s) => sum + (s.rating || 0), 0);
+    const max = scorecard.length * 5;
+    return { total, max, percentage: Math.round((total / max) * 100) };
+  };
+
+  const renderStars = (rating, editable = false, onChange = null) => {
+    return (
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            disabled={!editable}
+            onClick={() => editable && onChange && onChange(star)}
+            className={`${editable ? "cursor-pointer hover:scale-110" : "cursor-default"} transition-transform`}
+          >
+            <Star
+              className={`w-5 h-5 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+            />
+          </button>
+        ))}
+      </div>
+    );
   };
 
   const openEditJob = (job) => {
@@ -219,7 +366,8 @@ export function RecruitmentSection() {
       salary_max: job.salary_max || "",
       description: job.description || "",
       requirements: job.requirements || "",
-      status: job.status || "open"
+      status: job.status || "open",
+      scorecard_criteria: job.scorecard_criteria || []
     });
     setJobDialogOpen(true);
   };
@@ -464,6 +612,7 @@ export function RecruitmentSection() {
                     <TableHead>Email</TableHead>
                     <TableHead>{isEs ? "Vacante" : "Job"}</TableHead>
                     <TableHead>{isEs ? "Fuente" : "Source"}</TableHead>
+                    <TableHead>Score</TableHead>
                     <TableHead>{isEs ? "Etapa" : "Stage"}</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -472,6 +621,8 @@ export function RecruitmentSection() {
                   {filteredCandidates.map((candidate) => {
                     const job = jobPostings.find(j => j.id === candidate.job_posting_id);
                     const stageInfo = RECRUITMENT_STAGES[candidate.stage] || RECRUITMENT_STAGES.new;
+                    const score = calculateTotalScore(candidate.scorecard);
+                    const hasScorecard = job?.scorecard_criteria?.length > 0;
                     return (
                       <TableRow key={candidate.id} data-testid={`candidate-row-${candidate.id}`}>
                         <TableCell className="font-medium">
@@ -480,6 +631,31 @@ export function RecruitmentSection() {
                         <TableCell>{candidate.email}</TableCell>
                         <TableCell>{job?.title || "-"}</TableCell>
                         <TableCell>{candidate.source || "-"}</TableCell>
+                        <TableCell>
+                          {hasScorecard ? (
+                            score ? (
+                              <button
+                                onClick={() => openScorecardDialog(candidate)}
+                                className="flex items-center gap-1 hover:bg-muted px-2 py-1 rounded"
+                              >
+                                <span className="text-sm font-medium">{score.percentage}%</span>
+                                <span className="text-xs text-muted-foreground">({score.total}/{score.max})</span>
+                              </button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openScorecardDialog(candidate)}
+                                className="text-xs"
+                              >
+                                <ClipboardList className="w-3 h-3 mr-1" />
+                                {isEs ? "Evaluar" : "Evaluate"}
+                              </Button>
+                            )
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge className={stageInfo.color}>
                             {isEs ? stageInfo.labelEs : stageInfo.label}
@@ -511,6 +687,12 @@ export function RecruitmentSection() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {isEs ? "Ver/Editar" : "View/Edit"}
                               </DropdownMenuItem>
+                              {hasScorecard && (
+                                <DropdownMenuItem onClick={() => openScorecardDialog(candidate)}>
+                                  <ClipboardList className="w-4 h-4 mr-2 text-violet-600" />
+                                  Scorecard
+                                </DropdownMenuItem>
+                              )}
                               {candidate.stage !== "hired" && candidate.stage !== "rejected" && (
                                 <>
                                   <DropdownMenuItem onClick={() => updateCandidateStage(candidate.id, "hired")}>
@@ -711,6 +893,78 @@ export function RecruitmentSection() {
                 </Select>
               </div>
             )}
+
+            {/* Scorecard Criteria Section */}
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-violet-600" />
+                  <label className="text-sm font-medium">{isEs ? "Criterios de Evaluación (Scorecard)" : "Evaluation Criteria (Scorecard)"}</label>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      {isEs ? "Usar Plantilla" : "Use Template"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => applyTemplate("kitchen")}>
+                      {isEs ? "Cocina" : "Kitchen"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyTemplate("service")}>
+                      {isEs ? "Servicio" : "Service"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyTemplate("admin")}>
+                      {isEs ? "Administrativo" : "Administrative"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyTemplate("general")}>
+                      {isEs ? "General" : "General"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                {isEs 
+                  ? "Define los criterios con los que evaluarás a los candidatos para esta posición."
+                  : "Define the criteria you'll use to evaluate candidates for this position."
+                }
+              </p>
+
+              {jobForm.scorecard_criteria.length > 0 && (
+                <div className="space-y-2">
+                  {jobForm.scorecard_criteria.map((criterion, index) => (
+                    <div key={criterion.id} className="flex gap-2 items-center">
+                      <Input
+                        value={isEs ? criterion.labelEs : criterion.label}
+                        onChange={(e) => updateCriterion(index, isEs ? "labelEs" : "label", e.target.value)}
+                        placeholder={isEs ? "Ej: Técnica culinaria" : "Ex: Culinary technique"}
+                        className="flex-1"
+                      />
+                      <Input
+                        value={isEs ? criterion.label : criterion.labelEs}
+                        onChange={(e) => updateCriterion(index, isEs ? "label" : "labelEs", e.target.value)}
+                        placeholder={isEs ? "English" : "Español"}
+                        className="w-32 text-xs"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeCriterion(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button variant="outline" size="sm" onClick={addCriterion} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Agregar Criterio" : "Add Criterion"}
+              </Button>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setJobDialogOpen(false)}>
@@ -854,6 +1108,86 @@ export function RecruitmentSection() {
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
               {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scorecard Dialog */}
+      <Dialog open={scorecardDialogOpen} onOpenChange={setScorecardDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-violet-600" />
+              Scorecard
+            </DialogTitle>
+            {scorecardCandidate && (
+              <p className="text-sm text-muted-foreground">
+                {scorecardCandidate.first_name} {scorecardCandidate.last_name} - {jobPostings.find(j => j.id === scorecardCandidate.job_posting_id)?.title}
+              </p>
+            )}
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            {scorecardForm.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>{isEs ? "No hay criterios definidos para esta vacante" : "No criteria defined for this job posting"}</p>
+              </div>
+            ) : (
+              <>
+                {scorecardForm.map((criterion, index) => (
+                  <div key={criterion.criterion_id} className="p-4 border rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {isEs ? criterion.labelEs || criterion.label : criterion.label || criterion.labelEs}
+                      </span>
+                      {renderStars(criterion.rating, true, (rating) => updateScorecardRating(index, rating))}
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className="w-4 h-4 text-muted-foreground mt-2" />
+                      <Textarea
+                        value={criterion.notes}
+                        onChange={(e) => updateScorecardNotes(index, e.target.value)}
+                        placeholder={isEs ? "Notas sobre este criterio..." : "Notes about this criterion..."}
+                        rows={2}
+                        className="flex-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Total Score */}
+                {scorecardForm.some(s => s.rating > 0) && (
+                  <div className="p-4 bg-violet-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{isEs ? "Puntuación Total" : "Total Score"}</span>
+                      <div className="text-right">
+                        <span className="text-2xl font-bold text-violet-700">
+                          {calculateTotalScore(scorecardForm)?.percentage || 0}%
+                        </span>
+                        <p className="text-sm text-muted-foreground">
+                          {calculateTotalScore(scorecardForm)?.total || 0} / {calculateTotalScore(scorecardForm)?.max || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScorecardDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleSaveScorecard} 
+              disabled={saving || scorecardForm.length === 0}
+              data-testid="save-scorecard-btn"
+            >
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+              {isEs ? "Guardar Scorecard" : "Save Scorecard"}
             </Button>
           </DialogFooter>
         </DialogContent>

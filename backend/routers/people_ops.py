@@ -3128,6 +3128,7 @@ async def create_job_posting(
         "description": data.get("description"),
         "requirements": data.get("requirements"),
         "status": data.get("status", "open"),
+        "scorecard_criteria": data.get("scorecard_criteria", []),
         "created_by": user.user_id,
         "created_at": now,
         "updated_at": now
@@ -3156,6 +3157,7 @@ async def update_job_posting(
         "description": data.get("description"),
         "requirements": data.get("requirements"),
         "status": data.get("status"),
+        "scorecard_criteria": data.get("scorecard_criteria"),
         "updated_at": datetime.now(timezone.utc)
     }
     
@@ -3282,6 +3284,33 @@ async def update_candidate_stage(
         raise HTTPException(status_code=404, detail="Candidate not found")
     
     return {"message": "Stage updated"}
+
+
+@people_ops_router.patch("/recruitment/candidates/{candidate_id}/scorecard")
+async def update_candidate_scorecard(
+    candidate_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update candidate scorecard evaluation"""
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    scorecard = data.get("scorecard", [])
+    
+    result = await db.recruitment_candidates.update_one(
+        {"id": candidate_id, "company_id": company_id},
+        {"$set": {
+            "scorecard": scorecard,
+            "scorecard_updated_at": datetime.now(timezone.utc),
+            "scorecard_updated_by": user.user_id,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    return {"message": "Scorecard updated"}
 
 
 # ==================== ONBOARDING ====================
