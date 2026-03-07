@@ -203,8 +203,8 @@ async def create_company(data: CompanyCreate, user: User = Depends(get_current_u
         "leads_count": 0,
         "total_revenue": 0.0,
         "events_count": 0,
-        "status": "Lead",  # New companies start as Lead
-        "owner_id": user.user_id,
+        "status": data.status or "Lead",  # Use provided status or default to Lead
+        "owner_id": data.owner_id or user.user_id,  # Use provided owner or default to current user
         "created_at": now,
         "updated_at": now
     }
