@@ -8505,6 +8505,7 @@ async def pay_expense(expense_id: str, amount: float, user: User = Depends(get_c
         {"$set": {
             "paid_amount": round(new_paid, 2),
             "status": new_status,
+            "payment_status": new_status,  # Also update payment_status for UI compatibility
             "updated_at": now.isoformat()
         }}
     )

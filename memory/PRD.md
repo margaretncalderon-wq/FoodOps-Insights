@@ -37,6 +37,23 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 7, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### ✅ FLUJO E2E COMPLETADO: Lead → Payment → Cash Flow
+
+**Test End-to-End ejecutado exitosamente:**
+
+| Paso | Acción | Resultado |
+|------|--------|-----------|
+| 1 | Generate Prep Plan | SR: $606.84 / PL: $78.00 (Olive Oil 6.5L) |
+| 2 | Crear proveedor | Distribuidora El Olivo |
+| 3 | Crear PO | PO-2026-0001 - $78.00 |
+| 4 | Enviar PO | Status: Sent |
+| 5 | Recibir mercancía | Inventario: 10L → 16.5L, **SIN expense** |
+| 6 | Registrar factura | FAC-EO-2026-0342 - $92.04 (inc. impuestos) |
+| 7 | Pagar factura | Balance: $0.00, Status: Paid |
+| 8 | Verificar Cash Flow | Outflows incluye $92.04 |
+
+---
+
 #### Feature 1: Separación de Factura y Recepción de PO ✅
 
 **Problema reportado por usuario**: No quiere que se cree un gasto en Payables sin recibir una factura física del proveedor.
