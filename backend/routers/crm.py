@@ -2166,42 +2166,45 @@ async def get_owners_sales_report(
         return s.strip().lower()
     
     STATUS_MAP = {
-        # Nuevo / New / Lead
+        # Nuevo / New / Lead (initial state)
         "nuevo": "nuevo",
         "new": "nuevo",
         "lead": "nuevo",
         "prospecto": "nuevo",
         "prospect": "nuevo",
-        # Contactado / Contacted
+        # Contactado / Contacted (outreach made)
         "contactado": "contactado",
         "contacted": "contactado",
         "contact": "contactado",
         "en contacto": "contactado",
         "in contact": "contactado",
-        # Sin Respuesta / No Response
+        # Sin Respuesta / No Response / NoResponse
         "sin respuesta": "sin_respuesta",
         "no response": "sin_respuesta",
         "no_response": "sin_respuesta",
+        "noresponse": "sin_respuesta",  # Outreach uses this format
         "sin_respuesta": "sin_respuesta",
         "no responde": "sin_respuesta",
-        # Interesado / Interested
+        # Interesado / Interested / Engaged
         "interesado": "interesado",
         "interested": "interesado",
-        "engaged": "interesado",
+        "engaged": "interesado",  # Outreach uses this
         "calificado": "interesado",
         "qualified": "interesado",
-        # Convertido / Converted
+        "active": "interesado",  # Companies section uses this
+        # Convertido / Converted / Client
         "converted": "convertido",
         "convertido": "convertido",
         "won": "convertido",
-        "client": "convertido",
+        "client": "convertido",  # Companies section uses this
         "cliente": "convertido",
         "ganado": "convertido",
-        # Descartado / Discarded
+        # Descartado / Discarded / Inactive
         "discarded": "descartado",
         "descartado": "descartado",
         "lost": "descartado",
         "perdido": "descartado",
+        "inactive": "descartado",  # Companies section uses this
     }
     
     # Group by owner
@@ -2235,7 +2238,8 @@ async def get_owners_sales_report(
         stats = owner_stats[lead_owner]
         stats["total_leads"] += 1
         
-        raw_status = lead.get("status", "")
+        # Get status from multiple possible fields (outreach uses outreach_status)
+        raw_status = lead.get("outreach_status") or lead.get("status") or ""
         normalized = normalize_status(raw_status)
         mapped_status = STATUS_MAP.get(normalized, "otro")
         
