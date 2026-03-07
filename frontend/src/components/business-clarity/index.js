@@ -17,3 +17,4 @@ export { AccountingDashboard } from './AccountingDashboard';
 export { ProfitLossDashboard } from './ProfitLossDashboard';
 export { CashFlowSection } from './CashFlowSection';
 export { MigrationSection } from './MigrationSection';
+export { ITBISSection } from './ITBISSection';

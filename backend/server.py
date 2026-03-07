@@ -8141,15 +8141,19 @@ async def receive_purchase_order(
     invoice_number: Optional[str] = None,
     invoice_date: Optional[datetime] = None,
     invoice_url: Optional[str] = None,
+    ncf: Optional[str] = None,  # NCF (Número de Comprobante Fiscal) for DGII in Dominican Republic
+    invoice_subtotal: Optional[float] = None,  # Invoice subtotal before taxes
+    invoice_itbis: Optional[float] = None,  # ITBIS (18% tax in DR)
+    invoice_total: Optional[float] = None,  # Total including taxes
     user: User = Depends(get_current_user)
 ):
     """
     Receive items from a PO.
     received_lines: [{line_id, qty_received, unit_cost (optional override)}]
-    Creates inventory transactions. Expense/payable is only created if invoice_number is provided.
+    Creates inventory transactions. Expense/payable is only created if invoice_number or ncf is provided.
     """
     # Auto-enable expense creation when invoice is provided
-    if invoice_number:
+    if invoice_number or ncf:
         create_expense = True
     po = await db.purchase_orders_full.find_one(
         {"po_id": po_id, "company_id": user.company_id},
@@ -8239,24 +8243,46 @@ async def receive_purchase_order(
     new_status = "Received" if all_received else "PartiallyReceived"
     subtotal = sum(l.get("line_total", 0) for l in updated_lines)
     
+    # Build update document for PO
+    po_update = {
+        "lines": updated_lines,
+        "status": new_status,
+        "subtotal": round(subtotal, 2),
+        "total": round(subtotal, 2),
+        "received_at": now.isoformat() if all_received else None,
+        "received_by": user.user_id if all_received else None,
+        "updated_at": now.isoformat()
+    }
+    
+    # Add invoice fields if provided
+    if create_expense:
+        if ncf:
+            po_update["ncf"] = ncf
+        if invoice_number:
+            po_update["invoice_number"] = invoice_number
+        if invoice_subtotal is not None:
+            po_update["invoice_subtotal"] = round(invoice_subtotal, 2)
+        if invoice_itbis is not None:
+            po_update["invoice_itbis"] = round(invoice_itbis, 2)
+        if invoice_total is not None:
+            po_update["invoice_total"] = round(invoice_total, 2)
+        if invoice_date:
+            po_update["invoice_date"] = invoice_date.isoformat()
+    
     await db.purchase_orders_full.update_one(
         {"po_id": po_id, "company_id": user.company_id},
-        {"$set": {
-            "lines": updated_lines,
-            "status": new_status,
-            "subtotal": round(subtotal, 2),
-            "total": round(subtotal, 2),
-            "received_at": now.isoformat() if all_received else None,
-            "received_by": user.user_id if all_received else None,
-            "updated_at": now.isoformat()
-        }}
+        {"$set": po_update}
     )
     
     # Create expense record if requested
     expense_id = None
     if create_expense and expense_lines:
         expense_id = f"expense_{uuid.uuid4().hex[:12]}"
-        expense_total = sum(l["quantity"] * l["unit_cost"] for l in expense_lines)
+        # Use invoice values if provided, otherwise calculate from lines
+        calc_subtotal = sum(l["quantity"] * l["unit_cost"] for l in expense_lines)
+        final_subtotal = invoice_subtotal if invoice_subtotal is not None else calc_subtotal
+        final_itbis = invoice_itbis if invoice_itbis is not None else 0
+        final_total = invoice_total if invoice_total is not None else (final_subtotal + final_itbis)
         
         await db.expenses.insert_one({
             "expense_id": expense_id,
@@ -8265,16 +8291,20 @@ async def receive_purchase_order(
             "supplier_name": po.get("supplier_name"),
             "po_id": po_id,
             "po_number": po.get("po_number"),
-            "invoice_number": invoice_number,
+            "ncf": ncf,  # NCF for DGII compliance (Dominican Republic)
+            "invoice_number": invoice_number or ncf,  # Use NCF if no invoice number
             "invoice_date": invoice_date.isoformat() if invoice_date else now.isoformat(),
             "invoice_url": invoice_url,
+            "invoice_subtotal": round(final_subtotal, 2),  # Subtotal before taxes
+            "invoice_itbis": round(final_itbis, 2),  # ITBIS amount (18% in DR)
+            "invoice_total": round(final_total, 2),  # Total including taxes
             "due_date": None,
             "payment_method": po.get("payment_method", "Transfer"),
             "lines": expense_lines,
-            "subtotal": round(expense_total, 2),
-            "tax_amount": 0,
-            "total": round(expense_total, 2),
-            "amount": round(expense_total, 2),  # For compatibility
+            "subtotal": round(final_subtotal, 2),
+            "tax_amount": round(final_itbis, 2),
+            "total": round(final_total, 2),
+            "amount": round(final_total, 2),  # For compatibility
             "paid_amount": 0,
             "notes": f"Auto-created from PO {po.get('po_number')}",
             "description": f"PO {po.get('po_number')} - {po.get('supplier_name', 'Supplier')}",
@@ -8314,11 +8344,16 @@ async def register_invoice_for_po(
     invoice_url: Optional[str] = None,
     due_date: Optional[datetime] = None,
     tax_amount: float = 0,
+    ncf: Optional[str] = None,  # NCF for DGII compliance (Dominican Republic)
+    invoice_subtotal: Optional[float] = None,  # Subtotal before taxes
+    invoice_itbis: Optional[float] = None,  # ITBIS amount (18% in DR)
+    invoice_total: Optional[float] = None,  # Total including taxes
     user: User = Depends(get_current_user)
 ):
     """
     Register an invoice for a received PO that didn't have invoice at reception time.
     Creates the expense/payable record linked to this PO.
+    Supports NCF and ITBIS fields for Dominican Republic compliance.
     """
     po = await db.purchase_orders_full.find_one(
         {"po_id": po_id, "company_id": user.company_id},
@@ -8327,7 +8362,7 @@ async def register_invoice_for_po(
     if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")
     
-    if po.get("status") not in ["Partial", "Received"]:
+    if po.get("status") not in ["PartiallyReceived", "Received"]:
         raise HTTPException(status_code=400, detail="PO must be received before registering invoice")
     
     # Check if expense already exists for this PO
@@ -8360,7 +8395,11 @@ async def register_invoice_for_po(
     # Create expense record
     expense_id = f"expense_{uuid.uuid4().hex[:12]}"
     expense_subtotal = sum(l["total"] for l in expense_lines)
-    expense_total = expense_subtotal + tax_amount
+    
+    # Use provided invoice values if available, otherwise calculate
+    final_subtotal = invoice_subtotal if invoice_subtotal is not None else expense_subtotal
+    final_itbis = invoice_itbis if invoice_itbis is not None else tax_amount
+    final_total = invoice_total if invoice_total is not None else (final_subtotal + final_itbis)
     
     await db.expenses.insert_one({
         "expense_id": expense_id,
@@ -8369,16 +8408,20 @@ async def register_invoice_for_po(
         "supplier_name": po.get("supplier_name"),
         "po_id": po_id,
         "po_number": po.get("po_number"),
+        "ncf": ncf,  # NCF for DGII compliance
         "invoice_number": invoice_number,
         "invoice_date": (invoice_date or now).isoformat(),
         "invoice_url": invoice_url,
+        "invoice_subtotal": round(final_subtotal, 2),
+        "invoice_itbis": round(final_itbis, 2),
+        "invoice_total": round(final_total, 2),
         "due_date": due_date.isoformat() if due_date else None,
         "payment_method": po.get("payment_method", "Transfer"),
         "lines": expense_lines,
-        "subtotal": round(expense_subtotal, 2),
-        "tax_amount": round(tax_amount, 2),
-        "total": round(expense_total, 2),
-        "amount": round(expense_total, 2),
+        "subtotal": round(final_subtotal, 2),
+        "tax_amount": round(final_itbis, 2),
+        "total": round(final_total, 2),
+        "amount": round(final_total, 2),
         "paid_amount": 0,
         "notes": f"Invoice for PO {po.get('po_number')}",
         "description": f"PO {po.get('po_number')} - {po.get('supplier_name', 'Supplier')}",
@@ -8389,20 +8432,30 @@ async def register_invoice_for_po(
     })
     
     # Update PO with invoice reference
+    po_update_fields = {
+        "invoice_number": invoice_number,
+        "invoice_date": (invoice_date or now).isoformat(),
+        "invoice_registered_at": now.isoformat(),
+        "expense_id": expense_id
+    }
+    if ncf:
+        po_update_fields["ncf"] = ncf
+    if invoice_subtotal is not None:
+        po_update_fields["invoice_subtotal"] = round(final_subtotal, 2)
+    if invoice_itbis is not None:
+        po_update_fields["invoice_itbis"] = round(final_itbis, 2)
+    if invoice_total is not None:
+        po_update_fields["invoice_total"] = round(final_total, 2)
+    
     await db.purchase_orders_full.update_one(
         {"po_id": po_id, "company_id": user.company_id},
-        {"$set": {
-            "invoice_number": invoice_number,
-            "invoice_date": (invoice_date or now).isoformat(),
-            "invoice_registered_at": now.isoformat(),
-            "expense_id": expense_id
-        }}
+        {"$set": po_update_fields}
     )
     
     return {
         "message": "Invoice registered successfully",
         "expense_id": expense_id,
-        "total": round(expense_total, 2)
+        "total": round(final_total, 2)
     }
 
 
@@ -17166,6 +17219,10 @@ api_router.include_router(partners_router)  # /api/partners/*
 # Include Migration router
 from routers.migration import migration_router
 api_router.include_router(migration_router)  # /api/migration/*
+
+# Include ITBIS router
+from routers.itbis import itbis_router
+api_router.include_router(itbis_router)  # /api/finance/itbis/*
 
 # General file upload endpoint
 @api_router.post("/upload")

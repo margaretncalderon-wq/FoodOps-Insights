@@ -25,7 +25,8 @@ import {
   AccountingDashboard,
   ProfitLossDashboard,
   CashFlowSection,
-  MigrationSection
+  MigrationSection,
+  ITBISSection
 } from "../components/business-clarity";
 
 // Icons
@@ -132,6 +133,7 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
     { path: "/business-clarity/accounting-dashboard", label: isEs ? "Contabilización" : "Accounting", icon: FileCheck },
     { path: "/business-clarity/accounting-queue", label: isEs ? "Cola Contable" : "Accounting Queue", icon: Target },
+    { path: "/business-clarity/itbis", label: "ITBIS", icon: Calculator },
     { path: "/business-clarity/migration", label: isEs ? "Migración de Datos" : "Data Migration", icon: Upload },
   ];
 
@@ -315,6 +317,7 @@ export default function BusinessClarityPage() {
           <Route path="accounting-queue" element={<AccountingQueueSection />} />
           <Route path="accounting-dashboard" element={<AccountingDashboard />} />
           <Route path="profit-loss" element={<ProfitLossDashboard />} />
+          <Route path="itbis" element={<ITBISSection />} />
           <Route path="migration" element={<MigrationSection />} />
         </Routes>
       </div>

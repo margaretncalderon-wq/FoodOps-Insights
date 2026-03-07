@@ -1,70 +1,56 @@
 <analysis>**original_problem_statement:**
-The user's primary goal is to build a comprehensive ERP/CRM application for their catering and event management business.
-
-The user initiated a full end-to-end workflow test to ensure the system works correctly from lead acquisition to month-end closing. The requested workflow is:
-1.  A new lead arrives from a website form.
-2.  The lead is managed in the CRM.
-3.  The lead is converted to a client, creating an event.
-4.  A quote is created for the event, including food/menu items.
-5.  The event is orchestrated with all necessary items (venue, staff, etc.).
-6.  Resource management and **Culinary Intelligence**:
-    *   The system uses event recipes and guest counts to determine ingredient needs.
-    *   A Prep Plan is generated.
-    *   A shopping list/purchase order is created for missing ingredients.
-    *   Production batches are managed.
-7.  An invoice is generated for the client.
-8.  The client's payment is recorded.
-9.  The impact is reflected in the month-end financial reports (P&L, Cash Flow).
-
-During the test setup, the user also reported two bugs:
-*   The Venues page was inaccessible due to an error.
-*   The user wants to test the Generate Prep Plan functionality in detail.
+The user is building a comprehensive ERP application for their catering and event management business. The latest requests focus on enhancing the financial and operational capabilities of the application:
+1.  **Data Migration Module**: Create a system for users to import historical data (e.g., from January and February if they start in March). The import should support data from sources like Tripleseat, Notion, and Alegra, and intelligently link or create records like clients and vendors to avoid duplicates.
+2.  **ITBIS (VAT) Reporting**: Create a dedicated section in the Business Clarity module to report on taxes. It should calculate the net ITBIS payable by subtracting ITBIS paid on purchases from ITBIS collected on sales.
+3.  **Enhance Purchase Order Flow**: When receiving a purchase order, the user needs to be able to enter the supplier's actual invoice details, including the invoice number (NCF), subtotal, ITBIS amount, and total.
+4.  **Flexible Candidate Scorecard**: Implement a dynamic scorecard system in the recruitment module. Users should be able to define specific evaluation criteria for each job posting and then rate candidates against those criteria, including adding specific notes for each score.
+5.  **Staffdo.com Integration**: The user wants to connect their Staffdo.com account to Kora to automatically sync job postings and import candidates who apply there directly into the Kora recruitment pipeline.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a multi-module ERP. A significant end-to-end test was partially completed in the last session, leading to several fixes and enhancements:
--   **End-to-End Test (Lead to Payment):** A test lead (Boda García-López) was successfully created, converted to a client and event, quoted for 9,500, invoiced for a 50% deposit, and a payment of 9,750 was recorded. The financial impact was correctly reflected in the P&L vs. Cash Flow report.
--   **Venues Page Bug Fix:** An authentication error (401) was resolved by refactoring API calls to use the global  interceptor instead of manual token handling.
--   **P&L vs. Cash Flow Report:** A new dashboard section was successfully implemented, comparing accrual-based P&L with cash-based flow, which proved crucial for verifying the test payment.
--   **Cash Flow Projections:** A 30/60/90-day cash flow projection feature was added.
--   **CRM Notifications & UI:**
-    *   CRM follow-ups now correctly generate in-app notifications and appear in the System Pulse - My Pending widget.
-    *   Notification links were fixed to navigate to the modern  UI.
-    -   The UI/UX of the notification dropdown was improved (colors, buttons, text parsing) based on user feedback.
+The agent has successfully implemented the People Ops modules and the Flexible Candidate Scorecard feature, both of which were fully tested. Work has begun on the Data Migration, ITBIS reporting, and Purchase Order enhancements.
+
+-   **People Ops Modules (Completed)**: Recruitment, Onboarding, and Performance pages were created with full frontend UI, navigation, and backend endpoints. This feature was verified by the testing agent.
+-   **Flexible Candidate Scorecard (Completed)**: The recruitment module was enhanced to allow creating dynamic scorecards for job postings. The system allows rating candidates against these criteria and viewing the aggregated score. This was tested via API and screenshots.
+-   **Data Migration Module (In Progress)**: A new Data Migration section was created under Business Clarity. The UI allows importing 10 different data types. Crucially, a recommended workflow was established: import Clients and Vendors first, then import transactional data like Sales and Purchases. The backend logic was implemented to look up existing clients/vendors by a unique ID (RNC) or name to prevent creating duplicates.
 
 **Last working item**:
--   **Last item agent was working**: The agent was continuing the end-to-end test, focusing on the Culinary Intelligence module. After fixing several data and status issues to make the test event appear, the agent selected the Wedding - TEST - Boda García-López event (150 guests) in the  section and clicked the **Generate Prep Plan** button. The system's response to this action is the immediate next step to verify.
+-   **Last item agent was working**: The agent was working in parallel on two P0 tasks requested by the user:
+    1.  **PO Invoice Fields**: Modifying the Receive Purchase Order modal in  to add input fields for NCF (tax ID), invoice subtotal, ITBIS, and total amount.
+    2.  **ITBIS Report Section**: Creating the foundational files ( for the frontend,  router for the backend) for a new tax report.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: manual testing by screenshot tool. The agent must navigate to the relevant UI section (likely a new prep plan view, production, or orders tab) to visually verify the outcome of the plan generation.
+-   **Which testing method agent to use?**: both. Once the features are implemented, the testing agent should be used to verify the frontend UI changes in the PO modal and the new ITBIS report page, as well as the backend logic for saving invoice data and calculating the ITBIS summary.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Verify Prep Plan Generation (P0)**
-    -   **Description**: After clicking Generate Prep Plan, the system's output is unknown. The user wants to confirm that the system correctly generates a preparation plan, a shopping list for required ingredients based on the event's recipes and guest count, and updates the production/batch planning modules.
-    -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: N
--   **Issue 2: Redundant  files (P2)**
-    -   **Description**: The files  and  are obsolete and should be deleted to clean up the codebase.
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?**: Y
+There are no outstanding bugs. All work is related to in-progress features.
 
 **In progress Task List**:
--   **Task 1: Complete the End-to-End Workflow Test (P0)**
-    -   **Description**: The user-directed test is paused at the Culinary Intelligence step. The full workflow, including purchase order creation and final financial reconciliation, is not yet complete.
-    -   **Where to resume**: Check the result of the Generate Prep Plan action. The next logical steps are verifying the generated prep list, the shopping list, creating a purchase order, and confirming all costs are correctly reflected in financial reports.
+-   **Task 1: Complete PO Invoice Fields Implementation (P0)**
+    -   **Description**: Finalize the addition of NCF, subtotal, ITBIS, and total fields to the Receive Purchase Order flow.
+    -   **Where to resume**:
+        -   **Backend**: Modify the  endpoint in  to accept and store the new invoice fields.
+        -   **Frontend**: Complete the UI changes in , ensuring the new fields are part of the form and the data is sent in the  function.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: both
+
+-   **Task 2: Complete ITBIS Report Section (P0)**
+    -   **Description**: Build the ITBIS report page that calculates and displays ITBIS from sales minus ITBIS from purchases.
+    -   **Where to resume**:
+        -   **Backend**: Implement the data aggregation logic in . The endpoint should query  and  collections for a given date range and return the total ITBIS for each.
+        -   **Frontend**: Build out the  component to fetch the data from the new endpoint and display it in the format requested by the user.
     -   **Status**: IN PROGRESS
     -   **Should Test frontend/backend/both after fix?**: both
 
 **Upcoming and Future Tasks**
-
 - **Upcoming Tasks**:
-    - **P1: Implement Social Media API for Meta and TikTok**: Continue the work on the Demand Studio by adding data synchronization.
-    - **P1: Integrate Email Marketing Provider**: Connect an email marketing platform to automate campaign metric tracking.
-    - **P2: Delete Redundant  Files**: Clean up the obsolete files mentioned in the pending issues.
+    - **P1: Staffdo.com Integration**: Research the Staffdo API and implement a synchronization feature to pull job postings and candidates into Kora.
 
 - **Future Tasks**:
+    - Implement Social Media API for Meta and TikTok.
+    - Integrate an Email Marketing Provider.
     - Connect Social Media and Email modules to the Brand Hub.
     - Implement full UTM tracking.
     - Kora Comms - Phase 1 (WhatsApp integration).
@@ -72,320 +58,88 @@ The application is a multi-module ERP. A significant end-to-end test was partial
     - Create a setup wizard for new users.
 
 **Completed work in this session**
--   **Bug Fix: Incorrect Cost Center Assignment Display:** Fixed a UI bug where assigned expenses were incorrectly labeled → Overhead.
--   **Feature: P&L vs Cash Flow Integration:** Added a new dashboard section comparing P&L data with cash flow data.
--   **Feature: Cash Flow Projections:** Implemented a 30/60/90-day cash flow projection tab.
--   **Bug Fix & Feature: CRM Follow-up Notifications:** Implemented a system to generate in-app notifications for CRM follow-ups and integrated them into the System Pulse dashboard.
--   **Bug Fix: Notification UI/UX & Navigation:** Corrected illegible text colors, button styles, and updated notification links to navigate to the correct, modern CRM UI.
--   **Bug Fix: Venues Page Inaccessibility:** Resolved a 401 Unauthorized error on the Venues page by standardizing API authentication.
--   **E2E Test (Partial):** Successfully tested the workflow from Lead Creation -> CRM -> Client Conversion -> Quoting -> Invoicing -> Payment Recording.
+-   **People Ops Modules**: Fully implemented Recruitment, Onboarding, and Performance sections with UI, navigation, and backend support.
+-   **Flexible Candidate Scorecard**: Added a dynamic scorecard system to the recruitment process, from job creation to candidate evaluation.
+-   **Data Migration Module - Phase 1 & 2**: Created the UI and backend logic for importing 10 types of historical data, with an intelligent linking mechanism for clients and vendors to prevent duplicates. The import order is now guided on the UI.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: Redundant  files**
-    -   **Debug checklist**:
-        -   Use .emergent/summary.txt:        -   Use frontend/src/components/crm/CompaniesSection.js:// components/crm/CompaniesSection.js - Company management with contacts
-.emergent/summary.txt:frontend/src/components/crm/CompaniesSection.js:export default function CompaniesSection() {
-.emergent/summary.txt:frontend/src/pages/ClientEngagementPage.js:const CompaniesSection = lazy(() => import("../components/crm/CompaniesSection"));
-.emergent/summary.txt:frontend/src/pages/ClientEngagementPage.js:            <Route path="crm/companies" element={<CompaniesSection />} />
-.emergent/summary.txt:memory/PRD.md:1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
-.emergent/summary.txt:memory/PRD.md:1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py` to ensure no active code imports or uses these files.
-frontend/src/components/crm/CompaniesSection.js:// components/crm/CompaniesSection.js - Company management with contacts
-frontend/src/components/crm/CompaniesSection.js:export default function CompaniesSection() {
-frontend/src/pages/ClientEngagementPage.js:const CompaniesSection = lazy(() => import("../components/crm/CompaniesSection"));
-frontend/src/pages/ClientEngagementPage.js:            <Route path="crm/companies" element={<CompaniesSection />} />
-memory/PRD.md:1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py`
-memory/PRD.md:1. **Archivos redundantes**: Eliminar `CompaniesSection.js` y `backend/routers/companies.py` to ensure no active code imports or uses these files.
-        -   Delete .
-        -   Delete .
-        -   Remove the router registration from  if present.
-        -   Restart services and run a quick regression test on navigation.
-    -   **Why to solve this issue and what will be achieved with this?**: To clean up the codebase, reduce clutter, and prevent future confusion.
-    -   **Should Test frontend/backend/both after fix?**: backend
-    -   **Is recurring issue?**: Y
+-   None. All raised issues and requests have either been completed or are currently in progress.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: Emergent LLM Key budget exhausted.
--   **Recurrence count**: 2+
--   **Status**: BLOCKED. This remains a blocker for any AI-powered features.
+-   **Emergent LLM Key budget exhausted**: This remains a blocker for any AI-powered features.
+-   **Unstable user sessions**: The application still experiences intermittent session loss during testing, which can require re-logging in.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **End-to-End Workflow Testing**: Manually stepping through a complex, multi-module business process (Lead-to-Cash) to uncover integration bugs, data dependency issues, and logical gaps that unit/integration tests might miss.
--   **Centralized API Authentication:** A major refactor was done to remove manual, error-prone  headers from individual  calls. All API requests now rely on a global  interceptor, improving security and code maintainability.
--   **Data-Driven UI Integration**: Several features required fetching data from one module and displaying it in another (e.g., CRM Follow-ups in System Pulse, Cash Flow data in the P&L report), demonstrating the need for a cohesive data strategy.
--   **State & Status Management**: Successfully navigating the Generate Prep Plan feature required a deep dive into the backend logic, discovering that an event must have a specific  (Committed, Won), a , and a  to be eligible.
+-   **Dynamic Data Linking during Import**: The migration module uses a find or create pattern. When importing transactional data (e.g., a sale), it first tries to find the associated client by a unique identifier (RNC) or name. If the client exists, it links the transaction; if not, it creates a new basic client record. This ensures data integrity.
+-   **Config-Driven UI**: The UI for both the Data Migration and Scorecard features is driven by configuration objects/arrays in the code. This makes it easy to add new data types to import or new scorecard templates without major structural changes.
+-   **Flexible Data Modeling**: The candidate scorecard feature was implemented by adding an array of criteria () to the  model and a corresponding array of evaluations () to the  model, allowing each job to have a unique evaluation structure.
 
 **key DB schema**
--   ****:  (ObjectId, optional),  (int), and  (str) fields were critical for the Culinary Intelligence integration.
--   ****: , ,  fields were added to enable the CRM notification feature.
--   ****: The  field's format was updated from  to  to direct users to the correct UI.
--   ****: Used to create recipes for the test menu.
--   ****: Used to create a menu linking the recipes, which was then assigned to the event.
+-   ** collection**: Now includes .
+-   ** collection**: Now includes .
+-   ** collection**: Will be modified to include , , , .
 
 **All files of reference**
-*   **Current Task**:
-    *   : This is where the Generate Prep Plan button was clicked. The UI may update here or navigate away.
-    *   : The parent component for Culinary Intelligence. Check other tabs here like Production or Orders for the results.
-    *   : Contains the backend logic for prep plans. This is the primary file to investigate if the generation process fails or produces incorrect results.
-*   **Recurring Cleanup Task**:
-    *    (for deletion)
-    *    (for deletion)
-
-**key api endpoints**
--    (Hypothesized): The endpoint likely called when Generate Prep Plan is clicked.
--   : Used by the  page to fetch eligible events for prep planning.
--   : Used to update an event's status, guest count, and assigned menu.
--   : Used to create the initial test lead.
--   : Used to create the 50% deposit invoice.
--   : Used to record the payment against the invoice.
--   : Used to trigger follow-up notifications.
+*   **Current Task (PO Invoice)**:
+    *   
+    *   
+*   **Current Task (ITBIS Report)**:
+    *   
+    *   
+*   **Recently Completed (Migration)**:
+    *   
+    *   
+*   **Recently Completed (Scorecard)**:
+    *   
+    *   
 
 **Critical Info for New Agent**
--   **¡DEBES RESPONDER EN ESPAÑOL!** All user communication must be in Spanish.
--   **Top Priority**: Your immediate task is to verify the outcome of the Generate Prep Plan action. The user is waiting to see if it correctly calculates ingredient needs and creates a shopping list.
--   **Where to Look**: After the last action, the UI may have navigated to a new page or updated one of the tabs in the Culinary Intelligence () section. Check the Production, Costs, and Orders tabs for any new data related to the Wedding - TEST - Boda García-López event.
--   **Debugging Path**: If nothing appears in the UI, check the browser's developer console for frontend errors and the backend logs (==> /var/log/supervisor/backend.err.log <==
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [85]
-INFO:     Started server process [3976]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [3976]
-INFO:     Stopping reloader process [48]
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [3996] using WatchFiles
-INFO:     Started server process [3998]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-2026-03-07 01:38:16,143 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:38:16,146 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:38:38,166 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:38:38,166 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:38:58,934 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:38:59,115 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:39:23,596 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:39:23,609 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:39:46,702 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:39:46,704 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:40:08,719 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:40:08,735 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:40:09,125 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:40:09,181 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:21,403 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:21,409 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:21,800 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:21,860 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:43,373 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:43,377 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:43,769 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:41:43,827 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:42:48,165 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:42:48,167 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:42:48,569 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:42:48,626 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:43:09,788 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:43:09,789 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:43:10,174 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:43:10,351 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:47:30,660 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:47:30,663 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:48:02,828 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:48:02,829 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:48:25,672 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:48:25,674 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-WARNING:  WatchFiles detected changes in 'models/events.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [3998]
-INFO:     Started server process [6076]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'models/events.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [6076]
-INFO:     Started server process [6121]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [6121]
-INFO:     Stopping reloader process [3996]
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [6140] using WatchFiles
-INFO:     Started server process [6142]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-2026-03-07 01:51:00,458 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:51:00,478 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:52:12,690 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:52:12,691 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:52:54,148 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:52:54,153 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:53:15,419 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:53:15,420 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:53:37,114 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:53:37,118 - routers.auth - INFO - GET /auth/me - User restored: demo.agency@kora.com
-2026-03-07 01:57:12,922 - routers.auth - INFO - GET /auth/me - User restored: margaret.n.calderon@gmail.com
-2026-03-07 01:57:33,283 - routers.auth - INFO - GET /auth/me - User restored: margaret.n.calderon@gmail.com
-2026-03-07 01:57:34,892 - routers.auth - INFO - GET /auth/me - User restored: margaret.n.calderon@gmail.com
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [46] using WatchFiles
-INFO:     Started server process [84]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-
-==> /var/log/supervisor/backend.out.log <==
-INFO:     10.79.167.145:59138 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:41772 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:41764 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:41724 - "GET /api/people-ops/employees/stats/summary HTTP/1.1" 200 OK
-INFO:     10.79.167.146:41436 - "GET /api/people-ops/cost-centers HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38592 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33380 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33382 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38592 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38594 - "GET /api/user/organizations HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33398 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33400 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38602 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38614 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33380 - "GET /api/demand-studio/my-stats HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38602 - "GET /api/demand-studio/my-permissions HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38602 - "GET /api/demand-studio/stats HTTP/1.1" 200 OK
-INFO:     10.79.167.145:38602 - "GET /api/demand-studio/global-calendar?start_date=2026-03-01T08:00:00.000Z&end_date=2026-04-01T06:59:59.000Z HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45986 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45980 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60076 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45986 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45996 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60076 - "GET /api/crm/stats HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60084 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60094 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46008 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45996 - "GET /api/events HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45996 - "GET /api/settings/company HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45980 - "GET /api/lead-forms HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60084 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46038 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46060 - "GET /api/settings/company HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46068 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46088 - "GET /api/inventory HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46074 - "GET /api/settings/item-types HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45996 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46024 - "GET /api/settings/menus?active_only=false HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46050 - "GET /api/settings/document-types HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60142 - "GET /api/settings/feature-flags HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46102 - "GET /api/settings/categories HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46106 - "GET /api/settings/picklist?active_only=false HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46110 - "GET /api/settings/document-templates HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46126 - "GET /api/recipes HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60140 - "GET /api/settings/taxes HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60126 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60114 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60108 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60132 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46144 - "GET /api/auth/me HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46038 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60084 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46150 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46176 - "GET /api/people-ops/reference/departments HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60184 - "GET /api/people-ops/employees?status=active HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60142 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60172 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.146:45980 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60158 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60146 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46132 - "GET /api/people-ops/employees/stats/summary HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46166 - "GET /api/people-ops/cost-centers HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46038 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60192 - "GET /api/auth/me HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46182 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46192 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60184 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60084 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46144 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46190 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46206 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60206 - "GET /api/business-clarity/dashboard?target_margin=30 HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60214 - "GET /api/business-clarity/period-close/2026/3 HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60230 - "GET /api/partners/options HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46038 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46182 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46222 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46214 - "GET /api/partners/stats HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46234 - "GET /api/partners/locations HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60184 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60192 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46240 - "GET /api/partners HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46212 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60238 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46226 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60230 - "GET /api/agency/pending-approvals HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46038 - "GET /api/subscription/trial-status HTTP/1.1" 200 OK
-INFO:     10.79.167.145:46594 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK
-INFO:     10.79.167.145:46624 - "GET /api/business-clarity/budget-alerts HTTP/1.1" 200 OK
-INFO:     10.79.167.145:60184 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:46588 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33522 - "GET /api/user/organizations HTTP/1.1" 200 OK
-INFO:     10.79.167.145:46586 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.145:46608 - "POST /api/notifications/generate-follow-up-reminders HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46182 - "GET /api/demand-studio/my-stats HTTP/1.1" 200 OK
-INFO:     10.79.167.146:33522 - "GET /api/demand-studio/my-permissions HTTP/1.1" 200 OK
-INFO:     10.79.167.146:46038 - "GET /api/demand-studio/stats HTTP/1.1" 200 OK
-INFO:     10.79.167.145:46594 - "GET /api/demand-studio/global-calendar?start_date=2026-03-01T08:00:00.000Z&end_date=2026-04-01T06:59:59.000Z HTTP/1.1" 200 OK
-INFO:     10.79.167.145:49250 - "GET /api/notifications/unread-count HTTP/1.1" 200 OK) for server-side errors from the prep plan generation logic.
--   **Unstable Sessions**: The previous agent noted multiple session losses that required re-navigating to the correct page. Be prepared for this and navigate directly to the target URL if you are redirected to the login/landing page.
+-   **¡DEBES RESPONDER EN ESPAÑOL!** All communication must be in Spanish.
+-   **Priorities**: Your immediate focus should be completing the two P0 tasks: the **ITBIS Report** and the **PO Invoice Fields**. They are both critical for the user's financial workflow.
+-   **Data Migration Logic**: When working on anything related to data import, be aware of the existing find or create logic in  to maintain data consistency.
+-   **Unstable Sessions**: Be prepared for potential session logouts during UI testing. Your testing scripts should be resilient to this.
 
 **documents and test reports created in this job**
--    (Updated twice)
+-    (Updated)
+-    (Test report for People Ops modules)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **en culinary intelligence - cost - generate prep plan prueba que funciona correctamente. que se estan tomando las recetas de los ingredientes y que todo se esta generando Bien batch y orden de compra y todo** (User wants to test the Generate Prep Plan feature in detail, ensuring it correctly uses recipes to generate batches and purchase orders.) (PENDING)
-9.  User acknowledges the successful completion of the end-to-end test up to the payment step and the list of bugs fixed along the way.
-8.  User asks to proceed with resource management and culinary.
-7.  User confirms to continue with the end-to-end test.
-6.  User agrees to start the end-to-end test with the first step (creating a lead).
-5.  User asks which testing method (manual vs. automated) is more effective for the E2E test. Agent recommends manual.
-4.  **cual crees que es mas efectivo?** (User asks which testing method is more effective.)
-3.  Agent confirms the Venues page is fixed and proposes the plan for the full end-to-end test.
-2.  **1- me gustaria hacer un testing completo [...] 2- venues da error** (User requests a full end-to-end test and reports that the Venues page is broken.)
-1.  User confirms the fix for the CRM UI navigation issue.
+10. **si**: User confirmed the proposed logic for handling data imports (importing catalogs like clients/vendors first, then linking transactional data).
+9.  **si, ambos ya luego en clientes podemos quiza actualizar datos no hagas nada solo analiza la lógica? o quiza primero debemos subir proveedores / clientes y luego data?**: User confirmed the need to link/create clients during data import and asked for analysis on the best workflow.
+8.  **cuando yo suba la data los clientes y demas no serán afectados verdad? debo como quiera crearlos luego?**: User asked for clarification on how clients/vendors are handled during data import.
+7.  **1**: User chose to prioritize the implementation of the Data Migration module from a list of options.
+6.  **1- i 2- c 3- a 4- si vienen de tripleseat, notion y de alegra**: User provided detailed requirements for the data migration feature, including data sources.
+5.  **no hagas nada solo analiza esto...**: User provided a detailed analysis and requested three major features: historical data import, an ITBIS tax report, and adding invoice details to the purchase order receiving flow.
+4.  **hagamoslo y notas en cada criterio**: User approved the implementation of the flexible scorecard with notes for each criterion.
+3.  **agreguemos un scorecard al candidatos. podria ser flexible dependiendo de la posicion? no hagas nada solo dime**: User requested a flexible scorecard feature for the recruitment module.
+2.  **no la tengo pero como se veria para mis clientes? seria solo 1 click?**: User asked for clarification on the user experience for the proposed Staffdo integration.
+1.  **API pero quiza puedo agregar mi perfil de staffdo asi cuando publique una vacante me sale en kora?**: User confirmed that Staffdo has an API and clarified the desired integration behavior.
 
 **Project Health Check:**
 -   **Broken**:
-    *   The Culinary Intelligence - Orders tab is currently empty and its functionality is unknown/unimplemented.
-    *   The full prep plan - order workflow is unverified and may be broken or incomplete.
-    *   The application experiences intermittent session loss, forcing re-navigation.
--   **Mocked**: Social media metrics in Demand Studio.
--   **Blocked**: All features requiring the  are inactive as the budget is exhausted.
+    *   Intermittent user session instability, causing redirects to the login page during testing.
+-   **Mocked**:
+    *   Social media metrics in the Demand Studio.
+-   **Blocked**:
+    *   Any feature requiring the  due to an exhausted budget.
 
 **3rd Party Integrations**
--   **YouTube Data API**: Active and integrated.
--   **Emergent LLM Key**: Configured but **budget is exhausted**.
+-   **YouTube Data API**: Active.
+-   **Emergent LLM Key**: Configured but **budget exhausted**.
 -   **Zapier / Make**: Present.
--   **Meta (Instagram)**: Planned, UI placeholder exists.
--   **TikTok**: Planned, UI placeholder exists.
+-   **Meta (Instagram)**: Planned.
+-   **TikTok**: Planned.
 -   **Mailchimp/Brevo**: Planned.
+-   **Staffdo.com**: Planned for recruitment sync.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO (Manual E2E testing was performed instead).
+-   **Testing agent used after significant changes**: YES (for the People Ops modules).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: []
--   **Known regressions**: Unstable user sessions were observed, causing unexpected redirections to the landing page.
+-   **Known regressions**: Unstable user sessions.
 
 **Credentials to test flow:**
 -   **Admin User**:
@@ -393,4 +147,4 @@ INFO:     10.79.167.145:49250 - "GET /api/notifications/unread-count HTTP/1.1" 2
     -   **Password:** 
 
 **What agent forgot to execute**
--   The agent did not delete the obsolete  and  files, a recurring cleanup task.</analysis>
+-   The agent has correctly prioritized and worked on all user requests. No tasks appear to have been overlooked. The current in-progress state is a natural continuation of the user's latest, most complex requests.</analysis>

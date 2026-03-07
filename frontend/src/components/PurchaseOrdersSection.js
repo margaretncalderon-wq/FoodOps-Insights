@@ -73,7 +73,11 @@ export default function PurchaseOrdersSection() {
     create_expense: false, // Changed: Only create expense when invoice is provided
     invoice_number: "",
     invoice_date: "",
-    invoice_url: ""
+    invoice_url: "",
+    ncf: "",
+    invoice_subtotal: 0,
+    invoice_itbis: 0,
+    invoice_total: 0
   });
   
   // Invoice registration form (for POs already received without invoice)
@@ -126,6 +130,10 @@ export default function PurchaseOrdersSection() {
       taxAmount: { en: "Tax Amount", es: "Impuestos" },
       invoiceRegistered: { en: "Invoice Registered", es: "Factura Registrada" },
       noInvoice: { en: "No Invoice", es: "Sin Factura" },
+      ncf: { en: "NCF", es: "NCF" },
+      invoiceSubtotal: { en: "Subtotal", es: "Subtotal" },
+      invoiceItbis: { en: "ITBIS (18%)", es: "ITBIS (18%)" },
+      invoiceTotal: { en: "Invoice Total", es: "Total Factura" },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   }, [language]);
@@ -233,6 +241,10 @@ export default function PurchaseOrdersSection() {
   // Open receive dialog
   const openReceiveDialog = (po) => {
     setSelectedPO(po);
+    // Calculate estimated total from PO lines
+    const estimatedTotal = po.lines.reduce((sum, l) => sum + (l.qty_ordered * l.unit_cost), 0);
+    const estimatedItbis = estimatedTotal * 0.18;
+    
     setReceiveForm({
       lines: po.lines.map(line => ({
         line_id: line.line_id,
@@ -243,10 +255,14 @@ export default function PurchaseOrdersSection() {
         unit_cost: line.unit_cost,
         selected: true
       })),
-      create_expense: false, // Changed: Default to false, will be set true when invoice provided
+      create_expense: false,
       invoice_number: "",
       invoice_date: new Date().toISOString().split("T")[0],
-      invoice_url: ""
+      invoice_url: "",
+      ncf: "",
+      invoice_subtotal: Math.round(estimatedTotal * 100) / 100,
+      invoice_itbis: Math.round(estimatedItbis * 100) / 100,
+      invoice_total: Math.round((estimatedTotal + estimatedItbis) * 100) / 100
     });
     setReceiveDialogOpen(true);
   };
@@ -257,6 +273,18 @@ export default function PurchaseOrdersSection() {
     if (selectedLines.length === 0) {
       toast.error(language === "es" ? "Selecciona items a recibir" : "Select items to receive");
       return;
+    }
+    
+    // Validate invoice data if create_expense is checked
+    if (receiveForm.create_expense) {
+      if (!receiveForm.ncf && !receiveForm.invoice_number) {
+        toast.error(language === "es" ? "NCF o número de factura requerido" : "NCF or invoice number required");
+        return;
+      }
+      if (receiveForm.invoice_total <= 0) {
+        toast.error(language === "es" ? "Ingrese el total de la factura" : "Enter invoice total");
+        return;
+      }
     }
     
     try {
@@ -272,7 +300,11 @@ export default function PurchaseOrdersSection() {
             create_expense: receiveForm.create_expense,
             invoice_number: receiveForm.invoice_number || null,
             invoice_date: receiveForm.invoice_date || null,
-            invoice_url: receiveForm.invoice_url || null
+            invoice_url: receiveForm.invoice_url || null,
+            ncf: receiveForm.ncf || null,
+            invoice_subtotal: receiveForm.invoice_subtotal || null,
+            invoice_itbis: receiveForm.invoice_itbis || null,
+            invoice_total: receiveForm.invoice_total || null
           }
         }
       );
@@ -797,24 +829,88 @@ export default function PurchaseOrdersSection() {
               </div>
               
               {receiveForm.create_expense && (
-                <div className="grid grid-cols-3 gap-4 pl-6 pt-2 border-t">
-                  <div>
-                    <Label className="text-sm">{t("invoiceNumber")} <span className="text-red-500">*</span></Label>
-                    <Input 
-                      value={receiveForm.invoice_number}
-                      onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_number: e.target.value }))}
-                      placeholder="FAC-001"
-                      required
-                    />
+                <div className="space-y-4 pl-6 pt-2 border-t">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm">NCF <span className="text-red-500">*</span></Label>
+                      <Input 
+                        value={receiveForm.ncf}
+                        onChange={(e) => setReceiveForm(prev => ({ ...prev, ncf: e.target.value }))}
+                        placeholder="B0100000001"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">{t("invoiceNumber")}</Label>
+                      <Input 
+                        value={receiveForm.invoice_number}
+                        onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_number: e.target.value }))}
+                        placeholder="FAC-001"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">{t("invoiceDate")}</Label>
+                      <Input 
+                        type="date"
+                        value={receiveForm.invoice_date}
+                        onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_date: e.target.value }))}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">{t("invoiceDate")}</Label>
-                    <Input 
-                      type="date"
-                      value={receiveForm.invoice_date}
-                      onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_date: e.target.value }))}
-                    />
+                  
+                  <div className="grid grid-cols-3 gap-4 bg-muted/50 p-3 rounded-lg">
+                    <div>
+                      <Label className="text-sm">{t("invoiceSubtotal")}</Label>
+                      <Input 
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={receiveForm.invoice_subtotal}
+                        onChange={(e) => {
+                          const subtotal = parseFloat(e.target.value) || 0;
+                          const itbis = subtotal * 0.18;
+                          setReceiveForm(prev => ({ 
+                            ...prev, 
+                            invoice_subtotal: subtotal,
+                            invoice_itbis: Math.round(itbis * 100) / 100,
+                            invoice_total: Math.round((subtotal + itbis) * 100) / 100
+                          }));
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">{t("invoiceItbis")}</Label>
+                      <Input 
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={receiveForm.invoice_itbis}
+                        onChange={(e) => {
+                          const itbis = parseFloat(e.target.value) || 0;
+                          setReceiveForm(prev => ({ 
+                            ...prev, 
+                            invoice_itbis: itbis,
+                            invoice_total: Math.round((prev.invoice_subtotal + itbis) * 100) / 100
+                          }));
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">{t("invoiceTotal")} <span className="text-red-500">*</span></Label>
+                      <Input 
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={receiveForm.invoice_total}
+                        onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_total: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0.00"
+                        className="font-medium"
+                      />
+                    </div>
                   </div>
+                  
                   <div>
                     <Label className="text-sm">{t("invoiceUrl")}</Label>
                     <Input 
