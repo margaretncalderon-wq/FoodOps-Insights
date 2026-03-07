@@ -167,85 +167,97 @@ async def import_migration_data(
 # ==================== HELPER FUNCTIONS ====================
 
 async def _find_or_create_client(company_id: str, rnc: str, name: str, user_id: str) -> dict:
-    """Find client by RNC or name, or create if not exists"""
+    """Find client by RNC or name, or create if not exists - uses db.clients"""
     client = None
     
     # First try to find by RNC (if provided)
     if rnc:
         rnc_clean = rnc.strip().replace("-", "")
-        client = await db.company_entities.find_one({
+        client = await db.clients.find_one({
             "company_id": company_id,
-            "rnc": rnc_clean
+            "$or": [{"rnc": rnc_clean}, {"tax_id": rnc_clean}]
         })
     
     # If not found by RNC, try by name (case-insensitive)
     if not client and name:
         name_clean = name.strip()
-        client = await db.company_entities.find_one({
+        client = await db.clients.find_one({
             "company_id": company_id,
-            "name": {"$regex": f"^{name_clean}$", "$options": "i"}
+            "$or": [
+                {"name": {"$regex": f"^{name_clean}$", "$options": "i"}},
+                {"display_name": {"$regex": f"^{name_clean}$", "$options": "i"}}
+            ]
         })
     
     # If still not found, create a new client
     if not client:
         now = datetime.now(timezone.utc)
         client = {
-            "id": str(uuid.uuid4()),
+            "client_id": f"client_{uuid.uuid4().hex[:12]}",
             "company_id": company_id,
             "name": name.strip() if name else "Unknown",
+            "display_name": name.strip() if name else "Unknown",
             "rnc": rnc.strip().replace("-", "") if rnc else None,
-            "type": "client",
-            "status": "active",
-            "is_complete": False,  # Flag for incomplete migration data
+            "tax_id": rnc.strip().replace("-", "") if rnc else None,
+            "type": "individual",
+            "client_type": "Individual",
+            "status": "Active",
+            "tags": [],
             "source": "migration",
             "created_by": user_id,
-            "created_at": now,
-            "updated_at": now
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
         }
-        await db.company_entities.insert_one(client)
+        await db.clients.insert_one(client)
+    
+    return client
     
     return client
 
 
 async def _find_or_create_vendor(company_id: str, rnc: str, name: str, user_id: str, category: str = None) -> dict:
-    """Find vendor by RNC or name, or create if not exists"""
-    vendor = None
+    """Find supplier by RNC or name, or create if not exists - uses db.suppliers"""
+    supplier = None
     
     # First try to find by RNC (if provided)
     if rnc:
         rnc_clean = rnc.strip().replace("-", "")
-        vendor = await db.vendors.find_one({
+        supplier = await db.suppliers.find_one({
             "company_id": company_id,
-            "rnc": rnc_clean
+            "$or": [{"rnc": rnc_clean}, {"tax_id": rnc_clean}]
         })
     
     # If not found by RNC, try by name (case-insensitive)
-    if not vendor and name:
+    if not supplier and name:
         name_clean = name.strip()
-        vendor = await db.vendors.find_one({
+        supplier = await db.suppliers.find_one({
             "company_id": company_id,
             "name": {"$regex": f"^{name_clean}$", "$options": "i"}
         })
     
-    # If still not found, create a new vendor
-    if not vendor:
+    # If still not found, create a new supplier
+    if not supplier:
         now = datetime.now(timezone.utc)
-        vendor = {
-            "id": str(uuid.uuid4()),
+        supplier = {
+            "supplier_id": f"supplier_{uuid.uuid4().hex[:12]}",
             "company_id": company_id,
             "name": name.strip() if name else "Unknown",
             "rnc": rnc.strip().replace("-", "") if rnc else None,
-            "category": category,
-            "status": "active",
-            "is_complete": False,  # Flag for incomplete migration data
+            "tax_id": rnc.strip().replace("-", "") if rnc else None,
+            "category": category or "General",
+            "payment_terms": "net30",
+            "minimum_order": 0.0,
+            "delivery_days": [],
+            "status": "Active",
+            "notes": "Auto-created during migration",
             "source": "migration",
             "created_by": user_id,
-            "created_at": now,
-            "updated_at": now
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
         }
-        await db.vendors.insert_one(vendor)
+        await db.suppliers.insert_one(supplier)
     
-    return vendor
+    return supplier
 
 
 # ==================== IMPORT FUNCTIONS ====================
@@ -368,78 +380,111 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
 
 
 async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
-    """Import vendors directory"""
+    """Import vendors/suppliers directory - saves to db.suppliers collection"""
     count = 0
     now = datetime.now(timezone.utc)
     
-    for row in rows:
+    logger.info(f"Starting vendor/supplier import with {len(rows)} rows")
+    
+    for idx, row in enumerate(rows):
         try:
-            name = row.get("name", row.get("nombre", "")).strip()
+            # Debug first row
+            if idx == 0:
+                logger.info(f"First vendor row keys: {list(row.keys())}")
+            
+            # Try multiple field name variations for name
+            name = (
+                row.get("name") or 
+                row.get("nombre") or 
+                row.get("nombre/razon_social") or
+                row.get("razon_social") or
+                row.get("supplier_name") or
+                row.get("vendor_name") or
+                ""
+            ).strip()
+            
             if not name:
                 continue
             
-            rnc = row.get("rnc", "").strip().replace("-", "")
+            # Try multiple RNC field name variations
+            rnc = (
+                row.get("rnc") or 
+                row.get("rnc/cedula") or
+                row.get("rnc_cedula") or
+                row.get("cedula") or
+                row.get("tax_id") or
+                ""
+            ).strip().replace("-", "")
             
-            # Check if vendor already exists
+            # Get other fields
+            contact = (row.get("contacto") or row.get("contact_name") or row.get("contact") or "").strip()
+            email = (row.get("email") or row.get("correo") or "").strip()
+            phone = (row.get("telefono") or row.get("phone") or row.get("tel") or "").strip()
+            address = (row.get("direccion") or row.get("address") or "").strip()
+            category = (row.get("categoria") or row.get("category") or row.get("tipo") or "General").strip()
+            
+            # Check if supplier already exists in db.suppliers collection
             existing = None
             if rnc:
-                existing = await db.vendors.find_one({
+                existing = await db.suppliers.find_one({
                     "company_id": company_id,
-                    "rnc": rnc
+                    "$or": [{"rnc": rnc}, {"tax_id": rnc}]
                 })
             if not existing:
-                existing = await db.vendors.find_one({
+                existing = await db.suppliers.find_one({
                     "company_id": company_id,
                     "name": {"$regex": f"^{name}$", "$options": "i"}
                 })
             
             if existing:
-                # Update existing vendor with new data
-                update_data = {
-                    "updated_at": now,
-                    "is_complete": True
-                }
+                # Update existing supplier with new data
+                update_data = {"updated_at": now.isoformat()}
                 if rnc and not existing.get("rnc"):
                     update_data["rnc"] = rnc
-                if row.get("contact_name", row.get("contacto")):
-                    update_data["contact_name"] = row.get("contact_name", row.get("contacto", "")).strip()
-                if row.get("email"):
-                    update_data["email"] = row.get("email", "").strip()
-                if row.get("phone", row.get("telefono")):
-                    update_data["phone"] = row.get("phone", row.get("telefono", "")).strip()
-                if row.get("address", row.get("direccion")):
-                    update_data["address"] = row.get("address", row.get("direccion", "")).strip()
-                if row.get("category", row.get("categoria")):
-                    update_data["category"] = row.get("category", row.get("categoria", "")).strip()
+                    update_data["tax_id"] = rnc
+                if contact:
+                    update_data["contact_name"] = contact
+                if email:
+                    update_data["email"] = email
+                if phone:
+                    update_data["phone"] = phone
+                if address:
+                    update_data["address"] = address
+                if category:
+                    update_data["category"] = category
                 
-                await db.vendors.update_one(
-                    {"id": existing["id"]},
+                await db.suppliers.update_one(
+                    {"supplier_id": existing["supplier_id"]},
                     {"$set": update_data}
                 )
             else:
-                # Create new vendor
-                vendor = {
-                    "id": str(uuid.uuid4()),
+                # Create new supplier in db.suppliers collection (same format as app uses)
+                supplier = {
+                    "supplier_id": f"supplier_{uuid.uuid4().hex[:12]}",
                     "company_id": company_id,
                     "name": name,
                     "rnc": rnc or None,
-                    "contact_name": row.get("contact_name", row.get("contacto", "")).strip() or None,
-                    "email": row.get("email", "").strip() or None,
-                    "phone": row.get("phone", row.get("telefono", "")).strip() or None,
-                    "address": row.get("address", row.get("direccion", "")).strip() or None,
-                    "category": row.get("category", row.get("categoria", "")).strip() or None,
-                    "status": "active",
-                    "is_complete": True,
+                    "tax_id": rnc or None,
+                    "contact_name": contact or None,
+                    "email": email or None,
+                    "phone": phone or None,
+                    "address": address or None,
+                    "category": category,
+                    "payment_terms": "net30",
+                    "minimum_order": 0.0,
+                    "delivery_days": [],
+                    "status": "Active",
+                    "notes": f"Imported via migration",
                     "source": "migration",
                     "created_by": user_id,
-                    "created_at": now,
-                    "updated_at": now
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat()
                 }
-                await db.vendors.insert_one(vendor)
+                await db.suppliers.insert_one(supplier)
             
             count += 1
         except Exception as e:
-            logger.error(f"Error importing vendor row: {e}")
+            logger.error(f"Error importing vendor row {idx}: {e}")
             continue
     
     return count
