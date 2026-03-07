@@ -2182,7 +2182,7 @@ async def generate_purchase_list(event_id: str, user: User = Depends(get_current
                 
                 for ing in recipe.get("ingredients", []):
                     if ing.get("item_type") == "ingredient":
-                        item_id = ing.get("item_id")
+                        item_id = ing.get("item_id") or ing.get("ingredient_id")
                         needed_qty = ing.get("quantity", 0) * multiplier
                         if item_id in required_ingredients:
                             required_ingredients[item_id]["required_qty"] += needed_qty
@@ -2673,13 +2673,14 @@ async def get_recipe_cost_history(recipe_id: str, user: User = Depends(get_curre
     cost_history = []
     for ing in recipe.get("ingredients", []):
         if ing.get("item_type") == "ingredient":
+            ing_item_id = ing.get("item_id") or ing.get("ingredient_id")
             ingredient = await db.ingredients.find_one(
-                {"ingredient_id": ing.get("item_id"), "company_id": user.company_id},
+                {"ingredient_id": ing_item_id, "company_id": user.company_id},
                 {"_id": 0, "name": 1, "price_history": 1, "cost_per_unit": 1}
             )
             if ingredient:
                 cost_history.append({
-                    "item_id": ing.get("item_id"),
+                    "item_id": ing_item_id,
                     "item_name": ingredient.get("name"),
                     "current_cost": ingredient.get("cost_per_unit", 0),
                     "price_history": ingredient.get("price_history", [])
@@ -8483,22 +8484,54 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
             "proposal_total": round(proposal_total, 2)          # Full proposal for reference
         })
         
-        if not proposal:
+        # First, try to get recipes from event's assigned menu (menu_id)
+        # This is the primary source for culinary prep planning
+        menu_id = event.get("menu_id")
+        recipes_to_process = []
+        
+        if menu_id:
+            menu = await db.plated_menus.find_one(
+                {"menu_id": menu_id, "company_id": user.company_id},
+                {"_id": 0}
+            )
+            if menu:
+                # Extract all recipes from menu courses
+                for course in menu.get("courses", []):
+                    for menu_item in course.get("items", []):
+                        recipe_id = menu_item.get("recipe_id")
+                        if recipe_id:
+                            portions_per_guest = menu_item.get("portions_per_guest", 1) or 1
+                            recipes_to_process.append({
+                                "recipe_id": recipe_id,
+                                "portions_needed": guest_count * portions_per_guest
+                            })
+        
+        # Fallback: If no menu or no recipes from menu, try order_items from proposal
+        if not recipes_to_process and proposal:
+            order_items = await db.order_items.find(
+                {"proposal_id": proposal.get("proposal_id"), "event_id": event_id},
+                {"_id": 0}
+            ).to_list(500)
+            
+            for item in order_items:
+                if item.get("item_type") != "Food":
+                    continue
+                
+                recipe_id = item.get("reference_id")
+                if recipe_id:
+                    recipes_to_process.append({
+                        "recipe_id": recipe_id,
+                        "portions_needed": item.get("quantity", 1) or 1
+                    })
+        
+        # Skip if no recipes to process
+        if not recipes_to_process:
             continue
         
-        # Get order items
-        order_items = await db.order_items.find(
-            {"proposal_id": proposal.get("proposal_id"), "event_id": event_id},
-            {"_id": 0}
-        ).to_list(500)
-        
-        for item in order_items:
-            if item.get("item_type") != "Food":
-                continue
-            
-            recipe_id = item.get("reference_id")
-            if not recipe_id:
-                continue
+        # Process each recipe
+        for recipe_info in recipes_to_process:
+            recipe_id = recipe_info.get("recipe_id")
+            portions_needed = recipe_info.get("portions_needed", 0)
             
             # Get recipe
             recipe = await db.recipes.find_one(
@@ -8507,12 +8540,6 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
             )
             if not recipe:
                 continue
-            
-            # Calculate portions needed
-            # item.quantity already represents TOTAL portions/units ordered (not per-person)
-            # Example: qty=150 means 150 portions total, qty=1500 means 1500 portions total
-            item_qty = item.get("quantity", 1) or 1
-            portions_needed = item_qty  # Direct use - quantity IS the total
             
             # Get yield info
             portions_per_yield = recipe.get("portions_per_yield", 1) or 1
@@ -8525,7 +8552,8 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
             
             # Process recipe ingredients
             for ing in recipe.get("ingredients", []):
-                item_id = ing.get("item_id")
+                # Support both item_id and ingredient_id (legacy field name)
+                item_id = ing.get("item_id") or ing.get("ingredient_id")
                 if not item_id:
                     continue
                 
@@ -8575,7 +8603,8 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
                 sub_yields_needed = sub_qty * yields_needed
                 
                 for ing in sub_recipe.get("ingredients", []):
-                    item_id = ing.get("item_id")
+                    # Support both item_id and ingredient_id (legacy field name)
+                    item_id = ing.get("item_id") or ing.get("ingredient_id")
                     if not item_id:
                         continue
                     
@@ -8992,7 +9021,7 @@ async def create_production_batch(
         # Direct ingredients
         for ing in recipe.get("ingredients", []):
             if ing.get("item_type") == "ingredient":
-                item_id = ing.get("item_id")
+                item_id = ing.get("item_id") or ing.get("ingredient_id")
                 inv_item = await db.ingredients.find_one(
                     {"ingredient_id": item_id, "company_id": user.company_id},
                     {"_id": 0}

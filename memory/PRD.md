@@ -11,6 +11,7 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 - **Historial de pagos por empleado**
 - **Beneficios en especie (almuerzo/catering) con tracking y Cost Center**
 - **Módulo de Partners para gestión de proveedores, agencias y socios externos**
+- **Culinary Intelligence para gestión de inventario, recetas y planificación de producción**
 
 ## User Personas
 - **Agencias de Marketing/Eventos**: Usuarios principales que gestionan múltiples clientes y proyectos
@@ -28,12 +29,65 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 7. **Historial completo de pagos por empleado**
 8. **Tracking de beneficios en especie con cargo a Cost Center**
 9. **Gestión integral de Partners con integración financiera**
+10. **Culinary Intelligence con generación de planes de preparación basados en menús y recetas**
 
 ---
 
 ## What's Been Implemented
 
-### Session: March 6, 2026 (ÚLTIMA ACTUALIZACIÓN)
+### Session: March 7, 2026 (ÚLTIMA ACTUALIZACIÓN)
+
+#### Bug Fix: "Generate Prep Plan" en Culinary Intelligence - CORREGIDO ✅
+
+**Problema reportado**: El botón "Generate Prep Plan" no generaba ingredientes ni costos para eventos con menús asignados. Mostraba $0.00 en todos los campos.
+
+**Causa raíz múltiple**:
+1. El código buscaba `item_id` en ingredientes de recetas, pero el campo correcto era `ingredient_id`
+2. El código solo procesaba recetas desde `order_items` con `reference_id`, pero el evento tenía menú asignado directamente sin propuesta con referencias
+3. El campo `guest_count` del evento estaba como `None` en lugar del valor esperado
+
+**Solución implementada** (`server.py`):
+
+1. **Soporte para `ingredient_id`** (líneas 8528-8530, 8604-8606):
+```python
+item_id = ing.get("item_id") or ing.get("ingredient_id")
+```
+
+2. **Priorizar recetas desde `menu_id` del evento** (nuevo código líneas 8486-8524):
+   - Obtiene el menú asignado al evento usando `menu_id`
+   - Extrae todas las recetas de todos los cursos del menú
+   - Calcula porciones basadas en `guest_count × portions_per_guest`
+   - Fallback a `order_items` si no hay menú asignado
+
+3. **Actualización del evento con `guest_count`**: 
+   - El evento "Wedding - TEST" ahora tiene 150 guests configurados
+
+**Resultado verificado**:
+```json
+{
+  "stock_requisition": [
+    {"item_name": "Tomatoes Roma", "total_required": 24.75, "in_stock": 30.0, "total_cost": 61.88},
+    {"item_name": "Olive Oil", "total_required": 16.5, "in_stock": 10.0, "total_cost": 120.0},
+    {"item_name": "Salt", "total_required": 2.81, "in_stock": 20.0, "total_cost": 4.21},
+    {"item_name": "Chicken Breast", "total_required": 49.5, "in_stock": 50.0, "total_cost": 420.75}
+  ],
+  "purchase_list": [
+    {"item_name": "Olive Oil", "to_purchase": 6.5, "total_cost": 78.0}
+  ],
+  "sr_total_cost": 606.84,
+  "total_cost": 78.0,
+  "grand_total": 684.84
+}
+```
+
+**Testing**: Verificado via API y UI - El prep plan ahora genera correctamente:
+- 4 items en Stock Requisition (SR) con costos calculados
+- 1 item en Purchase List (PL) con cantidad faltante
+- Totales correctos para planificación de compras
+
+---
+
+### Session: March 6, 2026
 
 #### Proyección de Cash Flow 30/60/90 días - COMPLETADO ✅
 
@@ -1065,4 +1119,4 @@ Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding |
 - **Password**: Evoque2024!
 
 ## Preview URL
-https://payables-debug.preview.emergentagent.com
+https://culinary-prep-plan.preview.emergentagent.com

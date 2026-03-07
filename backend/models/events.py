@@ -82,6 +82,7 @@ class Event(BaseModel):
     timeline: List[Dict[str, Any]] = []
     tasks: List[Dict[str, Any]] = []
     menu_items: List[str] = []
+    menu_id: Optional[str] = None  # ID of assigned plated menu
     documents: List[Dict[str, Any]] = []
     created_at: datetime
     updated_at: datetime
@@ -114,6 +115,7 @@ class EventUpdate(BaseModel):
     lost_reason: Optional[str] = None
     source: Optional[str] = None
     assigned_to: Optional[str] = None  # user_id of assigned salesperson
+    menu_id: Optional[str] = None  # ID of assigned plated menu
 
 
 # ============== EVENT MENU MODELS ==============
