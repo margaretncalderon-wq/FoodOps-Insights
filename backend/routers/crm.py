@@ -2269,7 +2269,12 @@ async def get_owners_sales_report(
         
         for oid in owner_stats:
             if oid != "__unassigned__":
-                owner_stats[oid]["owner_name"] = user_names.get(oid, oid)
+                if oid in user_names:
+                    owner_stats[oid]["owner_name"] = user_names[oid]
+                else:
+                    # User was deleted - mark as such
+                    owner_stats[oid]["owner_name"] = "Usuario Eliminado"
+                    owner_stats[oid]["is_deleted"] = True
     
     # Set name for unassigned
     if "__unassigned__" in owner_stats:
@@ -2303,6 +2308,71 @@ async def get_owners_sales_report(
         "owners": result,
         "totals": totals
     }
+
+
+@crm_router.post("/cleanup-orphaned-assignments")
+async def cleanup_orphaned_assignments(
+    reassign_to: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Clean up CRM records assigned to deleted/inactive users.
+    If reassign_to is provided, reassign to that user. Otherwise, set to unassigned (None).
+    """
+    company_id = user.company_id
+    
+    # Get all active user IDs
+    active_users = await db.users.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0, "user_id": 1}
+    ).to_list(1000)
+    active_user_ids = {u["user_id"] for u in active_users}
+    
+    # Validate reassign_to if provided
+    if reassign_to and reassign_to not in active_user_ids:
+        raise HTTPException(status_code=400, detail="Target user not found or inactive")
+    
+    new_owner = reassign_to  # Will be None if not provided
+    cleaned = {"leads": 0, "companies": 0, "contacts": 0}
+    
+    # Clean leads collection
+    leads_result = await db.leads.update_many(
+        {
+            "company_id": company_id,
+            "owner_id": {"$nin": list(active_user_ids), "$ne": None}
+        },
+        {"$set": {"owner_id": new_owner}}
+    )
+    cleaned["leads"] = leads_result.modified_count
+    
+    # Clean company_entities collection
+    companies_result = await db.company_entities.update_many(
+        {
+            "organization_id": company_id,
+            "owner_id": {"$nin": list(active_user_ids), "$ne": None}
+        },
+        {"$set": {"owner_id": new_owner}}
+    )
+    cleaned["companies"] = companies_result.modified_count
+    
+    # Clean contacts collection
+    contacts_result = await db.contacts.update_many(
+        {
+            "organization_id": company_id,
+            "owner_id": {"$nin": list(active_user_ids), "$ne": None}
+        },
+        {"$set": {"owner_id": new_owner}}
+    )
+    cleaned["contacts"] = contacts_result.modified_count
+    
+    total_cleaned = sum(cleaned.values())
+    
+    return {
+        "message": f"Cleaned {total_cleaned} orphaned assignments",
+        "details": cleaned,
+        "reassigned_to": reassign_to or "Unassigned"
+    }
+
 
 
 # ============== LEADS FOR COMMS DROPDOWN ==============

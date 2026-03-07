@@ -12,7 +12,7 @@ import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import { 
   RefreshCw, Download, TrendingUp, Users, Target, BarChart3,
-  Calendar, UserCircle, ArrowUpRight, ArrowDownRight
+  Calendar, UserCircle, ArrowUpRight, ArrowDownRight, Trash2, AlertTriangle
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -57,6 +57,27 @@ export default function SalesReportSection() {
   useEffect(() => { 
     fetchReport(); 
   }, [fetchReport]);
+
+  // Check if there are deleted users in the report
+  const hasDeletedUsers = reportData.owners?.some(o => o.is_deleted) || false;
+
+  // Cleanup orphaned assignments
+  const handleCleanup = async () => {
+    if (!window.confirm(isEs 
+      ? "¿Desea reasignar los leads de usuarios eliminados a 'Sin Asignar'?" 
+      : "Do you want to reassign leads from deleted users to 'Unassigned'?")) {
+      return;
+    }
+    try {
+      const res = await axios.post(`${API}/api/crm/cleanup-orphaned-assignments`, null, { withCredentials: true });
+      toast.success(isEs 
+        ? `${res.data.message}. Leads: ${res.data.details.leads}, Empresas: ${res.data.details.companies}` 
+        : `${res.data.message}. Leads: ${res.data.details.leads}, Companies: ${res.data.details.companies}`);
+      fetchReport();
+    } catch (error) {
+      toast.error(isEs ? "Error al limpiar asignaciones" : "Error cleaning assignments");
+    }
+  };
 
   // Export to CSV
   const handleExport = () => {
@@ -137,6 +158,12 @@ export default function SalesReportSection() {
           </p>
         </div>
         <div className="flex gap-2">
+          {hasDeletedUsers && (
+            <Button variant="destructive" size="sm" onClick={handleCleanup}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isEs ? "Limpiar Huérfanos" : "Cleanup Orphans"}
+            </Button>
+          )}
           <Button variant="outline" onClick={fetchReport}>
             <RefreshCw className="w-4 h-4 mr-2" />
             {isEs ? "Actualizar" : "Refresh"}
@@ -147,6 +174,18 @@ export default function SalesReportSection() {
           </Button>
         </div>
       </div>
+
+      {/* Warning for deleted users */}
+      {hasDeletedUsers && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 text-amber-500" />
+          <p className="text-sm text-amber-700">
+            {isEs 
+              ? "Hay leads asignados a usuarios que ya no existen. Use 'Limpiar Huérfanos' para reasignarlos."
+              : "There are leads assigned to users that no longer exist. Use 'Cleanup Orphans' to reassign them."}
+          </p>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -282,13 +321,20 @@ export default function SalesReportSection() {
                   {reportData.owners.map((owner, idx) => (
                     <TableRow 
                       key={owner.owner_id || `unassigned-${idx}`}
-                      className={!owner.owner_id ? "bg-yellow-50/50" : ""}
+                      className={`${!owner.owner_id ? "bg-yellow-50/50" : ""} ${owner.is_deleted ? "bg-red-50/50" : ""}`}
                       data-testid={`owner-row-${owner.owner_id || 'unassigned'}`}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          <UserCircle className={`w-4 h-4 ${owner.owner_id ? 'text-primary' : 'text-yellow-500'}`} />
-                          {owner.owner_name || (isEs ? "Sin Asignar" : "Unassigned")}
+                          <UserCircle className={`w-4 h-4 ${owner.is_deleted ? 'text-red-500' : owner.owner_id ? 'text-primary' : 'text-yellow-500'}`} />
+                          <span className={owner.is_deleted ? "text-red-600 line-through" : ""}>
+                            {owner.owner_name || (isEs ? "Sin Asignar" : "Unassigned")}
+                          </span>
+                          {owner.is_deleted && (
+                            <Badge variant="destructive" className="text-xs">
+                              {isEs ? "Eliminado" : "Deleted"}
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-center font-medium">{owner.total_leads}</TableCell>
