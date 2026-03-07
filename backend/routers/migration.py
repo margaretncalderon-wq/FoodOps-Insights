@@ -12,7 +12,7 @@ from dependencies import get_current_user, db
 
 logger = logging.getLogger(__name__)
 
-migration_router = APIRouter(prefix="/api/migration", tags=["migration"])
+migration_router = APIRouter(prefix="/migration", tags=["migration"])
 
 
 @migration_router.get("/history")
