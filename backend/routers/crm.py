@@ -2129,17 +2129,24 @@ async def get_owners_sales_report(
     # Fetch all leads matching criteria
     leads = await db.leads.find(query, {"_id": 0}).to_list(10000)
     
-    # Define CRM statuses as per spec
-    STATUS_NUEVO = "Nuevo"
-    STATUS_CONTACTADO = "Contactado"
-    STATUS_SIN_RESPUESTA = "Sin Respuesta"
-    STATUS_INTERESADO = "Interesado"
-    STATUS_CONVERTIDO = "Converted"
+    # Also fetch B2B companies/accounts (they appear in CRM list too)
+    companies_b2b = await db.company_entities.find(query, {"_id": 0}).to_list(10000)
+    
+    # Merge leads and companies into a unified list
+    # Companies use owner_id same as leads
+    all_records = leads + companies_b2b
+    
+    # Define CRM statuses - support both Spanish and English values
+    STATUSES_NUEVO = ["Nuevo", "New", "new", "Lead"]
+    STATUSES_CONTACTADO = ["Contactado", "Contacted", "contacted"]
+    STATUSES_SIN_RESPUESTA = ["Sin Respuesta", "No Response", "no_response"]
+    STATUSES_INTERESADO = ["Interesado", "Interested", "interested", "Engaged", "engaged"]
+    STATUSES_CONVERTIDO = ["Converted", "converted", "Won", "won", "Client"]
     
     # Group by owner
     owner_stats = {}
     
-    for lead in leads:
+    for lead in all_records:
         lead_owner = lead.get("owner_id") or "__unassigned__"
         
         # Skip unassigned if not included
@@ -2168,18 +2175,18 @@ async def get_owners_sales_report(
         
         status = lead.get("status", "")
         
-        if status == STATUS_NUEVO:
+        if status in STATUSES_NUEVO:
             stats["nuevos"] += 1
-        elif status == STATUS_CONTACTADO:
+        elif status in STATUSES_CONTACTADO:
             stats["contactados"] += 1
             stats["trabajados"] += 1
-        elif status == STATUS_SIN_RESPUESTA:
+        elif status in STATUSES_SIN_RESPUESTA:
             stats["sin_respuesta"] += 1
             stats["trabajados"] += 1
-        elif status == STATUS_INTERESADO:
+        elif status in STATUSES_INTERESADO:
             stats["interesados"] += 1
             stats["trabajados"] += 1
-        elif status == STATUS_CONVERTIDO:
+        elif status in STATUSES_CONVERTIDO:
             stats["convertidos"] += 1
     
     # Fetch owner names
