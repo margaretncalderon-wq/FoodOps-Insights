@@ -55,6 +55,7 @@ export default function PurchaseOrdersSection() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState(null);
   
   // Form
@@ -69,10 +70,19 @@ export default function PurchaseOrdersSection() {
   // Receive form
   const [receiveForm, setReceiveForm] = useState({
     lines: [],
-    create_expense: true,
+    create_expense: false, // Changed: Only create expense when invoice is provided
     invoice_number: "",
     invoice_date: "",
     invoice_url: ""
+  });
+  
+  // Invoice registration form (for POs already received without invoice)
+  const [invoiceForm, setInvoiceForm] = useState({
+    invoice_number: "",
+    invoice_date: "",
+    invoice_url: "",
+    due_date: "",
+    tax_amount: 0
   });
 
   const t = useCallback((key) => {
@@ -111,6 +121,11 @@ export default function PurchaseOrdersSection() {
       sent: { en: "Sent", es: "Enviado" },
       received: { en: "Received", es: "Recibido" },
       all: { en: "All", es: "Todos" },
+      registerInvoice: { en: "Register Invoice", es: "Registrar Factura" },
+      dueDate: { en: "Due Date", es: "Fecha Vencimiento" },
+      taxAmount: { en: "Tax Amount", es: "Impuestos" },
+      invoiceRegistered: { en: "Invoice Registered", es: "Factura Registrada" },
+      noInvoice: { en: "No Invoice", es: "Sin Factura" },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   }, [language]);
@@ -228,7 +243,7 @@ export default function PurchaseOrdersSection() {
         unit_cost: line.unit_cost,
         selected: true
       })),
-      create_expense: true,
+      create_expense: false, // Changed: Default to false, will be set true when invoice provided
       invoice_number: "",
       invoice_date: new Date().toISOString().split("T")[0],
       invoice_url: ""
@@ -286,6 +301,46 @@ export default function PurchaseOrdersSection() {
   const openViewDialog = (po) => {
     setSelectedPO(po);
     setViewDialogOpen(true);
+  };
+
+  // Open Invoice Registration Dialog
+  const openInvoiceDialog = (po) => {
+    setSelectedPO(po);
+    setInvoiceForm({
+      invoice_number: "",
+      invoice_date: new Date().toISOString().split("T")[0],
+      invoice_url: "",
+      due_date: "",
+      tax_amount: 0
+    });
+    setInvoiceDialogOpen(true);
+  };
+
+  // Register invoice for a received PO
+  const handleRegisterInvoice = async () => {
+    if (!invoiceForm.invoice_number) {
+      toast.error(language === "es" ? "El número de factura es requerido" : "Invoice number is required");
+      return;
+    }
+    
+    try {
+      await axios.post(`${API}/api/purchase-orders/${selectedPO.po_id}/register-invoice`, null, {
+        withCredentials: true,
+        params: {
+          invoice_number: invoiceForm.invoice_number,
+          invoice_date: invoiceForm.invoice_date || null,
+          invoice_url: invoiceForm.invoice_url || null,
+          due_date: invoiceForm.due_date || null,
+          tax_amount: invoiceForm.tax_amount || 0
+        }
+      });
+      
+      toast.success(language === "es" ? "Factura registrada exitosamente" : "Invoice registered successfully");
+      setInvoiceDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error registering invoice");
+    }
   };
 
   // Print PO
@@ -466,6 +521,17 @@ export default function PurchaseOrdersSection() {
                           <Button variant="ghost" size="icon" onClick={() => openReceiveDialog(po)} title={t("receive")}>
                             <Package className="w-4 h-4 text-green-500" />
                           </Button>
+                        )}
+                        {(po.status === "Received" || po.status === "PartiallyReceived") && !po.invoice_number && (
+                          <Button variant="ghost" size="icon" onClick={() => openInvoiceDialog(po)} title={t("registerInvoice")}>
+                            <Receipt className="w-4 h-4 text-amber-500" />
+                          </Button>
+                        )}
+                        {po.invoice_number && (
+                          <span className="text-xs text-green-600 flex items-center" title={`${t("invoiceRegistered")}: ${po.invoice_number}`}>
+                            <Check className="w-3 h-3 mr-0.5" />
+                            <span className="hidden sm:inline">FAC</span>
+                          </span>
                         )}
                         {po.status === "Draft" && (
                           <Button variant="ghost" size="icon" onClick={() => handleDeletePO(po.po_id)}>
@@ -710,30 +776,39 @@ export default function PurchaseOrdersSection() {
             </Table>
 
             <div className="border rounded-lg p-4 space-y-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <Checkbox 
                   id="create_expense"
                   checked={receiveForm.create_expense}
                   onCheckedChange={(checked) => setReceiveForm(prev => ({ ...prev, create_expense: checked }))}
+                  className="mt-1"
                 />
-                <Label htmlFor="create_expense" className="flex items-center gap-2 cursor-pointer">
-                  <Receipt className="w-4 h-4" />
-                  {t("createExpense")}
-                </Label>
+                <div>
+                  <Label htmlFor="create_expense" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <Receipt className="w-4 h-4" />
+                    {language === "es" ? "Registrar Factura del Proveedor" : "Register Supplier Invoice"}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === "es" 
+                      ? "Marque esta opción solo si tiene la factura. El gasto se creará al registrar factura." 
+                      : "Check this only if you have the invoice. Expense will be created when invoice is registered."}
+                  </p>
+                </div>
               </div>
               
               {receiveForm.create_expense && (
-                <div className="grid grid-cols-3 gap-4 pl-6">
+                <div className="grid grid-cols-3 gap-4 pl-6 pt-2 border-t">
                   <div>
-                    <Label>{t("invoiceNumber")}</Label>
+                    <Label className="text-sm">{t("invoiceNumber")} <span className="text-red-500">*</span></Label>
                     <Input 
                       value={receiveForm.invoice_number}
                       onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_number: e.target.value }))}
                       placeholder="FAC-001"
+                      required
                     />
                   </div>
                   <div>
-                    <Label>{t("invoiceDate")}</Label>
+                    <Label className="text-sm">{t("invoiceDate")}</Label>
                     <Input 
                       type="date"
                       value={receiveForm.invoice_date}
@@ -741,7 +816,7 @@ export default function PurchaseOrdersSection() {
                     />
                   </div>
                   <div>
-                    <Label>{t("invoiceUrl")}</Label>
+                    <Label className="text-sm">{t("invoiceUrl")}</Label>
                     <Input 
                       value={receiveForm.invoice_url}
                       onChange={(e) => setReceiveForm(prev => ({ ...prev, invoice_url: e.target.value }))}
@@ -749,6 +824,14 @@ export default function PurchaseOrdersSection() {
                     />
                   </div>
                 </div>
+              )}
+              
+              {!receiveForm.create_expense && (
+                <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                  {language === "es" 
+                    ? "💡 Podrá registrar la factura posteriormente desde la PO recibida." 
+                    : "💡 You can register the invoice later from the received PO."}
+                </p>
               )}
             </div>
           </div>
@@ -827,6 +910,79 @@ export default function PurchaseOrdersSection() {
             <Button onClick={executePrint}>
               <Printer className="w-4 h-4 mr-2" />
               {language === "es" ? "Imprimir" : "Print"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Register Invoice Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5" />
+              {t("registerInvoice")}: {selectedPO?.po_number}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedPO?.supplier_name} • ${selectedPO?.total?.toFixed(2)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{t("invoiceNumber")} <span className="text-red-500">*</span></Label>
+              <Input 
+                value={invoiceForm.invoice_number}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, invoice_number: e.target.value }))}
+                placeholder="FAC-001"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{t("invoiceDate")}</Label>
+                <Input 
+                  type="date"
+                  value={invoiceForm.invoice_date}
+                  onChange={(e) => setInvoiceForm(prev => ({ ...prev, invoice_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>{t("dueDate")}</Label>
+                <Input 
+                  type="date"
+                  value={invoiceForm.due_date}
+                  onChange={(e) => setInvoiceForm(prev => ({ ...prev, due_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>{t("taxAmount")}</Label>
+              <Input 
+                type="number"
+                min="0"
+                step="0.01"
+                value={invoiceForm.tax_amount}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, tax_amount: parseFloat(e.target.value) || 0 }))}
+              />
+            </div>
+            <div>
+              <Label>{t("invoiceUrl")}</Label>
+              <Input 
+                value={invoiceForm.invoice_url}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, invoice_url: e.target.value }))}
+                placeholder="https://... or file path"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+              {language === "es" 
+                ? "Al registrar la factura se creará el registro de gasto/cuenta por pagar en Business Clarity."
+                : "Registering the invoice will create the expense/payable record in Business Clarity."}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={handleRegisterInvoice} disabled={!invoiceForm.invoice_number}>
+              <Check className="w-4 h-4 mr-2" />
+              {t("registerInvoice")}
             </Button>
           </DialogFooter>
         </DialogContent>

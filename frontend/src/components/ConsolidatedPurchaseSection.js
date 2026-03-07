@@ -531,9 +531,16 @@ export default function ConsolidatedPurchaseSection() {
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {purchaseData.stock_requisition.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                          <span className="font-medium">{item.item_name || item.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.item_name || item.name}</span>
+                            {(item.waste_percent > 0) && (
+                              <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded" title={language === "es" ? "Porcentaje de merma incluido" : "Waste percentage included"}>
+                                +{item.waste_percent}% {language === "es" ? "merma" : "waste"}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-right">
-                            <span className="font-mono">{(item.in_stock || item.quantity_needed || 0).toFixed(1)} {item.unit}</span>
+                            <span className="font-mono">{(item.total_required || item.in_stock || item.quantity_needed || 0).toFixed(1)} {item.unit}</span>
                             <span className="text-xs text-emerald-600 ml-2">✓</span>
                           </div>
                         </div>
@@ -608,7 +615,14 @@ export default function ConsolidatedPurchaseSection() {
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {purchaseData.purchase_list.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                          <span className="font-medium">{item.item_name || item.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.item_name || item.name}</span>
+                            {(item.waste_percent > 0) && (
+                              <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded" title={language === "es" ? "Porcentaje de merma incluido" : "Waste percentage included"}>
+                                +{item.waste_percent}% {language === "es" ? "merma" : "waste"}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-right">
                             <span className="font-mono text-amber-700">{(item.to_purchase || item.shortage || 0).toFixed(1)} {item.unit}</span>
                             <span className="text-xs text-muted-foreground ml-2">

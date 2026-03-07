@@ -8137,7 +8137,7 @@ async def update_purchase_order_status(po_id: str, status: str, user: User = Dep
 async def receive_purchase_order(
     po_id: str,
     received_lines: List[Dict[str, Any]],
-    create_expense: bool = True,
+    create_expense: bool = False,  # Changed: Default to False - only create expense with invoice
     invoice_number: Optional[str] = None,
     invoice_date: Optional[datetime] = None,
     invoice_url: Optional[str] = None,
@@ -8146,8 +8146,11 @@ async def receive_purchase_order(
     """
     Receive items from a PO.
     received_lines: [{line_id, qty_received, unit_cost (optional override)}]
-    Creates inventory transactions and optionally an expense record.
+    Creates inventory transactions. Expense/payable is only created if invoice_number is provided.
     """
+    # Auto-enable expense creation when invoice is provided
+    if invoice_number:
+        create_expense = True
     po = await db.purchase_orders_full.find_one(
         {"po_id": po_id, "company_id": user.company_id},
         {"_id": 0}
@@ -8301,6 +8304,107 @@ async def delete_purchase_order(po_id: str, user: User = Depends(get_current_use
     
     await db.purchase_orders_full.delete_one({"po_id": po_id, "company_id": user.company_id})
     return {"message": "Deleted"}
+
+
+@purchase_orders_router.post("/{po_id}/register-invoice")
+async def register_invoice_for_po(
+    po_id: str,
+    invoice_number: str,
+    invoice_date: Optional[datetime] = None,
+    invoice_url: Optional[str] = None,
+    due_date: Optional[datetime] = None,
+    tax_amount: float = 0,
+    user: User = Depends(get_current_user)
+):
+    """
+    Register an invoice for a received PO that didn't have invoice at reception time.
+    Creates the expense/payable record linked to this PO.
+    """
+    po = await db.purchase_orders_full.find_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    
+    if po.get("status") not in ["Partial", "Received"]:
+        raise HTTPException(status_code=400, detail="PO must be received before registering invoice")
+    
+    # Check if expense already exists for this PO
+    existing_expense = await db.expenses.find_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if existing_expense:
+        raise HTTPException(status_code=400, detail=f"Invoice already registered: {existing_expense.get('invoice_number')}")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Build expense lines from received PO lines
+    expense_lines = []
+    for line in po.get("lines", []):
+        qty_received = line.get("qty_received", 0)
+        if qty_received > 0:
+            expense_lines.append({
+                "inventory_item_id": line.get("inventory_item_id"),
+                "item_name": line.get("item_name"),
+                "quantity": qty_received,
+                "unit": line.get("unit"),
+                "unit_cost": line.get("unit_cost", 0),
+                "total": round(qty_received * line.get("unit_cost", 0), 2)
+            })
+    
+    if not expense_lines:
+        raise HTTPException(status_code=400, detail="No received items to invoice")
+    
+    # Create expense record
+    expense_id = f"expense_{uuid.uuid4().hex[:12]}"
+    expense_subtotal = sum(l["total"] for l in expense_lines)
+    expense_total = expense_subtotal + tax_amount
+    
+    await db.expenses.insert_one({
+        "expense_id": expense_id,
+        "company_id": user.company_id,
+        "supplier_id": po.get("supplier_id"),
+        "supplier_name": po.get("supplier_name"),
+        "po_id": po_id,
+        "po_number": po.get("po_number"),
+        "invoice_number": invoice_number,
+        "invoice_date": (invoice_date or now).isoformat(),
+        "invoice_url": invoice_url,
+        "due_date": due_date.isoformat() if due_date else None,
+        "payment_method": po.get("payment_method", "Transfer"),
+        "lines": expense_lines,
+        "subtotal": round(expense_subtotal, 2),
+        "tax_amount": round(tax_amount, 2),
+        "total": round(expense_total, 2),
+        "amount": round(expense_total, 2),
+        "paid_amount": 0,
+        "notes": f"Invoice for PO {po.get('po_number')}",
+        "description": f"PO {po.get('po_number')} - {po.get('supplier_name', 'Supplier')}",
+        "status": "Pending",
+        "payment_status": "Pending",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    })
+    
+    # Update PO with invoice reference
+    await db.purchase_orders_full.update_one(
+        {"po_id": po_id, "company_id": user.company_id},
+        {"$set": {
+            "invoice_number": invoice_number,
+            "invoice_date": (invoice_date or now).isoformat(),
+            "invoice_registered_at": now.isoformat(),
+            "expense_id": expense_id
+        }}
+    )
+    
+    return {
+        "message": "Invoice registered successfully",
+        "expense_id": expense_id,
+        "total": round(expense_total, 2)
+    }
+
 
 # ============== EXPENSES ROUTES ==============
 
@@ -8568,19 +8672,27 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
                 # Calculate required quantity
                 qty_per_yield = ing.get("quantity", 0)
                 waste_factor = ing.get("waste_factor_pct", 0)
-                effective_qty = qty_per_yield * (1 + waste_factor / 100) if waste_factor > 0 else qty_per_yield
+                # Also check inventory item for default waste percentage
+                inv_waste = inv_item.get("yield_waste_percent", 0)
+                effective_waste = waste_factor if waste_factor > 0 else inv_waste
+                effective_qty = qty_per_yield * (1 + effective_waste / 100) if effective_waste > 0 else qty_per_yield
                 total_required = effective_qty * yields_needed
                 
                 if item_id in all_ingredients:
                     all_ingredients[item_id]["total_required"] += total_required
                     if recipe.get("name") not in all_ingredients[item_id]["recipes_used"]:
                         all_ingredients[item_id]["recipes_used"].append(recipe.get("name"))
+                    # Keep max waste factor across all recipes using this ingredient
+                    if effective_waste > all_ingredients[item_id].get("waste_percent", 0):
+                        all_ingredients[item_id]["waste_percent"] = effective_waste
                 else:
                     all_ingredients[item_id] = {
                         "inventory_item_id": item_id,
                         "item_name": inv_item.get("name"),
                         "unit": inv_item.get("unit"),
                         "total_required": total_required,
+                        "base_required": qty_per_yield * yields_needed,  # Before waste adjustment
+                        "waste_percent": effective_waste,
                         "in_stock": inv_item.get("stock_quantity", 0) if data.compare_inventory else 0,
                         "to_purchase": 0,
                         "unit_cost": inv_item.get("cost_per_unit", 0),
@@ -8617,19 +8729,25 @@ async def generate_consolidated_purchase_list(data: EventScalingRequest, user: U
                     
                     qty_per_yield = ing.get("quantity", 0)
                     waste_factor = ing.get("waste_factor_pct", 0)
-                    effective_qty = qty_per_yield * (1 + waste_factor / 100) if waste_factor > 0 else qty_per_yield
+                    inv_waste = inv_item.get("yield_waste_percent", 0)
+                    effective_waste = waste_factor if waste_factor > 0 else inv_waste
+                    effective_qty = qty_per_yield * (1 + effective_waste / 100) if effective_waste > 0 else qty_per_yield
                     total_required = effective_qty * sub_yields_needed
                     
                     if item_id in all_ingredients:
                         all_ingredients[item_id]["total_required"] += total_required
                         if sub_recipe.get("name") not in all_ingredients[item_id]["recipes_used"]:
                             all_ingredients[item_id]["recipes_used"].append(sub_recipe.get("name"))
+                        if effective_waste > all_ingredients[item_id].get("waste_percent", 0):
+                            all_ingredients[item_id]["waste_percent"] = effective_waste
                     else:
                         all_ingredients[item_id] = {
                             "inventory_item_id": item_id,
                             "item_name": inv_item.get("name"),
                             "unit": inv_item.get("unit"),
                             "total_required": total_required,
+                            "base_required": qty_per_yield * sub_yields_needed,
+                            "waste_percent": effective_waste,
                             "in_stock": inv_item.get("stock_quantity", 0) if data.compare_inventory else 0,
                             "to_purchase": 0,
                             "unit_cost": inv_item.get("cost_per_unit", 0),

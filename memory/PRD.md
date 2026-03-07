@@ -37,6 +37,52 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ### Session: March 7, 2026 (ÚLTIMA ACTUALIZACIÓN)
 
+#### Feature 1: Separación de Factura y Recepción de PO ✅
+
+**Problema reportado por usuario**: No quiere que se cree un gasto en Payables sin recibir una factura física del proveedor.
+
+**Solución implementada**:
+
+1. **Backend** (`server.py`):
+   - Modificado `receive_purchase_order`: ahora `create_expense=False` por defecto
+   - El expense solo se crea si se proporciona `invoice_number`
+   - Nuevo endpoint `POST /api/purchase-orders/{po_id}/register-invoice`:
+     - Permite registrar factura en POs ya recibidas
+     - Crea el expense/payable solo cuando se registra factura
+     - Incluye campos: invoice_number, invoice_date, due_date, tax_amount, invoice_url
+
+2. **Frontend** (`PurchaseOrdersSection.js`):
+   - Checkbox "Registrar Factura del Proveedor" con texto explicativo
+   - Default desactivado, solo activa cuando hay factura
+   - Nuevo diálogo para registrar factura posterior
+   - Botón 📋 (Receipt icon) para POs recibidas sin factura
+   - Indicador ✓FAC cuando PO tiene factura registrada
+
+**Flujo implementado**:
+```
+PO Created → PO Sent → PO Received (inventory updated, NO expense)
+                              ↓
+                    [Registrar Factura] → Expense/Payable creado
+```
+
+---
+
+#### Feature 2: Columna de Merma (Waste %) en Prep Plan ✅
+
+**Solución implementada**:
+
+1. **Backend** (`server.py`):
+   - Añadido campo `waste_percent` en respuesta del prep plan
+   - Se toma de `waste_factor_pct` de la receta o `yield_waste_percent` del inventario
+   - Añadido campo `base_required` para mostrar cantidad antes de merma
+
+2. **Frontend** (`ConsolidatedPurchaseSection.js`):
+   - Badge naranja `+X% merma` junto al nombre del ingrediente
+   - Aparece en Stock Requisition y Purchase List
+   - Solo se muestra si waste_percent > 0
+
+---
+
 #### Bug Fix: "Generate Prep Plan" en Culinary Intelligence - CORREGIDO ✅
 
 **Problema reportado**: El botón "Generate Prep Plan" no generaba ingredientes ni costos para eventos con menús asignados. Mostraba $0.00 en todos los campos.
