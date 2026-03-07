@@ -2548,9 +2548,10 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
     
     # Calculate per-yield and per-portion costs
     cost_per_yield = total_cost / data.yield_quantity if data.yield_quantity > 0 else 0
-    portions = data.portions_per_yield if data.portions_per_yield > 0 else 1
+    portions = getattr(data, 'portions_per_yield', 1) or 1
     cost_per_portion = cost_per_yield / portions
-    food_cost_percent = (cost_per_portion / data.sell_price * 100) if data.sell_price > 0 else 0
+    sell_price = getattr(data, 'sell_price', 0) or data.default_portion_price or 0
+    food_cost_percent = (cost_per_portion / sell_price * 100) if sell_price > 0 else 0
     
     recipe_doc = {
         "recipe_id": recipe_id,
