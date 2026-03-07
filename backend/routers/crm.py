@@ -2137,22 +2137,79 @@ async def get_owners_sales_report(
     # Note: company_entities uses organization_id field
     companies_b2b = await db.company_entities.find(company_query, {"_id": 0}).to_list(10000)
     
-    # Merge leads and companies into a unified list
-    # Companies use owner_id same as leads
-    all_records = leads + companies_b2b
+    # Also fetch contacts (people within companies) - they also have status and owner_id
+    contacts = await db.contacts.find(company_query, {"_id": 0}).to_list(10000)
     
-    # Define CRM statuses - support both Spanish and English values
-    STATUSES_NUEVO = ["Nuevo", "New", "new", "Lead"]
-    STATUSES_CONTACTADO = ["Contactado", "Contacted", "contacted"]
-    STATUSES_SIN_RESPUESTA = ["Sin Respuesta", "No Response", "no_response"]
-    STATUSES_INTERESADO = ["Interesado", "Interested", "interested", "Engaged", "engaged"]
-    STATUSES_CONVERTIDO = ["Converted", "converted", "Won", "won", "Client"]
+    # Merge all CRM records into a unified list
+    all_records = leads + companies_b2b + contacts
+    
+    # Debug: Log unique status values found
+    unique_statuses = set()
+    for record in all_records:
+        s = record.get("status", "")
+        if s:
+            unique_statuses.add(s)
+    print(f"DEBUG Sales Report - Unique status values found: {unique_statuses}")
+    print(f"DEBUG Sales Report - Total leads: {len(leads)}, Total companies: {len(companies_b2b)}, Total contacts: {len(contacts)}")
+    print(f"DEBUG Sales Report - user.company_id: {user.company_id}")
+    
+    # Log sample records to see their structure
+    if companies_b2b:
+        sample = companies_b2b[0]
+        print(f"DEBUG Sample company: status={sample.get('status')}, owner_id={sample.get('owner_id')}, org_id={sample.get('organization_id')}")
+    
+    # Define CRM statuses - support both Spanish and English values (case-insensitive)
+    def normalize_status(s):
+        """Normalize status for comparison"""
+        if not s:
+            return ""
+        return s.strip().lower()
+    
+    STATUS_MAP = {
+        # Nuevo / New / Lead
+        "nuevo": "nuevo",
+        "new": "nuevo",
+        "lead": "nuevo",
+        "prospecto": "nuevo",
+        "prospect": "nuevo",
+        # Contactado / Contacted
+        "contactado": "contactado",
+        "contacted": "contactado",
+        "contact": "contactado",
+        "en contacto": "contactado",
+        "in contact": "contactado",
+        # Sin Respuesta / No Response
+        "sin respuesta": "sin_respuesta",
+        "no response": "sin_respuesta",
+        "no_response": "sin_respuesta",
+        "sin_respuesta": "sin_respuesta",
+        "no responde": "sin_respuesta",
+        # Interesado / Interested
+        "interesado": "interesado",
+        "interested": "interesado",
+        "engaged": "interesado",
+        "calificado": "interesado",
+        "qualified": "interesado",
+        # Convertido / Converted
+        "converted": "convertido",
+        "convertido": "convertido",
+        "won": "convertido",
+        "client": "convertido",
+        "cliente": "convertido",
+        "ganado": "convertido",
+        # Descartado / Discarded
+        "discarded": "descartado",
+        "descartado": "descartado",
+        "lost": "descartado",
+        "perdido": "descartado",
+    }
     
     # Group by owner
     owner_stats = {}
     
     for lead in all_records:
-        lead_owner = lead.get("owner_id") or "__unassigned__"
+        # Support multiple field names for owner assignment
+        lead_owner = lead.get("owner_id") or lead.get("assigned_to") or lead.get("salesperson_id") or "__unassigned__"
         
         # Skip unassigned if not included
         if lead_owner == "__unassigned__" and not include_unassigned:
@@ -2178,21 +2235,24 @@ async def get_owners_sales_report(
         stats = owner_stats[lead_owner]
         stats["total_leads"] += 1
         
-        status = lead.get("status", "")
+        raw_status = lead.get("status", "")
+        normalized = normalize_status(raw_status)
+        mapped_status = STATUS_MAP.get(normalized, "otro")
         
-        if status in STATUSES_NUEVO:
+        if mapped_status == "nuevo":
             stats["nuevos"] += 1
-        elif status in STATUSES_CONTACTADO:
+        elif mapped_status == "contactado":
             stats["contactados"] += 1
             stats["trabajados"] += 1
-        elif status in STATUSES_SIN_RESPUESTA:
+        elif mapped_status == "sin_respuesta":
             stats["sin_respuesta"] += 1
             stats["trabajados"] += 1
-        elif status in STATUSES_INTERESADO:
+        elif mapped_status == "interesado":
             stats["interesados"] += 1
             stats["trabajados"] += 1
-        elif status in STATUSES_CONVERTIDO:
+        elif mapped_status == "convertido":
             stats["convertidos"] += 1
+        # If status not in map, count as nuevo (default)
     
     # Fetch owner names
     owner_ids = [oid for oid in owner_stats.keys() if oid != "__unassigned__"]
