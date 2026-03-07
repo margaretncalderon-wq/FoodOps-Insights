@@ -294,64 +294,74 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
                 ""
             ).strip().replace("-", "")
             
-            # Check if client already exists
+            # Get other fields with multiple variants
+            contact = (row.get("contacto") or row.get("contact_name") or row.get("contact") or "").strip()
+            email = (row.get("email") or row.get("correo") or "").strip()
+            phone = (row.get("telefono") or row.get("phone") or row.get("tel") or "").strip()
+            address = (row.get("direccion") or row.get("address") or "").strip()
+            
+            # Check if client already exists in db.clients collection
             existing = None
             if rnc:
-                existing = await db.company_entities.find_one({
+                existing = await db.clients.find_one({
                     "company_id": company_id,
-                    "rnc": rnc
+                    "$or": [{"rnc": rnc}, {"tax_id": rnc}]
                 })
             if not existing:
-                existing = await db.company_entities.find_one({
+                existing = await db.clients.find_one({
                     "company_id": company_id,
-                    "name": {"$regex": f"^{name}$", "$options": "i"}
+                    "$or": [
+                        {"name": {"$regex": f"^{name}$", "$options": "i"}},
+                        {"display_name": {"$regex": f"^{name}$", "$options": "i"}}
+                    ]
                 })
             
             if existing:
                 # Update existing client with new data
-                update_data = {
-                    "updated_at": now,
-                    "is_complete": True
-                }
+                update_data = {"updated_at": now.isoformat()}
                 if rnc and not existing.get("rnc"):
                     update_data["rnc"] = rnc
-                if row.get("contact_name", row.get("contacto")):
-                    update_data["contact_name"] = row.get("contact_name", row.get("contacto", "")).strip()
-                if row.get("email"):
-                    update_data["email"] = row.get("email", "").strip()
-                if row.get("phone", row.get("telefono")):
-                    update_data["phone"] = row.get("phone", row.get("telefono", "")).strip()
-                if row.get("address", row.get("direccion")):
-                    update_data["address"] = row.get("address", row.get("direccion", "")).strip()
+                    update_data["tax_id"] = rnc
+                if contact:
+                    update_data["contact_name"] = contact
+                if email:
+                    update_data["email"] = email
+                if phone:
+                    update_data["phone"] = phone
+                if address:
+                    update_data["address"] = address
                 
-                await db.company_entities.update_one(
-                    {"id": existing["id"]},
+                await db.clients.update_one(
+                    {"client_id": existing["client_id"]},
                     {"$set": update_data}
                 )
             else:
-                # Create new client
+                # Create new client in db.clients collection (same format as app uses)
                 client = {
-                    "id": str(uuid.uuid4()),
+                    "client_id": f"client_{uuid.uuid4().hex[:12]}",
                     "company_id": company_id,
                     "name": name,
+                    "display_name": name,
                     "rnc": rnc or None,
-                    "contact_name": row.get("contact_name", row.get("contacto", "")).strip() or None,
-                    "email": row.get("email", "").strip() or None,
-                    "phone": row.get("phone", row.get("telefono", "")).strip() or None,
-                    "address": row.get("address", row.get("direccion", "")).strip() or None,
-                    "type": "client",
-                    "status": "active",
-                    "is_complete": True,
+                    "tax_id": rnc or None,
+                    "contact_name": contact or None,
+                    "email": email or None,
+                    "phone": phone or None,
+                    "address": address or None,
+                    "type": "individual",
+                    "client_type": "Individual",
+                    "status": "Active",
+                    "tags": [],
                     "source": "migration",
                     "created_by": user_id,
-                    "created_at": now,
-                    "updated_at": now
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat()
                 }
-                await db.company_entities.insert_one(client)
+                await db.clients.insert_one(client)
             
             count += 1
         except Exception as e:
-            logger.error(f"Error importing client row: {e}")
+            logger.error(f"Error importing client row {idx}: {e}")
             continue
     
     return count
