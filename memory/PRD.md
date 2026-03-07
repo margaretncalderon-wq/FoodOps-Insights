@@ -35,7 +35,61 @@ Kora OS es una plataforma CRM de marketing y gestión de eventos para agencias c
 
 ## What's Been Implemented
 
-### Session: March 7, 2026 (ÚLTIMA ACTUALIZACIÓN)
+### Session: March 7, 2026 (LATE UPDATE 4) - ITBIS y PO Invoice Fields
+
+#### ✅ Feature: Reporte ITBIS en Business Clarity
+**Fecha**: Marzo 7, 2026
+
+**Implementación**:
+1. **Backend** (`/app/backend/routers/itbis.py`):
+   - Endpoint `GET /api/finance/itbis/report` con parámetros `month` (0-11) y `year`
+   - Calcula ITBIS cobrado de ventas e invoices
+   - Calcula ITBIS pagado de compras y expenses
+   - Retorna balance con `itbis_a_pagar` o `credito_fiscal`
+
+2. **Frontend** (`/app/frontend/src/components/business-clarity/ITBISSection.js`):
+   - Sección en Business Clarity → Financials → ITBIS
+   - Selector de mes/año
+   - Tarjeta principal con:
+     - ITBIS Cobrado (verde)
+     - ITBIS Pagado (azul)
+     - ITBIS a Pagar / Crédito Fiscal (ámbar/azul)
+   - Fórmula visual: Cobrado - Pagado = A Pagar
+   - Detalle de Ventas y Compras del período
+   - Botones (deshabilitados): Exportar IT-1, Ver 606, Ver 607
+
+**Testing**: 100% pass (iteration_101.json)
+
+#### ✅ Feature: Campos NCF e ITBIS en Órdenes de Compra
+**Fecha**: Marzo 7, 2026
+
+**Backend** (`/app/backend/server.py`):
+1. Endpoint `POST /api/purchase-orders/{po_id}/receive` ahora acepta:
+   - `ncf`: Número de Comprobante Fiscal (NCF) para DGII
+   - `invoice_subtotal`: Subtotal antes de impuestos
+   - `invoice_itbis`: Monto de ITBIS (18%)
+   - `invoice_total`: Total incluyendo impuestos
+
+2. Endpoint `POST /api/purchase-orders/{po_id}/register-invoice` también soporta:
+   - `ncf`, `invoice_subtotal`, `invoice_itbis`, `invoice_total`
+
+3. El expense creado incluye todos estos campos para compliance tributario
+
+**Frontend** (`/app/frontend/src/components/PurchaseOrdersSection.js`):
+- Modal de recepción con checkbox "Registrar Factura del Proveedor"
+- Campos NCF (placeholder B0100000001), # Factura, Fecha
+- Campos Subtotal, ITBIS (18%), Total con auto-cálculo:
+  - Al cambiar Subtotal → ITBIS se calcula como 18%
+  - Total = Subtotal + ITBIS
+- Link/Archivo de factura
+
+**Bug Fix**: Corregido estado "Partial" a "PartiallyReceived" en register-invoice endpoint
+
+**Testing**: 100% pass (iteration_101.json)
+
+---
+
+### Session: March 7, 2026 (ÚLTIMA ACTUALIZACIÓN ANTERIOR)
 
 #### ✅ FLUJO E2E COMPLETADO: Lead → Payment → Cash Flow
 
