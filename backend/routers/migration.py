@@ -40,24 +40,40 @@ async def parse_migration_file(
     try:
         content = await file.read()
         
-        # Try to decode as UTF-8, fallback to latin-1
+        # Try to decode as UTF-8 (with BOM handling), fallback to latin-1
         try:
-            text = content.decode('utf-8')
+            text = content.decode('utf-8-sig')  # utf-8-sig handles BOM
         except UnicodeDecodeError:
-            text = content.decode('latin-1')
+            try:
+                text = content.decode('utf-8')
+            except UnicodeDecodeError:
+                text = content.decode('latin-1')
+        
+        # Detect delimiter (comma, semicolon, or tab)
+        first_line = text.split('\n')[0] if text else ""
+        delimiter = ','
+        if ';' in first_line and ',' not in first_line:
+            delimiter = ';'
+        elif '\t' in first_line and ',' not in first_line:
+            delimiter = '\t'
+        
+        logger.info(f"Parsing file with delimiter: '{delimiter}'")
         
         # Parse CSV
         rows = []
-        reader = csv.DictReader(io.StringIO(text))
+        reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
         for row in reader:
             # Clean up row data
             cleaned_row = {}
             for key, value in row.items():
                 if key:  # Skip empty keys
-                    # Strip whitespace and handle encoding
-                    clean_key = key.strip().lower().replace(' ', '_')
+                    # Strip whitespace, normalize unicode, handle encoding
+                    clean_key = key.strip().lower().replace(' ', '_').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')
                     cleaned_row[clean_key] = value.strip() if value else ""
-            rows.append(cleaned_row)
+            if cleaned_row:  # Only add non-empty rows
+                rows.append(cleaned_row)
+        
+        logger.info(f"Parsed {len(rows)} rows. First row keys: {list(rows[0].keys()) if rows else []}")
         
         return {"rows": rows, "count": len(rows)}
     
@@ -239,13 +255,40 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
     count = 0
     now = datetime.now(timezone.utc)
     
-    for row in rows:
+    logger.info(f"Starting client import with {len(rows)} rows")
+    
+    for idx, row in enumerate(rows):
         try:
-            name = row.get("name", row.get("nombre", "")).strip()
+            # Debug: log row keys
+            if idx == 0:
+                logger.info(f"First row keys: {list(row.keys())}")
+                logger.info(f"First row data: {row}")
+            
+            # Try multiple field name variations
+            name = (
+                row.get("name") or 
+                row.get("nombre") or 
+                row.get("client_name") or 
+                row.get("nombre_cliente") or
+                row.get("razon_social") or
+                row.get("razón_social") or
+                ""
+            ).strip()
+            
             if not name:
+                logger.warning(f"Row {idx}: No name found, skipping. Keys: {list(row.keys())}")
                 continue
             
-            rnc = row.get("rnc", row.get("rnc_cedula", "")).strip().replace("-", "")
+            # Try multiple RNC field name variations
+            rnc = (
+                row.get("rnc") or 
+                row.get("rnc_cedula") or 
+                row.get("rnc/cedula") or
+                row.get("cedula") or
+                row.get("tax_id") or
+                row.get("ruc") or
+                ""
+            ).strip().replace("-", "")
             
             # Check if client already exists
             existing = None
