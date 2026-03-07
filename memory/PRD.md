@@ -1281,6 +1281,55 @@ Directory | Payroll | Variable Pay | Time Off | Overtime | Loans | Offboarding |
 
 ---
 
+### Session: March 7, 2026 (LATE UPDATE 3) - Módulo de Migración de Datos
+
+#### ✅ Feature: Migración de Datos Históricos
+
+**Solicitud del usuario**: "si una empresa comienza a utilizar kora ahora en marzo y quiere agregar su data de enero, febrero... habria manera de cargar data en business inteligente? ventas, compras, inventario inicial y final, gastos fijos y gastos variables"
+
+**Solución implementada**:
+
+1. **Nueva sección "Migración de Datos"** en Business Clarity → Financials dropdown
+   - URL: `/business-clarity/migration`
+
+2. **8 tipos de datos** para importar:
+   - Sales (Ventas) - Fuente: Tripleseat / Alegra
+   - Purchases (Compras) - Fuente: Alegra
+   - Initial Inventory (Inventario Inicial) - Fuente: Excel / Notion
+   - Fixed Expenses (Gastos Fijos) - Fuente: Alegra / Excel
+   - Variable Expenses (Gastos Variables) - Fuente: Alegra / Excel
+   - Bank Balances (Saldos Bancarios) - Fuente: Manual / Bank Statement
+   - Accounts Receivable (Cuentas por Cobrar) - Fuente: Tripleseat / Alegra
+   - Accounts Payable (Cuentas por Pagar) - Fuente: Alegra
+
+3. **Dos modos de importación**:
+   - **Desde Archivo**: Upload CSV/Excel con plantilla descargable
+   - **Entrada Manual**: Formulario tipo spreadsheet para entrada rápida
+
+4. **Selector de período**: Mes + Año para asignar fecha correcta a los datos importados
+
+5. **Historial de importaciones**: Tab "History" con registro de todas las importaciones
+
+**Archivos creados/modificados**:
+- Frontend: `/app/frontend/src/components/business-clarity/MigrationSection.js` (NUEVO)
+- Frontend: `/app/frontend/src/pages/BusinessClarityPage.js` (MODIFICADO - ruta y navegación)
+- Backend: `/app/backend/routers/migration.py` (NUEVO - endpoints de importación)
+- Backend: `/app/backend/server.py` (MODIFICADO - registro del router)
+
+**Nuevos endpoints**:
+- `GET /api/migration/history` - Historial de importaciones
+- `POST /api/migration/parse` - Parsear archivo CSV/Excel
+- `POST /api/migration/import` - Importar datos
+
+**Nuevas colecciones MongoDB**:
+- `migration_history` - Registro de importaciones
+- `sales_transactions` - Ventas importadas
+- `purchase_transactions` - Compras importadas
+- `accounts_receivable` - CxC importadas
+- `accounts_payable` - CxP importadas
+
+---
+
 ## Test Credentials
 - **Email**: demo.agency@kora.com
 - **Password**: Evoque2024!

@@ -17163,6 +17163,10 @@ api_router.include_router(settings_router)  # /api/settings/*
 from routers.partners import partners_router
 api_router.include_router(partners_router)  # /api/partners/*
 
+# Include Migration router
+from routers.migration import migration_router
+api_router.include_router(migration_router)  # /api/migration/*
+
 # General file upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):

@@ -24,7 +24,8 @@ import {
   AccountingQueueSection,
   AccountingDashboard,
   ProfitLossDashboard,
-  CashFlowSection
+  CashFlowSection,
+  MigrationSection
 } from "../components/business-clarity";
 
 // Icons
@@ -33,7 +34,7 @@ import {
   UserCircle, Landmark, FileBarChart, Target, Lock,
   Briefcase, BarChart3, Users, Building2, ChevronDown,
   ShoppingCart, Wallet, ArrowRightLeft, PiggyBank, Receipt,
-  CreditCard, Clock, FileCheck, Calculator
+  CreditCard, Clock, FileCheck, Calculator, Upload
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import {
@@ -131,6 +132,7 @@ export default function BusinessClarityPage() {
     { path: "/business-clarity/regulatory", label: isEs ? "Regulatorios" : "Regulatory", icon: Building2 },
     { path: "/business-clarity/accounting-dashboard", label: isEs ? "Contabilización" : "Accounting", icon: FileCheck },
     { path: "/business-clarity/accounting-queue", label: isEs ? "Cola Contable" : "Accounting Queue", icon: Target },
+    { path: "/business-clarity/migration", label: isEs ? "Migración de Datos" : "Data Migration", icon: Upload },
   ];
 
   // Check if current path is in a section
@@ -313,6 +315,7 @@ export default function BusinessClarityPage() {
           <Route path="accounting-queue" element={<AccountingQueueSection />} />
           <Route path="accounting-dashboard" element={<AccountingDashboard />} />
           <Route path="profit-loss" element={<ProfitLossDashboard />} />
+          <Route path="migration" element={<MigrationSection />} />
         </Routes>
       </div>
     </Layout>
