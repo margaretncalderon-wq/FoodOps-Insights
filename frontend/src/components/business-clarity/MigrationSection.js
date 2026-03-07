@@ -35,14 +35,40 @@ import {
   Upload, Download, FileSpreadsheet, CheckCircle2, AlertCircle,
   RefreshCw, Database, ShoppingCart, Package, Wallet, Receipt,
   CreditCard, Building2, DollarSign, ArrowRight, FileText,
-  Calendar, Clock, Trash2, Eye, Plus, X, Check
+  Calendar, Clock, Trash2, Eye, Plus, X, Check, Users
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
 
-// Migration data types configuration
+// Migration data types configuration - ORDER MATTERS for recommended import sequence
 const MIGRATION_TYPES = {
+  clients: {
+    id: "clients",
+    label: "Clients",
+    labelEs: "Clientes",
+    icon: Users,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-50",
+    description: "Import client directory (recommended first)",
+    descriptionEs: "Importar directorio de clientes (recomendado primero)",
+    source: "Tripleseat / Alegra / Excel",
+    fields: ["rnc", "name", "contact_name", "email", "phone", "address"],
+    order: 1
+  },
+  vendors: {
+    id: "vendors",
+    label: "Vendors",
+    labelEs: "Proveedores",
+    icon: Building2,
+    color: "text-cyan-600",
+    bgColor: "bg-cyan-50",
+    description: "Import vendor directory (recommended second)",
+    descriptionEs: "Importar directorio de proveedores (recomendado segundo)",
+    source: "Alegra / Excel",
+    fields: ["rnc", "name", "contact_name", "email", "phone", "address", "category"],
+    order: 2
+  },
   sales: {
     id: "sales",
     label: "Sales",
@@ -53,7 +79,8 @@ const MIGRATION_TYPES = {
     description: "Import sales transactions with ITBIS",
     descriptionEs: "Importar transacciones de venta con ITBIS",
     source: "Tripleseat / Alegra",
-    fields: ["date", "client", "description", "subtotal", "itbis", "total", "ncf", "status"]
+    fields: ["date", "client_rnc", "client_name", "description", "subtotal", "itbis", "total", "ncf", "status"],
+    order: 3
   },
   purchases: {
     id: "purchases",
@@ -65,7 +92,8 @@ const MIGRATION_TYPES = {
     description: "Import purchase transactions with ITBIS",
     descriptionEs: "Importar transacciones de compra con ITBIS",
     source: "Alegra",
-    fields: ["date", "vendor", "description", "subtotal", "itbis", "total", "ncf", "status"]
+    fields: ["date", "vendor_rnc", "vendor_name", "description", "subtotal", "itbis", "total", "ncf", "status"],
+    order: 4
   },
   inventory: {
     id: "inventory",
@@ -77,7 +105,8 @@ const MIGRATION_TYPES = {
     description: "Import initial inventory quantities and costs",
     descriptionEs: "Importar cantidades y costos de inventario inicial",
     source: "Excel / Notion",
-    fields: ["sku", "name", "category", "quantity", "unit_cost", "total_value"]
+    fields: ["sku", "name", "category", "quantity", "unit_cost", "total_value"],
+    order: 5
   },
   fixed_expenses: {
     id: "fixed_expenses",
@@ -89,7 +118,8 @@ const MIGRATION_TYPES = {
     description: "Import recurring fixed expenses (rent, payroll, etc.)",
     descriptionEs: "Importar gastos fijos recurrentes (renta, nómina, etc.)",
     source: "Alegra / Excel",
-    fields: ["date", "category", "description", "amount", "frequency", "vendor"]
+    fields: ["date", "category", "description", "amount", "frequency", "vendor"],
+    order: 6
   },
   variable_expenses: {
     id: "variable_expenses",
@@ -101,7 +131,8 @@ const MIGRATION_TYPES = {
     description: "Import variable operational expenses",
     descriptionEs: "Importar gastos operativos variables",
     source: "Alegra / Excel",
-    fields: ["date", "category", "description", "amount", "vendor", "event_id"]
+    fields: ["date", "category", "description", "amount", "vendor", "event_id"],
+    order: 7
   },
   bank_balances: {
     id: "bank_balances",
@@ -113,7 +144,8 @@ const MIGRATION_TYPES = {
     description: "Import initial bank account balances",
     descriptionEs: "Importar saldos iniciales de cuentas bancarias",
     source: "Manual / Bank Statement",
-    fields: ["account_name", "bank", "account_number", "balance", "as_of_date"]
+    fields: ["account_name", "bank", "account_number", "balance", "as_of_date"],
+    order: 8
   },
   accounts_receivable: {
     id: "accounts_receivable",
@@ -125,7 +157,8 @@ const MIGRATION_TYPES = {
     description: "Import pending customer balances",
     descriptionEs: "Importar saldos pendientes de clientes",
     source: "Tripleseat / Alegra",
-    fields: ["client", "invoice_number", "date", "due_date", "amount", "balance", "status"]
+    fields: ["client_rnc", "client_name", "invoice_number", "date", "due_date", "amount", "balance"],
+    order: 9
   },
   accounts_payable: {
     id: "accounts_payable",
@@ -137,15 +170,34 @@ const MIGRATION_TYPES = {
     description: "Import pending vendor balances",
     descriptionEs: "Importar saldos pendientes con proveedores",
     source: "Alegra",
-    fields: ["vendor", "invoice_number", "date", "due_date", "amount", "balance", "status"]
+    fields: ["vendor_rnc", "vendor_name", "invoice_number", "date", "due_date", "amount", "balance"],
+    order: 10
   }
 };
 
 // Template field definitions
 const FIELD_TEMPLATES = {
+  clients: [
+    { field: "rnc", label: "RNC/Cédula", labelEn: "RNC/ID", required: false, type: "text", example: "101234567" },
+    { field: "name", label: "Nombre/Razón Social", labelEn: "Name/Company", required: true, type: "text", example: "Empresa ABC, SRL" },
+    { field: "contact_name", label: "Contacto", labelEn: "Contact Name", required: false, type: "text", example: "Juan Pérez" },
+    { field: "email", label: "Email", labelEn: "Email", required: false, type: "text", example: "contacto@empresa.com" },
+    { field: "phone", label: "Teléfono", labelEn: "Phone", required: false, type: "text", example: "809-555-1234" },
+    { field: "address", label: "Dirección", labelEn: "Address", required: false, type: "text", example: "Calle Principal #123" }
+  ],
+  vendors: [
+    { field: "rnc", label: "RNC", labelEn: "RNC", required: false, type: "text", example: "101234567" },
+    { field: "name", label: "Nombre/Razón Social", labelEn: "Name/Company", required: true, type: "text", example: "Distribuidora XYZ" },
+    { field: "contact_name", label: "Contacto", labelEn: "Contact Name", required: false, type: "text", example: "María García" },
+    { field: "email", label: "Email", labelEn: "Email", required: false, type: "text", example: "ventas@proveedor.com" },
+    { field: "phone", label: "Teléfono", labelEn: "Phone", required: false, type: "text", example: "809-555-5678" },
+    { field: "address", label: "Dirección", labelEn: "Address", required: false, type: "text", example: "Av. Industrial #456" },
+    { field: "category", label: "Categoría", labelEn: "Category", required: false, type: "text", example: "Alimentos/Bebidas/Equipos" }
+  ],
   sales: [
     { field: "date", label: "Fecha", labelEn: "Date", required: true, type: "date", example: "2025-01-15" },
-    { field: "client", label: "Cliente", labelEn: "Client", required: true, type: "text", example: "Empresa ABC" },
+    { field: "client_rnc", label: "RNC Cliente", labelEn: "Client RNC", required: false, type: "text", example: "101234567" },
+    { field: "client_name", label: "Nombre Cliente", labelEn: "Client Name", required: true, type: "text", example: "Empresa ABC" },
     { field: "description", label: "Descripción", labelEn: "Description", required: false, type: "text", example: "Evento corporativo" },
     { field: "subtotal", label: "Subtotal", labelEn: "Subtotal", required: true, type: "number", example: "50000" },
     { field: "itbis", label: "ITBIS", labelEn: "ITBIS", required: true, type: "number", example: "9000" },
@@ -155,7 +207,8 @@ const FIELD_TEMPLATES = {
   ],
   purchases: [
     { field: "date", label: "Fecha", labelEn: "Date", required: true, type: "date", example: "2025-01-15" },
-    { field: "vendor", label: "Proveedor", labelEn: "Vendor", required: true, type: "text", example: "Distribuidora XYZ" },
+    { field: "vendor_rnc", label: "RNC Proveedor", labelEn: "Vendor RNC", required: false, type: "text", example: "101234567" },
+    { field: "vendor_name", label: "Nombre Proveedor", labelEn: "Vendor Name", required: true, type: "text", example: "Distribuidora XYZ" },
     { field: "description", label: "Descripción", labelEn: "Description", required: false, type: "text", example: "Insumos de cocina" },
     { field: "subtotal", label: "Subtotal", labelEn: "Subtotal", required: true, type: "number", example: "25000" },
     { field: "itbis", label: "ITBIS", labelEn: "ITBIS", required: true, type: "number", example: "4500" },
@@ -196,7 +249,8 @@ const FIELD_TEMPLATES = {
     { field: "as_of_date", label: "Fecha Corte", labelEn: "As Of Date", required: true, type: "date", example: "2025-01-01" }
   ],
   accounts_receivable: [
-    { field: "client", label: "Cliente", labelEn: "Client", required: true, type: "text", example: "Empresa ABC" },
+    { field: "client_rnc", label: "RNC Cliente", labelEn: "Client RNC", required: false, type: "text", example: "101234567" },
+    { field: "client_name", label: "Nombre Cliente", labelEn: "Client Name", required: true, type: "text", example: "Empresa ABC" },
     { field: "invoice_number", label: "No. Factura", labelEn: "Invoice Number", required: false, type: "text", example: "FAC-2025-001" },
     { field: "date", label: "Fecha Factura", labelEn: "Invoice Date", required: true, type: "date", example: "2025-01-15" },
     { field: "due_date", label: "Fecha Vencimiento", labelEn: "Due Date", required: false, type: "date", example: "2025-02-15" },
@@ -204,7 +258,8 @@ const FIELD_TEMPLATES = {
     { field: "balance", label: "Saldo Pendiente", labelEn: "Pending Balance", required: true, type: "number", example: "25000" }
   ],
   accounts_payable: [
-    { field: "vendor", label: "Proveedor", labelEn: "Vendor", required: true, type: "text", example: "Distribuidora XYZ" },
+    { field: "vendor_rnc", label: "RNC Proveedor", labelEn: "Vendor RNC", required: false, type: "text", example: "101234567" },
+    { field: "vendor_name", label: "Nombre Proveedor", labelEn: "Vendor Name", required: true, type: "text", example: "Distribuidora XYZ" },
     { field: "invoice_number", label: "No. Factura", labelEn: "Invoice Number", required: false, type: "text", example: "PROV-2025-001" },
     { field: "date", label: "Fecha Factura", labelEn: "Invoice Date", required: true, type: "date", example: "2025-01-15" },
     { field: "due_date", label: "Fecha Vencimiento", labelEn: "Due Date", required: false, type: "date", example: "2025-02-15" },
@@ -462,7 +517,9 @@ export function MigrationSection() {
         {/* Data Types Overview */}
         <TabsContent value="overview" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.values(MIGRATION_TYPES).map((type) => {
+            {Object.values(MIGRATION_TYPES)
+              .sort((a, b) => (a.order || 99) - (b.order || 99))
+              .map((type) => {
               const Icon = type.icon;
               const typeStats = getTypeStats(type.id);
               return (
@@ -476,11 +533,18 @@ export function MigrationSection() {
                       <div className={`p-2 rounded-lg ${type.bgColor}`}>
                         <Icon className={`w-5 h-5 ${type.color}`} />
                       </div>
-                      {typeStats.count > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          {typeStats.count.toLocaleString()}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {type.order && type.order <= 2 && (
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                            {type.order === 1 ? "1ro" : "2do"}
+                          </Badge>
+                        )}
+                        {typeStats.count > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {typeStats.count.toLocaleString()}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <CardTitle className="text-base mt-2">
                       {isEs ? type.labelEs : type.label}

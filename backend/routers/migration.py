@@ -92,7 +92,11 @@ async def import_migration_data(
     
     try:
         # Process based on type
-        if import_type == "sales":
+        if import_type == "clients":
+            imported_count = await _import_clients(company_id, rows, user.user_id)
+        elif import_type == "vendors":
+            imported_count = await _import_vendors(company_id, rows, user.user_id)
+        elif import_type == "sales":
             imported_count = await _import_sales(company_id, rows, period_month, period_year, user.user_id)
         elif import_type == "purchases":
             imported_count = await _import_purchases(company_id, rows, period_month, period_year, user.user_id)
@@ -144,8 +148,248 @@ async def import_migration_data(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==================== HELPER FUNCTIONS ====================
+
+async def _find_or_create_client(company_id: str, rnc: str, name: str, user_id: str) -> dict:
+    """Find client by RNC or name, or create if not exists"""
+    client = None
+    
+    # First try to find by RNC (if provided)
+    if rnc:
+        rnc_clean = rnc.strip().replace("-", "")
+        client = await db.company_entities.find_one({
+            "company_id": company_id,
+            "rnc": rnc_clean
+        })
+    
+    # If not found by RNC, try by name (case-insensitive)
+    if not client and name:
+        name_clean = name.strip()
+        client = await db.company_entities.find_one({
+            "company_id": company_id,
+            "name": {"$regex": f"^{name_clean}$", "$options": "i"}
+        })
+    
+    # If still not found, create a new client
+    if not client:
+        now = datetime.now(timezone.utc)
+        client = {
+            "id": str(uuid.uuid4()),
+            "company_id": company_id,
+            "name": name.strip() if name else "Unknown",
+            "rnc": rnc.strip().replace("-", "") if rnc else None,
+            "type": "client",
+            "status": "active",
+            "is_complete": False,  # Flag for incomplete migration data
+            "source": "migration",
+            "created_by": user_id,
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.company_entities.insert_one(client)
+    
+    return client
+
+
+async def _find_or_create_vendor(company_id: str, rnc: str, name: str, user_id: str, category: str = None) -> dict:
+    """Find vendor by RNC or name, or create if not exists"""
+    vendor = None
+    
+    # First try to find by RNC (if provided)
+    if rnc:
+        rnc_clean = rnc.strip().replace("-", "")
+        vendor = await db.vendors.find_one({
+            "company_id": company_id,
+            "rnc": rnc_clean
+        })
+    
+    # If not found by RNC, try by name (case-insensitive)
+    if not vendor and name:
+        name_clean = name.strip()
+        vendor = await db.vendors.find_one({
+            "company_id": company_id,
+            "name": {"$regex": f"^{name_clean}$", "$options": "i"}
+        })
+    
+    # If still not found, create a new vendor
+    if not vendor:
+        now = datetime.now(timezone.utc)
+        vendor = {
+            "id": str(uuid.uuid4()),
+            "company_id": company_id,
+            "name": name.strip() if name else "Unknown",
+            "rnc": rnc.strip().replace("-", "") if rnc else None,
+            "category": category,
+            "status": "active",
+            "is_complete": False,  # Flag for incomplete migration data
+            "source": "migration",
+            "created_by": user_id,
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.vendors.insert_one(vendor)
+    
+    return vendor
+
+
+# ==================== IMPORT FUNCTIONS ====================
+
+async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
+    """Import clients directory"""
+    count = 0
+    now = datetime.now(timezone.utc)
+    
+    for row in rows:
+        try:
+            name = row.get("name", row.get("nombre", "")).strip()
+            if not name:
+                continue
+            
+            rnc = row.get("rnc", row.get("rnc_cedula", "")).strip().replace("-", "")
+            
+            # Check if client already exists
+            existing = None
+            if rnc:
+                existing = await db.company_entities.find_one({
+                    "company_id": company_id,
+                    "rnc": rnc
+                })
+            if not existing:
+                existing = await db.company_entities.find_one({
+                    "company_id": company_id,
+                    "name": {"$regex": f"^{name}$", "$options": "i"}
+                })
+            
+            if existing:
+                # Update existing client with new data
+                update_data = {
+                    "updated_at": now,
+                    "is_complete": True
+                }
+                if rnc and not existing.get("rnc"):
+                    update_data["rnc"] = rnc
+                if row.get("contact_name", row.get("contacto")):
+                    update_data["contact_name"] = row.get("contact_name", row.get("contacto", "")).strip()
+                if row.get("email"):
+                    update_data["email"] = row.get("email", "").strip()
+                if row.get("phone", row.get("telefono")):
+                    update_data["phone"] = row.get("phone", row.get("telefono", "")).strip()
+                if row.get("address", row.get("direccion")):
+                    update_data["address"] = row.get("address", row.get("direccion", "")).strip()
+                
+                await db.company_entities.update_one(
+                    {"id": existing["id"]},
+                    {"$set": update_data}
+                )
+            else:
+                # Create new client
+                client = {
+                    "id": str(uuid.uuid4()),
+                    "company_id": company_id,
+                    "name": name,
+                    "rnc": rnc or None,
+                    "contact_name": row.get("contact_name", row.get("contacto", "")).strip() or None,
+                    "email": row.get("email", "").strip() or None,
+                    "phone": row.get("phone", row.get("telefono", "")).strip() or None,
+                    "address": row.get("address", row.get("direccion", "")).strip() or None,
+                    "type": "client",
+                    "status": "active",
+                    "is_complete": True,
+                    "source": "migration",
+                    "created_by": user_id,
+                    "created_at": now,
+                    "updated_at": now
+                }
+                await db.company_entities.insert_one(client)
+            
+            count += 1
+        except Exception as e:
+            logger.error(f"Error importing client row: {e}")
+            continue
+    
+    return count
+
+
+async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
+    """Import vendors directory"""
+    count = 0
+    now = datetime.now(timezone.utc)
+    
+    for row in rows:
+        try:
+            name = row.get("name", row.get("nombre", "")).strip()
+            if not name:
+                continue
+            
+            rnc = row.get("rnc", "").strip().replace("-", "")
+            
+            # Check if vendor already exists
+            existing = None
+            if rnc:
+                existing = await db.vendors.find_one({
+                    "company_id": company_id,
+                    "rnc": rnc
+                })
+            if not existing:
+                existing = await db.vendors.find_one({
+                    "company_id": company_id,
+                    "name": {"$regex": f"^{name}$", "$options": "i"}
+                })
+            
+            if existing:
+                # Update existing vendor with new data
+                update_data = {
+                    "updated_at": now,
+                    "is_complete": True
+                }
+                if rnc and not existing.get("rnc"):
+                    update_data["rnc"] = rnc
+                if row.get("contact_name", row.get("contacto")):
+                    update_data["contact_name"] = row.get("contact_name", row.get("contacto", "")).strip()
+                if row.get("email"):
+                    update_data["email"] = row.get("email", "").strip()
+                if row.get("phone", row.get("telefono")):
+                    update_data["phone"] = row.get("phone", row.get("telefono", "")).strip()
+                if row.get("address", row.get("direccion")):
+                    update_data["address"] = row.get("address", row.get("direccion", "")).strip()
+                if row.get("category", row.get("categoria")):
+                    update_data["category"] = row.get("category", row.get("categoria", "")).strip()
+                
+                await db.vendors.update_one(
+                    {"id": existing["id"]},
+                    {"$set": update_data}
+                )
+            else:
+                # Create new vendor
+                vendor = {
+                    "id": str(uuid.uuid4()),
+                    "company_id": company_id,
+                    "name": name,
+                    "rnc": rnc or None,
+                    "contact_name": row.get("contact_name", row.get("contacto", "")).strip() or None,
+                    "email": row.get("email", "").strip() or None,
+                    "phone": row.get("phone", row.get("telefono", "")).strip() or None,
+                    "address": row.get("address", row.get("direccion", "")).strip() or None,
+                    "category": row.get("category", row.get("categoria", "")).strip() or None,
+                    "status": "active",
+                    "is_complete": True,
+                    "source": "migration",
+                    "created_by": user_id,
+                    "created_at": now,
+                    "updated_at": now
+                }
+                await db.vendors.insert_one(vendor)
+            
+            count += 1
+        except Exception as e:
+            logger.error(f"Error importing vendor row: {e}")
+            continue
+    
+    return count
+
+
 async def _import_sales(company_id: str, rows: list, month: int, year: int, user_id: str) -> int:
-    """Import sales transactions"""
+    """Import sales transactions with client linking"""
     count = 0
     now = datetime.now(timezone.utc)
     
@@ -166,10 +410,18 @@ async def _import_sales(company_id: str, rows: list, month: int, year: int, user
             except:
                 sale_date = datetime(year, month + 1, 15)
             
+            # Find or create client
+            client_rnc = row.get("client_rnc", row.get("rnc_cliente", ""))
+            client_name = row.get("client_name", row.get("client", row.get("cliente", "")))
+            
+            client = await _find_or_create_client(company_id, client_rnc, client_name, user_id)
+            
             sale = {
                 "id": str(uuid.uuid4()),
                 "company_id": company_id,
-                "client_name": row.get("client", row.get("cliente", "")),
+                "client_id": client["id"],
+                "client_name": client["name"],
+                "client_rnc": client.get("rnc"),
                 "description": row.get("description", row.get("descripcion", "")),
                 "subtotal": subtotal,
                 "itbis": itbis,
@@ -192,7 +444,7 @@ async def _import_sales(company_id: str, rows: list, month: int, year: int, user
 
 
 async def _import_purchases(company_id: str, rows: list, month: int, year: int, user_id: str) -> int:
-    """Import purchase transactions"""
+    """Import purchase transactions with vendor linking"""
     count = 0
     now = datetime.now(timezone.utc)
     
@@ -208,10 +460,18 @@ async def _import_purchases(company_id: str, rows: list, month: int, year: int, 
             except:
                 purchase_date = datetime(year, month + 1, 15)
             
+            # Find or create vendor
+            vendor_rnc = row.get("vendor_rnc", row.get("rnc_proveedor", ""))
+            vendor_name = row.get("vendor_name", row.get("vendor", row.get("proveedor", "")))
+            
+            vendor = await _find_or_create_vendor(company_id, vendor_rnc, vendor_name, user_id)
+            
             purchase = {
                 "id": str(uuid.uuid4()),
                 "company_id": company_id,
-                "vendor_name": row.get("vendor", row.get("proveedor", "")),
+                "vendor_id": vendor["id"],
+                "vendor_name": vendor["name"],
+                "vendor_rnc": vendor.get("rnc"),
                 "description": row.get("description", row.get("descripcion", "")),
                 "subtotal": subtotal,
                 "itbis": itbis,
@@ -420,7 +680,7 @@ async def _import_bank_balances(company_id: str, rows: list, user_id: str) -> in
 
 
 async def _import_accounts_receivable(company_id: str, rows: list, user_id: str) -> int:
-    """Import accounts receivable (pending customer balances)"""
+    """Import accounts receivable (pending customer balances) with client linking"""
     count = 0
     now = datetime.now(timezone.utc)
     
@@ -442,10 +702,18 @@ async def _import_accounts_receivable(company_id: str, rows: list, user_id: str)
             except:
                 due_date = None
             
+            # Find or create client
+            client_rnc = row.get("client_rnc", row.get("rnc_cliente", ""))
+            client_name = row.get("client_name", row.get("client", row.get("cliente", "")))
+            
+            client = await _find_or_create_client(company_id, client_rnc, client_name, user_id)
+            
             receivable = {
                 "id": str(uuid.uuid4()),
                 "company_id": company_id,
-                "client_name": row.get("client", row.get("cliente", "")),
+                "client_id": client["id"],
+                "client_name": client["name"],
+                "client_rnc": client.get("rnc"),
                 "invoice_number": row.get("invoice_number", row.get("no_factura", "")),
                 "invoice_date": invoice_date,
                 "due_date": due_date,
@@ -467,7 +735,7 @@ async def _import_accounts_receivable(company_id: str, rows: list, user_id: str)
 
 
 async def _import_accounts_payable(company_id: str, rows: list, user_id: str) -> int:
-    """Import accounts payable (pending vendor balances)"""
+    """Import accounts payable (pending vendor balances) with vendor linking"""
     count = 0
     now = datetime.now(timezone.utc)
     
@@ -489,10 +757,18 @@ async def _import_accounts_payable(company_id: str, rows: list, user_id: str) ->
             except:
                 due_date = None
             
+            # Find or create vendor
+            vendor_rnc = row.get("vendor_rnc", row.get("rnc_proveedor", ""))
+            vendor_name = row.get("vendor_name", row.get("vendor", row.get("proveedor", "")))
+            
+            vendor = await _find_or_create_vendor(company_id, vendor_rnc, vendor_name, user_id)
+            
             payable = {
                 "id": str(uuid.uuid4()),
                 "company_id": company_id,
-                "vendor_name": row.get("vendor", row.get("proveedor", "")),
+                "vendor_id": vendor["id"],
+                "vendor_name": vendor["name"],
+                "vendor_rnc": vendor.get("rnc"),
                 "invoice_number": row.get("invoice_number", row.get("no_factura", "")),
                 "invoice_date": invoice_date,
                 "due_date": due_date,
