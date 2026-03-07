@@ -6,6 +6,7 @@ import uuid
 import csv
 import io
 import logging
+import re
 
 from models.auth import User
 from dependencies import get_current_user, db
@@ -13,6 +14,11 @@ from dependencies import get_current_user, db
 logger = logging.getLogger(__name__)
 
 migration_router = APIRouter(prefix="/migration", tags=["migration"])
+
+
+def escape_regex(text: str) -> str:
+    """Escape special regex characters in a string"""
+    return re.escape(text) if text else ""
 
 
 @migration_router.get("/history")
@@ -181,11 +187,12 @@ async def _find_or_create_client(company_id: str, rnc: str, name: str, user_id: 
     # If not found by RNC, try by name (case-insensitive)
     if not client and name:
         name_clean = name.strip()
+        name_escaped = escape_regex(name_clean)
         client = await db.clients.find_one({
             "company_id": company_id,
             "$or": [
-                {"name": {"$regex": f"^{name_clean}$", "$options": "i"}},
-                {"display_name": {"$regex": f"^{name_clean}$", "$options": "i"}}
+                {"name": {"$regex": f"^{name_escaped}$", "$options": "i"}},
+                {"display_name": {"$regex": f"^{name_escaped}$", "$options": "i"}}
             ]
         })
     
@@ -230,9 +237,10 @@ async def _find_or_create_vendor(company_id: str, rnc: str, name: str, user_id: 
     # If not found by RNC, try by name (case-insensitive)
     if not supplier and name:
         name_clean = name.strip()
+        name_escaped = escape_regex(name_clean)
         supplier = await db.suppliers.find_one({
             "company_id": company_id,
-            "name": {"$regex": f"^{name_clean}$", "$options": "i"}
+            "name": {"$regex": f"^{name_escaped}$", "$options": "i"}
         })
     
     # If still not found, create a new supplier
@@ -320,11 +328,12 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
                     "$or": [{"rnc": rnc}, {"tax_id": rnc}]
                 })
             if not existing:
+                name_escaped = escape_regex(name)
                 existing = await db.clients.find_one({
                     "company_id": company_id,
                     "$or": [
-                        {"name": {"$regex": f"^{name}$", "$options": "i"}},
-                        {"display_name": {"$regex": f"^{name}$", "$options": "i"}}
+                        {"name": {"$regex": f"^{name_escaped}$", "$options": "i"}},
+                        {"display_name": {"$regex": f"^{name_escaped}$", "$options": "i"}}
                     ]
                 })
             
@@ -431,9 +440,10 @@ async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
                     "$or": [{"rnc": rnc}, {"tax_id": rnc}]
                 })
             if not existing:
+                name_escaped = escape_regex(name)
                 existing = await db.suppliers.find_one({
                     "company_id": company_id,
-                    "name": {"$regex": f"^{name}$", "$options": "i"}
+                    "name": {"$regex": f"^{name_escaped}$", "$options": "i"}
                 })
             
             if existing:
