@@ -521,12 +521,58 @@ async def update_cost_center(
     return {"message": "Cost center updated"}
 
 
-@people_ops_router.delete("/cost-centers/{cost_center_id}")
-async def delete_cost_center(
+@people_ops_router.get("/cost-centers/{cost_center_id}/usage")
+async def get_cost_center_usage(
     cost_center_id: str,
     user: User = Depends(get_current_user)
 ):
-    """Delete a cost center (soft delete by setting inactive)"""
+    """Check if a cost center has associated data (employees, transactions, etc.)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Check employees
+    employees_count = await db.employees.count_documents({
+        "company_id": company_id,
+        "cost_center_id": cost_center_id
+    })
+    
+    # Check purchase orders
+    po_count = await db.purchase_orders.count_documents({
+        "company_id": company_id,
+        "cost_center_id": cost_center_id
+    })
+    
+    # Check expenses
+    expenses_count = await db.expenses.count_documents({
+        "company_id": company_id,
+        "cost_center_id": cost_center_id
+    })
+    
+    # Check budgets
+    budgets_count = await db.cost_center_budgets.count_documents({
+        "company_id": company_id,
+        "cost_center_id": cost_center_id
+    })
+    
+    has_usage = employees_count > 0 or po_count > 0 or expenses_count > 0
+    
+    return {
+        "cost_center_id": cost_center_id,
+        "has_usage": has_usage,
+        "employees": employees_count,
+        "purchase_orders": po_count,
+        "expenses": expenses_count,
+        "budgets": budgets_count,
+        "can_hard_delete": not has_usage
+    }
+
+
+@people_ops_router.delete("/cost-centers/{cost_center_id}")
+async def delete_cost_center(
+    cost_center_id: str,
+    force: bool = False,
+    user: User = Depends(get_current_user)
+):
+    """Delete a cost center. If it has transactions, soft delete (deactivate). Use force=true to delete anyway."""
     company_id = user.company_id or user.active_org_id
     
     # Check if cost center has employees assigned
@@ -535,15 +581,37 @@ async def delete_cost_center(
         "cost_center_id": cost_center_id
     })
     
-    if employees_count > 0:
+    # Check if cost center has purchase orders
+    po_count = await db.purchase_orders.count_documents({
+        "company_id": company_id,
+        "cost_center_id": cost_center_id
+    })
+    
+    # Check if cost center has expenses
+    expenses_count = await db.expenses.count_documents({
+        "company_id": company_id,
+        "cost_center_id": cost_center_id
+    })
+    
+    has_transactions = employees_count > 0 or po_count > 0 or expenses_count > 0
+    
+    if has_transactions and not force:
         # Soft delete - just deactivate
         await db.cost_centers.update_one(
             {"cost_center_id": cost_center_id, "company_id": company_id},
             {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
         )
-        return {"message": f"Cost center deactivated (has {employees_count} employees)"}
+        return {
+            "message": "Cost center deactivated",
+            "soft_delete": True,
+            "reason": {
+                "employees": employees_count,
+                "purchase_orders": po_count,
+                "expenses": expenses_count
+            }
+        }
     
-    # Hard delete if no employees
+    # Hard delete
     result = await db.cost_centers.delete_one({
         "cost_center_id": cost_center_id,
         "company_id": company_id
@@ -552,7 +620,13 @@ async def delete_cost_center(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Cost center not found")
     
-    return {"message": "Cost center deleted"}
+    # Also delete associated budgets
+    await db.cost_center_budgets.delete_many({
+        "cost_center_id": cost_center_id,
+        "company_id": company_id
+    })
+    
+    return {"message": "Cost center deleted", "soft_delete": False}
 
 
 @people_ops_router.put("/cost-centers/{cost_center_id}/budget")

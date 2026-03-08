@@ -33,7 +33,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Building2, Plus, Pencil, Trash2, Users, DollarSign,
-  RefreshCw, ChevronRight, Settings2, ExternalLink, BarChart3
+  RefreshCw, ChevronRight, Settings2, ExternalLink, BarChart3, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -73,6 +73,12 @@ export function OrganizationStructureSection() {
     responsible_user_id: "",
     cc_type: ""
   });
+  
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ccToDelete, setCcToDelete] = useState(null);
+  const [ccUsage, setCcUsage] = useState(null);
+  const [loadingUsage, setLoadingUsage] = useState(false);
   
   // Users for selection
   const [users, setUsers] = useState([]);
@@ -231,6 +237,50 @@ export function OrganizationStructureSection() {
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || (isEs ? "Error al guardar" : "Error saving"));
+    }
+  };
+
+  // Check cost center usage before delete
+  const handleOpenDeleteCC = async (cc) => {
+    setCcToDelete(cc);
+    setLoadingUsage(true);
+    setDeleteDialogOpen(true);
+    
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/cost-centers/${cc.cost_center_id}/usage`,
+        { withCredentials: true }
+      );
+      setCcUsage(res.data);
+    } catch (error) {
+      setCcUsage(null);
+    } finally {
+      setLoadingUsage(false);
+    }
+  };
+
+  // Delete cost center
+  const handleDeleteCC = async (force = false) => {
+    if (!ccToDelete) return;
+    
+    try {
+      const res = await axios.delete(
+        `${API}/api/people-ops/cost-centers/${ccToDelete.cost_center_id}?force=${force}`,
+        { withCredentials: true }
+      );
+      
+      if (res.data.soft_delete) {
+        toast.success(isEs ? "Centro de costo desactivado" : "Cost center deactivated");
+      } else {
+        toast.success(isEs ? "Centro de costo eliminado" : "Cost center deleted");
+      }
+      
+      setDeleteDialogOpen(false);
+      setCcToDelete(null);
+      setCcUsage(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || (isEs ? "Error al eliminar" : "Error deleting"));
     }
   };
 
@@ -433,9 +483,19 @@ export function OrganizationStructureSection() {
                       <TableCell className="text-right">{formatCurrency(cc.annual_budget)}</TableCell>
                       <TableCell>{cc.responsible_name || "-"}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenCCDialog(cc)}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenCCDialog(cc)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleOpenDeleteCC(cc)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -647,6 +707,79 @@ export function OrganizationStructureSection() {
             </Button>
             <Button onClick={handleSaveCC}>
               {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Cost Center Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              {isEs ? "Eliminar Centro de Costo" : "Delete Cost Center"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {loadingUsage ? (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : ccUsage?.has_usage ? (
+              <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <p className="text-sm text-amber-800 font-medium">
+                    {isEs 
+                      ? `"${ccToDelete?.name}" tiene datos asociados:` 
+                      : `"${ccToDelete?.name}" has associated data:`}
+                  </p>
+                  <ul className="mt-2 text-sm text-amber-700 space-y-1">
+                    {ccUsage.employees > 0 && (
+                      <li>• {ccUsage.employees} {isEs ? "empleados" : "employees"}</li>
+                    )}
+                    {ccUsage.purchase_orders > 0 && (
+                      <li>• {ccUsage.purchase_orders} {isEs ? "órdenes de compra" : "purchase orders"}</li>
+                    )}
+                    {ccUsage.expenses > 0 && (
+                      <li>• {ccUsage.expenses} {isEs ? "gastos" : "expenses"}</li>
+                    )}
+                    {ccUsage.budgets > 0 && (
+                      <li>• {ccUsage.budgets} {isEs ? "presupuestos" : "budgets"}</li>
+                    )}
+                  </ul>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {isEs 
+                    ? "El centro de costo será desactivado en lugar de eliminado para preservar el historial."
+                    : "The cost center will be deactivated instead of deleted to preserve history."}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? `¿Estás seguro de eliminar "${ccToDelete?.name}"? Esta acción no se puede deshacer.`
+                  : `Are you sure you want to delete "${ccToDelete?.name}"? This action cannot be undone.`}
+              </p>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setDeleteDialogOpen(false);
+              setCcToDelete(null);
+              setCcUsage(null);
+            }}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => handleDeleteCC(false)}
+            >
+              {ccUsage?.has_usage 
+                ? (isEs ? "Desactivar" : "Deactivate")
+                : (isEs ? "Eliminar" : "Delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
