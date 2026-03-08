@@ -440,6 +440,109 @@ export function EmployeeProfile() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Banking Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  {isEs ? "Información Bancaria" : "Banking Info"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {editing ? (
+                  <>
+                    <div>
+                      <label className="text-sm text-muted-foreground">{isEs ? "Banco" : "Bank Name"}</label>
+                      <Select 
+                        value={editData.bank_name || "none"} 
+                        onValueChange={(v) => setEditData({ ...editData, bank_name: v === "none" ? "" : v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar banco..." : "Select bank..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{isEs ? "Sin asignar" : "Not set"}</SelectItem>
+                          <SelectItem value="Banco Popular">Banco Popular</SelectItem>
+                          <SelectItem value="Banreservas">Banreservas</SelectItem>
+                          <SelectItem value="BHD León">BHD León</SelectItem>
+                          <SelectItem value="Scotiabank">Scotiabank</SelectItem>
+                          <SelectItem value="Banco Santa Cruz">Banco Santa Cruz</SelectItem>
+                          <SelectItem value="Banco BDI">Banco BDI</SelectItem>
+                          <SelectItem value="Banco Caribe">Banco Caribe</SelectItem>
+                          <SelectItem value="Banco Promerica">Banco Promerica</SelectItem>
+                          <SelectItem value="Banco Vimenca">Banco Vimenca</SelectItem>
+                          <SelectItem value="Asociación Popular">Asociación Popular</SelectItem>
+                          <SelectItem value="Asociación Cibao">Asociación Cibao</SelectItem>
+                          <SelectItem value="Otro">{isEs ? "Otro" : "Other"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">{isEs ? "Tipo de Cuenta" : "Account Type"}</label>
+                      <Select 
+                        value={editData.bank_account_type || "none"} 
+                        onValueChange={(v) => setEditData({ ...editData, bank_account_type: v === "none" ? "" : v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar tipo..." : "Select type..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{isEs ? "Sin asignar" : "Not set"}</SelectItem>
+                          <SelectItem value="savings">{isEs ? "Ahorros" : "Savings"}</SelectItem>
+                          <SelectItem value="checking">{isEs ? "Corriente" : "Checking"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">{isEs ? "Número de Cuenta" : "Account Number"}</label>
+                      <Input
+                        value={editData.bank_account || ""}
+                        onChange={(e) => setEditData({ ...editData, bank_account: e.target.value })}
+                        placeholder="XXXX-XXXX-XXXX"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">{isEs ? "Moneda" : "Currency"}</label>
+                      <Select 
+                        value={editData.currency || "DOP"} 
+                        onValueChange={(v) => setEditData({ ...editData, currency: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DOP">DOP (Peso Dominicano)</SelectItem>
+                          <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isEs ? "Banco" : "Bank"}</span>
+                      <span>{employee.bank_name || "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isEs ? "Tipo de Cuenta" : "Account Type"}</span>
+                      <span>
+                        {employee.bank_account_type === "savings" ? (isEs ? "Ahorros" : "Savings") :
+                         employee.bank_account_type === "checking" ? (isEs ? "Corriente" : "Checking") : "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isEs ? "Número de Cuenta" : "Account Number"}</span>
+                      <span className="font-mono">{employee.bank_account || "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{isEs ? "Moneda" : "Currency"}</span>
+                      <Badge variant="outline">{employee.currency || "DOP"}</Badge>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
