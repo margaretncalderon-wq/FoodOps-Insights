@@ -724,55 +724,158 @@ async def _import_purchases(company_id: str, rows: list, month: int, year: int, 
 
 
 async def _import_inventory(company_id: str, rows: list, user_id: str) -> int:
-    """Import initial inventory"""
+    """Import inventory items with brand and supplier support"""
     count = 0
+    skipped = 0
     now = datetime.now(timezone.utc)
     
-    for row in rows:
+    logger.info(f"Starting inventory import with {len(rows)} rows")
+    
+    for idx, row in enumerate(rows):
         try:
-            quantity = float(row.get("quantity", row.get("cantidad", 0)) or 0)
-            unit_cost = float(row.get("unit_cost", row.get("costo_unitario", 0)) or 0)
-            total_value = float(row.get("total_value", row.get("valor_total", 0)) or quantity * unit_cost)
+            # Debug first row
+            if idx == 0:
+                logger.info(f"First inventory row keys: {list(row.keys())}")
+                logger.info(f"First inventory row data: {row}")
             
-            item = {
-                "id": str(uuid.uuid4()),
-                "company_id": company_id,
-                "sku": row.get("sku", row.get("codigo", "")),
-                "name": row.get("name", row.get("nombre", "")),
-                "category": row.get("category", row.get("categoria", "")),
-                "quantity": quantity,
-                "unit": row.get("unit", row.get("unidad", "unit")),
-                "unit_cost": unit_cost,
-                "total_value": total_value,
-                "source": "migration",
-                "created_by": user_id,
-                "created_at": now
-            }
+            # Parse name (required)
+            name = (
+                row.get("name") or row.get("nombre") or 
+                row.get("producto") or row.get("product") or ""
+            ).strip()
             
-            # Check if item exists by name
-            existing = await db.inventory_items.find_one({
-                "company_id": company_id,
-                "name": item["name"]
-            })
+            if not name:
+                skipped += 1
+                if skipped <= 5:
+                    logger.warning(f"Inventory row {idx}: No name found, skipping")
+                continue
+            
+            # Parse amounts - handle comma decimals
+            def parse_amount(val):
+                if not val:
+                    return 0.0
+                val_str = str(val).replace(",", ".").replace(" ", "").replace("$", "").replace("RD", "")
+                try:
+                    return float(val_str)
+                except:
+                    return 0.0
+            
+            # Get all fields with multiple variations
+            brand = (
+                row.get("marca") or row.get("brand") or ""
+            ).strip()
+            
+            supplier_name = (
+                row.get("proveedor") or row.get("supplier") or 
+                row.get("supplier_name") or ""
+            ).strip()
+            
+            category = (
+                row.get("categoria") or row.get("category") or 
+                row.get("tipo") or "General"
+            ).strip()
+            
+            unit_cost = parse_amount(
+                row.get("valor_x_unidad") or row.get("valor_unidad") or
+                row.get("unit_cost") or row.get("costo_unitario") or
+                row.get("precio") or row.get("price") or 0
+            )
+            
+            stock = parse_amount(
+                row.get("stock") or row.get("shock") or  # "shock" might be typo for stock
+                row.get("quantity") or row.get("cantidad") or
+                row.get("existencia") or 0
+            )
+            
+            unused = parse_amount(
+                row.get("no_utilizado") or row.get("unused") or 0
+            )
+            
+            total_value = parse_amount(
+                row.get("valor_total") or row.get("total_value") or 0
+            )
+            if total_value == 0 and stock > 0 and unit_cost > 0:
+                total_value = stock * unit_cost
+            
+            # Additional fields
+            sku = (row.get("sku") or row.get("codigo") or row.get("code") or "").strip()
+            unit = (row.get("unit") or row.get("unidad") or "unit").strip()
+            min_stock = parse_amount(row.get("min_stock") or row.get("stock_minimo") or 0)
+            location = (row.get("location") or row.get("ubicacion") or "").strip()
+            
+            # Find or create supplier if provided
+            supplier_id = None
+            if supplier_name:
+                supplier = await _find_or_create_vendor(company_id, "", supplier_name, user_id, category)
+                supplier_id = supplier.get("supplier_id")
+            
+            # Check if item exists by name or SKU
+            existing = None
+            if sku:
+                existing = await db.ingredients.find_one({
+                    "company_id": company_id,
+                    "sku": sku
+                })
+            if not existing:
+                name_escaped = escape_regex(name)
+                existing = await db.ingredients.find_one({
+                    "company_id": company_id,
+                    "name": {"$regex": f"^{name_escaped}$", "$options": "i"}
+                })
             
             if existing:
                 # Update existing item
-                await db.inventory_items.update_one(
-                    {"id": existing["id"]},
-                    {"$set": {
-                        "quantity": quantity,
-                        "unit_cost": unit_cost,
-                        "updated_at": now
-                    }}
+                update_data = {
+                    "current_stock": stock,
+                    "unit_cost": unit_cost,
+                    "updated_at": now.isoformat()
+                }
+                if brand:
+                    update_data["brand"] = brand
+                if supplier_id:
+                    update_data["preferred_supplier_id"] = supplier_id
+                    update_data["supplier_name"] = supplier_name
+                if category:
+                    update_data["category"] = category
+                if unused > 0:
+                    update_data["unused_quantity"] = unused
+                
+                await db.ingredients.update_one(
+                    {"ingredient_id": existing["ingredient_id"]},
+                    {"$set": update_data}
                 )
             else:
-                await db.inventory_items.insert_one(item)
+                # Create new inventory item
+                item = {
+                    "ingredient_id": f"ing_{uuid.uuid4().hex[:12]}",
+                    "company_id": company_id,
+                    "sku": sku or f"SKU-{uuid.uuid4().hex[:6].upper()}",
+                    "name": name,
+                    "brand": brand or None,
+                    "category": category,
+                    "preferred_supplier_id": supplier_id,
+                    "supplier_name": supplier_name or None,
+                    "unit": unit,
+                    "unit_cost": round(unit_cost, 2),
+                    "current_stock": stock,
+                    "min_stock": min_stock,
+                    "unused_quantity": unused,
+                    "total_value": round(total_value, 2),
+                    "location": location or None,
+                    "status": "active",
+                    "source": "migration",
+                    "created_by": user_id,
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat()
+                }
+                await db.ingredients.insert_one(item)
             
             count += 1
         except Exception as e:
-            logger.error(f"Error importing inventory row: {e}")
+            logger.error(f"Error importing inventory row {idx}: {e}")
             continue
     
+    logger.info(f"Inventory import complete: {count} imported, {skipped} skipped")
     return count
 
 
