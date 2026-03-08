@@ -268,6 +268,25 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
         y = doc.lastAutoTable.finalY + 15;
       }
       
+      // Credit balance (if any)
+      if (payment?.unapplied_amount > 0) {
+        doc.setFillColor(239, 246, 255); // Light blue
+        doc.roundedRect(margin, y, pageWidth - (margin * 2), 28, 3, 3, "F");
+        doc.setDrawColor(59, 130, 246);
+        doc.roundedRect(margin, y, pageWidth - (margin * 2), 28, 3, 3, "S");
+        
+        doc.setFontSize(9);
+        doc.setTextColor(37, 99, 235);
+        doc.text(isEs ? "CRÉDITO A FAVOR" : "CREDIT BALANCE", margin + 10, y + 10);
+        doc.setFontSize(8);
+        doc.text(isEs ? "Disponible para futuras facturas" : "Available for future invoices", margin + 10, y + 18);
+        
+        doc.setFontSize(16);
+        doc.text(formatCurrency(payment.unapplied_amount), pageWidth - margin - 10, y + 16, { align: "right" });
+        
+        y += 35;
+      }
+      
       // Footer
       doc.setDrawColor(229, 231, 235);
       doc.line(margin, y, pageWidth - margin, y);
@@ -443,6 +462,25 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Credit Balance - Only show if there's available credit */}
+          {payment.unapplied_amount > 0 && (
+            <div className="credit-section mx-6 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs uppercase text-blue-600 font-semibold mb-1">
+                    {isEs ? "Crédito a Favor" : "Credit Balance"}
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    {isEs ? "Disponible para aplicar a futuras facturas" : "Available to apply to future invoices"}
+                  </p>
+                </div>
+                <p className="text-2xl font-bold text-blue-700">
+                  {formatCurrency(payment.unapplied_amount)}
+                </p>
+              </div>
             </div>
           )}
 
