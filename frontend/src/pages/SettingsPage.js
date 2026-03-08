@@ -46,6 +46,7 @@ import IndustryConfigSection from "../components/settings/IndustryConfigSection"
 import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
 import PartnerCapabilitiesSection from "../components/settings/PartnerCapabilitiesSection";
 import { CostCentersSection } from "../components/people-ops/CostCentersSection";
+import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
@@ -1062,8 +1063,12 @@ export default function SettingsPage() {
                     <Percent className="w-4 h-4 mr-2" />
                     {language === "es" ? "Impuestos" : "Taxes"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveSettingsTab("cost-centers")} className={activeSettingsTab === "cost-centers" ? "bg-emerald-50 text-emerald-700" : ""}>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("org-structure")} className={activeSettingsTab === "org-structure" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <Building2 className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Estructura Org." : "Org Structure"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("cost-centers")} className={activeSettingsTab === "cost-centers" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <DollarSign className="w-4 h-4 mr-2" />
                     Cost Centers
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -4056,6 +4061,11 @@ Mantel Blanco, , 10, 3`}
           {/* Import/Export Tab */}
           <TabsContent value="import-export">
             <ImportExportSection filter="business" />
+          </TabsContent>
+
+          {/* Organization Structure Tab */}
+          <TabsContent value="org-structure">
+            <OrganizationStructureSection />
           </TabsContent>
 
           {/* Cost Centers Tab */}

@@ -19,11 +19,12 @@ import { BenefitsInKindSection } from "../components/people-ops/BenefitsInKindSe
 import { RecruitmentSection } from "../components/people-ops/RecruitmentSection";
 import { OnboardingSection } from "../components/people-ops/OnboardingSection";
 import { PerformanceSection } from "../components/people-ops/PerformanceSection";
+import { OrgChartSection } from "../components/people-ops/OrgChartSection";
 
 // Icons
 import {
   Users, Wallet, Clock,
-  Lock, Settings,
+  Lock, Settings, Building2,
   Calendar, CreditCard, UserMinus, DollarSign, Gift, FileSpreadsheet, ExternalLink, ChevronDown,
   UserPlus, Target, Award
 } from "lucide-react";
@@ -191,6 +192,20 @@ export default function PeopleOpsPage() {
             >
               <Users className="w-4 h-4" />
               {isEs ? "Directorio" : "Directory"}
+            </button>
+
+            {/* Org Chart Tab */}
+            <button
+              onClick={() => handleTabChange("org-chart", "/people-ops/org-chart")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "org-chart"
+                  ? "border-violet-600 text-violet-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+              }`}
+              data-testid="nav-org-chart"
+            >
+              <Building2 className="w-4 h-4" />
+              {isEs ? "Organigrama" : "Org Chart"}
             </button>
 
             {/* Payroll Dropdown */}
@@ -386,6 +401,7 @@ export default function PeopleOpsPage() {
         <Routes>
           <Route index element={<Navigate to="directory" replace />} />
           <Route path="directory" element={<EmployeeDirectory />} />
+          <Route path="org-chart" element={<OrgChartSection />} />
           <Route path="employee/:employeeId" element={<EmployeeProfile />} />
           <Route path="payroll" element={<PayrollSection />} />
           <Route path="payroll/:periodId" element={<PayrollPeriodView />} />

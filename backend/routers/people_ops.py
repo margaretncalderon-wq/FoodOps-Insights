@@ -10,6 +10,7 @@ import io
 from config import db
 from models.auth import User
 from models.people_ops import (
+    DepartmentCreate, Department, DepartmentUpdate,
     CostCenterCreate, CostCenter, CostCenterUpdate, CostCenterBudgetUpdate,
     EmployeeCreate, Employee, EmployeeUpdate,
     SalaryChangeCreate, SalaryChange,
@@ -68,6 +69,228 @@ async def get_employee_self_service(user: User):
     }, {"_id": 0})
     
     return company_id, employee
+
+
+# ==================== DEPARTMENTS ====================
+
+@people_ops_router.get("/departments")
+async def get_departments_list(user: User = Depends(get_current_user)):
+    """Get all departments for the organization with employee/cost center counts"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    departments = await db.departments.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("display_order", 1).to_list(100)
+    
+    # Get counts for each department
+    for dept in departments:
+        dept_id = dept.get("department_id")
+        
+        # Count employees
+        emp_count = await db.employees.count_documents({
+            "company_id": company_id,
+            "department_id": dept_id,
+            "status": {"$ne": "terminated"}
+        })
+        dept["employee_count"] = emp_count
+        
+        # Count cost centers
+        cc_count = await db.cost_centers.count_documents({
+            "company_id": company_id,
+            "department_id": dept_id
+        })
+        dept["cost_center_count"] = cc_count
+    
+    return departments
+
+
+@people_ops_router.post("/departments")
+async def create_department(
+    data: DepartmentCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a new department"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Check for duplicates
+    existing = await db.departments.find_one({
+        "company_id": company_id,
+        "name": data.name
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Department with this name already exists")
+    
+    now = datetime.now(timezone.utc)
+    department_id = f"dept_{uuid.uuid4().hex[:12]}"
+    
+    # Get head user name if provided
+    head_name = None
+    if data.head_user_id:
+        head_user = await db.users.find_one(
+            {"user_id": data.head_user_id},
+            {"_id": 0, "name": 1}
+        )
+        head_name = head_user.get("name") if head_user else None
+    
+    doc = {
+        "department_id": department_id,
+        "company_id": company_id,
+        "name": data.name,
+        "code": data.code,
+        "description": data.description,
+        "head_user_id": data.head_user_id,
+        "head_name": head_name,
+        "parent_department_id": data.parent_department_id,
+        "display_order": data.display_order,
+        "is_active": data.is_active,
+        "employee_count": 0,
+        "cost_center_count": 0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.departments.insert_one(doc)
+    del doc["_id"]
+    
+    return doc
+
+
+@people_ops_router.get("/departments/{department_id}")
+async def get_department(
+    department_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get a specific department with details"""
+    company_id = user.company_id or user.active_org_id
+    
+    dept = await db.departments.find_one(
+        {"company_id": company_id, "department_id": department_id},
+        {"_id": 0}
+    )
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    
+    # Get employees in this department
+    employees = await db.employees.find(
+        {"company_id": company_id, "department_id": department_id, "status": {"$ne": "terminated"}},
+        {"_id": 0, "employee_id": 1, "full_name": 1, "job_title": 1, "profile_photo": 1}
+    ).to_list(100)
+    dept["employees"] = employees
+    
+    # Get cost centers in this department
+    cost_centers = await db.cost_centers.find(
+        {"company_id": company_id, "department_id": department_id},
+        {"_id": 0, "cost_center_id": 1, "name": 1, "code": 1, "annual_budget": 1}
+    ).to_list(50)
+    dept["cost_centers"] = cost_centers
+    
+    return dept
+
+
+@people_ops_router.put("/departments/{department_id}")
+async def update_department(
+    department_id: str,
+    data: DepartmentUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Update a department"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    # Verify exists
+    existing = await db.departments.find_one(
+        {"company_id": company_id, "department_id": department_id}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Department not found")
+    
+    update_doc = {"updated_at": now.isoformat()}
+    
+    if data.name is not None:
+        update_doc["name"] = data.name
+    if data.code is not None:
+        update_doc["code"] = data.code
+    if data.description is not None:
+        update_doc["description"] = data.description
+    if data.head_user_id is not None:
+        update_doc["head_user_id"] = data.head_user_id
+        # Get head name
+        if data.head_user_id:
+            head_user = await db.users.find_one(
+                {"user_id": data.head_user_id},
+                {"_id": 0, "name": 1}
+            )
+            update_doc["head_name"] = head_user.get("name") if head_user else None
+        else:
+            update_doc["head_name"] = None
+    if data.parent_department_id is not None:
+        update_doc["parent_department_id"] = data.parent_department_id
+    if data.display_order is not None:
+        update_doc["display_order"] = data.display_order
+    if data.is_active is not None:
+        update_doc["is_active"] = data.is_active
+    
+    await db.departments.update_one(
+        {"department_id": department_id},
+        {"$set": update_doc}
+    )
+    
+    # Also update denormalized name in employees if name changed
+    if data.name is not None:
+        await db.employees.update_many(
+            {"company_id": company_id, "department_id": department_id},
+            {"$set": {"department": data.name}}
+        )
+    
+    updated = await db.departments.find_one(
+        {"department_id": department_id},
+        {"_id": 0}
+    )
+    return updated
+
+
+@people_ops_router.delete("/departments/{department_id}")
+async def delete_department(
+    department_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete a department (soft delete - set inactive)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Check if has employees or cost centers
+    emp_count = await db.employees.count_documents({
+        "company_id": company_id,
+        "department_id": department_id,
+        "status": {"$ne": "terminated"}
+    })
+    if emp_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete department with {emp_count} active employees. Reassign them first."
+        )
+    
+    cc_count = await db.cost_centers.count_documents({
+        "company_id": company_id,
+        "department_id": department_id
+    })
+    if cc_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete department with {cc_count} cost centers. Reassign them first."
+        )
+    
+    # Soft delete
+    await db.departments.update_one(
+        {"department_id": department_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Department deactivated", "department_id": department_id}
 
 
 # ==================== COST CENTERS ====================
@@ -193,6 +416,8 @@ async def create_cost_center(
         "name": data.name,
         "code": data.code,
         "description": data.description,
+        "department_id": data.department_id,
+        "department_name": None,  # Will be populated below
         "annual_budget": data.annual_budget,
         "current_spend": 0.0,
         "responsible_user_id": data.responsible_user_id,
@@ -202,10 +427,18 @@ async def create_cost_center(
         # Extended fields
         "parent_cost_center_id": data.parent_cost_center_id,
         "cc_type": data.cc_type,
-        "default_budget_enabled": data.default_budget_enabled,
+        "default_budget_enabled": True,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
+    
+    # Get department name if provided
+    if data.department_id:
+        dept = await db.departments.find_one(
+            {"department_id": data.department_id},
+            {"_id": 0, "name": 1}
+        )
+        doc["department_name"] = dept.get("name") if dept else None
     
     await db.cost_centers.insert_one(doc)
     del doc["_id"]

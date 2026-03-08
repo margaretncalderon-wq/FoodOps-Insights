@@ -5,6 +5,48 @@ from datetime import datetime
 from enum import Enum
 
 
+# ==================== DEPARTMENTS ====================
+
+class DepartmentCreate(BaseModel):
+    """Create a new department"""
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    head_user_id: Optional[str] = None  # Department head/manager
+    parent_department_id: Optional[str] = None  # For hierarchy
+    display_order: int = 0
+    is_active: bool = True
+
+
+class Department(BaseModel):
+    """Department model - organizational grouping above Cost Centers"""
+    department_id: str
+    company_id: str
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    head_user_id: Optional[str] = None
+    head_name: Optional[str] = None  # Denormalized for display
+    parent_department_id: Optional[str] = None
+    display_order: int = 0
+    is_active: bool = True
+    employee_count: int = 0  # Calculated
+    cost_center_count: int = 0  # Calculated
+    created_at: datetime
+    updated_at: datetime
+
+
+class DepartmentUpdate(BaseModel):
+    """Update department fields"""
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    head_user_id: Optional[str] = None
+    parent_department_id: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
 # ==================== COST CENTERS ====================
 
 # Cost Center Types (generic, multi-industry)
@@ -21,6 +63,7 @@ class CostCenterCreate(BaseModel):
     name: str
     code: Optional[str] = None  # Accounting code
     description: Optional[str] = None
+    department_id: Optional[str] = None  # Link to parent department
     annual_budget: Optional[float] = None
     responsible_user_id: Optional[str] = None
     is_active: bool = True
@@ -45,6 +88,8 @@ class CostCenter(BaseModel):
     name: str
     code: Optional[str] = None
     description: Optional[str] = None
+    department_id: Optional[str] = None  # Link to parent department
+    department_name: Optional[str] = None  # Denormalized for display
     annual_budget: Optional[float] = None
     # Granular budgets
     monthly_budgets: Optional[dict] = None  # {"2026-01": 5000, "2026-02": 6000, ...}
@@ -66,6 +111,7 @@ class CostCenterUpdate(BaseModel):
     name: Optional[str] = None
     code: Optional[str] = None
     description: Optional[str] = None
+    department_id: Optional[str] = None
     annual_budget: Optional[float] = None
     responsible_user_id: Optional[str] = None
     is_active: Optional[bool] = None
@@ -113,7 +159,8 @@ class EmployeeCreate(BaseModel):
     
     # Employment Info
     job_title: str
-    department: Optional[str] = None
+    department_id: Optional[str] = None  # FK to departments collection
+    department: Optional[str] = None  # Legacy string field (auto-sync from department_id)
     cost_center_id: Optional[str] = None
     manager_id: Optional[str] = None  # Reports to
     hire_date: str
@@ -163,7 +210,8 @@ class Employee(BaseModel):
     # Employment Info
     employee_number: Optional[str] = None  # Auto-generated
     job_title: str
-    department: Optional[str] = None
+    department_id: Optional[str] = None  # FK to departments collection
+    department: Optional[str] = None  # Legacy string (auto-sync from department_id)
     cost_center_id: Optional[str] = None
     cost_center_name: Optional[str] = None
     manager_id: Optional[str] = None
