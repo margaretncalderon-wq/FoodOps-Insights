@@ -24,6 +24,7 @@ Comprehensive ERP application for event management agencies with modules for Peo
 - **Settings UI**: New "Organization Structure" section in Settings > Finance
   - Department CRUD with code, head, parent department
   - Cost Center CRUD with department, type, budget, owner
+  - Delete Cost Centers with usage warning (soft delete if has transactions)
 - **Org Chart Visualization**: New "Org Chart" tab in People Ops module
   - Manager-based hierarchy view
   - Department-based grouping view
@@ -32,6 +33,12 @@ Comprehensive ERP application for event management agencies with modules for Peo
 - **Architecture Cleanup**: Removed duplicate "Cost Centers" tab from Settings > Finance
   - Settings > Org Structure = ONLY place to create/configure Cost Centers (structure)
   - Business Clarity > CC Budgets = ONLY place to manage budgets and analyze (operations)
+- **Employee Form Enhancement** (March 8, 2026):
+  - Job Role dropdown (pulls from Recruitment > Job Postings)
+  - Department dropdown (pulls from Settings > Org Structure)
+  - "Reports To" dropdown (select manager)
+  - "Is Manager" checkbox (for org chart hierarchy)
+  - Added `is_manager`, `job_role_id`, `department_id` to employee model
 
 ### Payment Recording Flow (March 8, 2026)
 - **Bug Fix**: Fixed critical bug preventing modal from advancing to Step 2 after client selection

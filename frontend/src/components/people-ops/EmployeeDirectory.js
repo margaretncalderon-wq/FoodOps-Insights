@@ -61,6 +61,9 @@ export function EmployeeDirectory() {
   const [statusFilter, setStatusFilter] = useState("active");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [departments, setDepartments] = useState([]);
+  const [orgDepartments, setOrgDepartments] = useState([]); // From Org Structure
+  const [jobPostings, setJobPostings] = useState([]); // Job roles catalog
+  const [managers, setManagers] = useState([]); // Employees who are managers
   const [costCenters, setCostCenters] = useState([]);
   const [stats, setStats] = useState(null);
   
@@ -73,8 +76,12 @@ export function EmployeeDirectory() {
     email: "",
     phone: "",
     job_title: "",
+    job_role_id: "",
     department: "",
+    department_id: "",
     cost_center_id: "",
+    manager_id: "",
+    is_manager: false,
     hire_date: new Date().toISOString().split("T")[0],
     contract_type: "full_time",
     base_salary: 0,
@@ -84,16 +91,24 @@ export function EmployeeDirectory() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empRes, deptRes, ccRes, statsRes] = await Promise.all([
+      const [empRes, deptRes, orgDeptRes, ccRes, statsRes, jobsRes] = await Promise.all([
         axios.get(`${API}/api/people-ops/employees?status=${statusFilter}${departmentFilter ? `&department=${departmentFilter}` : ''}`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/reference/departments`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/departments`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/employees/stats/summary`, { withCredentials: true })
+        axios.get(`${API}/api/people-ops/employees/stats/summary`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/recruitment/jobs`, { withCredentials: true })
       ]);
       setEmployees(empRes.data);
       setDepartments(deptRes.data);
+      setOrgDepartments(orgDeptRes.data || []);
       setCostCenters(ccRes.data);
       setStats(statsRes.data);
+      setJobPostings(jobsRes.data || []);
+      
+      // Filter managers from employees
+      const mgrs = empRes.data.filter(e => e.is_manager && e.status === "active");
+      setManagers(mgrs);
     } catch (err) {
       console.error("Error fetching employees:", err);
     }
@@ -114,22 +129,43 @@ export function EmployeeDirectory() {
   });
 
   const handleCreateEmployee = async () => {
-    if (!formData.first_name || !formData.last_name || !formData.email || !formData.job_title) {
+    if (!formData.first_name || !formData.last_name || !formData.email) {
       alert(isEs ? "Completa los campos requeridos" : "Complete required fields");
       return;
     }
+    
+    // Get job title from job posting if selected
+    let jobTitle = formData.job_title;
+    if (formData.job_role_id && !jobTitle) {
+      const job = jobPostings.find(j => j.id === formData.job_role_id);
+      jobTitle = job?.title || "";
+    }
+    
+    // Get department name if selected
+    let deptName = formData.department;
+    if (formData.department_id && !deptName) {
+      const dept = orgDepartments.find(d => d.department_id === formData.department_id);
+      deptName = dept?.name || "";
+    }
+    
+    const payload = {
+      ...formData,
+      job_title: jobTitle,
+      department: deptName
+    };
     
     setSaving(true);
     try {
       const res = await axios.post(
         `${API}/api/people-ops/employees`,
-        formData,
+        payload,
         { withCredentials: true }
       );
       setDialogOpen(false);
       setFormData({
         first_name: "", last_name: "", email: "", phone: "",
-        job_title: "", department: "", cost_center_id: "",
+        job_title: "", job_role_id: "", department: "", department_id: "",
+        cost_center_id: "", manager_id: "", is_manager: false,
         hire_date: new Date().toISOString().split("T")[0],
         contract_type: "full_time", base_salary: 0, payment_frequency: "biweekly"
       });
@@ -349,35 +385,96 @@ export function EmployeeDirectory() {
               </p>
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Puesto *" : "Job Title *"}</label>
-              <Input
-                data-testid="employee-job-title"
-                value={formData.job_title}
-                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-              />
+              <label className="text-sm font-medium">{isEs ? "Puesto *" : "Job Role *"}</label>
+              <Select 
+                value={formData.job_role_id || "none"} 
+                onValueChange={(v) => {
+                  const job = jobPostings.find(j => j.id === v);
+                  setFormData({ 
+                    ...formData, 
+                    job_role_id: v === "none" ? "" : v,
+                    job_title: job?.title || formData.job_title
+                  });
+                }}
+              >
+                <SelectTrigger data-testid="employee-job-role">
+                  <SelectValue placeholder={isEs ? "Seleccionar puesto..." : "Select role..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Seleccionar..." : "Select..."}</SelectItem>
+                  {jobPostings.map(job => (
+                    <SelectItem key={job.id} value={job.id}>
+                      {job.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Crear puestos en Recruitment > Vacantes" : "Create roles in Recruitment > Job Postings"}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Departamento" : "Department"}</label>
-              <Input
-                data-testid="employee-department"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                placeholder={isEs ? "Ej: Ventas, Marketing..." : "E.g.: Sales, Marketing..."}
-              />
+              <label className="text-sm font-medium">{isEs ? "Departamento *" : "Department *"}</label>
+              <Select 
+                value={formData.department_id || "none"} 
+                onValueChange={(v) => {
+                  const dept = orgDepartments.find(d => d.department_id === v);
+                  setFormData({ 
+                    ...formData, 
+                    department_id: v === "none" ? "" : v,
+                    department: dept?.name || formData.department
+                  });
+                }}
+              >
+                <SelectTrigger data-testid="employee-department">
+                  <SelectValue placeholder={isEs ? "Seleccionar departamento..." : "Select department..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Seleccionar..." : "Select..."}</SelectItem>
+                  {orgDepartments.filter(d => d.is_active !== false).map(dept => (
+                    <SelectItem key={dept.department_id} value={dept.department_id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Crear en Settings > Org Structure" : "Create in Settings > Org Structure"}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Cost Center</label>
               <Select 
-                value={formData.cost_center_id} 
-                onValueChange={(v) => setFormData({ ...formData, cost_center_id: v })}
+                value={formData.cost_center_id || "none"} 
+                onValueChange={(v) => setFormData({ ...formData, cost_center_id: v === "none" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {costCenters.map(cc => (
+                  <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                  {costCenters.filter(cc => cc.is_active !== false).map(cc => (
                     <SelectItem key={cc.cost_center_id} value={cc.cost_center_id}>
                       {cc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Reporta a" : "Reports To"}</label>
+              <Select 
+                value={formData.manager_id || "none"} 
+                onValueChange={(v) => setFormData({ ...formData, manager_id: v === "none" ? "" : v })}
+              >
+                <SelectTrigger data-testid="employee-manager">
+                  <SelectValue placeholder={isEs ? "Seleccionar manager..." : "Select manager..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin manager" : "No manager"}</SelectItem>
+                  {managers.map(mgr => (
+                    <SelectItem key={mgr.employee_id} value={mgr.employee_id}>
+                      {mgr.full_name} - {mgr.job_title}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -408,6 +505,23 @@ export function EmployeeDirectory() {
                   <SelectItem value="intern">{isEs ? "Pasante" : "Intern"}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            {/* Manager Checkbox */}
+            <div className="col-span-2 flex items-center gap-3 p-3 bg-violet-50 rounded-lg border border-violet-100">
+              <input
+                type="checkbox"
+                id="is_manager"
+                checked={formData.is_manager}
+                onChange={(e) => setFormData({ ...formData, is_manager: e.target.checked })}
+                className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              />
+              <label htmlFor="is_manager" className="text-sm">
+                <span className="font-medium">{isEs ? "Es Manager" : "Is Manager"}</span>
+                <span className="text-muted-foreground ml-2">
+                  {isEs ? "(Aparecerá en el organigrama como supervisor)" : "(Will appear in org chart as supervisor)"}
+                </span>
+              </label>
             </div>
 
             {/* Compensation */}

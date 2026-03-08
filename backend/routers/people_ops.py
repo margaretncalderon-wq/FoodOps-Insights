@@ -1076,11 +1076,14 @@ async def create_employee(
         
         # Employment
         "job_title": data.job_title,
+        "job_role_id": data.job_role_id,
         "department": data.department,
+        "department_id": data.department_id,
         "cost_center_id": data.cost_center_id,
         "cost_center_name": cost_center_name,
         "manager_id": data.manager_id,
         "manager_name": manager_name,
+        "is_manager": data.is_manager,
         "hire_date": data.hire_date,
         "termination_date": None,
         "contract_type": data.contract_type.value,

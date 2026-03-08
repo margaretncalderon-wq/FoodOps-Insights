@@ -159,10 +159,12 @@ class EmployeeCreate(BaseModel):
     
     # Employment Info
     job_title: str
+    job_role_id: Optional[str] = None  # FK to job_postings for role catalog
     department_id: Optional[str] = None  # FK to departments collection
     department: Optional[str] = None  # Legacy string field (auto-sync from department_id)
     cost_center_id: Optional[str] = None
     manager_id: Optional[str] = None  # Reports to
+    is_manager: bool = False  # Flag for org chart hierarchy
     hire_date: str
     contract_type: ContractType = ContractType.FULL_TIME
     status: EmployeeStatus = EmployeeStatus.ACTIVE
@@ -210,12 +212,14 @@ class Employee(BaseModel):
     # Employment Info
     employee_number: Optional[str] = None  # Auto-generated
     job_title: str
+    job_role_id: Optional[str] = None  # FK to job_postings for role catalog
     department_id: Optional[str] = None  # FK to departments collection
     department: Optional[str] = None  # Legacy string (auto-sync from department_id)
     cost_center_id: Optional[str] = None
     cost_center_name: Optional[str] = None
     manager_id: Optional[str] = None
     manager_name: Optional[str] = None
+    is_manager: bool = False  # Flag for org chart hierarchy
     hire_date: str
     termination_date: Optional[str] = None
     contract_type: ContractType = ContractType.FULL_TIME
@@ -272,9 +276,12 @@ class EmployeeUpdate(BaseModel):
     
     # Employment Info
     job_title: Optional[str] = None
+    job_role_id: Optional[str] = None
+    department_id: Optional[str] = None
     department: Optional[str] = None
     cost_center_id: Optional[str] = None
     manager_id: Optional[str] = None
+    is_manager: Optional[bool] = None
     contract_type: Optional[ContractType] = None
     status: Optional[EmployeeStatus] = None
     termination_date: Optional[str] = None
