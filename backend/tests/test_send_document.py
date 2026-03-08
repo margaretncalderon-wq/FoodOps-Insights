@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://erp-payments-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://org-config-preview.preview.emergentagent.com').rstrip('/')
 
 class TestSendDocument:
     """Test the Send Document to Client feature"""

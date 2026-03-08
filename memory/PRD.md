@@ -17,6 +17,19 @@ Comprehensive ERP application for event management agencies with modules for Peo
 
 ## Completed Features (March 2026)
 
+### Organization Structure Module (March 8, 2026)
+- **New Departments Layer**: Created `departments` collection as primary organizational grouping
+- **Cost Centers Enhancement**: Extended with `department_id` foreign key
+- **Employee Linking**: Added `department_id` to employees model
+- **Settings UI**: New "Organization Structure" section in Settings > Finance
+  - Department CRUD with code, head, parent department
+  - Cost Center CRUD with department, type, budget, owner
+- **Org Chart Visualization**: New "Org Chart" tab in People Ops module
+  - Manager-based hierarchy view
+  - Department-based grouping view
+- **Bug Fix**: Fixed blank screen when opening "Add Department" / "Add Cost Center" modals
+  - Root cause: Select components needed controlled values with fallback to "none"
+
 ### Payment Recording Flow (March 8, 2026)
 - **Bug Fix**: Fixed critical bug preventing modal from advancing to Step 2 after client selection
 - Multi-step payment workflow:
@@ -56,6 +69,9 @@ Comprehensive ERP application for event management agencies with modules for Peo
 ## Database Schema
 
 ### Key Collections
+- `departments` (NEW): `{department_id, company_id, name, code, head_user_id, parent_department_id, is_active}`
+- `cost_centers` (MODIFIED): Added `department_id` FK to departments
+- `employees` (MODIFIED): Added `department_id` FK to departments (old `department` string field remains for migration)
 - `suppliers`: Unified supplier data with `is_preferred` flag
 - `partner_capabilities`: Custom capability definitions
 - `ingredients`: Inventory items with `inventory_type`, `brand`
@@ -82,32 +98,47 @@ Comprehensive ERP application for event management agencies with modules for Peo
 - **Demo User**: demo.agency@kora.com / Evoque2024!
 
 ## Known Issues
-- Intermittent session logout (not yet investigated)
+- **P1**: Unstable user sessions - Sessions expire prematurely causing random logouts (recurring issue, needs investigation)
 - Emergent LLM Key budget exhausted
 
 ## Upcoming Tasks (Prioritized)
-1. **P1**: Staffdo.com Integration - Job posting sync
-2. **P2**: Meta/TikTok social media integration
-3. **P2**: Email marketing provider (Mailchimp/Brevo)
-4. **P3**: Complete i18n implementation
-5. **P3**: Kora Comms (WhatsApp)
-6. **P4**: Setup wizard for new users
+1. **P1**: Fix unstable user sessions - Investigate token expiration and auth middleware
+2. **P1**: Backfill `department_id` for existing employees - Migration script needed
+3. **P2**: Enhance Business Clarity reports with Department grouping
+4. **P2**: Staffdo.com Integration - Job posting sync
+5. **P2**: Meta/TikTok social media integration
+6. **P2**: Email marketing provider (Mailchimp/Brevo)
+7. **P3**: Complete i18n implementation
+8. **P3**: Kora Comms (WhatsApp)
+9. **P4**: Setup wizard for new users
 
 ## Architecture
 ```
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── migration.py      # Data import logic
-│   │   ├── exports.py        # Excel exports
-│   │   ├── itbis.py          # Tax reports
-│   │   └── partners.py       # Partner/Supplier management
-│   └── server.py             # Main API (inventory endpoints)
+│   │   ├── auth.py            # Authentication + finance setup wizard
+│   │   ├── business_clarity.py # Financial reports, CC budgets
+│   │   ├── people_ops.py      # Department CRUD, employee management
+│   │   ├── migration.py       # Data import logic
+│   │   ├── exports.py         # Excel exports
+│   │   ├── itbis.py           # Tax reports
+│   │   └── partners.py        # Partner/Supplier management
+│   └── server.py              # Main API, model definitions
 └── frontend/
     └── src/
-        ├── components/Shared/Suppliers/  # Reusable supplier UI
+        ├── components/
+        │   ├── settings/
+        │   │   └── OrganizationStructureSection.js  # Dept/CC management
+        │   ├── ui/            # Shadcn components
+        │   └── Shared/Suppliers/
         └── pages/
-            ├── FoodOps/      # Culinary Intelligence
-            ├── Partners/     # Partner management
-            └── Settings/     # Configuration pages
+            ├── PeopleOps/
+            │   └── OrgChart.js    # Org visualization
+            ├── BusinessClarity/
+            │   ├── PaymentsSection.js
+            │   └── CostCenterBudgetsSection.js
+            ├── FoodOps/       # Culinary Intelligence
+            ├── Partners/      # Partner management
+            └── Settings/      # Configuration pages
 ```

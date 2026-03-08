@@ -10,7 +10,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://erp-payments-fix.preview.emergentagent.com"
+    BASE_URL = "https://org-config-preview.preview.emergentagent.com"
 
 # Test credentials
 TEST_EMAIL = "margaret.n.calderon@gmail.com"

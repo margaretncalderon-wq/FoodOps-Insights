@@ -481,15 +481,15 @@ export function OrganizationStructureSection() {
               <div>
                 <Label>{isEs ? "Responsable" : "Department Head"}</Label>
                 <Select
-                  value={deptForm.head_user_id}
-                  onValueChange={(v) => setDeptForm({...deptForm, head_user_id: v})}
+                  value={deptForm.head_user_id || "none"}
+                  onValueChange={(v) => setDeptForm({...deptForm, head_user_id: v === "none" ? "" : v})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                    {users.map((u) => (
+                    <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                    {(users || []).map((u) => (
                       <SelectItem key={u.user_id} value={u.user_id}>{u.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -498,15 +498,15 @@ export function OrganizationStructureSection() {
               <div>
                 <Label>{isEs ? "Departamento Padre" : "Parent Department"}</Label>
                 <Select
-                  value={deptForm.parent_department_id}
-                  onValueChange={(v) => setDeptForm({...deptForm, parent_department_id: v})}
+                  value={deptForm.parent_department_id || "none"}
+                  onValueChange={(v) => setDeptForm({...deptForm, parent_department_id: v === "none" ? "" : v})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Ninguno" : "None"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isEs ? "Ninguno" : "None"}</SelectItem>
-                    {departments.filter(d => d.department_id !== editingDept?.department_id).map((d) => (
+                    <SelectItem value="none">{isEs ? "Ninguno" : "None"}</SelectItem>
+                    {(departments || []).filter(d => d.department_id !== editingDept?.department_id).map((d) => (
                       <SelectItem key={d.department_id} value={d.department_id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -556,15 +556,15 @@ export function OrganizationStructureSection() {
               <div>
                 <Label>{isEs ? "Departamento" : "Department"}</Label>
                 <Select
-                  value={ccForm.department_id}
-                  onValueChange={(v) => setCcForm({...ccForm, department_id: v})}
+                  value={ccForm.department_id || "none"}
+                  onValueChange={(v) => setCcForm({...ccForm, department_id: v === "none" ? "" : v})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                    {departments.filter(d => d.is_active !== false).map((d) => (
+                    <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                    {(departments || []).filter(d => d.is_active !== false).map((d) => (
                       <SelectItem key={d.department_id} value={d.department_id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -573,13 +573,14 @@ export function OrganizationStructureSection() {
               <div>
                 <Label>{isEs ? "Tipo" : "Type"}</Label>
                 <Select
-                  value={ccForm.cc_type}
-                  onValueChange={(v) => setCcForm({...ccForm, cc_type: v})}
+                  value={ccForm.cc_type || "none"}
+                  onValueChange={(v) => setCcForm({...ccForm, cc_type: v === "none" ? "" : v})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin tipo" : "No type"}</SelectItem>
                     {CC_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
@@ -601,15 +602,15 @@ export function OrganizationStructureSection() {
               <div>
                 <Label>{isEs ? "Responsable" : "Owner"}</Label>
                 <Select
-                  value={ccForm.responsible_user_id}
-                  onValueChange={(v) => setCcForm({...ccForm, responsible_user_id: v})}
+                  value={ccForm.responsible_user_id || "none"}
+                  onValueChange={(v) => setCcForm({...ccForm, responsible_user_id: v === "none" ? "" : v})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                    {users.map((u) => (
+                    <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                    {(users || []).map((u) => (
                       <SelectItem key={u.user_id} value={u.user_id}>{u.name}</SelectItem>
                     ))}
                   </SelectContent>
