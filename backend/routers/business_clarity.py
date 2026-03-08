@@ -5419,8 +5419,9 @@ async def get_inventory_valuation_report(user: User = Depends(get_current_user))
     
     # Process ingredients
     for ing in ingredients:
-        qty = ing.get("stock_quantity", 0)
-        cost = ing.get("cost_per_unit", 0) or ing.get("unit_cost", 0)
+        # Check both stock_quantity and current_stock (legacy field)
+        qty = ing.get("stock_quantity") or ing.get("current_stock") or 0
+        cost = ing.get("cost_per_unit") or ing.get("unit_cost") or 0
         value = qty * cost
         
         inventory_items.append({
