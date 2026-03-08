@@ -363,3 +363,85 @@ async def update_event_menu(event_id: str, menu_data: dict, user: User = Depends
         {"$set": {"menu_items": menu_data.get("items", []), "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": "Menu updated"}
+
+
+
+@events_router.post("/{event_id}/deposit")
+async def record_event_deposit(event_id: str, deposit_data: dict, user: User = Depends(get_current_user)):
+    """Record a deposit payment for an event/order"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    amount = deposit_data.get("amount", 0)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid deposit amount")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Create deposit record
+    deposit = {
+        "deposit_id": f"dep_{uuid.uuid4().hex[:12]}",
+        "event_id": event_id,
+        "company_id": user.company_id,
+        "amount": amount,
+        "payment_id": deposit_data.get("payment_id"),
+        "payment_method": deposit_data.get("payment_method", "transfer"),
+        "reference": deposit_data.get("reference"),
+        "deposit_date": deposit_data.get("deposit_date", now.isoformat()),
+        "created_by": user.user_id,
+        "created_at": now.isoformat()
+    }
+    
+    await db.event_deposits.insert_one(deposit)
+    
+    # Update event with new deposit total
+    current_deposits = event.get("deposit_paid", 0) or 0
+    new_total = current_deposits + amount
+    
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {
+            "deposit_paid": new_total,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # If payment_id provided, update the payment's applied amount
+    if deposit_data.get("payment_id"):
+        payment = await db.payments.find_one({"payment_id": deposit_data["payment_id"]})
+        if payment:
+            new_applied = (payment.get("applied_amount", 0) or 0) + amount
+            new_unapplied = max(0, (payment.get("amount", 0) or 0) - new_applied)
+            await db.payments.update_one(
+                {"payment_id": deposit_data["payment_id"]},
+                {"$set": {
+                    "applied_amount": new_applied,
+                    "unapplied_amount": new_unapplied,
+                    "updated_at": now.isoformat()
+                }}
+            )
+            
+            # Create payment application record
+            application = {
+                "application_id": f"app_{uuid.uuid4().hex[:12]}",
+                "payment_id": deposit_data["payment_id"],
+                "event_id": event_id,
+                "amount_applied": amount,
+                "application_type": "deposit",
+                "applied_at": now.isoformat(),
+                "applied_by": user.user_id
+            }
+            await db.payment_applications.insert_one(application)
+    
+    del deposit["_id"]
+    return {"message": "Deposit recorded", "deposit": deposit, "new_total": new_total}
+
+@events_router.get("/{event_id}/deposits")
+async def get_event_deposits(event_id: str, user: User = Depends(get_current_user)):
+    """Get all deposits for an event"""
+    deposits = await db.event_deposits.find(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return deposits
