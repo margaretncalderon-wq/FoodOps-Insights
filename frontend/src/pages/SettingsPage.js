@@ -44,6 +44,7 @@ import GoogleCalendarSettingsSection from "../components/settings/GoogleCalendar
 import ImportExportSection from "../components/settings/ImportExportSection";
 import IndustryConfigSection from "../components/settings/IndustryConfigSection";
 import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
+import PartnerCapabilitiesSection from "../components/settings/PartnerCapabilitiesSection";
 import { CostCentersSection } from "../components/people-ops/CostCentersSection";
 import { BillingSection, TeamSection } from "../components/org";
 
@@ -1181,6 +1182,10 @@ export default function SettingsPage() {
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("categories")} className={activeSettingsTab === "categories" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <Tag className="w-4 h-4 mr-2" />
                     {language === "es" ? "Categorías Servicios" : "Service Categories"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("partner-capabilities")} className={activeSettingsTab === "partner-capabilities" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Zap className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Partner Capabilities" : "Partner Capabilities"}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("picklist")} className={activeSettingsTab === "picklist" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <ListChecks className="w-4 h-4 mr-2" />
@@ -4056,6 +4061,11 @@ Mantel Blanco, , 10, 3`}
           {/* Cost Centers Tab */}
           <TabsContent value="cost-centers">
             <CostCentersSection />
+          </TabsContent>
+
+          {/* Partner Capabilities Tab */}
+          <TabsContent value="partner-capabilities">
+            <PartnerCapabilitiesSection />
           </TabsContent>
 
           {/* Inventory Categories Tab */}

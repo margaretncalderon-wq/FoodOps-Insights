@@ -53,8 +53,25 @@ ATTACHMENT_TYPE_OPTIONS = [
 # ============== OPTIONS ENDPOINTS ==============
 
 @partners_router.get("/options")
-async def get_partner_options():
-    """Get all dropdown options for partner forms"""
+async def get_partner_options(user: User = Depends(get_current_user)):
+    """Get all dropdown options for partner forms, including custom capabilities"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Get custom capabilities for this company
+    custom_caps = []
+    if company_id:
+        custom_caps_cursor = db.partner_capabilities.find(
+            {"company_id": company_id, "is_active": True},
+            {"_id": 0}
+        ).sort("label", 1)
+        custom_caps = await custom_caps_cursor.to_list(None)
+    
+    # Combine default + custom capabilities
+    all_capabilities = list(CAPABILITY_OPTIONS) + [
+        {"value": c["capability_id"], "label": c["label"], "label_es": c.get("label_es", c["label"]), "custom": True}
+        for c in custom_caps
+    ]
+    
     return {
         "status": PARTNER_STATUS_OPTIONS,
         "preferred_tier": PREFERRED_TIER_OPTIONS,
@@ -62,9 +79,116 @@ async def get_partner_options():
         "primary_category": PRIMARY_CATEGORY_OPTIONS,
         "service_area_type": SERVICE_AREA_TYPE_OPTIONS,
         "pricing_level": PRICING_LEVEL_OPTIONS,
-        "capabilities": CAPABILITY_OPTIONS,
+        "capabilities": all_capabilities,
         "attachment_types": ATTACHMENT_TYPE_OPTIONS,
     }
+
+
+# ============== CUSTOM CAPABILITIES CRUD ==============
+
+@partners_router.get("/capabilities")
+async def get_custom_capabilities(user: User = Depends(get_current_user)):
+    """Get all custom capabilities for the company"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    capabilities = await db.partner_capabilities.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("label", 1).to_list(None)
+    
+    return capabilities
+
+
+@partners_router.post("/capabilities")
+async def create_capability(
+    label: str,
+    label_es: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Create a new custom capability"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    # Generate value from label
+    value = label.lower().replace(" ", "_").replace("-", "_")
+    
+    # Check if already exists
+    existing = await db.partner_capabilities.find_one({
+        "company_id": company_id,
+        "$or": [{"capability_id": value}, {"label": label}]
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Capability already exists")
+    
+    now = datetime.now(timezone.utc)
+    capability = {
+        "capability_id": f"cap_{uuid.uuid4().hex[:8]}",
+        "company_id": company_id,
+        "value": value,
+        "label": label,
+        "label_es": label_es or label,
+        "is_active": True,
+        "created_at": now.isoformat(),
+        "created_by": user.user_id
+    }
+    
+    await db.partner_capabilities.insert_one(capability)
+    capability.pop("_id", None)
+    
+    return capability
+
+
+@partners_router.put("/capabilities/{capability_id}")
+async def update_capability(
+    capability_id: str,
+    label: str,
+    label_es: Optional[str] = None,
+    is_active: bool = True,
+    user: User = Depends(get_current_user)
+):
+    """Update a custom capability"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    result = await db.partner_capabilities.update_one(
+        {"capability_id": capability_id, "company_id": company_id},
+        {"$set": {
+            "label": label,
+            "label_es": label_es or label,
+            "is_active": is_active,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Capability not found")
+    
+    return {"message": "Capability updated"}
+
+
+@partners_router.delete("/capabilities/{capability_id}")
+async def delete_capability(
+    capability_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete a custom capability"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    result = await db.partner_capabilities.delete_one({
+        "capability_id": capability_id,
+        "company_id": company_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Capability not found")
+    
+    return {"message": "Capability deleted"}
 
 
 # ============== CRUD ENDPOINTS ==============
