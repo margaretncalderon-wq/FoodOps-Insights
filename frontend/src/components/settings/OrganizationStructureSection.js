@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -32,7 +33,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Building2, Plus, Pencil, Trash2, Users, DollarSign,
-  RefreshCw, ChevronRight, Settings2
+  RefreshCw, ChevronRight, Settings2, ExternalLink, BarChart3
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +42,7 @@ import { API_BASE as API } from "../../utils/api";
 export function OrganizationStructureSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState("departments");
   const [loading, setLoading] = useState(true);
@@ -264,10 +266,22 @@ export function OrganizationStructureSection() {
             {isEs ? "Gestiona departamentos y centros de costo" : "Manage departments and cost centers"}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {isEs ? "Actualizar" : "Refresh"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate("/business-clarity/cost-center-budgets")}
+            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            {isEs ? "Gestionar Presupuestos" : "Manage Budgets"}
+            <ExternalLink className="w-3 h-3 ml-1 opacity-50" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {isEs ? "Actualizar" : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
