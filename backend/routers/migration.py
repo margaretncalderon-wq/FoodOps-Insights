@@ -408,9 +408,12 @@ async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
                 row.get("name") or 
                 row.get("nombre") or 
                 row.get("nombre/razon_social") or
+                row.get("name/company") or
+                row.get("company") or
                 row.get("razon_social") or
                 row.get("supplier_name") or
                 row.get("vendor_name") or
+                row.get("empresa") or
                 ""
             ).strip()
             
@@ -569,28 +572,55 @@ async def _import_sales(company_id: str, rows: list, month: int, year: int, user
             # Find or create client
             client = await _find_or_create_client(company_id, client_rnc, client_name, user_id)
             
-            sale = {
-                "id": str(uuid.uuid4()),
+            # Create invoice in db.invoices (used by Business Clarity)
+            invoice_id = f"inv_{uuid.uuid4().hex[:12]}"
+            invoice = {
+                "invoice_id": invoice_id,
                 "company_id": company_id,
                 "client_id": client.get("client_id") or client.get("id"),
                 "client_name": client.get("display_name") or client.get("name"),
                 "client_rnc": client.get("rnc") or client.get("tax_id"),
-                "description": (row.get("description") or row.get("descripcion") or row.get("concepto") or "").strip(),
-                "invoice_number": (row.get("invoice_number") or row.get("numero_factura") or row.get("factura") or "").strip(),
-                "subtotal": subtotal,
-                "itbis": itbis,
-                "total": total,
+                "invoice_type": "client",  # client invoice (receivable)
+                "invoice_number": (row.get("invoice_number") or row.get("numero_factura") or row.get("factura") or f"MIG-{count+1:04d}").strip(),
                 "ncf": (row.get("ncf") or row.get("ncf_cliente") or "").strip(),
-                "status": (row.get("status") or row.get("estado") or "paid").strip().lower(),
-                "date": sale_date.isoformat(),
+                "description": (row.get("description") or row.get("descripcion") or row.get("concepto") or "").strip(),
+                "subtotal": subtotal,
+                "tax_amount": itbis,
+                "total": total,
+                "paid_amount": total if (row.get("status") or row.get("estado") or "paid").lower() == "paid" else 0,
+                "status": "paid" if (row.get("status") or row.get("estado") or "paid").lower() == "paid" else "pending",
+                "invoice_date": sale_date.isoformat(),
+                "due_date": sale_date.isoformat(),
                 "period_month": month,
                 "period_year": year,
                 "source": "migration",
                 "created_by": user_id,
-                "created_at": now.isoformat()
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat()
             }
             
+            await db.invoices.insert_one(invoice)
+            
+            # Also save to sales_transactions for ITBIS reporting
+            sale = {
+                "id": str(uuid.uuid4()),
+                "company_id": company_id,
+                "invoice_id": invoice_id,
+                "client_id": client.get("client_id") or client.get("id"),
+                "client_name": client.get("display_name") or client.get("name"),
+                "client_rnc": client.get("rnc") or client.get("tax_id"),
+                "subtotal": subtotal,
+                "itbis": itbis,
+                "total": total,
+                "ncf": invoice["ncf"],
+                "date": sale_date.isoformat(),
+                "period_month": month,
+                "period_year": year,
+                "source": "migration",
+                "created_at": now.isoformat()
+            }
             await db.sales_transactions.insert_one(sale)
+            
             count += 1
         except Exception as e:
             logger.error(f"Error importing sale row {idx}: {e}")
