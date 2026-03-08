@@ -1,48 +1,49 @@
 <analysis>**original_problem_statement:**
-The user is building a comprehensive ERP application for their catering and event management business. The latest requests focus on enhancing the financial and operational capabilities of the application:
-1.  **Data Migration Module**: Create a system for users to import historical data (e.g., from January and February if they start in March). The import should support data from sources like Tripleseat, Notion, and Alegra, and intelligently link or create records like clients and vendors to avoid duplicates.
-2.  **ITBIS (VAT) Reporting**: Create a dedicated section in the Business Clarity module to report on taxes. It should calculate the net ITBIS payable by subtracting ITBIS paid on purchases from ITBIS collected on sales.
-3.  **Enhance Purchase Order Flow**: When receiving a purchase order, the user needs to be able to enter the supplier's actual invoice details, including the invoice number (NCF), subtotal, ITBIS amount, and total.
-4.  **Flexible Candidate Scorecard**: Implement a dynamic scorecard system in the recruitment module. Users should be able to define specific evaluation criteria for each job posting and then rate candidates against those criteria, including adding specific notes for each score.
-5.  **Staffdo.com Integration**: The user wants to connect their Staffdo.com account to Kora to automatically sync job postings and import candidates who apply there directly into the Kora recruitment pipeline.
+The user is building a comprehensive ERP application. Initial requests included a data migration module, ITBIS (VAT) reporting, purchase order enhancements, a flexible candidate scorecard, and a Staffdo.com integration.
+
+Throughout the session, the user's requests evolved to include:
+1.  **Export Functionality**: Add the ability to export tax reports (Formato 606 & 607) and download lists like expenses and invoices to Excel with custom date filters.
+2.  **Data Migration Debugging**: Resolve multiple issues with the data migration feature, including:
+    *   Errors when processing client files (error processing file).
+    *   Imports showing 0 records imported despite identifying records.
+    *   Imported clients/suppliers not appearing in the correct UI sections.
+    *   Support for various CSV header names (e.g., , ).
+    *   Support for  date format for sales/purchases.
+    *   Errors with special characters (e.g., parentheses) in entity names.
+3.  **Supplier Module Unification**: Make the Suppliers list a shared module accessible from both the Partners and Culinary Intelligence sections, so that adding a supplier in one place makes it visible in the other.
+4.  **Field Parity**: Ensure that the fields for a Supplier are similar to those for a Partner.
+5.  **Editable Capabilities**: Allow the Capabilities for partners (e.g., Event Design, Catering) to be editable from a settings menu instead of being hardcoded.
+6.  **Preferred Suppliers**: Add a preferred flag for suppliers, with visual indicators (star, highlighting) and a filter in the UI.
+7.  **Inventory Import Enhancement**: Ensure the inventory import process supports specific fields from the user's template (including Marca - Brand) and that imported products appear correctly in the Culinary Intelligence section.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The agent has successfully implemented the People Ops modules and the Flexible Candidate Scorecard feature, both of which were fully tested. Work has begun on the Data Migration, ITBIS reporting, and Purchase Order enhancements.
+The application is a full-stack ERP with modules for People Ops, Finance, Culinary, and Business Intelligence.
 
--   **People Ops Modules (Completed)**: Recruitment, Onboarding, and Performance pages were created with full frontend UI, navigation, and backend endpoints. This feature was verified by the testing agent.
--   **Flexible Candidate Scorecard (Completed)**: The recruitment module was enhanced to allow creating dynamic scorecards for job postings. The system allows rating candidates against these criteria and viewing the aggregated score. This was tested via API and screenshots.
--   **Data Migration Module (In Progress)**: A new Data Migration section was created under Business Clarity. The UI allows importing 10 different data types. Crucially, a recommended workflow was established: import Clients and Vendors first, then import transactional data like Sales and Purchases. The backend logic was implemented to look up existing clients/vendors by a unique ID (RNC) or name to prevent creating duplicates.
+The agent has completed several major features and bug fixes in this session:
+- **Financial Features**: The ITBIS tax report and the enhanced Purchase Order receiving flow are fully implemented and were tested by the testing agent.
+- **Data Export**: Users can now export tax reports (606/607) and download lists of invoices and expenses as Excel files.
+- **Data Migration Module**: This module is now significantly more robust. The agent fixed numerous bugs related to routing, CSV parsing (handling various header formats and special characters), date formatting, and ensuring imported data is saved to the correct database collections (, , ).
+- **Unified Supplier Module**: The Suppliers list is now a shared component, accessible and manageable from both the Partners module and the Culinary Intelligence module. The data is stored in a single  collection.
+- **UI & UX Enhancements**:
+    - Partner Capabilities are now fully editable from a new section in the main Settings.
+    - A Preferred Supplier system has been implemented with visual cues (stars, highlighting) and filters.
+    - The Sistema tab error within the Partners form has been resolved.
+    - The inventory import template has been fixed and the import logic now correctly populates the  and  fields.
 
 **Last working item**:
--   **Last item agent was working**: The agent was working in parallel on two P0 tasks requested by the user:
-    1.  **PO Invoice Fields**: Modifying the Receive Purchase Order modal in  to add input fields for NCF (tax ID), invoice subtotal, ITBIS, and total amount.
-    2.  **ITBIS Report Section**: Creating the foundational files ( for the frontend,  router for the backend) for a new tax report.
--   **Status**: IN PROGRESS
--   **Agent Testing Done**: N
--   **Which testing method agent to use?**: both. Once the features are implemented, the testing agent should be used to verify the frontend UI changes in the PO modal and the new ITBIS report page, as well as the backend logic for saving invoice data and calculating the ITBIS summary.
+-   **Last item agent was working**: Fixing an issue where imported inventory items did not appear in the Culinary Intelligence UI. The root cause was a missing  field required by the frontend filters. The agent updated the import logic in  to add  to each new item and ran a one-time script to update already imported items.
+-   **Status**: USER VERIFICATION PENDING
+-   **Agent Testing Done**: Y (Agent implemented the fix and ran a backend update script, but did not perform a final UI verification).
+-   **Which testing method agent to use?**: screenshot tool. Take a screenshot of the Culinary Intelligence -> Inventory page to confirm that the imported items are now visible.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-There are no outstanding bugs. All work is related to in-progress features.
+There are no outstanding bugs or issues. The last working item was a fix for a user-reported problem, which is now pending verification.
 
 **In progress Task List**:
--   **Task 1: Complete PO Invoice Fields Implementation (P0)**
-    -   **Description**: Finalize the addition of NCF, subtotal, ITBIS, and total fields to the Receive Purchase Order flow.
-    -   **Where to resume**:
-        -   **Backend**: Modify the  endpoint in  to accept and store the new invoice fields.
-        -   **Frontend**: Complete the UI changes in , ensuring the new fields are part of the form and the data is sent in the  function.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: both
-
--   **Task 2: Complete ITBIS Report Section (P0)**
-    -   **Description**: Build the ITBIS report page that calculates and displays ITBIS from sales minus ITBIS from purchases.
-    -   **Where to resume**:
-        -   **Backend**: Implement the data aggregation logic in . The endpoint should query  and  collections for a given date range and return the total ITBIS for each.
-        -   **Frontend**: Build out the  component to fetch the data from the new endpoint and display it in the format requested by the user.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: both
+There are no tasks currently in progress. The previous task is complete and pending user verification.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
@@ -58,69 +59,67 @@ There are no outstanding bugs. All work is related to in-progress features.
     - Create a setup wizard for new users.
 
 **Completed work in this session**
--   **People Ops Modules**: Fully implemented Recruitment, Onboarding, and Performance sections with UI, navigation, and backend support.
--   **Flexible Candidate Scorecard**: Added a dynamic scorecard system to the recruitment process, from job creation to candidate evaluation.
--   **Data Migration Module - Phase 1 & 2**: Created the UI and backend logic for importing 10 types of historical data, with an intelligent linking mechanism for clients and vendors to prevent duplicates. The import order is now guided on the UI.
+-   **PO Invoice & ITBIS Report (DONE)**: Completed and tested the two P0 tasks from the previous session.
+-   **Data Export Feature (DONE)**: Implemented Excel export for tax formats 606 & 607 and for general lists like invoices and expenses.
+-   **Data Migration Overhaul (DONE)**: Fixed multiple critical bugs in the data migration module for clients, vendors, sales, and inventory, making it robust and usable.
+-   **Shared Suppliers Module (DONE)**: Refactored the architecture to have a single, shared Suppliers module accessible from both Partners and Culinary Intelligence.
+-   **Editable Partner Capabilities (DONE)**: Created a new settings page allowing users to customize the list of partner capabilities.
+-   **Preferred Supplier Feature (DONE)**: Added functionality to mark suppliers as preferred with corresponding UI indicators and filters.
+-   **Inventory Import Fix (DONE)**: Corrected the inventory import template and logic to include Brand and ensure items appear correctly in the UI.
+-   **Bug Fix (DONE)**: Resolved a UI crash in the Sistema tab of the Partner creation form.
 
 **Earlier issues found/mentioned but not fixed**
--   None. All raised issues and requests have either been completed or are currently in progress.
+-   None. All issues raised during the session were addressed.
 
 **Known issue recurrence from previous fork**
--   **Emergent LLM Key budget exhausted**: This remains a blocker for any AI-powered features.
--   **Unstable user sessions**: The application still experiences intermittent session loss during testing, which can require re-logging in.
+-   **Unstable user sessions**: The issue of sessions expiring and redirecting to the login page was observed again during this session. The agent acknowledged it as a known issue but did not investigate a fix. This remains a point of friction for testing.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Dynamic Data Linking during Import**: The migration module uses a find or create pattern. When importing transactional data (e.g., a sale), it first tries to find the associated client by a unique identifier (RNC) or name. If the client exists, it links the transaction; if not, it creates a new basic client record. This ensures data integrity.
--   **Config-Driven UI**: The UI for both the Data Migration and Scorecard features is driven by configuration objects/arrays in the code. This makes it easy to add new data types to import or new scorecard templates without major structural changes.
--   **Flexible Data Modeling**: The candidate scorecard feature was implemented by adding an array of criteria () to the  model and a corresponding array of evaluations () to the  model, allowing each job to have a unique evaluation structure.
+-   **Data Normalization During Import**: The agent implemented robust CSV parsing in  that handles multiple header variations, case sensitivity, and special characters by cleaning keys and using  to sanitize input for database queries.
+-   **Shared UI Components**: A shared  component was created under  and successfully reused in two different top-level modules (Partners and Culinary Intelligence), promoting a DRY (Don't Repeat Yourself) architecture.
+-   **Dynamic Application Settings**: A hardcoded list of Partner Capabilities was converted into a user-configurable setting, with a new UI in the Settings section and a new database collection () to store custom values.
+-   **Backend File Generation**: Used  and  to dynamically create and stream Excel () files from API endpoints, providing data export functionality.
 
 **key DB schema**
--   ** collection**: Now includes .
--   ** collection**: Now includes .
--   ** collection**: Will be modified to include , , , .
+-   ****: Added new fields to match the  model, including , , , and a boolean .
+-   ** (New Collection)**: Stores custom capabilities defined by the user. Schema: .
+-   ****: Now the target collection for imported sales data to ensure visibility in the Business Clarity module.
+-   ****: Now includes  and  fields.
 
 **All files of reference**
-*   **Current Task (PO Invoice)**:
-    *   
-    *   
-*   **Current Task (ITBIS Report)**:
-    *   
-    *   
-*   **Recently Completed (Migration)**:
-    *   
-    *   
-*   **Recently Completed (Scorecard)**:
-    *   
-    *   
+-   **Data Migration**:  (core logic),  (UI).
+-   **Shared Suppliers**: , , .
+-   **Editable Capabilities**: , , .
+-   **Data Export**: , .
 
 **Critical Info for New Agent**
 -   **¡DEBES RESPONDER EN ESPAÑOL!** All communication must be in Spanish.
--   **Priorities**: Your immediate focus should be completing the two P0 tasks: the **ITBIS Report** and the **PO Invoice Fields**. They are both critical for the user's financial workflow.
--   **Data Migration Logic**: When working on anything related to data import, be aware of the existing find or create logic in  to maintain data consistency.
--   **Unstable Sessions**: Be prepared for potential session logouts during UI testing. Your testing scripts should be resilient to this.
+-   **Verify Inventory Fix**: Your first action should be to verify that the last fix worked. Take a screenshot of the **Culinary Intelligence -> Ingredients** page to confirm that imported products are now visible.
+-   **Unstable Sessions Persist**: The intermittent session logout issue is still present. Be prepared for it during frontend testing and consider that it might be the cause of unexpected UI states in screenshots.
+-   **Data Import Sensitivity**: The data migration feature has been significantly improved, but it remains sensitive to the format of user-uploaded CSV files. When debugging future import issues, start by checking the logs for clues about header names, special characters, or data types. The pattern of fixing issues in  is well-established.
 
 **documents and test reports created in this job**
--    (Updated)
--    (Test report for People Ops modules)
+-    (Updated multiple times)
+-    (Test report for PO Invoice Fields and ITBIS Report)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **si**: User confirmed the proposed logic for handling data imports (importing catalogs like clients/vendors first, then linking transactional data).
-9.  **si, ambos ya luego en clientes podemos quiza actualizar datos no hagas nada solo analiza la lógica? o quiza primero debemos subir proveedores / clientes y luego data?**: User confirmed the need to link/create clients during data import and asked for analysis on the best workflow.
-8.  **cuando yo suba la data los clientes y demas no serán afectados verdad? debo como quiera crearlos luego?**: User asked for clarification on how clients/vendors are handled during data import.
-7.  **1**: User chose to prioritize the implementation of the Data Migration module from a list of options.
-6.  **1- i 2- c 3- a 4- si vienen de tripleseat, notion y de alegra**: User provided detailed requirements for the data migration feature, including data sources.
-5.  **no hagas nada solo analiza esto...**: User provided a detailed analysis and requested three major features: historical data import, an ITBIS tax report, and adding invoice details to the purchase order receiving flow.
-4.  **hagamoslo y notas en cada criterio**: User approved the implementation of the flexible scorecard with notes for each criterion.
-3.  **agreguemos un scorecard al candidatos. podria ser flexible dependiendo de la posicion? no hagas nada solo dime**: User requested a flexible scorecard feature for the recruitment module.
-2.  **no la tengo pero como se veria para mis clientes? seria solo 1 click?**: User asked for clarification on the user experience for the proposed Staffdo integration.
-1.  **API pero quiza puedo agregar mi perfil de staffdo asi cuando publique una vacante me sale en kora?**: User confirmed that Staffdo has an API and clarified the desired integration behavior.
+10. **si**: User confirmed the agent's plan to create a shared Suppliers module.
+9. **para subir el inventario puedes asegurarte que estos campos y que cada producto tenga su marca ?**: User provided a screenshot of their inventory Excel file and asked the agent to ensure the import process supports all its fields, including Marca (Brand).
+8. **vamos a probar**: User confirmed they will test the inventory import.
+7. **el template no baja correctamente**: User reported that the downloadable inventory template from the UI is incorrect or corrupted.
+6. **porque no aparcen los productos en culinary inteligence**: User reported that after successfully importing the inventory, the products are not visible in the Culinary Intelligence section.
+5. **debo hacer deploy?**: User asked if a redeploy is needed to see the latest fixes for data import. (Agent confirmed no).
+4. **no, los vendors siguen teniendo error. sales se importo pero no salen las facturas de clientes en business clarity**: User provided critical feedback that vendor import is still failing and imported sales are not appearing in the correct UI.
+3. **no puedo editar las facturas en business clarity**: User reported that the imported sales invoices cannot be edited from the Business Clarity section.
+2. **si, solo tengo una duda los vendors no van a salir en partners ? ...**: User questioned the logic of suppliers only appearing in the inventory module and not in the general Partners module, sparking the idea for a shared module.
+1. **y si ponemos una pestaña dentro de partners que muestre los supliers? ...**: User suggested the final architectural solution: adding a Suppliers tab within the Partners module that shows the same data as the culinary module.
 
 **Project Health Check:**
 -   **Broken**:
-    *   Intermittent user session instability, causing redirects to the login page during testing.
+    *   Intermittent user session instability, causing random logouts.
 -   **Mocked**:
     *   Social media metrics in the Demand Studio.
 -   **Blocked**:
@@ -130,13 +129,11 @@ There are no outstanding bugs. All work is related to in-progress features.
 -   **YouTube Data API**: Active.
 -   **Emergent LLM Key**: Configured but **budget exhausted**.
 -   **Zapier / Make**: Present.
--   **Meta (Instagram)**: Planned.
--   **TikTok**: Planned.
--   **Mailchimp/Brevo**: Planned.
 -   **Staffdo.com**: Planned for recruitment sync.
+-   **Other Planned**: Meta (Instagram), TikTok, Mailchimp/Brevo.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (for the People Ops modules).
+-   **Testing agent used after significant changes**: YES (for the PO/ITBIS features at the beginning of the session).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: []
 -   **Known regressions**: Unstable user sessions.
@@ -147,4 +144,4 @@ There are no outstanding bugs. All work is related to in-progress features.
     -   **Password:** 
 
 **What agent forgot to execute**
--   The agent has correctly prioritized and worked on all user requests. No tasks appear to have been overlooked. The current in-progress state is a natural continuation of the user's latest, most complex requests.</analysis>
+-   The agent did not perform a final UI verification (e.g., via screenshot) after implementing the fix for the inventory items not appearing in Culinary Intelligence. This should be the next immediate step.</analysis>

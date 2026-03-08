@@ -1654,6 +1654,23 @@ async def get_inventory_summary(user: User = Depends(get_current_user)):
                     i[field] = datetime.fromisoformat(i[field])
                 except:
                     pass
+        
+        # Map legacy field names from migration to expected field names
+        if "unit_cost" in i and "cost_per_unit" not in i:
+            i["cost_per_unit"] = i.get("unit_cost", 0.0)
+        if "current_stock" in i and "stock_quantity" not in i:
+            i["stock_quantity"] = i.get("current_stock", 0.0)
+        if "min_stock" in i and "min_stock_level" not in i:
+            i["min_stock_level"] = i.get("min_stock", 0.0)
+        
+        # Ensure required fields have values
+        if "cost_per_unit" not in i:
+            i["cost_per_unit"] = 0.0
+        if "stock_quantity" not in i:
+            i["stock_quantity"] = 0.0
+        if "min_stock_level" not in i:
+            i["min_stock_level"] = 0.0
+        
         # Set defaults for new fields
         for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
             if field not in i:
@@ -1673,6 +1690,23 @@ async def get_ingredients(inventory_type: Optional[str] = None, user: User = Dep
         for field in ["created_at", "updated_at"]:
             if i.get(field) and isinstance(i[field], str):
                 i[field] = datetime.fromisoformat(i[field])
+        
+        # Map legacy field names from migration to expected field names
+        if "unit_cost" in i and "cost_per_unit" not in i:
+            i["cost_per_unit"] = i.get("unit_cost", 0.0)
+        if "current_stock" in i and "stock_quantity" not in i:
+            i["stock_quantity"] = i.get("current_stock", 0.0)
+        if "min_stock" in i and "min_stock_level" not in i:
+            i["min_stock_level"] = i.get("min_stock", 0.0)
+        
+        # Ensure required fields have values
+        if "cost_per_unit" not in i:
+            i["cost_per_unit"] = 0.0
+        if "stock_quantity" not in i:
+            i["stock_quantity"] = 0.0
+        if "min_stock_level" not in i:
+            i["min_stock_level"] = 0.0
+        
         # Set defaults for new fields
         for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
             if field not in i:
@@ -1707,6 +1741,28 @@ async def get_ingredient(ingredient_id: str, user: User = Depends(get_current_us
     for field in ["created_at", "updated_at"]:
         if ingredient.get(field) and isinstance(ingredient[field], str):
             ingredient[field] = datetime.fromisoformat(ingredient[field])
+    
+    # Map legacy field names from migration
+    if "unit_cost" in ingredient and "cost_per_unit" not in ingredient:
+        ingredient["cost_per_unit"] = ingredient.get("unit_cost", 0.0)
+    if "current_stock" in ingredient and "stock_quantity" not in ingredient:
+        ingredient["stock_quantity"] = ingredient.get("current_stock", 0.0)
+    if "min_stock" in ingredient and "min_stock_level" not in ingredient:
+        ingredient["min_stock_level"] = ingredient.get("min_stock", 0.0)
+    
+    # Ensure required fields have values
+    if "cost_per_unit" not in ingredient:
+        ingredient["cost_per_unit"] = 0.0
+    if "stock_quantity" not in ingredient:
+        ingredient["stock_quantity"] = 0.0
+    if "min_stock_level" not in ingredient:
+        ingredient["min_stock_level"] = 0.0
+    
+    # Set defaults for optional fields
+    for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", ingredient.get("cost_per_unit", 0)), ("price_history", [])]:
+        if field not in ingredient:
+            ingredient[field] = default
+    
     return Ingredient(**ingredient)
 
 @inventory_router.put("/ingredients/{ingredient_id}", response_model=Ingredient)

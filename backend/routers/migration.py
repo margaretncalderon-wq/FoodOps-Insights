@@ -826,8 +826,11 @@ async def _import_inventory(company_id: str, rows: list, user_id: str) -> int:
             if existing:
                 # Update existing item
                 update_data = {
+                    "stock_quantity": stock,
                     "current_stock": stock,
+                    "cost_per_unit": unit_cost,
                     "unit_cost": unit_cost,
+                    "inventory_type": "food",  # Ensure this field exists
                     "updated_at": now.isoformat()
                 }
                 if brand:
@@ -853,12 +856,17 @@ async def _import_inventory(company_id: str, rows: list, user_id: str) -> int:
                     "name": name,
                     "brand": brand or None,
                     "category": category,
+                    "inventory_type": "food",  # Required for Culinary Intelligence
                     "preferred_supplier_id": supplier_id,
                     "supplier_name": supplier_name or None,
                     "unit": unit,
+                    "cost_per_unit": round(unit_cost, 2),  # Field name used by Culinary
                     "unit_cost": round(unit_cost, 2),
+                    "stock_quantity": stock,  # Field name used by Culinary
                     "current_stock": stock,
+                    "par_level": min_stock,
                     "min_stock": min_stock,
+                    "pack_size": 1,
                     "unused_quantity": unused,
                     "total_value": round(total_value, 2),
                     "location": location or None,
