@@ -83,11 +83,14 @@ export function OrganizationStructureSection() {
         axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }),
         axios.get(`${API}/api/settings/users`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
-      setDepartments(deptRes.data);
-      setCostCenters(ccRes.data);
-      setUsers(usersRes.data || []);
+      setDepartments(Array.isArray(deptRes.data) ? deptRes.data : []);
+      setCostCenters(Array.isArray(ccRes.data) ? ccRes.data : []);
+      setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
     } catch (error) {
+      console.error("Error loading org structure:", error);
       toast.error(isEs ? "Error al cargar datos" : "Error loading data");
+      setDepartments([]);
+      setCostCenters([]);
     } finally {
       setLoading(false);
     }
@@ -272,13 +275,13 @@ export function OrganizationStructureSection() {
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">{isEs ? "Departamentos" : "Departments"}</div>
-            <div className="text-2xl font-bold text-blue-600">{departments.filter(d => d.is_active).length}</div>
+            <div className="text-2xl font-bold text-blue-600">{departments.filter(d => d.is_active !== false).length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">{isEs ? "Centros de Costo" : "Cost Centers"}</div>
-            <div className="text-2xl font-bold">{costCenters.filter(c => c.is_active).length}</div>
+            <div className="text-2xl font-bold">{costCenters.filter(c => c.is_active !== false).length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -561,7 +564,7 @@ export function OrganizationStructureSection() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                    {departments.filter(d => d.is_active).map((d) => (
+                    {departments.filter(d => d.is_active !== false).map((d) => (
                       <SelectItem key={d.department_id} value={d.department_id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
