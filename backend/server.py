@@ -4089,12 +4089,28 @@ async def update_invoice(invoice_id: str, data: dict, user: User = Depends(get_c
     
     # Allow editing these fields
     allowed_fields = [
-        "status", "notes", "due_date", "invoice_type", "subtotal", 
+        "status", "notes", "due_date", "issue_date", "invoice_type", "subtotal", 
         "tax_rate", "tax_amount", "discount_percent", "discount_amount", 
         "total", "lines", "terms", "payment_terms"
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
     update_data["updated_at"] = now.isoformat()
+    
+    # Convert date strings to proper datetime format
+    if "issue_date" in update_data and update_data["issue_date"]:
+        try:
+            # Handle date string (YYYY-MM-DD)
+            if isinstance(update_data["issue_date"], str) and len(update_data["issue_date"]) == 10:
+                update_data["issue_date"] = datetime.fromisoformat(update_data["issue_date"] + "T00:00:00+00:00").isoformat()
+        except:
+            pass
+    
+    if "due_date" in update_data and update_data["due_date"]:
+        try:
+            if isinstance(update_data["due_date"], str) and len(update_data["due_date"]) == 10:
+                update_data["due_date"] = datetime.fromisoformat(update_data["due_date"] + "T00:00:00+00:00").isoformat()
+        except:
+            pass
     
     # Recalculate balance_due if total changed
     if "total" in update_data:

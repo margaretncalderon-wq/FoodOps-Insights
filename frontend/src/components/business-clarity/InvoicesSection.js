@@ -57,6 +57,8 @@ export function InvoicesSection() {
   const handleEditInvoice = (invoice) => {
     setEditingInvoice({
       ...invoice,
+      issue_date: invoice.issue_date ? invoice.issue_date.split('T')[0] : "",
+      due_date: invoice.due_date ? invoice.due_date.split('T')[0] : "",
       subtotal: invoice.subtotal || 0,
       tax_amount: invoice.tax_amount || 0,
       total: invoice.total || 0,
@@ -71,12 +73,13 @@ export function InvoicesSection() {
     setSaving(true);
     try {
       await axios.put(`${API}/api/finance/invoices/${editingInvoice.invoice_id}`, {
+        issue_date: editingInvoice.issue_date || null,
+        due_date: editingInvoice.due_date || null,
         subtotal: parseFloat(editingInvoice.subtotal) || 0,
         tax_amount: parseFloat(editingInvoice.tax_amount) || 0,
         total: parseFloat(editingInvoice.total) || 0,
         status: editingInvoice.status,
-        notes: editingInvoice.notes,
-        due_date: editingInvoice.due_date
+        notes: editingInvoice.notes
       }, { withCredentials: true });
       toast.success(isEs ? "Factura actualizada" : "Invoice updated");
       setEditDialogOpen(false);
@@ -343,10 +346,22 @@ export function InvoicesSection() {
                   <Label>{isEs ? "Fecha Vencimiento" : "Due Date"}</Label>
                   <Input 
                     type="date" 
-                    value={editingInvoice.due_date?.split('T')[0] || ""} 
+                    value={editingInvoice.due_date || ""} 
                     onChange={(e) => setEditingInvoice({...editingInvoice, due_date: e.target.value})}
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-amber-600 font-medium">{isEs ? "Fecha de Factura" : "Invoice Date"} *</Label>
+                <Input 
+                  type="date" 
+                  value={editingInvoice.issue_date || ""} 
+                  onChange={(e) => setEditingInvoice({...editingInvoice, issue_date: e.target.value})}
+                  className="border-amber-300 focus:border-amber-500"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isEs ? "Esta fecha se usa para los reportes mensuales de ventas" : "This date is used for monthly sales reports"}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>{isEs ? "Notas" : "Notes"}</Label>
