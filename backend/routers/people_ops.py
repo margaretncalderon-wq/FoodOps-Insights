@@ -783,6 +783,161 @@ async def get_cost_center_budgets(
     }
 
 
+# ==================== JOB ROLES ====================
+
+@people_ops_router.get("/job-roles")
+async def get_job_roles(user: User = Depends(get_current_user)):
+    """Get all job roles for the company"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    roles = await db.job_roles.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0}
+    ).sort("title", 1).to_list(500)
+    
+    # Get employee count per role
+    for role in roles:
+        count = await db.employees.count_documents({
+            "company_id": company_id,
+            "job_role_id": role.get("job_role_id"),
+            "status": "active"
+        })
+        role["employee_count"] = count
+    
+    return roles
+
+
+@people_ops_router.post("/job-roles")
+async def create_job_role(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Create a new job role"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    if not data.get("title"):
+        raise HTTPException(status_code=400, detail="Title is required")
+    
+    now = datetime.now(timezone.utc)
+    job_role = {
+        "job_role_id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "title": data.get("title"),
+        "description": data.get("description", ""),
+        "department_id": data.get("department_id"),
+        "level": data.get("level"),  # e.g., "junior", "mid", "senior", "lead", "manager", "director"
+        "min_salary": data.get("min_salary"),
+        "max_salary": data.get("max_salary"),
+        "requirements": data.get("requirements", []),
+        "responsibilities": data.get("responsibilities", []),
+        "is_active": True,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.job_roles.insert_one(job_role)
+    job_role.pop("_id", None)
+    
+    return job_role
+
+
+@people_ops_router.put("/job-roles/{job_role_id}")
+async def update_job_role(
+    job_role_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update a job role"""
+    company_id = user.company_id or user.active_org_id
+    
+    update_data = {
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    allowed_fields = ["title", "description", "department_id", "level", 
+                      "min_salary", "max_salary", "requirements", "responsibilities", "is_active"]
+    
+    for field in allowed_fields:
+        if field in data:
+            update_data[field] = data[field]
+    
+    result = await db.job_roles.update_one(
+        {"job_role_id": job_role_id, "company_id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Job role not found")
+    
+    return {"message": "Job role updated"}
+
+
+@people_ops_router.delete("/job-roles/{job_role_id}")
+async def delete_job_role(
+    job_role_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete a job role (soft delete if has employees)"""
+    company_id = user.company_id or user.active_org_id
+    
+    # Check if any employees have this role
+    employee_count = await db.employees.count_documents({
+        "company_id": company_id,
+        "job_role_id": job_role_id
+    })
+    
+    if employee_count > 0:
+        # Soft delete
+        await db.job_roles.update_one(
+            {"job_role_id": job_role_id, "company_id": company_id},
+            {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"message": f"Job role deactivated ({employee_count} employees have this role)", "soft_delete": True}
+    
+    # Hard delete
+    result = await db.job_roles.delete_one({
+        "job_role_id": job_role_id,
+        "company_id": company_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Job role not found")
+    
+    return {"message": "Job role deleted", "soft_delete": False}
+
+
+@people_ops_router.get("/job-roles/{job_role_id}")
+async def get_job_role(
+    job_role_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get a single job role with details"""
+    company_id = user.company_id or user.active_org_id
+    
+    role = await db.job_roles.find_one(
+        {"job_role_id": job_role_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not role:
+        raise HTTPException(status_code=404, detail="Job role not found")
+    
+    # Get employees with this role
+    employees = await db.employees.find(
+        {"company_id": company_id, "job_role_id": job_role_id, "status": "active"},
+        {"_id": 0, "employee_id": 1, "full_name": 1, "department": 1}
+    ).to_list(100)
+    
+    role["employees"] = employees
+    role["employee_count"] = len(employees)
+    
+    return role
+
+
 # ==================== EMPLOYEES ====================
 
 @people_ops_router.get("/employees")
