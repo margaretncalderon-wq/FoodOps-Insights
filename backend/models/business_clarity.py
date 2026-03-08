@@ -155,46 +155,68 @@ class SupplierPayable(BaseModel):
     updated_at: datetime
 
 
-# ============== FIXED COSTS MODELS ==============
+# ============== EXPENSE CATEGORIES MODELS (formerly Fixed Costs) ==============
 
-class FixedCostCategoryCreate(BaseModel):
-    """Create a fixed cost category"""
+# Category types for expense classification
+EXPENSE_CATEGORY_TYPES = ["variable", "operating", "investment"]
+
+class ExpenseCategoryCreate(BaseModel):
+    """Create an expense category (extended from fixed cost category)"""
     name: str
     description: Optional[str] = None
+    category_type: str = "operating"  # variable, operating, investment
+    target_percent: Optional[float] = None  # Target as % of revenue (e.g., 30.0 for 30%)
+    cost_center_id: Optional[str] = None
+    active: bool = True
 
 
-class FixedCostCategory(BaseModel):
-    """Fixed cost category"""
+class ExpenseCategory(BaseModel):
+    """Expense category (extended from fixed cost category)"""
     category_id: str
     company_id: str
     name: str
     description: Optional[str] = None
+    category_type: str = "operating"  # variable, operating, investment
+    target_percent: Optional[float] = None
+    cost_center_id: Optional[str] = None
+    cost_center_name: Optional[str] = None
+    active: bool = True
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
 
-class FixedCostBudgetCreate(BaseModel):
-    """Create a fixed cost budget entry"""
+# Backward compatibility aliases
+FixedCostCategoryCreate = ExpenseCategoryCreate
+FixedCostCategory = ExpenseCategory
+
+
+class ExpenseCategoryBudgetCreate(BaseModel):
+    """Create a budget for expense category"""
     category_id: str
-    year: int
-    month: int
-    budgeted_amount: float
-    actual_amount: float = 0.0
+    period: str = "MONTHLY"  # MONTHLY, QUARTERLY, YEARLY
+    budget_amount: float
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
     notes: Optional[str] = None
 
 
-class FixedCostBudget(BaseModel):
-    """Fixed cost budget entry"""
+class ExpenseCategoryBudget(BaseModel):
+    """Budget entry for expense category"""
     budget_id: str
     company_id: str
     category_id: str
-    year: int
-    month: int
-    budgeted_amount: float
-    actual_amount: float = 0.0
-    variance: float = 0.0
+    period: str = "MONTHLY"
+    budget_amount: float
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+# Legacy aliases for backward compatibility
+FixedCostBudgetCreate = ExpenseCategoryBudgetCreate
+FixedCostBudget = ExpenseCategoryBudget
 
 
 # ============== PERIOD CLOSE MODELS ==============

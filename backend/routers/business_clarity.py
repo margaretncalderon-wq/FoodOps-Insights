@@ -2768,21 +2768,35 @@ class BudgetCreate(BaseModel):
 
 # --- Fixed Cost Categories ---
 @business_clarity_router.get("/fixed-costs/categories")
-async def get_fixed_cost_categories(user: User = Depends(get_current_user)):
-    """Get all fixed cost categories"""
+@business_clarity_router.get("/expense-categories")  # New alias endpoint
+async def get_expense_categories(user: User = Depends(get_current_user), category_type: str = None):
+    """Get all expense categories (formerly fixed cost categories)"""
+    query = {"company_id": user.company_id}
+    if category_type:
+        query["category_type"] = category_type
+    
     categories = await db.fixed_cost_categories.find(
-        {"company_id": user.company_id},
+        query,
         {"_id": 0}
     ).to_list(100)
+    
+    # Ensure backward compatibility - add default category_type if missing
+    for cat in categories:
+        if "category_type" not in cat:
+            cat["category_type"] = "operating"
+        if "target_percent" not in cat:
+            cat["target_percent"] = None
+    
     return categories
 
 @business_clarity_router.post("/fixed-costs/categories")
-async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
-    """Create a new fixed cost category"""
+@business_clarity_router.post("/expense-categories")  # New alias endpoint
+async def create_expense_category(data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
+    """Create a new expense category (formerly fixed cost category)"""
     check_finance_permission(user, "manage fixed cost categories")
     
     now = datetime.now(timezone.utc)
-    category_id = f"fcc_{uuid.uuid4().hex[:12]}"
+    category_id = f"exc_{uuid.uuid4().hex[:12]}"
     
     # Get cost center name if linked
     cost_center_name = None
@@ -2793,13 +2807,19 @@ async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User =
         )
         cost_center_name = cc.get("name") if cc else None
     
+    # Validate category_type
+    valid_types = ["variable", "operating", "investment"]
+    category_type = data.category_type if hasattr(data, 'category_type') and data.category_type in valid_types else "operating"
+    
     category = {
         "category_id": category_id,
         "company_id": user.company_id,
         "name": data.name,
         "description": data.description,
-        "active": data.active,
-        "cost_center_id": data.cost_center_id,
+        "category_type": category_type,
+        "target_percent": data.target_percent if hasattr(data, 'target_percent') else None,
+        "active": data.active if hasattr(data, 'active') else True,
+        "cost_center_id": data.cost_center_id if hasattr(data, 'cost_center_id') else None,
         "cost_center_name": cost_center_name,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
@@ -2811,31 +2831,41 @@ async def create_fixed_cost_category(data: FixedCostCategoryCreate, user: User =
     return category
 
 @business_clarity_router.put("/fixed-costs/categories/{category_id}")
-async def update_fixed_cost_category(category_id: str, data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
-    """Update a fixed cost category"""
+@business_clarity_router.put("/expense-categories/{category_id}")  # New alias
+async def update_expense_category(category_id: str, data: FixedCostCategoryCreate, user: User = Depends(get_current_user)):
+    """Update an expense category (formerly fixed cost category)"""
     check_finance_permission(user, "manage fixed cost categories")
     
     now = datetime.now(timezone.utc)
     
     # Get cost center name if linked
     cost_center_name = None
-    if data.cost_center_id:
+    cost_center_id = data.cost_center_id if hasattr(data, 'cost_center_id') else None
+    if cost_center_id:
         cc = await db.cost_centers.find_one(
-            {"cost_center_id": data.cost_center_id, "company_id": user.company_id},
+            {"cost_center_id": cost_center_id, "company_id": user.company_id},
             {"_id": 0, "name": 1}
         )
         cost_center_name = cc.get("name") if cc else None
     
+    # Validate category_type
+    valid_types = ["variable", "operating", "investment"]
+    category_type = data.category_type if hasattr(data, 'category_type') and data.category_type in valid_types else "operating"
+    
+    update_data = {
+        "name": data.name,
+        "description": data.description,
+        "category_type": category_type,
+        "target_percent": data.target_percent if hasattr(data, 'target_percent') else None,
+        "active": data.active if hasattr(data, 'active') else True,
+        "cost_center_id": cost_center_id,
+        "cost_center_name": cost_center_name,
+        "updated_at": now.isoformat()
+    }
+    
     result = await db.fixed_cost_categories.update_one(
         {"category_id": category_id, "company_id": user.company_id},
-        {"$set": {
-            "name": data.name,
-            "description": data.description,
-            "active": data.active,
-            "cost_center_id": data.cost_center_id,
-            "cost_center_name": cost_center_name,
-            "updated_at": now.isoformat()
-        }}
+        {"$set": update_data}
     )
     
     if result.matched_count == 0:
@@ -2843,8 +2873,9 @@ async def update_fixed_cost_category(category_id: str, data: FixedCostCategoryCr
     return {"message": "Category updated"}
 
 @business_clarity_router.delete("/fixed-costs/categories/{category_id}")
-async def delete_fixed_cost_category(category_id: str, user: User = Depends(get_current_user)):
-    """Delete a fixed cost category"""
+@business_clarity_router.delete("/expense-categories/{category_id}")  # New alias
+async def delete_expense_category(category_id: str, user: User = Depends(get_current_user)):
+    """Delete an expense category"""
     check_finance_permission(user, "delete fixed cost categories")
     
     result = await db.fixed_cost_categories.delete_one(
@@ -3045,6 +3076,13 @@ async def get_budget_analysis(user: User = Depends(get_current_user), period: st
     total_budgeted = 0
     total_actual = 0
     
+    # Group totals by category type
+    by_type = {
+        "variable": {"budgeted": 0, "actual": 0, "categories": []},
+        "operating": {"budgeted": 0, "actual": 0, "categories": []},
+        "investment": {"budgeted": 0, "actual": 0, "categories": []}
+    }
+    
     for cat in categories:
         cat_id = cat["category_id"]
         budget = budget_map.get(cat_id, {})
@@ -3076,16 +3114,37 @@ async def get_budget_analysis(user: User = Depends(get_current_user), period: st
         total_budgeted += budgeted
         total_actual += actual
         
-        results.append({
+        # Get category type (default to operating for backward compatibility)
+        cat_type = cat.get("category_type", "operating")
+        if cat_type not in by_type:
+            cat_type = "operating"
+        
+        # Target % analysis
+        target_percent = cat.get("target_percent")
+        target_status = None
+        actual_percent = None
+        
+        result_item = {
             "category_id": cat_id,
             "category_name": cat["name"],
             "description": cat.get("description", ""),
+            "category_type": cat_type,
+            "target_percent": target_percent,
+            "actual_percent": actual_percent,
+            "target_status": target_status,
             "budgeted": round(budgeted, 2),
             "actual": round(actual, 2),
             "variance": round(variance, 2),
             "variance_percent": round(variance_pct, 1),
             "status": status
-        })
+        }
+        
+        results.append(result_item)
+        
+        # Aggregate by type
+        by_type[cat_type]["budgeted"] += budgeted
+        by_type[cat_type]["actual"] += actual
+        by_type[cat_type]["categories"].append(cat["name"])
     
     # Sort by status priority (over budget first)
     status_order = {"OVER_BUDGET": 0, "WARNING": 1, "NO_BUDGET": 2, "OK": 3}
@@ -3119,6 +3178,26 @@ async def get_budget_analysis(user: User = Depends(get_current_user), period: st
             "end": end_date.isoformat()
         },
         "categories": results,
+        "by_type": {
+            "variable": {
+                "budgeted": round(by_type["variable"]["budgeted"], 2),
+                "actual": round(by_type["variable"]["actual"], 2),
+                "variance": round(by_type["variable"]["budgeted"] - by_type["variable"]["actual"], 2),
+                "category_count": len(by_type["variable"]["categories"])
+            },
+            "operating": {
+                "budgeted": round(by_type["operating"]["budgeted"], 2),
+                "actual": round(by_type["operating"]["actual"], 2),
+                "variance": round(by_type["operating"]["budgeted"] - by_type["operating"]["actual"], 2),
+                "category_count": len(by_type["operating"]["categories"])
+            },
+            "investment": {
+                "budgeted": round(by_type["investment"]["budgeted"], 2),
+                "actual": round(by_type["investment"]["actual"], 2),
+                "variance": round(by_type["investment"]["budgeted"] - by_type["investment"]["actual"], 2),
+                "category_count": len(by_type["investment"]["categories"])
+            }
+        },
         "summary": {
             "total_budgeted": round(total_budgeted, 2),
             "total_actual": round(total_actual, 2),

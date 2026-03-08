@@ -16,6 +16,15 @@ import { Plus, RefreshCw, FileText, BarChart3, Target, AlertTriangle } from "luc
 import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Expense Categories Section (formerly Fixed Costs)
+// Supports: Variable, Operating, and Investment expense types
+
+const CATEGORY_TYPES = {
+  variable: { label: "Variable", labelEs: "Variable", color: "bg-blue-100 text-blue-700", description: "Food Cost, Variable Staff, Logistics" },
+  operating: { label: "Operating", labelEs: "Operativo", color: "bg-amber-100 text-amber-700", description: "Rent, Utilities, Salaries, Software" },
+  investment: { label: "Investment", labelEs: "Inversión", color: "bg-violet-100 text-violet-700", description: "Marketing, R&D, Equipment, Training" }
+};
+
 export function FixedCostsSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -25,11 +34,19 @@ export function FixedCostsSection() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [costCenters, setCostCenters] = useState([]);
+  const [typeFilter, setTypeFilter] = useState("all");
   
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", active: true, cost_center_id: "" });
+  const [categoryForm, setCategoryForm] = useState({ 
+    name: "", 
+    description: "", 
+    category_type: "operating",
+    target_percent: "",
+    active: true, 
+    cost_center_id: "" 
+  });
   const [budgetForm, setBudgetForm] = useState({ category_id: "", period: "MONTHLY", budget_amount: 0, start_date: "", notes: "" });
   
   const [selectedPeriod, setSelectedPeriod] = useState("MONTHLY");
@@ -59,16 +76,21 @@ export function FixedCostsSection() {
 
   const handleSaveCategory = async () => {
     try {
+      const payload = {
+        ...categoryForm,
+        target_percent: categoryForm.target_percent ? parseFloat(categoryForm.target_percent) : null
+      };
+      
       if (editingCategory) {
-        await axios.put(`${API}/api/business-clarity/fixed-costs/categories/${editingCategory.category_id}`, categoryForm, { withCredentials: true });
+        await axios.put(`${API}/api/business-clarity/fixed-costs/categories/${editingCategory.category_id}`, payload, { withCredentials: true });
         toast.success(isEs ? "Categoría actualizada" : "Category updated");
       } else {
-        await axios.post(`${API}/api/business-clarity/fixed-costs/categories`, categoryForm, { withCredentials: true });
+        await axios.post(`${API}/api/business-clarity/fixed-costs/categories`, payload, { withCredentials: true });
         toast.success(isEs ? "Categoría creada" : "Category created");
       }
       setCategoryDialogOpen(false);
       setEditingCategory(null);
-      setCategoryForm({ name: "", description: "", active: true, cost_center_id: "" });
+      setCategoryForm({ name: "", description: "", category_type: "operating", target_percent: "", active: true, cost_center_id: "" });
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
@@ -140,10 +162,10 @@ export function FixedCostsSection() {
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Target className="w-5 h-5" />
-            {isEs ? "Costos Fijos & Presupuesto" : "Fixed Costs & Budget"}
+            {isEs ? "Categorías de Gastos & Presupuestos" : "Expense Categories & Budgets"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {isEs ? "Control de overhead y su impacto en rentabilidad" : "Overhead control and profitability impact"}
+            {isEs ? "Categoriza gastos y monitorea contra objetivos" : "Categorize expenses and track against targets"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -162,7 +184,7 @@ export function FixedCostsSection() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200">
             <CardContent className="pt-4">
-              <p className="text-xs text-slate-600">{isEs ? "Costos Fijos (Período)" : "Fixed Costs (Period)"}</p>
+              <p className="text-xs text-slate-600">{isEs ? "Gastos Totales (Período)" : "Total Expenses (Period)"}</p>
               <p className="text-2xl font-bold text-slate-800">{formatCurrency(analysis.insights.total_fixed_costs)}</p>
             </CardContent>
           </Card>
@@ -189,6 +211,28 @@ export function FixedCostsSection() {
               <p className="text-xs">{(analysis.summary?.total_variance || 0) >= 0 ? (isEs ? "bajo presupuesto" : "under budget") : (isEs ? "sobre presupuesto" : "over budget")}</p>
             </CardContent>
           </Card>
+        </div>
+      )}
+      
+      {/* By Type Summary */}
+      {analysis?.by_type && (
+        <div className="grid grid-cols-3 gap-4">
+          {Object.entries(CATEGORY_TYPES).map(([type, config]) => (
+            <Card key={type} className="border-l-4" style={{ borderLeftColor: type === 'variable' ? '#3b82f6' : type === 'operating' ? '#f59e0b' : '#8b5cf6' }}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{isEs ? config.labelEs : config.label}</p>
+                    <p className="text-xl font-bold">{formatCurrency(analysis.by_type[type]?.actual || 0)}</p>
+                  </div>
+                  <Badge className={config.color}>{analysis.by_type[type]?.category_count || 0}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Presupuesto:" : "Budget:"} {formatCurrency(analysis.by_type[type]?.budgeted || 0)}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -323,7 +367,7 @@ export function FixedCostsSection() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Categorías de Costos Fijos" : "Fixed Cost Categories"}</CardTitle>
-                <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", active: true, cost_center_id: "" }); setCategoryDialogOpen(true); }}>
+                <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", category_type: "operating", target_percent: "", active: true, cost_center_id: "" }); setCategoryDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -334,6 +378,8 @@ export function FixedCostsSection() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{isEs ? "Nombre" : "Name"}</TableHead>
+                    <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
+                    <TableHead>{isEs ? "Meta %" : "Target %"}</TableHead>
                     <TableHead>{isEs ? "Centro de Costo" : "Cost Center"}</TableHead>
                     <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
                     <TableHead></TableHead>
@@ -349,6 +395,18 @@ export function FixedCostsSection() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Badge className={CATEGORY_TYPES[cat.category_type || "operating"]?.color || "bg-gray-100"}>
+                          {isEs ? CATEGORY_TYPES[cat.category_type || "operating"]?.labelEs : CATEGORY_TYPES[cat.category_type || "operating"]?.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {cat.target_percent ? (
+                          <span className="text-sm font-medium">{cat.target_percent}%</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {cat.cost_center_name ? (
                           <Badge variant="outline" className="bg-blue-50">{cat.cost_center_name}</Badge>
                         ) : (
@@ -362,7 +420,18 @@ export function FixedCostsSection() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingCategory(cat); setCategoryForm({ name: cat.name, description: cat.description || "", active: cat.active, cost_center_id: cat.cost_center_id || "" }); setCategoryDialogOpen(true); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { 
+                            setEditingCategory(cat); 
+                            setCategoryForm({ 
+                              name: cat.name, 
+                              description: cat.description || "", 
+                              category_type: cat.category_type || "operating",
+                              target_percent: cat.target_percent || "",
+                              active: cat.active, 
+                              cost_center_id: cat.cost_center_id || "" 
+                            }); 
+                            setCategoryDialogOpen(true); 
+                          }}>
                             <FileText className="w-4 h-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteCategory(cat.category_id)}>
@@ -374,7 +443,7 @@ export function FixedCostsSection() {
                   ))}
                   {categories.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         {isEs ? "Sin categorías" : "No categories"}
                       </TableCell>
                     </TableRow>
@@ -430,16 +499,57 @@ export function FixedCostsSection() {
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCategory ? (isEs ? "Editar Categoría" : "Edit Category") : (isEs ? "Nueva Categoría" : "New Category")}</DialogTitle>
+            <DialogTitle>{editingCategory ? (isEs ? "Editar Categoría" : "Edit Category") : (isEs ? "Nueva Categoría de Gasto" : "New Expense Category")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>{isEs ? "Nombre" : "Name"}</Label>
-              <Input value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder={isEs ? "Ej: Alquiler, Servicios, Nómina" : "E.g. Rent, Utilities, Payroll"} />
+              <Input value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder={isEs ? "Ej: Costo de Alimentos, Nómina, Marketing" : "E.g. Food Cost, Payroll, Marketing"} />
             </div>
             <div>
               <Label>{isEs ? "Descripción" : "Description"}</Label>
               <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} placeholder={isEs ? "Descripción opcional..." : "Optional description..."} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Tipo de Categoría" : "Category Type"}</Label>
+                <Select value={categoryForm.category_type || "operating"} onValueChange={(v) => setCategoryForm({ ...categoryForm, category_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CATEGORY_TYPES).map(([value, config]) => (
+                      <SelectItem key={value} value={value}>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-xs ${config.color}`}>
+                            {isEs ? config.labelEs : config.label}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {CATEGORY_TYPES[categoryForm.category_type || "operating"]?.description}
+                </p>
+              </div>
+              <div>
+                <Label>{isEs ? "Meta % de Ingresos (opcional)" : "Target % of Revenue (optional)"}</Label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="number" 
+                    step="0.1" 
+                    value={categoryForm.target_percent} 
+                    onChange={(e) => setCategoryForm({ ...categoryForm, target_percent: e.target.value })} 
+                    placeholder="30"
+                    className="w-24"
+                  />
+                  <span className="text-muted-foreground">%</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Ej: Food Cost debería ser 30%" : "E.g. Food Cost should be 30%"}
+                </p>
+              </div>
             </div>
             <div>
               <Label>{isEs ? "Centro de Costo (opcional)" : "Cost Center (optional)"}</Label>

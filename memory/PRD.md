@@ -17,6 +17,18 @@ Comprehensive ERP application for event management agencies with modules for Peo
 
 ## Completed Features (March 2026)
 
+### Expense Categories System (March 8, 2026)
+- **Renamed**: "Fixed Costs & Budget" → "Expense Categories & Budgets"
+- **New Fields**:
+  - `category_type`: Variable / Operating / Investment
+  - `target_percent`: Target as % of revenue (e.g., Food Cost 30%)
+- **UI Enhancements**:
+  - Summary cards by expense type (Variable, Operating, Investment)
+  - New category form with type selector and target % input
+  - Updated table with Type and Target % columns
+- **Backend**: New alias endpoints `/expense-categories/*` alongside existing `/fixed-costs/*`
+- **Backward Compatible**: All existing data continues to work (defaults to "operating" type)
+
 ### Organization Structure Module (March 8, 2026)
 - **New Departments Layer**: Created `departments` collection as primary organizational grouping
 - **Cost Centers Enhancement**: Extended with `department_id` foreign key

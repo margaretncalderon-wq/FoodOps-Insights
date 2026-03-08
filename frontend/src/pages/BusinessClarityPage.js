@@ -124,7 +124,7 @@ export default function BusinessClarityPage() {
 
   // Financials dropdown
   const financialsMenu = [
-    { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
+    { path: "/business-clarity/fixed-costs", label: isEs ? "Categorías de Gastos" : "Expense Categories", icon: Target },
     { path: "/business-clarity/cost-center-budgets", label: isEs ? "Presupuestos CC" : "CC Budgets", icon: Building2 },
     { path: "/business-clarity/reports", label: isEs ? "Reportes Ejecutivos" : "Executive Reports", icon: FileBarChart },
     { path: "/business-clarity/profit-loss", label: isEs ? "P&L / Resultados" : "P&L / Results", icon: Wallet },
