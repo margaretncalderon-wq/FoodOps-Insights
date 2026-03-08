@@ -14,7 +14,7 @@ import {
   Users, Plus, Search, Filter, Building2, MapPin, Star,
   Phone, Mail, Globe, ChevronRight, MoreVertical, RefreshCw,
   FileText, AlertTriangle, CheckCircle2, Clock, XCircle,
-  Briefcase, TrendingUp
+  Briefcase, TrendingUp, Truck
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -23,6 +23,7 @@ import {
 import { Checkbox } from "../../components/ui/checkbox";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { Skeleton } from "../../components/ui/skeleton";
+import { SuppliersSection } from "../../components/shared/SuppliersSection";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -54,6 +55,7 @@ export default function PartnersPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedPartners, setSelectedPartners] = useState([]);
+  const [mainView, setMainView] = useState("partners"); // "partners" or "suppliers"
   
   // Filters
   const [filters, setFilters] = useState({
@@ -195,12 +197,35 @@ export default function PartnersPage() {
             <Button variant="outline" size="sm" onClick={fetchData}>
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
-            <Button onClick={() => navigate("/partners/new")} data-testid="new-partner-btn">
-              <Plus className="w-4 h-4 mr-2" />
-              {isEs ? "Nuevo Partner" : "New Partner"}
-            </Button>
+            {mainView === "partners" && (
+              <Button onClick={() => navigate("/partners/new")} data-testid="new-partner-btn">
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Nuevo Partner" : "New Partner"}
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Main View Toggle - Partners vs Suppliers */}
+        <Tabs value={mainView} onValueChange={setMainView} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="partners" className="gap-2">
+              <Briefcase className="w-4 h-4" />
+              {isEs ? "Partners" : "Partners"}
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" className="gap-2">
+              <Truck className="w-4 h-4" />
+              {isEs ? "Suplidores" : "Suppliers"}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Suppliers Tab Content */}
+          <TabsContent value="suppliers" className="mt-6">
+            <SuppliersSection showHeader={true} />
+          </TabsContent>
+
+          {/* Partners Tab Content */}
+          <TabsContent value="partners" className="mt-6 space-y-6">
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -536,6 +561,8 @@ export default function PartnersPage() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
