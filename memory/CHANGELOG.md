@@ -1,5 +1,24 @@
 # Kora ERP - Changelog
 
+## [2026-03-08] - Payment Recording Flow Fix
+
+### Fixed
+- **Payment Modal Step Transition Bug**: Fixed critical bug where selecting a client in the "Record Payment" modal would not advance to Step 2
+  - Root cause: `handleClientChange` was calling `setStep(2)` before `fetchClientItems` (async) completed
+  - Solution: Made `handleClientChange` async and await the fetch before advancing step
+  - File: `/app/frontend/src/components/business-clarity/PaymentsSection.js`
+
+### Verified Working
+- Complete payment recording flow:
+  1. Step 1: Client selection → ✅
+  2. Step 2: Invoice/Order selection with amounts → ✅
+  3. Step 3: Payment details (date, method, reference, notes) → ✅
+  4. Create payment & receipt → ✅
+  5. Invoice balance update → ✅
+  6. Payment list with correct "applied" status → ✅
+
+---
+
 ## [2026-03-08] - Cierres Retroactivos
 
 ### Added

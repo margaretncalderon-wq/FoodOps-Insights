@@ -2,16 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
-import { Card, CardContent } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
+import { Checkbox } from "../ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Plus, RefreshCw, Calendar, FileText, ShoppingCart, Receipt } from "lucide-react";
+import { Plus, RefreshCw, Calendar, FileText, ShoppingCart, Receipt, CreditCard } from "lucide-react";
 import { PaymentReceiptModal } from "./PaymentReceiptModal";
 
 import { API_BASE as API } from "../../utils/api";
@@ -20,230 +21,261 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 export function PaymentsSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  
+  // Data states
   const [payments, setPayments] = useState([]);
   const [clients, setClients] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal states
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [applyTab, setApplyTab] = useState("invoices");
-  const [paymentForm, setPaymentForm] = useState({ 
-    client_id: "", 
-    amount: 0, 
-    payment_method: "transfer", 
+  
+  // New payment flow states
+  const [step, setStep] = useState(1); // 1: Select client, 2: Select items, 3: Payment details
+  const [selectedClient, setSelectedClient] = useState("");
+  const [clientInvoices, setClientInvoices] = useState([]);
+  const [clientOrders, setClientOrders] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]); // {type: 'invoice'|'order', id: string, amount: number, balance: number}
+  const [paymentForm, setPaymentForm] = useState({
+    amount: 0,
+    payment_method: "transfer",
     payment_date: new Date().toISOString().split('T')[0],
-    reference: "", 
-    notes: "" 
+    reference: "",
+    notes: ""
   });
-  const [applicationAmounts, setApplicationAmounts] = useState({});
-  const [orderApplicationAmounts, setOrderApplicationAmounts] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("invoices");
 
-  const fetchData = useCallback(async () => {
+  const fetchPayments = useCallback(async () => {
     try {
-      const [payRes, clientRes, invRes, ordersRes] = await Promise.all([
+      const [payRes, clientRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/payments`, { withCredentials: true }),
         axios.get(`${API}/api/crm/clients`, { withCredentials: true }),
-        axios.get(`${API}/api/business-clarity/invoices`, { withCredentials: true }),
-        axios.get(`${API}/api/events`, { withCredentials: true }).catch(() => ({ data: [] })),
       ]);
       setPayments(payRes.data);
       setClients(clientRes.data);
-      // Filter invoices that have balance due
-      setInvoices(invRes.data.filter(i => (i.balance_due || 0) > 0 || i.status !== "paid"));
-      // Get orders/events that might need deposits
-      const eventsData = Array.isArray(ordersRes.data) ? ordersRes.data : ordersRes.data?.events || [];
-      setOrders(eventsData.filter(e => e.status !== "cancelled"));
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchPayments(); }, [fetchPayments]);
+
+  // Fetch client's pending invoices and orders when client is selected
+  const fetchClientItems = async (clientId) => {
+    if (!clientId) {
+      setClientInvoices([]);
+      setClientOrders([]);
+      return;
+    }
+    
+    try {
+      const [invRes, ordersRes] = await Promise.all([
+        axios.get(`${API}/api/business-clarity/invoices?client_id=${clientId}`, { withCredentials: true }),
+        axios.get(`${API}/api/events?client_id=${clientId}`, { withCredentials: true }).catch(() => ({ data: [] }))
+      ]);
+      
+      // Filter invoices with pending balance
+      const pendingInvoices = (invRes.data || []).filter(inv => 
+        (inv.balance_due || inv.total || 0) > 0 && inv.status !== "paid"
+      );
+      setClientInvoices(pendingInvoices);
+      
+      // Filter orders/events that might need deposits
+      const eventsData = Array.isArray(ordersRes.data) ? ordersRes.data : ordersRes.data?.events || [];
+      const pendingOrders = eventsData.filter(e => 
+        e.status !== "cancelled" && (e.total_value || e.budget || 0) > (e.deposit_paid || 0)
+      );
+      setClientOrders(pendingOrders);
+      
+    } catch (err) {
+      console.error(err);
+      toast.error(isEs ? "Error cargando datos del cliente" : "Error loading client data");
+    }
+  };
+
+  const handleClientChange = async (clientId) => {
+    if (!clientId) return;
+    
+    setSelectedClient(clientId);
+    setSelectedItems([]);
+    
+    // Fetch client data first, then advance to step 2
+    await fetchClientItems(clientId);
+    setStep(2);
+  };
+
+  const handleToggleItem = (type, item) => {
+    const itemId = type === 'invoice' ? item.invoice_id : item.event_id;
+    const balance = type === 'invoice' 
+      ? (item.balance_due || item.total || 0)
+      : ((item.total_value || item.budget || 0) - (item.deposit_paid || 0));
+    
+    setSelectedItems(prev => {
+      const exists = prev.find(i => i.id === itemId && i.type === type);
+      if (exists) {
+        return prev.filter(i => !(i.id === itemId && i.type === type));
+      } else {
+        return [...prev, { type, id: itemId, item, balance, amount: balance }];
+      }
+    });
+  };
+
+  const handleAmountChange = (itemId, type, newAmount) => {
+    setSelectedItems(prev => prev.map(i => 
+      i.id === itemId && i.type === type 
+        ? { ...i, amount: Math.min(parseFloat(newAmount) || 0, i.balance) }
+        : i
+    ));
+  };
+
+  const totalToPay = selectedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   const handleCreatePayment = async () => {
-    if (!paymentForm.client_id || paymentForm.amount <= 0) return toast.error(isEs ? "Complete los campos requeridos" : "Fill required fields");
+    if (selectedItems.length === 0) {
+      return toast.error(isEs ? "Seleccione al menos una factura o pedido" : "Select at least one invoice or order");
+    }
+    
+    if (totalToPay <= 0) {
+      return toast.error(isEs ? "El monto debe ser mayor a 0" : "Amount must be greater than 0");
+    }
+    
+    setSaving(true);
     try {
-      await axios.post(`${API}/api/business-clarity/payments`, paymentForm, { withCredentials: true });
-      toast.success(isEs ? "Pago registrado exitosamente" : "Payment recorded successfully");
+      // Create payment with applications in one request
+      const response = await axios.post(`${API}/api/business-clarity/payments/with-receipt`, {
+        client_id: selectedClient,
+        amount: totalToPay,
+        payment_method: paymentForm.payment_method,
+        payment_date: paymentForm.payment_date,
+        reference: paymentForm.reference,
+        notes: paymentForm.notes,
+        applications: selectedItems.map(item => ({
+          type: item.type,
+          id: item.id,
+          amount: item.amount
+        }))
+      }, { withCredentials: true });
+      
+      toast.success(isEs ? "Pago registrado y recibo generado" : "Payment recorded and receipt generated");
+      
+      // Show the receipt
+      if (response.data?.payment) {
+        setSelectedPayment(response.data.payment);
+        setReceiptModalOpen(true);
+      }
+      
+      // Reset form
       setPaymentDialogOpen(false);
-      setPaymentForm({ 
-        client_id: "", 
-        amount: 0, 
-        payment_method: "transfer", 
-        payment_date: new Date().toISOString().split('T')[0],
-        reference: "", 
-        notes: "" 
-      });
-      fetchData();
-    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
-  };
-
-  const handleApplyPayment = async () => {
-    if (!selectedPayment) return;
-    
-    // Combine invoice and order applications
-    const invoiceApplications = Object.entries(applicationAmounts)
-      .filter(([_, amt]) => parseFloat(amt) > 0)
-      .map(([invoice_id, amount_applied]) => ({ 
-        invoice_id, 
-        amount_applied: parseFloat(amount_applied),
-        type: "invoice"
-      }));
-    
-    const orderApplications = Object.entries(orderApplicationAmounts)
-      .filter(([_, amt]) => parseFloat(amt) > 0)
-      .map(([event_id, amount_applied]) => ({ 
-        event_id, 
-        amount_applied: parseFloat(amount_applied),
-        type: "deposit"
-      }));
-    
-    const allApplications = [...invoiceApplications, ...orderApplications];
-    
-    if (allApplications.length === 0) return toast.error(isEs ? "Ingrese al menos un monto a aplicar" : "Enter at least one amount to apply");
-    
-    // Validate total doesn't exceed available
-    const totalToApply = allApplications.reduce((sum, app) => sum + app.amount_applied, 0);
-    if (totalToApply > (selectedPayment.unapplied_amount || 0)) {
-      return toast.error(isEs ? "El monto total excede el disponible" : "Total amount exceeds available");
-    }
-    
-    try {
-      // Apply to invoices
-      if (invoiceApplications.length > 0) {
-        await axios.post(
-          `${API}/api/business-clarity/payments/${selectedPayment.payment_id}/apply`, 
-          { payment_id: selectedPayment.payment_id, applications: invoiceApplications }, 
-          { withCredentials: true }
-        );
-      }
+      resetForm();
+      fetchPayments();
       
-      // Apply to orders/events as deposits
-      for (const orderApp of orderApplications) {
-        await axios.post(
-          `${API}/api/events/${orderApp.event_id}/deposit`,
-          { 
-            amount: orderApp.amount_applied, 
-            payment_id: selectedPayment.payment_id,
-            payment_method: selectedPayment.payment_method,
-            reference: selectedPayment.reference
-          },
-          { withCredentials: true }
-        ).catch(err => {
-          console.error("Deposit error:", err);
-          // If deposit endpoint doesn't exist, try updating payment application
-        });
-      }
-      
-      toast.success(isEs ? "Pago aplicado exitosamente" : "Payment applied successfully");
-      setApplyDialogOpen(false);
-      setSelectedPayment(null);
-      setApplicationAmounts({});
-      setOrderApplicationAmounts({});
-      fetchData();
-    } catch (err) { 
-      toast.error(err.response?.data?.detail || (isEs ? "Error aplicando pago" : "Error applying payment")); 
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al registrar pago" : "Error recording payment"));
     }
+    setSaving(false);
   };
 
-  // Get invoices for the selected payment's client
-  const getClientInvoices = () => {
-    if (!selectedPayment) return [];
-    // Try to match by client_id first, then by client name
-    return invoices.filter(inv => {
-      if (selectedPayment.client_id && inv.client_id === selectedPayment.client_id) return true;
-      if (selectedPayment.client_name && inv.client_name === selectedPayment.client_name) return true;
-      return false;
+  const resetForm = () => {
+    setStep(1);
+    setSelectedClient("");
+    setSelectedItems([]);
+    setClientInvoices([]);
+    setClientOrders([]);
+    setPaymentForm({
+      amount: 0,
+      payment_method: "transfer",
+      payment_date: new Date().toISOString().split('T')[0],
+      reference: "",
+      notes: ""
     });
+    setActiveTab("invoices");
   };
 
-  // Get orders/events for the selected payment's client
-  const getClientOrders = () => {
-    if (!selectedPayment) return [];
-    return orders.filter(ord => {
-      if (selectedPayment.client_id && ord.client_id === selectedPayment.client_id) return true;
-      if (selectedPayment.client_name && (ord.client?.name === selectedPayment.client_name || ord.client_name === selectedPayment.client_name)) return true;
-      return false;
-    });
+  const openPaymentDialog = () => {
+    resetForm();
+    setPaymentDialogOpen(true);
   };
 
-  const clientInvoices = getClientInvoices();
-  const clientOrders = getClientOrders();
+  const getPaymentMethodLabel = (method) => {
+    const methods = {
+      cash: isEs ? "Efectivo" : "Cash",
+      transfer: isEs ? "Transferencia" : "Transfer",
+      bank_transfer: isEs ? "Transferencia Bancaria" : "Bank Transfer",
+      card: isEs ? "Tarjeta" : "Card",
+      check: isEs ? "Cheque" : "Check",
+      paypal: "PayPal",
+      zelle: "Zelle",
+      other: isEs ? "Otro" : "Other"
+    };
+    return methods[method] || method;
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{isEs ? "Pagos Recibidos" : "Received Payments"}</h2>
-        <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
+        <h2 className="text-lg font-semibold">{isEs ? "Pagos y Recibos" : "Payments & Receipts"}</h2>
+        <Button size="sm" onClick={openPaymentDialog} className="gap-2 bg-green-600 hover:bg-green-700">
+          <CreditCard className="w-4 h-4" />
           {isEs ? "Registrar Pago" : "Record Payment"}
         </Button>
       </div>
 
+      {/* Payments List */}
       <Card>
         <CardContent className="pt-4">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>{isEs ? "Recibo" : "Receipt"}</TableHead>
                 <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
                 <TableHead>{isEs ? "Cliente" : "Client"}</TableHead>
                 <TableHead>{isEs ? "Método" : "Method"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Monto" : "Amount"}</TableHead>
-                <TableHead className="text-right">{isEs ? "Aplicado" : "Applied"}</TableHead>
-                <TableHead className="text-right">{isEs ? "Disponible" : "Available"}</TableHead>
-                <TableHead>{isEs ? "Referencia" : "Reference"}</TableHead>
+                <TableHead>{isEs ? "Aplicado a" : "Applied to"}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {payments.map(pay => (
-                <TableRow key={pay.payment_id} className={pay.unapplied_amount > 0 ? "bg-amber-50" : ""}>
+                <TableRow key={pay.payment_id}>
+                  <TableCell className="font-mono text-sm">{pay.receipt_number || pay.payment_id?.slice(-8)}</TableCell>
                   <TableCell>{new Date(pay.payment_date).toLocaleDateString()}</TableCell>
                   <TableCell>{pay.client_name || "-"}</TableCell>
-                  <TableCell><Badge variant="outline">{pay.payment_method}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{getPaymentMethodLabel(pay.payment_method)}</Badge></TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(pay.amount)}</TableCell>
-                  <TableCell className="text-right text-green-600">{formatCurrency(pay.applied_amount)}</TableCell>
-                  <TableCell className="text-right text-amber-600 font-medium">{formatCurrency(pay.unapplied_amount)}</TableCell>
-                  <TableCell className="max-w-48 truncate text-sm text-muted-foreground">{pay.reference}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        title={isEs ? "Ver Recibo" : "View Receipt"}
-                        onClick={() => { 
-                          setSelectedPayment(pay); 
-                          setReceiptModalOpen(true); 
-                        }}
-                      >
-                        <Receipt className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      {pay.unapplied_amount > 0 && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => { 
-                            setSelectedPayment(pay); 
-                            setApplicationAmounts({}); 
-                            setOrderApplicationAmounts({});
-                            setApplyTab("invoices");
-                            setApplyDialogOpen(true); 
-                          }}
-                        >
-                          {isEs ? "Aplicar" : "Apply"}
-                        </Button>
-                      )}
-                    </div>
+                    {pay.applied_amount > 0 ? (
+                      <Badge variant="default" className="bg-green-600">
+                        {formatCurrency(pay.applied_amount)} {isEs ? "aplicado" : "applied"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">{isEs ? "Sin aplicar" : "Not applied"}</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      title={isEs ? "Ver Recibo" : "View Receipt"}
+                      onClick={() => { 
+                        setSelectedPayment(pay); 
+                        setReceiptModalOpen(true); 
+                      }}
+                    >
+                      <Receipt className="w-4 h-4 text-blue-600" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
               {payments.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay pagos registrados" : "No payments recorded"}
                   </TableCell>
                 </TableRow>
@@ -253,256 +285,304 @@ export function PaymentsSection() {
         </CardContent>
       </Card>
 
-      {/* Create Payment Dialog */}
+      {/* Record Payment Dialog - Step by Step */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{isEs ? "Registrar Pago de Cliente" : "Record Client Payment"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              {isEs ? "Registrar Pago" : "Record Payment"}
+            </DialogTitle>
             <DialogDescription>
-              {isEs ? "Registre un pago recibido. Puede usar fechas pasadas." : "Record a received payment. Past dates are allowed."}
+              {step === 1 && (isEs ? "Paso 1: Seleccione el cliente" : "Step 1: Select the client")}
+              {step === 2 && (isEs ? "Paso 2: Seleccione facturas o pedidos a pagar" : "Step 2: Select invoices or orders to pay")}
+              {step === 3 && (isEs ? "Paso 3: Complete los datos del pago" : "Step 3: Complete payment details")}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{isEs ? "Cliente" : "Client"} *</Label>
-              <Select value={paymentForm.client_id} onValueChange={(v) => setPaymentForm({ ...paymentForm, client_id: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isEs ? "Seleccionar cliente" : "Select client"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.client_id} value={c.client_id}>{c.display_name || c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{isEs ? "Monto" : "Amount"} *</Label>
-                <Input 
-                  type="number" 
-                  step="0.01" 
-                  value={paymentForm.amount || ""} 
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) || 0 })} 
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {isEs ? "Fecha del Pago" : "Payment Date"} *
-                </Label>
-                <Input 
-                  type="date" 
-                  value={paymentForm.payment_date} 
-                  onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })} 
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label>{isEs ? "Método de Pago" : "Payment Method"}</Label>
-              <Select value={paymentForm.payment_method} onValueChange={(v) => setPaymentForm({ ...paymentForm, payment_method: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">{isEs ? "Efectivo" : "Cash"}</SelectItem>
-                  <SelectItem value="transfer">{isEs ? "Transferencia Bancaria" : "Bank Transfer"}</SelectItem>
-                  <SelectItem value="bank_transfer">{isEs ? "Transferencia" : "Transfer"}</SelectItem>
-                  <SelectItem value="card">{isEs ? "Tarjeta de Crédito/Débito" : "Credit/Debit Card"}</SelectItem>
-                  <SelectItem value="check">{isEs ? "Cheque" : "Check"}</SelectItem>
-                  <SelectItem value="paypal">PayPal</SelectItem>
-                  <SelectItem value="zelle">Zelle</SelectItem>
-                  <SelectItem value="other">{isEs ? "Otro" : "Other"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>{isEs ? "Referencia / No. Transacción" : "Reference / Transaction No."}</Label>
-              <Input 
-                value={paymentForm.reference} 
-                onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })} 
-                placeholder={isEs ? "Ej: Transferencia #12345" : "E.g: Transfer #12345"}
-              />
-            </div>
-            
-            <div>
-              <Label>{isEs ? "Notas" : "Notes"}</Label>
-              <Input 
-                value={paymentForm.notes || ""} 
-                onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })} 
-                placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-              {isEs ? "Cancelar" : "Cancel"}
-            </Button>
-            <Button onClick={handleCreatePayment}>
-              {isEs ? "Guardar Pago" : "Save Payment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Apply Payment Dialog */}
-      <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{isEs ? "Aplicar Pago" : "Apply Payment"}</DialogTitle>
-            <DialogDescription>
-              {isEs ? "Disponible para aplicar" : "Available to apply"}: <span className="font-bold text-green-600">{formatCurrency(selectedPayment?.unapplied_amount)}</span>
-              {selectedPayment?.client_name && <span className="ml-2">• {selectedPayment.client_name}</span>}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Tabs value={applyTab} onValueChange={setApplyTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="invoices" className="gap-2">
-                <FileText className="w-4 h-4" />
-                {isEs ? "Facturas" : "Invoices"}
-                {clientInvoices.length > 0 && <Badge variant="secondary" className="ml-1">{clientInvoices.length}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="orders" className="gap-2">
-                <ShoppingCart className="w-4 h-4" />
-                {isEs ? "Pedidos / Depósitos" : "Orders / Deposits"}
-                {clientOrders.length > 0 && <Badge variant="secondary" className="ml-1">{clientOrders.length}</Badge>}
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="invoices" className="mt-4">
-              <div className="max-h-72 overflow-y-auto border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{isEs ? "Factura" : "Invoice"}</TableHead>
-                      <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
-                      <TableHead>{isEs ? "Vence" : "Due"}</TableHead>
-                      <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
-                      <TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead>
-                      <TableHead className="text-right w-32">{isEs ? "Aplicar" : "Apply"}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clientInvoices.map(inv => (
-                      <TableRow key={inv.invoice_id}>
-                        <TableCell className="font-medium">{inv.invoice_number}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {inv.issue_date ? new Date(inv.issue_date).toLocaleDateString() : "-"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "-"}
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(inv.total || inv.total_amount)}</TableCell>
-                        <TableCell className="text-right font-medium text-amber-600">{formatCurrency(inv.balance_due)}</TableCell>
-                        <TableCell className="text-right">
-                          <Input 
-                            type="number" 
-                            step="0.01" 
-                            className="w-28 text-right" 
-                            value={applicationAmounts[inv.invoice_id] || ""} 
-                            onChange={(e) => setApplicationAmounts({ ...applicationAmounts, [inv.invoice_id]: e.target.value })}
-                            max={Math.min(inv.balance_due || 0, selectedPayment?.unapplied_amount || 0)}
-                            placeholder="0.00"
-                          />
-                        </TableCell>
-                      </TableRow>
+          {/* Step 1: Select Client */}
+          {step === 1 && (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>{isEs ? "Cliente" : "Client"} *</Label>
+                <Select value={selectedClient} onValueChange={handleClientChange}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder={isEs ? "Seleccionar cliente..." : "Select client..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => (
+                      <SelectItem key={c.client_id} value={c.client_id}>
+                        {c.display_name || c.name}
+                      </SelectItem>
                     ))}
-                    {clientInvoices.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          {isEs ? "No hay facturas pendientes para este cliente" : "No pending invoices for this client"}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="orders" className="mt-4">
-              <div className="max-h-72 overflow-y-auto border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{isEs ? "Pedido / Evento" : "Order / Event"}</TableHead>
-                      <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
-                      <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
-                      <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
-                      <TableHead className="text-right">{isEs ? "Depósito Pendiente" : "Pending Deposit"}</TableHead>
-                      <TableHead className="text-right w-32">{isEs ? "Aplicar" : "Apply"}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clientOrders.map(ord => {
-                      const totalValue = ord.total_value || ord.budget || 0;
-                      const paidDeposit = ord.deposit_paid || ord.paid_amount || 0;
-                      const pendingDeposit = totalValue - paidDeposit;
-                      
-                      return (
-                        <TableRow key={ord.event_id}>
-                          <TableCell className="font-medium">{ord.name || ord.event_name || `#${ord.event_id?.slice(-6)}`}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {ord.date ? new Date(ord.date).toLocaleDateString() : "-"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={ord.status === "confirmed" ? "default" : "outline"}>
-                              {ord.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{formatCurrency(totalValue)}</TableCell>
-                          <TableCell className="text-right font-medium text-amber-600">{formatCurrency(pendingDeposit > 0 ? pendingDeposit : 0)}</TableCell>
-                          <TableCell className="text-right">
-                            <Input 
-                              type="number" 
-                              step="0.01" 
-                              className="w-28 text-right" 
-                              value={orderApplicationAmounts[ord.event_id] || ""} 
-                              onChange={(e) => setOrderApplicationAmounts({ ...orderApplicationAmounts, [ord.event_id]: e.target.value })}
-                              placeholder="0.00"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {clientOrders.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          {isEs ? "No hay pedidos/eventos para este cliente" : "No orders/events for this client"}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          {/* Summary of what will be applied */}
-          {(Object.values(applicationAmounts).some(v => parseFloat(v) > 0) || Object.values(orderApplicationAmounts).some(v => parseFloat(v) > 0)) && (
-            <div className="bg-slate-50 rounded-lg p-3 mt-2">
-              <p className="text-sm font-medium">{isEs ? "Resumen:" : "Summary:"}</p>
-              <div className="flex justify-between text-sm mt-1">
-                <span>{isEs ? "Total a aplicar:" : "Total to apply:"}</span>
-                <span className="font-bold">
-                  {formatCurrency(
-                    Object.values(applicationAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0) +
-                    Object.values(orderApplicationAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
-                  )}
-                </span>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyDialogOpen(false)}>
-              {isEs ? "Cancelar" : "Cancel"}
-            </Button>
-            <Button onClick={handleApplyPayment}>
-              {isEs ? "Aplicar Pago" : "Apply Payment"}
-            </Button>
+
+          {/* Step 2: Select Items to Pay */}
+          {step === 2 && (
+            <div className="space-y-4 py-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="invoices" className="gap-2">
+                    <FileText className="w-4 h-4" />
+                    {isEs ? "Facturas" : "Invoices"}
+                    {clientInvoices.length > 0 && <Badge variant="secondary">{clientInvoices.length}</Badge>}
+                  </TabsTrigger>
+                  <TabsTrigger value="orders" className="gap-2">
+                    <ShoppingCart className="w-4 h-4" />
+                    {isEs ? "Pedidos / Depósitos" : "Orders / Deposits"}
+                    {clientOrders.length > 0 && <Badge variant="secondary">{clientOrders.length}</Badge>}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="invoices" className="mt-4">
+                  {clientInvoices.length > 0 ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead>{isEs ? "Factura" : "Invoice"}</TableHead>
+                            <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Pendiente" : "Pending"}</TableHead>
+                            <TableHead className="text-right w-32">{isEs ? "A Pagar" : "To Pay"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientInvoices.map(inv => {
+                            const isSelected = selectedItems.some(i => i.id === inv.invoice_id && i.type === 'invoice');
+                            const selectedItem = selectedItems.find(i => i.id === inv.invoice_id && i.type === 'invoice');
+                            const balance = inv.balance_due || inv.total || 0;
+                            
+                            return (
+                              <TableRow key={inv.invoice_id} className={isSelected ? "bg-green-50" : ""}>
+                                <TableCell>
+                                  <Checkbox 
+                                    checked={isSelected}
+                                    onCheckedChange={() => handleToggleItem('invoice', inv)}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{inv.invoice_number}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {inv.issue_date ? new Date(inv.issue_date).toLocaleDateString() : "-"}
+                                </TableCell>
+                                <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
+                                <TableCell className="text-right font-medium text-amber-600">
+                                  {formatCurrency(balance)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {isSelected && (
+                                    <Input 
+                                      type="number" 
+                                      step="0.01"
+                                      className="w-28 text-right"
+                                      value={selectedItem?.amount || ""}
+                                      onChange={(e) => handleAmountChange(inv.invoice_id, 'invoice', e.target.value)}
+                                      max={balance}
+                                    />
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                      {isEs ? "No hay facturas pendientes" : "No pending invoices"}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="orders" className="mt-4">
+                  {clientOrders.length > 0 ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead>{isEs ? "Pedido / Evento" : "Order / Event"}</TableHead>
+                            <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
+                            <TableHead className="text-right">{isEs ? "Pendiente" : "Pending"}</TableHead>
+                            <TableHead className="text-right w-32">{isEs ? "Depósito" : "Deposit"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientOrders.map(ord => {
+                            const isSelected = selectedItems.some(i => i.id === ord.event_id && i.type === 'order');
+                            const selectedItem = selectedItems.find(i => i.id === ord.event_id && i.type === 'order');
+                            const totalValue = ord.total_value || ord.budget || 0;
+                            const paidDeposit = ord.deposit_paid || 0;
+                            const pending = totalValue - paidDeposit;
+                            
+                            return (
+                              <TableRow key={ord.event_id} className={isSelected ? "bg-green-50" : ""}>
+                                <TableCell>
+                                  <Checkbox 
+                                    checked={isSelected}
+                                    onCheckedChange={() => handleToggleItem('order', ord)}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {ord.name || ord.event_name || `#${ord.event_id?.slice(-6)}`}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {ord.date ? new Date(ord.date).toLocaleDateString() : "-"}
+                                </TableCell>
+                                <TableCell className="text-right">{formatCurrency(totalValue)}</TableCell>
+                                <TableCell className="text-right font-medium text-amber-600">
+                                  {formatCurrency(pending)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {isSelected && (
+                                    <Input 
+                                      type="number" 
+                                      step="0.01"
+                                      className="w-28 text-right"
+                                      value={selectedItem?.amount || ""}
+                                      onChange={(e) => handleAmountChange(ord.event_id, 'order', e.target.value)}
+                                      max={pending}
+                                    />
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                      {isEs ? "No hay pedidos pendientes" : "No pending orders"}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              {/* Summary */}
+              {selectedItems.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-green-800">
+                        {selectedItems.length} {isEs ? "item(s) seleccionado(s)" : "item(s) selected"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-green-600">{isEs ? "Total a pagar" : "Total to pay"}</p>
+                      <p className="text-2xl font-bold text-green-700">{formatCurrency(totalToPay)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Payment Details */}
+          {step === 3 && (
+            <div className="space-y-4 py-4">
+              {/* Summary of what's being paid */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium">{isEs ? "Aplicando pago a:" : "Applying payment to:"}</p>
+                {selectedItems.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-sm">
+                    <span>
+                      {item.type === 'invoice' 
+                        ? `${isEs ? "Factura" : "Invoice"} ${item.item?.invoice_number}`
+                        : `${isEs ? "Pedido" : "Order"} ${item.item?.name || item.item?.event_name}`
+                      }
+                    </span>
+                    <span className="font-medium">{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between font-bold pt-2 border-t">
+                  <span>{isEs ? "Total" : "Total"}</span>
+                  <span className="text-green-600">{formatCurrency(totalToPay)}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {isEs ? "Fecha del Pago" : "Payment Date"} *
+                  </Label>
+                  <Input 
+                    type="date" 
+                    value={paymentForm.payment_date} 
+                    onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>{isEs ? "Método de Pago" : "Payment Method"} *</Label>
+                  <Select value={paymentForm.payment_method} onValueChange={(v) => setPaymentForm({ ...paymentForm, payment_method: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">{isEs ? "Efectivo" : "Cash"}</SelectItem>
+                      <SelectItem value="transfer">{isEs ? "Transferencia Bancaria" : "Bank Transfer"}</SelectItem>
+                      <SelectItem value="card">{isEs ? "Tarjeta de Crédito/Débito" : "Credit/Debit Card"}</SelectItem>
+                      <SelectItem value="check">{isEs ? "Cheque" : "Check"}</SelectItem>
+                      <SelectItem value="zelle">Zelle</SelectItem>
+                      <SelectItem value="paypal">PayPal</SelectItem>
+                      <SelectItem value="other">{isEs ? "Otro" : "Other"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>{isEs ? "Referencia / No. Transacción" : "Reference / Transaction No."}</Label>
+                <Input 
+                  value={paymentForm.reference} 
+                  onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                  placeholder={isEs ? "Ej: Transferencia #12345" : "E.g: Transfer #12345"}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label>{isEs ? "Notas" : "Notes"}</Label>
+                <Input 
+                  value={paymentForm.notes} 
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                  placeholder={isEs ? "Notas adicionales..." : "Additional notes..."}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex justify-between">
+            <div>
+              {step > 1 && (
+                <Button variant="outline" onClick={() => setStep(step - 1)}>
+                  {isEs ? "Atrás" : "Back"}
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+                {isEs ? "Cancelar" : "Cancel"}
+              </Button>
+              {step === 2 && selectedItems.length > 0 && (
+                <Button onClick={() => setStep(3)} className="bg-green-600 hover:bg-green-700">
+                  {isEs ? "Continuar" : "Continue"}
+                </Button>
+              )}
+              {step === 3 && (
+                <Button onClick={handleCreatePayment} disabled={saving} className="bg-green-600 hover:bg-green-700">
+                  {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Receipt className="w-4 h-4 mr-2" />}
+                  {isEs ? "Crear Pago y Recibo" : "Create Payment & Receipt"}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

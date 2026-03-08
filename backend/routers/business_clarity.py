@@ -569,6 +569,168 @@ async def create_payment(data: PaymentCreate, user: User = Depends(get_current_u
     del payment["_id"]
     return payment
 
+@business_clarity_router.post("/payments/with-receipt")
+async def create_payment_with_receipt(data: dict, user: User = Depends(get_current_user)):
+    """Create a payment, apply to invoices/orders, and generate receipt in one operation"""
+    check_finance_permission(user, "record payments")
+    
+    now = datetime.now(timezone.utc)
+    applications = data.get("applications", [])
+    
+    if not applications:
+        raise HTTPException(status_code=400, detail="At least one invoice or order must be selected")
+    
+    # Calculate total amount from applications
+    total_amount = sum(app.get("amount", 0) for app in applications)
+    if total_amount <= 0:
+        raise HTTPException(status_code=400, detail="Total amount must be greater than 0")
+    
+    # Get client info
+    client = await db.clients.find_one(
+        {"client_id": data.get("client_id")},
+        {"_id": 0, "display_name": 1, "name": 1}
+    )
+    client_name = client.get("display_name", client.get("name", "")) if client else ""
+    
+    # Generate receipt number
+    year = now.year
+    count = await db.payments.count_documents({"company_id": user.company_id})
+    receipt_number = f"REC-{year}-{(count + 1):04d}"
+    
+    # Create payment record
+    payment = {
+        "payment_id": f"pay_{uuid.uuid4().hex[:12]}",
+        "receipt_number": receipt_number,
+        "company_id": user.company_id,
+        "client_id": data.get("client_id"),
+        "client_name": client_name,
+        "amount": total_amount,
+        "payment_method": data.get("payment_method", "transfer"),
+        "payment_date": data.get("payment_date") or now.isoformat(),
+        "reference": data.get("reference"),
+        "notes": data.get("notes"),
+        "status": "completed",
+        "applied_amount": total_amount,
+        "unapplied_amount": 0.0,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.payments.insert_one(payment)
+    payment_id = payment["payment_id"]
+    
+    # Process applications
+    applied_invoices = []
+    applied_orders = []
+    
+    for app in applications:
+        app_type = app.get("type")
+        app_id = app.get("id")
+        app_amount = app.get("amount", 0)
+        
+        if app_type == "invoice":
+            # Apply to invoice
+            invoice = await db.invoices.find_one({"invoice_id": app_id})
+            if invoice:
+                current_paid = invoice.get("amount_paid", 0) or 0
+                new_paid = current_paid + app_amount
+                new_balance = (invoice.get("total", 0) or 0) - new_paid
+                new_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else invoice.get("status"))
+                
+                await db.invoices.update_one(
+                    {"invoice_id": app_id},
+                    {"$set": {
+                        "amount_paid": new_paid,
+                        "balance_due": max(0, new_balance),
+                        "status": new_status,
+                        "updated_at": now.isoformat()
+                    }}
+                )
+                
+                # Create application record
+                application = {
+                    "application_id": f"app_{uuid.uuid4().hex[:12]}",
+                    "payment_id": payment_id,
+                    "invoice_id": app_id,
+                    "invoice_number": invoice.get("invoice_number"),
+                    "amount_applied": app_amount,
+                    "application_type": "invoice",
+                    "applied_at": now.isoformat(),
+                    "applied_by": user.user_id
+                }
+                await db.payment_applications.insert_one(application)
+                applied_invoices.append(invoice.get("invoice_number"))
+                
+        elif app_type == "order":
+            # Apply as deposit to event/order
+            event = await db.events.find_one({"event_id": app_id})
+            if event:
+                current_deposit = event.get("deposit_paid", 0) or 0
+                new_deposit = current_deposit + app_amount
+                
+                await db.events.update_one(
+                    {"event_id": app_id},
+                    {"$set": {
+                        "deposit_paid": new_deposit,
+                        "updated_at": now.isoformat()
+                    }}
+                )
+                
+                # Create deposit record
+                deposit = {
+                    "deposit_id": f"dep_{uuid.uuid4().hex[:12]}",
+                    "event_id": app_id,
+                    "company_id": user.company_id,
+                    "amount": app_amount,
+                    "payment_id": payment_id,
+                    "payment_method": data.get("payment_method"),
+                    "reference": data.get("reference"),
+                    "deposit_date": data.get("payment_date") or now.isoformat(),
+                    "created_by": user.user_id,
+                    "created_at": now.isoformat()
+                }
+                await db.event_deposits.insert_one(deposit)
+                
+                # Create application record
+                application = {
+                    "application_id": f"app_{uuid.uuid4().hex[:12]}",
+                    "payment_id": payment_id,
+                    "event_id": app_id,
+                    "event_name": event.get("name", event.get("event_name")),
+                    "amount_applied": app_amount,
+                    "application_type": "deposit",
+                    "applied_at": now.isoformat(),
+                    "applied_by": user.user_id
+                }
+                await db.payment_applications.insert_one(application)
+                applied_orders.append(event.get("name", event.get("event_name")))
+    
+    # Log activity
+    desc_parts = []
+    if applied_invoices:
+        desc_parts.append(f"Invoices: {', '.join(applied_invoices)}")
+    if applied_orders:
+        desc_parts.append(f"Orders: {', '.join(applied_orders)}")
+    
+    await log_activity(
+        module="business_clarity",
+        action="create",
+        entity_type="payment_receipt",
+        entity_id=payment_id,
+        entity_name=f"{receipt_number} - ${total_amount:.2f} ({'; '.join(desc_parts)})",
+        **user_info(user)
+    )
+    
+    del payment["_id"]
+    return {
+        "message": "Payment created and applied successfully",
+        "payment": payment,
+        "receipt_number": receipt_number,
+        "applied_invoices": applied_invoices,
+        "applied_orders": applied_orders
+    }
+
+
 @business_clarity_router.get("/payments")
 async def get_payments(
     client_id: Optional[str] = None,

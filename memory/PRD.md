@@ -17,6 +17,15 @@ Comprehensive ERP application for event management agencies with modules for Peo
 
 ## Completed Features (March 2026)
 
+### Payment Recording Flow (March 8, 2026)
+- **Bug Fix**: Fixed critical bug preventing modal from advancing to Step 2 after client selection
+- Multi-step payment workflow:
+  - Step 1: Select client
+  - Step 2: Select invoices/orders to apply payment
+  - Step 3: Enter payment details (date, method, reference, notes)
+- Automatic invoice balance update upon payment
+- Payment receipt generation with company branding
+
 ### Data Migration Module
 - CSV import for clients, suppliers, sales, inventory
 - Robust header normalization (multiple formats supported)
