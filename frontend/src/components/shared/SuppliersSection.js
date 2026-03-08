@@ -37,7 +37,17 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
     address: "",
     category: "General",
     payment_terms: "net30",
-    notes: ""
+    notes: "",
+    // Additional fields like Partners
+    legal_name: "",
+    website: "",
+    whatsapp: "",
+    country: "",
+    city: "",
+    minimum_order: 0,
+    lead_time: "",
+    is_preferred: false,
+    status: "Active"
   });
 
   const fetchSuppliers = useCallback(async () => {
@@ -66,7 +76,16 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
         address: supplier.address || "",
         category: supplier.category || "General",
         payment_terms: supplier.payment_terms || "net30",
-        notes: supplier.notes || ""
+        notes: supplier.notes || "",
+        legal_name: supplier.legal_name || "",
+        website: supplier.website || "",
+        whatsapp: supplier.whatsapp || "",
+        country: supplier.country || "",
+        city: supplier.city || "",
+        minimum_order: supplier.minimum_order || 0,
+        lead_time: supplier.lead_time || "",
+        is_preferred: supplier.is_preferred || false,
+        status: supplier.status || "Active"
       });
     } else {
       setEditingSupplier(null);
@@ -79,7 +98,16 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
         address: "",
         category: "General",
         payment_terms: "net30",
-        notes: ""
+        notes: "",
+        legal_name: "",
+        website: "",
+        whatsapp: "",
+        country: "",
+        city: "",
+        minimum_order: 0,
+        lead_time: "",
+        is_preferred: false,
+        status: "Active"
       });
     }
     setDialogOpen(true);
@@ -222,7 +250,7 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5" />
@@ -233,9 +261,10 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{isEs ? "Nombre" : "Name"} *</Label>
+                <Label>{isEs ? "Nombre Comercial" : "Business Name"} *</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({...form, name: e.target.value})}
@@ -243,21 +272,22 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
                 />
               </div>
               <div className="space-y-2">
+                <Label>{isEs ? "Razón Social" : "Legal Name"}</Label>
+                <Input
+                  value={form.legal_name}
+                  onChange={(e) => setForm({...form, legal_name: e.target.value})}
+                  placeholder={isEs ? "Nombre legal" : "Legal name"}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label>RNC / {isEs ? "Cédula" : "Tax ID"}</Label>
                 <Input
                   value={form.rnc}
                   onChange={(e) => setForm({...form, rnc: e.target.value})}
                   placeholder="000-00000-0"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{isEs ? "Contacto" : "Contact"}</Label>
-                <Input
-                  value={form.contact_name}
-                  onChange={(e) => setForm({...form, contact_name: e.target.value})}
-                  placeholder={isEs ? "Nombre del contacto" : "Contact name"}
                 />
               </div>
               <div className="space-y-2">
@@ -272,50 +302,154 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
                     <SelectItem value="Servicios">{isEs ? "Servicios" : "Services"}</SelectItem>
                     <SelectItem value="Decoración">{isEs ? "Decoración" : "Decor"}</SelectItem>
                     <SelectItem value="Transporte">{isEs ? "Transporte" : "Transport"}</SelectItem>
+                    <SelectItem value="Audiovisual">Audiovisual</SelectItem>
+                    <SelectItem value="Mobiliario">{isEs ? "Mobiliario" : "Furniture"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Email</Label>
+
+            {/* Contact Info */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">{isEs ? "Información de Contacto" : "Contact Information"}</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Contacto Principal" : "Primary Contact"}</Label>
+                  <Input
+                    value={form.contact_name}
+                    onChange={(e) => setForm({...form, contact_name: e.target.value})}
+                    placeholder={isEs ? "Nombre del contacto" : "Contact name"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({...form, email: e.target.value})}
+                    placeholder="email@proveedor.com"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => setForm({...form, phone: e.target.value})}
+                    placeholder="809-555-1234"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>WhatsApp</Label>
+                  <Input
+                    value={form.whatsapp}
+                    onChange={(e) => setForm({...form, whatsapp: e.target.value})}
+                    placeholder="809-555-1234"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 mt-3">
+                <Label>{isEs ? "Sitio Web" : "Website"}</Label>
                 <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({...form, email: e.target.value})}
-                  placeholder="email@proveedor.com"
+                  value={form.website}
+                  onChange={(e) => setForm({...form, website: e.target.value})}
+                  placeholder="https://www.proveedor.com"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>{isEs ? "Teléfono" : "Phone"}</Label>
+            </div>
+
+            {/* Location */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">{isEs ? "Ubicación" : "Location"}</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "País" : "Country"}</Label>
+                  <Input
+                    value={form.country}
+                    onChange={(e) => setForm({...form, country: e.target.value})}
+                    placeholder={isEs ? "República Dominicana" : "Country"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Ciudad" : "City"}</Label>
+                  <Input
+                    value={form.city}
+                    onChange={(e) => setForm({...form, city: e.target.value})}
+                    placeholder={isEs ? "Santo Domingo" : "City"}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 mt-3">
+                <Label>{isEs ? "Dirección" : "Address"}</Label>
                 <Input
-                  value={form.phone}
-                  onChange={(e) => setForm({...form, phone: e.target.value})}
-                  placeholder="809-555-1234"
+                  value={form.address}
+                  onChange={(e) => setForm({...form, address: e.target.value})}
+                  placeholder={isEs ? "Dirección completa" : "Full address"}
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>{isEs ? "Dirección" : "Address"}</Label>
-              <Input
-                value={form.address}
-                onChange={(e) => setForm({...form, address: e.target.value})}
-                placeholder={isEs ? "Dirección del proveedor" : "Supplier address"}
-              />
+
+            {/* Business Terms */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">{isEs ? "Términos Comerciales" : "Business Terms"}</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Términos de Pago" : "Payment Terms"}</Label>
+                  <Select value={form.payment_terms} onValueChange={(v) => setForm({...form, payment_terms: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">{isEs ? "Inmediato" : "Immediate"}</SelectItem>
+                      <SelectItem value="net15">Net 15</SelectItem>
+                      <SelectItem value="net30">Net 30</SelectItem>
+                      <SelectItem value="net45">Net 45</SelectItem>
+                      <SelectItem value="net60">Net 60</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Orden Mínima" : "Minimum Order"}</Label>
+                  <Input
+                    type="number"
+                    value={form.minimum_order}
+                    onChange={(e) => setForm({...form, minimum_order: parseFloat(e.target.value) || 0})}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Tiempo de Entrega" : "Lead Time"}</Label>
+                  <Input
+                    value={form.lead_time}
+                    onChange={(e) => setForm({...form, lead_time: e.target.value})}
+                    placeholder={isEs ? "24 horas" : "24 hours"}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Estado" : "Status"}</Label>
+                  <Select value={form.status} onValueChange={(v) => setForm({...form, status: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">{isEs ? "Activo" : "Active"}</SelectItem>
+                      <SelectItem value="Inactive">{isEs ? "Inactivo" : "Inactive"}</SelectItem>
+                      <SelectItem value="Pending">{isEs ? "Pendiente" : "Pending"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-3 pt-6">
+                  <input
+                    type="checkbox"
+                    checked={form.is_preferred}
+                    onChange={(e) => setForm({...form, is_preferred: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <Label className="mb-0">{isEs ? "Proveedor Preferido" : "Preferred Supplier"}</Label>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>{isEs ? "Términos de Pago" : "Payment Terms"}</Label>
-              <Select value={form.payment_terms} onValueChange={(v) => setForm({...form, payment_terms: v})}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="immediate">{isEs ? "Inmediato" : "Immediate"}</SelectItem>
-                  <SelectItem value="net15">Net 15</SelectItem>
-                  <SelectItem value="net30">Net 30</SelectItem>
-                  <SelectItem value="net45">Net 45</SelectItem>
-                  <SelectItem value="net60">Net 60</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+            {/* Notes */}
             <div className="space-y-2">
               <Label>{isEs ? "Notas" : "Notes"}</Label>
               <Textarea

@@ -514,31 +514,57 @@ DEFAULT_PLANS = [
 
 # Event Models imported from models.events
 
-# Supplier Models - Enhanced
+# Supplier Models - Enhanced (similar to Partners)
 class SupplierCreate(BaseModel):
     name: str
+    legal_name: Optional[str] = None
+    rnc: Optional[str] = None
+    tax_id: Optional[str] = None
     contact_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    website: Optional[str] = None
     address: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
+    category: str = "General"
     delivery_days: List[str] = []  # ["Monday", "Wednesday", "Friday"]
     minimum_order: float = 0.0
+    lead_time: Optional[str] = None
     payment_terms: str = "net30"
+    is_preferred: bool = False
+    status: str = "Active"
     notes: Optional[str] = None
 
 class Supplier(BaseModel):
     supplier_id: str
     company_id: str
     name: str
+    legal_name: Optional[str] = None
+    rnc: Optional[str] = None
+    tax_id: Optional[str] = None
     contact_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    website: Optional[str] = None
     address: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
+    category: str = "General"
     delivery_days: List[str] = []
     minimum_order: float = 0.0
+    lead_time: Optional[str] = None
     payment_terms: str = "net30"
+    is_preferred: bool = False
+    status: str = "Active"
     notes: Optional[str] = None
     created_at: datetime
+    
+    # Allow extra fields from DB
+    class Config:
+        extra = "allow"
 
 # Ingredient Models - Enhanced for recipe costing
 class IngredientCreate(BaseModel):

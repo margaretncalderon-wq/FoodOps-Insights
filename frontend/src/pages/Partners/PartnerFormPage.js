@@ -718,12 +718,12 @@ export default function PartnerFormPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>{isEs ? "Centro de Costo por Defecto" : "Default Cost Center"}</Label>
-                    <Select value={form.default_cost_center_id} onValueChange={(v) => handleChange("default_cost_center_id", v)}>
+                    <Select value={form.default_cost_center_id || "none"} onValueChange={(v) => handleChange("default_cost_center_id", v === "none" ? "" : v)}>
                       <SelectTrigger>
                         <SelectValue placeholder={isEs ? "Seleccionar" : "Select"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">{isEs ? "Ninguno" : "None"}</SelectItem>
+                        <SelectItem value="none">{isEs ? "Ninguno" : "None"}</SelectItem>
                         {costCenters.map(cc => (
                           <SelectItem key={cc.cost_center_id} value={cc.cost_center_id}>
                             {cc.name}
@@ -778,14 +778,14 @@ export default function PartnerFormPage() {
                 </CardHeader>
                 <CardContent>
                   <Select 
-                    value={form.linked_culinary_supplier_id || ""} 
-                    onValueChange={(v) => handleChange("linked_culinary_supplier_id", v)}
+                    value={form.linked_culinary_supplier_id || "none"} 
+                    onValueChange={(v) => handleChange("linked_culinary_supplier_id", v === "none" ? "" : v)}
                   >
                     <SelectTrigger className="max-w-md">
                       <SelectValue placeholder={isEs ? "Seleccionar suplidor" : "Select supplier"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{isEs ? "Ninguno" : "None"}</SelectItem>
+                      <SelectItem value="none">{isEs ? "Ninguno" : "None"}</SelectItem>
                       {suppliers.map(s => (
                         <SelectItem key={s.supplier_id} value={s.supplier_id}>
                           {s.name}
