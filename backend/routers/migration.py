@@ -509,105 +509,187 @@ async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
 async def _import_sales(company_id: str, rows: list, month: int, year: int, user_id: str) -> int:
     """Import sales transactions with client linking"""
     count = 0
+    skipped = 0
     now = datetime.now(timezone.utc)
     
-    for row in rows:
+    logger.info(f"Starting sales import with {len(rows)} rows for period {month+1}/{year}")
+    
+    for idx, row in enumerate(rows):
         try:
-            # Parse amounts
-            subtotal = float(row.get("subtotal", 0) or 0)
-            itbis = float(row.get("itbis", 0) or 0)
-            total = float(row.get("total", 0) or subtotal + itbis)
+            # Debug first row
+            if idx == 0:
+                logger.info(f"First sales row keys: {list(row.keys())}")
+                logger.info(f"First sales row data: {row}")
             
-            # Parse date
-            date_str = row.get("date", row.get("fecha", ""))
-            try:
-                if date_str:
-                    sale_date = datetime.fromisoformat(date_str.replace("/", "-"))
-                else:
-                    sale_date = datetime(year, month + 1, 15)
-            except:
-                sale_date = datetime(year, month + 1, 15)
+            # Parse amounts - handle both comma and dot decimals
+            def parse_amount(val):
+                if not val:
+                    return 0.0
+                val_str = str(val).replace(",", ".").replace(" ", "").replace("$", "").replace("RD", "")
+                try:
+                    return float(val_str)
+                except:
+                    return 0.0
+            
+            subtotal = parse_amount(row.get("subtotal") or row.get("monto") or row.get("amount") or 0)
+            itbis = parse_amount(row.get("itbis") or row.get("tax") or row.get("impuesto") or 0)
+            total = parse_amount(row.get("total") or 0) or (subtotal + itbis)
+            
+            # Parse date - support multiple formats: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD
+            date_str = (row.get("date") or row.get("fecha") or row.get("fecha_factura") or "").strip()
+            sale_date = None
+            if date_str:
+                # Try DD/MM/YYYY first (common in Latin America)
+                for fmt in ["%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d"]:
+                    try:
+                        sale_date = datetime.strptime(date_str, fmt)
+                        break
+                    except:
+                        continue
+            if not sale_date:
+                sale_date = datetime(year, month + 1, 15)  # Default to middle of period
+            
+            # Get client info with multiple field name variations
+            client_rnc = (
+                row.get("client_rnc") or row.get("rnc_cliente") or 
+                row.get("rnc/cedula") or row.get("rnc") or row.get("cedula_cliente") or ""
+            ).strip().replace("-", "")
+            
+            client_name = (
+                row.get("client_name") or row.get("cliente") or row.get("client") or
+                row.get("nombre_cliente") or row.get("nombre/razon_social") or row.get("razon_social") or ""
+            ).strip()
+            
+            if not client_name and not client_rnc:
+                skipped += 1
+                if skipped <= 5:
+                    logger.warning(f"Sales row {idx}: No client info found, skipping")
+                continue
             
             # Find or create client
-            client_rnc = row.get("client_rnc", row.get("rnc_cliente", ""))
-            client_name = row.get("client_name", row.get("client", row.get("cliente", "")))
-            
             client = await _find_or_create_client(company_id, client_rnc, client_name, user_id)
             
             sale = {
                 "id": str(uuid.uuid4()),
                 "company_id": company_id,
-                "client_id": client["id"],
-                "client_name": client["name"],
-                "client_rnc": client.get("rnc"),
-                "description": row.get("description", row.get("descripcion", "")),
+                "client_id": client.get("client_id") or client.get("id"),
+                "client_name": client.get("display_name") or client.get("name"),
+                "client_rnc": client.get("rnc") or client.get("tax_id"),
+                "description": (row.get("description") or row.get("descripcion") or row.get("concepto") or "").strip(),
+                "invoice_number": (row.get("invoice_number") or row.get("numero_factura") or row.get("factura") or "").strip(),
                 "subtotal": subtotal,
                 "itbis": itbis,
                 "total": total,
-                "ncf": row.get("ncf", ""),
-                "status": row.get("status", row.get("estado", "paid")),
-                "date": sale_date,
+                "ncf": (row.get("ncf") or row.get("ncf_cliente") or "").strip(),
+                "status": (row.get("status") or row.get("estado") or "paid").strip().lower(),
+                "date": sale_date.isoformat(),
+                "period_month": month,
+                "period_year": year,
                 "source": "migration",
                 "created_by": user_id,
-                "created_at": now
+                "created_at": now.isoformat()
             }
             
             await db.sales_transactions.insert_one(sale)
             count += 1
         except Exception as e:
-            logger.error(f"Error importing sale row: {e}")
+            logger.error(f"Error importing sale row {idx}: {e}")
             continue
     
+    logger.info(f"Sales import complete: {count} imported, {skipped} skipped")
     return count
 
 
 async def _import_purchases(company_id: str, rows: list, month: int, year: int, user_id: str) -> int:
     """Import purchase transactions with vendor linking"""
     count = 0
+    skipped = 0
     now = datetime.now(timezone.utc)
     
-    for row in rows:
+    logger.info(f"Starting purchases import with {len(rows)} rows for period {month+1}/{year}")
+    
+    for idx, row in enumerate(rows):
         try:
-            subtotal = float(row.get("subtotal", 0) or 0)
-            itbis = float(row.get("itbis", 0) or 0)
-            total = float(row.get("total", 0) or subtotal + itbis)
+            # Debug first row
+            if idx == 0:
+                logger.info(f"First purchase row keys: {list(row.keys())}")
+                logger.info(f"First purchase row data: {row}")
             
-            date_str = row.get("date", row.get("fecha", ""))
-            try:
-                purchase_date = datetime.fromisoformat(date_str.replace("/", "-")) if date_str else datetime(year, month + 1, 15)
-            except:
+            # Parse amounts - handle both comma and dot decimals
+            def parse_amount(val):
+                if not val:
+                    return 0.0
+                val_str = str(val).replace(",", ".").replace(" ", "").replace("$", "").replace("RD", "")
+                try:
+                    return float(val_str)
+                except:
+                    return 0.0
+            
+            subtotal = parse_amount(row.get("subtotal") or row.get("monto") or row.get("amount") or 0)
+            itbis = parse_amount(row.get("itbis") or row.get("tax") or row.get("impuesto") or 0)
+            total = parse_amount(row.get("total") or 0) or (subtotal + itbis)
+            
+            # Parse date - support multiple formats
+            date_str = (row.get("date") or row.get("fecha") or row.get("fecha_factura") or "").strip()
+            purchase_date = None
+            if date_str:
+                for fmt in ["%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d"]:
+                    try:
+                        purchase_date = datetime.strptime(date_str, fmt)
+                        break
+                    except:
+                        continue
+            if not purchase_date:
                 purchase_date = datetime(year, month + 1, 15)
             
-            # Find or create vendor
-            vendor_rnc = row.get("vendor_rnc", row.get("rnc_proveedor", ""))
-            vendor_name = row.get("vendor_name", row.get("vendor", row.get("proveedor", "")))
+            # Get vendor info with multiple field name variations
+            vendor_rnc = (
+                row.get("vendor_rnc") or row.get("rnc_proveedor") or row.get("supplier_rnc") or
+                row.get("rnc/cedula") or row.get("rnc") or ""
+            ).strip().replace("-", "")
             
+            vendor_name = (
+                row.get("vendor_name") or row.get("proveedor") or row.get("vendor") or row.get("supplier") or
+                row.get("nombre_proveedor") or row.get("nombre/razon_social") or row.get("razon_social") or ""
+            ).strip()
+            
+            if not vendor_name and not vendor_rnc:
+                skipped += 1
+                if skipped <= 5:
+                    logger.warning(f"Purchase row {idx}: No vendor info found, skipping")
+                continue
+            
+            # Find or create vendor
             vendor = await _find_or_create_vendor(company_id, vendor_rnc, vendor_name, user_id)
             
             purchase = {
                 "id": str(uuid.uuid4()),
                 "company_id": company_id,
-                "vendor_id": vendor["id"],
-                "vendor_name": vendor["name"],
-                "vendor_rnc": vendor.get("rnc"),
-                "description": row.get("description", row.get("descripcion", "")),
+                "vendor_id": vendor.get("supplier_id") or vendor.get("id"),
+                "vendor_name": vendor.get("name"),
+                "vendor_rnc": vendor.get("rnc") or vendor.get("tax_id"),
+                "description": (row.get("description") or row.get("descripcion") or row.get("concepto") or "").strip(),
+                "invoice_number": (row.get("invoice_number") or row.get("numero_factura") or row.get("factura") or "").strip(),
                 "subtotal": subtotal,
                 "itbis": itbis,
                 "total": total,
-                "ncf": row.get("ncf", ""),
-                "status": row.get("status", row.get("estado", "paid")),
-                "date": purchase_date,
+                "ncf": (row.get("ncf") or row.get("ncf_proveedor") or "").strip(),
+                "status": (row.get("status") or row.get("estado") or "paid").strip().lower(),
+                "date": purchase_date.isoformat(),
+                "period_month": month,
+                "period_year": year,
                 "source": "migration",
                 "created_by": user_id,
-                "created_at": now
+                "created_at": now.isoformat()
             }
             
             await db.purchase_transactions.insert_one(purchase)
             count += 1
         except Exception as e:
-            logger.error(f"Error importing purchase row: {e}")
+            logger.error(f"Error importing purchase row {idx}: {e}")
             continue
     
+    logger.info(f"Purchases import complete: {count} imported, {skipped} skipped")
     return count
 
 
