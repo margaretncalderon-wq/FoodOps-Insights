@@ -112,6 +112,9 @@ export function StatementsSection() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
+  const credit = statement?.credit;
+  const hasCredit = credit?.has_credit && credit?.credit_limit > 0;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -132,22 +135,71 @@ export function StatementsSection() {
 
       {statement ? (
         <>
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Total Facturado" : "Total Invoiced"}</p><p className="text-xl font-bold">{formatCurrency(statement.summary?.total_invoiced)}</p></CardContent></Card>
             <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Total Pagado" : "Total Paid"}</p><p className="text-xl font-bold text-green-600">{formatCurrency(statement.summary?.total_paid)}</p></CardContent></Card>
             <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Saldo Actual" : "Current Balance"}</p><p className={`text-xl font-bold ${statement.summary?.current_balance > 0 ? "text-red-600" : "text-green-600"}`}>{formatCurrency(statement.summary?.current_balance)}</p></CardContent></Card>
-            <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Términos" : "Terms"}</p><p className="text-lg font-medium">{statement.client?.payment_terms || "Immediate"}</p></CardContent></Card>
+            <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{isEs ? "Términos" : "Terms"}</p><p className="text-lg font-medium">{credit?.payment_terms || statement.client?.payment_terms || (isEs ? "Inmediato" : "Immediate")}</p></CardContent></Card>
           </div>
 
-          {statement.warnings?.length > 0 && (
-            <Card className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+          {/* Credit Limit Card - Only show if client has credit */}
+          {hasCredit && (
+            <Card className={`border-2 ${credit.credit_used_percent >= 100 ? "border-red-300 bg-red-50" : credit.credit_used_percent >= 80 ? "border-amber-300 bg-amber-50" : "border-blue-200 bg-blue-50"}`}>
               <CardContent className="pt-4">
-                <div className="flex items-center gap-2 text-red-700 dark:text-red-400"><AlertTriangle className="w-4 h-4" /><span className="font-medium">{isEs ? "Alertas" : "Warnings"}</span></div>
-                <ul className="mt-2 space-y-1">{statement.warnings.map((w, i) => <li key={i} className="text-sm text-red-600 dark:text-red-400">• {w}</li>)}</ul>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">{isEs ? "Línea de Crédito" : "Credit Line"}</p>
+                    <p className="text-xs text-gray-500">{credit.payment_terms || (isEs ? "Términos de pago" : "Payment terms")}</p>
+                  </div>
+                  <Badge variant={credit.credit_used_percent >= 100 ? "destructive" : credit.credit_used_percent >= 80 ? "warning" : "default"} className={credit.credit_used_percent < 80 ? "bg-blue-600" : ""}>
+                    {credit.credit_used_percent >= 100 ? (isEs ? "Excedido" : "Exceeded") : `${credit.credit_used_percent.toFixed(0)}% ${isEs ? "utilizado" : "used"}`}
+                  </Badge>
+                </div>
+                
+                {/* Progress bar */}
+                <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
+                  <div 
+                    className={`h-3 rounded-full transition-all ${credit.credit_used_percent >= 100 ? "bg-red-500" : credit.credit_used_percent >= 80 ? "bg-amber-500" : "bg-blue-500"}`}
+                    style={{ width: `${Math.min(credit.credit_used_percent, 100)}%` }}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-gray-500">{isEs ? "Límite" : "Limit"}</p>
+                    <p className="text-lg font-bold text-gray-800">{formatCurrency(credit.credit_limit)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">{isEs ? "Utilizado" : "Used"}</p>
+                    <p className={`text-lg font-bold ${credit.credit_used_percent >= 100 ? "text-red-600" : "text-amber-600"}`}>{formatCurrency(credit.credit_used)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">{isEs ? "Disponible" : "Available"}</p>
+                    <p className={`text-lg font-bold ${credit.credit_available > 0 ? "text-green-600" : "text-red-600"}`}>{formatCurrency(credit.credit_available)}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
 
+          {/* Warnings */}
+          {statement.warnings?.length > 0 && (
+            <Card className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-400"><AlertTriangle className="w-4 h-4" /><span className="font-medium">{isEs ? "Alertas" : "Warnings"}</span></div>
+                <ul className="mt-2 space-y-1">
+                  {statement.warnings.map((w, i) => (
+                    <li key={i} className="text-sm text-red-600 dark:text-red-400">
+                      • {typeof w === 'string' ? w : (isEs ? w.message : w.message_en)}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Activity Table */}
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base">{isEs ? "Movimientos" : "Activity"}</CardTitle></CardHeader>
             <CardContent className="p-0">

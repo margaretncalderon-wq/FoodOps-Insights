@@ -1049,11 +1049,34 @@ async def get_client_financial_view(client_id: str, user: User = Depends(get_cur
     total_paid = sum(pay.get("amount", 0) for pay in payments)
     current_balance = total_invoiced - total_paid
     
+    # Calculate pending (unpaid) balance for credit
+    pending_balance = sum(
+        inv.get("balance_due", inv.get("total", 0)) 
+        for inv in invoices 
+        if inv.get("status") not in ["paid"]
+    )
+    
+    # Credit limit info
+    credit_limit = client.get("credit_limit", 0) or 0
+    has_credit = client.get("has_credit", False) or credit_limit > 0
+    credit_available = max(0, credit_limit - pending_balance) if has_credit else None
+    credit_used_percent = (pending_balance / credit_limit * 100) if credit_limit > 0 else 0
+    
     # Credit warnings
     warnings = []
-    if client.get("has_credit") and client.get("credit_limit", 0) > 0:
-        if current_balance > client.get("credit_limit", 0):
-            warnings.append(f"Credit limit exceeded: ${current_balance:.2f} / ${client.get('credit_limit', 0):.2f}")
+    if has_credit and credit_limit > 0:
+        if pending_balance > credit_limit:
+            warnings.append({
+                "type": "credit_exceeded",
+                "message": f"Límite de crédito excedido: ${pending_balance:,.2f} / ${credit_limit:,.2f}",
+                "message_en": f"Credit limit exceeded: ${pending_balance:,.2f} / ${credit_limit:,.2f}"
+            })
+        elif credit_used_percent >= 80:
+            warnings.append({
+                "type": "credit_warning",
+                "message": f"Crédito utilizado al {credit_used_percent:.0f}%",
+                "message_en": f"Credit used at {credit_used_percent:.0f}%"
+            })
     
     overdue_invoices = [inv for inv in invoices if inv.get("status") not in ["paid"] and inv.get("due_date")]
     now = datetime.now(timezone.utc)
@@ -1061,7 +1084,11 @@ async def get_client_financial_view(client_id: str, user: User = Depends(get_cur
         try:
             due_dt = datetime.fromisoformat(inv["due_date"].replace("Z", "+00:00"))
             if due_dt < now:
-                warnings.append(f"Overdue invoice: {inv.get('invoice_number')} (${inv.get('balance_due', 0):.2f})")
+                warnings.append({
+                    "type": "overdue",
+                    "message": f"Factura vencida: {inv.get('invoice_number')} (${inv.get('balance_due', 0):,.2f})",
+                    "message_en": f"Overdue invoice: {inv.get('invoice_number')} (${inv.get('balance_due', 0):,.2f})"
+                })
         except:
             pass
     
@@ -1074,8 +1101,17 @@ async def get_client_financial_view(client_id: str, user: User = Depends(get_cur
             "total_invoiced": round(total_invoiced, 2),
             "total_paid": round(total_paid, 2),
             "current_balance": round(current_balance, 2),
+            "pending_balance": round(pending_balance, 2),
             "invoices_count": len(invoices),
             "payments_count": len(payments)
+        },
+        "credit": {
+            "has_credit": has_credit,
+            "credit_limit": round(credit_limit, 2),
+            "credit_used": round(pending_balance, 2),
+            "credit_available": round(credit_available, 2) if credit_available is not None else None,
+            "credit_used_percent": round(credit_used_percent, 1),
+            "payment_terms": client.get("payment_terms", client.get("credit_terms"))
         },
         "warnings": warnings
     }
