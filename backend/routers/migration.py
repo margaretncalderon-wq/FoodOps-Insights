@@ -391,6 +391,7 @@ async def _import_clients(company_id: str, rows: list, user_id: str) -> int:
 async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
     """Import vendors/suppliers directory - saves to db.suppliers collection"""
     count = 0
+    skipped = 0
     now = datetime.now(timezone.utc)
     
     logger.info(f"Starting vendor/supplier import with {len(rows)} rows")
@@ -400,6 +401,7 @@ async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
             # Debug first row
             if idx == 0:
                 logger.info(f"First vendor row keys: {list(row.keys())}")
+                logger.info(f"First vendor row data: {row}")
             
             # Try multiple field name variations for name
             name = (
@@ -413,6 +415,9 @@ async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
             ).strip()
             
             if not name:
+                skipped += 1
+                if skipped <= 5:
+                    logger.warning(f"Vendor row {idx}: No name found, skipping. Keys: {list(row.keys())}")
                 continue
             
             # Try multiple RNC field name variations
@@ -497,6 +502,7 @@ async def _import_vendors(company_id: str, rows: list, user_id: str) -> int:
             logger.error(f"Error importing vendor row {idx}: {e}")
             continue
     
+    logger.info(f"Vendor import complete: {count} imported, {skipped} skipped")
     return count
 
 
