@@ -26,7 +26,8 @@ import {
   ProfitLossDashboard,
   CashFlowSection,
   MigrationSection,
-  ITBISSection
+  ITBISSection,
+  CostCenterBudgetsSection
 } from "../components/business-clarity";
 
 // Icons
@@ -124,6 +125,7 @@ export default function BusinessClarityPage() {
   // Financials dropdown
   const financialsMenu = [
     { path: "/business-clarity/fixed-costs", label: isEs ? "Costos Fijos" : "Fixed Costs", icon: Target },
+    { path: "/business-clarity/cost-center-budgets", label: isEs ? "Presupuestos CC" : "CC Budgets", icon: Building2 },
     { path: "/business-clarity/reports", label: isEs ? "Reportes Ejecutivos" : "Executive Reports", icon: FileBarChart },
     { path: "/business-clarity/profit-loss", label: isEs ? "P&L / Resultados" : "P&L / Results", icon: Wallet },
     { path: "/business-clarity/sales-reports", label: isEs ? "Reportes de Ventas" : "Sales Reports", icon: ShoppingCart },
@@ -307,6 +309,7 @@ export default function BusinessClarityPage() {
           <Route path="receivables" element={<ReceivablesSection />} />
           <Route path="payables" element={<PayablesSection />} />
           <Route path="fixed-costs" element={<FixedCostsSection />} />
+          <Route path="cost-center-budgets" element={<CostCenterBudgetsSection />} />
           <Route path="payroll-cost" element={<PayrollCostSection />} />
           <Route path="marketing-roi" element={<MarketingROISection />} />
           <Route path="regulatory" element={<RegulatoryReportsSection />} />

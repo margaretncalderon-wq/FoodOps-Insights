@@ -5229,6 +5229,303 @@ async def get_budget_alerts(
     }
 
 
+# ==================== COST CENTER BUDGET MANAGEMENT ====================
+# Operational budget management in Business Clarity (Settings keeps master list)
+
+@business_clarity_router.get("/cost-centers")
+async def get_cost_centers_for_budgeting(user: User = Depends(get_current_user)):
+    """Get cost centers with budget information for operational management"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    cost_centers = await db.cost_centers.find(
+        {"company_id": company_id, "is_active": True},
+        {"_id": 0}
+    ).sort("name", 1).to_list(100)
+    
+    # Get responsible user names
+    user_ids = [cc.get("responsible_user_id") for cc in cost_centers if cc.get("responsible_user_id")]
+    users = await db.users.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1}
+    ).to_list(100)
+    user_map = {u["user_id"]: u["name"] for u in users}
+    
+    for cc in cost_centers:
+        cc["responsible_name"] = user_map.get(cc.get("responsible_user_id"))
+    
+    return cost_centers
+
+
+@business_clarity_router.get("/cost-centers/{cc_id}/budget-detail")
+async def get_cost_center_budget_detail(
+    cc_id: str,
+    year: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get detailed budget information for a cost center"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    
+    # Get cost center
+    cc = await db.cost_centers.find_one(
+        {"company_id": company_id, "cost_center_id": cc_id},
+        {"_id": 0}
+    )
+    if not cc:
+        raise HTTPException(status_code=404, detail="Cost center not found")
+    
+    # Get actual spending from accounting entries for each month
+    monthly_actual = {}
+    for month in range(1, 13):
+        month_key = f"{year}-{str(month).zfill(2)}"
+        start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        else:
+            end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+        
+        # Sum from accounting_entries
+        pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center_id": cc_id,
+                "date": {"$gte": start_date.isoformat()[:10], "$lt": end_date.isoformat()[:10]}
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        result = await db.accounting_entries.aggregate(pipeline).to_list(1)
+        monthly_actual[month_key] = result[0]["total"] if result else 0
+        
+        # Also add from supplier_payables with this cost center
+        payables_pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center_id": cc_id,
+                "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        payables_result = await db.supplier_payables.aggregate(payables_pipeline).to_list(1)
+        if payables_result:
+            monthly_actual[month_key] += payables_result[0]["total"]
+    
+    # Build monthly breakdown
+    monthly_budgets = cc.get("monthly_budgets") or {}
+    annual_budget = cc.get("annual_budget") or 0
+    default_monthly = annual_budget / 12 if annual_budget > 0 else 0
+    
+    monthly_data = []
+    ytd_budget = 0
+    ytd_actual = 0
+    
+    for month in range(1, 13):
+        month_key = f"{year}-{str(month).zfill(2)}"
+        budget = monthly_budgets.get(month_key, default_monthly)
+        actual = monthly_actual.get(month_key, 0)
+        
+        if month <= now.month or year < now.year:
+            ytd_budget += budget
+            ytd_actual += actual
+        
+        monthly_data.append({
+            "month": month,
+            "month_key": month_key,
+            "budget": round(budget, 2),
+            "actual": round(actual, 2),
+            "variance": round(budget - actual, 2),
+            "utilization_percent": round((actual / budget) * 100, 1) if budget > 0 else 0
+        })
+    
+    return {
+        "cost_center": {
+            "cost_center_id": cc.get("cost_center_id"),
+            "name": cc.get("name"),
+            "code": cc.get("code"),
+            "description": cc.get("description"),
+            "annual_budget": annual_budget
+        },
+        "year": year,
+        "monthly_data": monthly_data,
+        "ytd_summary": {
+            "budget": round(ytd_budget, 2),
+            "actual": round(ytd_actual, 2),
+            "variance": round(ytd_budget - ytd_actual, 2),
+            "utilization_percent": round((ytd_actual / ytd_budget) * 100, 1) if ytd_budget > 0 else 0
+        },
+        "annual_summary": {
+            "budget": round(annual_budget, 2),
+            "actual_ytd": round(ytd_actual, 2),
+            "remaining": round(annual_budget - ytd_actual, 2)
+        }
+    }
+
+
+@business_clarity_router.put("/cost-centers/{cc_id}/budget")
+async def update_cost_center_budget_bc(
+    cc_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Update cost center budget from Business Clarity"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    
+    # Verify cost center exists
+    cc = await db.cost_centers.find_one(
+        {"company_id": company_id, "cost_center_id": cc_id}
+    )
+    if not cc:
+        raise HTTPException(status_code=404, detail="Cost center not found")
+    
+    budget_type = data.get("budget_type", "annual")  # annual, monthly, quarterly
+    year = data.get("year", now.year)
+    amount = data.get("amount", 0)
+    
+    update_doc = {"updated_at": now.isoformat()}
+    
+    if budget_type == "annual":
+        update_doc["annual_budget"] = amount
+    elif budget_type == "monthly":
+        period = data.get("period", now.month)  # 1-12
+        month_key = f"{year}-{str(period).zfill(2)}"
+        update_doc[f"monthly_budgets.{month_key}"] = amount
+    elif budget_type == "quarterly":
+        quarter = data.get("period", 1)  # 1-4
+        quarter_key = f"{year}-Q{quarter}"
+        update_doc[f"quarterly_budgets.{quarter_key}"] = amount
+    
+    await db.cost_centers.update_one(
+        {"cost_center_id": cc_id},
+        {"$set": update_doc}
+    )
+    
+    return {"message": "Budget updated", "cost_center_id": cc_id}
+
+
+@business_clarity_router.get("/cost-centers/summary")
+async def get_cost_centers_budget_summary(
+    year: int = None,
+    month: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get summary of all cost center budgets vs actuals"""
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
+    
+    cost_centers = await db.cost_centers.find(
+        {"company_id": company_id, "is_active": True},
+        {"_id": 0}
+    ).to_list(100)
+    
+    month_key = f"{year}-{str(month).zfill(2)}"
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    summary = []
+    total_budget = 0
+    total_actual = 0
+    
+    for cc in cost_centers:
+        cc_id = cc.get("cost_center_id")
+        
+        # Get budget for this month
+        monthly_budgets = cc.get("monthly_budgets") or {}
+        annual_budget = cc.get("annual_budget") or 0
+        budget = monthly_budgets.get(month_key, annual_budget / 12 if annual_budget > 0 else 0)
+        
+        # Get actual from multiple sources
+        actual = 0
+        
+        # 1. Accounting entries
+        acc_pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center_id": cc_id,
+                "date": {"$gte": start_date.isoformat()[:10], "$lt": end_date.isoformat()[:10]}
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        acc_result = await db.accounting_entries.aggregate(acc_pipeline).to_list(1)
+        if acc_result:
+            actual += acc_result[0]["total"]
+        
+        # 2. Supplier payables
+        pay_pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center_id": cc_id,
+                "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]
+        pay_result = await db.supplier_payables.aggregate(pay_pipeline).to_list(1)
+        if pay_result:
+            actual += pay_result[0]["total"]
+        
+        # 3. Payroll (from completed periods)
+        payroll_pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "cost_center_id": cc_id
+            }},
+            {"$lookup": {
+                "from": "payroll_periods",
+                "localField": "period_id",
+                "foreignField": "period_id",
+                "as": "period"
+            }},
+            {"$unwind": "$period"},
+            {"$match": {
+                "period.status": "completed",
+                "period.payment_date": {"$gte": start_date.isoformat()[:10], "$lt": end_date.isoformat()[:10]}
+            }},
+            {"$group": {"_id": None, "total": {"$sum": "$total_employer_cost"}}}
+        ]
+        payroll_result = await db.payroll_entries.aggregate(payroll_pipeline).to_list(1)
+        if payroll_result:
+            actual += payroll_result[0]["total"]
+        
+        variance = budget - actual
+        utilization = (actual / budget * 100) if budget > 0 else 0
+        
+        total_budget += budget
+        total_actual += actual
+        
+        summary.append({
+            "cost_center_id": cc_id,
+            "name": cc.get("name"),
+            "code": cc.get("code"),
+            "budget": round(budget, 2),
+            "actual": round(actual, 2),
+            "variance": round(variance, 2),
+            "utilization_percent": round(utilization, 1),
+            "status": "over" if utilization > 100 else "warning" if utilization > 80 else "ok"
+        })
+    
+    # Sort by utilization (highest first)
+    summary.sort(key=lambda x: x["utilization_percent"], reverse=True)
+    
+    return {
+        "year": year,
+        "month": month,
+        "cost_centers": summary,
+        "totals": {
+            "budget": round(total_budget, 2),
+            "actual": round(total_actual, 2),
+            "variance": round(total_budget - total_actual, 2),
+            "utilization_percent": round((total_actual / total_budget * 100) if total_budget > 0 else 0, 1)
+        }
+    }
+
+
 @business_clarity_router.get("/reports/sales/client-statement/{client_id}")
 async def get_client_statement(
     client_id: str,

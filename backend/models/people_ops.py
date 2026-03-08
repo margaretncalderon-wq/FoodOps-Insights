@@ -7,6 +7,16 @@ from enum import Enum
 
 # ==================== COST CENTERS ====================
 
+# Cost Center Types (generic, multi-industry)
+class CostCenterType(str, Enum):
+    OPERATING = "operating"        # Day-to-day operations
+    SUPPORT = "support"            # Support functions (IT, HR, Admin)
+    REVENUE = "revenue"            # Revenue-generating (Sales, Marketing)
+    INVESTMENT = "investment"      # CapEx, R&D
+    PROJECT = "project"            # Project-based cost tracking
+    OVERHEAD = "overhead"          # General overhead
+
+
 class CostCenterCreate(BaseModel):
     name: str
     code: Optional[str] = None  # Accounting code
@@ -15,6 +25,10 @@ class CostCenterCreate(BaseModel):
     responsible_user_id: Optional[str] = None
     is_active: bool = True
     is_system: bool = False  # True for predefined templates
+    # New fields for hierarchy and classification
+    parent_cost_center_id: Optional[str] = None  # For hierarchy
+    cc_type: Optional[str] = None  # operating, support, revenue, etc.
+    default_budget_enabled: bool = True
 
 
 class CostCenterBudgetUpdate(BaseModel):
@@ -40,6 +54,10 @@ class CostCenter(BaseModel):
     responsible_name: Optional[str] = None
     is_active: bool = True
     is_system: bool = False
+    # Extended fields
+    parent_cost_center_id: Optional[str] = None  # Hierarchy support
+    cc_type: Optional[str] = None  # operating, support, revenue, investment, project, overhead
+    default_budget_enabled: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -51,6 +69,9 @@ class CostCenterUpdate(BaseModel):
     annual_budget: Optional[float] = None
     responsible_user_id: Optional[str] = None
     is_active: Optional[bool] = None
+    parent_cost_center_id: Optional[str] = None
+    cc_type: Optional[str] = None
+    default_budget_enabled: Optional[bool] = None
 
 
 # ==================== EMPLOYEES ====================

@@ -199,6 +199,10 @@ async def create_cost_center(
         "responsible_name": responsible_name,
         "is_active": data.is_active,
         "is_system": data.is_system,
+        # Extended fields
+        "parent_cost_center_id": data.parent_cost_center_id,
+        "cc_type": data.cc_type,
+        "default_budget_enabled": data.default_budget_enabled,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }

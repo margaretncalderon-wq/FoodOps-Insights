@@ -1300,6 +1300,7 @@ class PurchaseOrderFullCreate(BaseModel):
     payment_method: str = "Transfer"  # Cash, Transfer, Credit, Other
     notes: Optional[str] = None
     lines: List[PurchaseOrderLineCreateModel] = []
+    cost_center_id: Optional[str] = None  # Cost center assignment
 
 class PurchaseOrderFull(BaseModel):
     """Full Purchase Order model"""
@@ -1320,6 +1321,8 @@ class PurchaseOrderFull(BaseModel):
     total: float = 0.0
     received_at: Optional[datetime] = None
     received_by: Optional[str] = None
+    cost_center_id: Optional[str] = None  # Cost center assignment
+    cost_center_name: Optional[str] = None
 
 # ============== EXPENSE / INVOICE MODELS (Supplier Invoice on receive) ==============
 
@@ -8152,8 +8155,20 @@ async def create_purchase_order(data: PurchaseOrderFullCreate, user: User = Depe
         "tax_amount": 0,
         "total": round(subtotal, 2),
         "received_at": None,
-        "received_by": None
+        "received_by": None,
+        "cost_center_id": data.cost_center_id,
+        "cost_center_name": None  # Will be populated if cost_center_id provided
     }
+    
+    # Get cost center name if ID provided
+    if data.cost_center_id:
+        cc = await db.cost_centers.find_one(
+            {"cost_center_id": data.cost_center_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        if cc:
+            po["cost_center_name"] = cc.get("name")
+    
     await db.purchase_orders_full.insert_one(po)
     del po["_id"]
     return po

@@ -1,6 +1,8 @@
 # routers/auth.py - Authentication routes
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from datetime import datetime, timezone, timedelta
+from typing import List, Optional
+from pydantic import BaseModel
 import uuid
 import bcrypt
 import jwt
@@ -920,4 +922,174 @@ async def complete_google_registration(request: Request, response: Response):
         "user": user_data,
         "company": org_data,
         "message": "¡Bienvenido a Kora OS!"
+    }
+
+
+# ==================== FINANCE SETUP WIZARD ====================
+
+# Generic cost center templates by business type (multi-industry)
+COST_CENTER_TEMPLATES = {
+    "general": [
+        {"name": "General Administration", "name_es": "Administración General", "code": "ADM", "cc_type": "support"},
+        {"name": "Sales & Marketing", "name_es": "Ventas y Marketing", "code": "MKT", "cc_type": "revenue"},
+        {"name": "Operations", "name_es": "Operaciones", "code": "OPS", "cc_type": "operating"},
+        {"name": "Technology", "name_es": "Tecnología", "code": "TEC", "cc_type": "support"},
+    ],
+    "services": [
+        {"name": "General Administration", "name_es": "Administración General", "code": "ADM", "cc_type": "support"},
+        {"name": "Business Development", "name_es": "Desarrollo de Negocios", "code": "BD", "cc_type": "revenue"},
+        {"name": "Service Delivery", "name_es": "Entrega de Servicios", "code": "SVC", "cc_type": "operating"},
+        {"name": "Client Success", "name_es": "Éxito del Cliente", "code": "CS", "cc_type": "revenue"},
+        {"name": "Technology", "name_es": "Tecnología", "code": "TEC", "cc_type": "support"},
+    ],
+    "operations": [
+        {"name": "General Administration", "name_es": "Administración General", "code": "ADM", "cc_type": "support"},
+        {"name": "Production", "name_es": "Producción", "code": "PROD", "cc_type": "operating"},
+        {"name": "Logistics", "name_es": "Logística", "code": "LOG", "cc_type": "operating"},
+        {"name": "Quality Control", "name_es": "Control de Calidad", "code": "QC", "cc_type": "operating"},
+        {"name": "Maintenance", "name_es": "Mantenimiento", "code": "MANT", "cc_type": "support"},
+        {"name": "Sales", "name_es": "Ventas", "code": "VTA", "cc_type": "revenue"},
+    ],
+    "projects": [
+        {"name": "General Administration", "name_es": "Administración General", "code": "ADM", "cc_type": "support"},
+        {"name": "Project Management", "name_es": "Gestión de Proyectos", "code": "PM", "cc_type": "operating"},
+        {"name": "Business Development", "name_es": "Desarrollo de Negocios", "code": "BD", "cc_type": "revenue"},
+        {"name": "Resource Pool", "name_es": "Pool de Recursos", "code": "RES", "cc_type": "operating"},
+    ],
+    "hospitality": [
+        {"name": "General Administration", "name_es": "Administración General", "code": "ADM", "cc_type": "support"},
+        {"name": "Sales & Events", "name_es": "Ventas y Eventos", "code": "EVT", "cc_type": "revenue"},
+        {"name": "Operations", "name_es": "Operaciones", "code": "OPS", "cc_type": "operating"},
+        {"name": "Culinary", "name_es": "Cocina", "code": "COC", "cc_type": "operating"},
+        {"name": "Internal Marketing", "name_es": "Marketing Interno", "code": "MKT", "cc_type": "revenue"},
+    ],
+}
+
+
+class FinanceSetupRequest(BaseModel):
+    """Request model for finance setup wizard"""
+    enable_cost_centers: bool = True
+    business_type: str = "general"  # general, services, operations, projects, hospitality
+    custom_cost_centers: Optional[List[dict]] = None  # Override templates
+    language: str = "en"
+
+
+@auth_router.post("/finance-setup")
+async def setup_company_finance(
+    data: FinanceSetupRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Initial finance setup wizard for new companies.
+    Creates cost centers based on business type templates.
+    """
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    created_cost_centers = []
+    
+    if data.enable_cost_centers:
+        # Check if cost centers already exist
+        existing_count = await db.cost_centers.count_documents({"company_id": company_id})
+        if existing_count > 0:
+            return {
+                "message": "Cost centers already configured",
+                "cost_centers_count": existing_count,
+                "skipped": True
+            }
+        
+        # Use custom cost centers if provided, otherwise use templates
+        templates = data.custom_cost_centers or COST_CENTER_TEMPLATES.get(data.business_type, COST_CENTER_TEMPLATES["general"])
+        
+        for idx, template in enumerate(templates):
+            cc_id = f"cc_{uuid.uuid4().hex[:12]}"
+            name = template.get("name_es" if data.language == "es" else "name", template.get("name"))
+            
+            doc = {
+                "cost_center_id": cc_id,
+                "company_id": company_id,
+                "name": name,
+                "code": template.get("code"),
+                "description": template.get("description") or template.get("description_es"),
+                "cc_type": template.get("cc_type", "operating"),
+                "annual_budget": template.get("annual_budget", 0),
+                "monthly_budgets": {},
+                "quarterly_budgets": {},
+                "current_spend": 0.0,
+                "responsible_user_id": None,
+                "responsible_name": None,
+                "parent_cost_center_id": None,
+                "is_active": True,
+                "is_system": True,
+                "default_budget_enabled": True,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat()
+            }
+            
+            await db.cost_centers.insert_one(doc)
+            created_cost_centers.append({
+                "cost_center_id": cc_id,
+                "name": name,
+                "code": template.get("code"),
+                "cc_type": template.get("cc_type")
+            })
+    
+    # Mark company as having completed finance setup
+    await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "finance_setup_completed": True,
+            "finance_setup_date": now.isoformat(),
+            "cost_centers_enabled": data.enable_cost_centers
+        }}
+    )
+    
+    return {
+        "message": "Finance setup completed",
+        "cost_centers_created": len(created_cost_centers),
+        "cost_centers": created_cost_centers
+    }
+
+
+@auth_router.get("/finance-setup/templates")
+async def get_finance_setup_templates(user: User = Depends(get_current_user)):
+    """Get available cost center templates for finance setup wizard"""
+    return {
+        "business_types": [
+            {"value": "general", "label": "General Business", "label_es": "Negocio General"},
+            {"value": "services", "label": "Services Business", "label_es": "Negocio de Servicios"},
+            {"value": "operations", "label": "Operations-Heavy", "label_es": "Operaciones Intensivas"},
+            {"value": "projects", "label": "Project-Based", "label_es": "Basado en Proyectos"},
+            {"value": "hospitality", "label": "Hospitality/Events", "label_es": "Hospitalidad/Eventos"},
+        ],
+        "templates": COST_CENTER_TEMPLATES
+    }
+
+
+@auth_router.get("/finance-setup/status")
+async def get_finance_setup_status(user: User = Depends(get_current_user)):
+    """Check if finance setup has been completed for the company"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"completed": False, "needs_setup": True}
+    
+    company = await db.companies.find_one(
+        {"company_id": company_id},
+        {"_id": 0, "finance_setup_completed": 1, "finance_setup_date": 1, "cost_centers_enabled": 1}
+    )
+    
+    if not company:
+        return {"completed": False, "needs_setup": True}
+    
+    # Check if has cost centers
+    cc_count = await db.cost_centers.count_documents({"company_id": company_id})
+    
+    return {
+        "completed": company.get("finance_setup_completed", False),
+        "setup_date": company.get("finance_setup_date"),
+        "cost_centers_enabled": company.get("cost_centers_enabled", False),
+        "cost_centers_count": cc_count,
+        "needs_setup": not company.get("finance_setup_completed", False) and cc_count == 0
     }
