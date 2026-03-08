@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   Plus, Pencil, Trash2, Search, RefreshCw, Truck, Loader2,
-  Phone, Mail, MapPin, Building2
+  Phone, Mail, MapPin, Building2, Star
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -25,6 +25,7 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterPreferred, setFilterPreferred] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
@@ -146,12 +147,14 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
     }
   };
 
-  const filteredSuppliers = suppliers.filter(s => 
-    s.name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.email?.toLowerCase().includes(search.toLowerCase()) ||
-    s.rnc?.includes(search)
-  );
+  const filteredSuppliers = suppliers.filter(s => {
+    const matchesSearch = s.name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.email?.toLowerCase().includes(search.toLowerCase()) ||
+      s.rnc?.includes(search);
+    const matchesPreferred = !filterPreferred || s.is_preferred;
+    return matchesSearch && matchesPreferred;
+  });
 
   if (loading) {
     return (
@@ -169,6 +172,12 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
             <Truck className="w-6 h-6 text-blue-600" />
             <h2 className="text-lg font-semibold">{isEs ? "Proveedores" : "Suppliers"}</h2>
             <Badge variant="secondary">{suppliers.length}</Badge>
+            {suppliers.filter(s => s.is_preferred).length > 0 && (
+              <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300">
+                <Star className="w-3 h-3 fill-amber-500" />
+                {suppliers.filter(s => s.is_preferred).length}
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={fetchSuppliers}>
@@ -182,15 +191,25 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder={isEs ? "Buscar proveedores..." : "Search suppliers..."}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search and Filter */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder={isEs ? "Buscar proveedores..." : "Search suppliers..."}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button 
+          variant={filterPreferred ? "default" : "outline"} 
+          onClick={() => setFilterPreferred(!filterPreferred)}
+          className="gap-2"
+        >
+          <Star className={`w-4 h-4 ${filterPreferred ? "fill-current" : ""}`} />
+          {isEs ? "Preferidos" : "Preferred"}
+        </Button>
       </div>
 
       {/* Suppliers List */}
@@ -209,14 +228,21 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
             </TableHeader>
             <TableBody>
               {filteredSuppliers.map(supplier => (
-                <TableRow key={supplier.supplier_id}>
+                <TableRow key={supplier.supplier_id} className={supplier.is_preferred ? "bg-amber-50/50" : ""}>
                   <TableCell>
-                    <div className="font-medium">{supplier.name}</div>
-                    {supplier.email && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Mail className="w-3 h-3" /> {supplier.email}
+                    <div className="flex items-center gap-2">
+                      {supplier.is_preferred && (
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                      )}
+                      <div>
+                        <div className="font-medium">{supplier.name}</div>
+                        {supplier.email && (
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Mail className="w-3 h-3" /> {supplier.email}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{supplier.rnc || "-"}</TableCell>
                   <TableCell>{supplier.contact_name || "-"}</TableCell>
