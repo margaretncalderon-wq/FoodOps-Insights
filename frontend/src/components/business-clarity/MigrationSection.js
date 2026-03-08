@@ -217,13 +217,14 @@ const FIELD_TEMPLATES = {
     { field: "status", label: "Estado", labelEn: "Status", required: false, type: "text", example: "paid/pending" }
   ],
   inventory: [
-    { field: "sku", label: "SKU/Código", labelEn: "SKU/Code", required: false, type: "text", example: "INV-001" },
-    { field: "name", label: "Nombre", labelEn: "Name", required: true, type: "text", example: "Aceite de Oliva" },
-    { field: "category", label: "Categoría", labelEn: "Category", required: false, type: "text", example: "Aceites" },
-    { field: "quantity", label: "Cantidad", labelEn: "Quantity", required: true, type: "number", example: "50" },
-    { field: "unit", label: "Unidad", labelEn: "Unit", required: false, type: "text", example: "Litros" },
-    { field: "unit_cost", label: "Costo Unitario", labelEn: "Unit Cost", required: true, type: "number", example: "450" },
-    { field: "total_value", label: "Valor Total", labelEn: "Total Value", required: false, type: "number", example: "22500" }
+    { field: "nombre", label: "Nombre", labelEn: "Name", required: true, type: "text", example: "Aceite de Oliva Extra Virgen" },
+    { field: "marca", label: "Marca", labelEn: "Brand", required: false, type: "text", example: "Carbonell" },
+    { field: "proveedor", label: "Proveedor", labelEn: "Supplier", required: false, type: "text", example: "Distribuidora El Olivo" },
+    { field: "categoria", label: "Categoría", labelEn: "Category", required: false, type: "text", example: "Aceites" },
+    { field: "valor_x_unidad", label: "Valor x Unidad", labelEn: "Unit Cost", required: true, type: "number", example: "450.00" },
+    { field: "stock", label: "Stock", labelEn: "Stock", required: true, type: "number", example: "25" },
+    { field: "no_utilizado", label: "No Utilizado", labelEn: "Unused", required: false, type: "number", example: "5" },
+    { field: "valor_total", label: "Valor Total", labelEn: "Total Value", required: false, type: "number", example: "11250.00" }
   ],
   fixed_expenses: [
     { field: "date", label: "Fecha", labelEn: "Date", required: true, type: "date", example: "2025-01-01" },
@@ -379,18 +380,21 @@ export function MigrationSection() {
     const fields = FIELD_TEMPLATES[typeId];
     if (!fields) return;
     
-    // Create CSV content
+    // Create CSV content with BOM for Excel UTF-8 compatibility
     const headers = fields.map(f => isEs ? f.label : f.labelEn).join(",");
     const example = fields.map(f => f.example).join(",");
-    const csv = `${headers}\n${example}`;
+    const BOM = "\uFEFF"; // UTF-8 BOM for Excel
+    const csv = `${BOM}${headers}\n${example}`;
     
     // Download
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `plantilla_${typeId}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
     toast.success(isEs ? "Plantilla descargada" : "Template downloaded");
