@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
-import { CreditCard, RefreshCw, Download } from "lucide-react";
+import { Textarea } from "../ui/textarea";
+import { CreditCard, RefreshCw, Download, Pencil, Loader2 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -32,6 +33,11 @@ export function InvoicesSection() {
   });
   const [exportEndDate, setExportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
+  // Edit dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [saving, setSaving] = useState(false);
+
   const fetchInvoices = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/business-clarity/invoices`, { withCredentials: true });
@@ -46,6 +52,39 @@ export function InvoicesSection() {
 
   const handleSelectInvoice = (invoiceId) => {
     setSelectedInvoices(prev => prev.includes(invoiceId) ? prev.filter(id => id !== invoiceId) : [...prev, invoiceId]);
+  };
+
+  const handleEditInvoice = (invoice) => {
+    setEditingInvoice({
+      ...invoice,
+      subtotal: invoice.subtotal || 0,
+      tax_amount: invoice.tax_amount || 0,
+      total: invoice.total || 0,
+      paid_amount: invoice.paid_amount || 0,
+      notes: invoice.notes || ""
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveInvoice = async () => {
+    if (!editingInvoice) return;
+    setSaving(true);
+    try {
+      await axios.put(`${API}/api/finance/invoices/${editingInvoice.invoice_id}`, {
+        subtotal: parseFloat(editingInvoice.subtotal) || 0,
+        tax_amount: parseFloat(editingInvoice.tax_amount) || 0,
+        total: parseFloat(editingInvoice.total) || 0,
+        status: editingInvoice.status,
+        notes: editingInvoice.notes,
+        due_date: editingInvoice.due_date
+      }, { withCredentials: true });
+      toast.success(isEs ? "Factura actualizada" : "Invoice updated");
+      setEditDialogOpen(false);
+      fetchInvoices();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error updating invoice");
+    }
+    setSaving(false);
   };
 
   const handlePayWithStripe = async () => {
@@ -113,6 +152,7 @@ export function InvoicesSection() {
                 <TableHead className="text-right">{isEs ? "Pagado" : "Paid"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Saldo" : "Balance"}</TableHead>
                 <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -127,9 +167,14 @@ export function InvoicesSection() {
                   <TableCell className="text-right text-green-600">{formatCurrency(inv.paid_amount)}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(inv.balance_due)}</TableCell>
                   <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" onClick={() => handleEditInvoice(inv)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
-              {filteredInvoices.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{isEs ? "No hay facturas" : "No invoices"}</TableCell></TableRow>}
+              {filteredInvoices.length === 0 && <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">{isEs ? "No hay facturas" : "No invoices"}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
@@ -218,6 +263,108 @@ export function InvoicesSection() {
             >
               <Download className="w-4 h-4 mr-2" />
               {isEs ? "Descargar Excel" : "Download Excel"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5" />
+              {isEs ? "Editar Factura" : "Edit Invoice"} {editingInvoice?.invoice_number}
+            </DialogTitle>
+          </DialogHeader>
+          {editingInvoice && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Cliente" : "Client"}</Label>
+                  <Input value={editingInvoice.client_name || ""} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Estado" : "Status"}</Label>
+                  <Select 
+                    value={editingInvoice.status} 
+                    onValueChange={(v) => setEditingInvoice({...editingInvoice, status: v})}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">{isEs ? "Pendiente" : "Pending"}</SelectItem>
+                      <SelectItem value="open">{isEs ? "Abierta" : "Open"}</SelectItem>
+                      <SelectItem value="partially_paid">{isEs ? "Parcial" : "Partial"}</SelectItem>
+                      <SelectItem value="paid">{isEs ? "Pagada" : "Paid"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Subtotal" : "Subtotal"}</Label>
+                  <Input 
+                    type="number" 
+                    value={editingInvoice.subtotal} 
+                    onChange={(e) => {
+                      const subtotal = parseFloat(e.target.value) || 0;
+                      const tax = parseFloat(editingInvoice.tax_amount) || 0;
+                      setEditingInvoice({...editingInvoice, subtotal, total: subtotal + tax});
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>ITBIS</Label>
+                  <Input 
+                    type="number" 
+                    value={editingInvoice.tax_amount} 
+                    onChange={(e) => {
+                      const tax = parseFloat(e.target.value) || 0;
+                      const subtotal = parseFloat(editingInvoice.subtotal) || 0;
+                      setEditingInvoice({...editingInvoice, tax_amount: tax, total: subtotal + tax});
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Total</Label>
+                  <Input 
+                    type="number" 
+                    value={editingInvoice.total} 
+                    onChange={(e) => setEditingInvoice({...editingInvoice, total: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Monto Pagado" : "Paid Amount"}</Label>
+                  <Input type="number" value={editingInvoice.paid_amount} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isEs ? "Fecha Vencimiento" : "Due Date"}</Label>
+                  <Input 
+                    type="date" 
+                    value={editingInvoice.due_date?.split('T')[0] || ""} 
+                    onChange={(e) => setEditingInvoice({...editingInvoice, due_date: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{isEs ? "Notas" : "Notes"}</Label>
+                <Textarea 
+                  value={editingInvoice.notes || ""} 
+                  onChange={(e) => setEditingInvoice({...editingInvoice, notes: e.target.value})}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveInvoice} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
