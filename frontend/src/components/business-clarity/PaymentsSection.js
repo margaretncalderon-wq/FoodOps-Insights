@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Plus, RefreshCw, Calendar, FileText, ShoppingCart } from "lucide-react";
+import { Plus, RefreshCw, Calendar, FileText, ShoppingCart, Receipt } from "lucide-react";
+import { PaymentReceiptModal } from "./PaymentReceiptModal";
 
 import { API_BASE as API } from "../../utils/api";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -26,6 +27,7 @@ export function PaymentsSection() {
   const [loading, setLoading] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [applyTab, setApplyTab] = useState("invoices");
   const [paymentForm, setPaymentForm] = useState({ 
@@ -208,21 +210,34 @@ export function PaymentsSection() {
                   <TableCell className="text-right text-amber-600 font-medium">{formatCurrency(pay.unapplied_amount)}</TableCell>
                   <TableCell className="max-w-48 truncate text-sm text-muted-foreground">{pay.reference}</TableCell>
                   <TableCell>
-                    {pay.unapplied_amount > 0 && (
+                    <div className="flex gap-1">
                       <Button 
-                        variant="outline" 
-                        size="sm" 
+                        variant="ghost" 
+                        size="sm"
+                        title={isEs ? "Ver Recibo" : "View Receipt"}
                         onClick={() => { 
                           setSelectedPayment(pay); 
-                          setApplicationAmounts({}); 
-                          setOrderApplicationAmounts({});
-                          setApplyTab("invoices");
-                          setApplyDialogOpen(true); 
+                          setReceiptModalOpen(true); 
                         }}
                       >
-                        {isEs ? "Aplicar" : "Apply"}
+                        <Receipt className="w-4 h-4 text-blue-600" />
                       </Button>
-                    )}
+                      {pay.unapplied_amount > 0 && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => { 
+                            setSelectedPayment(pay); 
+                            setApplicationAmounts({}); 
+                            setOrderApplicationAmounts({});
+                            setApplyTab("invoices");
+                            setApplyDialogOpen(true); 
+                          }}
+                        >
+                          {isEs ? "Aplicar" : "Apply"}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -491,6 +506,13 @@ export function PaymentsSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Payment Receipt Modal */}
+      <PaymentReceiptModal 
+        open={receiptModalOpen} 
+        onClose={() => setReceiptModalOpen(false)} 
+        payment={selectedPayment}
+      />
     </div>
   );
 }

@@ -682,6 +682,37 @@ async def apply_payment_to_invoices(payment_id: str, data: PaymentApplicationCre
     
     return {"applications": applications_created, "total_applied": total_applied}
 
+@business_clarity_router.get("/payments/{payment_id}/applications")
+async def get_payment_applications(payment_id: str, user: User = Depends(get_current_user)):
+    """Get all applications for a specific payment"""
+    applications = await db.payment_applications.find(
+        {"payment_id": payment_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Enrich with invoice details
+    for app in applications:
+        if app.get("invoice_id"):
+            invoice = await db.invoices.find_one(
+                {"invoice_id": app["invoice_id"]},
+                {"_id": 0, "invoice_number": 1, "total": 1, "total_amount": 1, "issue_date": 1}
+            )
+            if invoice:
+                app["invoice_number"] = invoice.get("invoice_number")
+                app["invoice_total"] = invoice.get("total") or invoice.get("total_amount")
+                app["invoice_date"] = invoice.get("issue_date")
+        
+        if app.get("event_id"):
+            event = await db.events.find_one(
+                {"event_id": app["event_id"]},
+                {"_id": 0, "name": 1, "date": 1}
+            )
+            if event:
+                app["event_name"] = event.get("name")
+                app["event_date"] = event.get("date")
+    
+    return applications
+
 # ============== STRIPE PAYMENT INTEGRATION ==============
 
 @business_clarity_router.post("/checkout/session")
