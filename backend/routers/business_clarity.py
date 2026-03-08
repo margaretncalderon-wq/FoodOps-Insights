@@ -2936,6 +2936,135 @@ async def get_period_close_periods(year: int = None, user: User = Depends(get_cu
     periods = await db.period_close_snapshots.find(query, {"_id": 0}).sort([("year", -1), ("month", -1)]).to_list(100)
     return periods
 
+@business_clarity_router.get("/period-close/available-periods")
+async def get_available_periods(user: User = Depends(get_current_user)):
+    """Get all available periods for closing, including retroactive ones with sales/expense data"""
+    now = datetime.now(timezone.utc)
+    current_year = now.year
+    current_month = now.month
+    
+    # Get closed periods
+    closed_periods = await db.period_close_snapshots.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "year": 1, "month": 1, "status": 1}
+    ).to_list(100)
+    closed_set = {(p["year"], p["month"]) for p in closed_periods}
+    
+    # Get periods with sales data
+    sales_pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$project": {
+            "year": {"$year": {"$dateFromString": {"dateString": {"$substr": [{"$toString": "$date"}, 0, 10]}}}},
+            "month": {"$month": {"$dateFromString": {"dateString": {"$substr": [{"$toString": "$date"}, 0, 10]}}}},
+            "total": {"$ifNull": ["$total", 0]}
+        }},
+        {"$group": {
+            "_id": {"year": "$year", "month": "$month"},
+            "sales_total": {"$sum": "$total"},
+            "sales_count": {"$sum": 1}
+        }}
+    ]
+    sales_by_period = {}
+    try:
+        sales_data = await db.sales_transactions.aggregate(sales_pipeline).to_list(100)
+        for s in sales_data:
+            key = (s["_id"]["year"], s["_id"]["month"])
+            sales_by_period[key] = {"total": s["sales_total"], "count": s["sales_count"]}
+    except:
+        pass
+    
+    # Get periods with invoice data
+    invoice_pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$project": {
+            "year": {"$year": "$created_at"},
+            "month": {"$month": "$created_at"},
+            "total": {"$ifNull": ["$total", {"$ifNull": ["$total_amount", 0]}]}
+        }},
+        {"$group": {
+            "_id": {"year": "$year", "month": "$month"},
+            "invoice_total": {"$sum": "$total"},
+            "invoice_count": {"$sum": 1}
+        }}
+    ]
+    invoices_by_period = {}
+    try:
+        invoice_data = await db.invoices.aggregate(invoice_pipeline).to_list(100)
+        for i in invoice_data:
+            key = (i["_id"]["year"], i["_id"]["month"])
+            invoices_by_period[key] = {"total": i["invoice_total"], "count": i["invoice_count"]}
+    except:
+        pass
+    
+    # Get periods with expense data
+    expense_pipeline = [
+        {"$match": {"company_id": user.company_id}},
+        {"$project": {
+            "year": {"$year": "$created_at"},
+            "month": {"$month": "$created_at"},
+            "amount": {"$ifNull": ["$amount", {"$ifNull": ["$total", 0]}]}
+        }},
+        {"$group": {
+            "_id": {"year": "$year", "month": "$month"},
+            "expense_total": {"$sum": "$amount"},
+            "expense_count": {"$sum": 1}
+        }}
+    ]
+    expenses_by_period = {}
+    try:
+        expense_data = await db.supplier_payables.aggregate(expense_pipeline).to_list(100)
+        for e in expense_data:
+            key = (e["_id"]["year"], e["_id"]["month"])
+            expenses_by_period[key] = {"total": e["expense_total"], "count": e["expense_count"]}
+    except:
+        pass
+    
+    # Collect all unique periods
+    all_periods = set()
+    all_periods.update(sales_by_period.keys())
+    all_periods.update(invoices_by_period.keys())
+    all_periods.update(expenses_by_period.keys())
+    all_periods.add((current_year, current_month))  # Always include current
+    
+    # Build response
+    result = []
+    month_names = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    
+    for year, month in sorted(all_periods, reverse=True):
+        is_current = (year == current_year and month == current_month)
+        is_closed = (year, month) in closed_set
+        
+        # Check if can be closed (previous month must be closed, except for first period)
+        prev_month = month - 1 if month > 1 else 12
+        prev_year = year if month > 1 else year - 1
+        prev_closed = (prev_year, prev_month) in closed_set
+        
+        # First period with data can always be closed
+        min_period = min(all_periods) if all_periods else (current_year, current_month)
+        is_first = (year, month) == min_period
+        
+        can_close = not is_closed and (prev_closed or is_first or is_current)
+        
+        sales = sales_by_period.get((year, month), {"total": 0, "count": 0})
+        invoices = invoices_by_period.get((year, month), {"total": 0, "count": 0})
+        expenses = expenses_by_period.get((year, month), {"total": 0, "count": 0})
+        
+        result.append({
+            "year": year,
+            "month": month,
+            "period_key": f"{year}-{month:02d}",
+            "period_name": f"{month_names[month]} {year}",
+            "status": "closed" if is_closed else ("current" if is_current else "open"),
+            "can_close": can_close,
+            "is_retroactive": not is_current and not is_closed,
+            "sales": {"total": round(sales["total"], 2), "count": sales["count"]},
+            "invoices": {"total": round(invoices["total"], 2), "count": invoices["count"]},
+            "expenses": {"total": round(expenses["total"], 2), "count": expenses["count"]}
+        })
+    
+    return result
+
 @business_clarity_router.get("/period-close/{year}/{month}")
 async def get_period_close_detail(year: int, month: int, user: User = Depends(get_current_user)):
     """Get detailed period close information including readiness checklist"""
@@ -3052,7 +3181,7 @@ async def get_period_close_detail(year: int, month: int, user: User = Depends(ge
     readiness["requisitions_recorded"]["count"] = len(requisitions)
     
     # ===== INVENTORY VALUATION =====
-    # Get opening inventory (from previous period snapshot or calculate)
+    # Get opening inventory (from previous period snapshot or opening_balance movement)
     prev_month = month - 1 if month > 1 else 12
     prev_year = year if month > 1 else year - 1
     prev_snapshot = await db.period_close_snapshots.find_one(
@@ -3060,21 +3189,51 @@ async def get_period_close_detail(year: int, month: int, user: User = Depends(ge
         {"_id": 0, "inventory_valuation": 1}
     )
     
-    opening_inventory = prev_snapshot.get("inventory_valuation", {}).get("closing_value", 0) if prev_snapshot else 0
+    opening_inventory = 0
+    opening_editable = False
     
-    # Calculate purchases received in period
-    purchases_value = sum(
+    if prev_snapshot:
+        opening_inventory = prev_snapshot.get("inventory_valuation", {}).get("closing_value", 0)
+    else:
+        # Check for opening_balance movement (from migration)
+        opening_movement = await db.stock_movements.find_one({
+            "company_id": user.company_id,
+            "movement_type": "opening_balance",
+            "created_at": {"$lt": end_date.isoformat()}
+        }, {"_id": 0, "total_value": 1})
+        
+        if opening_movement:
+            opening_inventory = opening_movement.get("total_value", 0)
+        else:
+            # No previous period and no opening balance - allow manual entry
+            opening_editable = True
+    
+    # Calculate purchases received in period (from stock_movements + receipts)
+    stock_in_movements = await db.stock_movements.find({
+        "company_id": user.company_id,
+        "movement_type": "stock_in",
+        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    }, {"_id": 0, "total_value": 1, "unit_cost": 1, "quantity": 1}).to_list(1000)
+    
+    purchases_from_movements = sum(
+        m.get("total_value", 0) or (m.get("quantity", 0) * m.get("unit_cost", 0))
+        for m in stock_in_movements
+    )
+    purchases_from_receipts = sum(
         (r.get("quantity", 0) * r.get("unit_cost", 0)) for r in receipts
     )
+    purchases_value = purchases_from_movements + purchases_from_receipts
     
     # Calculate current inventory value (closing)
     all_inventory = await db.ingredients.find(
         {"company_id": user.company_id},
-        {"_id": 0, "stock_quantity": 1, "cost_per_unit": 1}
+        {"_id": 0, "stock_quantity": 1, "cost_per_unit": 1, "current_stock": 1, "unit_cost": 1}
     ).to_list(1000)
     
     closing_inventory = sum(
-        (i.get("stock_quantity", 0) * i.get("cost_per_unit", 0)) for i in all_inventory
+        (i.get("stock_quantity", 0) or i.get("current_stock", 0)) * 
+        (i.get("cost_per_unit", 0) or i.get("unit_cost", 0)) 
+        for i in all_inventory
     )
     
     # Calculate COGS: Opening + Purchases - Closing
@@ -3082,6 +3241,7 @@ async def get_period_close_detail(year: int, month: int, user: User = Depends(ge
     
     inventory_valuation = {
         "opening_value": round(opening_inventory, 2),
+        "opening_editable": opening_editable,
         "purchases_received": round(purchases_value, 2),
         "closing_value": round(closing_inventory, 2),
         "cogs_calculated": round(max(0, total_cogs), 2)
@@ -3345,16 +3505,40 @@ async def save_cash_snapshot(year: int, month: int, data: CashSnapshotCreate, us
     return snapshot
 
 @business_clarity_router.post("/period-close/{year}/{month}/close")
-async def close_period(year: int, month: int, notes: str = "", user: User = Depends(get_current_user)):
-    """Close a period - locks all data and creates snapshot"""
+async def close_period(year: int, month: int, notes: str = "", opening_inventory_override: float = None, user: User = Depends(get_current_user)):
+    """Close a period - locks all data and creates snapshot. Supports retroactive closing."""
     # Check user role (only Finance or Owner can close)
     if user.role not in ["owner", "admin", "finance"]:
         raise HTTPException(status_code=403, detail="Only Finance or Owner can close periods")
     
+    now = datetime.now(timezone.utc)
+    current_year = now.year
+    current_month = now.month
+    
+    # Check if this is a retroactive close
+    is_retroactive = (year < current_year) or (year == current_year and month < current_month)
+    
+    # For retroactive closes, check that previous months are closed (enforce chronological order)
+    if is_retroactive:
+        prev_month = month - 1 if month > 1 else 12
+        prev_year = year if month > 1 else year - 1
+        
+        # Only check if not January of the first year with data
+        if not (month == 1 and year == 2026):  # Assuming 2026 is the start year
+            prev_snapshot = await db.period_close_snapshots.find_one(
+                {"company_id": user.company_id, "year": prev_year, "month": prev_month}
+            )
+            if not prev_snapshot or prev_snapshot.get("status") != "closed":
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Debe cerrar primero el período {prev_year}-{prev_month:02d} antes de cerrar {year}-{month:02d}"
+                )
+    
     # Get period detail to check readiness
     period_detail = await get_period_close_detail(year, month, user)
     
-    if period_detail["has_blockers"]:
+    # For retroactive periods, we're more lenient with blockers
+    if not is_retroactive and period_detail["has_blockers"]:
         raise HTTPException(status_code=400, detail="Cannot close period with blocking issues")
     
     # Check if already closed
@@ -3365,13 +3549,39 @@ async def close_period(year: int, month: int, notes: str = "", user: User = Depe
     if existing and existing.get("status") == "closed":
         raise HTTPException(status_code=400, detail="Period already closed")
     
+    # Handle manual opening inventory override
+    inventory_valuation = period_detail["inventory_valuation"].copy()
+    if opening_inventory_override is not None and inventory_valuation.get("opening_editable"):
+        inventory_valuation["opening_value"] = round(opening_inventory_override, 2)
+        inventory_valuation["opening_manual"] = True
+        # Recalculate COGS with new opening
+        total_cogs = opening_inventory_override + inventory_valuation["purchases_received"] - inventory_valuation["closing_value"]
+        inventory_valuation["cogs_calculated"] = round(max(0, total_cogs), 2)
+        
+        # Save the manual opening as a stock movement for future reference
+        opening_movement = {
+            "movement_id": f"mov_{uuid.uuid4().hex[:12]}",
+            "company_id": user.company_id,
+            "movement_type": "opening_balance",
+            "ingredient_id": None,
+            "quantity": 0,
+            "unit_cost": opening_inventory_override,
+            "total_value": opening_inventory_override,
+            "reference_type": "manual_close",
+            "reference_id": f"{year}-{month:02d}",
+            "event_id": None,
+            "notes": f"Opening balance manual para período {year}-{month:02d}",
+            "created_by": user.user_id,
+            "created_at": datetime(year, month, 1, tzinfo=timezone.utc).isoformat(),
+            "retroactive": True
+        }
+        await db.stock_movements.insert_one(opening_movement)
+    
     # Get cash snapshot if exists
     cash_snapshot = await db.cash_snapshots.find_one(
         {"company_id": user.company_id, "year": year, "month": month},
         {"_id": 0}
     )
-    
-    now = datetime.now(timezone.utc)
     
     # Create period close snapshot
     snapshot = {
@@ -3381,7 +3591,7 @@ async def close_period(year: int, month: int, notes: str = "", user: User = Depe
         "month": month,
         "period_key": f"{year}-{month:02d}",
         "status": "closed",
-        "inventory_valuation": period_detail["inventory_valuation"],
+        "inventory_valuation": inventory_valuation,
         "cogs_allocation": period_detail["cogs_allocation"],
         "reconciliation": period_detail["reconciliation"],
         "ar_aging": period_detail["ar_aging"],
@@ -3390,7 +3600,8 @@ async def close_period(year: int, month: int, notes: str = "", user: User = Depe
         "closed_by": user.user_id,
         "closed_by_name": user.name,
         "closed_at": now.isoformat(),
-        "created_at": now.isoformat()
+        "created_at": now.isoformat(),
+        "retroactive": is_retroactive
     }
     
     # Upsert snapshot

@@ -34,6 +34,7 @@ export function CloseReconciliationSection() {
   const [eventAllocation, setEventAllocation] = useState(null);
   const [events, setEvents] = useState([]);
   const [physicalCount, setPhysicalCount] = useState(null);
+  const [availablePeriods, setAvailablePeriods] = useState([]);
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -44,6 +45,7 @@ export function CloseReconciliationSection() {
   const [showFixModal, setShowFixModal] = useState(false);
   const [showCountModal, setShowCountModal] = useState(false);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
+  const [showPeriodsPanel, setShowPeriodsPanel] = useState(false);
   
   const [closeNotes, setCloseNotes] = useState("");
   const [reopenReason, setReopenReason] = useState("");
@@ -51,6 +53,7 @@ export function CloseReconciliationSection() {
   const [showAllocation, setShowAllocation] = useState(false);
   const [showPhysicalCount, setShowPhysicalCount] = useState(false);
   const [exceptionFilter, setExceptionFilter] = useState("all");
+  const [manualOpeningInventory, setManualOpeningInventory] = useState("");
   
   // Physical Count State
   const [countItems, setCountItems] = useState([]);
@@ -101,18 +104,25 @@ export function CloseReconciliationSection() {
   const fetchPeriodData = useCallback(async () => {
     setLoading(true);
     try {
-      const [periodRes, exceptionsRes, allocationRes, eventsRes, countRes] = await Promise.all([
+      const [periodRes, exceptionsRes, allocationRes, eventsRes, countRes, periodsRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/exceptions?filter_type=${exceptionFilter}`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/event-allocation`, { withCredentials: true }),
         axios.get(`${API}/api/events`, { withCredentials: true }).catch(() => ({ data: [] })),
-        axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/physical-count`, { withCredentials: true }).catch(() => ({ data: null }))
+        axios.get(`${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/physical-count`, { withCredentials: true }).catch(() => ({ data: null })),
+        axios.get(`${API}/api/business-clarity/period-close/available-periods`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setPeriodData(periodRes.data);
       setExceptions(exceptionsRes.data?.exceptions || []);
       setEventAllocation(allocationRes.data);
       setEvents(Array.isArray(eventsRes.data) ? eventsRes.data : eventsRes.data?.events || []);
       setPhysicalCount(countRes.data);
+      setAvailablePeriods(periodsRes.data || []);
+      
+      // Initialize manual opening from current value if editable
+      if (periodRes.data?.inventory_valuation?.opening_editable) {
+        setManualOpeningInventory(periodRes.data.inventory_valuation.opening_value || "");
+      }
       
       // Initialize count items for editing
       if (countRes.data?.items) {
@@ -137,15 +147,21 @@ export function CloseReconciliationSection() {
 
   const handleClosePeriod = async () => {
     try {
-      await axios.post(
-        `${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/close?notes=${encodeURIComponent(closeNotes)}`,
-        {},
-        { withCredentials: true }
-      );
+      // Build URL with query params
+      let url = `${API}/api/business-clarity/period-close/${selectedYear}/${selectedMonth}/close?notes=${encodeURIComponent(closeNotes)}`;
+      
+      // Add opening_inventory_override if editable and user provided value
+      const inventory = periodData?.inventory_valuation || {};
+      if (inventory.opening_editable && manualOpeningInventory !== "") {
+        url += `&opening_inventory_override=${parseFloat(manualOpeningInventory) || 0}`;
+      }
+      
+      await axios.post(url, {}, { withCredentials: true });
       toast.success(isEs ? "Período cerrado exitosamente" : "Period closed successfully");
       setShowCloseModal(false);
       setCloseNotes("");
       setConfirmClose(false);
+      setManualOpeningInventory("");
       fetchPeriodData();
     } catch (err) {
       toast.error(err.response?.data?.detail || (isEs ? "Error cerrando período" : "Error closing period"));
@@ -497,6 +513,20 @@ export function CloseReconciliationSection() {
                 </SelectContent>
               </Select>
             </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowPeriodsPanel(!showPeriodsPanel)}
+              className="gap-1"
+            >
+              <Calendar className="w-4 h-4" />
+              {isEs ? "Ver Períodos" : "View Periods"}
+              {availablePeriods.filter(p => p.status === "open" && p.is_retroactive).length > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 px-1">
+                  {availablePeriods.filter(p => p.status === "open" && p.is_retroactive).length}
+                </Badge>
+              )}
+            </Button>
             <div className="flex-1" />
             {isClosed ? (
               <Button variant="outline" onClick={() => setShowReopenModal(true)} className="text-amber-600 border-amber-300">
@@ -516,6 +546,92 @@ export function CloseReconciliationSection() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Available Periods Panel */}
+      {showPeriodsPanel && availablePeriods.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              {isEs ? "Períodos con Datos" : "Periods with Data"}
+            </CardTitle>
+            <CardDescription>
+              {isEs ? "Selecciona un período para ver detalles o cerrar" : "Select a period to view details or close"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {availablePeriods.map(period => (
+                <div 
+                  key={period.period_key}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                    period.status === "closed" 
+                      ? "bg-green-50 border-green-200" 
+                      : period.status === "current"
+                      ? "bg-blue-50 border-blue-300 ring-2 ring-blue-200"
+                      : "bg-white border-slate-200 hover:border-amber-300"
+                  } ${selectedYear === period.year && selectedMonth === period.month ? "ring-2 ring-primary" : ""}`}
+                  onClick={() => {
+                    setSelectedYear(period.year);
+                    setSelectedMonth(period.month);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">{period.period_name}</span>
+                    <Badge 
+                      variant={period.status === "closed" ? "default" : "outline"}
+                      className={period.status === "closed" ? "bg-green-600" : period.status === "current" ? "border-blue-400 text-blue-600" : ""}
+                    >
+                      {period.status === "closed" 
+                        ? (isEs ? "Cerrado" : "Closed")
+                        : period.status === "current"
+                        ? (isEs ? "Actual" : "Current")
+                        : (isEs ? "Pendiente" : "Pending")
+                      }
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-center p-1 bg-green-100 rounded">
+                      <p className="text-green-700 font-medium">{formatCurrency(period.sales?.total || 0)}</p>
+                      <p className="text-green-600">{period.sales?.count || 0} {isEs ? "ventas" : "sales"}</p>
+                    </div>
+                    <div className="text-center p-1 bg-blue-100 rounded">
+                      <p className="text-blue-700 font-medium">{formatCurrency(period.invoices?.total || 0)}</p>
+                      <p className="text-blue-600">{period.invoices?.count || 0} {isEs ? "fact." : "inv."}</p>
+                    </div>
+                    <div className="text-center p-1 bg-red-100 rounded">
+                      <p className="text-red-700 font-medium">{formatCurrency(period.expenses?.total || 0)}</p>
+                      <p className="text-red-600">{period.expenses?.count || 0} {isEs ? "gastos" : "exp."}</p>
+                    </div>
+                  </div>
+                  {period.can_close && period.status !== "closed" && (
+                    <div className="mt-2 pt-2 border-t">
+                      <Button 
+                        size="sm" 
+                        className="w-full h-7 text-xs bg-amber-500 hover:bg-amber-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedYear(period.year);
+                          setSelectedMonth(period.month);
+                          setTimeout(() => setShowCloseModal(true), 100);
+                        }}
+                      >
+                        <Lock className="w-3 h-3 mr-1" />
+                        {isEs ? "Cerrar Período" : "Close Period"}
+                      </Button>
+                    </div>
+                  )}
+                  {!period.can_close && period.status !== "closed" && (
+                    <p className="mt-2 text-[10px] text-amber-600 text-center">
+                      {isEs ? "Cierre el período anterior primero" : "Close previous period first"}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Close Readiness Checklist */}
       <Card className={periodData?.has_blockers ? "border-red-200 bg-red-50/30" : "border-green-200 bg-green-50/30"}>
@@ -763,13 +879,36 @@ export function CloseReconciliationSection() {
 
       {/* Inventory Valuation Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200">
+        <Card className={`bg-gradient-to-br ${inventory.opening_editable ? "from-amber-50 to-amber-100 border-amber-300" : "from-slate-50 to-slate-100 border-slate-200"}`}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
-              <Package className="w-4 h-4 text-slate-600" />
-              <span className="text-xs text-slate-600">{isEs ? "Inventario Inicial" : "Opening Inventory"}</span>
+              <Package className={`w-4 h-4 ${inventory.opening_editable ? "text-amber-600" : "text-slate-600"}`} />
+              <span className={`text-xs ${inventory.opening_editable ? "text-amber-600" : "text-slate-600"}`}>
+                {isEs ? "Inventario Inicial" : "Opening Inventory"}
+              </span>
+              {inventory.opening_editable && (
+                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-400">
+                  {isEs ? "Editable" : "Editable"}
+                </Badge>
+              )}
             </div>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(inventory.opening_value)}</p>
+            {inventory.opening_editable ? (
+              <div className="space-y-1">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={manualOpeningInventory}
+                  onChange={(e) => setManualOpeningInventory(e.target.value)}
+                  placeholder="0.00"
+                  className="h-8 text-lg font-bold"
+                />
+                <p className="text-[10px] text-amber-600">
+                  {isEs ? "Sin período anterior. Ingrese valor inicial." : "No previous period. Enter opening value."}
+                </p>
+              </div>
+            ) : (
+              <p className="text-2xl font-bold text-slate-800">{formatCurrency(inventory.opening_value)}</p>
+            )}
           </CardContent>
         </Card>
 

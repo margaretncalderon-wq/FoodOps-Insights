@@ -1,64 +1,47 @@
-# Kora OS - Changelog
+# Kora ERP - Changelog
 
-## March 4, 2026
+## [2026-03-08] - Cierres Retroactivos
 
-### Session 2: People Ops + Cost Centers
+### Added
+- **Period Close Available Periods Endpoint**: `GET /api/business-clarity/period-close/available-periods`
+  - Lists all periods with imported data (sales, invoices, expenses)
+  - Shows status: closed, current, pending
+  - Indicates if period can be closed (chronological order enforced)
+  
+- **Retroactive Period Closing**: Modified `POST /api/business-clarity/period-close/{year}/{month}/close`
+  - Supports closing past periods
+  - Manual Opening Inventory override for first period
+  - Validates chronological order (must close previous period first)
+  - Creates `opening_balance` stock movement when manual value provided
 
-#### New Module: People Ops
-- Created new sidebar module "People Ops" for team management and payroll
-- **Employee Directory**:
-  - List view with search and filters (status, department)
-  - Stats cards: Total, Active, On Leave, Departments
-  - Create new employee with full form
-- **Employee Profile**:
-  - Tabs: Info, Compensation, Documents, Time
-  - Personal information section
-  - Employment info with cost center assignment
-  - Salary history tracking
-  - Benefits (AFP, ARS) display
-- **Permissions**:
-  - Full access: owner, admin, hr
-  - Limited: manager (view team only)
-  - Self-service: employee (view own profile)
+- **Frontend Periods Panel**: `CloseReconciliationSection.js`
+  - "View Periods" button with badge showing pending periods count
+  - Visual panel displaying all periods with sales/invoice/expense totals
+  - Click to select period, direct close button for eligible periods
+  - Editable Opening Inventory field when no previous period exists
 
-#### Cost Centers
-- CRUD operations for cost centers
-- 7 predefined templates: Marketing, Admin, IT, RRHH, Operaciones, Ventas, Instalaciones
-- Budget tracking with utilization indicators
-- Link employees to cost centers
+### Fixed
+- **Inventory Field Mapping**: Added legacy field mapping in inventory endpoints
+  - `unit_cost` → `cost_per_unit`
+  - `current_stock` → `stock_quantity`
+  - `min_stock` → `min_stock_level`
 
-#### Reference Data (Dominican Republic)
-- AFP Providers: Popular, Reservas, Siembra, Crecer, Romana
-- ARS Providers: Humano, Universal, Palic, Semma, Meta Salud, Monumental, SeNaSa
-- Banks: Popular, Reservas, BHD León, Scotiabank, Santa Cruz, Promerica, etc.
+### Database
+- Created `opening_balance` stock movement for January 2026 ($16,228)
+- Updated 867 ingredients with correct field names
 
-### Session 1: Marketing ROI + Activation-Event Linking
+---
 
-#### Marketing ROI Dashboard (Business Clarity)
-- New tab "Marketing ROI" in Business Clarity
-- KPIs: Total Investment, ROI%, Leads Generated, Conversions
-- Performance by Activation table
-- Cost Center breakdown
-- Lead attribution tracking
+## [2026-03-07] - Data Migration & Export Features
 
-#### Activation-Event Bidirectional Linking
-- Link activations to events with drawer details
-- Conditional navigation (Orchestration vs Event Details)
-- Visual status badges (Confirmed/In Progress)
-- Banner in Event Orchestration showing linked activation
+### Added
+- Excel export for tax formats 606 & 607
+- Data migration CSV import for clients, suppliers, sales, inventory
+- Shared Suppliers module (Partners + Culinary Intelligence)
+- Editable Partner Capabilities in Settings
+- Preferred Supplier system with visual indicators
 
-#### Internal Events / Cost Center
-- Create internal marketing events directly from Activations
-- Auto-create "Marketing Interno" cost center client
-- Events created with stage='Committed' for immediate orchestration access
-
-### Previous Session: Production Fix
-
-#### Critical Production Issue (RESOLVED)
-- Emergency restore tool created and used to fix corrupted company_id
-- OrgSwitcher component removed to prevent recurrence
-- User memberships repaired
-
-#### Organization Filtering
-- All Demand Studio modules respect global org selector
-- Granular permissions implemented for section-level access
+### Fixed
+- Multiple data migration bugs (headers, special characters, date formats)
+- Inventory import template download
+- Partner form "Sistema" tab crash
