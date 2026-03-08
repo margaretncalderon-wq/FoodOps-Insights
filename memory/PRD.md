@@ -29,6 +29,9 @@ Comprehensive ERP application for event management agencies with modules for Peo
   - Department-based grouping view
 - **Bug Fix**: Fixed blank screen when opening "Add Department" / "Add Cost Center" modals
   - Root cause: Select components needed controlled values with fallback to "none"
+- **Architecture Cleanup**: Removed duplicate "Cost Centers" tab from Settings > Finance
+  - Settings > Org Structure = ONLY place to create/configure Cost Centers (structure)
+  - Business Clarity > CC Budgets = ONLY place to manage budgets and analyze (operations)
 
 ### Payment Recording Flow (March 8, 2026)
 - **Bug Fix**: Fixed critical bug preventing modal from advancing to Step 2 after client selection

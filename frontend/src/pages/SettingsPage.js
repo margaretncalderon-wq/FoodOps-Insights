@@ -45,7 +45,6 @@ import ImportExportSection from "../components/settings/ImportExportSection";
 import IndustryConfigSection from "../components/settings/IndustryConfigSection";
 import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
 import PartnerCapabilitiesSection from "../components/settings/PartnerCapabilitiesSection";
-import { CostCentersSection } from "../components/people-ops/CostCentersSection";
 import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
 import { BillingSection, TeamSection } from "../components/org";
 
@@ -1045,7 +1044,7 @@ export default function SettingsPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    ["billing", "taxes", "cost-centers"].includes(activeSettingsTab)
+                    ["billing", "taxes", "org-structure"].includes(activeSettingsTab)
                       ? "border-emerald-600 text-emerald-600"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                   }`}>
@@ -1066,10 +1065,6 @@ export default function SettingsPage() {
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("org-structure")} className={activeSettingsTab === "org-structure" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <Building2 className="w-4 h-4 mr-2" />
                     {language === "es" ? "Estructura Org." : "Org Structure"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveSettingsTab("cost-centers")} className={activeSettingsTab === "cost-centers" ? "bg-emerald-50 text-emerald-700" : ""}>
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    Cost Centers
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -4066,11 +4061,6 @@ Mantel Blanco, , 10, 3`}
           {/* Organization Structure Tab */}
           <TabsContent value="org-structure">
             <OrganizationStructureSection />
-          </TabsContent>
-
-          {/* Cost Centers Tab */}
-          <TabsContent value="cost-centers">
-            <CostCentersSection />
           </TabsContent>
 
           {/* Partner Capabilities Tab */}
