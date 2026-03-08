@@ -40,16 +40,32 @@ export function EmployeeProfile() {
   const [editData, setEditData] = useState({});
   const [salaryHistory, setSalaryHistory] = useState([]);
   const [activeTab, setActiveTab] = useState("info");
+  
+  // Reference data for dropdowns
+  const [jobPostings, setJobPostings] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [costCenters, setCostCenters] = useState([]);
+  const [managers, setManagers] = useState([]);
 
   const fetchEmployee = useCallback(async () => {
     try {
-      const [empRes, salaryRes] = await Promise.all([
+      const [empRes, salaryRes, jobsRes, deptRes, ccRes, empListRes] = await Promise.all([
         axios.get(`${API}/api/people-ops/employees/${employeeId}`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/employees/${employeeId}/salary-history`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${API}/api/people-ops/employees/${employeeId}/salary-history`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/people-ops/recruitment/jobs`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/people-ops/departments`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setEmployee(empRes.data);
       setEditData(empRes.data);
       setSalaryHistory(salaryRes.data);
+      setJobPostings(jobsRes.data || []);
+      setDepartments(deptRes.data || []);
+      setCostCenters(ccRes.data || []);
+      // Filter managers (employees with is_manager=true, excluding current employee)
+      const mgrs = (empListRes.data || []).filter(e => e.is_manager && e.employee_id !== employeeId);
+      setManagers(mgrs);
     } catch (err) {
       console.error("Error fetching employee:", err);
     }
@@ -268,18 +284,122 @@ export function EmployeeProfile() {
                 {editing ? (
                   <>
                     <div>
-                      <label className="text-sm text-muted-foreground">{isEs ? "Puesto" : "Job Title"}</label>
-                      <Input
-                        value={editData.job_title || ""}
-                        onChange={(e) => setEditData({ ...editData, job_title: e.target.value })}
-                      />
+                      <label className="text-sm text-muted-foreground">{isEs ? "Puesto" : "Job Role"}</label>
+                      <Select 
+                        value={editData.job_role_id || "none"} 
+                        onValueChange={(v) => {
+                          const job = jobPostings.find(j => j.id === v);
+                          setEditData({ 
+                            ...editData, 
+                            job_role_id: v === "none" ? "" : v,
+                            job_title: job?.title || editData.job_title
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar puesto..." : "Select role..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                          {jobPostings.map(job => (
+                            <SelectItem key={job.id} value={job.id}>{job.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {jobPostings.length === 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {isEs ? "Crear puestos en Recruitment" : "Create roles in Recruitment"}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="text-sm text-muted-foreground">{isEs ? "Departamento" : "Department"}</label>
-                      <Input
-                        value={editData.department || ""}
-                        onChange={(e) => setEditData({ ...editData, department: e.target.value })}
+                      <Select 
+                        value={editData.department_id || "none"} 
+                        onValueChange={(v) => {
+                          const dept = departments.find(d => d.department_id === v);
+                          setEditData({ 
+                            ...editData, 
+                            department_id: v === "none" ? "" : v,
+                            department: dept?.name || editData.department
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar departamento..." : "Select department..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                          {departments.filter(d => d.is_active !== false).map(dept => (
+                            <SelectItem key={dept.department_id} value={dept.department_id}>{dept.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Cost Center</label>
+                      <Select 
+                        value={editData.cost_center_id || "none"} 
+                        onValueChange={(v) => {
+                          const cc = costCenters.find(c => c.cost_center_id === v);
+                          setEditData({ 
+                            ...editData, 
+                            cost_center_id: v === "none" ? "" : v,
+                            cost_center_name: cc?.name || ""
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                          {costCenters.filter(cc => cc.is_active !== false).map(cc => (
+                            <SelectItem key={cc.cost_center_id} value={cc.cost_center_id}>{cc.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">{isEs ? "Reporta a" : "Reports To"}</label>
+                      <Select 
+                        value={editData.manager_id || "none"} 
+                        onValueChange={(v) => {
+                          const mgr = managers.find(m => m.employee_id === v);
+                          setEditData({ 
+                            ...editData, 
+                            manager_id: v === "none" ? "" : v,
+                            manager_name: mgr?.full_name || ""
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={isEs ? "Seleccionar manager..." : "Select manager..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{isEs ? "Sin manager" : "No manager"}</SelectItem>
+                          {managers.map(mgr => (
+                            <SelectItem key={mgr.employee_id} value={mgr.employee_id}>
+                              {mgr.full_name} - {mgr.job_title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-violet-50 rounded-lg border border-violet-100">
+                      <input
+                        type="checkbox"
+                        id="is_manager_edit"
+                        checked={editData.is_manager || false}
+                        onChange={(e) => setEditData({ ...editData, is_manager: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                       />
+                      <label htmlFor="is_manager_edit" className="text-sm">
+                        <span className="font-medium">{isEs ? "Es Manager" : "Is Manager"}</span>
+                        <span className="text-muted-foreground ml-2">
+                          {isEs ? "(Aparece en organigrama)" : "(Shows in org chart)"}
+                        </span>
+                      </label>
                     </div>
                   </>
                 ) : (
@@ -308,6 +428,12 @@ export function EmployeeProfile() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{isEs ? "Reporta a" : "Reports to"}</span>
                         <span>{employee.manager_name}</span>
+                      </div>
+                    )}
+                    {employee.is_manager && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{isEs ? "Rol" : "Role"}</span>
+                        <Badge className="bg-violet-100 text-violet-700">{isEs ? "Manager" : "Manager"}</Badge>
                       </div>
                     )}
                   </>
