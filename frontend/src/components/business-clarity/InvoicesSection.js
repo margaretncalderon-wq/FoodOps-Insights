@@ -33,6 +33,10 @@ export function InvoicesSection() {
   });
   const [exportEndDate, setExportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
+  // Date filter for list
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+
   // Edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -103,29 +107,68 @@ export function InvoicesSection() {
   };
 
   const getStatusBadge = (status) => {
-    const styles = { open: "bg-blue-100 text-blue-700", partially_paid: "bg-yellow-100 text-yellow-700", paid: "bg-green-100 text-green-700" };
-    const labels = { open: isEs ? "Abierta" : "Open", partially_paid: isEs ? "Parcial" : "Partial", paid: isEs ? "Pagada" : "Paid" };
+    const styles = { open: "bg-blue-100 text-blue-700", partially_paid: "bg-yellow-100 text-yellow-700", paid: "bg-green-100 text-green-700", partial: "bg-yellow-100 text-yellow-700" };
+    const labels = { open: isEs ? "Abierta" : "Open", partially_paid: isEs ? "Parcial" : "Partial", paid: isEs ? "Pagada" : "Paid", partial: isEs ? "Parcial" : "Partial" };
     return <Badge className={styles[status] || styles.open}>{labels[status] || status}</Badge>;
   };
 
-  const filteredInvoices = invoices.filter(inv => filter === "all" || inv.status === filter);
+  const filteredInvoices = invoices.filter(inv => {
+    // Status filter
+    if (filter !== "all" && inv.status !== filter) return false;
+    
+    // Date range filter (using issue_date)
+    if (filterStartDate) {
+      const issueDate = inv.issue_date ? new Date(inv.issue_date) : null;
+      if (!issueDate || issueDate < new Date(filterStartDate)) return false;
+    }
+    if (filterEndDate) {
+      const issueDate = inv.issue_date ? new Date(inv.issue_date) : null;
+      const endDate = new Date(filterEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (!issueDate || issueDate > endDate) return false;
+    }
+    
+    return true;
+  });
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
           <h2 className="text-lg font-semibold">{isEs ? "Facturas" : "Invoices"}</h2>
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{isEs ? "Todas" : "All"}</SelectItem>
               <SelectItem value="open">{isEs ? "Abiertas" : "Open"}</SelectItem>
-              <SelectItem value="partially_paid">{isEs ? "Parciales" : "Partial"}</SelectItem>
+              <SelectItem value="partial">{isEs ? "Parciales" : "Partial"}</SelectItem>
               <SelectItem value="paid">{isEs ? "Pagadas" : "Paid"}</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
+              className="h-8 w-36"
+              placeholder={isEs ? "Desde" : "From"}
+            />
+            <span className="text-muted-foreground">-</span>
+            <Input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="h-8 w-36"
+              placeholder={isEs ? "Hasta" : "To"}
+            />
+            {(filterStartDate || filterEndDate) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFilterStartDate(""); setFilterEndDate(""); }}>
+                ✕
+              </Button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
@@ -149,7 +192,7 @@ export function InvoicesSection() {
                 <TableHead className="w-10"></TableHead>
                 <TableHead>{isEs ? "Factura" : "Invoice"}</TableHead>
                 <TableHead>{isEs ? "Cliente" : "Client"}</TableHead>
-                <TableHead>{isEs ? "Evento" : "Event"}</TableHead>
+                <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
                 <TableHead>{isEs ? "Vence" : "Due"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
                 <TableHead className="text-right">{isEs ? "Pagado" : "Paid"}</TableHead>
@@ -164,10 +207,10 @@ export function InvoicesSection() {
                   <TableCell>{inv.status !== "paid" && <input type="checkbox" checked={selectedInvoices.includes(inv.invoice_id)} onChange={() => handleSelectInvoice(inv.invoice_id)} className="rounded" />}</TableCell>
                   <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                   <TableCell>{inv.client_name || "-"}</TableCell>
-                  <TableCell>{inv.event_name || "-"}</TableCell>
-                  <TableCell>{new Date(inv.due_date).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-sm">{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString() : "-"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "-"}</TableCell>
                   <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
-                  <TableCell className="text-right text-green-600">{formatCurrency(inv.paid_amount)}</TableCell>
+                  <TableCell className="text-right text-green-600">{formatCurrency(inv.amount_paid || inv.paid_amount)}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(inv.balance_due)}</TableCell>
                   <TableCell>{getStatusBadge(inv.status)}</TableCell>
                   <TableCell>

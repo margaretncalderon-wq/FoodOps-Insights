@@ -4732,10 +4732,13 @@ async def get_sales_general_report(
     if not end_date:
         end_date = now.strftime("%Y-%m-%d")
     
-    # Get invoices in period
+    # Get invoices in period - Use issue_date for correct period assignment
     invoices = await db.invoices.find({
         "company_id": company_id,
-        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+        "$or": [
+            {"issue_date": {"$gte": start_date, "$lte": end_date + "T23:59:59"}},
+            {"issue_date": {"$exists": False}, "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}}
+        ]
     }, {"_id": 0}).to_list(5000)
     
     # Calculate totals
@@ -4760,7 +4763,7 @@ async def get_sales_general_report(
             "invoice_id": inv.get("invoice_id"),
             "invoice_number": inv.get("invoice_number"),
             "client_name": inv.get("client_name"),
-            "date": inv.get("created_at", "")[:10],
+            "date": (inv.get("issue_date") or inv.get("created_at", ""))[:10],
             "total": inv.get("total", 0),
             "balance_due": inv.get("balance_due", 0),
             "status": inv.get("status")
@@ -4787,7 +4790,10 @@ async def get_sales_by_client_report(
     
     invoices = await db.invoices.find({
         "company_id": company_id,
-        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"},
+        "$or": [
+            {"issue_date": {"$gte": start_date, "$lte": end_date + "T23:59:59"}},
+            {"issue_date": {"$exists": False}, "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}}
+        ],
         "status": {"$ne": "cancelled"}
     }, {"_id": 0}).to_list(5000)
     
@@ -5335,10 +5341,14 @@ async def get_income_expense_report(
     if not end_date:
         end_date = now.strftime("%Y-%m-%d")
     
-    # Get invoices (income)
+    # Get invoices (income) - Use issue_date for correct period assignment
     invoices = await db.invoices.find({
         "company_id": company_id,
-        "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"},
+        "$or": [
+            {"issue_date": {"$gte": start_date, "$lte": end_date + "T23:59:59"}},
+            # Fallback to created_at if issue_date not set
+            {"issue_date": {"$exists": False}, "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}}
+        ],
         "status": {"$ne": "cancelled"}
     }, {"_id": 0}).to_list(5000)
     
