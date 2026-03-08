@@ -47,43 +47,87 @@ export function StatementsSection() {
     setDownloading(true);
     try {
       const { jsPDF } = await import("jspdf");
-      await import("jspdf-autotable");
+      const autoTable = (await import("jspdf-autotable")).default;
       
       const doc = new jsPDF();
       const client = statement.client;
+      const credit = statement.credit;
       
+      // Header
       doc.setFontSize(18);
-      doc.text("Estado de Cuenta / Account Statement", 14, 20);
+      doc.text(isEs ? "Estado de Cuenta" : "Account Statement", 14, 20);
       doc.setFontSize(12);
-      doc.text(`Cliente: ${client?.display_name || "N/A"}`, 14, 30);
-      doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 36);
+      doc.text(`${isEs ? "Cliente" : "Client"}: ${client?.display_name || "N/A"}`, 14, 30);
+      doc.text(`${isEs ? "Fecha" : "Date"}: ${new Date().toLocaleDateString()}`, 14, 36);
+      if (client?.tax_id) {
+        doc.text(`RNC/ID: ${client.tax_id}`, 14, 42);
+      }
       
+      // Summary
+      let yPos = 54;
       doc.setFontSize(10);
-      doc.text(`Total Facturado: ${formatCurrency(statement.summary?.total_invoiced)}`, 14, 48);
-      doc.text(`Total Pagado: ${formatCurrency(statement.summary?.total_paid)}`, 14, 54);
-      doc.text(`Saldo Actual: ${formatCurrency(statement.summary?.current_balance)}`, 14, 60);
+      doc.text(`${isEs ? "Total Facturado" : "Total Invoiced"}: ${formatCurrency(statement.summary?.total_invoiced)}`, 14, yPos);
+      doc.text(`${isEs ? "Total Pagado" : "Total Paid"}: ${formatCurrency(statement.summary?.total_paid)}`, 14, yPos + 6);
+      doc.text(`${isEs ? "Saldo Actual" : "Current Balance"}: ${formatCurrency(statement.summary?.current_balance)}`, 14, yPos + 12);
+      doc.text(`${isEs ? "Términos" : "Terms"}: ${credit?.payment_terms || client?.payment_terms || (isEs ? "Inmediato" : "Immediate")}`, 14, yPos + 18);
       
+      // Credit info if applicable
+      if (credit?.has_credit && credit?.credit_limit > 0) {
+        yPos += 30;
+        doc.setFillColor(239, 246, 255);
+        doc.rect(14, yPos, 180, 20, "F");
+        doc.setFontSize(10);
+        doc.setTextColor(59, 130, 246);
+        doc.text(`${isEs ? "LÍNEA DE CRÉDITO" : "CREDIT LINE"}`, 16, yPos + 6);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${isEs ? "Límite" : "Limit"}: ${formatCurrency(credit.credit_limit)}`, 16, yPos + 13);
+        doc.text(`${isEs ? "Utilizado" : "Used"}: ${formatCurrency(credit.credit_used)} (${credit.credit_used_percent?.toFixed(0) || 0}%)`, 80, yPos + 13);
+        doc.text(`${isEs ? "Disponible" : "Available"}: ${formatCurrency(credit.credit_available)}`, 140, yPos + 13);
+        yPos += 25;
+      } else {
+        yPos += 25;
+      }
+      
+      // Activity table
       if (statement.activity?.length > 0) {
-        doc.autoTable({
-          startY: 70,
-          head: [["Fecha", "Tipo", "Descripción", "Débito", "Crédito", "Saldo"]],
+        autoTable(doc, {
+          startY: yPos,
+          head: [[
+            isEs ? "Fecha" : "Date", 
+            isEs ? "Tipo" : "Type", 
+            isEs ? "Descripción" : "Description", 
+            isEs ? "Débito" : "Debit", 
+            isEs ? "Crédito" : "Credit", 
+            isEs ? "Saldo" : "Balance"
+          ]],
           body: statement.activity.map(item => [
             item.date ? new Date(item.date).toLocaleDateString() : "-",
-            item.type === "invoice" ? "Factura" : "Pago",
-            item.description,
+            item.type === "invoice" ? (isEs ? "Factura" : "Invoice") : (isEs ? "Pago" : "Payment"),
+            item.description || "-",
             item.debit > 0 ? formatCurrency(item.debit) : "-",
             item.credit > 0 ? formatCurrency(item.credit) : "-",
             formatCurrency(item.balance)
           ]),
           styles: { fontSize: 8 },
-          headStyles: { fillColor: [59, 130, 246] }
+          headStyles: { fillColor: [59, 130, 246] },
+          columnStyles: {
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+            5: { halign: 'right' }
+          }
         });
       }
+      
+      // Footer
+      const pageHeight = doc.internal.pageSize.getHeight();
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`${isEs ? "Generado" : "Generated"}: ${new Date().toLocaleString()}`, 14, pageHeight - 10);
       
       doc.save(`estado_cuenta_${client?.display_name?.replace(/\s+/g, "_") || "cliente"}.pdf`);
       toast.success(isEs ? "PDF descargado" : "PDF downloaded");
     } catch (err) {
-      console.error(err);
+      console.error("PDF Error:", err);
       toast.error(isEs ? "Error al generar PDF" : "Failed to generate PDF");
     }
     setDownloading(false);
