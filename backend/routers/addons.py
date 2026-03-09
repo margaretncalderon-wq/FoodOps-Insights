@@ -937,22 +937,23 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         
         enabled_modules.append(module_data)
     
-    # Sort modules
+    # Sort modules - logical order for sidebar
     module_order = {
         "system_pulse": 0,
         "client_engagement": 1,
         "module_event_orchestration": 2,
+        "module_program_orchestration": 2,  # Same position as event orchestration (user will have one or the other)
         "module_culinary_intelligence": 3,
-        "module_operations_supplies": 4,
+        "module_resource_management": 4,
         "module_venues": 5,
         "execution_hub": 6,
         "module_demand_studio": 7,
         "partners": 8,
         "business_clarity": 9,
-        "people_ops": 10,
-        "settings": 11,
+        "module_people_ops": 10,
+        "settings": 99,  # Always last
     }
-    enabled_modules.sort(key=lambda x: module_order.get(x["key"], 99))
+    enabled_modules.sort(key=lambda x: module_order.get(x["key"], 50))
     
     return {
         "modules": enabled_modules,
