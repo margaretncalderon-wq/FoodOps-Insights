@@ -127,6 +127,7 @@ const BIPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.
 const SuperAdminClarity = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminClarity })));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin").then(m => ({ default: m.SuperAdminSettings })));
 const EmergencyRestorePage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.EmergencyRestorePage })));
+const DealsPage = lazy(() => import("./pages/super-admin").then(m => ({ default: m.DealsPage })));
 const UserManagementPage = lazy(() => import("./pages/super-admin/UserManagementPage"));
 const DemoAccountsPage = lazy(() => import("./pages/super-admin/DemoAccountsPage"));
 const IntegrationsPage = lazy(() => import("./pages/super-admin/IntegrationsPage"));
@@ -267,6 +268,7 @@ function AppRouter() {
             <Route index element={<SuperAdminOverview />} />
             <Route path="crm" element={<SuperAdminCRMPage />} />
             <Route path="demo-accounts" element={<DemoAccountsPage />} />
+            <Route path="deals" element={<DealsPage />} />
             <Route path="integrations" element={<IntegrationsPage />} />
             <Route path="clarity" element={<SuperAdminClarity />} />
             <Route path="organizations" element={<OrganizationsListPage />} />
@@ -359,6 +361,7 @@ function AppRouter() {
         <Route index element={<SuperAdminOverview />} />
         <Route path="crm" element={<SuperAdminCRMPage />} />
         <Route path="demo-accounts" element={<DemoAccountsPage />} />
+        <Route path="deals" element={<DealsPage />} />
         <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="clarity" element={<SuperAdminClarity />} />
         <Route path="organizations" element={<OrganizationsListPage />} />

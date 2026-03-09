@@ -17265,6 +17265,306 @@ async def get_pricing_structure(admin: User = Depends(get_super_admin)):
     }
 
 
+# ============== CUSTOM DEALS ==============
+
+class CustomDealCreate(BaseModel):
+    """Create a custom deal for negotiation"""
+    deal_name: str
+    deal_code: Optional[str] = None  # Discount code (optional)
+    company_id: Optional[str] = None  # Link to specific company (optional)
+    
+    # Custom pricing
+    kora_core_price_monthly: Optional[float] = None
+    kora_core_price_annual: Optional[float] = None
+    bundle_price_monthly: Optional[float] = None
+    bundle_price_annual: Optional[float] = None
+    addon_prices: Optional[dict] = None  # {module_key: {monthly: X, annual: Y}}
+    
+    # Discounts
+    discount_percent: Optional[float] = None  # General discount percentage
+    discount_months: Optional[int] = None  # Duration of discount (e.g., 6 months)
+    
+    # Metadata
+    expires_at: Optional[str] = None
+    notes: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+
+
+class CustomDealUpdate(BaseModel):
+    """Update an existing deal"""
+    deal_name: Optional[str] = None
+    deal_code: Optional[str] = None
+    company_id: Optional[str] = None
+    kora_core_price_monthly: Optional[float] = None
+    kora_core_price_annual: Optional[float] = None
+    bundle_price_monthly: Optional[float] = None
+    bundle_price_annual: Optional[float] = None
+    addon_prices: Optional[dict] = None
+    discount_percent: Optional[float] = None
+    discount_months: Optional[int] = None
+    expires_at: Optional[str] = None
+    notes: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@super_admin_router.post("/deals")
+async def create_custom_deal(
+    deal: CustomDealCreate,
+    admin: User = Depends(get_super_admin)
+):
+    """Create a new custom pricing deal"""
+    now = datetime.now(timezone.utc)
+    
+    # Generate deal code if not provided
+    deal_code = deal.deal_code or f"DEAL-{uuid.uuid4().hex[:8].upper()}"
+    
+    # Check if deal code already exists
+    existing = await db.custom_deals.find_one({"deal_code": deal_code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Deal code already exists")
+    
+    deal_doc = {
+        "deal_id": f"deal_{uuid.uuid4().hex[:12]}",
+        "deal_name": deal.deal_name,
+        "deal_code": deal_code,
+        "company_id": deal.company_id,
+        
+        # Custom pricing
+        "kora_core_price_monthly": deal.kora_core_price_monthly,
+        "kora_core_price_annual": deal.kora_core_price_annual,
+        "bundle_price_monthly": deal.bundle_price_monthly,
+        "bundle_price_annual": deal.bundle_price_annual,
+        "addon_prices": deal.addon_prices or {},
+        
+        # Discounts
+        "discount_percent": deal.discount_percent,
+        "discount_months": deal.discount_months,
+        
+        # Metadata
+        "contact_name": deal.contact_name,
+        "contact_email": deal.contact_email,
+        "notes": deal.notes,
+        "expires_at": deal.expires_at,
+        
+        # Status
+        "is_active": True,
+        "times_used": 0,
+        "created_by": admin.user_id,
+        "created_by_email": admin.email,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        
+        # History
+        "history": [{
+            "action": "created",
+            "by": admin.email,
+            "at": now.isoformat(),
+            "notes": deal.notes
+        }]
+    }
+    
+    await db.custom_deals.insert_one(deal_doc)
+    
+    await log_super_admin_action(admin.user_id, "create_deal", None, {
+        "deal_name": deal.deal_name,
+        "deal_code": deal_code
+    })
+    
+    deal_doc.pop("_id", None)
+    return {"success": True, "deal": deal_doc}
+
+
+@super_admin_router.get("/deals")
+async def list_custom_deals(
+    active_only: bool = False,
+    company_id: Optional[str] = None,
+    admin: User = Depends(get_super_admin)
+):
+    """List all custom pricing deals"""
+    query = {}
+    if active_only:
+        query["is_active"] = True
+    if company_id:
+        query["company_id"] = company_id
+    
+    deals = await db.custom_deals.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"deals": deals}
+
+
+@super_admin_router.get("/deals/{deal_id}")
+async def get_custom_deal(
+    deal_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """Get a specific deal by ID or code"""
+    deal = await db.custom_deals.find_one(
+        {"$or": [{"deal_id": deal_id}, {"deal_code": deal_id}]},
+        {"_id": 0}
+    )
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return deal
+
+
+@super_admin_router.put("/deals/{deal_id}")
+async def update_custom_deal(
+    deal_id: str,
+    update: CustomDealUpdate,
+    admin: User = Depends(get_super_admin)
+):
+    """Update an existing deal"""
+    deal = await db.custom_deals.find_one({"deal_id": deal_id})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Build update dict
+    update_dict = {"updated_at": now.isoformat()}
+    changes = []
+    
+    for field, value in update.dict(exclude_unset=True).items():
+        if value is not None:
+            old_value = deal.get(field)
+            if old_value != value:
+                update_dict[field] = value
+                changes.append(f"{field}: {old_value} → {value}")
+    
+    if changes:
+        # Add to history
+        history_entry = {
+            "action": "updated",
+            "by": admin.email,
+            "at": now.isoformat(),
+            "changes": changes
+        }
+        
+        await db.custom_deals.update_one(
+            {"deal_id": deal_id},
+            {
+                "$set": update_dict,
+                "$push": {"history": history_entry}
+            }
+        )
+    
+    await log_super_admin_action(admin.user_id, "update_deal", deal_id, {"changes": changes})
+    
+    return {"success": True, "changes": changes}
+
+
+@super_admin_router.delete("/deals/{deal_id}")
+async def delete_custom_deal(
+    deal_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """Deactivate a deal (soft delete)"""
+    deal = await db.custom_deals.find_one({"deal_id": deal_id})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    await db.custom_deals.update_one(
+        {"deal_id": deal_id},
+        {
+            "$set": {"is_active": False, "deactivated_at": now.isoformat()},
+            "$push": {"history": {
+                "action": "deactivated",
+                "by": admin.email,
+                "at": now.isoformat()
+            }}
+        }
+    )
+    
+    await log_super_admin_action(admin.user_id, "deactivate_deal", deal_id, {})
+    
+    return {"success": True, "message": "Deal deactivated"}
+
+
+@super_admin_router.post("/deals/{deal_id}/apply/{company_id}")
+async def apply_deal_to_company(
+    deal_id: str,
+    company_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """Apply a deal to a specific company from admin panel"""
+    deal = await db.custom_deals.find_one({"deal_id": deal_id, "is_active": True})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Active deal not found")
+    
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Apply deal to company
+    await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "custom_deal_id": deal["deal_id"],
+            "custom_deal_code": deal["deal_code"],
+            "custom_deal_applied_at": now.isoformat(),
+            "custom_deal_applied_by": admin.user_id
+        }}
+    )
+    
+    # Update deal usage
+    await db.custom_deals.update_one(
+        {"deal_id": deal_id},
+        {
+            "$inc": {"times_used": 1},
+            "$push": {"history": {
+                "action": "applied",
+                "by": admin.email,
+                "at": now.isoformat(),
+                "company_id": company_id,
+                "company_name": company.get("name")
+            }}
+        }
+    )
+    
+    await log_super_admin_action(admin.user_id, "apply_deal", deal_id, {
+        "company_id": company_id,
+        "company_name": company.get("name")
+    })
+    
+    return {"success": True, "message": f"Deal applied to {company.get('name')}"}
+
+
+# Public endpoint to validate and apply deal code during registration
+@app.post("/api/deals/validate")
+async def validate_deal_code(code: str):
+    """Validate a deal code (public endpoint for registration)"""
+    deal = await db.custom_deals.find_one({
+        "deal_code": code.upper(),
+        "is_active": True
+    }, {"_id": 0, "history": 0})
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Invalid or expired deal code")
+    
+    # Check expiration
+    if deal.get("expires_at"):
+        expires = datetime.fromisoformat(deal["expires_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > expires:
+            raise HTTPException(status_code=400, detail="Deal code has expired")
+    
+    return {
+        "valid": True,
+        "deal_name": deal.get("deal_name"),
+        "discount_percent": deal.get("discount_percent"),
+        "discount_months": deal.get("discount_months"),
+        "kora_core_price_monthly": deal.get("kora_core_price_monthly"),
+        "kora_core_price_annual": deal.get("kora_core_price_annual"),
+        "bundle_price_monthly": deal.get("bundle_price_monthly"),
+        "bundle_price_annual": deal.get("bundle_price_annual")
+    }
+
+
 class KoraCoreConfig(BaseModel):
     """Kora Core configuration model"""
     core_modules: List[str] = []  # List of module keys included in core

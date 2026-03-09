@@ -5,7 +5,7 @@ import axios from "axios";
 import { Button } from "../../components/ui/button";
 import { 
   Shield, BarChart3, Users, Building2, Settings, CreditCard,
-  ChevronLeft, LogOut, Eye, X, Loader2, Landmark, Sparkles, Plug, Database, Bug
+  ChevronLeft, LogOut, Eye, X, Loader2, Landmark, Sparkles, Plug, Database, Bug, Tag
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -122,6 +122,7 @@ export default function SuperAdminLayout() {
     { path: "/super-admin", label: isEs ? "Resumen" : "Overview", icon: BarChart3, end: true },
     { path: "/super-admin/crm", label: isEs ? "Pipeline Ventas" : "Sales Pipeline", icon: Users },
     { path: "/super-admin/demo-accounts", label: isEs ? "Cuentas Demo" : "Demo Accounts", icon: Sparkles },
+    { path: "/super-admin/deals", label: isEs ? "Custom Deals" : "Custom Deals", icon: Tag },
     { path: "/super-admin/integrations", label: isEs ? "Integraciones API" : "API Integrations", icon: Plug },
     { path: "/super-admin/clarity", label: "Business Clarity", icon: Landmark },
     { path: "/super-admin/organizations", label: isEs ? "Organizaciones" : "Organizations", icon: Building2 },

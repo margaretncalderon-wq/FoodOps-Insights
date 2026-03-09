@@ -10,3 +10,4 @@ export { default as SuperAdminSettings } from './SuperAdminSettings';
 export { default as DataDiagnosticsPage } from './DataDiagnosticsPage';
 export { default as SupportTicketsPage } from './SupportTicketsPage';
 export { default as EmergencyRestorePage } from './EmergencyRestorePage';
+export { default as DealsPage } from './DealsPage';
