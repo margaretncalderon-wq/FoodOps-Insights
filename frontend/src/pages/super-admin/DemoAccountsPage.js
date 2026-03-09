@@ -41,7 +41,6 @@ const AVAILABLE_MODULES = [
   { key: "module_venues", name: "Venues & Locations", nameEs: "Venues & Ubicaciones" },
   { key: "module_demand_studio", name: "Demand Generation", nameEs: "Demand Generation" },
   { key: "module_recruitment", name: "Recruitment", nameEs: "Reclutamiento" },
-  { key: "module_kora_comms", name: "Kora Comms", nameEs: "Kora Comms" },
 ];
 
 // Default modules by industry

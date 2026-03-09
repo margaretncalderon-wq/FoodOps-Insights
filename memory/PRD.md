@@ -67,8 +67,27 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Added GET endpoint for account details
    - Added PUT endpoint for editing accounts
    - Added Edit modal in frontend with module selection
-3. **Module List Sync**: Updated frontend AVAILABLE_MODULES to match backend
-4. **Module Creation Fix**: Modules now create without requiring addon_definitions
+3. **Module Filtering for Demo Accounts** (NEW):
+   - Demo/influencer/partner accounts now only see modules assigned by admin
+   - Fixed in `backend/routers/addons.py` - checks `account_type` from company
+4. **Module List Sync**: 
+   - Updated frontend AVAILABLE_MODULES to match backend
+   - Added `module_recruitment` to backend MODULE_ADDONS
+   - Removed `module_kora_comms` (part of CRM)
+5. **Pricing Configuration in Super Admin** (NEW):
+   - GET/PUT `/api/super-admin/pricing` endpoints
+   - GET `/api/super-admin/pricing/history` endpoint
+   - GET `/api/super-admin/modules/available` endpoint
+   - UI in SuperAdminSettings with all 6 modules
+6. **Module Creation Fix**: Modules now create without requiring addon_definitions
+
+#### Available Modules (6 total)
+- `module_event_orchestration` - Program Orchestration
+- `module_culinary_intelligence` - Culinary Intelligence  
+- `module_operations_supplies` - Resource Management
+- `module_venues` - Venues & Locations
+- `module_demand_studio` - Demand Generation
+- `module_recruitment` - Recruitment
 
 #### Previously Completed
 - Bug Fix (Org Structure): Resolved critical bug with blank screen

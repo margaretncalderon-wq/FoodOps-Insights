@@ -17109,6 +17109,110 @@ async def update_demo_account(
     }
 
 
+# ============== PRICING CONFIGURATION ==============
+
+class PricingConfig(BaseModel):
+    """Pricing configuration model"""
+    kora_core_price: float = 69.0
+    module_prices: dict = {}
+
+
+@super_admin_router.get("/pricing")
+async def get_pricing_config(admin: User = Depends(get_super_admin)):
+    """Get current active pricing configuration"""
+    pricing = await db.pricing_config.find_one(
+        {"active": True},
+        {"_id": 0}
+    )
+    
+    if not pricing:
+        # Return default pricing
+        default_pricing = {
+            "kora_core_price": 69.0,
+            "module_prices": {
+                "module_event_orchestration": 39.0,
+                "module_culinary_intelligence": 29.0,
+                "module_operations_supplies": 19.0,
+                "module_venues": 19.0,
+                "module_demand_studio": 39.0,
+                "module_recruitment": 29.0
+            },
+            "active": True,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.pricing_config.insert_one(default_pricing)
+        return default_pricing
+    
+    return pricing
+
+
+@super_admin_router.put("/pricing")
+async def update_pricing_config(
+    config: PricingConfig,
+    admin: User = Depends(get_super_admin)
+):
+    """Update pricing configuration - creates new version and marks old as inactive"""
+    now = datetime.now(timezone.utc)
+    
+    # Deactivate current active pricing
+    await db.pricing_config.update_many(
+        {"active": True},
+        {"$set": {"active": False, "deactivated_at": now.isoformat()}}
+    )
+    
+    # Create new pricing config
+    new_config = {
+        "pricing_id": f"pricing_{uuid.uuid4().hex[:12]}",
+        "kora_core_price": config.kora_core_price,
+        "module_prices": config.module_prices,
+        "active": True,
+        "created_at": now.isoformat(),
+        "created_by": admin.user_id,
+        "created_by_email": admin.email
+    }
+    
+    await db.pricing_config.insert_one(new_config)
+    
+    await log_super_admin_action(admin.user_id, "update_pricing", None, {
+        "kora_core_price": config.kora_core_price,
+        "module_prices": config.module_prices
+    })
+    
+    return {"success": True, "message": "Pricing updated successfully"}
+
+
+@super_admin_router.get("/pricing/history")
+async def get_pricing_history(
+    limit: int = 10,
+    admin: User = Depends(get_super_admin)
+):
+    """Get pricing configuration history"""
+    history = await db.pricing_config.find(
+        {},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {"history": history}
+
+
+@super_admin_router.get("/modules/available")
+async def get_available_modules(admin: User = Depends(get_super_admin)):
+    """Get all available modules for configuration"""
+    from routers.addons import MODULE_ADDONS
+    
+    modules = []
+    for key, info in MODULE_ADDONS.items():
+        modules.append({
+            "key": key,
+            "name_en": info.get("name_en", key),
+            "name_es": info.get("name_es", key),
+            "path": info.get("path", ""),
+            "icon": info.get("icon", "")
+        })
+    
+    return {"modules": modules}
+
+
 @super_admin_router.delete("/organizations/{company_id}")
 async def delete_organization(
     company_id: str,

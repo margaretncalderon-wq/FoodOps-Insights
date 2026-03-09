@@ -102,10 +102,12 @@ export default function SuperAdminSettings() {
   };
 
   const MODULE_LABELS = {
-    module_event_suite: { name: "Event Suite", desc: "Event Orchestration + Venues" },
+    module_event_orchestration: { name: "Program Orchestration", desc: "Event/Project/Program management" },
     module_culinary_intelligence: { name: "Culinary Intelligence", desc: "Recetas, costeo, menús" },
-    module_operations_supplies: { name: "Operations Supplies", desc: "Inventario, proveedores" },
-    module_demand_studio: { name: "Demand Studio", desc: "Marketing, leads" }
+    module_operations_supplies: { name: "Resource Management", desc: "Inventario, proveedores" },
+    module_venues: { name: "Venues", desc: "Ubicaciones, espacios" },
+    module_demand_studio: { name: "Demand Generation", desc: "Marketing, leads, campaigns" },
+    module_recruitment: { name: "Recruitment", desc: "Reclutamiento, vacantes" }
   };
 
   const embedCode = `<!-- Kora OS Lead Form -->

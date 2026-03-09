@@ -680,6 +680,7 @@ MODULE_ADDONS = {
     "module_operations_supplies": {"path": "/ops-supplies", "name_en": "Resource Management", "name_es": "Gestión de Recursos", "icon": "package"},
     "module_venues": {"path": "/venues", "name_en": "Venues", "name_es": "Venues", "icon": "building"},
     "module_demand_studio": {"path": "/demand-studio", "name_en": "Demand Generation", "name_es": "Demand Generation", "icon": "megaphone"},
+    "module_recruitment": {"path": "/recruitment", "name_en": "Recruitment", "name_es": "Reclutamiento", "icon": "user-plus"},
 }
 
 
@@ -727,24 +728,20 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     # Get the organization's plan
     subscription = await db.subscriptions.find_one(
         {"company_id": user.company_id, "status": {"$in": ["active", "trialing"]}},
-        {"_id": 0, "plan_id": 1}
+        {"_id": 0, "plan_id": 1, "is_demo_account": 1, "account_type": 1}
     )
     plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
+    is_demo_account = subscription.get("is_demo_account", False) if subscription else False
     
-    # Get plan details
-    plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
-    included_in_plan = plan.get("included_modules", []) if plan else []
+    # Check if this is a demo/influencer/partner account from company
+    company = await db.companies.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "account_type": 1}
+    )
+    account_type = company.get("account_type") if company else None
+    is_special_account = account_type in ["demo", "influencer", "partner"] or is_demo_account
     
-    # If no plan or no modules defined, include all modules by default
-    # This ensures users always see industry-appropriate modules
-    if not included_in_plan:
-        included_in_plan = list(MODULE_ADDONS.keys())
-    elif plan_id == "plan_enterprise":
-        included_in_plan = list(MODULE_ADDONS.keys())
-    elif plan_id == "plan_professional":
-        included_in_plan = list(MODULE_ADDONS.keys())
-    
-    # Get purchased module addons
+    # Get purchased/admin-granted module addons
     purchased_modules = await db.organization_addons.find({
         "company_id": user.company_id,
         "status": "active",
@@ -757,6 +754,24 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         if addon_id.startswith("addon_"):
             module_key = addon_id.replace("addon_", "")
             purchased_module_keys.append(module_key)
+    
+    # For demo/influencer/partner accounts: ONLY show modules granted by admin
+    # For paid accounts: use plan + purchased logic
+    if is_special_account:
+        # Only show modules explicitly granted via organization_addons
+        included_in_plan = purchased_module_keys
+    else:
+        # Get plan details for paid accounts
+        plan = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "features": 1, "included_modules": 1})
+        included_in_plan = plan.get("included_modules", []) if plan else []
+        
+        # If no plan or no modules defined, include all modules by default
+        if not included_in_plan:
+            included_in_plan = list(MODULE_ADDONS.keys())
+        elif plan_id == "plan_enterprise":
+            included_in_plan = list(MODULE_ADDONS.keys())
+        elif plan_id == "plan_professional":
+            included_in_plan = list(MODULE_ADDONS.keys())
     
     # Get enabled modules for this industry
     industry_enabled_modules = industry_config.get("enabled_modules", list(MODULE_ADDONS.keys()))
