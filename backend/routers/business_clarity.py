@@ -5400,6 +5400,39 @@ async def get_cost_center_budget_detail(
     if not cc:
         raise HTTPException(status_code=404, detail="Cost center not found")
     
+    # Get expense categories linked to this cost center and their budgets
+    expense_categories = await db.fixed_cost_categories.find(
+        {"company_id": company_id, "cost_center_id": cc_id, "active": True},
+        {"_id": 0, "category_id": 1, "name": 1}
+    ).to_list(100)
+    
+    linked_category_ids = [ec.get("category_id") for ec in expense_categories]
+    linked_category_names = [ec.get("name") for ec in expense_categories]
+    
+    # Get budgets for linked expense categories
+    expense_budgets = await db.fixed_cost_budgets.find(
+        {"company_id": company_id, "category_id": {"$in": linked_category_ids}},
+        {"_id": 0, "category_id": 1, "budget_amount": 1, "period": 1}
+    ).to_list(500)
+    
+    # Calculate monthly budget from expense categories
+    calculated_monthly_budget = 0
+    for eb in expense_budgets:
+        amount = eb.get("budget_amount", 0)
+        period = eb.get("period", "MONTHLY")
+        monthly = amount if period == "MONTHLY" else (amount / 3 if period == "QUARTERLY" else amount / 12)
+        calculated_monthly_budget += monthly
+    
+    # Determine budget source
+    if calculated_monthly_budget > 0:
+        monthly_budget = calculated_monthly_budget
+        annual_budget = calculated_monthly_budget * 12
+        budget_source = "expense_categories"
+    else:
+        annual_budget = cc.get("annual_budget") or 0
+        monthly_budget = annual_budget / 12 if annual_budget > 0 else 0
+        budget_source = "manual"
+    
     # Get actual spending from accounting entries for each month
     monthly_actual = {}
     for month in range(1, 13):
@@ -5437,8 +5470,6 @@ async def get_cost_center_budget_detail(
     
     # Build monthly breakdown
     monthly_budgets = cc.get("monthly_budgets") or {}
-    annual_budget = cc.get("annual_budget") or 0
-    default_monthly = annual_budget / 12 if annual_budget > 0 else 0
     
     monthly_data = []
     ytd_budget = 0
@@ -5446,7 +5477,8 @@ async def get_cost_center_budget_detail(
     
     for month in range(1, 13):
         month_key = f"{year}-{str(month).zfill(2)}"
-        budget = monthly_budgets.get(month_key, default_monthly)
+        # Use calculated monthly budget or specific monthly override
+        budget = monthly_budgets.get(month_key) if monthly_budgets.get(month_key) else monthly_budget
         actual = monthly_actual.get(month_key, 0)
         
         if month <= now.month or year < now.year:
@@ -5468,7 +5500,9 @@ async def get_cost_center_budget_detail(
             "name": cc.get("name"),
             "code": cc.get("code"),
             "description": cc.get("description"),
-            "annual_budget": annual_budget
+            "annual_budget": round(annual_budget, 2),
+            "budget_source": budget_source,
+            "linked_categories": linked_category_names
         },
         "year": year,
         "monthly_data": monthly_data,

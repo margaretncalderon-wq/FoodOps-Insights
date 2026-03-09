@@ -1,166 +1,158 @@
-# Kora ERP - Product Requirements Document
+# Kora OS - Product Requirements Document
 
-## Overview
-Comprehensive ERP application for event management agencies with modules for People Ops, Finance, Culinary Intelligence, and Business Intelligence.
+## Original Problem Statement
+Build a comprehensive ERP application called Kora OS with modules for:
+- People Ops (HR management)
+- Business Clarity (Financials)
+- Recruitment
+- Settings & Organization Structure
 
-## Core Modules
-- **System Pulse**: Dashboard with real-time system state
-- **Client Engagement**: CRM and lead management
-- **Program Orchestration**: Event planning and coordination
-- **Execution Hub**: Operational goals and task tracking
-- **Demand Generation**: Marketing campaigns and brand hub
-- **Partners**: Vendor and partner management with capabilities
-- **Business Clarity**: Financial reporting, invoices, ITBIS
-- **People Ops**: HR, payroll, employee management
-- **Culinary Intelligence**: Recipes, inventory, food costing
-- **Settings**: System configuration
+## User Personas
+- **Admin/Owner**: Full access to all modules and configuration
+- **Finance**: Access to Business Clarity and financial reports
+- **HR**: Access to People Ops, limited payroll approval
+- **Manager**: View-limited access to team in People Ops
+- **Editor/Viewer**: Content and invoice management
 
-## Completed Features (March 2026)
+## Core Requirements
 
-### Expense Categories System (March 8, 2026)
-- **Renamed**: "Fixed Costs & Budget" → "Expense Categories & Budgets"
-- **New Fields**:
-  - `category_type`: Variable / Operating / Investment
-  - `target_percent`: Target as % of revenue (e.g., Food Cost 30%)
-- **UI Enhancements**:
-  - Summary cards by expense type (Variable, Operating, Investment)
-  - New category form with type selector and target % input
-  - Updated table with Type and Target % columns
-- **Backend**: New alias endpoints `/expense-categories/*` alongside existing `/fixed-costs/*`
-- **Backward Compatible**: All existing data continues to work (defaults to "operating" type)
+### Organization Structure
+- Departments and Cost Centers defined in Settings > Org Structure
+- Hierarchical org chart visualization
+- Safe delete mechanism for Cost Centers with dependency checks
 
-### Organization Structure Module (March 8, 2026)
-- **New Departments Layer**: Created `departments` collection as primary organizational grouping
-- **Cost Centers Enhancement**: Extended with `department_id` foreign key
-- **Employee Linking**: Added `department_id` to employees model
-- **Settings UI**: New "Organization Structure" section in Settings > Finance
-  - Department CRUD with code, head, parent department
-  - Cost Center CRUD with department, type, budget, owner
-  - Delete Cost Centers with usage warning (soft delete if has transactions)
-- **Org Chart Visualization**: New "Org Chart" tab in People Ops module
-  - Manager-based hierarchy view
-  - Department-based grouping view
-- **Bug Fix**: Fixed blank screen when opening "Add Department" / "Add Cost Center" modals
-  - Root cause: Select components needed controlled values with fallback to "none"
-- **Architecture Cleanup**: Removed duplicate "Cost Centers" tab from Settings > Finance
-  - Settings > Org Structure = ONLY place to create/configure Cost Centers (structure)
-  - Business Clarity > CC Budgets = ONLY place to manage budgets and analyze (operations)
-- **Employee Form Enhancement** (March 8, 2026):
-  - Job Role dropdown (pulls from Recruitment > Job Postings)
-  - Department dropdown (pulls from Settings > Org Structure)
-  - "Reports To" dropdown (select manager)
-  - "Is Manager" checkbox (for org chart hierarchy)
-  - Added `is_manager`, `job_role_id`, `department_id` to employee model
+### People Ops
+- Employee management with comprehensive profiles
+- Dropdowns for Job Role (sourced from Recruitment), Department, and Manager
+- Banking Info section (international-friendly)
+- Org chart based on reporting hierarchy
 
-### Payment Recording Flow (March 8, 2026)
-- **Bug Fix**: Fixed critical bug preventing modal from advancing to Step 2 after client selection
-- Multi-step payment workflow:
-  - Step 1: Select client
-  - Step 2: Select invoices/orders to apply payment
-  - Step 3: Enter payment details (date, method, reference, notes)
-- Automatic invoice balance update upon payment
-- Payment receipt generation with company branding
+### Business Clarity
+- **Expense Categories & Budgets**: Flexible system with types (Variable, Operating, Investment) and target percentages
+- **Cost Center Budgets**: Automated calculation from linked Expense Categories
+- Invoices, Payments, Receivables, Payables management
+- Executive Dashboard with Profit Signals
+- Stripe integration for payments
 
-### Data Migration Module
-- CSV import for clients, suppliers, sales, inventory
-- Robust header normalization (multiple formats supported)
-- Special character handling with `re.escape()`
-- Date format support: DD/MM/AAAA, YYYY-MM-DD
-- Field mapping for legacy data compatibility
+### Recruitment
+- Job Postings serving as master source for Job Roles
 
-### Financial Features
-- ITBIS tax reports (Formato 606 & 607) with Excel export
-- Enhanced Purchase Order receiving flow
-- Invoice and expense Excel exports with date filters
+## Tech Stack
+- **Frontend**: React with Shadcn/UI components
+- **Backend**: FastAPI (Python)
+- **Database**: MongoDB
+- **Payments**: Stripe integration
+- **Auth**: JWT-based authentication
 
-### Shared Suppliers Module
-- Single `db.suppliers` collection
-- Accessible from Partners and Culinary Intelligence
-- Field parity between suppliers and partners
-- "Preferred Supplier" system with visual indicators
+## Key Data Models
 
-### Editable Partner Capabilities
-- User-configurable capabilities list in Settings
-- Stored in `db.partner_capabilities` collection
+### expense_categories (formerly fixed_cost_categories)
+```json
+{
+  "category_id": "string",
+  "name": "string",
+  "category_type": "string (Variable|Operating|Investment)",
+  "target_percent": "float",
+  "cost_center_id": "string",
+  "active": "boolean"
+}
+```
 
-### Inventory Import Enhancement (March 8, 2026)
-- Fixed field mapping: `unit_cost`→`cost_per_unit`, `current_stock`→`stock_quantity`, `min_stock`→`min_stock_level`
-- Brand field support
-- Products now visible in Culinary Intelligence UI
+### employees
+```json
+{
+  "employee_id": "string",
+  "department_id": "string",
+  "job_role_id": "string",
+  "is_manager": "boolean",
+  "manager_id": "string",
+  "bank_name": "string",
+  "bank_account_type": "string",
+  "bank_account_number": "string",
+  "bank_currency": "string",
+  "bank_routing_number": "string"
+}
+```
 
-## Database Schema
+### cost_centers
+```json
+{
+  "cost_center_id": "string",
+  "name": "string",
+  "department_id": "string",
+  "annual_budget": "number (deprecated - now calculated)"
+}
+```
 
-### Key Collections
-- `departments` (NEW): `{department_id, company_id, name, code, head_user_id, parent_department_id, is_active}`
-- `cost_centers` (MODIFIED): Added `department_id` FK to departments
-- `employees` (MODIFIED): Added `department_id` FK to departments (old `department` string field remains for migration)
-- `suppliers`: Unified supplier data with `is_preferred` flag
-- `partner_capabilities`: Custom capability definitions
-- `ingredients`: Inventory items with `inventory_type`, `brand`
-- `invoices`: Sales transactions
-- `clients`: Customer data
+## What's Been Implemented
 
-## API Endpoints
+### Session: March 2026
 
-### Data Migration
-- `POST /api/migration/upload` - Upload CSV files
-- `GET /api/migration/templates/{type}` - Download templates
+#### Completed
+1. **Bug Fix (Org Structure)**: Resolved critical bug where adding new Department/Cost Center caused blank screen
+2. **Budget Logic Refactoring**:
+   - Consolidated three separate budget management areas
+   - Removed manual budget entry from Settings > Org Structure
+   - Automated CC budgets to calculate from linked Expense Categories
+3. **Expense Management Enhancement**:
+   - Transformed "Fixed Costs" into flexible "Expense Categories & Budgets"
+   - Added Category Type and Target % fields
+4. **People Ops Enhancement**:
+   - Dropdowns for Job Role, Department, and Manager
+   - Banking Info section for employee profiles
+5. **Cost Centers Safe Delete**: Dependency checks before deletion
+6. **UI/UX Cleanup**: Removed redundant UI, added navigation shortcuts
 
-### Inventory
-- `GET /api/inventory` - Summary with field mapping
-- `GET /api/inventory/ingredients` - List with filters
-- `POST /api/inventory/ingredients` - Create item
-
-### ITBIS
-- `GET /api/itbis/format-606` - Generate 606 report
-- `GET /api/itbis/format-607` - Generate 607 report
-- `GET /api/itbis/export/{format}` - Export to Excel
-
-## Credentials
-- **Demo User**: demo.agency@kora.com / Evoque2024!
+#### Verified Working (March 9, 2026)
+- **CC Budgets Detail Panel**: Endpoint `/cost-centers/{cc_id}/budget-detail` working correctly
+- Panel shows YTD Budget, YTD Actual, Variance, Monthly Breakdown
+- Tested with multiple cost centers
 
 ## Known Issues
-- **P1**: Unstable user sessions - Sessions expire prematurely causing random logouts (recurring issue, needs investigation)
-- Emergent LLM Key budget exhausted
 
-## Upcoming Tasks (Prioritized)
-1. **P1**: Fix unstable user sessions - Investigate token expiration and auth middleware
-2. **P1**: Backfill `department_id` for existing employees - Migration script needed
-3. **P2**: Enhance Business Clarity reports with Department grouping
-4. **P2**: Staffdo.com Integration - Job posting sync
-5. **P2**: Meta/TikTok social media integration
-6. **P2**: Email marketing provider (Mailchimp/Brevo)
-7. **P3**: Complete i18n implementation
-8. **P3**: Kora Comms (WhatsApp)
-9. **P4**: Setup wizard for new users
+### P1 - High Priority
+1. **Unstable User Sessions**: Random logouts disrupting workflows
+   - Status: NOT STARTED
+   - Location: `backend/routers/auth.py`
+   - Recurrence: 3+ times in previous forks
 
-## Architecture
-```
-/app/
-├── backend/
-│   ├── routers/
-│   │   ├── auth.py            # Authentication + finance setup wizard
-│   │   ├── business_clarity.py # Financial reports, CC budgets
-│   │   ├── people_ops.py      # Department CRUD, employee management
-│   │   ├── migration.py       # Data import logic
-│   │   ├── exports.py         # Excel exports
-│   │   ├── itbis.py           # Tax reports
-│   │   └── partners.py        # Partner/Supplier management
-│   └── server.py              # Main API, model definitions
-└── frontend/
-    └── src/
-        ├── components/
-        │   ├── settings/
-        │   │   └── OrganizationStructureSection.js  # Dept/CC management
-        │   ├── ui/            # Shadcn components
-        │   └── Shared/Suppliers/
-        └── pages/
-            ├── PeopleOps/
-            │   └── OrgChart.js    # Org visualization
-            ├── BusinessClarity/
-            │   ├── PaymentsSection.js
-            │   └── CostCenterBudgetsSection.js
-            ├── FoodOps/       # Culinary Intelligence
-            ├── Partners/      # Partner management
-            └── Settings/      # Configuration pages
-```
+### P1 - Data Migration
+1. **Employee department_id backfill**: Script needed to populate from old `department` string field
+   - Status: NOT STARTED
+   - Critical for Org Chart data consistency
+
+## Backlog / Future Tasks
+
+### P2 - Improvements
+- Enhance Business Clarity reports with Department grouping/filtering
+
+### P3 - Integrations
+- Staffdo.com API for recruitment
+- Social Media APIs (Meta, TikTok)
+- Email Marketing Provider
+- Full UTM tracking
+
+### P4 - Features
+- Kora Comms Phase 1 (WhatsApp integration)
+- Complete internationalization (i18n)
+- Expand initial setup wizard
+
+## 3rd Party Integrations
+- **Active**: YouTube Data API, Stripe
+- **Configured**: Emergent LLM Key (budget exhausted)
+- **Available**: Zapier/Make webhooks
+- **Planned**: Staffdo.com, Meta, TikTok, Mailchimp/Brevo
+
+## Test Credentials
+- **Email**: demo.agency@kora.com
+- **Password**: Evoque2024!
+
+## Key Files Reference
+- `backend/routers/business_clarity.py` - Main business logic
+- `backend/routers/people_ops.py` - HR functions
+- `backend/routers/auth.py` - Authentication (investigate for session issues)
+- `frontend/src/components/business-clarity/CostCenterBudgetsSection.js` - CC Budgets UI
+- `frontend/src/components/business-clarity/FixedCostsSection.js` - Expense Categories UI
+
+## User Language Preference
+Spanish (es) - All user communication should be in Spanish
