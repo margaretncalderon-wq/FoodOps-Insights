@@ -5545,6 +5545,40 @@ async def get_cost_centers_budget_summary(
         {"_id": 0}
     ).to_list(100)
     
+    # Get expense categories and their budgets to calculate CC budgets
+    expense_categories = await db.fixed_cost_categories.find(
+        {"company_id": company_id, "active": True},
+        {"_id": 0, "category_id": 1, "cost_center_id": 1, "name": 1}
+    ).to_list(500)
+    
+    # Get budgets for expense categories
+    expense_budgets = await db.fixed_cost_budgets.find(
+        {"company_id": company_id},
+        {"_id": 0, "category_id": 1, "budget_amount": 1, "period": 1}
+    ).to_list(500)
+    
+    # Build category budget map (monthly equivalent)
+    category_monthly_budget = {}
+    for eb in expense_budgets:
+        cat_id = eb.get("category_id")
+        amount = eb.get("budget_amount", 0)
+        period = eb.get("period", "MONTHLY")
+        # Convert to monthly
+        monthly = amount if period == "MONTHLY" else (amount / 3 if period == "QUARTERLY" else amount / 12)
+        category_monthly_budget[cat_id] = category_monthly_budget.get(cat_id, 0) + monthly
+    
+    # Calculate budget for each cost center from linked expense categories
+    cc_budget_from_categories = {}
+    cc_linked_categories = {}
+    for ec in expense_categories:
+        cc_id = ec.get("cost_center_id")
+        if cc_id:
+            cat_budget = category_monthly_budget.get(ec.get("category_id"), 0)
+            cc_budget_from_categories[cc_id] = cc_budget_from_categories.get(cc_id, 0) + cat_budget
+            if cc_id not in cc_linked_categories:
+                cc_linked_categories[cc_id] = []
+            cc_linked_categories[cc_id].append(ec.get("name"))
+    
     month_key = f"{year}-{str(month).zfill(2)}"
     start_date = datetime(year, month, 1, tzinfo=timezone.utc)
     if month == 12:
@@ -5559,10 +5593,17 @@ async def get_cost_centers_budget_summary(
     for cc in cost_centers:
         cc_id = cc.get("cost_center_id")
         
-        # Get budget for this month
-        monthly_budgets = cc.get("monthly_budgets") or {}
-        annual_budget = cc.get("annual_budget") or 0
-        budget = monthly_budgets.get(month_key, annual_budget / 12 if annual_budget > 0 else 0)
+        # Get budget - prioritize calculated from expense categories
+        calculated_budget = cc_budget_from_categories.get(cc_id, 0)
+        if calculated_budget > 0:
+            budget = calculated_budget
+            budget_source = "expense_categories"
+        else:
+            # Fallback to manual budget
+            monthly_budgets = cc.get("monthly_budgets") or {}
+            annual_budget = cc.get("annual_budget") or 0
+            budget = monthly_budgets.get(month_key, annual_budget / 12 if annual_budget > 0 else 0)
+            budget_source = "manual"
         
         # Get actual from multiple sources
         actual = 0
@@ -5630,7 +5671,9 @@ async def get_cost_centers_budget_summary(
             "actual": round(actual, 2),
             "variance": round(variance, 2),
             "utilization_percent": round(utilization, 1),
-            "status": "over" if utilization > 100 else "warning" if utilization > 80 else "ok"
+            "status": "over" if utilization > 100 else "warning" if utilization > 80 else "ok",
+            "budget_source": budget_source,
+            "linked_categories": cc_linked_categories.get(cc_id, [])
         })
     
     # Sort by utilization (highest first)
