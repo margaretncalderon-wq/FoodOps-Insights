@@ -669,18 +669,116 @@ CORE_MODULES = [
     {"key": "execution_hub", "path": "/execution-hub", "name_en": "Execution Hub", "name_es": "Execution Hub", "icon": "target"},
     {"key": "partners", "path": "/partners", "name_en": "Partners", "name_es": "Partners", "icon": "handshake"},
     {"key": "business_clarity", "path": "/business-clarity", "name_en": "Business Clarity", "name_es": "Business Clarity", "icon": "briefcase"},
-    {"key": "people_ops", "path": "/people-ops", "name_en": "People Ops", "name_es": "People Ops", "icon": "users"},
     {"key": "settings", "path": "/settings", "name_en": "Settings", "name_es": "Configuración", "icon": "settings"},
 ]
 
 # Module addons - these require purchase
 MODULE_ADDONS = {
-    "module_event_orchestration": {"path": "/event-orchestration", "name_en": "Program Orchestration", "name_es": "Program Orchestration", "icon": "clipboard-list"},
-    "module_culinary_intelligence": {"path": "/food-ops", "name_en": "Culinary Intelligence", "name_es": "Inteligencia Culinaria", "icon": "utensils"},
-    "module_operations_supplies": {"path": "/ops-supplies", "name_en": "Resource Management", "name_es": "Gestión de Recursos", "icon": "package"},
-    "module_venues": {"path": "/venues", "name_en": "Venues", "name_es": "Venues", "icon": "building"},
-    "module_demand_studio": {"path": "/demand-studio", "name_en": "Demand Generation", "name_es": "Demand Generation", "icon": "megaphone"},
-    "module_recruitment": {"path": "/recruitment", "name_en": "Recruitment", "name_es": "Reclutamiento", "icon": "user-plus"},
+    "module_event_orchestration": {
+        "path": "/event-orchestration", 
+        "name_en": "Event Orchestration", 
+        "name_es": "Event Orchestration", 
+        "icon": "clipboard-list",
+        "price_monthly": 29,
+        "price_annual": 24
+    },
+    "module_program_orchestration": {
+        "path": "/event-orchestration", 
+        "name_en": "Program Orchestration", 
+        "name_es": "Program Orchestration", 
+        "icon": "clipboard-list",
+        "price_monthly": 29,
+        "price_annual": 24
+    },
+    "module_culinary_intelligence": {
+        "path": "/food-ops", 
+        "name_en": "Culinary Intelligence", 
+        "name_es": "Inteligencia Culinaria", 
+        "icon": "utensils",
+        "price_monthly": 29,
+        "price_annual": 24
+    },
+    "module_resource_management": {
+        "path": "/ops-supplies", 
+        "name_en": "Resource Management", 
+        "name_es": "Gestión de Recursos", 
+        "icon": "package",
+        "price_monthly": 19,
+        "price_annual": 16
+    },
+    "module_venues": {
+        "path": "/venues", 
+        "name_en": "Venues", 
+        "name_es": "Venues", 
+        "icon": "building",
+        "price_monthly": 19,
+        "price_annual": 16
+    },
+    "module_demand_studio": {
+        "path": "/demand-studio", 
+        "name_en": "Demand Generation", 
+        "name_es": "Demand Generation", 
+        "icon": "megaphone",
+        "price_monthly": 39,
+        "price_annual": 33
+    },
+    "module_people_ops": {
+        "path": "/people-ops", 
+        "name_en": "People Ops", 
+        "name_es": "People Ops", 
+        "icon": "users",
+        "price_monthly": 49,
+        "price_annual": 41
+    },
+}
+
+# Bundles - combinations of modules at discounted price
+BUNDLES = {
+    "bundle_event_suite": {
+        "name_en": "Event Suite",
+        "name_es": "Event Suite",
+        "description_en": "Event Orchestration + Venues + Resource Management",
+        "description_es": "Event Orchestration + Venues + Gestión de Recursos",
+        "modules": ["module_event_orchestration", "module_venues", "module_resource_management"],
+        "price_monthly": 39,
+        "price_annual": 33,
+        "industry": "events"
+    },
+    "bundle_program_suite": {
+        "name_en": "Program Suite",
+        "name_es": "Program Suite",
+        "description_en": "Program Orchestration + Venues + Resource Management",
+        "description_es": "Program Orchestration + Venues + Gestión de Recursos",
+        "modules": ["module_program_orchestration", "module_venues", "module_resource_management"],
+        "price_monthly": 39,
+        "price_annual": 33,
+        "industry": "generic"
+    },
+    "bundle_agency_suite": {
+        "name_en": "Agency Suite",
+        "name_es": "Agency Suite",
+        "description_en": "Demand Generation + Program Orchestration + Resource Management",
+        "description_es": "Demand Generation + Program Orchestration + Gestión de Recursos",
+        "modules": ["module_demand_studio", "module_program_orchestration", "module_resource_management"],
+        "price_monthly": 39,
+        "price_annual": 33,
+        "industry": "agency"
+    },
+}
+
+# Kora Core pricing
+KORA_CORE_PRICING = {
+    "price_monthly": 69,
+    "price_annual": 59,
+    "includes": ["system_pulse", "client_engagement", "execution_hub", "partners", "business_clarity"],
+    "description_en": "System Pulse, Client Engagement, Execution Hub, Partners, Business Clarity. Supports 1 Location.",
+    "description_es": "System Pulse, Client Engagement, Execution Hub, Partners, Business Clarity. Soporta 1 Ubicación."
+}
+
+# Backward compatibility: alias old module names to new ones
+MODULE_ALIASES = {
+    "module_operations_supplies": "module_resource_management",
+    "module_recruitment": "module_people_ops",
 }
 
 

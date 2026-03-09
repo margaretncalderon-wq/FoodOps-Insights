@@ -37,16 +37,40 @@ export default function SuperAdminSettings() {
   // Pricing state
   const [pricingConfig, setPricingConfig] = useState({
     kora_core_price: 69,
+    kora_core_price_annual: 59,
     module_prices: {
-      module_event_suite: 39,
+      module_event_orchestration: 29,
+      module_program_orchestration: 29,
       module_culinary_intelligence: 29,
-      module_operations_supplies: 19,
-      module_demand_studio: 39
+      module_resource_management: 19,
+      module_venues: 19,
+      module_demand_studio: 39,
+      module_people_ops: 49
+    },
+    module_prices_annual: {
+      module_event_orchestration: 24,
+      module_program_orchestration: 24,
+      module_culinary_intelligence: 24,
+      module_resource_management: 16,
+      module_venues: 16,
+      module_demand_studio: 33,
+      module_people_ops: 41
+    },
+    bundle_prices: {
+      bundle_event_suite: 39,
+      bundle_program_suite: 39,
+      bundle_agency_suite: 39
+    },
+    bundle_prices_annual: {
+      bundle_event_suite: 33,
+      bundle_program_suite: 33,
+      bundle_agency_suite: 33
     }
   });
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingHistory, setPricingHistory] = useState([]);
   const [savingPricing, setSavingPricing] = useState(false);
+  const [showAnnualPricing, setShowAnnualPricing] = useState(false);
   
   const [leadFormConfig, setLeadFormConfig] = useState({
     enabled: true,
@@ -155,12 +179,19 @@ export default function SuperAdminSettings() {
   };
 
   const MODULE_LABELS = {
-    module_event_orchestration: { name: "Program Orchestration", desc: "Event/Project/Program management" },
-    module_culinary_intelligence: { name: "Culinary Intelligence", desc: "Recetas, costeo, menús" },
-    module_operations_supplies: { name: "Resource Management", desc: "Inventario, proveedores" },
-    module_venues: { name: "Venues", desc: "Ubicaciones, espacios" },
-    module_demand_studio: { name: "Demand Generation", desc: "Marketing, leads, campaigns" },
-    module_recruitment: { name: "Recruitment", desc: "Reclutamiento, vacantes" }
+    module_event_orchestration: { name: "Event Orchestration", desc: "Event management", priceMonthly: 29, priceAnnual: 24 },
+    module_program_orchestration: { name: "Program Orchestration", desc: "Project/Program management", priceMonthly: 29, priceAnnual: 24 },
+    module_culinary_intelligence: { name: "Culinary Intelligence", desc: "Recetas, costeo, menús", priceMonthly: 29, priceAnnual: 24 },
+    module_resource_management: { name: "Resource Management", desc: "Inventario, proveedores", priceMonthly: 19, priceAnnual: 16 },
+    module_venues: { name: "Venues", desc: "Ubicaciones, espacios", priceMonthly: 19, priceAnnual: 16 },
+    module_demand_studio: { name: "Demand Generation", desc: "Marketing, leads, campaigns", priceMonthly: 39, priceAnnual: 33 },
+    module_people_ops: { name: "People Ops", desc: "RRHH completo", priceMonthly: 49, priceAnnual: 41 }
+  };
+
+  const BUNDLE_LABELS = {
+    bundle_event_suite: { name: "Event Suite", desc: "Event Orchestration + Venues + Resource Management", priceMonthly: 39, priceAnnual: 33 },
+    bundle_program_suite: { name: "Program Suite", desc: "Program Orchestration + Venues + Resource Management", priceMonthly: 39, priceAnnual: 33 },
+    bundle_agency_suite: { name: "Agency Suite", desc: "Demand Generation + Program Orchestration + Resource Management", priceMonthly: 39, priceAnnual: 33 }
   };
 
   const embedCode = `<!-- Kora OS Lead Form -->
@@ -394,7 +425,7 @@ export default function SuperAdminSettings() {
                         <div>
                           <h3 className="font-semibold text-lg">Kora Core</h3>
                           <p className="text-sm text-muted-foreground">
-                            System Pulse, Execution Hub, Client Engagement, Business Clarity, 1 Location
+                            System Pulse, Client Engagement, Execution Hub, Partners, Business Clarity. 1 Location
                           </p>
                         </div>
                         <Badge className="bg-primary">Suscripción Base</Badge>
@@ -416,12 +447,50 @@ export default function SuperAdminSettings() {
                           />
                         </div>
                         <span className="text-sm text-muted-foreground">/mes</span>
+                        <span className="text-muted-foreground mx-2">·</span>
+                        <div className="relative w-32">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={pricingConfig.kora_core_price_annual}
+                            onChange={(e) => setPricingConfig(prev => ({
+                              ...prev,
+                              kora_core_price_annual: parseFloat(e.target.value) || 0
+                            }))}
+                            className="pl-7"
+                          />
+                        </div>
+                        <span className="text-sm text-muted-foreground">/mes anual</span>
+                      </div>
+                    </div>
+
+                    {/* Bundles */}
+                    <div>
+                      <h3 className="font-semibold mb-4">Bundles - $39/mes · $33/mes anual</h3>
+                      <div className="space-y-3">
+                        {Object.entries(BUNDLE_LABELS).map(([key, info]) => (
+                          <div 
+                            key={key}
+                            className="flex items-center justify-between p-4 rounded-lg border bg-gradient-to-r from-purple-500/10 to-transparent"
+                          >
+                            <div>
+                              <p className="font-medium">{info.name}</p>
+                              <p className="text-sm text-muted-foreground">{info.desc}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">${info.priceMonthly}/mes</Badge>
+                              <Badge variant="secondary">${info.priceAnnual}/mes anual</Badge>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
                     {/* Add-on Modules */}
                     <div>
-                      <h3 className="font-semibold mb-4">Módulos Add-on</h3>
+                      <h3 className="font-semibold mb-4">Módulos Add-on (compra individual)</h3>
                       <div className="space-y-3">
                         {Object.entries(MODULE_LABELS).map(([key, info]) => (
                           <div 
@@ -433,18 +502,8 @@ export default function SuperAdminSettings() {
                               <p className="text-sm text-muted-foreground">{info.desc}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="relative w-24">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={pricingConfig.module_prices[key] || 0}
-                                  onChange={(e) => updateModulePrice(key, e.target.value)}
-                                  className="pl-6 text-sm"
-                                />
-                              </div>
-                              <span className="text-sm text-muted-foreground">/mes</span>
+                              <Badge variant="outline">${info.priceMonthly}/mes</Badge>
+                              <Badge variant="secondary">${info.priceAnnual}/mes anual</Badge>
                             </div>
                           </div>
                         ))}
@@ -453,11 +512,11 @@ export default function SuperAdminSettings() {
 
                     {/* Total Preview */}
                     <div className="p-4 rounded-lg bg-muted/50 border">
-                      <p className="text-sm text-muted-foreground mb-2">Vista previa (si el cliente selecciona todo):</p>
+                      <p className="text-sm text-muted-foreground mb-2">Vista previa (Core + Bundle + todos los add-ons):</p>
                       <div className="flex items-center justify-between">
                         <span className="font-medium">Total mensual máximo:</span>
                         <span className="text-2xl font-bold text-primary">
-                          ${(pricingConfig.kora_core_price + Object.values(pricingConfig.module_prices).reduce((a, b) => a + b, 0)).toFixed(0)}/mes
+                          ${(pricingConfig.kora_core_price + 39 + Object.values(MODULE_LABELS).reduce((sum, m) => sum + m.priceMonthly, 0)).toFixed(0)}/mes
                         </span>
                       </div>
                     </div>

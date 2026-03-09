@@ -35,20 +35,21 @@ const ACCOUNT_TYPES = [
 ];
 
 const AVAILABLE_MODULES = [
-  { key: "module_event_orchestration", name: "Program Orchestration", nameEs: "Program Orchestration" },
+  { key: "module_event_orchestration", name: "Event Orchestration", nameEs: "Event Orchestration" },
+  { key: "module_program_orchestration", name: "Program Orchestration", nameEs: "Program Orchestration" },
   { key: "module_culinary_intelligence", name: "Culinary Intelligence", nameEs: "Inteligencia Culinaria" },
-  { key: "module_operations_supplies", name: "Resource Management", nameEs: "Gestión de Recursos" },
+  { key: "module_resource_management", name: "Resource Management", nameEs: "Gestión de Recursos" },
   { key: "module_venues", name: "Venues & Locations", nameEs: "Venues & Ubicaciones" },
   { key: "module_demand_studio", name: "Demand Generation", nameEs: "Demand Generation" },
-  { key: "module_recruitment", name: "Recruitment", nameEs: "Reclutamiento" },
+  { key: "module_people_ops", name: "People Ops", nameEs: "People Ops" },
 ];
 
 // Default modules by industry
 const DEFAULT_MODULES_BY_INDUSTRY = {
-  events: ["module_event_orchestration", "module_culinary_intelligence", "module_operations_supplies", "module_venues", "module_demand_studio"],
-  agency: ["module_event_orchestration", "module_demand_studio"],
-  consulting: ["module_event_orchestration", "module_demand_studio"],
-  generic: ["module_event_orchestration", "module_operations_supplies", "module_demand_studio"],
+  events: ["module_event_orchestration", "module_culinary_intelligence", "module_resource_management", "module_venues", "module_demand_studio"],
+  agency: ["module_program_orchestration", "module_demand_studio", "module_resource_management"],
+  consulting: ["module_program_orchestration", "module_demand_studio"],
+  generic: ["module_program_orchestration", "module_resource_management", "module_demand_studio"],
 };
 
 export default function DemoAccountsPage() {

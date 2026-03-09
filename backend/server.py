@@ -17198,7 +17198,7 @@ async def get_pricing_history(
 @super_admin_router.get("/modules/available")
 async def get_available_modules(admin: User = Depends(get_super_admin)):
     """Get all available modules for configuration"""
-    from routers.addons import MODULE_ADDONS, CORE_MODULES
+    from routers.addons import MODULE_ADDONS, CORE_MODULES, BUNDLES, KORA_CORE_PRICING
     
     # Get all possible modules (core + addons)
     all_modules = []
@@ -17222,10 +17222,47 @@ async def get_available_modules(admin: User = Depends(get_super_admin)):
             "name_es": info.get("name_es", key),
             "path": info.get("path", ""),
             "icon": info.get("icon", ""),
-            "type": "addon"
+            "type": "addon",
+            "price_monthly": info.get("price_monthly", 0),
+            "price_annual": info.get("price_annual", 0)
         })
     
-    return {"modules": all_modules}
+    return {
+        "modules": all_modules,
+        "bundles": BUNDLES,
+        "kora_core": KORA_CORE_PRICING
+    }
+
+
+@super_admin_router.get("/bundles")
+async def get_bundles(admin: User = Depends(get_super_admin)):
+    """Get all available bundles"""
+    from routers.addons import BUNDLES
+    return {"bundles": BUNDLES}
+
+
+@super_admin_router.get("/pricing-structure")
+async def get_pricing_structure(admin: User = Depends(get_super_admin)):
+    """Get complete pricing structure including Core, Bundles, and Add-ons"""
+    from routers.addons import MODULE_ADDONS, BUNDLES, KORA_CORE_PRICING
+    
+    # Check for custom pricing overrides in DB
+    custom_pricing = await db.pricing_config.find_one({"active": True}, {"_id": 0})
+    
+    addons = {}
+    for key, info in MODULE_ADDONS.items():
+        addons[key] = {
+            "name_en": info.get("name_en", key),
+            "name_es": info.get("name_es", key),
+            "price_monthly": info.get("price_monthly", 0),
+            "price_annual": info.get("price_annual", 0)
+        }
+    
+    return {
+        "kora_core": custom_pricing.get("kora_core", KORA_CORE_PRICING) if custom_pricing else KORA_CORE_PRICING,
+        "bundles": custom_pricing.get("bundles", BUNDLES) if custom_pricing else BUNDLES,
+        "addons": custom_pricing.get("addons", addons) if custom_pricing else addons
+    }
 
 
 class KoraCoreConfig(BaseModel):

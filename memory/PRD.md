@@ -57,6 +57,41 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - **Payments**: Stripe integration
 - **Auth**: JWT-based authentication
 
+## Pricing Structure (Updated March 9, 2026)
+
+### Kora Core - $69/month · $59/month annually
+Includes:
+- System Pulse
+- Client Engagement
+- Execution Hub
+- Partners
+- Business Clarity
+- 1 Location
+
+### Bundles - $39/month · $33/month annually
+User selects ONE bundle based on industry:
+
+| Bundle | Modules Included |
+|--------|------------------|
+| Event Suite | Event Orchestration + Venues + Resource Management |
+| Program Suite | Program Orchestration + Venues + Resource Management |
+| Agency Suite | Demand Generation + Program Orchestration + Resource Management |
+
+### Add-ons (Individual Purchase)
+| Module | Monthly | Annual |
+|--------|---------|--------|
+| People Ops | $49 | $41 |
+| Demand Generation | $39 | $33 |
+| Event Orchestration | $29 | $24 |
+| Program Orchestration | $29 | $24 |
+| Culinary Intelligence | $29 | $24 |
+| Venues | $19 | $16 |
+| Resource Management | $19 | $16 |
+
+### Bundle Logic
+- If module is in active bundle, hide from purchasable add-ons
+- Annual = ~15% discount
+
 ## What's Been Implemented
 
 ### Session: March 9, 2026

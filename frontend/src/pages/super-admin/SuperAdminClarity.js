@@ -588,10 +588,11 @@ export default function SuperAdminClarity() {
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { name: "Event Suite", nameEs: "Event Suite", desc: "Event Orchestration + Venues", price: 39, color: "bg-purple-500", count: overview?.module_event_suite || 0 },
+                { name: "Event Suite", nameEs: "Event Suite", desc: "Event Orchestration + Venues + Resource Management", price: 39, color: "bg-purple-500", count: overview?.module_event_suite || 0 },
                 { name: "Culinary Intelligence", nameEs: "Inteligencia Culinaria", desc: isEs ? "Recetas, costeo, menús" : "Recipes, costing, menus", price: 29, color: "bg-orange-500", count: overview?.module_culinary_intelligence || 0 },
-                { name: "Operations Supplies", nameEs: "Operations Supplies", desc: isEs ? "Inventario, proveedores" : "Inventory, suppliers", price: 19, color: "bg-cyan-500", count: overview?.module_operations_supplies || 0 },
-                { name: "Demand Studio", nameEs: "Demand Studio", desc: "Marketing, leads", price: 39, color: "bg-pink-500", count: overview?.module_demand_studio || 0 }
+                { name: "Resource Management", nameEs: "Gestión de Recursos", desc: isEs ? "Inventario, proveedores" : "Inventory, suppliers", price: 19, color: "bg-cyan-500", count: overview?.module_resource_management || 0 },
+                { name: "Demand Generation", nameEs: "Demand Generation", desc: "Marketing, leads", price: 39, color: "bg-pink-500", count: overview?.module_demand_studio || 0 },
+                { name: "People Ops", nameEs: "People Ops", desc: isEs ? "RRHH completo" : "Full HR", price: 49, color: "bg-green-500", count: overview?.module_people_ops || 0 }
               ].map(module => (
                 <div key={module.name} className="flex items-center justify-between p-4 rounded-lg border">
                   <div className="flex items-center gap-3">
@@ -630,12 +631,16 @@ export default function SuperAdminClarity() {
                   <span className="font-bold">${((overview?.module_culinary_intelligence || 0) * 29).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Operations Supplies ({overview?.module_operations_supplies || 0} × $19)</span>
-                  <span className="font-bold">${((overview?.module_operations_supplies || 0) * 19).toLocaleString()}</span>
+                  <span>Resource Management ({overview?.module_resource_management || 0} × $19)</span>
+                  <span className="font-bold">${((overview?.module_resource_management || 0) * 19).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Demand Studio ({overview?.module_demand_studio || 0} × $39)</span>
+                  <span>Demand Generation ({overview?.module_demand_studio || 0} × $39)</span>
                   <span className="font-bold">${((overview?.module_demand_studio || 0) * 39).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>People Ops ({overview?.module_people_ops || 0} × $49)</span>
+                  <span className="font-bold">${((overview?.module_people_ops || 0) * 49).toLocaleString()}</span>
                 </div>
                 <div className="pt-4 border-t flex items-center justify-between">
                   <span className="font-semibold">{isEs ? "MRR Total Estimado" : "Estimated Total MRR"}</span>
