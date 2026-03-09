@@ -2750,10 +2750,12 @@ async def get_budget_alerts(
 
 # ============== FIXED COSTS & BUDGET ==============
 
-# Fixed Cost Category Model
+# Fixed Cost Category Model (Extended for Expense Categories)
 class FixedCostCategoryCreate(BaseModel):
     name: str
     description: Optional[str] = ""
+    category_type: str = "operating"  # variable, operating, investment
+    target_percent: Optional[float] = None
     active: bool = True
     cost_center_id: Optional[str] = None  # Link to Cost Center
 
@@ -2809,7 +2811,7 @@ async def create_expense_category(data: FixedCostCategoryCreate, user: User = De
     
     # Validate category_type
     valid_types = ["variable", "operating", "investment"]
-    category_type = data.category_type if hasattr(data, 'category_type') and data.category_type in valid_types else "operating"
+    category_type = data.category_type if data.category_type in valid_types else "operating"
     
     category = {
         "category_id": category_id,
@@ -2817,9 +2819,9 @@ async def create_expense_category(data: FixedCostCategoryCreate, user: User = De
         "name": data.name,
         "description": data.description,
         "category_type": category_type,
-        "target_percent": data.target_percent if hasattr(data, 'target_percent') else None,
-        "active": data.active if hasattr(data, 'active') else True,
-        "cost_center_id": data.cost_center_id if hasattr(data, 'cost_center_id') else None,
+        "target_percent": data.target_percent,
+        "active": data.active,
+        "cost_center_id": data.cost_center_id,
         "cost_center_name": cost_center_name,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
@@ -2840,25 +2842,24 @@ async def update_expense_category(category_id: str, data: FixedCostCategoryCreat
     
     # Get cost center name if linked
     cost_center_name = None
-    cost_center_id = data.cost_center_id if hasattr(data, 'cost_center_id') else None
-    if cost_center_id:
+    if data.cost_center_id:
         cc = await db.cost_centers.find_one(
-            {"cost_center_id": cost_center_id, "company_id": user.company_id},
+            {"cost_center_id": data.cost_center_id, "company_id": user.company_id},
             {"_id": 0, "name": 1}
         )
         cost_center_name = cc.get("name") if cc else None
     
     # Validate category_type
     valid_types = ["variable", "operating", "investment"]
-    category_type = data.category_type if hasattr(data, 'category_type') and data.category_type in valid_types else "operating"
+    category_type = data.category_type if data.category_type in valid_types else "operating"
     
     update_data = {
         "name": data.name,
         "description": data.description,
         "category_type": category_type,
-        "target_percent": data.target_percent if hasattr(data, 'target_percent') else None,
-        "active": data.active if hasattr(data, 'active') else True,
-        "cost_center_id": cost_center_id,
+        "target_percent": data.target_percent,
+        "active": data.active,
+        "cost_center_id": data.cost_center_id,
         "cost_center_name": cost_center_name,
         "updated_at": now.isoformat()
     }
@@ -2870,7 +2871,7 @@ async def update_expense_category(category_id: str, data: FixedCostCategoryCreat
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Category not found")
-    return {"message": "Category updated"}
+    return {"message": "Category updated", "category_type": category_type}
 
 @business_clarity_router.delete("/fixed-costs/categories/{category_id}")
 @business_clarity_router.delete("/expense-categories/{category_id}")  # New alias
