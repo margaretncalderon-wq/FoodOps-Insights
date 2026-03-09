@@ -16636,17 +16636,16 @@ async def create_demo_account(
     for module_key in modules_to_activate:
         addon_id = f"addon_{module_key}"
         
-        # Check if module addon definition exists
+        # Try to get addon definition for display name, but don't require it
         addon_def = await db.addon_definitions.find_one({"addon_id": addon_id})
-        if not addon_def:
-            continue
+        display_name = addon_def.get("display_name_es", module_key) if addon_def else module_key.replace("module_", "").replace("_", " ").title()
         
         org_addon_id = f"orgaddon_{uuid.uuid4().hex[:12]}"
         org_addon_doc = {
             "org_addon_id": org_addon_id,
             "company_id": company_id,
             "addon_id": addon_id,
-            "addon_name": addon_def.get("display_name_es", module_key),
+            "addon_name": display_name,
             "addon_type": "module",
             "status": "active",
             "quantity": 1,
@@ -16944,6 +16943,170 @@ async def extend_demo_trial(
     await log_super_admin_action(admin.user_id, "extend_demo_trial", company_id, {"extended_days": days})
     
     return {"success": True, "new_trial_ends_at": new_end.isoformat()}
+
+
+class DemoAccountUpdate(BaseModel):
+    """Update demo account details"""
+    organization_name: Optional[str] = None
+    modules_to_activate: Optional[List[str]] = None
+    trial_days: Optional[int] = None
+    notes: Optional[str] = None
+
+
+@super_admin_router.get("/demo-accounts/{company_id}")
+async def get_demo_account_detail(
+    company_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """Get detailed information about a specific demo account"""
+    # Get organization
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Get owner
+    owner = await db.users.find_one(
+        {"company_id": company_id, "role": "owner"},
+        {"_id": 0, "user_id": 1, "email": 1, "name": 1}
+    )
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    # Get active modules
+    active_modules = await db.organization_addons.find(
+        {"company_id": company_id, "status": "active", "addon_type": "module"},
+        {"_id": 0, "addon_id": 1, "addon_name": 1}
+    ).to_list(50)
+    
+    # Extract module keys from addon_ids
+    module_keys = [m["addon_id"].replace("addon_", "") for m in active_modules]
+    
+    return {
+        **company,
+        "owner": owner,
+        "subscription": subscription,
+        "active_modules": module_keys,
+        "active_modules_details": active_modules
+    }
+
+
+@super_admin_router.put("/demo-accounts/{company_id}")
+async def update_demo_account(
+    company_id: str,
+    data: DemoAccountUpdate,
+    admin: User = Depends(get_super_admin)
+):
+    """Update a demo/influencer account"""
+    # Verify company exists and is a demo account
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    if company.get("account_type") not in ["demo", "influencer", "partner"]:
+        raise HTTPException(status_code=400, detail="Account is not a demo/influencer/partner account")
+    
+    now = datetime.now(timezone.utc)
+    updates = {"updated_at": now.isoformat()}
+    changes_made = []
+    
+    # Update organization name if provided
+    if data.organization_name and data.organization_name != company.get("name"):
+        updates["name"] = data.organization_name
+        changes_made.append(f"name: {company.get('name')} -> {data.organization_name}")
+    
+    # Update notes if provided
+    if data.notes is not None:
+        updates["admin_notes"] = data.notes
+        changes_made.append("notes updated")
+    
+    # Update company
+    if len(updates) > 1:  # More than just updated_at
+        await db.companies.update_one({"company_id": company_id}, {"$set": updates})
+    
+    # Update trial period if provided
+    if data.trial_days:
+        subscription = await db.subscriptions.find_one({"company_id": company_id})
+        if subscription:
+            new_end = now + timedelta(days=data.trial_days)
+            await db.subscriptions.update_one(
+                {"company_id": company_id},
+                {"$set": {
+                    "trial_ends_at": new_end.isoformat(),
+                    "current_period_end": new_end.isoformat(),
+                    "updated_at": now.isoformat()
+                }}
+            )
+            changes_made.append(f"trial_days: {data.trial_days}")
+    
+    # Update modules if provided
+    if data.modules_to_activate is not None:
+        # Get current modules
+        current_modules = await db.organization_addons.find(
+            {"company_id": company_id, "status": "active", "addon_type": "module"},
+            {"_id": 0, "addon_id": 1}
+        ).to_list(50)
+        current_module_keys = set([m["addon_id"].replace("addon_", "") for m in current_modules])
+        new_module_keys = set(data.modules_to_activate)
+        
+        # Modules to add
+        modules_to_add = new_module_keys - current_module_keys
+        # Modules to remove
+        modules_to_remove = current_module_keys - new_module_keys
+        
+        # Get subscription end date for billing_cycle_end
+        subscription = await db.subscriptions.find_one({"company_id": company_id})
+        billing_end = datetime.fromisoformat(subscription["trial_ends_at"].replace("Z", "+00:00")) if subscription and subscription.get("trial_ends_at") else now + timedelta(days=365)
+        
+        # Add new modules
+        for module_key in modules_to_add:
+            addon_id = f"addon_{module_key}"
+            org_addon_id = f"orgaddon_{uuid.uuid4().hex[:12]}"
+            org_addon_doc = {
+                "org_addon_id": org_addon_id,
+                "company_id": company_id,
+                "addon_id": addon_id,
+                "addon_name": module_key,
+                "addon_type": "module",
+                "status": "active",
+                "quantity": 1,
+                "price_paid": 0,
+                "pricing_type": "monthly",
+                "currency": "USD",
+                "billing_cycle_start": now.isoformat(),
+                "billing_cycle_end": billing_end.isoformat(),
+                "auto_renew": False,
+                "admin_granted": True,
+                "account_type": company.get("account_type"),
+                "purchased_by": admin.user_id,
+                "purchased_at": now.isoformat()
+            }
+            await db.organization_addons.insert_one(org_addon_doc)
+        
+        # Deactivate removed modules
+        for module_key in modules_to_remove:
+            addon_id = f"addon_{module_key}"
+            await db.organization_addons.update_many(
+                {"company_id": company_id, "addon_id": addon_id},
+                {"$set": {"status": "inactive", "deactivated_at": now.isoformat(), "deactivated_by": admin.user_id}}
+            )
+        
+        if modules_to_add or modules_to_remove:
+            changes_made.append(f"modules: +{len(modules_to_add)} -{len(modules_to_remove)}")
+    
+    # Log action
+    await log_super_admin_action(admin.user_id, "update_demo_account", company_id, {
+        "changes": changes_made
+    })
+    
+    return {
+        "success": True,
+        "changes": changes_made,
+        "message": f"Account updated successfully. Changes: {', '.join(changes_made) if changes_made else 'None'}"
+    }
 
 
 @super_admin_router.delete("/organizations/{company_id}")

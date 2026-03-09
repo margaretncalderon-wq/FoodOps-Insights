@@ -6,9 +6,11 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Business Clarity (Financials)
 - Recruitment
 - Settings & Organization Structure
+- Super Admin Panel for managing organizations and demo accounts
 
 ## User Personas
-- **Admin/Owner**: Full access to all modules and configuration
+- **Super Admin**: Platform-level access for managing all organizations
+- **Admin/Owner**: Full access to all modules and configuration within their org
 - **Finance**: Access to Business Clarity and financial reports
 - **HR**: Access to People Ops, limited payroll approval
 - **Manager**: View-limited access to team in People Ops
@@ -34,6 +36,17 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Executive Dashboard with Profit Signals
 - Stripe integration for payments
 
+### Super Admin Panel
+- **Demo Accounts Management**: Create, edit, extend trial, convert to paid
+- **Available Modules**: 
+  - module_event_orchestration (Program Orchestration)
+  - module_culinary_intelligence (Culinary Intelligence)
+  - module_operations_supplies (Resource Management)
+  - module_venues (Venues & Locations)
+  - module_demand_studio (Demand Generation)
+  - module_recruitment (Recruitment)
+  - module_kora_comms (Kora Comms)
+
 ### Recruitment
 - Job Postings serving as master source for Job Roles
 
@@ -44,69 +57,25 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - **Payments**: Stripe integration
 - **Auth**: JWT-based authentication
 
-## Key Data Models
-
-### expense_categories (formerly fixed_cost_categories)
-```json
-{
-  "category_id": "string",
-  "name": "string",
-  "category_type": "string (Variable|Operating|Investment)",
-  "target_percent": "float",
-  "cost_center_id": "string",
-  "active": "boolean"
-}
-```
-
-### employees
-```json
-{
-  "employee_id": "string",
-  "department_id": "string",
-  "job_role_id": "string",
-  "is_manager": "boolean",
-  "manager_id": "string",
-  "bank_name": "string",
-  "bank_account_type": "string",
-  "bank_account_number": "string",
-  "bank_currency": "string",
-  "bank_routing_number": "string"
-}
-```
-
-### cost_centers
-```json
-{
-  "cost_center_id": "string",
-  "name": "string",
-  "department_id": "string",
-  "annual_budget": "number (deprecated - now calculated)"
-}
-```
-
 ## What's Been Implemented
 
-### Session: March 2026
+### Session: March 9, 2026
 
 #### Completed
-1. **Bug Fix (Org Structure)**: Resolved critical bug where adding new Department/Cost Center caused blank screen
-2. **Budget Logic Refactoring**:
-   - Consolidated three separate budget management areas
-   - Removed manual budget entry from Settings > Org Structure
-   - Automated CC budgets to calculate from linked Expense Categories
-3. **Expense Management Enhancement**:
-   - Transformed "Fixed Costs" into flexible "Expense Categories & Budgets"
-   - Added Category Type and Target % fields
-4. **People Ops Enhancement**:
-   - Dropdowns for Job Role, Department, and Manager
-   - Banking Info section for employee profiles
-5. **Cost Centers Safe Delete**: Dependency checks before deletion
-6. **UI/UX Cleanup**: Removed redundant UI, added navigation shortcuts
+1. **CC Budgets Detail Panel**: Verified working - shows YTD Budget, Actual, Variance, Monthly Breakdown
+2. **Demo Accounts Edit Feature**: 
+   - Added GET endpoint for account details
+   - Added PUT endpoint for editing accounts
+   - Added Edit modal in frontend with module selection
+3. **Module List Sync**: Updated frontend AVAILABLE_MODULES to match backend
+4. **Module Creation Fix**: Modules now create without requiring addon_definitions
 
-#### Verified Working (March 9, 2026)
-- **CC Budgets Detail Panel**: Endpoint `/cost-centers/{cc_id}/budget-detail` working correctly
-- Panel shows YTD Budget, YTD Actual, Variance, Monthly Breakdown
-- Tested with multiple cost centers
+#### Previously Completed
+- Bug Fix (Org Structure): Resolved critical bug with blank screen
+- Budget Logic Refactoring: Consolidated and automated CC budgets
+- Expense Management Enhancement: Flexible categories with types
+- People Ops Enhancement: Dropdowns and Banking Info
+- Cost Centers Safe Delete
 
 ## Known Issues
 
@@ -117,9 +86,8 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Recurrence: 3+ times in previous forks
 
 ### P1 - Data Migration
-1. **Employee department_id backfill**: Script needed to populate from old `department` string field
+1. **Employee department_id backfill**: Script needed
    - Status: NOT STARTED
-   - Critical for Org Chart data consistency
 
 ## Backlog / Future Tasks
 
@@ -137,22 +105,16 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Complete internationalization (i18n)
 - Expand initial setup wizard
 
-## 3rd Party Integrations
-- **Active**: YouTube Data API, Stripe
-- **Configured**: Emergent LLM Key (budget exhausted)
-- **Available**: Zapier/Make webhooks
-- **Planned**: Staffdo.com, Meta, TikTok, Mailchimp/Brevo
-
 ## Test Credentials
 - **Email**: demo.agency@kora.com
 - **Password**: Evoque2024!
 
 ## Key Files Reference
-- `backend/routers/business_clarity.py` - Main business logic
-- `backend/routers/people_ops.py` - HR functions
+- `backend/server.py` - Super admin endpoints (lines ~16500-17000)
+- `backend/routers/business_clarity.py` - Financial logic
 - `backend/routers/auth.py` - Authentication (investigate for session issues)
+- `frontend/src/pages/super-admin/DemoAccountsPage.js` - Demo accounts UI
 - `frontend/src/components/business-clarity/CostCenterBudgetsSection.js` - CC Budgets UI
-- `frontend/src/components/business-clarity/FixedCostsSection.js` - Expense Categories UI
 
 ## User Language Preference
 Spanish (es) - All user communication should be in Spanish

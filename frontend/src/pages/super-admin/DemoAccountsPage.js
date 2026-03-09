@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { 
   Users, UserPlus, Sparkles, Building2, Mail, Calendar, 
   Loader2, Copy, CheckCircle, Gift, Star, Megaphone,
-  MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus
+  MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -40,6 +40,8 @@ const AVAILABLE_MODULES = [
   { key: "module_operations_supplies", name: "Resource Management", nameEs: "Gestión de Recursos" },
   { key: "module_venues", name: "Venues & Locations", nameEs: "Venues & Ubicaciones" },
   { key: "module_demand_studio", name: "Demand Generation", nameEs: "Demand Generation" },
+  { key: "module_recruitment", name: "Recruitment", nameEs: "Reclutamiento" },
+  { key: "module_kora_comms", name: "Kora Comms", nameEs: "Kora Comms" },
 ];
 
 // Default modules by industry
@@ -59,9 +61,18 @@ export default function DemoAccountsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showExtendModal, setShowExtendModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    organization_name: "",
+    modules_to_activate: [],
+    trial_days: null,
+    notes: ""
+  });
   
   // Conversion form state
   const [convertForm, setConvertForm] = useState({
@@ -278,6 +289,64 @@ export default function DemoAccountsPage() {
     }
   };
 
+  // Open edit modal and fetch account details
+  const handleOpenEditModal = async (account) => {
+    setSelectedAccount(account);
+    setSaving(true);
+    try {
+      const res = await axios.get(
+        `${API}/api/super-admin/demo-accounts/${account.company_id}`,
+        { withCredentials: true }
+      );
+      const detail = res.data;
+      setEditForm({
+        organization_name: detail.name || "",
+        modules_to_activate: detail.active_modules || [],
+        trial_days: null,
+        notes: detail.admin_notes || ""
+      });
+      setShowEditModal(true);
+    } catch (error) {
+      toast.error(isEs ? "Error al cargar detalles" : "Error loading details");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save edited account
+  const handleSaveEdit = async () => {
+    if (!selectedAccount) return;
+    
+    setSaving(true);
+    try {
+      await axios.put(
+        `${API}/api/super-admin/demo-accounts/${selectedAccount.company_id}`,
+        editForm,
+        { withCredentials: true }
+      );
+      
+      toast.success(isEs ? "Cuenta actualizada" : "Account updated");
+      setShowEditModal(false);
+      setSelectedAccount(null);
+      fetchAccounts();
+    } catch (error) {
+      const msg = error.response?.data?.detail || (isEs ? "Error al actualizar" : "Error updating");
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Toggle module in edit form
+  const toggleEditModule = (moduleKey) => {
+    setEditForm(prev => ({
+      ...prev,
+      modules_to_activate: prev.modules_to_activate.includes(moduleKey)
+        ? prev.modules_to_activate.filter(m => m !== moduleKey)
+        : [...prev.modules_to_activate, moduleKey]
+    }));
+  };
+
   // Check if trial is expired or expiring soon
   const getTrialStatus = (trialEndsAt) => {
     if (!trialEndsAt) return { status: "none", label: "-" };
@@ -439,6 +508,10 @@ export default function DemoAccountsPage() {
                           <DropdownMenuSeparator />
                           {account.account_type !== "paid" && (
                             <>
+                              <DropdownMenuItem onClick={() => handleOpenEditModal(account)}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                {isEs ? "Editar Cuenta" : "Edit Account"}
+                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => {
                                   setSelectedAccount(account);
@@ -835,6 +908,99 @@ export default function DemoAccountsPage() {
                 <CalendarPlus className="w-4 h-4 mr-2" />
               )}
               {isEs ? "Extender" : "Extend"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Account Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-blue-500" />
+              {isEs ? "Editar Cuenta" : "Edit Account"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedAccount?.name} - {selectedAccount?.owner?.email}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Organization Name */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre de Organización" : "Organization Name"}</Label>
+              <Input
+                value={editForm.organization_name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, organization_name: e.target.value }))}
+              />
+            </div>
+
+            {/* Modules */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Módulos Activos" : "Active Modules"}</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                {AVAILABLE_MODULES.map((mod) => (
+                  <label 
+                    key={mod.key}
+                    className="flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={editForm.modules_to_activate.includes(mod.key)}
+                      onCheckedChange={() => toggleEditModule(mod.key)}
+                    />
+                    <span className="text-sm">{isEs ? mod.nameEs : mod.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Reset Trial */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Reiniciar Trial (días)" : "Reset Trial (days)"}</Label>
+              <Select 
+                value={editForm.trial_days ? String(editForm.trial_days) : "none"} 
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, trial_days: v === "none" ? null : parseInt(v) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "No cambiar" : "No change"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "No cambiar" : "No change"}</SelectItem>
+                  <SelectItem value="30">30 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="90">90 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="180">180 {isEs ? "días" : "days"}</SelectItem>
+                  <SelectItem value="365">1 {isEs ? "año" : "year"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>{isEs ? "Notas Admin" : "Admin Notes"}</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder={isEs ? "Notas internas..." : "Internal notes..."}
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditModal(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleSaveEdit} 
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
+              {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
