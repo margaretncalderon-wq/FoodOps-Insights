@@ -10,6 +10,7 @@ import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft
 // Kora Core - Required subscription
 const KORA_CORE = {
   price: 69,
+  priceAnnual: 59,
   nameEn: "Kora Core",
   nameEs: "Kora Core",
   includes: [
@@ -122,6 +123,7 @@ export default function RegisterPage() {
     selected_modules: [], // Module keys selected by user
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [billingCycle, setBillingCycle] = useState("monthly"); // "monthly" or "annual"
 
   // Check if coming from Google OAuth
   useEffect(() => {
@@ -158,6 +160,13 @@ export default function RegisterPage() {
     return formData.selected_modules.reduce((total, moduleKey) => {
       const module = ADDON_MODULES.find(m => m.key === moduleKey);
       return total + (module?.price || 0);
+    }, 0);
+  };
+
+  const calculateAddonCostAnnual = () => {
+    return formData.selected_modules.reduce((total, moduleKey) => {
+      const module = ADDON_MODULES.find(m => m.key === moduleKey);
+      return total + (module?.priceAnnual || 0);
     }, 0);
   };
 
@@ -244,7 +253,9 @@ export default function RegisterPage() {
   const isEs = language === "es";
   const selectedIndustry = INDUSTRIES.find(i => i.key === formData.industry_template);
   const addonCost = calculateAddonCost();
+  const addonCostAnnual = calculateAddonCostAnnual();
   const totalCost = KORA_CORE.price + addonCost;
+  const totalCostAnnual = KORA_CORE.priceAnnual + addonCostAnnual;
 
   return (
     <div className="min-h-screen flex">
@@ -368,6 +379,35 @@ export default function RegisterPage() {
                   : "Try everything free for 7 days. No commitment."}
               </p>
 
+              {/* Billing Cycle Toggle */}
+              <div className="flex items-center justify-center gap-2 p-2 mb-4 bg-[#F3F4F6] rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle("monthly")}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                    billingCycle === "monthly"
+                      ? "bg-white text-[#1F2937] shadow-sm"
+                      : "text-[#6B7280] hover:text-[#1F2937]"
+                  }`}
+                >
+                  {isEs ? "Mensual" : "Monthly"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle("annual")}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                    billingCycle === "annual"
+                      ? "bg-white text-[#1F2937] shadow-sm"
+                      : "text-[#6B7280] hover:text-[#1F2937]"
+                  }`}
+                >
+                  {isEs ? "Anual" : "Annual"}
+                  <span className="px-1.5 py-0.5 text-xs font-semibold bg-[#10B981] text-white rounded">
+                    -15%
+                  </span>
+                </button>
+              </div>
+
               {/* Kora Core - Required */}
               <div className="p-4 mb-4 rounded-xl bg-gradient-to-r from-[#2563EB]/10 to-[#7C3AED]/10 border-2 border-[#2563EB]">
                 <div className="flex items-start justify-between">
@@ -388,7 +428,15 @@ export default function RegisterPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-[#2563EB]">${KORA_CORE.price}<span className="text-xs font-normal">/mes</span></p>
+                    <p className="font-bold text-[#2563EB]">
+                      ${billingCycle === "annual" ? KORA_CORE.priceAnnual : KORA_CORE.price}
+                      <span className="text-xs font-normal">/{isEs ? "mes" : "mo"}</span>
+                    </p>
+                    {billingCycle === "annual" && (
+                      <p className="text-xs text-[#10B981] font-medium">
+                        {isEs ? "Facturado anualmente" : "Billed annually"}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -448,7 +496,7 @@ export default function RegisterPage() {
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <div className="text-right">
                                 <span className={`text-xs ${isSelected ? 'text-[#3B82F6]' : 'text-[#9CA3AF]'} line-through`}>
-                                  ${module.price}/mes
+                                  ${billingCycle === "annual" ? module.priceAnnual : module.price}/{isEs ? "mes" : "mo"}
                                 </span>
                                 <p className="text-xs font-medium text-amber-600">{isEs ? "7 días gratis" : "7 days free"}</p>
                               </div>
@@ -476,7 +524,9 @@ export default function RegisterPage() {
                 {/* Kora Core */}
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-[#1F2937] font-medium">Kora Core</span>
-                  <span className="text-[#1F2937] font-semibold">${KORA_CORE.price}/mes</span>
+                  <span className="text-[#1F2937] font-semibold">
+                    ${billingCycle === "annual" ? KORA_CORE.priceAnnual : KORA_CORE.price}/{isEs ? "mes" : "mo"}
+                  </span>
                 </div>
                 
                 {/* Add-ons */}
@@ -485,16 +535,31 @@ export default function RegisterPage() {
                     <span className="text-[#6B7280]">
                       {formData.selected_modules.length} add-on(s)
                     </span>
-                    <span className="text-[#1F2937]">+${addonCost}/mes</span>
+                    <span className="text-[#1F2937]">
+                      +${billingCycle === "annual" ? addonCostAnnual : addonCost}/{isEs ? "mes" : "mo"}
+                    </span>
                   </div>
                 )}
                 
                 {/* Total after trial */}
                 <div className="border-t border-gray-200 pt-2 mt-2">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-[#1F2937]">{isEs ? "Total mensual" : "Monthly total"}</span>
-                    <span className="font-bold text-lg text-[#2563EB]">${totalCost}/mes</span>
+                    <span className="font-semibold text-[#1F2937]">
+                      {billingCycle === "annual" 
+                        ? (isEs ? "Total mensual (facturado anual)" : "Monthly total (billed annually)")
+                        : (isEs ? "Total mensual" : "Monthly total")}
+                    </span>
+                    <span className="font-bold text-lg text-[#2563EB]">
+                      ${billingCycle === "annual" ? totalCostAnnual : totalCost}/{isEs ? "mes" : "mo"}
+                    </span>
                   </div>
+                  
+                  {billingCycle === "annual" && (
+                    <div className="flex items-center justify-between text-sm mb-2 text-[#10B981]">
+                      <span>{isEs ? "Ahorro anual" : "Annual savings"}</span>
+                      <span className="font-semibold">${(totalCost - totalCostAnnual) * 12}/{isEs ? "año" : "yr"}</span>
+                    </div>
+                  )}
                   
                   {/* 7 day trial */}
                   <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
@@ -565,7 +630,8 @@ export default function RegisterPage() {
                 )}
                 <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
                   <Clock className="w-4 h-4" />
-                  {isEs ? "7 días gratis" : "7 days free"} • ${totalCost}/mes
+                  {isEs ? "7 días gratis" : "7 days free"} • ${billingCycle === "annual" ? totalCostAnnual : totalCost}/{isEs ? "mes" : "mo"}
+                  {billingCycle === "annual" && <span className="text-[#10B981] font-medium ml-1">(-15%)</span>}
                 </div>
               </div>
 
