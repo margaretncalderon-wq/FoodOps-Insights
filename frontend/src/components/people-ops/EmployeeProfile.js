@@ -454,68 +454,74 @@ export function EmployeeProfile() {
                   <>
                     <div>
                       <label className="text-sm text-muted-foreground">{isEs ? "Banco" : "Bank Name"}</label>
-                      <Select 
-                        value={editData.bank_name || "none"} 
-                        onValueChange={(v) => setEditData({ ...editData, bank_name: v === "none" ? "" : v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={isEs ? "Seleccionar banco..." : "Select bank..."} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{isEs ? "Sin asignar" : "Not set"}</SelectItem>
-                          <SelectItem value="Banco Popular">Banco Popular</SelectItem>
-                          <SelectItem value="Banreservas">Banreservas</SelectItem>
-                          <SelectItem value="BHD León">BHD León</SelectItem>
-                          <SelectItem value="Scotiabank">Scotiabank</SelectItem>
-                          <SelectItem value="Banco Santa Cruz">Banco Santa Cruz</SelectItem>
-                          <SelectItem value="Banco BDI">Banco BDI</SelectItem>
-                          <SelectItem value="Banco Caribe">Banco Caribe</SelectItem>
-                          <SelectItem value="Banco Promerica">Banco Promerica</SelectItem>
-                          <SelectItem value="Banco Vimenca">Banco Vimenca</SelectItem>
-                          <SelectItem value="Asociación Popular">Asociación Popular</SelectItem>
-                          <SelectItem value="Asociación Cibao">Asociación Cibao</SelectItem>
-                          <SelectItem value="Otro">{isEs ? "Otro" : "Other"}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        value={editData.bank_name || ""}
+                        onChange={(e) => setEditData({ ...editData, bank_name: e.target.value })}
+                        placeholder={isEs ? "Ej: Chase, HSBC, Santander..." : "E.g. Chase, HSBC, Santander..."}
+                      />
                     </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">{isEs ? "Tipo de Cuenta" : "Account Type"}</label>
-                      <Select 
-                        value={editData.bank_account_type || "none"} 
-                        onValueChange={(v) => setEditData({ ...editData, bank_account_type: v === "none" ? "" : v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={isEs ? "Seleccionar tipo..." : "Select type..."} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{isEs ? "Sin asignar" : "Not set"}</SelectItem>
-                          <SelectItem value="savings">{isEs ? "Ahorros" : "Savings"}</SelectItem>
-                          <SelectItem value="checking">{isEs ? "Corriente" : "Checking"}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-muted-foreground">{isEs ? "Tipo de Cuenta" : "Account Type"}</label>
+                        <Select 
+                          value={editData.bank_account_type || "none"} 
+                          onValueChange={(v) => setEditData({ ...editData, bank_account_type: v === "none" ? "" : v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={isEs ? "Seleccionar tipo..." : "Select type..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">{isEs ? "Sin asignar" : "Not set"}</SelectItem>
+                            <SelectItem value="savings">{isEs ? "Ahorros" : "Savings"}</SelectItem>
+                            <SelectItem value="checking">{isEs ? "Corriente" : "Checking"}</SelectItem>
+                            <SelectItem value="payroll">{isEs ? "Nómina" : "Payroll"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">{isEs ? "Moneda" : "Currency"}</label>
+                        <Select 
+                          value={editData.currency || "USD"} 
+                          onValueChange={(v) => setEditData({ ...editData, currency: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD - US Dollar</SelectItem>
+                            <SelectItem value="EUR">EUR - Euro</SelectItem>
+                            <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                            <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
+                            <SelectItem value="DOP">DOP - Dominican Peso</SelectItem>
+                            <SelectItem value="COP">COP - Colombian Peso</SelectItem>
+                            <SelectItem value="ARS">ARS - Argentine Peso</SelectItem>
+                            <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
+                            <SelectItem value="CLP">CLP - Chilean Peso</SelectItem>
+                            <SelectItem value="PEN">PEN - Peruvian Sol</SelectItem>
+                            <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                            <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                            <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                            <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
+                            <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div>
                       <label className="text-sm text-muted-foreground">{isEs ? "Número de Cuenta" : "Account Number"}</label>
                       <Input
                         value={editData.bank_account || ""}
                         onChange={(e) => setEditData({ ...editData, bank_account: e.target.value })}
-                        placeholder="XXXX-XXXX-XXXX"
+                        placeholder={isEs ? "Número de cuenta o IBAN" : "Account number or IBAN"}
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-muted-foreground">{isEs ? "Moneda" : "Currency"}</label>
-                      <Select 
-                        value={editData.currency || "DOP"} 
-                        onValueChange={(v) => setEditData({ ...editData, currency: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="DOP">DOP (Peso Dominicano)</SelectItem>
-                          <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <label className="text-sm text-muted-foreground">{isEs ? "Código de Ruta / SWIFT (opcional)" : "Routing / SWIFT Code (optional)"}</label>
+                      <Input
+                        value={editData.routing_number || ""}
+                        onChange={(e) => setEditData({ ...editData, routing_number: e.target.value })}
+                        placeholder={isEs ? "Código de ruta, SWIFT o BIC" : "Routing number, SWIFT or BIC"}
+                      />
                     </div>
                   </>
                 ) : (
@@ -528,16 +534,23 @@ export function EmployeeProfile() {
                       <span className="text-muted-foreground">{isEs ? "Tipo de Cuenta" : "Account Type"}</span>
                       <span>
                         {employee.bank_account_type === "savings" ? (isEs ? "Ahorros" : "Savings") :
-                         employee.bank_account_type === "checking" ? (isEs ? "Corriente" : "Checking") : "-"}
+                         employee.bank_account_type === "checking" ? (isEs ? "Corriente" : "Checking") :
+                         employee.bank_account_type === "payroll" ? (isEs ? "Nómina" : "Payroll") : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isEs ? "Número de Cuenta" : "Account Number"}</span>
-                      <span className="font-mono">{employee.bank_account || "-"}</span>
+                      <span className="font-mono">{employee.bank_account ? `****${employee.bank_account.slice(-4)}` : "-"}</span>
                     </div>
+                    {employee.routing_number && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{isEs ? "Código SWIFT/Ruta" : "SWIFT/Routing"}</span>
+                        <span className="font-mono">{employee.routing_number}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isEs ? "Moneda" : "Currency"}</span>
-                      <Badge variant="outline">{employee.currency || "DOP"}</Badge>
+                      <Badge variant="outline">{employee.currency || "USD"}</Badge>
                     </div>
                   </>
                 )}

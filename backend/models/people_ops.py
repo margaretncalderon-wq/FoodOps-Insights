@@ -172,10 +172,11 @@ class EmployeeCreate(BaseModel):
     # Compensation
     base_salary: float
     payment_frequency: PaymentFrequency = PaymentFrequency.BIWEEKLY
-    currency: str = "DOP"
+    currency: str = "USD"
     bank_name: Optional[str] = None
     bank_account: Optional[str] = None
-    bank_account_type: Optional[str] = None  # savings, checking
+    bank_account_type: Optional[str] = None  # savings, checking, payroll
+    routing_number: Optional[str] = None  # SWIFT, BIC, or routing number
     
     # Benefits & Deductions
     has_health_insurance: bool = True  # ARS
@@ -232,6 +233,7 @@ class Employee(BaseModel):
     bank_name: Optional[str] = None
     bank_account: Optional[str] = None
     bank_account_type: Optional[str] = None
+    routing_number: Optional[str] = None  # SWIFT, BIC, or routing number
     
     # Benefits & Deductions
     has_health_insurance: bool = True
