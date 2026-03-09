@@ -17198,19 +17198,102 @@ async def get_pricing_history(
 @super_admin_router.get("/modules/available")
 async def get_available_modules(admin: User = Depends(get_super_admin)):
     """Get all available modules for configuration"""
-    from routers.addons import MODULE_ADDONS
+    from routers.addons import MODULE_ADDONS, CORE_MODULES
     
-    modules = []
+    # Get all possible modules (core + addons)
+    all_modules = []
+    
+    # Add core modules
+    for mod in CORE_MODULES:
+        all_modules.append({
+            "key": mod["key"],
+            "name_en": mod.get("name_en", mod["key"]),
+            "name_es": mod.get("name_es", mod["key"]),
+            "path": mod.get("path", ""),
+            "icon": mod.get("icon", ""),
+            "type": "core"
+        })
+    
+    # Add addon modules
     for key, info in MODULE_ADDONS.items():
-        modules.append({
+        all_modules.append({
             "key": key,
             "name_en": info.get("name_en", key),
             "name_es": info.get("name_es", key),
             "path": info.get("path", ""),
-            "icon": info.get("icon", "")
+            "icon": info.get("icon", ""),
+            "type": "addon"
         })
     
-    return {"modules": modules}
+    return {"modules": all_modules}
+
+
+class KoraCoreConfig(BaseModel):
+    """Kora Core configuration model"""
+    core_modules: List[str] = []  # List of module keys included in core
+    description_en: Optional[str] = None
+    description_es: Optional[str] = None
+
+
+@super_admin_router.get("/kora-core-config")
+async def get_kora_core_config(admin: User = Depends(get_super_admin)):
+    """Get current Kora Core module configuration"""
+    from routers.addons import CORE_MODULES, MODULE_ADDONS
+    
+    config = await db.kora_core_config.find_one(
+        {"active": True},
+        {"_id": 0}
+    )
+    
+    if not config:
+        # Return default - all core modules + no addons
+        default_core_keys = [m["key"] for m in CORE_MODULES]
+        default_config = {
+            "core_modules": default_core_keys,
+            "description_en": "System Pulse, Client Engagement, Execution Hub, Partners, Business Clarity, People Ops, Settings",
+            "description_es": "System Pulse, Client Engagement, Execution Hub, Partners, Business Clarity, People Ops, Configuración",
+            "active": True,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.kora_core_config.insert_one(default_config)
+        return default_config
+    
+    return config
+
+
+@super_admin_router.put("/kora-core-config")
+async def update_kora_core_config(
+    config: KoraCoreConfig,
+    admin: User = Depends(get_super_admin)
+):
+    """Update Kora Core module configuration"""
+    now = datetime.now(timezone.utc)
+    
+    # Deactivate current config
+    await db.kora_core_config.update_many(
+        {"active": True},
+        {"$set": {"active": False, "deactivated_at": now.isoformat()}}
+    )
+    
+    # Create new config
+    new_config = {
+        "config_id": f"core_config_{uuid.uuid4().hex[:12]}",
+        "core_modules": config.core_modules,
+        "description_en": config.description_en,
+        "description_es": config.description_es,
+        "active": True,
+        "created_at": now.isoformat(),
+        "created_by": admin.user_id,
+        "created_by_email": admin.email
+    }
+    
+    await db.kora_core_config.insert_one(new_config)
+    
+    await log_super_admin_action(admin.user_id, "update_kora_core_config", None, {
+        "core_modules": config.core_modules
+    })
+    
+    return {"success": True, "message": "Kora Core configuration updated"}
 
 
 @super_admin_router.delete("/organizations/{company_id}")

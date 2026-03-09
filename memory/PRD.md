@@ -79,9 +79,18 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - GET `/api/super-admin/pricing/history` endpoint
    - GET `/api/super-admin/modules/available` endpoint
    - UI in SuperAdminSettings with all 6 modules
-6. **Module Creation Fix**: Modules now create without requiring addon_definitions
+6. **Kora Core Configuration** (NEW):
+   - GET/PUT `/api/super-admin/kora-core-config` endpoints
+   - Dynamic core module configuration in Super Admin Settings
+   - Can include/exclude modules from base subscription
+   - Add-on modules can be included in Core (free for users)
+7. **Module Creation Fix**: Modules now create without requiring addon_definitions
 
-#### Available Modules (6 total)
+#### Available Modules (6 add-ons + 7 core)
+**Core Modules:**
+- system_pulse, client_engagement, execution_hub, partners, business_clarity, people_ops, settings
+
+**Add-on Modules:**
 - `module_event_orchestration` - Program Orchestration
 - `module_culinary_intelligence` - Culinary Intelligence  
 - `module_operations_supplies` - Resource Management

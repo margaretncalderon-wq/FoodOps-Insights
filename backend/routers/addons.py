@@ -722,8 +722,27 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     industry_config = get_industry_config(industry_type)
     po_config = get_program_orchestration_config(industry_type)
     
-    # Start with core modules
-    enabled_modules = list(CORE_MODULES)
+    # Get Kora Core configuration (dynamic)
+    core_config = await db.kora_core_config.find_one({"active": True}, {"_id": 0, "core_modules": 1})
+    core_module_keys = core_config.get("core_modules", []) if core_config else [m["key"] for m in CORE_MODULES]
+    
+    # Build enabled core modules list based on config
+    enabled_modules = []
+    for mod in CORE_MODULES:
+        if mod["key"] in core_module_keys:
+            enabled_modules.append(mod)
+    
+    # Also check if any addon modules are included in core
+    for mod_key, mod_info in MODULE_ADDONS.items():
+        if mod_key in core_module_keys:
+            enabled_modules.append({
+                "key": mod_key,
+                "path": mod_info["path"],
+                "name_en": mod_info["name_en"],
+                "name_es": mod_info["name_es"],
+                "icon": mod_info.get("icon", ""),
+                "is_core_included": True  # Flag to indicate it's included in core
+            })
     
     # Get the organization's plan
     subscription = await db.subscriptions.find_one(

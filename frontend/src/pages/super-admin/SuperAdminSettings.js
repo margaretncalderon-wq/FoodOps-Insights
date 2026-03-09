@@ -9,19 +9,30 @@ import { Textarea } from "../../components/ui/textarea";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Switch } from "../../components/ui/switch";
+import { Checkbox } from "../../components/ui/checkbox";
 import {
   Settings, Globe, FileText, Code, Copy, Check, ExternalLink,
-  Loader2, Save, Eye, DollarSign, History, RefreshCw
+  Loader2, Save, Eye, DollarSign, History, RefreshCw, Package, Layers
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 
 export default function SuperAdminSettings() {
-  const [activeTab, setActiveTab] = useState("pricing");
+  const [activeTab, setActiveTab] = useState("kora-core");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [repairLoading, setRepairLoading] = useState(false);
   const [repairResult, setRepairResult] = useState(null);
+  
+  // Kora Core config state
+  const [allModules, setAllModules] = useState([]);
+  const [coreConfig, setCoreConfig] = useState({
+    core_modules: [],
+    description_en: "",
+    description_es: ""
+  });
+  const [coreLoading, setCoreLoading] = useState(true);
+  const [savingCore, setSavingCore] = useState(false);
   
   // Pricing state
   const [pricingConfig, setPricingConfig] = useState({
@@ -54,10 +65,52 @@ export default function SuperAdminSettings() {
     redirect_url: ""
   });
 
-  // Fetch pricing on mount
+  // Fetch data on mount
   useEffect(() => {
+    fetchKoraCoreConfig();
     fetchPricing();
   }, []);
+
+  const fetchKoraCoreConfig = async () => {
+    setCoreLoading(true);
+    try {
+      const [modulesRes, configRes] = await Promise.all([
+        axios.get(`${API}/api/super-admin/modules/available`, { withCredentials: true }),
+        axios.get(`${API}/api/super-admin/kora-core-config`, { withCredentials: true })
+      ]);
+      setAllModules(modulesRes.data.modules || []);
+      setCoreConfig({
+        core_modules: configRes.data.core_modules || [],
+        description_en: configRes.data.description_en || "",
+        description_es: configRes.data.description_es || ""
+      });
+    } catch (err) {
+      console.error("Failed to fetch Kora Core config:", err);
+      toast.error("Error loading Kora Core configuration");
+    }
+    setCoreLoading(false);
+  };
+
+  const handleSaveCoreConfig = async () => {
+    setSavingCore(true);
+    try {
+      await axios.put(`${API}/api/super-admin/kora-core-config`, coreConfig, { withCredentials: true });
+      toast.success("Configuración de Kora Core actualizada");
+    } catch (err) {
+      console.error("Failed to save core config:", err);
+      toast.error("Error guardando configuración");
+    }
+    setSavingCore(false);
+  };
+
+  const toggleCoreModule = (moduleKey) => {
+    setCoreConfig(prev => ({
+      ...prev,
+      core_modules: prev.core_modules.includes(moduleKey)
+        ? prev.core_modules.filter(k => k !== moduleKey)
+        : [...prev.core_modules, moduleKey]
+    }));
+  };
 
   const fetchPricing = async () => {
     setPricingLoading(true);
@@ -161,6 +214,10 @@ export default function SuperAdminSettings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="kora-core">
+            <Layers className="w-4 h-4 mr-2" />
+            Kora Core
+          </TabsTrigger>
           <TabsTrigger value="pricing">
             <DollarSign className="w-4 h-4 mr-2" />
             Precios
@@ -173,6 +230,142 @@ export default function SuperAdminSettings() {
             Mantenimiento
           </TabsTrigger>
         </TabsList>
+
+        {/* Kora Core Configuration */}
+        <TabsContent value="kora-core" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-primary" />
+                Configuración de Kora Core
+              </CardTitle>
+              <CardDescription>
+                Define qué módulos están incluidos en la suscripción base de Kora Core
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {coreLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {/* Core Modules Selection */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold mb-2">Módulos Base (Core)</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Estos módulos siempre están disponibles para todos los usuarios
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {allModules.filter(m => m.type === "core").map((mod) => (
+                          <label 
+                            key={mod.key}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              coreConfig.core_modules.includes(mod.key) 
+                                ? 'bg-primary/10 border-primary' 
+                                : 'hover:bg-muted/50'
+                            }`}
+                          >
+                            <Checkbox
+                              checked={coreConfig.core_modules.includes(mod.key)}
+                              onCheckedChange={() => toggleCoreModule(mod.key)}
+                            />
+                            <div>
+                              <p className="font-medium text-sm">{mod.name_es || mod.name_en}</p>
+                              <p className="text-xs text-muted-foreground">{mod.path}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <h3 className="font-semibold mb-2">Módulos Add-on incluidos en Core</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Selecciona qué módulos premium incluir en la suscripción base (sin costo adicional)
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {allModules.filter(m => m.type === "addon").map((mod) => (
+                          <label 
+                            key={mod.key}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              coreConfig.core_modules.includes(mod.key) 
+                                ? 'bg-green-50 dark:bg-green-900/20 border-green-500' 
+                                : 'hover:bg-muted/50'
+                            }`}
+                          >
+                            <Checkbox
+                              checked={coreConfig.core_modules.includes(mod.key)}
+                              onCheckedChange={() => toggleCoreModule(mod.key)}
+                            />
+                            <div>
+                              <p className="font-medium text-sm">{mod.name_es || mod.name_en}</p>
+                              <p className="text-xs text-muted-foreground">{mod.path}</p>
+                            </div>
+                            {coreConfig.core_modules.includes(mod.key) && (
+                              <Badge className="ml-auto bg-green-500 text-xs">Incluido</Badge>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label>Descripción (Inglés)</Label>
+                      <Textarea
+                        value={coreConfig.description_en}
+                        onChange={(e) => setCoreConfig(prev => ({ ...prev, description_en: e.target.value }))}
+                        placeholder="Modules included in Kora Core..."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Descripción (Español)</Label>
+                      <Textarea
+                        value={coreConfig.description_es}
+                        onChange={(e) => setCoreConfig(prev => ({ ...prev, description_es: e.target.value }))}
+                        placeholder="Módulos incluidos en Kora Core..."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <p className="text-sm font-medium mb-2">Resumen de Kora Core:</p>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">{coreConfig.core_modules.length}</span> módulos incluidos
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {coreConfig.core_modules.map(key => {
+                        const mod = allModules.find(m => m.key === key);
+                        return mod ? (
+                          <Badge key={key} variant="secondary" className="text-xs">
+                            {mod.name_es || mod.name_en}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <Button onClick={handleSaveCoreConfig} disabled={savingCore} className="w-full">
+                    {savingCore ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Guardar Configuración de Kora Core
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Pricing Configuration */}
         <TabsContent value="pricing" className="space-y-6">
