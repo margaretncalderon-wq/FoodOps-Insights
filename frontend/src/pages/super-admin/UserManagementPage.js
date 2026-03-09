@@ -519,13 +519,18 @@ export default function UserManagementPage() {
               
               <div className="space-y-3">
                 {[
-                  { key: "dashboard", label: "Dashboard" },
-                  { key: "crm", label: "CRM / Clientes" },
-                  { key: "events", label: isEs ? "Eventos" : "Events" },
-                  { key: "calendar", label: isEs ? "Calendario" : "Calendar" },
-                  { key: "culinary", label: "Culinary Intelligence" },
-                  { key: "inventory", label: isEs ? "Inventario" : "Inventory" },
+                  { key: "system_pulse", label: "System Pulse" },
+                  { key: "client_engagement", label: "Client Engagement" },
+                  { key: "execution_hub", label: "Execution Hub" },
+                  { key: "partners", label: "Partners" },
                   { key: "business_clarity", label: "Business Clarity" },
+                  { key: "people_ops", label: "People Ops" },
+                  { key: "event_orchestration", label: "Event Orchestration" },
+                  { key: "program_orchestration", label: "Program Orchestration" },
+                  { key: "culinary_intelligence", label: "Culinary Intelligence" },
+                  { key: "resource_management", label: "Resource Management" },
+                  { key: "venues", label: "Venues" },
+                  { key: "demand_generation", label: "Demand Generation" },
                   { key: "settings", label: isEs ? "Configuración" : "Settings" }
                 ].map(module => (
                   <div key={module.key} className="flex items-center justify-between p-3 border rounded-lg">
