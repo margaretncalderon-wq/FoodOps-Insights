@@ -356,14 +356,6 @@ export function OrganizationStructureSection() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-sm text-muted-foreground">{isEs ? "Presupuesto Total" : "Total Budget"}</div>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(costCenters.reduce((sum, c) => sum + (c.annual_budget || 0), 0))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Tabs */}
@@ -462,7 +454,6 @@ export function OrganizationStructureSection() {
                     <TableHead>{isEs ? "Código" : "Code"}</TableHead>
                     <TableHead>{isEs ? "Departamento" : "Department"}</TableHead>
                     <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
-                    <TableHead className="text-right">{isEs ? "Presupuesto" : "Budget"}</TableHead>
                     <TableHead>{isEs ? "Responsable" : "Owner"}</TableHead>
                     <TableHead className="w-20"></TableHead>
                   </TableRow>
@@ -480,7 +471,6 @@ export function OrganizationStructureSection() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">{formatCurrency(cc.annual_budget)}</TableCell>
                       <TableCell>{cc.responsible_name || "-"}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -501,7 +491,7 @@ export function OrganizationStructureSection() {
                   ))}
                   {costCenters.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         {isEs ? "No hay centros de costo" : "No cost centers"}
                       </TableCell>
                     </TableRow>
@@ -663,33 +653,22 @@ export function OrganizationStructureSection() {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{isEs ? "Presupuesto Anual" : "Annual Budget"}</Label>
-                <Input
-                  type="number"
-                  value={ccForm.annual_budget}
-                  onChange={(e) => setCcForm({...ccForm, annual_budget: e.target.value})}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>{isEs ? "Responsable" : "Owner"}</Label>
-                <Select
-                  value={ccForm.responsible_user_id || "none"}
-                  onValueChange={(v) => setCcForm({...ccForm, responsible_user_id: v === "none" ? "" : v})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                    {(users || []).map((u) => (
-                      <SelectItem key={u.user_id} value={u.user_id}>{u.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label>{isEs ? "Responsable" : "Owner"}</Label>
+              <Select
+                value={ccForm.responsible_user_id || "none"}
+                onValueChange={(v) => setCcForm({...ccForm, responsible_user_id: v === "none" ? "" : v})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                  {(users || []).map((u) => (
+                    <SelectItem key={u.user_id} value={u.user_id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div>

@@ -276,8 +276,18 @@ export function CostCenterBudgetsSection() {
                     <TableCell>
                       <div className="font-medium">{cc.name}</div>
                       {cc.code && <div className="text-xs text-muted-foreground">{cc.code}</div>}
+                      {cc.linked_categories && cc.linked_categories.length > 0 && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          {cc.linked_categories.length} {isEs ? "categorías vinculadas" : "linked categories"}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell className="text-right">{formatCurrency(cc.budget)}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(cc.budget)}
+                      {cc.budget_source === "expense_categories" && (
+                        <div className="text-xs text-green-600">{isEs ? "Auto" : "Auto"}</div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{formatCurrency(cc.actual)}</TableCell>
                     <TableCell className="text-right">{cc.utilization_percent}%</TableCell>
                     <TableCell>{getStatusBadge(cc.status)}</TableCell>
@@ -300,12 +310,19 @@ export function CostCenterBudgetsSection() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <span>{selectedCC ? selectedCC.name : (isEs ? "Seleccione un centro" : "Select a center")}</span>
-              {selectedCC && (
+              {selectedCC && selectedCC.budget_source !== "expense_categories" && (
                 <Button variant="outline" size="sm" onClick={() => handleEditBudget(selectedCC)}>
                   {isEs ? "Editar Presupuesto" : "Edit Budget"}
                 </Button>
               )}
             </CardTitle>
+            {selectedCC?.budget_source === "expense_categories" && (
+              <p className="text-xs text-green-600 mt-1">
+                {isEs 
+                  ? "Presupuesto calculado automáticamente desde Categorías de Gastos vinculadas" 
+                  : "Budget automatically calculated from linked Expense Categories"}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {!selectedCC ? (

@@ -5314,7 +5314,7 @@ async def get_budget_alerts(
 
 @business_clarity_router.get("/cost-centers")
 async def get_cost_centers_for_budgeting(user: User = Depends(get_current_user)):
-    """Get cost centers with budget information for operational management"""
+    """Get cost centers with budget information calculated from linked expense categories"""
     company_id = user.company_id or user.active_org_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
@@ -5332,8 +5332,51 @@ async def get_cost_centers_for_budgeting(user: User = Depends(get_current_user))
     ).to_list(100)
     user_map = {u["user_id"]: u["name"] for u in users}
     
+    # Get expense categories and their budgets to calculate CC budgets
+    expense_categories = await db.fixed_cost_categories.find(
+        {"company_id": company_id, "active": True},
+        {"_id": 0, "category_id": 1, "cost_center_id": 1, "name": 1}
+    ).to_list(500)
+    
+    # Get current year budgets for expense categories
+    now = datetime.now(timezone.utc)
+    current_year = now.year
+    
+    expense_budgets = await db.fixed_cost_budgets.find(
+        {"company_id": company_id},
+        {"_id": 0, "category_id": 1, "budget_amount": 1, "period": 1}
+    ).to_list(500)
+    
+    # Build category budget map
+    category_budget_map = {}
+    for eb in expense_budgets:
+        cat_id = eb.get("category_id")
+        amount = eb.get("budget_amount", 0)
+        period = eb.get("period", "MONTHLY")
+        # Annualize if monthly
+        annual = amount * 12 if period == "MONTHLY" else (amount * 4 if period == "QUARTERLY" else amount)
+        category_budget_map[cat_id] = category_budget_map.get(cat_id, 0) + annual
+    
+    # Calculate budget for each cost center from linked expense categories
+    cc_budget_from_categories = {}
+    cc_linked_categories = {}
+    for ec in expense_categories:
+        cc_id = ec.get("cost_center_id")
+        if cc_id:
+            cat_budget = category_budget_map.get(ec.get("category_id"), 0)
+            cc_budget_from_categories[cc_id] = cc_budget_from_categories.get(cc_id, 0) + cat_budget
+            if cc_id not in cc_linked_categories:
+                cc_linked_categories[cc_id] = []
+            cc_linked_categories[cc_id].append(ec.get("name"))
+    
     for cc in cost_centers:
         cc["responsible_name"] = user_map.get(cc.get("responsible_user_id"))
+        cc_id = cc.get("cost_center_id")
+        # Use calculated budget from expense categories if available
+        calculated_budget = cc_budget_from_categories.get(cc_id, 0)
+        cc["budget"] = calculated_budget if calculated_budget > 0 else cc.get("annual_budget", 0)
+        cc["budget_source"] = "expense_categories" if calculated_budget > 0 else "manual"
+        cc["linked_categories"] = cc_linked_categories.get(cc_id, [])
     
     return cost_centers
 
