@@ -510,13 +510,31 @@ export default function SuperAdminSettings() {
                       </div>
                     </div>
 
-                    {/* Total Preview */}
-                    <div className="p-4 rounded-lg bg-muted/50 border">
-                      <p className="text-sm text-muted-foreground mb-2">Vista previa (Core + Bundle + todos los add-ons):</p>
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">Total mensual máximo:</span>
-                        <span className="text-2xl font-bold text-primary">
-                          ${(pricingConfig.kora_core_price + 39 + Object.values(MODULE_LABELS).reduce((sum, m) => sum + m.priceMonthly, 0)).toFixed(0)}/mes
+                    {/* Pricing Examples */}
+                    <div className="p-4 rounded-lg bg-muted/50 border space-y-3">
+                      <p className="text-sm font-medium mb-2">Ejemplos de precios típicos:</p>
+                      
+                      {/* Example 1: Core + Bundle */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Core + Event Suite (típico eventos)</span>
+                        <span className="font-semibold text-primary">
+                          ${pricingConfig.kora_core_price + 39}/mes
+                        </span>
+                      </div>
+                      
+                      {/* Example 2: Core + Bundle + Culinary */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Core + Event Suite + Culinary Intelligence</span>
+                        <span className="font-semibold text-primary">
+                          ${pricingConfig.kora_core_price + 39 + 29}/mes
+                        </span>
+                      </div>
+                      
+                      {/* Example 3: Core + Bundle + People Ops */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Core + Agency Suite + People Ops</span>
+                        <span className="font-semibold text-primary">
+                          ${pricingConfig.kora_core_price + 39 + 49}/mes
                         </span>
                       </div>
                     </div>
