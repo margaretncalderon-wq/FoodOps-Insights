@@ -69,9 +69,10 @@ INDUSTRY_CONFIG = {
         "enabled_modules": [
             "module_event_orchestration",
             "module_culinary_intelligence",
-            "module_operations_supplies",
+            "module_resource_management",
             "module_venues",
             "module_demand_studio",
+            "module_people_ops",
         ],
         
         # Module-specific configurations
@@ -88,11 +89,17 @@ INDUSTRY_CONFIG = {
                 "name_es": "Inteligencia Culinaria",
                 "icon": "utensils",
             },
-            "module_operations_supplies": {
+            "module_resource_management": {
                 "enabled": True,
                 "name_en": "Resource Management",
                 "name_es": "Gestión de Recursos",
                 "icon": "package",
+            },
+            "module_people_ops": {
+                "enabled": True,
+                "name_en": "People Ops",
+                "name_es": "People Ops",
+                "icon": "users",
             },
         },
         
@@ -159,10 +166,10 @@ INDUSTRY_CONFIG = {
         
         # Enabled modules for this industry (NO venues, NO culinary, NO resource management for pure service agencies)
         "enabled_modules": [
-            "module_event_orchestration",  # Reused as Program Orchestration
+            "module_program_orchestration",
             "module_demand_studio",
-            # NOTE: module_operations_supplies (Resource Management) is NOT enabled by default for agencies
-            # because pure service agencies don't need inventory/supplies management
+            "module_resource_management",
+            "module_people_ops",
         ],
         
         # Module-specific configurations
@@ -173,11 +180,17 @@ INDUSTRY_CONFIG = {
             "module_culinary_intelligence": {
                 "enabled": False,  # Disabled for agencies
             },
-            "module_operations_supplies": {
-                "enabled": False,  # Disabled by default for agencies (pure services don't need supplies)
+            "module_resource_management": {
+                "enabled": True,
                 "name_en": "Resource Management",
                 "name_es": "Gestión de Recursos",
                 "icon": "boxes",
+            },
+            "module_people_ops": {
+                "enabled": True,
+                "name_en": "People Ops",
+                "name_es": "People Ops",
+                "icon": "users",
             },
         },
         
@@ -242,8 +255,9 @@ INDUSTRY_CONFIG = {
         
         # Enabled modules for this industry (NO Resource Management for pure services)
         "enabled_modules": [
-            "module_event_orchestration",
+            "module_program_orchestration",
             "module_demand_studio",
+            "module_people_ops",
         ],
         
         # Module-specific configurations
@@ -254,10 +268,16 @@ INDUSTRY_CONFIG = {
             "module_culinary_intelligence": {
                 "enabled": False,
             },
-            "module_operations_supplies": {
+            "module_resource_management": {
                 "enabled": False,  # Not relevant for consulting/professional services
                 "name_en": "Resource Management",
                 "name_es": "Gestión de Recursos",
+            },
+            "module_people_ops": {
+                "enabled": True,
+                "name_en": "People Ops",
+                "name_es": "People Ops",
+                "icon": "users",
             },
         },
         
@@ -319,9 +339,10 @@ INDUSTRY_CONFIG = {
         
         # Enabled modules
         "enabled_modules": [
-            "module_event_orchestration",
-            "module_operations_supplies",  # Resource Management - enabled for generic businesses
+            "module_program_orchestration",
+            "module_resource_management",
             "module_demand_studio",
+            "module_people_ops",
         ],
         
         # Module-specific configurations
@@ -332,11 +353,17 @@ INDUSTRY_CONFIG = {
             "module_culinary_intelligence": {
                 "enabled": False,
             },
-            "module_operations_supplies": {
+            "module_resource_management": {
                 "enabled": True,
                 "name_en": "Resource Management",
                 "name_es": "Gestión de Recursos",
                 "icon": "package",
+            },
+            "module_people_ops": {
+                "enabled": True,
+                "name_en": "People Ops",
+                "name_es": "People Ops",
+                "icon": "users",
             },
         },
         
