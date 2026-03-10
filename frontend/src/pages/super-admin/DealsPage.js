@@ -773,8 +773,8 @@ export default function DealsPage() {
             >
               <option value="">-- Select Company --</option>
               {companies.map((c) => (
-                <option key={c.company_id} value={c.company_id}>
-                  {c.name} ({c.owner_email})
+                <option key={c.organization?.company_id || c.company_id} value={c.organization?.company_id || c.company_id}>
+                  {c.organization?.name || c.name} ({c.owner_email || c.organization?.billing_email || ''})
                 </option>
               ))}
             </select>
