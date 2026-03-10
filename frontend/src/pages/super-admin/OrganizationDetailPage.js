@@ -20,7 +20,7 @@ import { useViewAs } from "./SuperAdminLayout";
 import { 
   Building2, ChevronLeft, Eye, Ban, Check, Users, Calendar, 
   CreditCard, Activity, AlertTriangle, Loader2, Save, RefreshCw,
-  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase, Key
+  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase, Key, Tag
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -43,6 +43,12 @@ export default function OrganizationDetailPage() {
   // Module management
   const [modules, setModules] = useState({ active_modules: [], available_modules: [], active_module_keys: [] });
   const [loadingModules, setLoadingModules] = useState(false);
+  
+  // Deal management
+  const [deals, setDeals] = useState([]);
+  const [showDealDialog, setShowDealDialog] = useState(false);
+  const [selectedDealId, setSelectedDealId] = useState("");
+  const [applyingDeal, setApplyingDeal] = useState(false);
   
   // Dialogs
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
@@ -68,6 +74,7 @@ export default function OrganizationDetailPage() {
 
   useEffect(() => {
     fetchOrganization();
+    fetchDeals();
   }, [id]);
   
   useEffect(() => {
@@ -92,6 +99,35 @@ export default function OrganizationDetailPage() {
       navigate("/super-admin/organizations");
     }
     setLoading(false);
+  };
+
+  const fetchDeals = async () => {
+    try {
+      const res = await axios.get(`${API}/api/super-admin/deals?active_only=true`, { withCredentials: true });
+      setDeals(res.data.deals || []);
+    } catch (err) {
+      console.error("Error loading deals:", err);
+    }
+  };
+
+  const handleApplyDeal = async () => {
+    if (!selectedDealId) return;
+    
+    setApplyingDeal(true);
+    try {
+      await axios.post(
+        `${API}/api/super-admin/deals/${selectedDealId}/apply/${id}`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Deal applied successfully");
+      setShowDealDialog(false);
+      setSelectedDealId("");
+      fetchOrganization();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error applying deal");
+    }
+    setApplyingDeal(false);
   };
 
   const fetchMembers = async () => {
@@ -872,6 +908,55 @@ export default function OrganizationDetailPage() {
                     <p>{org?.subscription?.current_period_end ? new Date(org?.subscription?.current_period_end).toLocaleDateString() : "N/A"}</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Custom Deal Card */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-purple-500" />
+                  Custom Deal
+                </CardTitle>
+                <CardDescription>
+                  Apply special pricing for this organization
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {org?.organization?.custom_deal_code ? (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-purple-600 font-medium">Active Deal</p>
+                          <p className="text-lg font-bold text-purple-700">{org.organization.custom_deal_code}</p>
+                        </div>
+                        <Badge className="bg-purple-500">Applied</Badge>
+                      </div>
+                      {org.organization.custom_deal_applied_at && (
+                        <p className="text-xs text-purple-500 mt-2">
+                          Applied on {new Date(org.organization.custom_deal_applied_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => setShowDealDialog(true)}
+                    >
+                      Change Deal
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <Tag className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                    <p className="text-sm text-gray-500 mb-4">No custom deal applied</p>
+                    <Button onClick={() => setShowDealDialog(true)}>
+                      <Tag className="w-4 h-4 mr-2" />
+                      Apply Custom Deal
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

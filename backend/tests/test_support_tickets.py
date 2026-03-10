@@ -71,7 +71,7 @@ class TestSupportTicketsEndpoints:
             "subject": f"TEST_Bug Report - {uuid.uuid4().hex[:8]}",
             "description": "This is a test bug report for automated testing",
             "priority": "normal",
-            "page_url": "https://financials-dashboard.preview.emergentagent.com/test",
+            "page_url": "https://custom-pricing-hub-1.preview.emergentagent.com/test",
             "browser_info": "Playwright Test Browser"
         }
         

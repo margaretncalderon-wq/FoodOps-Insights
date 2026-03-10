@@ -24,7 +24,7 @@
 1. En Instagram > Basic Display > Instagram App ID, copia el **App ID**
 2. En Settings > Basic, copia el **App Secret**
 3. En Instagram > Basic Display > Valid OAuth Redirect URIs, agrega:
-   - Para desarrollo: `https://financials-dashboard.preview.emergentagent.com/api/instagram/oauth/callback`
+   - Para desarrollo: `https://custom-pricing-hub-1.preview.emergentagent.com/api/instagram/oauth/callback`
    - Para producción: `https://ourkora.com/api/instagram/oauth/callback`
 
 ## Paso 4: Permisos (Scopes)
