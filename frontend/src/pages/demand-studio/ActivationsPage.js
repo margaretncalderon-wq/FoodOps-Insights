@@ -47,6 +47,7 @@ const ACTIVATION_TYPES = [
 ];
 
 const ACTIVATION_STATUSES = [
+  { value: "under_consideration", label: "Under Consideration", labelEs: "En Consideración", color: "bg-purple-100 text-purple-800" },
   { value: "planned", label: "Planned", labelEs: "Planificado", color: "bg-blue-100 text-blue-800" },
   { value: "active", label: "Active", labelEs: "Activo", color: "bg-green-100 text-green-800" },
   { value: "completed", label: "Completed", labelEs: "Completado", color: "bg-gray-100 text-gray-800" },
@@ -62,6 +63,7 @@ export default function ActivationsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingActivation, setEditingActivation] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all"); // New: status filter
   
   // Link Event Dialog
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -353,115 +355,170 @@ export default function ActivationsPage() {
         </Button>
       </div>
 
-      {/* Activations Grid */}
-      {activations.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {isEs ? "No hay activaciones. Crea una para comenzar." : "No activations yet. Create one to get started."}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {activations.map(activation => (
-            <Card key={activation.activation_id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">{activation.name}</CardTitle>
-                    <div className="flex gap-2">
-                      {getTypeBadge(activation.activation_type)}
-                      {getStatusBadge(activation.status)}
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(activation)}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(activation.activation_id)}>
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {activation.campaign_id && (
-                  <p className="text-sm text-muted-foreground">
-                    {isEs ? "Campaña:" : "Campaign:"} {getCampaignName(activation.campaign_id)}
-                  </p>
-                )}
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
-                    <p className="font-semibold">{formatCurrency(activation.budget)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">{isEs ? "Gastado" : "Spent"}</p>
-                    <p className="font-semibold">{formatCurrency(activation.actual_spend)}</p>
-                  </div>
-                </div>
+      {/* Status Filter Tabs */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={statusFilter === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStatusFilter("all")}
+        >
+          {isEs ? "Todas" : "All"}
+          <Badge variant="secondary" className="ml-2 bg-background">
+            {activations.length}
+          </Badge>
+        </Button>
+        {ACTIVATION_STATUSES.map(status => {
+          const count = activations.filter(a => a.status === status.value).length;
+          return (
+            <Button
+              key={status.value}
+              variant={statusFilter === status.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(status.value)}
+              className="gap-2"
+            >
+              <span className={`w-2 h-2 rounded-full ${status.color.split(" ")[0]}`} />
+              {isEs ? status.labelEs : status.label}
+              {count > 0 && (
+                <Badge variant="secondary" className="ml-1 bg-background">
+                  {count}
+                </Badge>
+              )}
+            </Button>
+          );
+        })}
+      </div>
 
-                {activation.location && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-3 h-3" />
-                    {activation.location}
-                  </div>
-                )}
+      {/* Activations Grid - Filtered and Sorted by Date */}
+      {(() => {
+        // Filter by status
+        const filtered = statusFilter === "all" 
+          ? activations 
+          : activations.filter(a => a.status === statusFilter);
+        
+        // Sort by start_date ascending (earliest first), items without date at the end
+        const sorted = [...filtered].sort((a, b) => {
+          if (!a.start_date && !b.start_date) return 0;
+          if (!a.start_date) return 1;
+          if (!b.start_date) return -1;
+          return new Date(a.start_date) - new Date(b.start_date);
+        });
 
-                {activation.start_date && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-3 h-3" />
-                    {activation.start_date} - {activation.end_date || isEs ? "En curso" : "Ongoing"}
-                  </div>
-                )}
-
-                {/* Linked Event Section */}
-                {activation.linked_event_id ? (
-                  <div 
-                    className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg cursor-pointer hover:bg-primary/10 transition-colors"
-                    onClick={() => openEventDrawer(activation.activation_id)}
-                    data-testid={`linked-event-${activation.activation_id}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium text-primary">
-                          {isEs ? "Evento Vinculado" : "Linked Event"}
-                        </span>
-                      </div>
-                      <ExternalLink className="w-3 h-3 text-muted-foreground" />
-                    </div>
-                    <div className="mt-2 text-sm">
-                      <p className="font-medium">{activation.linked_event?.name || activation.linked_event_name}</p>
-                      {activation.linked_event?.client_name && (
-                        <p className="text-muted-foreground text-xs">
-                          {isEs ? "Cliente:" : "Client:"} {activation.linked_event.client_name}
-                        </p>
-                      )}
-                      <p className="text-muted-foreground text-xs mt-1">
-                        {isEs ? "Clic para ver detalles" : "Click to view details"}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full mt-2"
-                    onClick={() => openLinkDialog(activation)}
-                  >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    {isEs ? "Vincular a Evento" : "Link to Event"}
-                  </Button>
-                )}
+        if (sorted.length === 0) {
+          return (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {statusFilter === "all"
+                    ? (isEs ? "No hay activaciones. Crea una para comenzar." : "No activations yet. Create one to get started.")
+                    : (isEs ? "No hay activaciones con este estado." : "No activations with this status.")}
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          );
+        }
+
+        return (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sorted.map(activation => (
+              <Card key={activation.activation_id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-base">{activation.name}</CardTitle>
+                      <div className="flex gap-2">
+                        {getTypeBadge(activation.activation_type)}
+                        {getStatusBadge(activation.status)}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(activation)}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(activation.activation_id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {activation.campaign_id && (
+                    <p className="text-sm text-muted-foreground">
+                      {isEs ? "Campaña:" : "Campaign:"} {getCampaignName(activation.campaign_id)}
+                    </p>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">{isEs ? "Presupuesto" : "Budget"}</p>
+                      <p className="font-semibold">{formatCurrency(activation.budget)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">{isEs ? "Gastado" : "Spent"}</p>
+                      <p className="font-semibold">{formatCurrency(activation.actual_spend)}</p>
+                    </div>
+                  </div>
+
+                  {activation.location && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-3 h-3" />
+                      {activation.location}
+                    </div>
+                  )}
+
+                  {activation.start_date && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="w-3 h-3" />
+                      {activation.start_date} - {activation.end_date || isEs ? "En curso" : "Ongoing"}
+                    </div>
+                  )}
+
+                  {/* Linked Event Section */}
+                  {activation.linked_event_id ? (
+                    <div 
+                      className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg cursor-pointer hover:bg-primary/10 transition-colors"
+                      onClick={() => openEventDrawer(activation.activation_id)}
+                      data-testid={`linked-event-${activation.activation_id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium text-primary">
+                            {isEs ? "Evento Vinculado" : "Linked Event"}
+                          </span>
+                        </div>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <div className="mt-2 text-sm">
+                        <p className="font-medium">{activation.linked_event?.name || activation.linked_event_name}</p>
+                        {activation.linked_event?.client_name && (
+                          <p className="text-muted-foreground text-xs">
+                            {isEs ? "Cliente:" : "Client:"} {activation.linked_event.client_name}
+                          </p>
+                        )}
+                        <p className="text-muted-foreground text-xs mt-1">
+                          {isEs ? "Clic para ver detalles" : "Click to view details"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full mt-2"
+                      onClick={() => openLinkDialog(activation)}
+                    >
+                      <Link2 className="w-4 h-4 mr-2" />
+                      {isEs ? "Vincular a Evento" : "Link to Event"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Link Event Dialog */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
