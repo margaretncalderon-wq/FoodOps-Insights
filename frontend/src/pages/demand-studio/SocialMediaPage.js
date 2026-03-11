@@ -1904,7 +1904,7 @@ export default function SocialMediaPage() {
               <Share2 className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-semibold">{isEs ? "Compartir Organización Completa" : "Share Full Organization"}</h3>
             </div>
-            <SocialSharing />
+            <SocialSharing selectedOrgId={selectedOrgId} />
           </div>
 
           {/* Account-Level Sharing Section */}

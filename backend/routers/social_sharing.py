@@ -200,9 +200,12 @@ async def invite_social_collaborator(
 
 
 @social_sharing_router.get("/collaborators")
-async def list_social_collaborators(user: User = Depends(get_current_user)):
+async def list_social_collaborators(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """List all collaborators with social access"""
-    company_id = user.company_id or user.active_org_id
+    company_id = org_id or user.company_id or user.active_org_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization found")
     
@@ -366,9 +369,12 @@ async def create_share_link(
 
 
 @social_sharing_router.get("/links")
-async def list_share_links(user: User = Depends(get_current_user)):
+async def list_share_links(
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
     """List all active share links"""
-    company_id = user.company_id or user.active_org_id
+    company_id = org_id or user.company_id or user.active_org_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization found")
     

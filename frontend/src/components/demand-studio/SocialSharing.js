@@ -30,7 +30,7 @@ import { toast } from "sonner";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-export default function SocialSharing() {
+export default function SocialSharing({ selectedOrgId }) {
   const { language } = useLanguage();
   const isEs = language === "es";
   
@@ -57,9 +57,10 @@ export default function SocialSharing() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const orgParam = selectedOrgId ? `?org_id=${selectedOrgId}` : "";
       const [collabRes, linksRes] = await Promise.all([
-        axios.get(`${API}/api/social-sharing/collaborators`, { withCredentials: true }),
-        axios.get(`${API}/api/social-sharing/links`, { withCredentials: true })
+        axios.get(`${API}/api/social-sharing/collaborators${orgParam}`, { withCredentials: true }),
+        axios.get(`${API}/api/social-sharing/links${orgParam}`, { withCredentials: true })
       ]);
       
       setCollaborators(collabRes.data?.collaborators || []);
@@ -70,7 +71,7 @@ export default function SocialSharing() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedOrgId]);
 
   useEffect(() => {
     fetchData();
