@@ -36,6 +36,7 @@ import SocialSharing from "../../components/demand-studio/SocialSharing";
 import AccountSharing from "../../components/demand-studio/AccountSharing";
 import ActivityFeed from "../../components/demand-studio/ActivityFeed";
 import { SocialMetricsSection } from "../../components/demand-studio/SocialMetricsSection";
+import CommentsSection from "../../components/shared/CommentsSection";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -1553,6 +1554,16 @@ export default function SocialMediaPage() {
                 placeholder={isEs ? "Notas internas" : "Internal notes"}
               />
             </div>
+            
+            {/* Comments Section - only show when editing */}
+            {editingPost && (
+              <div className="border-t pt-4 mt-4">
+                <CommentsSection 
+                  entityType="social_post" 
+                  entityId={editingPost.post_id} 
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -1723,6 +1734,16 @@ export default function SocialMediaPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Comments Section - only show when editing */}
+            {editingIdea && (
+              <div className="border-t pt-4 mt-4">
+                <CommentsSection 
+                  entityType="idea" 
+                  entityId={editingIdea.idea_id} 
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIdeaDialogOpen(false); setEditingIdea(null); }}>

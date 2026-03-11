@@ -35,6 +35,7 @@ import {
   FolderPlus, ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
+import CommentsSection from "../../components/shared/CommentsSection";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -621,6 +622,16 @@ export default function NotesPage() {
                 </div>
               )}
             </div>
+            
+            {/* Comments Section - only show when editing */}
+            {editingNote && (
+              <div className="border-t pt-4 mt-4">
+                <CommentsSection 
+                  entityType="note" 
+                  entityId={editingNote.note_id} 
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
