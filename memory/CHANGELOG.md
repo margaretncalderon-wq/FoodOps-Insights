@@ -1,5 +1,27 @@
 # Kora ERP - Changelog
 
+## [2026-03-11] - P0 Bug Fixes: CRM Owner Display & Inactive Users
+
+### Fixed
+- **CRM Owner Assignment: Name Display** - Owner column in the assignment table was showing a truncated `owner_id` (e.g., `user_35d337`) instead of the user's full name. Now displays `owner_name` from enriched lead data, falls back to name lookup from team members array.
+  - File: `/app/frontend/src/components/crm/OwnerAssignmentSection.js` (Line ~319)
+
+- **Deleted/Inactive Users in Selection Lists** - Users marked as inactive (`is_active: false`) were still appearing in dropdowns for mentions, assignments, and collaborators across CRM and Demand Studio.
+  - Added `"is_active": {"$ne": False}` filter to:
+    - `/api/comments/mentions/users` (comments.py Line 46) - Main company users query
+    - `/api/comments/mentions/users` (comments.py Line 85) - Membership users query
+    - `/api/demand-studio/marketing-partners` (demand_studio.py Line 2343)
+  - `/api/crm/team-members` already had the filter (crm.py Line 1734) - verified.
+
+### Testing
+- Backend: 10/10 tests passed (test_crm_owner_display_bugfix.py)
+- Frontend: UI verification passed - Owner Assignment shows full names, dropdowns populated correctly
+
+---
+
+
+# Kora ERP - Changelog
+
 ## [2026-03-08] - Payment Recording Flow Fix
 
 ### Fixed
