@@ -121,6 +121,7 @@ export default function SocialMediaPage() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [pillarDialogOpen, setPillarDialogOpen] = useState(false);
+  const [pillarSaving, setPillarSaving] = useState(false);
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [editingIdea, setEditingIdea] = useState(null);
@@ -380,6 +381,8 @@ export default function SocialMediaPage() {
   };
 
   const handleSavePillar = async () => {
+    if (pillarSaving) return; // Prevent double-click
+    setPillarSaving(true);
     try {
       if (editingPillar) {
         await axios.put(`${API}/api/demand-studio/social/pillars/${editingPillar.pillar_id}`, pillarForm, { withCredentials: true });
@@ -395,6 +398,8 @@ export default function SocialMediaPage() {
     } catch (error) {
       console.error("Error saving pillar:", error);
       toast.error(isEs ? "Error al guardar pilar" : "Error saving pillar");
+    } finally {
+      setPillarSaving(false);
     }
   };
 
@@ -1721,10 +1726,11 @@ export default function SocialMediaPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPillarDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setPillarDialogOpen(false)} disabled={pillarSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSavePillar} disabled={!pillarForm.name}>
+            <Button onClick={handleSavePillar} disabled={!pillarForm.name || pillarSaving}>
+              {pillarSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
