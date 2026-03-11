@@ -96,6 +96,8 @@ export default function SocialMediaPage() {
   const [posts, setPosts] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [pillars, setPillars] = useState([]);
+  const [audiences, setAudiences] = useState([]);
+  const [segments, setSegments] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [insights, setInsights] = useState({});
   const [ideas, setIdeas] = useState([]);
@@ -122,6 +124,10 @@ export default function SocialMediaPage() {
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [pillarDialogOpen, setPillarDialogOpen] = useState(false);
   const [pillarSaving, setPillarSaving] = useState(false);
+  const [audienceDialogOpen, setAudienceDialogOpen] = useState(false);
+  const [audienceSaving, setAudienceSaving] = useState(false);
+  const [segmentDialogOpen, setSegmentDialogOpen] = useState(false);
+  const [segmentSaving, setSegmentSaving] = useState(false);
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [editingIdea, setEditingIdea] = useState(null);
@@ -135,6 +141,8 @@ export default function SocialMediaPage() {
     social_account_id: "",
     campaign_id: "",
     pillar_id: "",
+    audience_id: "",
+    segment_id: "",
     format: "post",
     status: "idea",
     title: "",
@@ -158,6 +166,20 @@ export default function SocialMediaPage() {
     platforms: []
   });
   const [editingPillar, setEditingPillar] = useState(null);
+
+  const [audienceForm, setAudienceForm] = useState({
+    name: "",
+    description: "",
+    platforms: []
+  });
+  const [editingAudience, setEditingAudience] = useState(null);
+
+  const [segmentForm, setSegmentForm] = useState({
+    name: "",
+    description: "",
+    platforms: []
+  });
+  const [editingSegment, setEditingSegment] = useState(null);
 
   const PLATFORM_OPTIONS = [
     { value: "instagram", label: "Instagram", icon: Instagram },
@@ -267,11 +289,13 @@ export default function SocialMediaPage() {
       const queryString = params.toString() ? `?${params.toString()}` : "";
       const andParams = params.toString() ? `&${params.toString()}` : "";
       
-      const [statsRes, postsRes, accountsRes, pillarsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
+      const [statsRes, postsRes, accountsRes, pillarsRes, audiencesRes, segmentsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
         axios.get(`${API}/api/demand-studio/social/stats${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/posts${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${andParams}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/pillars${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/audiences${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/segments${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/campaigns${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/insights${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/ideas${queryString}`, { withCredentials: true }),
@@ -281,6 +305,8 @@ export default function SocialMediaPage() {
       setPosts(postsRes.data);
       setAccounts(accountsRes.data);
       setPillars(pillarsRes.data);
+      setAudiences(audiencesRes.data || []);
+      setSegments(segmentsRes.data || []);
       setCampaigns(campaignsRes.data);
       setInsights(insightsRes.data);
       setIdeas(ideasRes.data);
@@ -326,6 +352,8 @@ export default function SocialMediaPage() {
       const payload = { ...postForm };
       if (!payload.campaign_id) delete payload.campaign_id;
       if (!payload.pillar_id) delete payload.pillar_id;
+      if (!payload.audience_id) delete payload.audience_id;
+      if (!payload.segment_id) delete payload.segment_id;
       
       if (editingPost) {
         await axios.put(`${API}/api/demand-studio/social/posts/${editingPost.post_id}`, payload, { withCredentials: true });
@@ -437,6 +465,122 @@ export default function SocialMediaPage() {
     });
   };
 
+  // Audiences handlers
+  const handleSaveAudience = async () => {
+    if (audienceSaving) return;
+    setAudienceSaving(true);
+    try {
+      if (editingAudience) {
+        await axios.put(`${API}/api/demand-studio/social/audiences/${editingAudience.audience_id}`, audienceForm, { withCredentials: true });
+        toast.success(isEs ? "Audiencia actualizada" : "Audience updated");
+      } else {
+        await axios.post(`${API}/api/demand-studio/social/audiences`, audienceForm, { withCredentials: true });
+        toast.success(isEs ? "Audiencia creada" : "Audience created");
+      }
+      setAudienceDialogOpen(false);
+      setAudienceForm({ name: "", description: "", platforms: [] });
+      setEditingAudience(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error saving audience:", error);
+      toast.error(isEs ? "Error al guardar audiencia" : "Error saving audience");
+    } finally {
+      setAudienceSaving(false);
+    }
+  };
+
+  const handleDeleteAudience = async (audienceId) => {
+    if (!window.confirm(isEs ? "¿Eliminar esta audiencia?" : "Delete this audience?")) return;
+    try {
+      await axios.delete(`${API}/api/demand-studio/social/audiences/${audienceId}`, { withCredentials: true });
+      toast.success(isEs ? "Audiencia eliminada" : "Audience deleted");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting audience:", error);
+      toast.error(isEs ? "Error al eliminar audiencia" : "Error deleting audience");
+    }
+  };
+
+  const openEditAudience = (audience) => {
+    setEditingAudience(audience);
+    setAudienceForm({ 
+      name: audience.name, 
+      description: audience.description || "",
+      platforms: audience.platforms || []
+    });
+    setAudienceDialogOpen(true);
+  };
+
+  const toggleAudiencePlatform = (platform) => {
+    setAudienceForm(prev => {
+      const currentPlatforms = prev.platforms || [];
+      return {
+        ...prev,
+        platforms: currentPlatforms.includes(platform)
+          ? currentPlatforms.filter(p => p !== platform)
+          : [...currentPlatforms, platform]
+      };
+    });
+  };
+
+  // Segments handlers
+  const handleSaveSegment = async () => {
+    if (segmentSaving) return;
+    setSegmentSaving(true);
+    try {
+      if (editingSegment) {
+        await axios.put(`${API}/api/demand-studio/social/segments/${editingSegment.segment_id}`, segmentForm, { withCredentials: true });
+        toast.success(isEs ? "Segmento actualizado" : "Segment updated");
+      } else {
+        await axios.post(`${API}/api/demand-studio/social/segments`, segmentForm, { withCredentials: true });
+        toast.success(isEs ? "Segmento creado" : "Segment created");
+      }
+      setSegmentDialogOpen(false);
+      setSegmentForm({ name: "", description: "", platforms: [] });
+      setEditingSegment(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error saving segment:", error);
+      toast.error(isEs ? "Error al guardar segmento" : "Error saving segment");
+    } finally {
+      setSegmentSaving(false);
+    }
+  };
+
+  const handleDeleteSegment = async (segmentId) => {
+    if (!window.confirm(isEs ? "¿Eliminar este segmento?" : "Delete this segment?")) return;
+    try {
+      await axios.delete(`${API}/api/demand-studio/social/segments/${segmentId}`, { withCredentials: true });
+      toast.success(isEs ? "Segmento eliminado" : "Segment deleted");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting segment:", error);
+      toast.error(isEs ? "Error al eliminar segmento" : "Error deleting segment");
+    }
+  };
+
+  const openEditSegment = (segment) => {
+    setEditingSegment(segment);
+    setSegmentForm({ 
+      name: segment.name, 
+      description: segment.description || "",
+      platforms: segment.platforms || []
+    });
+    setSegmentDialogOpen(true);
+  };
+
+  const toggleSegmentPlatform = (platform) => {
+    setSegmentForm(prev => {
+      const currentPlatforms = prev.platforms || [];
+      return {
+        ...prev,
+        platforms: currentPlatforms.includes(platform)
+          ? currentPlatforms.filter(p => p !== platform)
+          : [...currentPlatforms, platform]
+      };
+    });
+  };
+
   // Ideas handlers
   const handleSaveIdea = async () => {
     try {
@@ -521,6 +665,8 @@ export default function SocialMediaPage() {
       social_account_id: post.social_account_id,
       campaign_id: post.campaign_id || "",
       pillar_id: post.pillar_id || "",
+      audience_id: post.audience_id || "",
+      segment_id: post.segment_id || "",
       format: post.format,
       status: post.status,
       title: post.title,
@@ -539,6 +685,8 @@ export default function SocialMediaPage() {
       social_account_id: accounts[0]?.account_id || "",
       campaign_id: "",
       pillar_id: "",
+      audience_id: "",
+      segment_id: "",
       format: "post",
       status: "idea",
       title: "",
@@ -1217,13 +1365,15 @@ export default function SocialMediaPage() {
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Estado" : "Status"}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Título" : "Title"}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Pilar" : "Pillar"}</th>
+                      <th className="text-left p-3 text-sm font-medium">{isEs ? "Audiencia" : "Audience"}</th>
+                      <th className="text-left p-3 text-sm font-medium">{isEs ? "Segmento" : "Segment"}</th>
                       <th className="text-right p-3 text-sm font-medium">{isEs ? "Acciones" : "Actions"}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPosts.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <td colSpan={9} className="text-center py-8 text-muted-foreground">
                           {isEs ? "No hay posts" : "No posts"}
                         </td>
                       </tr>
@@ -1239,6 +1389,12 @@ export default function SocialMediaPage() {
                           <td className="p-3 text-sm font-medium max-w-[200px] truncate">{post.title}</td>
                           <td className="p-3 text-sm">
                             {post.pillar_id ? pillars.find(p => p.pillar_id === post.pillar_id)?.name || "-" : "-"}
+                          </td>
+                          <td className="p-3 text-sm">
+                            {post.audience_id ? audiences.find(a => a.audience_id === post.audience_id)?.name || "-" : "-"}
+                          </td>
+                          <td className="p-3 text-sm">
+                            {post.segment_id ? segments.find(s => s.segment_id === post.segment_id)?.name || "-" : "-"}
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-1">
@@ -1432,6 +1588,110 @@ export default function SocialMediaPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Audiences */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">{isEs ? "Audiencias" : "Audiences"}</CardTitle>
+                <Button size="sm" onClick={() => { setEditingAudience(null); setAudienceForm({ name: "", description: "", platforms: [] }); setAudienceDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  {isEs ? "Agregar" : "Add"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {audiences.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{isEs ? "No hay audiencias" : "No audiences"}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {audiences.map(audience => (
+                      <div key={audience.audience_id} className="flex items-center justify-between p-2 bg-muted rounded-lg group">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{audience.name}</p>
+                          {audience.description && (
+                            <p className="text-xs text-muted-foreground">{audience.description}</p>
+                          )}
+                          {audience.platforms && audience.platforms.length > 0 ? (
+                            <div className="flex gap-1 mt-1">
+                              {audience.platforms.map(p => {
+                                const opt = PLATFORM_OPTIONS.find(o => o.value === p);
+                                const Icon = opt?.icon || Hash;
+                                return (
+                                  <span key={p} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-background rounded border">
+                                    <Icon className="w-3 h-3" />
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground mt-1">{isEs ? "Todas las plataformas" : "All platforms"}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditAudience(audience)}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeleteAudience(audience.audience_id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Segments */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">{isEs ? "Segmentos" : "Segments"}</CardTitle>
+                <Button size="sm" onClick={() => { setEditingSegment(null); setSegmentForm({ name: "", description: "", platforms: [] }); setSegmentDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  {isEs ? "Agregar" : "Add"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {segments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{isEs ? "No hay segmentos" : "No segments"}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {segments.map(segment => (
+                      <div key={segment.segment_id} className="flex items-center justify-between p-2 bg-muted rounded-lg group">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{segment.name}</p>
+                          {segment.description && (
+                            <p className="text-xs text-muted-foreground">{segment.description}</p>
+                          )}
+                          {segment.platforms && segment.platforms.length > 0 ? (
+                            <div className="flex gap-1 mt-1">
+                              {segment.platforms.map(p => {
+                                const opt = PLATFORM_OPTIONS.find(o => o.value === p);
+                                const Icon = opt?.icon || Hash;
+                                return (
+                                  <span key={p} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-background rounded border">
+                                    <Icon className="w-3 h-3" />
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground mt-1">{isEs ? "Todas las plataformas" : "All platforms"}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSegment(segment)}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeleteSegment(segment.segment_id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Social Sharing Section - Organization Level */}
@@ -1548,6 +1808,52 @@ export default function SocialMediaPage() {
                       })
                       .map(p => (
                         <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Audience and Segment selectors */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Audiencia" : "Audience"}</label>
+                <Select value={postForm.audience_id || "none"} onValueChange={v => setPostForm({...postForm, audience_id: v === "none" ? "" : v})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isEs ? "Sin audiencia" : "No audience"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin audiencia" : "No audience"}</SelectItem>
+                    {audiences
+                      .filter(a => {
+                        const selectedAccount = accounts.find(acc => acc.account_id === postForm.social_account_id);
+                        const platform = selectedAccount?.platform;
+                        return !a.platforms || a.platforms.length === 0 || (platform && a.platforms.includes(platform));
+                      })
+                      .map(a => (
+                        <SelectItem key={a.audience_id} value={a.audience_id}>{a.name}</SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Segmento" : "Segment"}</label>
+                <Select value={postForm.segment_id || "none"} onValueChange={v => setPostForm({...postForm, segment_id: v === "none" ? "" : v})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isEs ? "Sin segmento" : "No segment"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin segmento" : "No segment"}</SelectItem>
+                    {segments
+                      .filter(s => {
+                        const selectedAccount = accounts.find(acc => acc.account_id === postForm.social_account_id);
+                        const platform = selectedAccount?.platform;
+                        return !s.platforms || s.platforms.length === 0 || (platform && s.platforms.includes(platform));
+                      })
+                      .map(s => (
+                        <SelectItem key={s.segment_id} value={s.segment_id}>{s.name}</SelectItem>
                       ))
                     }
                   </SelectContent>
@@ -1732,6 +2038,136 @@ export default function SocialMediaPage() {
             </Button>
             <Button onClick={handleSavePillar} disabled={!pillarForm.name || pillarSaving}>
               {pillarSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Audience Dialog */}
+      <Dialog open={audienceDialogOpen} onOpenChange={(open) => { setAudienceDialogOpen(open); if (!open) setEditingAudience(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingAudience ? (isEs ? "Editar Audiencia" : "Edit Audience") : (isEs ? "Nueva Audiencia" : "New Audience")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Nombre" : "Name"}</label>
+              <Input
+                value={audienceForm.name}
+                onChange={e => setAudienceForm({...audienceForm, name: e.target.value})}
+                placeholder={isEs ? "Ej: Millennials, Empresarios, Mamás" : "E.g., Millennials, Business Owners, Moms"}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Descripción" : "Description"}</label>
+              <Input
+                value={audienceForm.description}
+                onChange={e => setAudienceForm({...audienceForm, description: e.target.value})}
+                placeholder={isEs ? "Descripción opcional" : "Optional description"}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {isEs ? "Plataformas" : "Platforms"}
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({isEs ? "vacío = todas" : "empty = all"})
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORM_OPTIONS.map(opt => {
+                  const Icon = opt.icon;
+                  const isSelected = audienceForm.platforms?.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleAudiencePlatform(opt.value)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        isSelected 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted hover:bg-muted/80 border-transparent"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAudienceDialogOpen(false)} disabled={audienceSaving}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveAudience} disabled={!audienceForm.name || audienceSaving}>
+              {audienceSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Segment Dialog */}
+      <Dialog open={segmentDialogOpen} onOpenChange={(open) => { setSegmentDialogOpen(open); if (!open) setEditingSegment(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingSegment ? (isEs ? "Editar Segmento" : "Edit Segment") : (isEs ? "Nuevo Segmento" : "New Segment")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Nombre" : "Name"}</label>
+              <Input
+                value={segmentForm.name}
+                onChange={e => setSegmentForm({...segmentForm, name: e.target.value})}
+                placeholder={isEs ? "Ej: Promociones, Lanzamientos, Noticias" : "E.g., Promotions, Launches, News"}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Descripción" : "Description"}</label>
+              <Input
+                value={segmentForm.description}
+                onChange={e => setSegmentForm({...segmentForm, description: e.target.value})}
+                placeholder={isEs ? "Descripción opcional" : "Optional description"}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {isEs ? "Plataformas" : "Platforms"}
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({isEs ? "vacío = todas" : "empty = all"})
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORM_OPTIONS.map(opt => {
+                  const Icon = opt.icon;
+                  const isSelected = segmentForm.platforms?.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleSegmentPlatform(opt.value)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        isSelected 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted hover:bg-muted/80 border-transparent"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSegmentDialogOpen(false)} disabled={segmentSaving}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveSegment} disabled={!segmentForm.name || segmentSaving}>
+              {segmentSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

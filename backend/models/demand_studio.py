@@ -396,11 +396,49 @@ class ContentPillar(BaseModel):
     updated_at: datetime
 
 
+class AudienceCreate(BaseModel):
+    """Create an audience segment"""
+    name: str
+    description: Optional[str] = None
+    platforms: List[str] = []
+
+
+class Audience(BaseModel):
+    """Audience model - target audience for content"""
+    audience_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    platforms: List[str] = []
+    created_at: datetime
+    updated_at: datetime
+
+
+class SegmentCreate(BaseModel):
+    """Create a content segment"""
+    name: str
+    description: Optional[str] = None
+    platforms: List[str] = []
+
+
+class Segment(BaseModel):
+    """Segment model - content categorization"""
+    segment_id: str
+    company_id: str
+    name: str
+    description: Optional[str] = None
+    platforms: List[str] = []
+    created_at: datetime
+    updated_at: datetime
+
+
 class SocialPostCreate(BaseModel):
     """Create a social media post"""
     social_account_id: str
     campaign_id: Optional[str] = None
     pillar_id: Optional[str] = None
+    audience_id: Optional[str] = None
+    segment_id: Optional[str] = None
     format: str = "post"  # reel, carousel, post, story, live
     status: str = "idea"  # idea, drafted, scheduled, posted, archived
     title: str
@@ -419,6 +457,8 @@ class SocialPost(BaseModel):
     social_account_id: str
     campaign_id: Optional[str] = None
     pillar_id: Optional[str] = None
+    audience_id: Optional[str] = None
+    segment_id: Optional[str] = None
     format: str = "post"
     status: str = "idea"
     title: str

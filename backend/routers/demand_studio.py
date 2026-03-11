@@ -22,6 +22,8 @@ from models.demand_studio import (
     NotificationCreate,
     SocialAccountCreate, SocialAccount,
     ContentPillarCreate, ContentPillar,
+    AudienceCreate, Audience,
+    SegmentCreate, Segment,
     SocialPostCreate, SocialPost,
     SocialPostAssetLinkCreate, SocialPostSpendLinkCreate,
     ContentIdeaCreate, ContentIdea,
@@ -2592,6 +2594,148 @@ async def update_content_pillar(pillar_id: str, data: ContentPillarCreate, user:
     )
     return updated
 
+# ---- Audiences CRUD ----
+
+@demand_studio_router.get("/social/audiences")
+async def get_audiences(org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all audiences"""
+    company_id = org_id or user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    audiences = await db.audiences.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(100)
+    return audiences
+
+@demand_studio_router.post("/social/audiences")
+async def create_audience(data: AudienceCreate, user: User = Depends(get_current_user)):
+    """Create an audience"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    audience = {
+        "audience_id": f"aud_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.name,
+        "description": data.description,
+        "platforms": data.platforms or [],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.audiences.insert_one(audience)
+    del audience["_id"]
+    return audience
+
+@demand_studio_router.put("/social/audiences/{audience_id}")
+async def update_audience(audience_id: str, data: AudienceCreate, user: User = Depends(get_current_user)):
+    """Update an audience"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    result = await db.audiences.update_one(
+        {"audience_id": audience_id, "company_id": company_id},
+        {"$set": {
+            "name": data.name,
+            "description": data.description,
+            "platforms": data.platforms or [],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Audience not found")
+    
+    updated = await db.audiences.find_one(
+        {"audience_id": audience_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    return updated
+
+@demand_studio_router.delete("/social/audiences/{audience_id}")
+async def delete_audience(audience_id: str, user: User = Depends(get_current_user)):
+    """Delete an audience"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.audiences.delete_one(
+        {"audience_id": audience_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Audience not found")
+    return {"success": True}
+
+# ---- Segments CRUD ----
+
+@demand_studio_router.get("/social/segments")
+async def get_segments(org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all segments"""
+    company_id = org_id or user.company_id or user.active_org_id
+    if not company_id:
+        return []
+    segments = await db.segments.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(100)
+    return segments
+
+@demand_studio_router.post("/social/segments")
+async def create_segment(data: SegmentCreate, user: User = Depends(get_current_user)):
+    """Create a segment"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    now = datetime.now(timezone.utc)
+    segment = {
+        "segment_id": f"seg_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": data.name,
+        "description": data.description,
+        "platforms": data.platforms or [],
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.segments.insert_one(segment)
+    del segment["_id"]
+    return segment
+
+@demand_studio_router.put("/social/segments/{segment_id}")
+async def update_segment(segment_id: str, data: SegmentCreate, user: User = Depends(get_current_user)):
+    """Update a segment"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    result = await db.segments.update_one(
+        {"segment_id": segment_id, "company_id": company_id},
+        {"$set": {
+            "name": data.name,
+            "description": data.description,
+            "platforms": data.platforms or [],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    
+    updated = await db.segments.find_one(
+        {"segment_id": segment_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    return updated
+
+@demand_studio_router.delete("/social/segments/{segment_id}")
+async def delete_segment(segment_id: str, user: User = Depends(get_current_user)):
+    """Delete a segment"""
+    company_id = user.company_id or user.active_org_id
+    result = await db.segments.delete_one(
+        {"segment_id": segment_id, "company_id": company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    return {"success": True}
+
 # ---- Social Posts CRUD ----
 
 @demand_studio_router.get("/social/posts")
@@ -2659,6 +2803,8 @@ async def create_social_post(data: SocialPostCreate, user: User = Depends(get_cu
         "social_account_id": data.social_account_id,
         "campaign_id": data.campaign_id,
         "pillar_id": data.pillar_id,
+        "audience_id": data.audience_id,
+        "segment_id": data.segment_id,
         "format": data.format,
         "status": data.status,
         "title": data.title,
@@ -2752,6 +2898,8 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
         "social_account_id": data.social_account_id,
         "campaign_id": data.campaign_id,
         "pillar_id": data.pillar_id,
+        "audience_id": data.audience_id,
+        "segment_id": data.segment_id,
         "format": data.format,
         "status": data.status,
         "title": data.title,
