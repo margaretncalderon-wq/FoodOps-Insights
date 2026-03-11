@@ -2548,6 +2548,7 @@ async def create_content_pillar(data: ContentPillarCreate, user: User = Depends(
         "company_id": company_id,
         "name": data.name,
         "description": data.description,
+        "platforms": data.platforms or [],  # Empty = all platforms
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
@@ -2578,6 +2579,7 @@ async def update_content_pillar(pillar_id: str, data: ContentPillarCreate, user:
         {"$set": {
             "name": data.name,
             "description": data.description,
+            "platforms": data.platforms or [],
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )

@@ -153,9 +153,19 @@ export default function SocialMediaPage() {
   
   const [pillarForm, setPillarForm] = useState({
     name: "",
-    description: ""
+    description: "",
+    platforms: []
   });
   const [editingPillar, setEditingPillar] = useState(null);
+
+  const PLATFORM_OPTIONS = [
+    { value: "instagram", label: "Instagram", icon: Instagram },
+    { value: "linkedin", label: "LinkedIn", icon: Linkedin },
+    { value: "youtube", label: "YouTube", icon: Youtube },
+    { value: "tiktok", label: "TikTok", icon: Play },
+    { value: "facebook", label: "Facebook", icon: Share2 },
+    { value: "twitter", label: "X / Twitter", icon: AtSign },
+  ];
 
   const [ideaForm, setIdeaForm] = useState({
     title: "",
@@ -379,7 +389,7 @@ export default function SocialMediaPage() {
         toast.success(isEs ? "Pilar creado" : "Pillar created");
       }
       setPillarDialogOpen(false);
-      setPillarForm({ name: "", description: "" });
+      setPillarForm({ name: "", description: "", platforms: [] });
       setEditingPillar(null);
       fetchData();
     } catch (error) {
@@ -402,8 +412,21 @@ export default function SocialMediaPage() {
 
   const openEditPillar = (pillar) => {
     setEditingPillar(pillar);
-    setPillarForm({ name: pillar.name, description: pillar.description || "" });
+    setPillarForm({ 
+      name: pillar.name, 
+      description: pillar.description || "",
+      platforms: pillar.platforms || []
+    });
     setPillarDialogOpen(true);
+  };
+
+  const togglePillarPlatform = (platform) => {
+    setPillarForm(prev => ({
+      ...prev,
+      platforms: prev.platforms.includes(platform)
+        ? prev.platforms.filter(p => p !== platform)
+        : [...prev.platforms, platform]
+    }));
   };
 
   // Ideas handlers
@@ -1354,7 +1377,7 @@ export default function SocialMediaPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Pilares de Contenido" : "Content Pillars"}</CardTitle>
-                <Button size="sm" onClick={() => { setEditingPillar(null); setPillarForm({ name: "", description: "" }); setPillarDialogOpen(true); }}>
+                <Button size="sm" onClick={() => { setEditingPillar(null); setPillarForm({ name: "", description: "", platforms: [] }); setPillarDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -1370,6 +1393,21 @@ export default function SocialMediaPage() {
                           <p className="text-sm font-medium">{pillar.name}</p>
                           {pillar.description && (
                             <p className="text-xs text-muted-foreground">{pillar.description}</p>
+                          )}
+                          {pillar.platforms && pillar.platforms.length > 0 ? (
+                            <div className="flex gap-1 mt-1">
+                              {pillar.platforms.map(p => {
+                                const opt = PLATFORM_OPTIONS.find(o => o.value === p);
+                                const Icon = opt?.icon || Hash;
+                                return (
+                                  <span key={p} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-background rounded border">
+                                    <Icon className="w-3 h-3" />
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground mt-1">{isEs ? "Todas las plataformas" : "All platforms"}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1492,9 +1530,18 @@ export default function SocialMediaPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">{isEs ? "Sin pilar" : "No pillar"}</SelectItem>
-                    {pillars.map(p => (
-                      <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
-                    ))}
+                    {pillars
+                      .filter(p => {
+                        // Filter pillars by selected account's platform
+                        const selectedAccount = accounts.find(a => a.account_id === postForm.social_account_id);
+                        const platform = selectedAccount?.platform;
+                        // Show pillar if: no platforms set (global) OR platform matches
+                        return !p.platforms || p.platforms.length === 0 || (platform && p.platforms.includes(platform));
+                      })
+                      .map(p => (
+                        <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
+                      ))
+                    }
                   </SelectContent>
                 </Select>
               </div>
@@ -1639,6 +1686,35 @@ export default function SocialMediaPage() {
                 onChange={e => setPillarForm({...pillarForm, description: e.target.value})}
                 placeholder={isEs ? "Descripción opcional" : "Optional description"}
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {isEs ? "Plataformas" : "Platforms"}
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({isEs ? "vacío = todas" : "empty = all"})
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORM_OPTIONS.map(opt => {
+                  const Icon = opt.icon;
+                  const isSelected = pillarForm.platforms?.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => togglePillarPlatform(opt.value)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        isSelected 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted hover:bg-muted/80 border-transparent"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <DialogFooter>

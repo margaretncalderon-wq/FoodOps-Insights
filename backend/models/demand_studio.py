@@ -382,6 +382,7 @@ class ContentPillarCreate(BaseModel):
     """Create a content pillar"""
     name: str
     description: Optional[str] = None
+    platforms: List[str] = []  # ['instagram', 'linkedin', 'youtube', 'tiktok', 'facebook', 'twitter']
 
 
 class ContentPillar(BaseModel):
@@ -390,6 +391,7 @@ class ContentPillar(BaseModel):
     company_id: str
     name: str
     description: Optional[str] = None
+    platforms: List[str] = []  # Empty means all platforms
     created_at: datetime
     updated_at: datetime
 
