@@ -191,45 +191,100 @@ async def add_reaction(
 @comments_router.get("/mentions/users")
 async def get_mentionable_users(
     search: Optional[str] = None,
+    org_id: Optional[str] = None,  # For shared org context
     user: User = Depends(get_current_user)
 ):
-    """Get users that can be mentioned (team members and agency collaborators)"""
-    company_id = user.company_id or user.active_org_id
-    if not company_id:
+    """Get users that can be mentioned (team members and shared collaborators)"""
+    # Use org_id if provided (for shared orgs), otherwise use user's company
+    target_company_id = org_id or user.company_id or user.active_org_id
+    if not target_company_id:
         return []
     
-    # Get company team members
-    query = {"company_id": company_id}
+    result_users = []
+    seen_user_ids = set()
+    
+    # 1. Get users from the target company
+    user_query = {"company_id": target_company_id}
     if search:
-        query["$or"] = [
+        user_query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}}
         ]
     
-    users = await db.users.find(
-        query,
+    company_users = await db.users.find(
+        user_query,
         {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1, "role": 1}
-    ).limit(20).to_list(20)
+    ).limit(30).to_list(30)
     
-    # Also get collaborators from company_memberships
-    memberships = await db.company_memberships.find(
-        {"company_id": company_id, "status": "active"},
+    for u in company_users:
+        if u["user_id"] not in seen_user_ids:
+            result_users.append(u)
+            seen_user_ids.add(u["user_id"])
+    
+    # 2. Get members who have access via memberships (Demand Studio sharing)
+    membership_query = {"company_id": target_company_id, "status": "active"}
+    memberships = await db.memberships.find(
+        membership_query,
+        {"_id": 0, "user_id": 1, "role": 1}
+    ).to_list(100)
+    
+    membership_user_ids = [m["user_id"] for m in memberships if m["user_id"] not in seen_user_ids]
+    
+    if membership_user_ids:
+        # Fetch user details for these members
+        member_query = {"user_id": {"$in": membership_user_ids}}
+        if search:
+            member_query["$or"] = [
+                {"name": {"$regex": search, "$options": "i"}},
+                {"email": {"$regex": search, "$options": "i"}}
+            ]
+        
+        member_users = await db.users.find(
+            member_query,
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1, "role": 1}
+        ).to_list(50)
+        
+        for u in member_users:
+            if u["user_id"] not in seen_user_ids:
+                u["role"] = "collaborator"  # Mark as collaborator
+                result_users.append(u)
+                seen_user_ids.add(u["user_id"])
+    
+    # 3. Also check company_memberships collection (legacy)
+    legacy_memberships = await db.company_memberships.find(
+        {"company_id": target_company_id, "status": "active"},
         {"_id": 0, "user_id": 1, "name": 1, "email": 1}
     ).to_list(50)
     
-    # Combine and dedupe
-    user_ids = set(u["user_id"] for u in users)
-    for m in memberships:
-        if m["user_id"] not in user_ids:
-            users.append({
+    for m in legacy_memberships:
+        if m["user_id"] not in seen_user_ids:
+            # Check if search filter applies
+            if search:
+                name = m.get("name", "").lower()
+                email = m.get("email", "").lower()
+                if search.lower() not in name and search.lower() not in email:
+                    continue
+            
+            result_users.append({
                 "user_id": m["user_id"],
-                "name": m.get("name", m["email"]),
-                "email": m["email"],
+                "name": m.get("name", m.get("email", "")),
+                "email": m.get("email", ""),
                 "picture": None,
                 "role": "collaborator"
             })
+            seen_user_ids.add(m["user_id"])
     
-    return users
+    # 4. If user is viewing a shared org, also include themselves
+    if user.user_id not in seen_user_ids:
+        result_users.append({
+            "user_id": user.user_id,
+            "name": user.name or user.email,
+            "email": user.email,
+            "picture": user.picture,
+            "role": user.role or "user"
+        })
+    
+    return result_users
 
 
 @comments_router.get("/my-notifications")

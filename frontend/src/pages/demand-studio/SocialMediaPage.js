@@ -1615,7 +1615,8 @@ export default function SocialMediaPage() {
               <div className="border-t pt-4 mt-4">
                 <CommentsSection 
                   entityType="social_post" 
-                  entityId={editingPost.post_id} 
+                  entityId={editingPost.post_id}
+                  orgId={selectedOrgId}
                 />
               </div>
             )}
@@ -1825,7 +1826,8 @@ export default function SocialMediaPage() {
               <div className="border-t pt-4 mt-4">
                 <CommentsSection 
                   entityType="idea" 
-                  entityId={editingIdea.idea_id} 
+                  entityId={editingIdea.idea_id}
+                  orgId={selectedOrgId}
                 />
               </div>
             )}

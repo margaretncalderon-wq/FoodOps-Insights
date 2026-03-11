@@ -25,7 +25,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 
 const REACTION_EMOJIS = ["👍", "❤️", "😊", "🎉", "👏", "🔥"];
 
-export default function CommentsSection({ entityType, entityId, className = "" }) {
+export default function CommentsSection({ entityType, entityId, orgId = null, className = "" }) {
   const { language } = useLanguage();
   const { user } = useAuth();
   const isEs = language === "es";
@@ -68,10 +68,11 @@ export default function CommentsSection({ entityType, entityId, className = "" }
   
   const fetchMentionUsers = async (search) => {
     try {
-      const res = await axios.get(
-        `${API}/api/comments/mentions/users?search=${search || ""}`,
-        { withCredentials: true }
-      );
+      let url = `${API}/api/comments/mentions/users?search=${search || ""}`;
+      if (orgId) {
+        url += `&org_id=${orgId}`;
+      }
+      const res = await axios.get(url, { withCredentials: true });
       setMentionUsers(res.data || []);
     } catch (error) {
       console.error("Error fetching mentionable users:", error);

@@ -628,7 +628,8 @@ export default function NotesPage() {
               <div className="border-t pt-4 mt-4">
                 <CommentsSection 
                   entityType="note" 
-                  entityId={editingNote.note_id} 
+                  entityId={editingNote.note_id}
+                  orgId={selectedOrgId}
                 />
               </div>
             )}
