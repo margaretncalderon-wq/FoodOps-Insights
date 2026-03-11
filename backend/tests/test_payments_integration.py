@@ -104,7 +104,7 @@ class TestCreateSubscriptionCheckout:
         response = requests.post(
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": ["module_event_orchestration"]
             }
         )
@@ -116,7 +116,7 @@ class TestCreateSubscriptionCheckout:
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": ["module_event_orchestration"],
                 "industry_template": "events_hospitality"
             }
@@ -146,7 +146,7 @@ class TestCreateSubscriptionCheckout:
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": [
                     "module_event_orchestration",  # $29
                     "module_culinary_intelligence",  # $25
@@ -169,7 +169,7 @@ class TestCreateSubscriptionCheckout:
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": [],  # Empty - free tier
                 "industry_template": "generic"
             }
@@ -187,7 +187,7 @@ class TestCreateSubscriptionCheckout:
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": list(EXPECTED_MODULE_PRICES.keys()),
                 "industry_template": "events_hospitality"
             }
@@ -211,7 +211,7 @@ class TestPaymentStatus:
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": ["module_event_orchestration"],
                 "industry_template": "events_hospitality"
             }
@@ -265,7 +265,7 @@ class TestAddAddonCheckout:
         response = requests.post(
             f"{BASE_URL}/api/payments/add-addon-checkout",
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "addon_key": "module_event_orchestration"
             }
         )
@@ -277,7 +277,7 @@ class TestAddAddonCheckout:
             f"{BASE_URL}/api/payments/add-addon-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "addon_key": "invalid_module_xyz"
             }
         )
@@ -293,7 +293,7 @@ class TestAddAddonCheckout:
             f"{BASE_URL}/api/payments/add-addon-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "addon_key": "module_event_orchestration"
             }
         )
@@ -373,7 +373,7 @@ class TestPaymentTransactionCreation:
             f"{BASE_URL}/api/payments/create-subscription-checkout",
             headers=auth_headers,
             json={
-                "origin_url": "https://custom-pricing-hub-1.preview.emergentagent.com",
+                "origin_url": "https://crm-user-display.preview.emergentagent.com",
                 "selected_modules": ["module_demand_studio"],  # $35
                 "industry_template": "professional_services"
             }

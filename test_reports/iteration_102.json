@@ -1,0 +1,81 @@
+{
+  "summary": "Verified P0 Bug Fixes: 1) CRM Owner Assignment displays full names (not truncated IDs), 2) Inactive users filtered from user selection endpoints. All 10 backend tests passed, UI verification confirmed fixes work correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_crm_owner_display_bugfix.py",
+    "/app/test_reports/pytest/pytest_crm_owner_display.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Bug Fix 1 (OwnerAssignmentSection.js:319-324): Now uses item.owner_name first, then looks up from users array, falls back to raw owner_id only for truly unknown users (like deleted users) - CORRECT implementation",
+    "Bug Fix 2 (comments.py:46-48): Added is_active: {$ne: false} filter to get_mentionable_users - CORRECT",
+    "Bug Fix 2b (crm.py:1733-1736): team-members endpoint has is_active: {$ne: false} filter - CORRECT",
+    "Bug Fix 2c (demand_studio.py:2343-2346): marketing-partners endpoint has is_active: {$ne: false} filter - CORRECT",
+    "Note: Leads assigned to deleted users (e.g., 'user_deleted_fake_123') correctly show the raw owner_id since no name can be resolved - this is expected behavior"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_crm_owner_display_bugfix.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 passed)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CRM Owner Display bug fixes verified. Owner Assignment page at /crm/owners shows full user names in Owner column and dropdowns. Leads assigned to deleted/non-existent users (like 'user_deleted_fake_123') show the raw owner_id as expected since no name can be resolved. Inactive user filtering working on /api/crm/team-members, /api/comments/mentions/users, /api/demand-studio/marketing-partners endpoints.",
+  "tested_features": {
+    "bug_fix_1_owner_display": {
+      "status": "PASS",
+      "details": "Owner Assignment table displays full user names (e.g., 'Demo Agency User') instead of truncated IDs (e.g., 'user_35d337')",
+      "verified_in": [
+        "/crm/owners page - Owner column",
+        "/crm/owners page - Owner filter dropdown",
+        "/crm/owners page - Action dropdown (assign owner)",
+        "/crm/outreach page - Owner column"
+      ]
+    },
+    "bug_fix_2_inactive_filter_team_members": {
+      "status": "PASS",
+      "endpoint": "/api/crm/team-members",
+      "filter": "is_active: {$ne: false}",
+      "test": "test_crm_owner_display_bugfix.py::TestCRMOwnerDisplayBugFixes::test_team_members_*"
+    },
+    "bug_fix_2_inactive_filter_mentions": {
+      "status": "PASS",
+      "endpoint": "/api/comments/mentions/users",
+      "filter": "is_active: {$ne: false}",
+      "test": "test_crm_owner_display_bugfix.py::TestCRMOwnerDisplayBugFixes::test_mentions_users_*"
+    },
+    "bug_fix_2_inactive_filter_marketing_partners": {
+      "status": "PASS",
+      "endpoint": "/api/demand-studio/marketing-partners",
+      "filter": "is_active: {$ne: false}",
+      "test": "test_crm_owner_display_bugfix.py::TestMarketingPartnersInactiveFilter::test_marketing_partners_endpoint"
+    },
+    "regression_lead_outreach": {
+      "status": "PASS",
+      "route": "/crm/outreach",
+      "verified": "Page loads correctly with proper owner names displayed"
+    },
+    "regression_owner_assignment_dropdown": {
+      "status": "PASS",
+      "verified": "Dropdown allows assigning owners and shows full names"
+    }
+  },
+  "known_issues": {
+    "deleted_user_owner_display": "Leads assigned to deleted users (e.g., 'user_deleted_fake_123') show the raw owner_id since no name can be resolved - this is EXPECTED behavior as noted by main agent"
+  }
+}

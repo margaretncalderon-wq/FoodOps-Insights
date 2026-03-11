@@ -8,7 +8,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://custom-pricing-hub-1.preview.emergentagent.com"
+    BASE_URL = "https://crm-user-display.preview.emergentagent.com"
 
 # Test credentials
 AGENCY_USER = {

@@ -105,7 +105,7 @@
     "root_cause": "In ClientEngagementPage.js, when an unknown path like 'events' is accessed under /client-engagement/*, the fallback Route path='*' redirects to 'calendar'. However, with the Route path='calendar/*' definition, this may cause recursive matching. The calendar component may also be re-rendering and triggering additional navigation.",
     "reproduction_steps": [
       "1. Login as agency user",
-      "2. Navigate directly to https://custom-pricing-hub-1.preview.emergentagent.com/client-engagement/events",
+      "2. Navigate directly to https://crm-user-display.preview.emergentagent.com/client-engagement/events",
       "3. Observe URL rapidly appending /calendar repeatedly",
       "4. Console shows 'Maximum update depth exceeded' errors"
     ],

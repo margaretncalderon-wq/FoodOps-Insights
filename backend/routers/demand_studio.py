@@ -2341,7 +2341,7 @@ async def get_marketing_partners(user: User = Depends(get_current_user)):
         return []
     
     users = await db.users.find(
-        {"user_id": {"$in": user_ids}},
+        {"user_id": {"$in": user_ids}, "is_active": {"$ne": False}},
         {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
     ).to_list(100)
     

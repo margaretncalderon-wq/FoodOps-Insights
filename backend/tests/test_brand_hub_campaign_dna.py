@@ -4,7 +4,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://custom-pricing-hub-1.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://crm-user-display.preview.emergentagent.com')
 
 class TestBrandHubEndpointsExist:
     """Test that Brand Hub API endpoints exist and respond appropriately"""

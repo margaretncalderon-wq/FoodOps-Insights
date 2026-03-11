@@ -42,9 +42,9 @@ async def get_mentionable_users(
         result_users = []
         seen_user_ids = set()
         
-        # Get users from the target company
+        # Get users from the target company (exclude inactive/deleted users)
         cursor = db.users.find(
-            {"company_id": target_company_id},
+            {"company_id": target_company_id, "is_active": {"$ne": False}},
             {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1, "picture": 1, "role": 1}
         )
         company_users = await cursor.to_list(length=30)
@@ -83,7 +83,7 @@ async def get_mentionable_users(
         
         if membership_user_ids:
             member_cursor = db.users.find(
-                {"user_id": {"$in": membership_user_ids}},
+                {"user_id": {"$in": membership_user_ids}, "is_active": {"$ne": False}},
                 {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1, "picture": 1}
             )
             member_users = await member_cursor.to_list(length=50)

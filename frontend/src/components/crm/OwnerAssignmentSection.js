@@ -319,7 +319,9 @@ export default function OwnerAssignmentSection() {
                       {item.owner_id ? (
                         <div className="flex items-center gap-1">
                           <UserCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">{item.owner_id.replace("user_", "").slice(0, 12)}</span>
+                          <span className="text-sm">
+                            {item.owner_name || users.find(u => u.user_id === item.owner_id)?.name || item.owner_id}
+                          </span>
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">{isEs ? "Sin asignar" : "Unassigned"}</span>
