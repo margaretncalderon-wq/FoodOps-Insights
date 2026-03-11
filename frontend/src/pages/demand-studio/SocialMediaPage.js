@@ -23,7 +23,7 @@ import {
 } from "../../components/ui/select";
 import { 
   Plus, Calendar, List, BarChart3, Hash, Instagram, 
-  Loader2, Play, Copy, Archive, Check, Settings,
+  Loader2, Play, Copy, Archive, Check, Settings, Edit,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
   Building2, ChevronDown, AtSign, User
@@ -154,6 +154,7 @@ export default function SocialMediaPage() {
     name: "",
     description: ""
   });
+  const [editingPillar, setEditingPillar] = useState(null);
 
   const [ideaForm, setIdeaForm] = useState({
     title: "",
@@ -369,13 +370,39 @@ export default function SocialMediaPage() {
 
   const handleSavePillar = async () => {
     try {
-      await axios.post(`${API}/api/demand-studio/social/pillars`, pillarForm, { withCredentials: true });
+      if (editingPillar) {
+        await axios.put(`${API}/api/demand-studio/social/pillars/${editingPillar.pillar_id}`, pillarForm, { withCredentials: true });
+        toast.success(isEs ? "Pilar actualizado" : "Pillar updated");
+      } else {
+        await axios.post(`${API}/api/demand-studio/social/pillars`, pillarForm, { withCredentials: true });
+        toast.success(isEs ? "Pilar creado" : "Pillar created");
+      }
       setPillarDialogOpen(false);
       setPillarForm({ name: "", description: "" });
+      setEditingPillar(null);
       fetchData();
     } catch (error) {
       console.error("Error saving pillar:", error);
+      toast.error(isEs ? "Error al guardar pilar" : "Error saving pillar");
     }
+  };
+
+  const handleDeletePillar = async (pillarId) => {
+    if (!window.confirm(isEs ? "¿Eliminar este pilar?" : "Delete this pillar?")) return;
+    try {
+      await axios.delete(`${API}/api/demand-studio/social/pillars/${pillarId}`, { withCredentials: true });
+      toast.success(isEs ? "Pilar eliminado" : "Pillar deleted");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting pillar:", error);
+      toast.error(isEs ? "Error al eliminar pilar" : "Error deleting pillar");
+    }
+  };
+
+  const openEditPillar = (pillar) => {
+    setEditingPillar(pillar);
+    setPillarForm({ name: pillar.name, description: pillar.description || "" });
+    setPillarDialogOpen(true);
   };
 
   // Ideas handlers
@@ -1326,7 +1353,7 @@ export default function SocialMediaPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Pilares de Contenido" : "Content Pillars"}</CardTitle>
-                <Button size="sm" onClick={() => setPillarDialogOpen(true)}>
+                <Button size="sm" onClick={() => { setEditingPillar(null); setPillarForm({ name: "", description: "" }); setPillarDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -1337,12 +1364,20 @@ export default function SocialMediaPage() {
                 ) : (
                   <div className="space-y-2">
                     {pillars.map(pillar => (
-                      <div key={pillar.pillar_id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                        <div>
+                      <div key={pillar.pillar_id} className="flex items-center justify-between p-2 bg-muted rounded-lg group">
+                        <div className="flex-1">
                           <p className="text-sm font-medium">{pillar.name}</p>
                           {pillar.description && (
                             <p className="text-xs text-muted-foreground">{pillar.description}</p>
                           )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPillar(pillar)}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeletePillar(pillar.pillar_id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1572,10 +1607,10 @@ export default function SocialMediaPage() {
       </Dialog>
 
       {/* Pillar Dialog */}
-      <Dialog open={pillarDialogOpen} onOpenChange={setPillarDialogOpen}>
+      <Dialog open={pillarDialogOpen} onOpenChange={(open) => { setPillarDialogOpen(open); if (!open) setEditingPillar(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEs ? "Nuevo Pilar" : "New Pillar"}</DialogTitle>
+            <DialogTitle>{editingPillar ? (isEs ? "Editar Pilar" : "Edit Pillar") : (isEs ? "Nuevo Pilar" : "New Pillar")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>

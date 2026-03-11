@@ -2566,6 +2566,30 @@ async def delete_content_pillar(pillar_id: str, user: User = Depends(get_current
         raise HTTPException(status_code=404, detail="Pillar not found")
     return {"success": True}
 
+@demand_studio_router.put("/social/pillars/{pillar_id}")
+async def update_content_pillar(pillar_id: str, data: ContentPillarCreate, user: User = Depends(get_current_user)):
+    """Update a content pillar"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+    
+    result = await db.content_pillars.update_one(
+        {"pillar_id": pillar_id, "company_id": company_id},
+        {"$set": {
+            "name": data.name,
+            "description": data.description,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Pillar not found")
+    
+    updated = await db.content_pillars.find_one(
+        {"pillar_id": pillar_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    return updated
+
 # ---- Social Posts CRUD ----
 
 @demand_studio_router.get("/social/posts")
