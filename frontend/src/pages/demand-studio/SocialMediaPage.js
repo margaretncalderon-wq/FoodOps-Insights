@@ -421,12 +421,15 @@ export default function SocialMediaPage() {
   };
 
   const togglePillarPlatform = (platform) => {
-    setPillarForm(prev => ({
-      ...prev,
-      platforms: prev.platforms.includes(platform)
-        ? prev.platforms.filter(p => p !== platform)
-        : [...prev.platforms, platform]
-    }));
+    setPillarForm(prev => {
+      const currentPlatforms = prev.platforms || [];
+      return {
+        ...prev,
+        platforms: currentPlatforms.includes(platform)
+          ? currentPlatforms.filter(p => p !== platform)
+          : [...currentPlatforms, platform]
+      };
+    });
   };
 
   // Ideas handlers
