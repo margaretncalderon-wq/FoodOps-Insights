@@ -440,12 +440,13 @@ class SocialPostCreate(BaseModel):
     audience_id: Optional[str] = None
     segment_id: Optional[str] = None
     format: str = "post"  # reel, carousel, post, story, live
-    status: str = "idea"  # idea, drafted, scheduled, posted, archived
+    status: str = "idea"  # idea, production, editing, drafted, scheduled, posted, archived
     title: str
     caption: Optional[str] = None
     hook: Optional[str] = None
     cta: Optional[str] = None
     scheduled_at: Optional[str] = None
+    production_date: Optional[str] = None  # Date for recording/shooting
     link_url: Optional[str] = None
     notes: Optional[str] = None
 
@@ -466,6 +467,7 @@ class SocialPost(BaseModel):
     hook: Optional[str] = None
     cta: Optional[str] = None
     scheduled_at: Optional[str] = None
+    production_date: Optional[str] = None  # Date for recording/shooting
     posted_at: Optional[str] = None
     link_url: Optional[str] = None
     notes: Optional[str] = None

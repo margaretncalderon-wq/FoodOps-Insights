@@ -2812,6 +2812,7 @@ async def create_social_post(data: SocialPostCreate, user: User = Depends(get_cu
         "hook": data.hook,
         "cta": data.cta,
         "scheduled_at": data.scheduled_at,
+        "production_date": data.production_date,
         "posted_at": None,
         "link_url": data.link_url,
         "notes": data.notes,
@@ -2907,6 +2908,7 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
         "hook": data.hook,
         "cta": data.cta,
         "scheduled_at": data.scheduled_at,
+        "production_date": data.production_date,
         "link_url": data.link_url,
         "notes": data.notes,
         "updated_at": datetime.now(timezone.utc).isoformat()

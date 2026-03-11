@@ -26,7 +26,7 @@ import {
   Loader2, Play, Copy, Archive, Check, Settings, Edit,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
-  Building2, ChevronDown, AtSign, User
+  Building2, ChevronDown, AtSign, User, Video, Film
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -56,6 +56,8 @@ const FORMATS = [
 
 const STATUSES = [
   { value: "idea", label: "Idea", labelEs: "Idea", color: "bg-gray-100 text-gray-800" },
+  { value: "production", label: "Production", labelEs: "Producción", color: "bg-orange-100 text-orange-800" },
+  { value: "editing", label: "Editing", labelEs: "Edición", color: "bg-purple-100 text-purple-800" },
   { value: "drafted", label: "Drafted", labelEs: "Borrador", color: "bg-yellow-100 text-yellow-800" },
   { value: "scheduled", label: "Scheduled", labelEs: "Programado", color: "bg-blue-100 text-blue-800" },
   { value: "posted", label: "Posted", labelEs: "Publicado", color: "bg-green-100 text-green-800" },
@@ -150,6 +152,7 @@ export default function SocialMediaPage() {
     hook: "",
     cta: "",
     scheduled_at: "",
+    production_date: "",
     link_url: "",
     notes: ""
   });
@@ -348,12 +351,24 @@ export default function SocialMediaPage() {
   };
 
   const handleSavePost = async () => {
+    // Validation for production/editing status
+    if ((postForm.status === "production" || postForm.status === "editing") && !postForm.production_date) {
+      toast.error(isEs ? "Fecha de producción requerida para este estado" : "Production date required for this status");
+      return;
+    }
+    // Validation for scheduled status
+    if (postForm.status === "scheduled" && !postForm.scheduled_at) {
+      toast.error(isEs ? "Fecha de publicación requerida para programar" : "Publish date required for scheduling");
+      return;
+    }
+    
     try {
       const payload = { ...postForm };
       if (!payload.campaign_id) delete payload.campaign_id;
       if (!payload.pillar_id) delete payload.pillar_id;
       if (!payload.audience_id) delete payload.audience_id;
       if (!payload.segment_id) delete payload.segment_id;
+      if (!payload.production_date) delete payload.production_date;
       
       if (editingPost) {
         await axios.put(`${API}/api/demand-studio/social/posts/${editingPost.post_id}`, payload, { withCredentials: true });
@@ -674,6 +689,7 @@ export default function SocialMediaPage() {
       hook: post.hook || "",
       cta: post.cta || "",
       scheduled_at: post.scheduled_at || "",
+      production_date: post.production_date || "",
       link_url: post.link_url || "",
       notes: post.notes || ""
     });
@@ -694,6 +710,7 @@ export default function SocialMediaPage() {
       hook: "",
       cta: "",
       scheduled_at: "",
+      production_date: "",
       link_url: "",
       notes: ""
     });
@@ -923,6 +940,14 @@ export default function SocialMediaPage() {
             <TabsTrigger value="queue" className="gap-2">
               <List className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Cola" : "Queue"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="production" className="gap-2">
+              <Video className="w-4 h-4" />
+              <span className="hidden sm:inline">{isEs ? "Producción" : "Production"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="editing" className="gap-2">
+              <Film className="w-4 h-4" />
+              <span className="hidden sm:inline">{isEs ? "Edición" : "Editing"}</span>
             </TabsTrigger>
             <TabsTrigger value="feed" className="gap-2">
               <Grid3X3 className="w-4 h-4" />
@@ -1424,6 +1449,185 @@ export default function SocialMediaPage() {
           </Card>
         </TabsContent>
 
+        {/* Production Tab - Shows items with status: production or editing, grouped by production_date */}
+        <TabsContent value="production" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Video className="w-5 h-5" />
+                {isEs ? "Producción" : "Production"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? "Contenido que necesita ser grabado o editado, agrupado por fecha de producción"
+                  : "Content that needs to be recorded or edited, grouped by production date"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Filter posts with status production or editing
+                const productionPosts = posts.filter(p => p.status === "production" || p.status === "editing");
+                
+                if (productionPosts.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>{isEs ? "No hay contenido en producción" : "No content in production"}</p>
+                      <p className="text-xs mt-1">
+                        {isEs 
+                          ? "Cambia el estado de un post a 'Producción' o 'Edición' para verlo aquí"
+                          : "Change a post status to 'Production' or 'Editing' to see it here"}
+                      </p>
+                    </div>
+                  );
+                }
+                
+                // Group by production_date
+                const grouped = productionPosts.reduce((acc, post) => {
+                  const date = post.production_date || "no_date";
+                  if (!acc[date]) acc[date] = [];
+                  acc[date].push(post);
+                  return acc;
+                }, {});
+                
+                // Sort dates ascending (earliest first), with no_date at end
+                const sortedDates = Object.keys(grouped).sort((a, b) => {
+                  if (a === "no_date") return 1;
+                  if (b === "no_date") return -1;
+                  return new Date(a) - new Date(b);
+                });
+                
+                return (
+                  <div className="space-y-6">
+                    {sortedDates.map(date => (
+                      <div key={date} className="border rounded-lg overflow-hidden">
+                        <div className="bg-muted px-4 py-2 font-medium flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {date === "no_date" 
+                            ? (isEs ? "Sin fecha de producción" : "No production date")
+                            : new Date(date + "T00:00:00").toLocaleDateString(isEs ? "es-ES" : "en-US", { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })
+                          }
+                          <span className="ml-auto text-sm text-muted-foreground">
+                            {grouped[date].length} {grouped[date].length === 1 ? "item" : "items"}
+                          </span>
+                        </div>
+                        <div className="divide-y">
+                          {grouped[date].map(post => (
+                            <div 
+                              key={post.post_id} 
+                              className="p-4 hover:bg-muted/30 cursor-pointer flex items-center gap-4"
+                              onClick={() => openEditPost(post)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{post.title}</p>
+                                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                  <span>{getAccountName(post.social_account_id)}</span>
+                                  <span>•</span>
+                                  <span>{getFormatBadge(post.format)}</span>
+                                </div>
+                              </div>
+                              <div>
+                                {getStatusBadge(post.status)}
+                              </div>
+                              {post.scheduled_at && (
+                                <div className="text-xs text-muted-foreground">
+                                  <span className="block">{isEs ? "Publicar:" : "Publish:"}</span>
+                                  {new Date(post.scheduled_at).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Editing Only Tab - Shows only items with status: editing, sorted by production_date descending */}
+        <TabsContent value="editing" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Film className="w-5 h-5" />
+                {isEs ? "Solo Edición" : "Editing Only"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isEs 
+                  ? "Contenido que está siendo editado, ordenado por fecha de producción (más reciente primero)"
+                  : "Content being edited, sorted by production date (most recent first)"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Filter posts with status editing only
+                const editingPosts = posts
+                  .filter(p => p.status === "editing")
+                  .sort((a, b) => {
+                    // Sort by production_date descending
+                    if (!a.production_date && !b.production_date) return 0;
+                    if (!a.production_date) return 1;
+                    if (!b.production_date) return -1;
+                    return new Date(b.production_date) - new Date(a.production_date);
+                  });
+                
+                if (editingPosts.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Film className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>{isEs ? "No hay contenido en edición" : "No content in editing"}</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="space-y-2">
+                    {editingPosts.map(post => (
+                      <div 
+                        key={post.post_id} 
+                        className="p-4 border rounded-lg hover:bg-muted/30 cursor-pointer flex items-center gap-4"
+                        onClick={() => openEditPost(post)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{post.title}</p>
+                          <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                            <span>{getAccountName(post.social_account_id)}</span>
+                            <span>•</span>
+                            <span>{getFormatBadge(post.format)}</span>
+                            {post.production_date && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Video className="w-3 h-3" />
+                                  {new Date(post.production_date + "T00:00:00").toLocaleDateString()}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {post.scheduled_at && (
+                          <div className="text-xs text-muted-foreground text-right">
+                            <span className="block">{isEs ? "Publicar:" : "Publish:"}</span>
+                            {new Date(post.scheduled_at).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Feed Tab */}
         <TabsContent value="feed">
           <FeedTab campaigns={campaigns} pillars={pillars} />
@@ -1774,6 +1978,25 @@ export default function SocialMediaPage() {
                 />
               </div>
             </div>
+
+            {/* Production Date - shown when status is production or editing */}
+            {(postForm.status === "production" || postForm.status === "editing") && (
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Video className="w-4 h-4 text-orange-600" />
+                  {isEs ? "Fecha de Producción" : "Production Date"} *
+                </label>
+                <Input
+                  type="date"
+                  value={postForm.production_date}
+                  onChange={e => setPostForm({...postForm, production_date: e.target.value})}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Fecha en que se grabará/producirá el contenido" : "Date when content will be recorded/produced"}
+                </p>
+              </div>
+            )}
             
             <div className="grid grid-cols-2 gap-4">
               <div>
