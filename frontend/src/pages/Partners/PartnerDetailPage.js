@@ -15,7 +15,7 @@ import {
   Building2, FileText, AlertTriangle, Clock, CheckCircle2,
   Link2, DollarSign, Calendar, TrendingUp, ExternalLink, Instagram, Linkedin,
   Receipt, ShoppingCart, CreditCard, BarChart3, Package, Loader2,
-  Upload, File, Image, X, Eye, Download, Paperclip
+  Upload, File, Image, X, Eye, Download, Paperclip, MessageSquare
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -26,6 +26,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
+import CommentsSection from "../../components/shared/CommentsSection";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -321,6 +322,10 @@ export default function PartnerDetailPage() {
                 </TabsTrigger>
                 <TabsTrigger value="finance">{isEs ? "Finanzas" : "Finance"}</TabsTrigger>
                 <TabsTrigger value="performance">{isEs ? "Rendimiento" : "Performance"}</TabsTrigger>
+                <TabsTrigger value="notes" className="flex items-center gap-1">
+                  <MessageSquare className="w-4 h-4" />
+                  {isEs ? "Notas" : "Notes"}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="details" className="space-y-6 mt-4">
@@ -996,6 +1001,17 @@ export default function PartnerDetailPage() {
                     </CardContent>
                   </Card>
                 )}
+              </TabsContent>
+
+              <TabsContent value="notes" className="mt-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <CommentsSection 
+                      entityType="partner" 
+                      entityId={partnerId} 
+                    />
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>

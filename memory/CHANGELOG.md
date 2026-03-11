@@ -1,5 +1,17 @@
 # Kora ERP - Changelog
 
+## [2026-03-11] - Partner Notes (Comments) Feature
+
+### Added
+- **Notas/Comments tab in Partner Detail Page** - New "Notes" tab in the partner detail page using the reusable `CommentsSection` component.
+  - Supports creating, editing, and deleting notes/comments
+  - @mentions with user autocomplete
+  - Threaded replies
+  - Emoji reactions
+  - File: `/app/frontend/src/pages/Partners/PartnerDetailPage.js`
+
+---
+
 ## [2026-03-11] - P0 Bug Fixes: CRM Owner Display & Inactive Users
 
 ### Fixed
