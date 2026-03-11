@@ -93,13 +93,17 @@ async def enrich_leads_with_owner_names(leads: list, company_id: str) -> list:
     # Fetch user names in one query
     users = await db.users.find(
         {"user_id": {"$in": list(owner_ids)}, "company_id": company_id},
-        {"_id": 0, "user_id": 1, "name": 1, "email": 1}
+        {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}
     ).to_list(100)
     
     # Build lookup dict
     user_map = {}
     for u in users:
         name = u.get("name")
+        if not name:
+            first = u.get("first_name") or ""
+            last = u.get("last_name") or ""
+            name = f"{first} {last}".strip()
         if not name:
             email = u.get("email", "")
             name = email.split("@")[0].replace(".", " ").title() if email else f"User {u.get('user_id', '')[-6:]}"
@@ -300,8 +304,16 @@ async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
     # Get owner name for the client
     owner_name = None
     if lead_owner_id:
-        owner_doc = await db.users.find_one({"user_id": lead_owner_id}, {"_id": 0, "name": 1})
-        owner_name = owner_doc.get("name") if owner_doc else None
+        owner_doc = await db.users.find_one({"user_id": lead_owner_id}, {"_id": 0, "name": 1, "first_name": 1, "last_name": 1, "email": 1})
+        if owner_doc:
+            owner_name = owner_doc.get("name")
+            if not owner_name:
+                first = owner_doc.get("first_name") or ""
+                last = owner_doc.get("last_name") or ""
+                owner_name = f"{first} {last}".strip()
+            if not owner_name:
+                email = owner_doc.get("email", "")
+                owner_name = email.split("@")[0].replace(".", " ").title() if email else None
     
     now = datetime.now(timezone.utc)
     
@@ -979,9 +991,19 @@ async def get_follow_ups(
     if owner_ids_set:
         owners_data = await db.users.find(
             {"user_id": {"$in": list(owner_ids_set)}},
-            {"_id": 0, "user_id": 1, "name": 1}
+            {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}
         ).to_list(100)
-        owner_names_map = {o["user_id"]: o.get("name", o["user_id"]) for o in owners_data}
+        owner_names_map = {}
+        for o in owners_data:
+            name = o.get("name")
+            if not name:
+                first = o.get("first_name") or ""
+                last = o.get("last_name") or ""
+                name = f"{first} {last}".strip()
+            if not name:
+                email = o.get("email", "")
+                name = email.split("@")[0].replace(".", " ").title() if email else o["user_id"]
+            owner_names_map[o["user_id"]] = name
         
         for fu in follow_ups:
             if fu.get("owner_id") and fu["owner_id"] in owner_names_map:
@@ -1732,18 +1754,23 @@ async def get_team_members(user: User = Depends(get_current_user)):
     """Get all active team members for owner assignment dropdown"""
     users = await db.users.find(
         {"company_id": user.company_id, "is_active": {"$ne": False}},
-        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role_id": 1}
+        {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1, "role_id": 1}
     ).to_list(100)
     
-    # Ensure each user has a display name
+    # Ensure each user has a display name: name → first_name + last_name → email fallback
     for u in users:
         if not u.get("name"):
-            # Use email username as fallback
-            email = u.get("email", "")
-            if email and "@" in email:
-                u["name"] = email.split("@")[0].replace(".", " ").title()
+            first = u.get("first_name") or ""
+            last = u.get("last_name") or ""
+            full = f"{first} {last}".strip()
+            if full:
+                u["name"] = full
             else:
-                u["name"] = f"User {u.get('user_id', '')[-6:]}"
+                email = u.get("email", "")
+                if email and "@" in email:
+                    u["name"] = email.split("@")[0].replace(".", " ").title()
+                else:
+                    u["name"] = f"User {u.get('user_id', '')[-6:]}"
     
     return users
 
@@ -2263,9 +2290,19 @@ async def get_owners_sales_report(
     if owner_ids:
         users_data = await db.users.find(
             {"user_id": {"$in": owner_ids}},
-            {"_id": 0, "user_id": 1, "name": 1}
+            {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}
         ).to_list(100)
-        user_names = {u["user_id"]: u.get("name", u["user_id"]) for u in users_data}
+        user_names = {}
+        for u in users_data:
+            name = u.get("name")
+            if not name:
+                first = u.get("first_name") or ""
+                last = u.get("last_name") or ""
+                name = f"{first} {last}".strip()
+            if not name:
+                email = u.get("email", "")
+                name = email.split("@")[0].replace(".", " ").title() if email else u["user_id"]
+            user_names[u["user_id"]] = name
         
         for oid in owner_stats:
             if oid != "__unassigned__":

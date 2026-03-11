@@ -148,7 +148,7 @@ export default function LeadInboundSection() {
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         setUsers(res.data.map(member => ({
           user_id: member.user_id,
-          name: member.name || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
+          name: member.name || [member.first_name, member.last_name].filter(Boolean).join(" ") || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
         })));
         return;
       }
@@ -161,7 +161,7 @@ export default function LeadInboundSection() {
       if (teamRes.data && Array.isArray(teamRes.data) && teamRes.data.length > 0) {
         setUsers(teamRes.data.map(member => ({
           user_id: member.user_id,
-          name: member.name || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
+          name: member.name || [member.first_name, member.last_name].filter(Boolean).join(" ") || member.email?.split('@')[0] || `User ${member.user_id.slice(-6)}`
         })));
       }
     } catch (err) {

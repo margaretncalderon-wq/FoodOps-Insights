@@ -1,5 +1,22 @@
 # Kora ERP - Changelog
 
+## [2026-03-11] - Fix: CRM Owner Name Resolution (Deep Fix)
+
+### Fixed
+- **CRM owner name now uses first_name/last_name as fallback** - When a user's `name` field is empty, the system now checks `first_name + last_name` before falling back to email-derived name.
+  - Fixed in 4 backend locations:
+    - `enrich_leads_with_owner_names` (crm.py) - enriches outreach/inbound leads
+    - `/api/crm/team-members` endpoint - dropdown population
+    - `/api/crm/follow-ups` endpoint - follow-up owner names
+    - Lead-to-client conversion - owner name on new clients
+    - Sales report owner stats
+  - Fixed in 2 frontend locations:
+    - `LeadOutreachSection.js` - fetchUsers name resolution
+    - `LeadInboundSection.js` - fetchUsers name resolution
+  - Name resolution order: `name` → `first_name + last_name` → email fallback
+
+---
+
 ## [2026-03-11] - Partner Notes (Comments) Feature
 
 ### Added
