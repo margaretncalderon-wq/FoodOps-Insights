@@ -15,7 +15,7 @@ from models.partners import (
     CAPABILITY_OPTIONS
 )
 from routers.auth import get_current_user
-from utils.activity_logger import log_activity
+from utils.activity_logger import log_activity, user_info
 
 partners_router = APIRouter(prefix="/partners", tags=["Partners"])
 

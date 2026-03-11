@@ -13,7 +13,7 @@ import { Switch } from "../../components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Badge } from "../../components/ui/badge";
-import { ArrowLeft, Save, X, Plus } from "lucide-react";
+import { ArrowLeft, Save, X, Plus, Image, Upload } from "lucide-react";
 import { Skeleton } from "../../components/ui/skeleton";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -22,6 +22,7 @@ const EMPTY_FORM = {
   partner_name: "",
   legal_name: "",
   display_name: "",
+  logo_url: "",
   partner_type: "vendor",
   status: "potential",
   is_preferred: false,
@@ -264,6 +265,50 @@ export default function PartnerFormPage() {
                       value={form.display_name}
                       onChange={(e) => handleChange("display_name", e.target.value)}
                     />
+                  </div>
+                </div>
+
+                {/* Logo Section */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <Label className="flex items-center gap-2 mb-3">
+                    <Image className="w-4 h-4" />
+                    {isEs ? "Logo del Partner" : "Partner Logo"}
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    {form.logo_url ? (
+                      <div className="relative">
+                        <img 
+                          src={form.logo_url} 
+                          alt="Logo" 
+                          className="w-20 h-20 object-contain rounded-lg border bg-white"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full bg-red-500 text-white hover:bg-red-600"
+                          onClick={() => handleChange("logo_url", "")}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground">
+                        <Image className="w-8 h-8" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <Input
+                        value={form.logo_url}
+                        onChange={(e) => handleChange("logo_url", e.target.value)}
+                        placeholder={isEs ? "URL del logo (https://...)" : "Logo URL (https://...)"}
+                        className="mb-2"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {isEs 
+                          ? "Ingresa la URL del logo para usar en promociones y materiales"
+                          : "Enter logo URL for use in promotions and materials"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 

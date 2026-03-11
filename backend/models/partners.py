@@ -41,6 +41,7 @@ class PartnerType(str, Enum):
     SUPPLIER = "supplier"
     FREELANCER = "freelancer"
     AGENCY = "agency"
+    ASSOCIATION = "association"
     VENUE_PARTNER = "venue_partner"
     STAFFING_PARTNER = "staffing_partner"
     LOGISTICS_PARTNER = "logistics_partner"
@@ -105,6 +106,7 @@ class PartnerCreate(BaseModel):
     partner_name: str
     legal_name: Optional[str] = None
     display_name: Optional[str] = None
+    logo_url: Optional[str] = None  # Logo for promotions
     partner_type: str = "vendor"
     status: str = "potential"
     is_preferred: bool = False
@@ -181,6 +183,7 @@ class PartnerUpdate(BaseModel):
     partner_name: Optional[str] = None
     legal_name: Optional[str] = None
     display_name: Optional[str] = None
+    logo_url: Optional[str] = None  # Logo for promotions
     partner_type: Optional[str] = None
     status: Optional[str] = None
     is_preferred: Optional[bool] = None
@@ -280,6 +283,7 @@ PARTNER_TYPE_OPTIONS = [
     {"value": "supplier", "label": "Supplier", "label_es": "Suplidor"},
     {"value": "freelancer", "label": "Freelancer", "label_es": "Freelancer"},
     {"value": "agency", "label": "Agency", "label_es": "Agencia"},
+    {"value": "association", "label": "Association", "label_es": "Asociación"},
     {"value": "venue_partner", "label": "Venue Partner", "label_es": "Socio de Venue"},
     {"value": "staffing_partner", "label": "Staffing Partner", "label_es": "Socio de Personal"},
     {"value": "logistics_partner", "label": "Logistics Partner", "label_es": "Socio Logístico"},
