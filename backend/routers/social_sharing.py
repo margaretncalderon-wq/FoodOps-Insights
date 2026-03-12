@@ -209,30 +209,65 @@ async def list_social_collaborators(
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization found")
     
-    # Get memberships with social roles - check both company_id and organization_id for compatibility
+    # Get ALL active memberships for the org (not just social-specific roles)
     memberships = await db.memberships.find({
         "$or": [{"company_id": company_id}, {"organization_id": company_id}],
-        "role": {"$in": ["social_viewer", "social_contributor", "admin", "manager", "owner"]}
+        "status": {"$ne": "removed"}
     }).to_list(100)
     
     # Get user details
     user_ids = [m["user_id"] for m in memberships]
-    users = await db.users.find(
-        {"user_id": {"$in": user_ids}},
-        {"user_id": 1, "email": 1, "first_name": 1, "last_name": 1}
+    
+    # Also include team members from the same company (own team)
+    team_users = await db.users.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0, "user_id": 1, "email": 1, "name": 1, "first_name": 1, "last_name": 1, "role": 1}
     ).to_list(100)
+    
+    # Add team users to user_ids for lookup
+    all_user_ids = list(set(user_ids + [u["user_id"] for u in team_users]))
+    
+    users = await db.users.find(
+        {"user_id": {"$in": all_user_ids}},
+        {"_id": 0, "user_id": 1, "email": 1, "name": 1, "first_name": 1, "last_name": 1}
+    ).to_list(200)
     users_map = {u["user_id"]: u for u in users}
     
+    # Build collaborators list - first from memberships
+    seen_user_ids = set()
     collaborators = []
     for m in memberships:
-        u = users_map.get(m["user_id"], {})
+        uid = m["user_id"]
+        if uid in seen_user_ids:
+            continue
+        seen_user_ids.add(uid)
+        u = users_map.get(uid, {})
+        name = u.get("name") or f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or u.get("email")
         collaborators.append({
-            "membership_id": m["membership_id"],
-            "user_id": m["user_id"],
+            "membership_id": m.get("membership_id", ""),
+            "user_id": uid,
             "email": u.get("email"),
-            "name": f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or u.get("email"),
+            "name": name,
             "role": m["role"],
+            "source": "shared",
             "created_at": m.get("created_at")
+        })
+    
+    # Add team members not already in the list
+    for tu in team_users:
+        uid = tu["user_id"]
+        if uid in seen_user_ids:
+            continue
+        seen_user_ids.add(uid)
+        name = tu.get("name") or f"{tu.get('first_name', '')} {tu.get('last_name', '')}".strip() or tu.get("email")
+        collaborators.append({
+            "membership_id": "",
+            "user_id": uid,
+            "email": tu.get("email"),
+            "name": name,
+            "role": tu.get("role", "team"),
+            "source": "team",
+            "created_at": None
         })
     
     # Get pending invitations

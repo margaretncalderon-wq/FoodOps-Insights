@@ -1,5 +1,18 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Fix: Shared Org Users Now Visible in Demand Studio
+
+### Fixed
+- **Users with full org access not showing in Demand Studio Settings** - The collaborators endpoint (`/api/social-sharing/collaborators`) only queried memberships with specific social roles (`social_viewer`, `social_contributor`). Users with org-level roles like `ops`, `editor`, `hr`, `finance` or custom roles were excluded.
+  - Now fetches ALL active memberships (any role, status != removed) PLUS team members from the same company
+  - Improved name resolution: checks `name` → `first_name + last_name` → email fallback
+  - Added `source` field ("shared" or "team") to differentiate membership types
+
+### Removed
+- **"Partners Externos" section** removed from Demand Studio Settings (was incorrectly placed there)
+
+---
+
 ## [2026-03-12] - External Partners visible in Demand Studio Settings
 
 ### Added
