@@ -7,6 +7,9 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Recruitment
 - Settings & Organization Structure
 - Super Admin Panel for managing organizations and demo accounts
+- Demand Studio (Social Media & Marketing)
+- CRM / Client Engagement
+- Partners
 
 ## User Personas
 - **Super Admin**: Platform-level access for managing all organizations
@@ -30,137 +33,88 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Org chart based on reporting hierarchy
 
 ### Business Clarity
-- **Expense Categories & Budgets**: Flexible system with types (Variable, Operating, Investment) and target percentages
-- **Cost Center Budgets**: Automated calculation from linked Expense Categories
+- Expense Categories & Budgets with types (Variable, Operating, Investment)
+- Cost Center Budgets: Automated calculation from linked Expense Categories
 - Invoices, Payments, Receivables, Payables management
 - Executive Dashboard with Profit Signals
 - Stripe integration for payments
 
 ### Super Admin Panel
-- **Demo Accounts Management**: Create, edit, extend trial, convert to paid
-- **Available Modules**: 
-  - module_event_orchestration (Program Orchestration)
-  - module_culinary_intelligence (Culinary Intelligence)
-  - module_operations_supplies (Resource Management)
-  - module_venues (Venues & Locations)
-  - module_demand_studio (Demand Generation)
-  - module_recruitment (Recruitment)
-  - module_kora_comms (Kora Comms)
+- Demo Accounts Management: Create, edit, extend trial, convert to paid
+- Module Filtering for Demo Accounts
+- Pricing Configuration
+- Kora Core Configuration
 
-### Recruitment
-- Job Postings serving as master source for Job Roles
+### Demand Studio
+- Social media post management (create, edit, schedule, publish)
+- Content Pillars, Audiences (with granular Sub-Audiences), Segments
+- Campaign management with tracking codes
+- Social metrics (manual + YouTube API integration)
+- Ideas bank with conversion to posts
+- Calendar and Queue views
+- Collaboration features (mentions, comments, shared organizations)
 
 ## Tech Stack
 - **Frontend**: React with Shadcn/UI components
 - **Backend**: FastAPI (Python)
 - **Database**: MongoDB
 - **Payments**: Stripe integration
-- **Auth**: JWT-based authentication
-
-## Pricing Structure (Updated March 9, 2026)
-
-### Kora Core - $69/month · $59/month annually
-Includes:
-- System Pulse
-- Client Engagement
-- Execution Hub
-- Partners
-- Business Clarity
-- 1 Location
-
-### Bundles - $39/month · $33/month annually
-User selects ONE bundle based on industry:
-
-| Bundle | Modules Included |
-|--------|------------------|
-| Event Suite | Event Orchestration + Venues + Resource Management |
-| Program Suite | Program Orchestration + Venues + Resource Management |
-| Agency Suite | Demand Generation + Program Orchestration + Resource Management |
-
-### Add-ons (Individual Purchase)
-| Module | Monthly | Annual |
-|--------|---------|--------|
-| People Ops | $49 | $41 |
-| Demand Generation | $39 | $33 |
-| Event Orchestration | $29 | $24 |
-| Program Orchestration | $29 | $24 |
-| Culinary Intelligence | $29 | $24 |
-| Venues | $19 | $16 |
-| Resource Management | $19 | $16 |
-
-### Bundle Logic
-- If module is in active bundle, hide from purchasable add-ons
-- Annual = ~15% discount
+- **Auth**: JWT-based authentication (cookie + localStorage)
 
 ## What's Been Implemented
 
-### Session: March 9, 2026
+### Session: March 12, 2026
 
 #### Completed
-1. **CC Budgets Detail Panel**: Verified working - shows YTD Budget, Actual, Variance, Monthly Breakdown
-2. **Demo Accounts Edit Feature**: 
-   - Added GET endpoint for account details
-   - Added PUT endpoint for editing accounts
-   - Added Edit modal in frontend with module selection
-3. **Module Filtering for Demo Accounts** (NEW):
-   - Demo/influencer/partner accounts now only see modules assigned by admin
-   - Fixed in `backend/routers/addons.py` - checks `account_type` from company
-4. **Module List Sync**: 
-   - Updated frontend AVAILABLE_MODULES to match backend
-   - Added `module_recruitment` to backend MODULE_ADDONS
-   - Removed `module_kora_comms` (part of CRM)
-5. **Pricing Configuration in Super Admin** (NEW):
-   - GET/PUT `/api/super-admin/pricing` endpoints
-   - GET `/api/super-admin/pricing/history` endpoint
-   - GET `/api/super-admin/modules/available` endpoint
-   - UI in SuperAdminSettings with all 6 modules
-6. **Kora Core Configuration** (NEW):
-   - GET/PUT `/api/super-admin/kora-core-config` endpoints
-   - Dynamic core module configuration in Super Admin Settings
-   - Can include/exclude modules from base subscription
-   - Add-on modules can be included in Core (free for users)
-7. **Module Creation Fix**: Modules now create without requiring addon_definitions
+1. **Sub-Audiences in Metrics/Insights (P0)**:
+   - Added `sub_audience_id` field to `SocialPostCreate` and `SocialPost` models
+   - Updated POST, PUT, and DUPLICATE endpoints for social posts to handle `sub_audience_id`
+   - Updated `/api/demand-studio/social/insights` endpoint to return `byAudience` and `bySubAudience` aggregations
+   - Added sub-audience selector in post creation/edit dialog (dependent on selected audience)
+   - Added "Por Audiencia" and "Por Sub-Audiencia" insight cards in Overview tab
+   - Added "Sub-Aud." column in Queue table
+   - All tests passed (13/13 backend, 100% frontend)
 
-#### Available Modules (6 add-ons + 7 core)
-**Core Modules:**
-- system_pulse, client_engagement, execution_hub, partners, business_clarity, people_ops, settings
+### Previous Sessions
 
-**Add-on Modules:**
-- `module_event_orchestration` - Program Orchestration
-- `module_culinary_intelligence` - Culinary Intelligence  
-- `module_operations_supplies` - Resource Management
-- `module_venues` - Venues & Locations
-- `module_demand_studio` - Demand Generation
-- `module_recruitment` - Recruitment
-
-#### Previously Completed
+#### Completed Previously
+- CC Budgets Detail Panel
+- Demo Accounts Edit Feature
+- Module Filtering for Demo Accounts
+- Pricing Configuration in Super Admin
+- Kora Core Configuration
 - Bug Fix (Org Structure): Resolved critical bug with blank screen
-- Budget Logic Refactoring: Consolidated and automated CC budgets
-- Expense Management Enhancement: Flexible categories with types
-- People Ops Enhancement: Dropdowns and Banking Info
-- Cost Centers Safe Delete
+- Bug Fix (User Visibility): Fixed inactive users appearing in CRM and Demand Studio
+- Bug Fix (Collaboration): Fixed shared organization context issues
+- Bug Fix (CRM Name Display): Fixed email-derived name display
+- Bug Fix (Demand Studio "Ideas"): Fixed Ideas/Queue tab content
+- Feature (Partners): Notes tab with CommentsSection
+- Feature (Demand Studio): Sub-Audiences, Segment-Pillar linking, clickable notifications, reordered buttons
 
 ## Known Issues
 
+### P0 - Critical
+1. **"Deal Code" input on registration page**: NOT STARTED
+   - Location: `frontend/src/pages/onboarding/RegisterPage.js`
+
 ### P1 - High Priority
 1. **Unstable User Sessions**: Random logouts disrupting workflows
-   - Status: NOT STARTED
+   - Status: NOT STARTED (recurring 6+ times)
    - Location: `backend/routers/auth.py`
-   - Recurrence: 3+ times in previous forks
 
-### P1 - Data Migration
+### P2 - Data Migration
 1. **Employee department_id backfill**: Script needed
    - Status: NOT STARTED
-
-## Backlog / Future Tasks
 
 ### P2 - Improvements
 - Enhance Business Clarity reports with Department grouping/filtering
 
+## Backlog / Future Tasks
+
 ### P3 - Integrations
 - Staffdo.com API for recruitment
 - Social Media APIs (Meta, TikTok)
-- Email Marketing Provider
+- Email Marketing Provider (Mailchimp/Brevo)
 - Full UTM tracking
 
 ### P4 - Features
@@ -173,11 +127,11 @@ User selects ONE bundle based on industry:
 - **Password**: Evoque2024!
 
 ## Key Files Reference
-- `backend/server.py` - Super admin endpoints (lines ~16500-17000)
-- `backend/routers/business_clarity.py` - Financial logic
+- `backend/models/demand_studio.py` - Pydantic models (SocialPostCreate, Audience, SubAudience)
+- `backend/routers/demand_studio.py` - All Demand Studio endpoints
 - `backend/routers/auth.py` - Authentication (investigate for session issues)
-- `frontend/src/pages/super-admin/DemoAccountsPage.js` - Demo accounts UI
-- `frontend/src/components/business-clarity/CostCenterBudgetsSection.js` - CC Budgets UI
+- `frontend/src/pages/demand-studio/SocialMediaPage.js` - Main social media page
+- `frontend/src/components/demand-studio/SocialMetricsSection.js` - Social metrics component
 
 ## User Language Preference
 Spanish (es) - All user communication should be in Spanish
