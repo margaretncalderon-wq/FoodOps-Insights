@@ -433,11 +433,12 @@ export default function SocialMediaPage() {
     if (pillarSaving) return; // Prevent double-click
     setPillarSaving(true);
     try {
+      const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
       if (editingPillar) {
-        await axios.put(`${API}/api/demand-studio/social/pillars/${editingPillar.pillar_id}`, pillarForm, { withCredentials: true });
+        await axios.put(`${API}/api/demand-studio/social/pillars/${editingPillar.pillar_id}${orgParam}`, pillarForm, { withCredentials: true });
         toast.success(isEs ? "Pilar actualizado" : "Pillar updated");
       } else {
-        await axios.post(`${API}/api/demand-studio/social/pillars`, pillarForm, { withCredentials: true });
+        await axios.post(`${API}/api/demand-studio/social/pillars${orgParam}`, pillarForm, { withCredentials: true });
         toast.success(isEs ? "Pilar creado" : "Pillar created");
       }
       setPillarDialogOpen(false);
@@ -491,11 +492,12 @@ export default function SocialMediaPage() {
     if (audienceSaving) return;
     setAudienceSaving(true);
     try {
+      const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
       if (editingAudience) {
-        await axios.put(`${API}/api/demand-studio/social/audiences/${editingAudience.audience_id}`, audienceForm, { withCredentials: true });
+        await axios.put(`${API}/api/demand-studio/social/audiences/${editingAudience.audience_id}${orgParam}`, audienceForm, { withCredentials: true });
         toast.success(isEs ? "Audiencia actualizada" : "Audience updated");
       } else {
-        await axios.post(`${API}/api/demand-studio/social/audiences`, audienceForm, { withCredentials: true });
+        await axios.post(`${API}/api/demand-studio/social/audiences${orgParam}`, audienceForm, { withCredentials: true });
         toast.success(isEs ? "Audiencia creada" : "Audience created");
       }
       setAudienceDialogOpen(false);
@@ -549,11 +551,12 @@ export default function SocialMediaPage() {
     if (segmentSaving) return;
     setSegmentSaving(true);
     try {
+      const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
       if (editingSegment) {
-        await axios.put(`${API}/api/demand-studio/social/segments/${editingSegment.segment_id}`, segmentForm, { withCredentials: true });
+        await axios.put(`${API}/api/demand-studio/social/segments/${editingSegment.segment_id}${orgParam}`, segmentForm, { withCredentials: true });
         toast.success(isEs ? "Segmento actualizado" : "Segment updated");
       } else {
-        await axios.post(`${API}/api/demand-studio/social/segments`, segmentForm, { withCredentials: true });
+        await axios.post(`${API}/api/demand-studio/social/segments${orgParam}`, segmentForm, { withCredentials: true });
         toast.success(isEs ? "Segmento creado" : "Segment created");
       }
       setSegmentDialogOpen(false);

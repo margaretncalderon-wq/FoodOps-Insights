@@ -1,5 +1,5 @@
 # routers/demand_studio.py - Demand Studio routes
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -2538,9 +2538,9 @@ async def get_content_pillars(org_id: Optional[str] = None, user: User = Depends
     return pillars
 
 @demand_studio_router.post("/social/pillars")
-async def create_content_pillar(data: ContentPillarCreate, user: User = Depends(get_current_user)):
+async def create_content_pillar(data: ContentPillarCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Create a content pillar"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -2570,9 +2570,9 @@ async def delete_content_pillar(pillar_id: str, user: User = Depends(get_current
     return {"success": True}
 
 @demand_studio_router.put("/social/pillars/{pillar_id}")
-async def update_content_pillar(pillar_id: str, data: ContentPillarCreate, user: User = Depends(get_current_user)):
+async def update_content_pillar(pillar_id: str, data: ContentPillarCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Update a content pillar"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -2609,9 +2609,9 @@ async def get_audiences(org_id: Optional[str] = None, user: User = Depends(get_c
     return audiences
 
 @demand_studio_router.post("/social/audiences")
-async def create_audience(data: AudienceCreate, user: User = Depends(get_current_user)):
+async def create_audience(data: AudienceCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Create an audience"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -2630,9 +2630,9 @@ async def create_audience(data: AudienceCreate, user: User = Depends(get_current
     return audience
 
 @demand_studio_router.put("/social/audiences/{audience_id}")
-async def update_audience(audience_id: str, data: AudienceCreate, user: User = Depends(get_current_user)):
+async def update_audience(audience_id: str, data: AudienceCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Update an audience"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -2680,9 +2680,9 @@ async def get_segments(org_id: Optional[str] = None, user: User = Depends(get_cu
     return segments
 
 @demand_studio_router.post("/social/segments")
-async def create_segment(data: SegmentCreate, user: User = Depends(get_current_user)):
+async def create_segment(data: SegmentCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Create a segment"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -2702,9 +2702,9 @@ async def create_segment(data: SegmentCreate, user: User = Depends(get_current_u
     return segment
 
 @demand_studio_router.put("/social/segments/{segment_id}")
-async def update_segment(segment_id: str, data: SegmentCreate, user: User = Depends(get_current_user)):
+async def update_segment(segment_id: str, data: SegmentCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Update a segment"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
