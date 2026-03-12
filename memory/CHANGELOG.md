@@ -1,5 +1,20 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Demand Studio: Eye Button + Notification Clicks
+
+### Added
+- **Eye (view) button in Queue actions** - New blue Eye icon as first action button in the Queue tab. Opens the post dialog for viewing.
+- **Reordered action buttons**: Eye → Copy → Delete → Check (listo last, to avoid accidental status changes)
+
+### Fixed
+- **Mention notifications now clickable** - Notifications from @mentions now have a `link` field that navigates to the correct page:
+  - `social_post/idea/note` → `/demand-studio`
+  - `partner` → `/partners/{entity_id}`
+- **Notification field alignment** - Fixed mention notifications to use `read` (not `is_read`) and `notification_type` (not `type`), aligning with the notification system schema.
+- Files: `SocialMediaPage.js`, `comments.py`, `NotificationBell.js`
+
+---
+
 ## [2026-03-11] - Fix: CRM Owner Name Resolution (Deep Fix)
 
 ### Fixed
