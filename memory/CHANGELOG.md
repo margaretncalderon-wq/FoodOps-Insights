@@ -1,5 +1,14 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - External Partners visible in Demand Studio Settings
+
+### Added
+- **External Partners section in Demand Studio Settings** - Shows agencies, contractors, freelancers and associations from the Partners module directly in the Social Media Settings tab.
+- Partners displayed with name, type badge, status badge, and link to their detail page.
+- Filtered to only show relevant partner types (agency, contractor, freelancer, asociacion).
+
+---
+
 ## [2026-03-12] - Segments: Pillar Association
 
 ### Added

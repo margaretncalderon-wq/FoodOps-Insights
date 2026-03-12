@@ -103,6 +103,7 @@ export default function SocialMediaPage() {
   const [campaigns, setCampaigns] = useState([]);
   const [insights, setInsights] = useState({});
   const [ideas, setIdeas] = useState([]);
+  const [externalPartners, setExternalPartners] = useState([]);
   
   // Filters
   const [filterAccount, setFilterAccount] = useState("all");
@@ -293,7 +294,7 @@ export default function SocialMediaPage() {
       const queryString = params.toString() ? `?${params.toString()}` : "";
       const andParams = params.toString() ? `&${params.toString()}` : "";
       
-      const [statsRes, postsRes, accountsRes, pillarsRes, audiencesRes, segmentsRes, campaignsRes, insightsRes, ideasRes] = await Promise.all([
+      const [statsRes, postsRes, accountsRes, pillarsRes, audiencesRes, segmentsRes, campaignsRes, insightsRes, ideasRes, partnersRes] = await Promise.all([
         axios.get(`${API}/api/demand-studio/social/stats${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/posts${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${andParams}`, { withCredentials: true }),
@@ -303,6 +304,7 @@ export default function SocialMediaPage() {
         axios.get(`${API}/api/demand-studio/campaigns${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/insights${queryString}`, { withCredentials: true }),
         axios.get(`${API}/api/demand-studio/social/ideas${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/partners`, { withCredentials: true }).catch(() => ({ data: { partners: [] } })),
       ]);
       
       setStats(statsRes.data);
@@ -314,6 +316,9 @@ export default function SocialMediaPage() {
       setCampaigns(campaignsRes.data);
       setInsights(insightsRes.data);
       setIdeas(ideasRes.data);
+      setExternalPartners((partnersRes.data?.partners || partnersRes.data || []).filter(p => 
+        ["agency", "contractor", "freelancer", "asociacion"].includes(p.partner_type)
+      ));
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -1936,6 +1941,56 @@ export default function SocialMediaPage() {
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* External Partners from Partners Module */}
+          <div className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Building2 className="w-5 h-5" />
+                      {isEs ? "Partners Externos" : "External Partners"}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs ? "Agencias, freelancers y contratistas de tu módulo de Partners" : "Agencies, freelancers and contractors from your Partners module"}
+                    </p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {externalPartners.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {isEs ? "No hay partners externos registrados. Agrégalos desde el módulo de Partners." : "No external partners registered. Add them from the Partners module."}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {externalPartners.map(partner => (
+                      <div key={partner.partner_id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-sm font-medium">{partner.partner_name?.[0]?.toUpperCase() || "P"}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{partner.partner_name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className="text-[10px]">{partner.partner_type}</Badge>
+                              <Badge variant={partner.status === "preferred" ? "default" : "secondary"} className="text-[10px]">
+                                {partner.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => window.location.href = `/partners/${partner.partner_id}`}>
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
