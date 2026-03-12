@@ -135,6 +135,10 @@ export default function SocialMediaPage() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [pillarDialogOpen, setPillarDialogOpen] = useState(false);
+  const [postSaving, setPostSaving] = useState(false);
+  const [accountSaving, setAccountSaving] = useState(false);
+  const [ideaSaving, setIdeaSaving] = useState(false);
+  const [convertingSaving, setConvertingSaving] = useState(false);
   const [pillarSaving, setPillarSaving] = useState(false);
   const [audienceDialogOpen, setAudienceDialogOpen] = useState(false);
   const [audienceSaving, setAudienceSaving] = useState(false);
@@ -368,6 +372,7 @@ export default function SocialMediaPage() {
   };
 
   const handleSavePost = async () => {
+    if (postSaving) return;
     // Validation for production/editing status
     if ((postForm.status === "production" || postForm.status === "editing") && !postForm.production_date) {
       toast.error(isEs ? "Fecha de producción requerida para este estado" : "Production date required for this status");
@@ -379,6 +384,7 @@ export default function SocialMediaPage() {
       return;
     }
     
+    setPostSaving(true);
     try {
       const payload = { ...postForm };
       if (!payload.campaign_id) delete payload.campaign_id;
@@ -399,6 +405,8 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error saving post:", error);
+    } finally {
+      setPostSaving(false);
     }
   };
 
@@ -482,6 +490,8 @@ export default function SocialMediaPage() {
   };
 
   const handleSaveAccount = async () => {
+    if (accountSaving) return;
+    setAccountSaving(true);
     try {
       await axios.post(`${API}/api/demand-studio/social/accounts`, accountForm, { withCredentials: true });
       setAccountDialogOpen(false);
@@ -489,6 +499,8 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error saving account:", error);
+    } finally {
+      setAccountSaving(false);
     }
   };
 
@@ -672,6 +684,8 @@ export default function SocialMediaPage() {
 
   // Ideas handlers
   const handleSaveIdea = async () => {
+    if (ideaSaving) return;
+    setIdeaSaving(true);
     try {
       const payload = { ...ideaForm };
       if (!payload.pillar_id) delete payload.pillar_id;
@@ -687,6 +701,8 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error saving idea:", error);
+    } finally {
+      setIdeaSaving(false);
     }
   };
 
@@ -701,7 +717,8 @@ export default function SocialMediaPage() {
   };
 
   const handleConvertIdea = async (accountId) => {
-    if (!ideaToConvert || !accountId) return;
+    if (!ideaToConvert || !accountId || convertingSaving) return;
+    setConvertingSaving(true);
     try {
       await axios.post(`${API}/api/demand-studio/social/ideas/${ideaToConvert.idea_id}/convert-to-post?social_account_id=${accountId}`, {}, { withCredentials: true });
       setConvertIdeaDialogOpen(false);
@@ -709,6 +726,8 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error converting idea:", error);
+    } finally {
+      setConvertingSaving(false);
     }
   };
 
@@ -2433,10 +2452,11 @@ export default function SocialMediaPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setPostDialogOpen(false); setEditingPost(null); }}>
+            <Button variant="outline" onClick={() => { setPostDialogOpen(false); setEditingPost(null); }} disabled={postSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSavePost} disabled={!postForm.social_account_id || !postForm.title}>
+            <Button onClick={handleSavePost} disabled={!postForm.social_account_id || !postForm.title || postSaving}>
+              {postSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -2473,10 +2493,11 @@ export default function SocialMediaPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAccountDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setAccountDialogOpen(false)} disabled={accountSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSaveAccount} disabled={!accountForm.handle}>
+            <Button onClick={handleSaveAccount} disabled={!accountForm.handle || accountSaving}>
+              {accountSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -2875,10 +2896,11 @@ export default function SocialMediaPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIdeaDialogOpen(false); setEditingIdea(null); }}>
+            <Button variant="outline" onClick={() => { setIdeaDialogOpen(false); setEditingIdea(null); }} disabled={ideaSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSaveIdea} disabled={!ideaForm.title}>
+            <Button onClick={handleSaveIdea} disabled={!ideaForm.title || ideaSaving}>
+              {ideaSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
