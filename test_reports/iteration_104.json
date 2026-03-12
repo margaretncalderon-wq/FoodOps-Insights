@@ -1,0 +1,98 @@
+{
+  "summary": "Completed testing of sub-audience integration features for Demand Studio. All 13 backend tests passed (100%). Frontend verification confirmed: 1) Overview tab shows 'Por Audiencia' and 'Por Sub-Audiencia' insight cards with data-testid attributes, 2) Post creation dialog has Audience and Sub-Audience selectors, 3) Queue table includes 'Sub-Aud.' column. All API endpoints working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sub_audience_integration.py",
+    "/app/test_reports/pytest/pytest_sub_audience.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend models (demand_studio.py:446-490): SocialPostCreate and SocialPost models correctly include sub_audience_id field",
+    "Backend insights endpoint (demand_studio.py:3329-3370): get_social_insights correctly aggregates byAudience and bySubAudience data with proper enrichment",
+    "Backend duplicate endpoint (demand_studio.py:3085-3086): duplicate_social_post correctly copies audience_id, sub_audience_id, and segment_id",
+    "Frontend SocialMediaPage.js: postForm state includes sub_audience_id, openEditPost correctly loads sub_audience_id, Overview tab shows insight cards with proper data-testid attributes"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sub_audience_integration.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 passed)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created test audiences with sub_audiences and test posts with sub_audience_id for verification",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sub-audience integration fully implemented and tested. API endpoints for CRUD operations on posts with sub_audience_id work correctly. Insights API returns byAudience and bySubAudience arrays. Frontend displays audience insights and has sub-audience selector in post form.",
+  "tested_features": {
+    "feature_1_post_create_with_sub_audience": {
+      "status": "PASS",
+      "endpoint": "POST /api/demand-studio/social/posts",
+      "verified": "sub_audience_id field accepted and persisted correctly"
+    },
+    "feature_2_post_update_sub_audience": {
+      "status": "PASS",
+      "endpoint": "PUT /api/demand-studio/social/posts/{post_id}",
+      "verified": "sub_audience_id can be updated"
+    },
+    "feature_3_insights_by_audience": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/insights",
+      "verified": "byAudience array returned with audience_id, name, count"
+    },
+    "feature_4_insights_by_sub_audience": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/insights",
+      "verified": "bySubAudience array returned with audience_id, audience_name, sub_audience_id, sub_audience_name, count"
+    },
+    "feature_5_duplicate_copies_audience_fields": {
+      "status": "PASS",
+      "endpoint": "POST /api/demand-studio/social/posts/{post_id}/duplicate",
+      "verified": "audience_id, sub_audience_id, segment_id copied to duplicated post"
+    },
+    "feature_6_overview_audience_cards": {
+      "status": "PASS",
+      "component": "SocialMediaPage Overview tab",
+      "verified": "'Por Audiencia' and 'Por Sub-Audiencia' cards visible with data-testid attributes",
+      "data_testids": ["insights-by-audience", "insights-by-sub-audience"]
+    },
+    "feature_7_post_form_sub_audience_selector": {
+      "status": "PASS",
+      "component": "Post creation dialog",
+      "verified": "Audience and Sub-Audience dropdown selectors present in form"
+    },
+    "feature_8_queue_table_sub_aud_column": {
+      "status": "PASS",
+      "component": "Queue tab table",
+      "verified": "Sub-Aud. column present in table headers",
+      "headers_found": ["Date", "Account", "Format", "Status", "Title", "Pillar", "Audience", "Sub-Aud.", "Segment", "Actions"]
+    }
+  },
+  "api_verification": {
+    "audiences_crud": {
+      "GET /api/demand-studio/social/audiences": "200 OK - Returns audiences with sub_audiences array",
+      "POST /api/demand-studio/social/audiences": "200 OK - Creates audience with sub_audiences",
+      "PUT /api/demand-studio/social/audiences/{id}": "200 OK - Updates audience including sub_audiences"
+    },
+    "posts_with_sub_audience": {
+      "POST /api/demand-studio/social/posts": "200 OK - Accepts sub_audience_id",
+      "PUT /api/demand-studio/social/posts/{id}": "200 OK - Updates sub_audience_id",
+      "GET /api/demand-studio/social/posts/{id}": "200 OK - Returns sub_audience_id",
+      "POST /api/demand-studio/social/posts/{id}/duplicate": "200 OK - Copies audience/sub_audience fields"
+    },
+    "insights": {
+      "GET /api/demand-studio/social/insights": "200 OK - Returns byAudience and bySubAudience arrays"
+    }
+  }
+}

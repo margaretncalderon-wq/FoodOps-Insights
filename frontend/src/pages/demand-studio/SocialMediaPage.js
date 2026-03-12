@@ -145,6 +145,7 @@ export default function SocialMediaPage() {
     campaign_id: "",
     pillar_id: "",
     audience_id: "",
+    sub_audience_id: "",
     segment_id: "",
     format: "post",
     status: "idea",
@@ -374,6 +375,7 @@ export default function SocialMediaPage() {
       if (!payload.campaign_id) delete payload.campaign_id;
       if (!payload.pillar_id) delete payload.pillar_id;
       if (!payload.audience_id) delete payload.audience_id;
+      if (!payload.sub_audience_id) delete payload.sub_audience_id;
       if (!payload.segment_id) delete payload.segment_id;
       if (!payload.production_date) delete payload.production_date;
       
@@ -693,6 +695,7 @@ export default function SocialMediaPage() {
       campaign_id: post.campaign_id || "",
       pillar_id: post.pillar_id || "",
       audience_id: post.audience_id || "",
+      sub_audience_id: post.sub_audience_id || "",
       segment_id: post.segment_id || "",
       format: post.format,
       status: post.status,
@@ -714,6 +717,7 @@ export default function SocialMediaPage() {
       campaign_id: "",
       pillar_id: "",
       audience_id: "",
+      sub_audience_id: "",
       segment_id: "",
       format: "post",
       status: "idea",
@@ -1149,6 +1153,52 @@ export default function SocialMediaPage() {
             </Card>
           </div>
 
+          {/* Audience & Sub-Audience Insights */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card data-testid="insights-by-audience">
+              <CardHeader>
+                <CardTitle className="text-base">{isEs ? "Por Audiencia" : "By Audience"}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {insights.byAudience?.length > 0 ? (
+                  <div className="space-y-2">
+                    {insights.byAudience.map(item => (
+                      <div key={item.audience_id} className="flex justify-between items-center">
+                        <span className="text-sm">{item.name}</span>
+                        <Badge variant="secondary">{item.count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{isEs ? "Sin datos - asigna audiencias a tus posts" : "No data - assign audiences to your posts"}</p>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card data-testid="insights-by-sub-audience">
+              <CardHeader>
+                <CardTitle className="text-base">{isEs ? "Por Sub-Audiencia" : "By Sub-Audience"}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {insights.bySubAudience?.length > 0 ? (
+                  <div className="space-y-2">
+                    {insights.bySubAudience.map(item => (
+                      <div key={`${item.audience_id}-${item.sub_audience_id}`} className="flex justify-between items-center">
+                        <div className="text-sm">
+                          <span className="font-medium">{item.sub_audience_name}</span>
+                          <span className="text-xs text-muted-foreground ml-1.5">({item.audience_name})</span>
+                        </div>
+                        <Badge variant="secondary">{item.count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{isEs ? "Sin datos - asigna sub-audiencias a tus posts" : "No data - assign sub-audiences to your posts"}</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Activity Feed - Recent Changes */}
           <div className="mt-6">
             <ActivityFeed accountId={selectedAccountId} limit={8} />
@@ -1435,6 +1485,7 @@ export default function SocialMediaPage() {
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Título" : "Title"}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Pilar" : "Pillar"}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Audiencia" : "Audience"}</th>
+                      <th className="text-left p-3 text-sm font-medium">{isEs ? "Sub-Aud." : "Sub-Aud."}</th>
                       <th className="text-left p-3 text-sm font-medium">{isEs ? "Segmento" : "Segment"}</th>
                       <th className="text-right p-3 text-sm font-medium">{isEs ? "Acciones" : "Actions"}</th>
                     </tr>
@@ -1442,7 +1493,7 @@ export default function SocialMediaPage() {
                   <tbody>
                     {filteredPosts.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <td colSpan={10} className="text-center py-8 text-muted-foreground">
                           {isEs ? "No hay posts" : "No posts"}
                         </td>
                       </tr>
@@ -1461,6 +1512,14 @@ export default function SocialMediaPage() {
                           </td>
                           <td className="p-3 text-sm">
                             {post.audience_id ? audiences.find(a => a.audience_id === post.audience_id)?.name || "-" : "-"}
+                          </td>
+                          <td className="p-3 text-sm text-xs">
+                            {(() => {
+                              if (!post.sub_audience_id || !post.audience_id) return "-";
+                              const aud = audiences.find(a => a.audience_id === post.audience_id);
+                              const sub = aud?.sub_audiences?.find(sa => sa.sub_id === post.sub_audience_id);
+                              return sub?.name || "-";
+                            })()}
                           </td>
                           <td className="p-3 text-sm">
                             {post.segment_id ? segments.find(s => s.segment_id === post.segment_id)?.name || "-" : "-"}
@@ -2107,7 +2166,7 @@ export default function SocialMediaPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">{isEs ? "Audiencia" : "Audience"}</label>
-                <Select value={postForm.audience_id || "none"} onValueChange={v => setPostForm({...postForm, audience_id: v === "none" ? "" : v})}>
+                <Select value={postForm.audience_id || "none"} onValueChange={v => setPostForm({...postForm, audience_id: v === "none" ? "" : v, sub_audience_id: ""})}>
                   <SelectTrigger>
                     <SelectValue placeholder={isEs ? "Sin audiencia" : "No audience"} />
                   </SelectTrigger>
@@ -2127,26 +2186,44 @@ export default function SocialMediaPage() {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium">{isEs ? "Segmento" : "Segment"}</label>
-                <Select value={postForm.segment_id || "none"} onValueChange={v => setPostForm({...postForm, segment_id: v === "none" ? "" : v})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isEs ? "Sin segmento" : "No segment"} />
+                <label className="text-sm font-medium">{isEs ? "Sub-Audiencia" : "Sub-Audience"}</label>
+                <Select 
+                  value={postForm.sub_audience_id || "none"} 
+                  onValueChange={v => setPostForm({...postForm, sub_audience_id: v === "none" ? "" : v})}
+                  disabled={!postForm.audience_id}
+                >
+                  <SelectTrigger data-testid="sub-audience-selector">
+                    <SelectValue placeholder={isEs ? "Sin sub-audiencia" : "No sub-audience"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">{isEs ? "Sin segmento" : "No segment"}</SelectItem>
-                    {segments
-                      .filter(s => {
-                        const selectedAccount = accounts.find(acc => acc.account_id === postForm.social_account_id);
-                        const platform = selectedAccount?.platform;
-                        return !s.platforms || s.platforms.length === 0 || (platform && s.platforms.includes(platform));
-                      })
-                      .map(s => (
-                        <SelectItem key={s.segment_id} value={s.segment_id}>{s.name}</SelectItem>
-                      ))
-                    }
+                    <SelectItem value="none">{isEs ? "Sin sub-audiencia" : "No sub-audience"}</SelectItem>
+                    {(audiences.find(a => a.audience_id === postForm.audience_id)?.sub_audiences || []).map(sa => (
+                      <SelectItem key={sa.sub_id} value={sa.sub_id}>{sa.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Segmento" : "Segment"}</label>
+              <Select value={postForm.segment_id || "none"} onValueChange={v => setPostForm({...postForm, segment_id: v === "none" ? "" : v})}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Sin segmento" : "No segment"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin segmento" : "No segment"}</SelectItem>
+                  {segments
+                    .filter(s => {
+                      const selectedAccount = accounts.find(acc => acc.account_id === postForm.social_account_id);
+                      const platform = selectedAccount?.platform;
+                      return !s.platforms || s.platforms.length === 0 || (platform && s.platforms.includes(platform));
+                    })
+                    .map(s => (
+                      <SelectItem key={s.segment_id} value={s.segment_id}>{s.name}</SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
             </div>
             
             <div>

@@ -2808,6 +2808,7 @@ async def create_social_post(data: SocialPostCreate, user: User = Depends(get_cu
         "campaign_id": data.campaign_id,
         "pillar_id": data.pillar_id,
         "audience_id": data.audience_id,
+        "sub_audience_id": data.sub_audience_id,
         "segment_id": data.segment_id,
         "format": data.format,
         "status": data.status,
@@ -2904,6 +2905,7 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
         "campaign_id": data.campaign_id,
         "pillar_id": data.pillar_id,
         "audience_id": data.audience_id,
+        "sub_audience_id": data.sub_audience_id,
         "segment_id": data.segment_id,
         "format": data.format,
         "status": data.status,
@@ -3080,6 +3082,9 @@ async def duplicate_social_post(post_id: str, user: User = Depends(get_current_u
         "social_account_id": original["social_account_id"],
         "campaign_id": original.get("campaign_id"),
         "pillar_id": original.get("pillar_id"),
+        "audience_id": original.get("audience_id"),
+        "sub_audience_id": original.get("sub_audience_id"),
+        "segment_id": original.get("segment_id"),
         "format": original["format"],
         "status": "idea",
         "title": f"{original['title']} (copy)",
@@ -3304,6 +3309,55 @@ async def get_social_insights(
         {"$sort": {"count": -1}}
     ]).to_list(20)
     
+    # Posts by audience
+    by_audience_raw = await db.social_posts.aggregate([
+        {"$match": {**base_match, "audience_id": {"$ne": None}}},
+        {"$group": {"_id": "$audience_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]).to_list(20)
+    
+    # Enrich audience names
+    by_audience = []
+    for item in by_audience_raw:
+        audience = await db.audiences.find_one({"audience_id": item["_id"]}, {"name": 1, "sub_audiences": 1})
+        by_audience.append({
+            "audience_id": item["_id"],
+            "name": audience.get("name", "Unknown") if audience else "Unknown",
+            "count": item["count"]
+        })
+    
+    # Posts by sub_audience
+    by_sub_audience_raw = await db.social_posts.aggregate([
+        {"$match": {**base_match, "sub_audience_id": {"$ne": None}}},
+        {"$group": {
+            "_id": {"audience_id": "$audience_id", "sub_audience_id": "$sub_audience_id"},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"count": -1}}
+    ]).to_list(50)
+    
+    # Enrich sub-audience names
+    by_sub_audience = []
+    for item in by_sub_audience_raw:
+        aud_id = item["_id"].get("audience_id")
+        sub_id = item["_id"].get("sub_audience_id")
+        audience = await db.audiences.find_one({"audience_id": aud_id}, {"name": 1, "sub_audiences": 1})
+        sub_name = "Unknown"
+        aud_name = "Unknown"
+        if audience:
+            aud_name = audience.get("name", "Unknown")
+            for sa in (audience.get("sub_audiences") or []):
+                if sa.get("sub_id") == sub_id:
+                    sub_name = sa.get("name", "Unknown")
+                    break
+        by_sub_audience.append({
+            "audience_id": aud_id,
+            "audience_name": aud_name,
+            "sub_audience_id": sub_id,
+            "sub_audience_name": sub_name,
+            "count": item["count"]
+        })
+    
     # Scheduled vs Posted rate
     total_posts = await db.social_posts.count_documents(base_match)
     posted_count = await db.social_posts.count_documents({**base_match, "status": "posted"})
@@ -3312,6 +3366,8 @@ async def get_social_insights(
         "byFormat": [{"format": item["_id"], "count": item["count"]} for item in by_format],
         "byPillar": by_pillar,
         "byStatus": [{"status": item["_id"], "count": item["count"]} for item in by_status],
+        "byAudience": by_audience,
+        "bySubAudience": by_sub_audience,
         "totalPosts": total_posts,
         "postedCount": posted_count,
         "postRate": round((posted_count / total_posts * 100) if total_posts > 0 else 0, 1)

@@ -449,6 +449,7 @@ class SocialPostCreate(BaseModel):
     campaign_id: Optional[str] = None
     pillar_id: Optional[str] = None
     audience_id: Optional[str] = None
+    sub_audience_id: Optional[str] = None
     segment_id: Optional[str] = None
     format: str = "post"  # reel, carousel, post, story, live
     status: str = "idea"  # idea, production, editing, drafted, scheduled, posted, archived
@@ -470,6 +471,7 @@ class SocialPost(BaseModel):
     campaign_id: Optional[str] = None
     pillar_id: Optional[str] = None
     audience_id: Optional[str] = None
+    sub_audience_id: Optional[str] = None
     segment_id: Optional[str] = None
     format: str = "post"
     status: str = "idea"
