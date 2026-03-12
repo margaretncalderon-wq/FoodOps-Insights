@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "../components/ui/button";
@@ -11,8 +11,15 @@ export default function LoginPage() {
   const { login, loginWithGoogle, loading } = useAuth();
   const { t, language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("expired") === "1") {
+      toast.error(language === "es" ? "Tu sesión ha expirado. Por favor inicia sesión de nuevo." : "Your session has expired. Please log in again.");
+    }
+  }, [searchParams, language]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -135,6 +135,31 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, [setUser, setToken]);
 
+  // Periodic token refresh - keep session alive while user is active
+  useEffect(() => {
+    if (!token) return;
+    
+    const refreshToken = async () => {
+      try {
+        const response = await axios.post(`${API}/auth/refresh`, {}, { withCredentials: true });
+        if (response.data?.access_token) {
+          setToken(response.data.access_token);
+        }
+      } catch (error) {
+        // If refresh fails with 401, session is truly expired
+        if (error.response?.status === 401) {
+          setUser(null);
+          setToken(null);
+          storage.clear();
+        }
+      }
+    };
+
+    // Refresh every 4 hours to keep the 7-day window rolling
+    const interval = setInterval(refreshToken, 4 * 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [token, setToken, setUser]);
+
   const checkAuth = useCallback(async () => {
     setLoading(true);
     try {

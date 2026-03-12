@@ -194,27 +194,34 @@ def create_jwt_token(user_id: str) -> str:
 
 
 async def get_current_user(request: Request) -> User:
-    """Extract and validate user from session token cookie or Authorization header"""
-    token = request.cookies.get("session_token")
+    """Extract and validate user from JWT token (Authorization header preferred, cookie fallback)"""
+    token = None
     
-    # Log cookie info for debugging
-    all_cookies = request.cookies
-    logger.debug(f"Cookies received: {list(all_cookies.keys())}")
+    # 1. Prefer Authorization header (most reliable)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
     
+    # 2. Fallback to session_token cookie
     if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
-            logger.debug("Using token from Authorization header")
-        else:
-            logger.debug("No session_token cookie or Authorization header found")
-    else:
-        logger.debug("Using token from session_token cookie")
+        token = request.cookies.get("session_token")
     
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    # Check session table first
+    # Try JWT decode first (fastest, most common)
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_doc = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
+        if not user_doc:
+            raise HTTPException(status_code=401, detail="User not found")
+        return User(**user_doc)
+    except jwt.ExpiredSignatureError:
+        pass  # Fall through to session check
+    except jwt.InvalidTokenError:
+        pass  # Fall through to session check
+    
+    # Fallback: Check session table (for OAuth sessions)
     session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
     if session:
         expires_at = session.get("expires_at")
@@ -223,7 +230,6 @@ async def get_current_user(request: Request) -> User:
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if expires_at < datetime.now(timezone.utc):
-            logger.warning(f"Session expired for user {session.get('user_id')}")
             raise HTTPException(status_code=401, detail="Session expired")
         
         user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
@@ -231,20 +237,7 @@ async def get_current_user(request: Request) -> User:
             raise HTTPException(status_code=401, detail="User not found")
         return User(**user_doc)
     
-    # Try JWT decode
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_doc = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
-        if not user_doc:
-            raise HTTPException(status_code=401, detail="User not found")
-        logger.debug(f"JWT token valid for user {payload['user_id']}")
-        return User(**user_doc)
-    except jwt.ExpiredSignatureError:
-        logger.warning("JWT token expired")
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid JWT token: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+    raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 # ============== AUTH ROUTES ==============
@@ -601,10 +594,22 @@ async def debug_cookies(request: Request):
 
 
 @auth_router.get("/me", response_model=User)
-async def get_me(request: Request, user: User = Depends(get_current_user)):
-    """Get current authenticated user - used to restore session on page refresh"""
-    logger.info(f"GET /auth/me - User restored: {user.email}")
+async def get_me(request: Request, response: Response, user: User = Depends(get_current_user)):
+    """Get current authenticated user - used to restore session on page refresh.
+    Also refreshes the JWT token if it's close to expiration."""
+    # Auto-refresh: issue a fresh JWT on every /me call to keep sessions alive
+    new_token = create_jwt_token(user.user_id)
+    set_auth_cookie(response, new_token, request)
+    
     return user
+
+
+@auth_router.post("/refresh")
+async def refresh_token(request: Request, response: Response, user: User = Depends(get_current_user)):
+    """Refresh the JWT token - extends session by issuing a new token"""
+    new_token = create_jwt_token(user.user_id)
+    set_auth_cookie(response, new_token, request)
+    return {"access_token": new_token, "user_id": user.user_id}
 
 
 @auth_router.post("/logout")
