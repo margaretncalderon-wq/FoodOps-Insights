@@ -183,19 +183,30 @@ async def create_comment(data: CommentCreate, user: User = Depends(get_current_u
     
     # Create notifications for mentioned users
     for mention in (data.mentions or []):
+        # Build navigation link based on entity type
+        entity_links = {
+            "social_post": "/demand-studio",
+            "post": "/demand-studio",
+            "idea": "/demand-studio",
+            "note": "/demand-studio",
+            "partner": f"/partners/{data.entity_id}",
+        }
+        link = entity_links.get(data.entity_type, "")
+        
         notification = {
             "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
             "company_id": company_id,
             "user_id": mention.user_id,
-            "type": "mention",
+            "notification_type": "mention",
             "title": f"{user.name or user.email} te mencionó en un comentario",
             "message": data.content[:100] + ("..." if len(data.content) > 100 else ""),
             "entity_type": data.entity_type,
             "entity_id": data.entity_id,
             "comment_id": comment_id,
+            "link": link,
             "from_user_id": user.user_id,
             "from_user_name": user.name or user.email,
-            "is_read": False,
+            "read": False,
             "created_at": now.isoformat()
         }
         await db.notifications.insert_one(notification)

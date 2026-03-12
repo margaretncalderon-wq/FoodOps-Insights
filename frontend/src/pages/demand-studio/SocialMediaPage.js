@@ -26,7 +26,7 @@ import {
   Loader2, Play, Copy, Archive, Check, Settings, Edit,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
-  Building2, ChevronDown, AtSign, User, Video, Film
+  Building2, ChevronDown, AtSign, User, Video, Film, Eye
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -1423,20 +1423,20 @@ export default function SocialMediaPage() {
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => openEditPost(post)} title={isEs ? "Ver post" : "View post"} data-testid="view-post-btn">
+                                <Eye className="w-4 h-4 text-blue-500" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDuplicatePost(post.post_id)} title={isEs ? "Duplicar" : "Duplicate"}>
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeletePost(post.post_id)} title={isEs ? "Eliminar" : "Delete"}>
+                                <Archive className="w-4 h-4 text-red-500" />
+                              </Button>
                               {post.status !== "posted" && (
                                 <Button variant="ghost" size="icon" onClick={() => handleMarkAsPosted(post.post_id)} title={isEs ? "Marcar publicado" : "Mark posted"}>
                                   <Check className="w-4 h-4 text-green-500" />
                                 </Button>
                               )}
-                              <Button variant="ghost" size="icon" onClick={() => handleDuplicatePost(post.post_id)} title={isEs ? "Duplicar" : "Duplicate"}>
-                                <Copy className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => openEditPost(post)} title={isEs ? "Editar" : "Edit"}>
-                                <Settings className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeletePost(post.post_id)} title={isEs ? "Eliminar" : "Delete"}>
-                                <Archive className="w-4 h-4 text-red-500" />
-                              </Button>
                             </div>
                           </td>
                         </tr>

@@ -137,6 +137,8 @@ export default function NotificationBell() {
         return <Target className="w-4 h-4 text-purple-500" />;
       case "follow_up_reminder":
         return <Bell className="w-4 h-4 text-amber-600" />;
+      case "mention":
+        return <Target className="w-4 h-4 text-blue-500" />;
       default:
         return <Bell className="w-4 h-4 text-blue-500" />;
     }
