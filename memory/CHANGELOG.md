@@ -1,5 +1,16 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Fix: Shared Users Can Now See Comments
+
+### Fixed
+- **Collaborators couldn't see comments on shared entities** - The comments endpoints used `user.company_id` (the collaborator's own company) instead of the shared org's company_id.
+  - Backend: Added `org_id` query parameter to GET and POST comments endpoints in `comments.py`
+  - Backend: Changed company_id resolution priority to: `org_id param → active_org_id → company_id`
+  - Frontend: `CommentsSection.js` now passes `orgId` in fetch and create API calls
+  - Added membership verification for cross-org access
+
+---
+
 ## [2026-03-12] - Demand Studio: Eye Button + Notification Clicks
 
 ### Added

@@ -1,5 +1,5 @@
 # routers/comments.py - Comments and Mentions Router
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
@@ -131,12 +131,24 @@ async def get_mentionable_users(
 async def get_comments(
     entity_type: str,
     entity_id: str,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    org_id: Optional[str] = Query(None)
 ):
     """Get all comments for an entity"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided (for shared access), else active_org_id, else company_id
+    company_id = org_id or user.active_org_id or user.company_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
+    
+    # If accessing another org, verify membership
+    own_company = user.company_id or user.active_org_id
+    if company_id != own_company:
+        membership = await db.memberships.find_one({
+            "user_id": user.user_id,
+            "$or": [{"company_id": company_id}, {"organization_id": company_id}],
+        })
+        if not membership:
+            raise HTTPException(status_code=403, detail="No access to this organization")
     
     comments = await db.comments.find(
         {
@@ -151,9 +163,10 @@ async def get_comments(
 
 
 @comments_router.post("")
-async def create_comment(data: CommentCreate, user: User = Depends(get_current_user)):
+async def create_comment(data: CommentCreate, user: User = Depends(get_current_user), org_id: Optional[str] = Query(None)):
     """Create a new comment"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided (for shared access), else active_org_id, else company_id
+    company_id = org_id or user.active_org_id or user.company_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     

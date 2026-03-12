@@ -50,17 +50,16 @@ export default function CommentsSection({ entityType, entityId, orgId = null, cl
     if (!entityId) return;
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${API}/api/comments/${entityType}/${entityId}`,
-        { withCredentials: true }
-      );
+      let url = `${API}/api/comments/${entityType}/${entityId}`;
+      if (orgId) url += `?org_id=${orgId}`;
+      const res = await axios.get(url, { withCredentials: true });
       setComments(res.data || []);
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
       setLoading(false);
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, orgId]);
   
   useEffect(() => {
     fetchComments();
@@ -149,8 +148,10 @@ export default function CommentsSection({ entityType, entityId, orgId = null, cl
     
     setSending(true);
     try {
+      let postUrl = `${API}/api/comments`;
+      if (orgId) postUrl += `?org_id=${orgId}`;
       await axios.post(
-        `${API}/api/comments`,
+        postUrl,
         {
           entity_type: entityType,
           entity_id: entityId,
