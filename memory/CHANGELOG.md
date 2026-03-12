@@ -1,5 +1,14 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Segments: Pillar Association
+
+### Added
+- **Pillar selector in Segment form** - New multi-select in the Segment dialog to choose which pillars feed each segment
+- **Pillar badges in segment list** - Settings shows blue badges with pillar names for each segment
+- Backend: Added `pillar_ids: List[str]` to `SegmentCreate` and `Segment` models, and to create/update handlers
+
+---
+
 ## [2026-03-12] - Fix: Ideas Tab Empty + Queue Showing Ideas
 
 ### Fixed

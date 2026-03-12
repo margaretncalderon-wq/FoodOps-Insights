@@ -419,6 +419,7 @@ class SegmentCreate(BaseModel):
     name: str
     description: Optional[str] = None
     platforms: List[str] = []
+    pillar_ids: List[str] = []
 
 
 class Segment(BaseModel):
@@ -428,6 +429,7 @@ class Segment(BaseModel):
     name: str
     description: Optional[str] = None
     platforms: List[str] = []
+    pillar_ids: List[str] = []
     created_at: datetime
     updated_at: datetime
 

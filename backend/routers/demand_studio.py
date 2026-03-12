@@ -2693,6 +2693,7 @@ async def create_segment(data: SegmentCreate, user: User = Depends(get_current_u
         "name": data.name,
         "description": data.description,
         "platforms": data.platforms or [],
+        "pillar_ids": data.pillar_ids or [],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
@@ -2713,6 +2714,7 @@ async def update_segment(segment_id: str, data: SegmentCreate, user: User = Depe
             "name": data.name,
             "description": data.description,
             "platforms": data.platforms or [],
+            "pillar_ids": data.pillar_ids or [],
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )

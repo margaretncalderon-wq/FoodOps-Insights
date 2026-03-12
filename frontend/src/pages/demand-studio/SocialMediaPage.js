@@ -180,7 +180,8 @@ export default function SocialMediaPage() {
   const [segmentForm, setSegmentForm] = useState({
     name: "",
     description: "",
-    platforms: []
+    platforms: [],
+    pillar_ids: []
   });
   const [editingSegment, setEditingSegment] = useState(null);
 
@@ -551,7 +552,7 @@ export default function SocialMediaPage() {
         toast.success(isEs ? "Segmento creado" : "Segment created");
       }
       setSegmentDialogOpen(false);
-      setSegmentForm({ name: "", description: "", platforms: [] });
+      setSegmentForm({ name: "", description: "", platforms: [], pillar_ids: [] });
       setEditingSegment(null);
       fetchData();
     } catch (error) {
@@ -579,7 +580,8 @@ export default function SocialMediaPage() {
     setSegmentForm({ 
       name: segment.name, 
       description: segment.description || "",
-      platforms: segment.platforms || []
+      platforms: segment.platforms || [],
+      pillar_ids: segment.pillar_ids || []
     });
     setSegmentDialogOpen(true);
   };
@@ -1881,7 +1883,7 @@ export default function SocialMediaPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Segmentos" : "Segments"}</CardTitle>
-                <Button size="sm" onClick={() => { setEditingSegment(null); setSegmentForm({ name: "", description: "", platforms: [] }); setSegmentDialogOpen(true); }}>
+                <Button size="sm" onClick={() => { setEditingSegment(null); setSegmentForm({ name: "", description: "", platforms: [], pillar_ids: [] }); setSegmentDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -1897,6 +1899,18 @@ export default function SocialMediaPage() {
                           <p className="text-sm font-medium">{segment.name}</p>
                           {segment.description && (
                             <p className="text-xs text-muted-foreground">{segment.description}</p>
+                          )}
+                          {segment.pillar_ids && segment.pillar_ids.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {segment.pillar_ids.map(pid => {
+                                const pillar = pillars.find(p => p.pillar_id === pid);
+                                return pillar ? (
+                                  <span key={pid} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                                    {pillar.name}
+                                  </span>
+                                ) : null;
+                              })}
+                            </div>
                           )}
                           {segment.platforms && segment.platforms.length > 0 ? (
                             <div className="flex gap-1 mt-1">
@@ -2415,6 +2429,42 @@ export default function SocialMediaPage() {
                   );
                 })}
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {isEs ? "Pilares que alimentan este segmento" : "Pillars feeding this segment"}
+              </label>
+              {pillars.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{isEs ? "No hay pilares creados" : "No pillars created"}</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {pillars.map(pillar => {
+                    const isSelected = segmentForm.pillar_ids?.includes(pillar.pillar_id);
+                    return (
+                      <button
+                        key={pillar.pillar_id}
+                        type="button"
+                        onClick={() => {
+                          setSegmentForm(prev => {
+                            const ids = prev.pillar_ids || [];
+                            return {
+                              ...prev,
+                              pillar_ids: isSelected ? ids.filter(id => id !== pillar.pillar_id) : [...ids, pillar.pillar_id]
+                            };
+                          });
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                          isSelected 
+                            ? "bg-primary text-primary-foreground border-primary" 
+                            : "bg-muted hover:bg-muted/80 border-transparent"
+                        }`}
+                      >
+                        {pillar.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
