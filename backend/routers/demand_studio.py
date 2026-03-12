@@ -3393,6 +3393,7 @@ async def get_social_calendar(
     
     query = {
         "company_id": company_id,
+        "status": {"$nin": ["archived"]},
         "$or": [
             {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
             {"posted_at": {"$gte": start_date, "$lte": end_date}}

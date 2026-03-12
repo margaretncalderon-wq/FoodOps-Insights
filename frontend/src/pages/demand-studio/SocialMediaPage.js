@@ -403,8 +403,10 @@ export default function SocialMediaPage() {
       setEditingPost(null);
       resetPostForm();
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving post:", error);
+      toast.error(isEs ? "Error al guardar el post" : "Error saving post");
     } finally {
       setPostSaving(false);
     }
@@ -415,8 +417,10 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/posts/${postId}`, { withCredentials: true });
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error deleting post:", error);
+      toast.error(isEs ? "Error al eliminar el post" : "Error deleting post");
     }
   };
 
@@ -424,6 +428,7 @@ export default function SocialMediaPage() {
     try {
       await axios.post(`${API}/api/demand-studio/social/posts/${postId}/mark-posted`, {}, { withCredentials: true });
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error marking as posted:", error);
     }
@@ -444,8 +449,10 @@ export default function SocialMediaPage() {
     try {
       await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, { status: targetStatus }, { withCredentials: true });
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error changing status:", error);
+      toast.error(isEs ? "Error al cambiar estado" : "Error changing status");
     }
   };
 
@@ -458,8 +465,10 @@ export default function SocialMediaPage() {
       setQuickStatusDialog({ open: false, postId: null, targetStatus: null, postTitle: "" });
       setQuickProductionDate("");
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error changing status:", error);
+      toast.error(isEs ? "Error al cambiar estado" : "Error changing status");
     }
   };
 
@@ -475,8 +484,10 @@ export default function SocialMediaPage() {
         scheduled_at: newDate + "T12:00:00"
       }, { withCredentials: true });
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error moving post:", error);
+      toast.error(isEs ? "Error al mover el post" : "Error moving post");
     }
   };
 
@@ -484,8 +495,10 @@ export default function SocialMediaPage() {
     try {
       await axios.post(`${API}/api/demand-studio/social/posts/${postId}/duplicate`, {}, { withCredentials: true });
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error duplicating post:", error);
+      toast.error(isEs ? "Error al duplicar el post" : "Error duplicating post");
     }
   };
 
@@ -499,6 +512,7 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error saving account:", error);
+      toast.error(isEs ? "Error al guardar la cuenta" : "Error saving account");
     } finally {
       setAccountSaving(false);
     }
@@ -701,6 +715,7 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error saving idea:", error);
+      toast.error(isEs ? "Error al guardar la idea" : "Error saving idea");
     } finally {
       setIdeaSaving(false);
     }
@@ -724,8 +739,10 @@ export default function SocialMediaPage() {
       setConvertIdeaDialogOpen(false);
       setIdeaToConvert(null);
       fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error converting idea:", error);
+      toast.error(isEs ? "Error al convertir la idea" : "Error converting idea");
     } finally {
       setConvertingSaving(false);
     }
