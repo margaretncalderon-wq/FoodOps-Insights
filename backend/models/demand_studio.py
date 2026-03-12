@@ -396,11 +396,19 @@ class ContentPillar(BaseModel):
     updated_at: datetime
 
 
+class SubAudience(BaseModel):
+    """Granular sub-audience within a macro audience"""
+    sub_id: str
+    name: str
+    description: Optional[str] = None
+
+
 class AudienceCreate(BaseModel):
     """Create an audience segment"""
     name: str
     description: Optional[str] = None
     platforms: List[str] = []
+    sub_audiences: List[SubAudience] = []
 
 
 class Audience(BaseModel):
@@ -410,6 +418,7 @@ class Audience(BaseModel):
     name: str
     description: Optional[str] = None
     platforms: List[str] = []
+    sub_audiences: List[SubAudience] = []
     created_at: datetime
     updated_at: datetime
 

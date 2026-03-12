@@ -174,7 +174,8 @@ export default function SocialMediaPage() {
   const [audienceForm, setAudienceForm] = useState({
     name: "",
     description: "",
-    platforms: []
+    platforms: [],
+    sub_audiences: []
   });
   const [editingAudience, setEditingAudience] = useState(null);
 
@@ -501,7 +502,7 @@ export default function SocialMediaPage() {
         toast.success(isEs ? "Audiencia creada" : "Audience created");
       }
       setAudienceDialogOpen(false);
-      setAudienceForm({ name: "", description: "", platforms: [] });
+      setAudienceForm({ name: "", description: "", platforms: [], sub_audiences: [] });
       setEditingAudience(null);
       fetchData();
     } catch (error) {
@@ -529,7 +530,8 @@ export default function SocialMediaPage() {
     setAudienceForm({ 
       name: audience.name, 
       description: audience.description || "",
-      platforms: audience.platforms || []
+      platforms: audience.platforms || [],
+      sub_audiences: audience.sub_audiences || []
     });
     setAudienceDialogOpen(true);
   };
@@ -1839,7 +1841,7 @@ export default function SocialMediaPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Audiencias" : "Audiences"}</CardTitle>
-                <Button size="sm" onClick={() => { setEditingAudience(null); setAudienceForm({ name: "", description: "", platforms: [] }); setAudienceDialogOpen(true); }}>
+                <Button size="sm" onClick={() => { setEditingAudience(null); setAudienceForm({ name: "", description: "", platforms: [], sub_audiences: [] }); setAudienceDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -1855,6 +1857,15 @@ export default function SocialMediaPage() {
                           <p className="text-sm font-medium">{audience.name}</p>
                           {audience.description && (
                             <p className="text-xs text-muted-foreground">{audience.description}</p>
+                          )}
+                          {audience.sub_audiences && audience.sub_audiences.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {audience.sub_audiences.map(sub => (
+                                <span key={sub.sub_id} className="inline-flex items-center text-[10px] px-1.5 py-0.5 bg-violet-50 text-violet-700 rounded border border-violet-200" title={sub.description || ""}>
+                                  {sub.name}
+                                </span>
+                              ))}
+                            </div>
                           )}
                           {audience.platforms && audience.platforms.length > 0 ? (
                             <div className="flex gap-1 mt-1">
@@ -2371,6 +2382,72 @@ export default function SocialMediaPage() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {isEs ? "Audiencias Granulares" : "Granular Audiences"}
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({isEs ? "perfiles específicos dentro de esta audiencia" : "specific profiles within this audience"})
+                </span>
+              </label>
+              <div className="space-y-2">
+                {(audienceForm.sub_audiences || []).map((sub, idx) => (
+                  <div key={sub.sub_id || idx} className="flex items-start gap-2 p-2 border rounded-lg bg-muted/50">
+                    <div className="flex-1 space-y-1">
+                      <Input
+                        value={sub.name}
+                        onChange={e => {
+                          const updated = [...audienceForm.sub_audiences];
+                          updated[idx] = { ...updated[idx], name: e.target.value };
+                          setAudienceForm({ ...audienceForm, sub_audiences: updated });
+                        }}
+                        placeholder={isEs ? "Nombre del perfil" : "Profile name"}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        value={sub.description || ""}
+                        onChange={e => {
+                          const updated = [...audienceForm.sub_audiences];
+                          updated[idx] = { ...updated[idx], description: e.target.value };
+                          setAudienceForm({ ...audienceForm, sub_audiences: updated });
+                        }}
+                        placeholder={isEs ? "Descripción (opcional)" : "Description (optional)"}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 shrink-0"
+                      onClick={() => {
+                        setAudienceForm({
+                          ...audienceForm,
+                          sub_audiences: audienceForm.sub_audiences.filter((_, i) => i !== idx)
+                        });
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    setAudienceForm({
+                      ...audienceForm,
+                      sub_audiences: [
+                        ...(audienceForm.sub_audiences || []),
+                        { sub_id: `sub_${Date.now().toString(36)}`, name: "", description: "" }
+                      ]
+                    });
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  {isEs ? "Agregar perfil granular" : "Add granular profile"}
+                </Button>
               </div>
             </div>
           </div>

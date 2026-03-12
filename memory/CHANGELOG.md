@@ -1,5 +1,14 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Granular Sub-Audiences within Macro Audiences
+
+### Added
+- **Sub-audiences (granular profiles)** within each macro audience for campaign segmentation, result measurement by specific profile, and CTA personalization.
+- Backend: New `SubAudience` model (sub_id, name, description). Added `sub_audiences: List[SubAudience]` to `AudienceCreate` and `Audience` models.
+- Frontend: Dynamic form in Audience dialog to add/remove/edit sub-audiences. Violet badges display sub-audiences in the Settings list.
+
+---
+
 ## [2026-03-12] - Fix: Deleted Employees Still Showing in CRM & Demand Studio
 
 ### Fixed

@@ -2622,6 +2622,7 @@ async def create_audience(data: AudienceCreate, user: User = Depends(get_current
         "name": data.name,
         "description": data.description,
         "platforms": data.platforms or [],
+        "sub_audiences": [sa.dict() for sa in (data.sub_audiences or [])],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
@@ -2642,6 +2643,7 @@ async def update_audience(audience_id: str, data: AudienceCreate, user: User = D
             "name": data.name,
             "description": data.description,
             "platforms": data.platforms or [],
+            "sub_audiences": [sa.dict() for sa in (data.sub_audiences or [])],
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
