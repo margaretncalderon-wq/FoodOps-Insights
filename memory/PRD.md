@@ -101,6 +101,12 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - All saving dialogs have `saving` guards to prevent double-click
    - All tests passed (17/17 backend, 95%+ frontend)
 
+5. **Fix: Team Visibility in Demand Studio (Critical)**:
+   - All GET endpoints (posts, accounts, stats, insights, calendar, ideas) now aggregate data from ALL companies the user is a member of via `visible_company_ids` with `$in` query
+   - Social accounts endpoint now includes ALL active memberships, not just social-specific roles
+   - Team notifications created when posts are created or status changes
+   - All tests passed (14/14 backend, 100% frontend)
+
 ### Previous Sessions
 
 #### Completed Previously
