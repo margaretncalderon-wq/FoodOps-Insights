@@ -91,6 +91,16 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Visual feedback: highlight on drag-over, shadow on dragging
    - All tests passed
 
+4. **Fix: Unstable User Sessions (P1 recurring 6+ times)**:
+   - Reordered `get_current_user`: JWT decode first (no DB query), then session fallback
+   - New `/auth/refresh` endpoint to extend JWT tokens
+   - `/auth/me` auto-refreshes JWT on every call (rolling 7-day window)
+   - Frontend: global axios 401 response interceptor → redirect to /login?expired=1
+   - Frontend: periodic token refresh every 4 hours in AuthContext
+   - Frontend: Login page shows "sesión expirada" toast on redirect
+   - All saving dialogs have `saving` guards to prevent double-click
+   - All tests passed (17/17 backend, 95%+ frontend)
+
 ### Previous Sessions
 
 #### Completed Previously
@@ -114,9 +124,7 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Location: `frontend/src/pages/onboarding/RegisterPage.js`
 
 ### P1 - High Priority
-1. **Unstable User Sessions**: Random logouts disrupting workflows
-   - Status: NOT STARTED (recurring 6+ times)
-   - Location: `backend/routers/auth.py`
+1. **Unstable User Sessions**: RESOLVED - JWT-first auth, auto-refresh, 401 interceptor
 
 ### P2 - Data Migration
 1. **Employee department_id backfill**: Script needed

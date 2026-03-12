@@ -17,7 +17,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (searchParams.get("expired") === "1") {
-      toast.error(language === "es" ? "Tu sesión ha expirado. Por favor inicia sesión de nuevo." : "Your session has expired. Please log in again.");
+      // Small delay to ensure toast provider is mounted
+      const timer = setTimeout(() => {
+        toast.error(language === "es" ? "Tu sesión ha expirado. Por favor inicia sesión de nuevo." : "Your session has expired. Please log in again.");
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [searchParams, language]);
 
