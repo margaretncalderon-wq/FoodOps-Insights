@@ -21,15 +21,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { 
   Plus, Calendar, List, BarChart3, Hash, Instagram, 
   Loader2, Play, Copy, Archive, Check, Settings, Edit,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
-  Building2, ChevronDown, AtSign, User, Video, Film, Eye
+  Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal,
+  ArrowUpRight, GripVertical
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import FeedTab from "../../components/demand-studio/FeedTab";
 import StudioEditor from "../../components/demand-studio/StudioEditor";
 import SocialSharing from "../../components/demand-studio/SocialSharing";
@@ -409,6 +418,57 @@ export default function SocialMediaPage() {
       fetchData();
     } catch (error) {
       console.error("Error marking as posted:", error);
+    }
+  };
+
+  // Quick status change with optional date prompt
+  const [quickStatusDialog, setQuickStatusDialog] = useState({ open: false, postId: null, targetStatus: null, postTitle: "" });
+  const [quickProductionDate, setQuickProductionDate] = useState("");
+
+  const handleQuickStatusChange = async (postId, targetStatus, postTitle) => {
+    // If moving to production or editing, ask for production_date
+    if (targetStatus === "production" || targetStatus === "editing") {
+      setQuickStatusDialog({ open: true, postId, targetStatus, postTitle });
+      setQuickProductionDate(new Date().toISOString().split("T")[0]);
+      return;
+    }
+    // Direct status change
+    try {
+      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, { status: targetStatus }, { withCredentials: true });
+      fetchData();
+    } catch (error) {
+      console.error("Error changing status:", error);
+    }
+  };
+
+  const confirmQuickStatusChange = async () => {
+    try {
+      await axios.patch(`${API}/api/demand-studio/social/posts/${quickStatusDialog.postId}`, {
+        status: quickStatusDialog.targetStatus,
+        production_date: quickProductionDate || null
+      }, { withCredentials: true });
+      setQuickStatusDialog({ open: false, postId: null, targetStatus: null, postTitle: "" });
+      setQuickProductionDate("");
+      fetchData();
+    } catch (error) {
+      console.error("Error changing status:", error);
+    }
+  };
+
+  // Calendar drag & drop handler
+  const handleCalendarDragEnd = async (result) => {
+    if (!result.destination) return;
+    const postId = result.draggableId;
+    const targetDateStr = result.destination.droppableId; // format: "cal-YYYY-MM-DD"
+    if (!targetDateStr.startsWith("cal-")) return;
+    const newDate = targetDateStr.replace("cal-", "");
+    try {
+      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, {
+        scheduled_at: newDate + "T12:00:00"
+      }, { withCredentials: true });
+      fetchData();
+    } catch (error) {
+      console.error("Error moving post:", error);
     }
   };
 
@@ -1262,6 +1322,17 @@ export default function SocialMediaPage() {
                     <div className="flex justify-end gap-1 pt-2 border-t">
                       {idea._from_post ? (
                         <>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(idea.idea_id, "production", idea.title); }}
+                            title={isEs ? "Enviar a Producción" : "Send to Production"}
+                            data-testid="idea-to-production-btn"
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                          >
+                            <Video className="w-4 h-4 mr-1" />
+                            {isEs ? "Producción" : "Production"}
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => openEditPost(idea._post)} title={isEs ? "Editar" : "Edit"}>
                             <Settings className="w-4 h-4" />
                           </Button>
@@ -1357,49 +1428,66 @@ export default function SocialMediaPage() {
           
           <Card>
             <CardContent className="p-4">
-              <div className="grid grid-cols-7 gap-1">
-                {[isEs ? 'Dom' : 'Sun', isEs ? 'Lun' : 'Mon', isEs ? 'Mar' : 'Tue', isEs ? 'Mié' : 'Wed', isEs ? 'Jue' : 'Thu', isEs ? 'Vie' : 'Fri', isEs ? 'Sáb' : 'Sat'].map(day => (
-                  <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
-                    {day}
-                  </div>
-                ))}
-                {getDaysInMonth().map((day, idx) => {
-                  const dayPosts = getPostsForDay(day);
-                  return (
-                    <div
-                      key={idx}
-                      className={`min-h-[80px] p-1 border rounded ${day ? 'bg-background' : 'bg-muted/30'}`}
-                    >
-                      {day && (
-                        <>
-                          <span className="text-xs font-medium">{day}</span>
-                          <div className="space-y-1 mt-1">
-                            {dayPosts.slice(0, 3).map(post => {
-                              const platform = post.account?.platform;
-                              const platformInfo = getPlatformInfo(platform);
-                              return (
-                                <div
-                                  key={post.post_id}
-                                  className={`text-xs p-1 rounded truncate cursor-pointer flex items-center gap-1 ${
-                                    post.status === 'posted' ? 'bg-green-100' : 'bg-blue-100'
-                                  }`}
-                                  onClick={() => openEditPost(post)}
-                                >
-                                  <span className={`w-2 h-2 rounded-full ${platformInfo.color}`}></span>
-                                  <span className="truncate">{post.title}</span>
-                                </div>
-                              );
-                            })}
-                            {dayPosts.length > 3 && (
-                              <span className="text-xs text-muted-foreground">+{dayPosts.length - 3} más</span>
-                            )}
-                          </div>
-                        </>
-                      )}
+              <DragDropContext onDragEnd={handleCalendarDragEnd}>
+                <div className="grid grid-cols-7 gap-1">
+                  {[isEs ? 'Dom' : 'Sun', isEs ? 'Lun' : 'Mon', isEs ? 'Mar' : 'Tue', isEs ? 'Mié' : 'Wed', isEs ? 'Jue' : 'Thu', isEs ? 'Vie' : 'Fri', isEs ? 'Sáb' : 'Sat'].map(day => (
+                    <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
+                      {day}
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                  {getDaysInMonth().map((day, idx) => {
+                    const dayPosts = getPostsForDay(day);
+                    const dateStr = day ? `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : `empty-${idx}`;
+                    return (
+                      <Droppable droppableId={`cal-${dateStr}`} key={idx} isDropDisabled={!day}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`min-h-[80px] p-1 border rounded transition-colors ${day ? 'bg-background' : 'bg-muted/30'} ${snapshot.isDraggingOver && day ? 'bg-blue-50 border-blue-300' : ''}`}
+                          >
+                            {day && (
+                              <>
+                                <span className="text-xs font-medium">{day}</span>
+                                <div className="space-y-1 mt-1">
+                                  {dayPosts.slice(0, 3).map((post, postIdx) => {
+                                    const platform = post.account?.platform;
+                                    const platformInfo = getPlatformInfo(platform);
+                                    return (
+                                      <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
+                                        {(dragProvided, dragSnapshot) => (
+                                          <div
+                                            ref={dragProvided.innerRef}
+                                            {...dragProvided.draggableProps}
+                                            {...dragProvided.dragHandleProps}
+                                            className={`text-xs p-1 rounded truncate cursor-grab flex items-center gap-1 ${
+                                              post.status === 'posted' ? 'bg-green-100' : 'bg-blue-100'
+                                            } ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}`}
+                                            onClick={() => openEditPost(post)}
+                                            data-testid="calendar-draggable-post"
+                                          >
+                                            <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
+                                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${platformInfo.color}`}></span>
+                                            <span className="truncate">{post.title}</span>
+                                          </div>
+                                        )}
+                                      </Draggable>
+                                    );
+                                  })}
+                                  {dayPosts.length > 3 && (
+                                    <span className="text-xs text-muted-foreground">+{dayPosts.length - 3} más</span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    );
+                  })}
+                </div>
+              </DragDropContext>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1529,17 +1617,30 @@ export default function SocialMediaPage() {
                               <Button variant="ghost" size="icon" onClick={() => openEditPost(post)} title={isEs ? "Ver post" : "View post"} data-testid="view-post-btn">
                                 <Eye className="w-4 h-4 text-blue-500" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDuplicatePost(post.post_id)} title={isEs ? "Duplicar" : "Duplicate"}>
-                                <Copy className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeletePost(post.post_id)} title={isEs ? "Eliminar" : "Delete"}>
-                                <Archive className="w-4 h-4 text-red-500" />
-                              </Button>
-                              {post.status !== "posted" && (
-                                <Button variant="ghost" size="icon" onClick={() => handleMarkAsPosted(post.post_id)} title={isEs ? "Marcar publicado" : "Mark posted"}>
-                                  <Check className="w-4 h-4 text-green-500" />
-                                </Button>
-                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" data-testid="quick-status-menu">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {STATUSES.filter(s => s.value !== post.status).map(s => (
+                                    <DropdownMenuItem key={s.value} onClick={() => handleQuickStatusChange(post.post_id, s.value, post.title)} data-testid={`quick-status-${s.value}`}>
+                                      <ArrowUpRight className="w-3 h-3 mr-2" />
+                                      {isEs ? s.labelEs : s.label}
+                                    </DropdownMenuItem>
+                                  ))}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDuplicatePost(post.post_id)}>
+                                    <Copy className="w-3 h-3 mr-2" />
+                                    {isEs ? "Duplicar" : "Duplicate"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDeletePost(post.post_id)} className="text-red-600">
+                                    <Trash2 className="w-3 h-3 mr-2" />
+                                    {isEs ? "Eliminar" : "Delete"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </td>
                         </tr>
@@ -1637,6 +1738,32 @@ export default function SocialMediaPage() {
                               <div>
                                 {getStatusBadge(post.status)}
                               </div>
+                              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                {post.status === "production" && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleQuickStatusChange(post.post_id, "editing", post.title)}
+                                    data-testid="production-to-editing-btn"
+                                    className="text-xs"
+                                  >
+                                    <Film className="w-3 h-3 mr-1" />
+                                    {isEs ? "A Edición" : "To Editing"}
+                                  </Button>
+                                )}
+                                {post.status === "editing" && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleQuickStatusChange(post.post_id, "drafted", post.title)}
+                                    data-testid="editing-to-drafted-btn"
+                                    className="text-xs"
+                                  >
+                                    <Check className="w-3 h-3 mr-1" />
+                                    {isEs ? "A Borrador" : "To Draft"}
+                                  </Button>
+                                )}
+                              </div>
                               {post.scheduled_at && (
                                 <div className="text-xs text-muted-foreground">
                                   <span className="block">{isEs ? "Publicar:" : "Publish:"}</span>
@@ -1715,6 +1842,18 @@ export default function SocialMediaPage() {
                               </>
                             )}
                           </div>
+                        </div>
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleQuickStatusChange(post.post_id, "drafted", post.title)}
+                            data-testid="editing-to-draft-btn"
+                            className="text-xs"
+                          >
+                            <Check className="w-3 h-3 mr-1" />
+                            {isEs ? "A Borrador" : "To Draft"}
+                          </Button>
                         </div>
                         {post.scheduled_at && (
                           <div className="text-xs text-muted-foreground text-right">
@@ -2793,6 +2932,41 @@ export default function SocialMediaPage() {
           setStudioOpen(false);
         }}
       />
+
+      {/* Quick Status Change Dialog (asks for production date) */}
+      <Dialog open={quickStatusDialog.open} onOpenChange={(open) => !open && setQuickStatusDialog({ open: false, postId: null, targetStatus: null, postTitle: "" })}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Fecha de Producción" : "Production Date"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {isEs 
+                ? `Mover "${quickStatusDialog.postTitle}" a ${quickStatusDialog.targetStatus === "production" ? "Producción" : "Edición"}`
+                : `Move "${quickStatusDialog.postTitle}" to ${quickStatusDialog.targetStatus === "production" ? "Production" : "Editing"}`}
+            </p>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Fecha de producción" : "Production date"}</label>
+              <Input 
+                type="date" 
+                value={quickProductionDate} 
+                onChange={e => setQuickProductionDate(e.target.value)}
+                data-testid="quick-production-date-input"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickStatusDialog({ open: false, postId: null, targetStatus: null, postTitle: "" })}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={confirmQuickStatusChange} data-testid="confirm-quick-status-btn">
+              {isEs ? "Confirmar" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2972,10 +2972,12 @@ class PostApprovalUpdate(BaseModel):
     status: Optional[str] = None
     needs_approval: Optional[bool] = None
     rejection_note: Optional[str] = None
+    production_date: Optional[str] = None
+    scheduled_at: Optional[str] = None
 
 @demand_studio_router.patch("/social/posts/{post_id}")
 async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User = Depends(get_current_user)):
-    """Partial update for post approval/rejection workflow"""
+    """Partial update for post approval/rejection workflow and quick status changes"""
     from routers.notifications import create_notification
     
     company_id = user.company_id or user.active_org_id
@@ -2993,6 +2995,10 @@ async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User =
         update_data["needs_approval"] = data.needs_approval
     if data.rejection_note is not None:
         update_data["rejection_note"] = data.rejection_note
+    if data.production_date is not None:
+        update_data["production_date"] = data.production_date
+    if data.scheduled_at is not None:
+        update_data["scheduled_at"] = data.scheduled_at
     
     await db.social_posts.update_one(
         {"post_id": post_id, "company_id": company_id},
