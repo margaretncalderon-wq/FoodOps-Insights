@@ -1,5 +1,14 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Fix: Ideas Tab Empty + Queue Showing Ideas
+
+### Fixed
+- **Ideas tab was empty** - Posts with status "idea" were stored in `social_posts` collection but Ideas tab only read from `content_ideas`. Now combines both sources using `allIdeas` computed array.
+- **Queue showed "idea" status items** - Added filter to exclude `status === "idea"` from `filteredPosts` in the Queue tab.
+- **Proper action handlers** - Ideas from posts (`_from_post`) use post edit/delete handlers, while native ideas use idea handlers.
+
+---
+
 ## [2026-03-12] - Fix: Shared Users Can Now See Comments
 
 ### Fixed

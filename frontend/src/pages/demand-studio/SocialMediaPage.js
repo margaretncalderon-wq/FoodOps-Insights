@@ -744,6 +744,8 @@ export default function SocialMediaPage() {
 
   // Filter posts
   const filteredPosts = posts.filter(post => {
+    // Exclude items with status "idea" from queue - they belong in Ideas tab
+    if (post.status === "idea") return false;
     if (filterAccount !== "all" && post.social_account_id !== filterAccount) return false;
     if (filterStatus !== "all" && post.status !== filterStatus) return false;
     if (filterFormat !== "all" && post.format !== filterFormat) return false;
@@ -759,6 +761,23 @@ export default function SocialMediaPage() {
     if (calFilterPillar !== "all" && post.pillar_id !== calFilterPillar) return false;
     return true;
   });
+
+  // Combine ideas from ideas collection + posts with status "idea"
+  const allIdeas = [
+    ...ideas,
+    ...posts.filter(p => p.status === "idea").map(p => ({
+      idea_id: p.post_id,
+      title: p.title,
+      description: p.caption || p.notes || "",
+      source_url: p.link_url || "",
+      pillar_id: p.pillar_id || "",
+      tags: p.tags || [],
+      status: "new",
+      created_at: p.created_at,
+      _from_post: true,
+      _post: p
+    }))
+  ];
 
   // Calendar helpers
   const getDaysInMonth = () => {
@@ -1022,7 +1041,7 @@ export default function SocialMediaPage() {
                     <Lightbulb className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{ideas.filter(i => i.status !== 'archived' && i.status !== 'used').length}</p>
+                    <p className="text-2xl font-bold">{allIdeas.filter(i => i.status !== 'archived' && i.status !== 'used').length}</p>
                     <p className="text-xs text-muted-foreground">
                       {isEs ? "Ideas pendientes" : "Pending ideas"}
                     </p>
@@ -1135,7 +1154,7 @@ export default function SocialMediaPage() {
             </div>
           </div>
 
-          {ideas.length === 0 ? (
+          {allIdeas.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -1146,7 +1165,7 @@ export default function SocialMediaPage() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ideas.map(idea => (
+              {allIdeas.map(idea => (
                 <Card key={idea.idea_id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -1179,23 +1198,36 @@ export default function SocialMediaPage() {
                     )}
                     
                     <div className="flex justify-end gap-1 pt-2 border-t">
-                      {idea.status !== "used" && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => { setIdeaToConvert(idea); setConvertIdeaDialogOpen(true); }}
-                          title={isEs ? "Convertir a post" : "Convert to post"}
-                        >
-                          <ArrowRight className="w-4 h-4 mr-1" />
-                          {isEs ? "A Post" : "To Post"}
-                        </Button>
+                      {idea._from_post ? (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => openEditPost(idea._post)} title={isEs ? "Editar" : "Edit"}>
+                            <Settings className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeletePost(idea.idea_id)} title={isEs ? "Eliminar" : "Delete"}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {idea.status !== "used" && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => { setIdeaToConvert(idea); setConvertIdeaDialogOpen(true); }}
+                              title={isEs ? "Convertir a post" : "Convert to post"}
+                            >
+                              <ArrowRight className="w-4 h-4 mr-1" />
+                              {isEs ? "A Post" : "To Post"}
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => openEditIdea(idea)}>
+                            <Settings className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteIdea(idea.idea_id)}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </>
                       )}
-                      <Button variant="ghost" size="icon" onClick={() => openEditIdea(idea)}>
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteIdea(idea.idea_id)}>
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
