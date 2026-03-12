@@ -1,0 +1,106 @@
+{
+  "summary": "Tested Demand Studio visibility and notifications features. Backend: 14/14 tests passed (100%). Frontend: Demand Studio page loads correctly, shows posts from multiple companies, activity feed working, notifications being created.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demand_studio_visibility_notifications.py",
+    "/app/test_reports/pytest/pytest_demand_studio_visibility.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/demand-studio/social/posts (lines 2765-2777): Correctly builds visible_company_ids list from all active memberships and uses '$in' query",
+    "GET /api/demand-studio/social/accounts (lines 2439-2467): include_shared=true correctly fetches accounts from ALL memberships, not just social_contributor/social_viewer roles",
+    "GET /api/demand-studio/social/stats (lines 3275-3286): Correctly aggregates stats across visible_company_ids using '$in' filter",
+    "GET /api/demand-studio/social/insights (lines 3351-3363): Correctly builds visible_company_ids and uses '$in' for base_match",
+    "GET /api/demand-studio/social/calendar (lines 3474-3485): Correctly includes all company memberships in visible_company_ids",
+    "GET /api/demand-studio/social/ideas (lines 3531-3542): Correctly aggregates ideas from all member companies",
+    "POST /api/demand-studio/social/posts (lines 2863-2879): Correctly notifies all active team members when post is created",
+    "PATCH /api/demand-studio/social/posts (lines 3103-3125): Correctly notifies team members when status changes"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_demand_studio_visibility_notifications.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 passed)",
+    "frontend": "100% - Page loads, posts visible, activity feed working"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created test post during testing (cleaned up afterward)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Demand Studio visibility features working correctly. All GET endpoints now aggregate data from ALL companies the user is a member of. Team notifications are created when posts are created or status changes. Frontend Social Media page at /demand-studio/social-media shows posts, stats, and activity feed.",
+  "tested_features": {
+    "feature_1_posts_visibility": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/posts",
+      "verified": "Returns posts from all companies user is member of via visible_company_ids with '$in' query"
+    },
+    "feature_2_accounts_without_shared": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/accounts",
+      "verified": "Returns only owned accounts with _access_type='owned'"
+    },
+    "feature_3_accounts_with_shared": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/accounts?include_shared=true",
+      "verified": "Returns accounts from ALL memberships, with _access_type='shared' and _shared_by metadata"
+    },
+    "feature_4_stats_aggregated": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/stats",
+      "verified": "Returns aggregated stats across all member companies with correct fields"
+    },
+    "feature_5_insights_aggregated": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/insights",
+      "verified": "Returns byFormat, byPillar, byStatus aggregated from all member companies"
+    },
+    "feature_6_calendar_aggregated": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/calendar",
+      "verified": "Returns posts from all member companies for calendar view"
+    },
+    "feature_7_ideas_aggregated": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/ideas",
+      "verified": "Returns content ideas from all member companies"
+    },
+    "feature_8_post_creation_notification": {
+      "status": "PASS",
+      "endpoint": "POST /api/demand-studio/social/posts",
+      "verified": "Creates notification for active team members when post is created"
+    },
+    "feature_9_status_change_notification": {
+      "status": "PASS",
+      "endpoint": "PATCH /api/demand-studio/social/posts/{id}",
+      "verified": "Creates notification for team members when post status changes"
+    },
+    "feature_10_frontend_page_load": {
+      "status": "PASS",
+      "component": "Demand Studio Social Media page",
+      "verified": "Page loads at /demand-studio/social-media, shows Overview, Ideas, Calendar, Queue, Production, Editing, Feed, Metrics, Settings tabs"
+    }
+  },
+  "api_verification": {
+    "GET /api/demand-studio/social/posts": "200 OK - Returns posts array with company_id from all memberships",
+    "GET /api/demand-studio/social/accounts": "200 OK - Returns owned accounts only",
+    "GET /api/demand-studio/social/accounts?include_shared=true": "200 OK - Returns owned + shared accounts from all memberships",
+    "GET /api/demand-studio/social/stats": "200 OK - Returns {scheduledThisWeek, postedThisMonth, activeAccounts, campaignLinkedPosts, pendingIdeas}",
+    "GET /api/demand-studio/social/insights": "200 OK - Returns {byFormat, byPillar, byStatus, byAudience, bySubAudience}",
+    "GET /api/demand-studio/social/calendar": "200 OK - Returns posts array for calendar date range",
+    "GET /api/demand-studio/social/ideas": "200 OK - Returns content ideas array",
+    "POST /api/demand-studio/social/posts": "200 OK - Creates post and triggers team notifications",
+    "PATCH /api/demand-studio/social/posts/{id}": "200 OK - Updates post and triggers status change notifications",
+    "GET /api/notifications": "200 OK - Returns notifications including content_created and status_changed types"
+  }
+}

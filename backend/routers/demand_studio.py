@@ -2436,10 +2436,9 @@ async def get_social_accounts(
     if not include_shared:
         return owned_accounts
     
-    # Get shared accounts - find organizations where user is a collaborator
+    # Get shared accounts - find ALL organizations where user is a member
     memberships = await db.memberships.find({
         "user_id": user.user_id,
-        "role": {"$in": ["social_contributor", "social_viewer"]},
         "$or": [{"status": "active"}, {"status": {"$exists": False}}]
     }).to_list(50)
     
@@ -2758,11 +2757,24 @@ async def get_social_posts(
     except HTTPException:
         company_id = user.company_id or user.active_org_id
         can_write = True
-        
+    
     if not company_id:
         return []
     
-    query = {"company_id": company_id}
+    # Build list of company_ids the user can see
+    visible_company_ids = [company_id]
+    if not org_id:
+        # Also include companies where user is an active member
+        user_memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(50)
+        for m in user_memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid not in visible_company_ids:
+                visible_company_ids.append(mid)
+    
+    query = {"company_id": {"$in": visible_company_ids}} if len(visible_company_ids) > 1 else {"company_id": company_id}
     if account_id:
         query["social_account_id"] = account_id
     if campaign_id:
@@ -2847,6 +2859,24 @@ async def create_social_post(data: SocialPostCreate, user: User = Depends(get_cu
         account_id=data.social_account_id,
         metadata={"format": data.format, "status": data.status}
     )
+    
+    # Notify all active team members in the same company
+    from routers.notifications import create_notification
+    active_members = await db.memberships.find({
+        "company_id": company_id,
+        "user_id": {"$ne": user.user_id},
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(100)
+    for member in active_members:
+        member_user = await db.users.find_one({"user_id": member["user_id"], "is_active": {"$ne": False}}, {"_id": 0, "user_id": 1})
+        if member_user:
+            await create_notification(
+                user_id=member["user_id"],
+                notification_type="content_created",
+                title="Nuevo contenido",
+                message=f"{user_name} creó un nuevo {data.format or 'post'}: \"{caption_preview}\"",
+                link=f"/demand-studio/social?tab=queue"
+            )
     
     return post
 
@@ -3070,6 +3100,30 @@ async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User =
                 priority="high"
             )
     
+    # Notify team members about status changes
+    if data.status and data.status != post.get("status"):
+        post_title = (post.get("title") or "Sin título")[:40]
+        status_labels = {
+            "idea": "Idea", "production": "Producción", "editing": "Edición",
+            "drafted": "Borrador", "scheduled": "Programado", "posted": "Publicado", "archived": "Archivado"
+        }
+        new_status_label = status_labels.get(data.status, data.status)
+        active_members = await db.memberships.find({
+            "company_id": company_id,
+            "user_id": {"$ne": user.user_id},
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(100)
+        for member in active_members:
+            member_user = await db.users.find_one({"user_id": member["user_id"], "is_active": {"$ne": False}}, {"_id": 0, "user_id": 1})
+            if member_user:
+                await create_notification(
+                    user_id=member["user_id"],
+                    notification_type="status_changed",
+                    title="Cambio de estado",
+                    message=f"{user_name} movió \"{post_title}\" a {new_status_label}",
+                    link="/demand-studio/social?tab=queue"
+                )
+    
     return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
 
 @demand_studio_router.post("/social/posts/{post_id}/duplicate")
@@ -3217,12 +3271,26 @@ async def get_social_stats(
             "pendingIdeas": 0
         }
     
+    # Build list of visible company_ids
+    visible_company_ids = [company_id]
+    if not org_id:
+        user_memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(50)
+        for m in user_memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid not in visible_company_ids:
+                visible_company_ids.append(mid)
+    
+    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else company_id
+    
     now = datetime.now(timezone.utc)
     week_from_now = (now + timedelta(days=7)).isoformat()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
     
     # Base query
-    base_query = {"company_id": company_id}
+    base_query = {"company_id": company_filter}
     if account_id:
         base_query["social_account_id"] = account_id
     
@@ -3239,7 +3307,7 @@ async def get_social_stats(
         active_accounts = 1
     else:
         active_accounts = await db.social_accounts.count_documents({
-            "company_id": company_id,
+            "company_id": company_filter,
             "status": "active"
         })
     
@@ -3248,7 +3316,7 @@ async def get_social_stats(
     campaign_linked = await db.social_posts.count_documents(campaign_query)
     
     # Pending ideas
-    ideas_query = {"company_id": company_id}
+    ideas_query = {"company_id": company_filter}
     if account_id:
         ideas_query["account_id"] = account_id
     pending_ideas = await db.social_ideas.count_documents({
@@ -3277,10 +3345,22 @@ async def get_social_insights(
         company_id = user.company_id or user.active_org_id
         
     if not company_id:
-        return {"byFormat": [], "byPillar": [], "byStatus": []}
+        return {"byFormat": [], "byPillar": [], "byStatus": [], "byAudience": [], "bySubAudience": []}
+    
+    # Build list of visible company_ids
+    visible_company_ids = [company_id]
+    if not org_id:
+        user_memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(50)
+        for m in user_memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid not in visible_company_ids:
+                visible_company_ids.append(mid)
     
     # Base match condition
-    base_match = {"company_id": company_id}
+    base_match = {"company_id": {"$in": visible_company_ids}} if len(visible_company_ids) > 1 else {"company_id": company_id}
     if account_id:
         base_match["social_account_id"] = account_id
     
@@ -3391,8 +3471,21 @@ async def get_social_calendar(
     if not company_id:
         return []
     
+    # Build list of visible company_ids
+    visible_company_ids = [company_id]
+    user_memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(50)
+    for m in user_memberships:
+        mid = m.get("company_id") or m.get("organization_id")
+        if mid and mid not in visible_company_ids:
+            visible_company_ids.append(mid)
+    
+    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else company_id
+    
     query = {
-        "company_id": company_id,
+        "company_id": company_filter,
         "status": {"$nin": ["archived"]},
         "$or": [
             {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
@@ -3434,7 +3527,21 @@ async def get_content_ideas(
     if not company_id:
         return []
     
-    query = {"company_id": company_id}
+    # Build list of visible company_ids
+    visible_company_ids = [company_id]
+    if not org_id:
+        user_memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(50)
+        for m in user_memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid not in visible_company_ids:
+                visible_company_ids.append(mid)
+    
+    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else company_id
+    
+    query = {"company_id": company_filter}
     if status:
         query["status"] = status
     if pillar_id:
