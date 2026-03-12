@@ -75,6 +75,22 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Added "Sub-Aud." column in Queue table
    - All tests passed (13/13 backend, 100% frontend)
 
+2. **Quick Status Change Buttons**:
+   - Queue: DropdownMenu with all status transitions + Duplicate + Delete
+   - Ideas: "Producción" button to send ideas directly to production
+   - Production tab: "A Edición" button on each post
+   - Editing tab: "A Borrador" button on each post
+   - Mini-dialog prompts for production date when moving to Production/Editing
+   - Backend PATCH endpoint extended to accept production_date and scheduled_at
+   - All tests passed (10/10 backend, 100% frontend)
+
+3. **Calendar Drag & Drop**:
+   - Posts can be dragged between calendar days to reschedule
+   - Uses @hello-pangea/dnd library (already installed)
+   - Dropping a post updates its scheduled_at via PATCH endpoint
+   - Visual feedback: highlight on drag-over, shadow on dragging
+   - All tests passed
+
 ### Previous Sessions
 
 #### Completed Previously
