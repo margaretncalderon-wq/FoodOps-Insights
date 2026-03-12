@@ -1752,8 +1752,19 @@ async def submit_lead_form(form_id: str, data: dict, campaign_code: Optional[str
 @crm_router.get("/team-members")
 async def get_team_members(user: User = Depends(get_current_user)):
     """Get all active team members for owner assignment dropdown"""
+    # Get removed/revoked membership user_ids to exclude
+    removed_memberships = await db.memberships.find({
+        "$or": [{"company_id": user.company_id}, {"organization_id": user.company_id}],
+        "status": {"$in": ["removed", "revoked", "suspended"]}
+    }, {"_id": 0, "user_id": 1}).to_list(100)
+    removed_user_ids = [m["user_id"] for m in removed_memberships]
+    
+    query = {"company_id": user.company_id, "is_active": {"$ne": False}}
+    if removed_user_ids:
+        query["user_id"] = {"$nin": removed_user_ids}
+    
     users = await db.users.find(
-        {"company_id": user.company_id, "is_active": {"$ne": False}},
+        query,
         {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1, "role_id": 1}
     ).to_list(100)
     

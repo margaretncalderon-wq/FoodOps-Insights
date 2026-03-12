@@ -11964,6 +11964,22 @@ async def remove_member(membership_id: str, user: User = Depends(get_current_use
         {"$set": {"status": "removed", "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     
+    # Also deactivate the user so they don't appear in selection lists (CRM, mentions, etc.)
+    member_user_id = membership.get("user_id")
+    if member_user_id:
+        # Only deactivate if this was their only active membership for this company
+        other_active = await db.memberships.find_one({
+            "user_id": member_user_id,
+            "company_id": user.company_id,
+            "membership_id": {"$ne": membership_id},
+            "status": {"$nin": ["removed", "revoked", "suspended"]}
+        })
+        if not other_active:
+            await db.users.update_one(
+                {"user_id": member_user_id, "company_id": user.company_id},
+                {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+    
     return {"success": True}
 
 

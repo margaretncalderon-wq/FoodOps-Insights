@@ -209,20 +209,29 @@ async def list_social_collaborators(
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization found")
     
-    # Get ALL active memberships for the org (not just social-specific roles)
+    # Get ALL active memberships for the org (exclude removed, revoked, suspended)
     memberships = await db.memberships.find({
         "$or": [{"company_id": company_id}, {"organization_id": company_id}],
-        "status": {"$ne": "removed"}
+        "status": {"$nin": ["removed", "revoked", "suspended"]}
     }).to_list(100)
     
     # Get user details
     user_ids = [m["user_id"] for m in memberships]
     
-    # Also include team members from the same company (own team)
+    # Get removed/revoked user_ids to exclude from team members
+    removed_memberships = await db.memberships.find({
+        "$or": [{"company_id": company_id}, {"organization_id": company_id}],
+        "status": {"$in": ["removed", "revoked", "suspended"]}
+    }, {"_id": 0, "user_id": 1}).to_list(100)
+    removed_user_ids = set(m["user_id"] for m in removed_memberships)
+    
+    # Also include team members from the same company (own team), excluding inactive and removed
     team_users = await db.users.find(
         {"company_id": company_id, "is_active": {"$ne": False}},
         {"_id": 0, "user_id": 1, "email": 1, "name": 1, "first_name": 1, "last_name": 1, "role": 1}
     ).to_list(100)
+    # Filter out users whose membership was removed
+    team_users = [u for u in team_users if u["user_id"] not in removed_user_ids]
     
     # Add team users to user_ids for lookup
     all_user_ids = list(set(user_ids + [u["user_id"] for u in team_users]))

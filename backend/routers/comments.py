@@ -42,7 +42,14 @@ async def get_mentionable_users(
         result_users = []
         seen_user_ids = set()
         
-        # Get users from the target company (exclude inactive/deleted users)
+        # Get removed/revoked user_ids to exclude
+        removed_memberships = await db.memberships.find({
+            "$or": [{"company_id": target_company_id}, {"organization_id": target_company_id}],
+            "status": {"$in": ["removed", "revoked", "suspended"]}
+        }, {"_id": 0, "user_id": 1}).to_list(100)
+        removed_user_ids = set(m["user_id"] for m in removed_memberships)
+        
+        # Get users from the target company (exclude inactive/deleted users and removed members)
         cursor = db.users.find(
             {"company_id": target_company_id, "is_active": {"$ne": False}},
             {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1, "picture": 1, "role": 1}
@@ -51,7 +58,7 @@ async def get_mentionable_users(
         
         for u in company_users:
             uid = u.get("user_id")
-            if uid and uid not in seen_user_ids:
+            if uid and uid not in seen_user_ids and uid not in removed_user_ids:
                 name = u.get("name")
                 if not name:
                     first = u.get("first_name") or ""

@@ -1,5 +1,22 @@
 # Kora ERP - Changelog
 
+## [2026-03-12] - Fix: Deleted Employees Still Showing in CRM & Demand Studio
+
+### Fixed
+- **Deleted employees appearing in all selection lists** - When a member was removed from Settings, only the membership `status` was set to "removed" but the user remained visible because `is_active` was never set.
+  - **Root cause**: The `DELETE /api/org/members` endpoint didn't deactivate the user, and user queries only checked `is_active` field.
+  - **Fix 1**: `remove_member` endpoint now also sets `is_active: false` on the user document when their last active membership is removed.
+  - **Fix 2**: Added cross-reference with removed memberships (`status: removed/revoked/suspended`) to:
+    - `/api/social-sharing/collaborators` (social_sharing.py)
+    - `/api/comments/mentions/users` (comments.py)
+    - `/api/crm/team-members` (crm.py)
+  - Result: CRM team members 7→5, Collaborators 8→6, Mentions 8→6
+
+### Removed
+- **"Partners Externos" section** from Demand Studio Settings (was incorrectly placed)
+
+---
+
 ## [2026-03-12] - Fix: Shared Org Users Now Visible in Demand Studio
 
 ### Fixed
