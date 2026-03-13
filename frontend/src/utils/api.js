@@ -42,6 +42,7 @@ axios.interceptors.request.use((config) => {
 });
 
 // Response interceptor - handle 401 globally and redirect to login
+// ONLY redirect if user HAD a token (was authenticated) and it expired
 let isRedirectingToLogin = false;
 axios.interceptors.response.use(
   (response) => response,
@@ -51,22 +52,25 @@ axios.interceptors.response.use(
       !isRedirectingToLogin &&
       !error.config?.url?.includes("/auth/login") &&
       !error.config?.url?.includes("/auth/me") &&
-      !error.config?.url?.includes("/auth/refresh")
+      !error.config?.url?.includes("/auth/refresh") &&
+      !error.config?.url?.includes("/auth/register")
     ) {
-      isRedirectingToLogin = true;
-      // Clear stored credentials
-      try {
-        localStorage.removeItem("kora_auth_token");
-        localStorage.removeItem("kora_auth_user");
-      } catch (e) { /* ignore */ }
-      _authToken = null;
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
-          window.location.href = "/login?expired=1";
-        }
-        isRedirectingToLogin = false;
-      }, 100);
+      // Only redirect if user was previously authenticated
+      const hadToken = !!_authToken || !!localStorage.getItem("kora_auth_token");
+      if (hadToken) {
+        isRedirectingToLogin = true;
+        try {
+          localStorage.removeItem("kora_auth_token");
+          localStorage.removeItem("kora_auth_user");
+        } catch (e) { /* ignore */ }
+        _authToken = null;
+        setTimeout(() => {
+          if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+            window.location.href = "/login?expired=1";
+          }
+          isRedirectingToLogin = false;
+        }, 100);
+      }
     }
     return Promise.reject(error);
   }
