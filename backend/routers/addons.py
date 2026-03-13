@@ -787,6 +787,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     """
     Get all enabled modules for the organization.
     Uses centralized industry configuration for module names and settings.
+    Checks user's active org, then own company, then memberships for proper config.
     """
     from industry_config_module.industry_config import (
         get_industry_config, 
@@ -794,11 +795,32 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
         IndustryType
     )
     
-    # Get organization config
+    # Determine the effective company_id: active_org > own company > first membership with config
+    effective_company_id = user.active_org_id or user.company_id
+    
+    # If the effective company has no org config, check memberships
     org_config = await db.organization_configs.find_one(
-        {"company_id": user.company_id}, 
+        {"company_id": effective_company_id}, 
         {"_id": 0, "industry_template": 1, "industry_type": 1, "terminology": 1}
     )
+    
+    if not org_config:
+        # Check memberships for a company with proper config
+        memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(20)
+        for m in memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid != effective_company_id:
+                candidate_config = await db.organization_configs.find_one(
+                    {"company_id": mid},
+                    {"_id": 0, "industry_template": 1, "industry_type": 1, "terminology": 1}
+                )
+                if candidate_config:
+                    effective_company_id = mid
+                    org_config = candidate_config
+                    break
     
     # Support both old industry_template and new industry_type
     industry_type = "events"  # default
@@ -844,7 +866,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     
     # Get the organization's plan
     subscription = await db.subscriptions.find_one(
-        {"company_id": user.company_id, "status": {"$in": ["active", "trialing"]}},
+        {"company_id": effective_company_id, "status": {"$in": ["active", "trialing"]}},
         {"_id": 0, "plan_id": 1, "is_demo_account": 1, "account_type": 1}
     )
     plan_id = subscription.get("plan_id", "plan_starter") if subscription else "plan_starter"
@@ -852,7 +874,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     
     # Check if this is a demo/influencer/partner account from company
     company = await db.companies.find_one(
-        {"company_id": user.company_id},
+        {"company_id": effective_company_id},
         {"_id": 0, "account_type": 1}
     )
     account_type = company.get("account_type") if company else None
@@ -860,7 +882,7 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
     
     # Get purchased/admin-granted module addons
     purchased_modules = await db.organization_addons.find({
-        "company_id": user.company_id,
+        "company_id": effective_company_id,
         "status": "active",
         "addon_type": "module"
     }, {"_id": 0, "addon_id": 1}).to_list(50)
