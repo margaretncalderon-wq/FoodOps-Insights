@@ -4414,6 +4414,12 @@ async def update_company_settings(data: dict, user: User = Depends(get_current_u
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
     
+    # Auto-sync the company display name with trade_name or legal_name
+    if "trade_name" in update_data and update_data["trade_name"]:
+        update_data["name"] = update_data["trade_name"]
+    elif "legal_name" in update_data and update_data["legal_name"] and "name" not in update_data:
+        update_data["name"] = update_data["legal_name"]
+    
     result = await db.companies.update_one({"company_id": user.company_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Company not found")
