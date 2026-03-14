@@ -293,6 +293,12 @@ export default function SocialMediaPage() {
     }
   };
 
+  // Helper to get org_id query param for write operations
+  const getOrgParam = () => {
+    const orgId = selectedOrgId && !isOwnOrg ? selectedOrgId : null;
+    return orgId ? `?org_id=${orgId}` : "";
+  };
+
   const fetchData = async (orgId = null, accountId = null) => {
     try {
       // Use selectedOrgId from context if available and not own org
@@ -395,9 +401,9 @@ export default function SocialMediaPage() {
       if (!payload.production_date) delete payload.production_date;
       
       if (editingPost) {
-        await axios.put(`${API}/api/demand-studio/social/posts/${editingPost.post_id}`, payload, { withCredentials: true });
+        await axios.put(`${API}/api/demand-studio/social/posts/${editingPost.post_id}${getOrgParam()}`, payload, { withCredentials: true });
       } else {
-        await axios.post(`${API}/api/demand-studio/social/posts`, payload, { withCredentials: true });
+        await axios.post(`${API}/api/demand-studio/social/posts${getOrgParam()}`, payload, { withCredentials: true });
       }
       setPostDialogOpen(false);
       setEditingPost(null);
@@ -705,9 +711,9 @@ export default function SocialMediaPage() {
       if (!payload.pillar_id) delete payload.pillar_id;
       
       if (editingIdea) {
-        await axios.put(`${API}/api/demand-studio/social/ideas/${editingIdea.idea_id}`, payload, { withCredentials: true });
+        await axios.put(`${API}/api/demand-studio/social/ideas/${editingIdea.idea_id}${getOrgParam()}`, payload, { withCredentials: true });
       } else {
-        await axios.post(`${API}/api/demand-studio/social/ideas`, payload, { withCredentials: true });
+        await axios.post(`${API}/api/demand-studio/social/ideas${getOrgParam()}`, payload, { withCredentials: true });
       }
       setIdeaDialogOpen(false);
       setEditingIdea(null);

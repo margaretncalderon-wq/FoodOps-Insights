@@ -73,11 +73,15 @@ async def check_section_permission(
     Check if user has permission to access a specific section of an organization.
     
     Sections: social_media, campaigns, spend_ledger, email_marketing, notes, insights, activations
-    Roles: admin > editor > viewer
+    Roles: admin > editor > contributor > viewer
     
     Returns: (company_id, can_write)
     """
-    ROLE_HIERARCHY = {"admin": 3, "editor": 2, "viewer": 1}
+    ROLE_HIERARCHY = {
+        "admin": 4, "editor": 3, 
+        "contributor": 2, "social_contributor": 2, "ops": 2,
+        "viewer": 1, "social_viewer": 1
+    }
     
     own_company_id = user.company_id or user.active_org_id
     
@@ -105,7 +109,7 @@ async def check_section_permission(
         # For collaborators without specific permissions, deny access
         if general_role == "collaborator":
             raise HTTPException(status_code=403, detail=f"No access to {section}")
-        can_write = ROLE_HIERARCHY.get(general_role, 0) >= ROLE_HIERARCHY.get("editor", 2)
+        can_write = ROLE_HIERARCHY.get(general_role, 0) >= ROLE_HIERARCHY.get("contributor", 2)
         return org_id, can_write
     
     # Check specific section permission
@@ -121,7 +125,7 @@ async def check_section_permission(
     if user_level < required_level:
         raise HTTPException(status_code=403, detail=f"Insufficient permissions for {section}")
     
-    can_write = user_level >= ROLE_HIERARCHY.get("editor", 2)
+    can_write = user_level >= ROLE_HIERARCHY.get("contributor", 2)
     return org_id, can_write
 
 
@@ -169,7 +173,11 @@ async def get_my_permissions(
     permissions = membership.get("permissions", {})
     general_role = membership.get("role", "viewer")
     
-    ROLE_HIERARCHY = {"admin": 3, "editor": 2, "viewer": 1}
+    ROLE_HIERARCHY = {
+        "admin": 4, "editor": 3, 
+        "contributor": 2, "social_contributor": 2, "ops": 2,
+        "viewer": 1, "social_viewer": 1
+    }
     
     # Build section permissions
     sections = {}
@@ -190,7 +198,7 @@ async def get_my_permissions(
         sections[section] = {
             "enabled": enabled,
             "role": role,
-            "can_write": ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("editor", 2) if role else False
+            "can_write": ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("contributor", 2) if role else False
         }
     
     return {
@@ -2799,9 +2807,31 @@ async def get_social_posts(
     return posts
 
 @demand_studio_router.post("/social/posts")
-async def create_social_post(data: SocialPostCreate, user: User = Depends(get_current_user)):
+async def create_social_post(data: SocialPostCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Create a social post"""
-    company_id = user.company_id or user.active_org_id
+    # Use org_id if provided (shared org context), otherwise fallback to user's company
+    if org_id:
+        try:
+            company_id, can_write = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
+        # Check memberships - if user's own company has no accounts, use their primary membership
+        own_accounts = await db.social_accounts.count_documents({"company_id": company_id})
+        if own_accounts == 0:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(20)
+            for m in memberships:
+                mid = m.get("company_id") or m.get("organization_id")
+                if mid and mid != company_id:
+                    mid_accounts = await db.social_accounts.count_documents({"company_id": mid})
+                    if mid_accounts > 0:
+                        company_id = mid
+                        break
+    
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -3553,9 +3583,31 @@ async def get_content_ideas(
     return ideas
 
 @demand_studio_router.post("/social/ideas")
-async def create_content_idea(data: ContentIdeaCreate, user: User = Depends(get_current_user)):
+async def create_content_idea(data: ContentIdeaCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Create a content idea"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, can_write = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
+        # Check memberships - resolve to the company with actual social data
+        own_ideas = await db.content_ideas.count_documents({"company_id": company_id})
+        own_accounts = await db.social_accounts.count_documents({"company_id": company_id})
+        if own_ideas == 0 and own_accounts == 0:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(20)
+            for m in memberships:
+                mid = m.get("company_id") or m.get("organization_id")
+                if mid and mid != company_id:
+                    mid_accounts = await db.social_accounts.count_documents({"company_id": mid})
+                    if mid_accounts > 0:
+                        company_id = mid
+                        break
+    
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -3578,9 +3630,15 @@ async def create_content_idea(data: ContentIdeaCreate, user: User = Depends(get_
     return idea
 
 @demand_studio_router.put("/social/ideas/{idea_id}")
-async def update_content_idea(idea_id: str, data: ContentIdeaCreate, user: User = Depends(get_current_user)):
+async def update_content_idea(idea_id: str, data: ContentIdeaCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Update a content idea"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     
     result = await db.content_ideas.update_one(
         {"idea_id": idea_id, "company_id": company_id},
