@@ -461,6 +461,7 @@ class SocialPostCreate(BaseModel):
     production_date: Optional[str] = None  # Date for recording/shooting
     link_url: Optional[str] = None
     notes: Optional[str] = None
+    content_body: Optional[str] = None  # Rich text HTML for carousel slides, reel scripts, internal notes
 
 
 class SocialPost(BaseModel):
@@ -484,6 +485,7 @@ class SocialPost(BaseModel):
     posted_at: Optional[str] = None
     link_url: Optional[str] = None
     notes: Optional[str] = None
+    content_body: Optional[str] = None  # Rich text HTML
     created_by_user_id: str
     owner_user_id: Optional[str] = None
     created_at: datetime
@@ -510,6 +512,7 @@ class ContentIdeaCreate(BaseModel):
     pillar_id: Optional[str] = None
     tags: List[str] = []
     status: str = "new"  # new, reviewing, approved, used, archived
+    content_body: Optional[str] = None  # Rich text HTML for internal notes, scripts
 
 
 class ContentIdea(BaseModel):
@@ -522,6 +525,7 @@ class ContentIdea(BaseModel):
     pillar_id: Optional[str] = None
     tags: List[str] = []
     status: str = "new"
+    content_body: Optional[str] = None  # Rich text HTML
     created_by_user_id: str
     created_at: datetime
     updated_at: datetime

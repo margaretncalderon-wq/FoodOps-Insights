@@ -2863,6 +2863,7 @@ async def create_social_post(data: SocialPostCreate, org_id: Optional[str] = Non
         "posted_at": None,
         "link_url": data.link_url,
         "notes": data.notes,
+        "content_body": data.content_body,
         "created_by_user_id": user.user_id,
         "owner_user_id": user.user_id,
         "created_at": now.isoformat(),
@@ -2953,12 +2954,30 @@ async def get_social_post(post_id: str, user: User = Depends(get_current_user)):
     return post
 
 @demand_studio_router.put("/social/posts/{post_id}")
-async def update_social_post(post_id: str, data: SocialPostCreate, user: User = Depends(get_current_user)):
+async def update_social_post(post_id: str, data: SocialPostCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Update a social post"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     
-    # Get original post for activity log
+    # Also try membership companies if post not found with own company
     original_post = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not original_post and not org_id:
+        memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(20)
+        for m in memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid != company_id:
+                original_post = await db.social_posts.find_one({"post_id": post_id, "company_id": mid})
+                if original_post:
+                    company_id = mid
+                    break
     
     update_data = {
         "social_account_id": data.social_account_id,
@@ -2977,6 +2996,7 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
         "production_date": data.production_date,
         "link_url": data.link_url,
         "notes": data.notes,
+        "content_body": data.content_body,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -3010,9 +3030,15 @@ async def update_social_post(post_id: str, data: SocialPostCreate, user: User = 
     return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
 
 @demand_studio_router.post("/social/posts/{post_id}/mark-posted")
-async def mark_post_as_posted(post_id: str, user: User = Depends(get_current_user)):
+async def mark_post_as_posted(post_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Mark a post as posted"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     now = datetime.now(timezone.utc)
     
     result = await db.social_posts.update_one(
@@ -3036,14 +3062,33 @@ class PostApprovalUpdate(BaseModel):
     scheduled_at: Optional[str] = None
 
 @demand_studio_router.patch("/social/posts/{post_id}")
-async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User = Depends(get_current_user)):
+async def patch_social_post(post_id: str, data: PostApprovalUpdate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Partial update for post approval/rejection workflow and quick status changes"""
     from routers.notifications import create_notification
     
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     
     # Get the post first to find who created it
     post = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not post and not org_id:
+        # Try membership companies
+        memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(20)
+        for m in memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid != company_id:
+                post = await db.social_posts.find_one({"post_id": post_id, "company_id": mid})
+                if post:
+                    company_id = mid
+                    break
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     
@@ -3157,11 +3202,29 @@ async def patch_social_post(post_id: str, data: PostApprovalUpdate, user: User =
     return await db.social_posts.find_one({"post_id": post_id}, {"_id": 0})
 
 @demand_studio_router.post("/social/posts/{post_id}/duplicate")
-async def duplicate_social_post(post_id: str, user: User = Depends(get_current_user)):
+async def duplicate_social_post(post_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Duplicate a social post"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     
     original = await db.social_posts.find_one({"post_id": post_id, "company_id": company_id})
+    if not original and not org_id:
+        memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(20)
+        for m in memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid != company_id:
+                original = await db.social_posts.find_one({"post_id": post_id, "company_id": mid})
+                if original:
+                    company_id = mid
+                    break
     if not original:
         raise HTTPException(status_code=404, detail="Post not found")
     
@@ -3185,6 +3248,7 @@ async def duplicate_social_post(post_id: str, user: User = Depends(get_current_u
         "posted_at": None,
         "link_url": original.get("link_url"),
         "notes": original.get("notes"),
+        "content_body": original.get("content_body"),
         "created_by_user_id": user.user_id,
         "owner_user_id": user.user_id,
         "created_at": now.isoformat(),
@@ -3195,14 +3259,36 @@ async def duplicate_social_post(post_id: str, user: User = Depends(get_current_u
     return new_post
 
 @demand_studio_router.delete("/social/posts/{post_id}")
-async def delete_social_post(post_id: str, user: User = Depends(get_current_user)):
+async def delete_social_post(post_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Delete a social post"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     result = await db.social_posts.delete_one(
         {"post_id": post_id, "company_id": company_id}
     )
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Post not found")
+        # Try membership companies
+        if not org_id:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(20)
+            for m in memberships:
+                mid = m.get("company_id") or m.get("organization_id")
+                if mid and mid != company_id:
+                    result = await db.social_posts.delete_one({"post_id": post_id, "company_id": mid})
+                    if result.deleted_count > 0:
+                        break
+            else:
+                raise HTTPException(status_code=404, detail="Post not found")
+        else:
+            raise HTTPException(status_code=404, detail="Post not found")
     
     # Delete linked assets and spend
     await db.social_post_assets.delete_many({"post_id": post_id})
@@ -3621,6 +3707,7 @@ async def create_content_idea(data: ContentIdeaCreate, org_id: Optional[str] = N
         "pillar_id": data.pillar_id,
         "tags": data.tags,
         "status": data.status,
+        "content_body": data.content_body,
         "created_by_user_id": user.user_id,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
@@ -3649,31 +3736,97 @@ async def update_content_idea(idea_id: str, data: ContentIdeaCreate, org_id: Opt
             "pillar_id": data.pillar_id,
             "tags": data.tags,
             "status": data.status,
+            "content_body": data.content_body,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Idea not found")
+        # Try membership companies
+        if not org_id:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(20)
+            for m in memberships:
+                mid = m.get("company_id") or m.get("organization_id")
+                if mid and mid != company_id:
+                    result = await db.content_ideas.update_one(
+                        {"idea_id": idea_id, "company_id": mid},
+                        {"$set": {
+                            "title": data.title,
+                            "description": data.description,
+                            "source_url": data.source_url,
+                            "pillar_id": data.pillar_id,
+                            "tags": data.tags,
+                            "status": data.status,
+                            "content_body": data.content_body,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                    if result.matched_count > 0:
+                        return await db.content_ideas.find_one({"idea_id": idea_id}, {"_id": 0})
+            raise HTTPException(status_code=404, detail="Idea not found")
+        else:
+            raise HTTPException(status_code=404, detail="Idea not found")
     
     return await db.content_ideas.find_one({"idea_id": idea_id}, {"_id": 0})
 
 @demand_studio_router.delete("/social/ideas/{idea_id}")
-async def delete_content_idea(idea_id: str, user: User = Depends(get_current_user)):
+async def delete_content_idea(idea_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Delete a content idea"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     result = await db.content_ideas.delete_one(
         {"idea_id": idea_id, "company_id": company_id}
     )
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Idea not found")
+        # Try membership companies
+        if not org_id:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(20)
+            for m in memberships:
+                mid = m.get("company_id") or m.get("organization_id")
+                if mid and mid != company_id:
+                    result = await db.content_ideas.delete_one({"idea_id": idea_id, "company_id": mid})
+                    if result.deleted_count > 0:
+                        break
+            else:
+                raise HTTPException(status_code=404, detail="Idea not found")
+        else:
+            raise HTTPException(status_code=404, detail="Idea not found")
     return {"success": True}
 
 @demand_studio_router.post("/social/ideas/{idea_id}/convert-to-post")
-async def convert_idea_to_post(idea_id: str, social_account_id: str, user: User = Depends(get_current_user)):
+async def convert_idea_to_post(idea_id: str, social_account_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Convert an idea to a social post"""
-    company_id = user.company_id or user.active_org_id
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     
     idea = await db.content_ideas.find_one({"idea_id": idea_id, "company_id": company_id})
+    if not idea and not org_id:
+        memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(20)
+        for m in memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid != company_id:
+                idea = await db.content_ideas.find_one({"idea_id": idea_id, "company_id": mid})
+                if idea:
+                    company_id = mid
+                    break
     if not idea:
         raise HTTPException(status_code=404, detail="Idea not found")
     
@@ -3694,6 +3847,7 @@ async def convert_idea_to_post(idea_id: str, social_account_id: str, user: User 
         "posted_at": None,
         "link_url": idea.get("source_url"),
         "notes": f"Converted from idea. Tags: {', '.join(idea.get('tags', []))}",
+        "content_body": idea.get("content_body"),
         "created_by_user_id": user.user_id,
         "owner_user_id": user.user_id,
         "created_at": now.isoformat(),

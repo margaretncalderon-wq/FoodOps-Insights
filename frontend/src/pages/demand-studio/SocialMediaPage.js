@@ -46,6 +46,7 @@ import AccountSharing from "../../components/demand-studio/AccountSharing";
 import ActivityFeed from "../../components/demand-studio/ActivityFeed";
 import { SocialMetricsSection } from "../../components/demand-studio/SocialMetricsSection";
 import CommentsSection from "../../components/shared/CommentsSection";
+import RichTextEditor from "../../components/ui/RichTextEditor";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -169,7 +170,8 @@ export default function SocialMediaPage() {
     scheduled_at: "",
     production_date: "",
     link_url: "",
-    notes: ""
+    notes: "",
+    content_body: ""
   });
   
   const [accountForm, setAccountForm] = useState({
@@ -216,7 +218,8 @@ export default function SocialMediaPage() {
     source_url: "",
     pillar_id: "",
     tags: [],
-    status: "new"
+    status: "new",
+    content_body: ""
   });
   const [tagInput, setTagInput] = useState("");
 
@@ -421,7 +424,7 @@ export default function SocialMediaPage() {
   const handleDeletePost = async (postId) => {
     if (!window.confirm(isEs ? "¿Eliminar este post?" : "Delete this post?")) return;
     try {
-      await axios.delete(`${API}/api/demand-studio/social/posts/${postId}`, { withCredentials: true });
+      await axios.delete(`${API}/api/demand-studio/social/posts/${postId}${getOrgParam()}`, { withCredentials: true });
       fetchData();
       fetchCalendarPosts();
     } catch (error) {
@@ -432,7 +435,7 @@ export default function SocialMediaPage() {
 
   const handleMarkAsPosted = async (postId) => {
     try {
-      await axios.post(`${API}/api/demand-studio/social/posts/${postId}/mark-posted`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/demand-studio/social/posts/${postId}/mark-posted${getOrgParam()}`, {}, { withCredentials: true });
       fetchData();
       fetchCalendarPosts();
     } catch (error) {
@@ -453,7 +456,7 @@ export default function SocialMediaPage() {
     }
     // Direct status change
     try {
-      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, { status: targetStatus }, { withCredentials: true });
+      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}${getOrgParam()}`, { status: targetStatus }, { withCredentials: true });
       fetchData();
       fetchCalendarPosts();
     } catch (error) {
@@ -464,7 +467,7 @@ export default function SocialMediaPage() {
 
   const confirmQuickStatusChange = async () => {
     try {
-      await axios.patch(`${API}/api/demand-studio/social/posts/${quickStatusDialog.postId}`, {
+      await axios.patch(`${API}/api/demand-studio/social/posts/${quickStatusDialog.postId}${getOrgParam()}`, {
         status: quickStatusDialog.targetStatus,
         production_date: quickProductionDate || null
       }, { withCredentials: true });
@@ -486,7 +489,7 @@ export default function SocialMediaPage() {
     if (!targetDateStr.startsWith("cal-")) return;
     const newDate = targetDateStr.replace("cal-", "");
     try {
-      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}`, {
+      await axios.patch(`${API}/api/demand-studio/social/posts/${postId}${getOrgParam()}`, {
         scheduled_at: newDate + "T12:00:00"
       }, { withCredentials: true });
       fetchData();
@@ -499,7 +502,7 @@ export default function SocialMediaPage() {
 
   const handleDuplicatePost = async (postId) => {
     try {
-      await axios.post(`${API}/api/demand-studio/social/posts/${postId}/duplicate`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/demand-studio/social/posts/${postId}/duplicate${getOrgParam()}`, {}, { withCredentials: true });
       fetchData();
       fetchCalendarPosts();
     } catch (error) {
@@ -512,7 +515,7 @@ export default function SocialMediaPage() {
     if (accountSaving) return;
     setAccountSaving(true);
     try {
-      await axios.post(`${API}/api/demand-studio/social/accounts`, accountForm, { withCredentials: true });
+      await axios.post(`${API}/api/demand-studio/social/accounts${getOrgParam()}`, accountForm, { withCredentials: true });
       setAccountDialogOpen(false);
       setAccountForm({ platform: "instagram", handle: "", status: "active" });
       fetchData();
@@ -551,7 +554,7 @@ export default function SocialMediaPage() {
   const handleDeletePillar = async (pillarId) => {
     if (!window.confirm(isEs ? "¿Eliminar este pilar?" : "Delete this pillar?")) return;
     try {
-      await axios.delete(`${API}/api/demand-studio/social/pillars/${pillarId}`, { withCredentials: true });
+      await axios.delete(`${API}/api/demand-studio/social/pillars/${pillarId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Pilar eliminado" : "Pillar deleted");
       fetchData();
     } catch (error) {
@@ -610,7 +613,7 @@ export default function SocialMediaPage() {
   const handleDeleteAudience = async (audienceId) => {
     if (!window.confirm(isEs ? "¿Eliminar esta audiencia?" : "Delete this audience?")) return;
     try {
-      await axios.delete(`${API}/api/demand-studio/social/audiences/${audienceId}`, { withCredentials: true });
+      await axios.delete(`${API}/api/demand-studio/social/audiences/${audienceId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Audiencia eliminada" : "Audience deleted");
       fetchData();
     } catch (error) {
@@ -670,7 +673,7 @@ export default function SocialMediaPage() {
   const handleDeleteSegment = async (segmentId) => {
     if (!window.confirm(isEs ? "¿Eliminar este segmento?" : "Delete this segment?")) return;
     try {
-      await axios.delete(`${API}/api/demand-studio/social/segments/${segmentId}`, { withCredentials: true });
+      await axios.delete(`${API}/api/demand-studio/social/segments/${segmentId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Segmento eliminado" : "Segment deleted");
       fetchData();
     } catch (error) {
@@ -730,7 +733,7 @@ export default function SocialMediaPage() {
   const handleDeleteIdea = async (ideaId) => {
     if (!window.confirm(isEs ? "¿Eliminar esta idea?" : "Delete this idea?")) return;
     try {
-      await axios.delete(`${API}/api/demand-studio/social/ideas/${ideaId}`, { withCredentials: true });
+      await axios.delete(`${API}/api/demand-studio/social/ideas/${ideaId}${getOrgParam()}`, { withCredentials: true });
       fetchData();
     } catch (error) {
       console.error("Error deleting idea:", error);
@@ -741,7 +744,7 @@ export default function SocialMediaPage() {
     if (!ideaToConvert || !accountId || convertingSaving) return;
     setConvertingSaving(true);
     try {
-      await axios.post(`${API}/api/demand-studio/social/ideas/${ideaToConvert.idea_id}/convert-to-post?social_account_id=${accountId}`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/demand-studio/social/ideas/${ideaToConvert.idea_id}/convert-to-post?social_account_id=${accountId}${selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : ""}`, {}, { withCredentials: true });
       setConvertIdeaDialogOpen(false);
       setIdeaToConvert(null);
       fetchData();
@@ -762,7 +765,8 @@ export default function SocialMediaPage() {
       source_url: idea.source_url || "",
       pillar_id: idea.pillar_id || "",
       tags: idea.tags || [],
-      status: idea.status
+      status: idea.status,
+      content_body: idea.content_body || ""
     });
     setIdeaDialogOpen(true);
   };
@@ -774,7 +778,8 @@ export default function SocialMediaPage() {
       source_url: "",
       pillar_id: "",
       tags: [],
-      status: "new"
+      status: "new",
+      content_body: ""
     });
     setTagInput("");
   };
@@ -808,7 +813,8 @@ export default function SocialMediaPage() {
       scheduled_at: post.scheduled_at || "",
       production_date: post.production_date || "",
       link_url: post.link_url || "",
-      notes: post.notes || ""
+      notes: post.notes || "",
+      content_body: post.content_body || ""
     });
     setPostDialogOpen(true);
   };
@@ -830,7 +836,8 @@ export default function SocialMediaPage() {
       scheduled_at: "",
       production_date: "",
       link_url: "",
-      notes: ""
+      notes: "",
+      content_body: ""
     });
   };
 
@@ -2462,6 +2469,18 @@ export default function SocialMediaPage() {
               />
             </div>
             
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Contenido / Script" : "Content / Script"}</label>
+              <p className="text-xs text-muted-foreground mb-1">{isEs ? "Texto de carrusel, guión de reel, checklist interno" : "Carousel text, reel script, internal checklist"}</p>
+              <RichTextEditor
+                value={postForm.content_body}
+                onChange={val => setPostForm({...postForm, content_body: val})}
+                placeholder={isEs ? "Escribe el contenido de cada slide, guión del reel..." : "Write content for each slide, reel script..."}
+                minHeight="150px"
+                showAttachments={false}
+              />
+            </div>
+            
             {/* Comments Section - only show when editing */}
             {editingPost && (
               <div className="border-t pt-4 mt-4">
@@ -2826,7 +2845,7 @@ export default function SocialMediaPage() {
 
       {/* Idea Dialog */}
       <Dialog open={ideaDialogOpen} onOpenChange={setIdeaDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingIdea ? (isEs ? "Editar Idea" : "Edit Idea") : (isEs ? "Nueva Idea" : "New Idea")}
@@ -2905,6 +2924,18 @@ export default function SocialMediaPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Contenido / Script" : "Content / Script"}</label>
+              <p className="text-xs text-muted-foreground mb-1">{isEs ? "Notas detalladas, guiones, checklist" : "Detailed notes, scripts, checklist"}</p>
+              <RichTextEditor
+                value={ideaForm.content_body}
+                onChange={val => setIdeaForm({...ideaForm, content_body: val})}
+                placeholder={isEs ? "Escribe notas detalladas, guiones, checklist..." : "Write detailed notes, scripts, checklist..."}
+                minHeight="120px"
+                showAttachments={false}
+              />
             </div>
             
             {/* Comments Section - only show when editing */}
