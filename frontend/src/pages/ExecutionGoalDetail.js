@@ -261,6 +261,17 @@ export default function ExecutionGoalDetail() {
     }
   };
 
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm(language === "es" ? "¿Eliminar esta tarea?" : "Delete this task?")) return;
+    try {
+      await axios.delete(`${API}/execution-hub/tasks/${taskId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Tarea eliminada" : "Task deleted");
+      fetchGoal();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al eliminar tarea" : "Error deleting task");
+    }
+  };
+
   const handleAddTaskNote = async (taskId) => {
     const content = taskNoteContent[taskId];
     const attachments = taskNoteAttachments[taskId] || [];
@@ -556,7 +567,7 @@ export default function ExecutionGoalDetail() {
                                 </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
                               <Select 
                                 value={task.status} 
                                 onValueChange={(v) => handleUpdateTaskStatus(task.task_id, v)}
@@ -571,6 +582,15 @@ export default function ExecutionGoalDetail() {
                                   <SelectItem value="blocked">{t("blocked")}</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.task_id); }}
+                                data-testid={`delete-task-${task.task_id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"

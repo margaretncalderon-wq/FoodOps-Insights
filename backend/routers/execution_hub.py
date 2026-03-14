@@ -658,6 +658,27 @@ async def add_task_assignee(
     return await get_task(task_id, user)
 
 
+@execution_hub_router.delete("/tasks/{task_id}")
+async def delete_task(task_id: str, user: User = Depends(get_current_user)):
+    """Delete a task"""
+    task = await db.execution_tasks.find_one({"task_id": task_id}, {"_id": 0})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    await check_goal_access(task["goal_id"], user, AccessRole.TEAM_MEMBER)
+    
+    await db.execution_tasks.delete_one({"task_id": task_id})
+    
+    # Update goal's task count
+    remaining = await db.execution_tasks.count_documents({"goal_id": task["goal_id"]})
+    await db.execution_goals.update_one(
+        {"goal_id": task["goal_id"]},
+        {"$set": {"tasks_count": remaining, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True}
+
+
 @execution_hub_router.delete("/tasks/{task_id}/assignees/{assignee_id}")
 async def remove_task_assignee(
     task_id: str,

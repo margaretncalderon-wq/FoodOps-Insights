@@ -240,9 +240,8 @@ export default function RichTextEditor({
       <div
         ref={editorRef}
         contentEditable
-        dir="ltr"
-        className="rte-editor p-3 outline-none text-sm text-left"
-        style={{ minHeight }}
+        className="rte-editor p-3 outline-none text-sm"
+        style={{ minHeight, direction: 'ltr', textAlign: 'left' }}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onClick={handleClick}
@@ -261,7 +260,7 @@ export default function RichTextEditor({
         .rte-editor {
           line-height: 1.6;
           word-wrap: break-word;
-          white-space: pre-wrap;
+          overflow-wrap: break-word;
         }
         .rte-editor ul {
           list-style-type: disc !important;
