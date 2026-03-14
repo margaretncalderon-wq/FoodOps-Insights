@@ -10,6 +10,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import RichTextEditor from "../components/ui/RichTextEditor";
+import NoteAttachments from "../components/ui/NoteAttachments";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   Dialog,
@@ -112,10 +113,12 @@ export default function ExecutionGoalDetail() {
   
   // Note input
   const [noteContent, setNoteContent] = useState("");
+  const [noteAttachments, setNoteAttachments] = useState([]);
   const [addingNote, setAddingNote] = useState(false);
   
   // Task note
   const [taskNoteContent, setTaskNoteContent] = useState({});
+  const [taskNoteAttachments, setTaskNoteAttachments] = useState({});
   const [expandedTask, setExpandedTask] = useState(null);
   
   // Share dialog
@@ -260,13 +263,18 @@ export default function ExecutionGoalDetail() {
 
   const handleAddTaskNote = async (taskId) => {
     const content = taskNoteContent[taskId];
+    const attachments = taskNoteAttachments[taskId] || [];
     const stripped = (content || '').replace(/<[^>]*>/g, '').trim();
-    if (!stripped) return;
+    if (!stripped && attachments.length === 0) return;
     
     try {
-      await axios.post(`${API}/execution-hub/tasks/${taskId}/notes`, { content }, { withCredentials: true });
+      await axios.post(`${API}/execution-hub/tasks/${taskId}/notes`, { 
+        content: content || "",
+        attachments 
+      }, { withCredentials: true });
       toast.success(t("noteAdded"));
       setTaskNoteContent({ ...taskNoteContent, [taskId]: "" });
+      setTaskNoteAttachments({ ...taskNoteAttachments, [taskId]: [] });
       fetchGoal();
     } catch (error) {
       toast.error(t("errorAddingNote"));
@@ -317,12 +325,16 @@ export default function ExecutionGoalDetail() {
 
   const handleAddGoalNote = async () => {
     const stripped = noteContent.replace(/<[^>]*>/g, '').trim();
-    if (!stripped) return;
+    if (!stripped && noteAttachments.length === 0) return;
     setAddingNote(true);
     try {
-      await axios.post(`${API}/execution-hub/goals/${goalId}/notes`, { content: noteContent }, { withCredentials: true });
+      await axios.post(`${API}/execution-hub/goals/${goalId}/notes`, { 
+        content: noteContent,
+        attachments: noteAttachments
+      }, { withCredentials: true });
       toast.success(t("noteAdded"));
       setNoteContent("");
+      setNoteAttachments([]);
       fetchGoal();
     } catch (error) {
       toast.error(t("errorAddingNote"));
@@ -578,6 +590,11 @@ export default function ExecutionGoalDetail() {
                                   {task.notes.map((note) => (
                                     <div key={note.note_id} className="bg-muted/50 rounded p-2 text-sm overflow-hidden">
                                       <div className="text-foreground break-words overflow-hidden" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                      {note.attachments?.length > 0 && (
+                                        <div className="mt-1.5">
+                                          <NoteAttachments attachments={note.attachments} readOnly />
+                                        </div>
+                                      )}
                                       <p className="text-xs text-muted-foreground mt-1">
                                         {note.user_name} • {new Date(note.created_at).toLocaleString()}
                                       </p>
@@ -596,11 +613,17 @@ export default function ExecutionGoalDetail() {
                                 minHeight="60px"
                                 showAttachments={false}
                               />
+                              <div className="mt-2">
+                                <NoteAttachments
+                                  attachments={taskNoteAttachments[task.task_id] || []}
+                                  onAttachmentsChange={(atts) => setTaskNoteAttachments({ ...taskNoteAttachments, [task.task_id]: atts })}
+                                />
+                              </div>
                               <div className="flex justify-end mt-2">
                                 <Button 
                                   size="sm"
                                   onClick={() => handleAddTaskNote(task.task_id)}
-                                  disabled={!taskNoteContent[task.task_id]?.trim() || taskNoteContent[task.task_id] === '<br>'}
+                                  disabled={!(taskNoteContent[task.task_id] || '').replace(/<[^>]*>/g, '').trim() && !(taskNoteAttachments[task.task_id]?.length > 0)}
                                 >
                                   <Send className="w-4 h-4 mr-1" />
                                   {language === "es" ? "Enviar" : "Send"}
@@ -730,10 +753,16 @@ export default function ExecutionGoalDetail() {
                     minHeight="80px"
                     showAttachments={false}
                   />
+                  <div className="mt-2">
+                    <NoteAttachments
+                      attachments={noteAttachments}
+                      onAttachmentsChange={setNoteAttachments}
+                    />
+                  </div>
                   <div className="flex justify-end mt-2">
                     <Button 
                       onClick={handleAddGoalNote}
-                      disabled={!noteContent.trim() || noteContent === '<br>' || addingNote}
+                      disabled={(!noteContent.replace(/<[^>]*>/g, '').trim() && noteAttachments.length === 0) || addingNote}
                       className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
                       size="sm"
                     >
@@ -752,6 +781,11 @@ export default function ExecutionGoalDetail() {
                     {goal.notes?.map((note) => (
                       <div key={note.note_id} className="bg-muted/50 rounded-lg p-3 overflow-hidden">
                         <div className="text-foreground text-sm break-words overflow-wrap-anywhere" dangerouslySetInnerHTML={{ __html: note.content }} />
+                        {note.attachments?.length > 0 && (
+                          <div className="mt-2">
+                            <NoteAttachments attachments={note.attachments} readOnly />
+                          </div>
+                        )}
                         <p className="text-xs text-muted-foreground mt-2">
                           {note.user_name} • {new Date(note.created_at).toLocaleString()}
                         </p>

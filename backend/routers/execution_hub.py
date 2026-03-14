@@ -1,8 +1,10 @@
 # routers/execution_hub.py - Execution Hub Router
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
+import os
+from pathlib import Path
 
 from config import db
 from dependencies import get_current_user, User
@@ -18,6 +20,21 @@ from models.execution_hub import (
 from utils.activity_logger import log_activity, user_info
 
 execution_hub_router = APIRouter(prefix="/execution-hub", tags=["Execution Hub"])
+
+UPLOADS_DIR = Path("/app/backend/uploads")
+EXEC_ATTACHMENTS_DIR = UPLOADS_DIR / "exec_attachments"
+EXEC_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/pdf",
+    "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain", "text/csv",
+    "video/mp4", "video/webm",
+}
+MAX_FILE_SIZE = 15 * 1024 * 1024  # 15MB
 
 
 # ============== HELPER FUNCTIONS ==============
@@ -428,6 +445,7 @@ async def add_goal_note(
         "user_id": user.user_id,
         "user_name": user.name or user.email,
         "content": note.get("content", ""),
+        "attachments": note.get("attachments", []),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -698,6 +716,7 @@ async def add_task_note(
         "user_id": user.user_id,
         "user_name": user.name or user.email,
         "content": note.get("content", ""),
+        "attachments": note.get("attachments", []),
         "created_at": now.isoformat()
     }
     
@@ -1285,4 +1304,43 @@ async def create_goal_from_event(
         "goal": goal_doc,
         "tasks": created_tasks,
         "message": "Meta de ejecución creada exitosamente"
+    }
+
+
+
+# ============== FILE ATTACHMENTS ==============
+
+@execution_hub_router.post("/upload-attachment")
+async def upload_execution_attachment(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Upload a file attachment for execution hub notes"""
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de archivo no permitido. Usa imágenes, documentos PDF/Word/Excel, o videos."
+        )
+    
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="Archivo demasiado grande. Máximo 15MB.")
+    
+    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
+    filename = f"exec_{uuid.uuid4().hex[:12]}.{ext}"
+    filepath = EXEC_ATTACHMENTS_DIR / filename
+    
+    with open(filepath, "wb") as f:
+        f.write(content)
+    
+    is_image = file.content_type.startswith("image/")
+    file_url = f"/api/uploads/exec_attachments/{filename}"
+    
+    return {
+        "file_url": file_url,
+        "filename": file.filename,
+        "stored_name": filename,
+        "content_type": file.content_type,
+        "size": len(content),
+        "is_image": is_image,
     }
