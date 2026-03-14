@@ -63,6 +63,28 @@ Build a comprehensive ERP application called Kora OS with modules for:
 
 ## What's Been Implemented
 
+### Session: March 14, 2026
+
+#### Completed
+1. **Rich Text Content Editor for Posts & Ideas (Feature)**:
+   - Added `content_body` (Optional[str]) field to `SocialPostCreate`, `SocialPost`, `ContentIdeaCreate`, `ContentIdea` models
+   - Enhanced `RichTextEditor` component with Strikethrough and Checklist (checkbox) buttons
+   - Integrated RichTextEditor as "Contenido / Script" section in Post and Idea dialogs
+   - Backend: All CRUD endpoints (create, update, duplicate, convert-idea-to-post) now handle `content_body`
+   - All tests passed (12/12 backend, 100% frontend)
+
+2. **Full CRUD Access for Shared Company Profiles (Critical Bug Fix)**:
+   - Fixed `update_social_post` - now accepts `org_id` query param and searches membership companies
+   - Fixed `delete_social_post` - now accepts `org_id` and falls back to membership companies
+   - Fixed `patch_social_post` (quick status change) - now accepts `org_id` with membership fallback
+   - Fixed `mark_post_as_posted` - now accepts `org_id`
+   - Fixed `duplicate_social_post` - now accepts `org_id` with membership fallback
+   - Fixed `delete_content_idea` - now accepts `org_id` with membership fallback
+   - Fixed `update_content_idea` - now searches membership companies on not found
+   - Fixed `convert_idea_to_post` - now accepts `org_id` with membership fallback
+   - Frontend: All CRUD calls (delete post/idea, mark-posted, quick status change, drag-drop calendar, duplicate, delete pillar/audience/segment) now send `org_id` via `getOrgParam()`
+   - All tests passed (12/12 backend, 100% frontend)
+
 ### Session: March 12, 2026
 
 #### Completed
