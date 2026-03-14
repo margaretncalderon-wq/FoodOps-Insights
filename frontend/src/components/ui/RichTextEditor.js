@@ -8,6 +8,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 const EMOJIS = ["😊", "👍", "🎉", "✅", "❌", "⭐", "🔥", "💡", "📞", "📧", "📅", "💰"];
 
+const HIGHLIGHT_COLORS = [
+  { color: "#fef08a", label: "Amarillo" },
+  { color: "#bbf7d0", label: "Verde" },
+  { color: "#bfdbfe", label: "Azul" },
+  { color: "#fecaca", label: "Rojo" },
+  { color: "#e9d5ff", label: "Morado" },
+  { color: "#fed7aa", label: "Naranja" },
+  { color: "#fce7f3", label: "Rosa" },
+  { color: "#d1d5db", label: "Gris" },
+  { color: "transparent", label: "Quitar" },
+];
+
 export default function RichTextEditor({ 
   value, 
   onChange, 
@@ -17,6 +29,7 @@ export default function RichTextEditor({
 }) {
   const editorRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const isInitialized = useRef(false);
 
   useEffect(() => {
@@ -47,6 +60,41 @@ export default function RichTextEditor({
     }
   }, [onChange]);
 
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      
+      // Let the browser handle Enter natively inside lists
+      const node = sel.anchorNode;
+      const parent = node?.nodeType === 3 ? node.parentElement : node;
+      if (parent?.closest('ul') || parent?.closest('ol') || parent?.closest('.checklist-item')) {
+        return;
+      }
+      
+      e.preventDefault();
+      // Insert a <br> + zero-width space so the cursor moves down
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const br = document.createElement('br');
+      range.insertNode(br);
+      // Add a second <br> if we're at the end (ensures visible new line)
+      if (!br.nextSibling || (br.nextSibling.nodeType === 3 && br.nextSibling.textContent === '')) {
+        const br2 = document.createElement('br');
+        br.parentNode.insertBefore(br2, br.nextSibling);
+      }
+      // Move cursor after the <br>
+      range.setStartAfter(br);
+      range.setEndAfter(br);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      
+      if (onChange && editorRef.current) {
+        onChange(editorRef.current.innerHTML);
+      }
+    }
+  }, [onChange]);
+
   const insertEmoji = (emoji) => {
     execCommand('insertText', emoji);
     setShowEmojiPicker(false);
@@ -59,11 +107,20 @@ export default function RichTextEditor({
     }
   };
 
+  const applyHighlight = (color) => {
+    if (color === 'transparent') {
+      execCommand('removeFormat');
+    } else {
+      execCommand('hiliteColor', color);
+    }
+    setShowHighlightPicker(false);
+  };
+
   const insertChecklist = () => {
     const editor = editorRef.current;
     if (!editor) return;
     
-    const checklistHtml = '<div class="checklist-item" style="display:flex;align-items:flex-start;gap:6px;margin:4px 0;"><input type="checkbox" style="margin-top:3px;cursor:pointer;accent-color:#2563eb;" onclick="this.parentElement.classList.toggle(\'checked\')"/><span contenteditable="true" style="flex:1;">Tarea...</span></div>';
+    const checklistHtml = '<div class="checklist-item"><input type="checkbox" /><span contenteditable="true">Tarea...</span></div>';
     document.execCommand('insertHTML', false, checklistHtml);
     editor.focus();
     if (onChange) onChange(editor.innerHTML);
@@ -87,42 +144,66 @@ export default function RichTextEditor({
   }, [onChange]);
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-background">
+    <div className="rte-wrapper border rounded-lg overflow-hidden bg-background">
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('bold')} title="Negrita">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('bold')} title="Negrita" data-testid="rte-bold">
           <Bold className="w-3.5 h-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('italic')} title="Cursiva">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('italic')} title="Cursiva" data-testid="rte-italic">
           <Italic className="w-3.5 h-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('underline')} title="Subrayado">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('underline')} title="Subrayado" data-testid="rte-underline">
           <Underline className="w-3.5 h-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('strikeThrough')} title="Tachado">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('strikeThrough')} title="Tachado" data-testid="rte-strikethrough">
           <Strikethrough className="w-3.5 h-3.5" />
         </Button>
         
         <div className="w-px h-5 bg-border mx-1" />
         
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('insertUnorderedList')} title="Lista">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('insertUnorderedList')} title="Lista" data-testid="rte-ul">
           <List className="w-3.5 h-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('insertOrderedList')} title="Lista numerada">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('insertOrderedList')} title="Lista numerada" data-testid="rte-ol">
           <ListOrdered className="w-3.5 h-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={insertChecklist} title="Checklist">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={insertChecklist} title="Checklist" data-testid="rte-checklist">
           <CheckSquare className="w-3.5 h-3.5" />
         </Button>
         
         <div className="w-px h-5 bg-border mx-1" />
         
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleLink} title="Insertar enlace">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleLink} title="Insertar enlace" data-testid="rte-link">
           <Link2 className="w-3.5 h-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => execCommand('hiliteColor', '#fef08a')} title="Resaltar">
-          <Highlighter className="w-3.5 h-3.5" />
-        </Button>
+        
+        <Popover open={showHighlightPicker} onOpenChange={setShowHighlightPicker}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Resaltar" data-testid="rte-highlight">
+              <Highlighter className="w-3.5 h-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start" side="bottom">
+            <div className="grid grid-cols-3 gap-1.5">
+              {HIGHLIGHT_COLORS.map(hc => (
+                <button
+                  key={hc.color}
+                  type="button"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded text-xs hover:bg-muted/60 transition-colors"
+                  onClick={() => applyHighlight(hc.color)}
+                  data-testid={`rte-highlight-${hc.label.toLowerCase()}`}
+                >
+                  <span 
+                    className="w-4 h-4 rounded-sm border border-border/60 shrink-0" 
+                    style={{ backgroundColor: hc.color === 'transparent' ? '#fff' : hc.color }} 
+                  />
+                  <span>{hc.label}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {showAttachments && (
           <>
@@ -137,7 +218,7 @@ export default function RichTextEditor({
             
             <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
               <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Emoji">
+                <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Emoji" data-testid="rte-emoji">
                   <Smile className="w-3.5 h-3.5" />
                 </Button>
               </PopoverTrigger>
@@ -160,29 +241,61 @@ export default function RichTextEditor({
         ref={editorRef}
         contentEditable
         dir="ltr"
-        className="p-3 outline-none prose prose-sm max-w-none text-left"
-        style={{ minHeight, direction: 'ltr', unicodeBidi: 'plaintext' }}
+        className="rte-editor p-3 outline-none text-sm text-left"
+        style={{ minHeight }}
         onInput={handleInput}
+        onKeyDown={handleKeyDown}
         onClick={handleClick}
         data-placeholder={placeholder}
+        data-testid="rte-content-area"
         suppressContentEditableWarning
       />
 
       <style>{`
-        [contenteditable]:empty:before {
+        .rte-editor:empty:before {
           content: attr(data-placeholder);
           color: #9ca3af;
           pointer-events: none;
+          display: block;
         }
-        [contenteditable] ul, [contenteditable] ol {
-          padding-left: 1.5rem;
-          margin: 0.5rem 0;
+        .rte-editor {
+          line-height: 1.6;
+          word-wrap: break-word;
+          white-space: pre-wrap;
         }
-        [contenteditable] a {
+        .rte-editor ul {
+          list-style-type: disc !important;
+          padding-left: 1.5rem !important;
+          margin: 0.4rem 0 !important;
+        }
+        .rte-editor ol {
+          list-style-type: decimal !important;
+          padding-left: 1.5rem !important;
+          margin: 0.4rem 0 !important;
+        }
+        .rte-editor li {
+          display: list-item !important;
+          margin: 0.15rem 0;
+        }
+        .rte-editor a {
           color: #2563eb;
           text-decoration: underline;
         }
-        .checklist-item.checked span {
+        .rte-editor .checklist-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+          margin: 4px 0;
+        }
+        .rte-editor .checklist-item input[type="checkbox"] {
+          margin-top: 3px;
+          cursor: pointer;
+          accent-color: #2563eb;
+        }
+        .rte-editor .checklist-item span {
+          flex: 1;
+        }
+        .rte-editor .checklist-item.checked span {
           text-decoration: line-through;
           opacity: 0.6;
         }
