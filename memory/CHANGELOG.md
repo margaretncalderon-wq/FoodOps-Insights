@@ -15,7 +15,7 @@
 ### Bug Fix: RichTextEditor Issues
 - Fixed Enter key not creating new lines (manual br insertion)
 - Fixed bullet points and numbered lists not visible (explicit CSS list-style-type)
-- Added multi-color highlight picker (9 colors: yellow, green, blue, red, purple, orange, pink, gray + remove)
+- Added multi-color highlight picker (9 colors + remove option)
 
 ### Feature: RichTextEditor in Execution Hub
 - Integrated RichTextEditor for Goal Notes, Task Descriptions, and Task Notes
@@ -25,6 +25,14 @@
 ### Bug Fix: Text Overflow in Execution Hub
 - Fixed horizontal text overflow in task cards, note cards, decisions, and dependencies
 - Added break-words, overflow-hidden, min-w-0 to all text containers
+
+### Feature: File Attachments in Execution Hub Notes
+- New upload endpoint: POST /api/execution-hub/upload-attachment (images, PDFs, Word, Excel, PPT, CSV, video, max 15MB)
+- New serve route: GET /api/uploads/exec_attachments/{filename}
+- NoteAttachments component: upload UI with preview (image thumbnails) and download links (documents)
+- Integrated in Goal Notes and Task Notes with "Adjuntar archivo" button
+- Backend: goal notes and task notes now store `attachments` array
+- Tests: Backend 7/7, Frontend 100%
 
 ## March 12, 2026
 
