@@ -9,6 +9,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
+import RichTextEditor from "../components/ui/RichTextEditor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   Dialog,
@@ -259,7 +260,8 @@ export default function ExecutionGoalDetail() {
 
   const handleAddTaskNote = async (taskId) => {
     const content = taskNoteContent[taskId];
-    if (!content?.trim()) return;
+    const stripped = (content || '').replace(/<[^>]*>/g, '').trim();
+    if (!stripped) return;
     
     try {
       await axios.post(`${API}/execution-hub/tasks/${taskId}/notes`, { content }, { withCredentials: true });
@@ -314,7 +316,8 @@ export default function ExecutionGoalDetail() {
   };
 
   const handleAddGoalNote = async () => {
-    if (!noteContent.trim()) return;
+    const stripped = noteContent.replace(/<[^>]*>/g, '').trim();
+    if (!stripped) return;
     setAddingNote(true);
     try {
       await axios.post(`${API}/execution-hub/goals/${goalId}/notes`, { content: noteContent }, { withCredentials: true });
@@ -369,8 +372,8 @@ export default function ExecutionGoalDetail() {
                   </Badge>
                 ))}
               </div>
-              <h1 className="text-2xl font-bold text-foreground">{goal.title}</h1>
-              <p className="text-muted-foreground mt-1">{goal.objective}</p>
+              <h1 className="text-2xl font-bold text-foreground break-words">{goal.title}</h1>
+              <p className="text-muted-foreground mt-1 break-words">{goal.objective}</p>
               <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Users className="w-4 h-4" />
@@ -511,17 +514,17 @@ export default function ExecutionGoalDetail() {
                       const isExpanded = expandedTask === task.task_id;
                       
                       return (
-                        <div key={task.task_id} className="border border-border rounded-lg p-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium text-foreground">{task.title}</h4>
-                                <Badge className={`${taskStatus.color} text-xs`}>
+                        <div key={task.task_id} className="border border-border rounded-lg p-3 overflow-hidden">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h4 className="font-medium text-foreground break-words">{task.title}</h4>
+                                <Badge className={`${taskStatus.color} text-xs shrink-0`}>
                                   {t(taskStatus.labelKey)}
                                 </Badge>
                               </div>
                               {task.description && (
-                                <p className="text-sm text-muted-foreground">{task.description}</p>
+                                <div className="text-sm text-muted-foreground break-words overflow-hidden" dangerouslySetInnerHTML={{ __html: task.description }} />
                               )}
                               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                                 {task.due_date && (
@@ -573,8 +576,8 @@ export default function ExecutionGoalDetail() {
                               {task.notes?.length > 0 ? (
                                 <div className="space-y-2 mb-3">
                                   {task.notes.map((note) => (
-                                    <div key={note.note_id} className="bg-muted/50 rounded p-2 text-sm">
-                                      <p className="text-foreground">{note.content}</p>
+                                    <div key={note.note_id} className="bg-muted/50 rounded p-2 text-sm overflow-hidden">
+                                      <div className="text-foreground break-words overflow-hidden" dangerouslySetInnerHTML={{ __html: note.content }} />
                                       <p className="text-xs text-muted-foreground mt-1">
                                         {note.user_name} • {new Date(note.created_at).toLocaleString()}
                                       </p>
@@ -586,19 +589,21 @@ export default function ExecutionGoalDetail() {
                                   {t("noNotesYet")}
                                 </p>
                               )}
-                              <div className="flex gap-2">
-                                <Input
-                                  value={taskNoteContent[task.task_id] || ""}
-                                  onChange={(e) => setTaskNoteContent({ ...taskNoteContent, [task.task_id]: e.target.value })}
-                                  placeholder={t("addNote")}
-                                  className="flex-1"
-                                />
+                              <RichTextEditor
+                                value={taskNoteContent[task.task_id] || ""}
+                                onChange={(val) => setTaskNoteContent({ ...taskNoteContent, [task.task_id]: val })}
+                                placeholder={language === "es" ? "Agregar nota a la tarea..." : "Add task note..."}
+                                minHeight="60px"
+                                showAttachments={false}
+                              />
+                              <div className="flex justify-end mt-2">
                                 <Button 
                                   size="sm"
                                   onClick={() => handleAddTaskNote(task.task_id)}
-                                  disabled={!taskNoteContent[task.task_id]?.trim()}
+                                  disabled={!taskNoteContent[task.task_id]?.trim() || taskNoteContent[task.task_id] === '<br>'}
                                 >
-                                  <Send className="w-4 h-4" />
+                                  <Send className="w-4 h-4 mr-1" />
+                                  {language === "es" ? "Enviar" : "Send"}
                                 </Button>
                               </div>
                             </div>
@@ -637,10 +642,10 @@ export default function ExecutionGoalDetail() {
                 ) : (
                   <div className="space-y-4">
                     {goal.decisions?.map((dec) => (
-                      <div key={dec.decision_id} className="border-l-2 border-[#AED768] pl-4">
-                        <p className="font-medium text-foreground">{dec.decision}</p>
+                      <div key={dec.decision_id} className="border-l-2 border-[#AED768] pl-4 overflow-hidden">
+                        <p className="font-medium text-foreground break-words">{dec.decision}</p>
                         {dec.rationale && (
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-sm text-muted-foreground mt-1 break-words">
                             <span className="font-medium">{t("rationale")}:</span> {dec.rationale}
                           </p>
                         )}
@@ -680,11 +685,11 @@ export default function ExecutionGoalDetail() {
                 ) : (
                   <div className="space-y-3">
                     {goal.dependencies?.map((dep) => (
-                      <div key={dep.dependency_id} className="flex items-center justify-between border border-border rounded-lg p-3">
-                        <div>
-                          <h4 className="font-medium text-foreground">{dep.title}</h4>
+                      <div key={dep.dependency_id} className="flex items-center justify-between gap-3 border border-border rounded-lg p-3">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-medium text-foreground break-words">{dep.title}</h4>
                           {dep.description && (
-                            <p className="text-sm text-muted-foreground">{dep.description}</p>
+                            <p className="text-sm text-muted-foreground break-words">{dep.description}</p>
                           )}
                         </div>
                         <Select 
@@ -717,21 +722,25 @@ export default function ExecutionGoalDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2 mb-4">
-                  <Textarea
+                <div className="mb-4">
+                  <RichTextEditor
                     value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder={t("addNote")}
-                    rows={2}
-                    className="flex-1"
+                    onChange={setNoteContent}
+                    placeholder={language === "es" ? "Agregar nota..." : "Add note..."}
+                    minHeight="80px"
+                    showAttachments={false}
                   />
-                  <Button 
-                    onClick={handleAddGoalNote}
-                    disabled={!noteContent.trim() || addingNote}
-                    className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
-                  >
-                    {addingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </Button>
+                  <div className="flex justify-end mt-2">
+                    <Button 
+                      onClick={handleAddGoalNote}
+                      disabled={!noteContent.trim() || noteContent === '<br>' || addingNote}
+                      className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
+                      size="sm"
+                    >
+                      {addingNote ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
+                      {language === "es" ? "Enviar" : "Send"}
+                    </Button>
+                  </div>
                 </div>
                 
                 {goal.notes?.length === 0 ? (
@@ -741,8 +750,8 @@ export default function ExecutionGoalDetail() {
                 ) : (
                   <div className="space-y-3">
                     {goal.notes?.map((note) => (
-                      <div key={note.note_id} className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-foreground">{note.content}</p>
+                      <div key={note.note_id} className="bg-muted/50 rounded-lg p-3 overflow-hidden">
+                        <div className="text-foreground text-sm break-words overflow-wrap-anywhere" dangerouslySetInnerHTML={{ __html: note.content }} />
                         <p className="text-xs text-muted-foreground mt-2">
                           {note.user_name} • {new Date(note.created_at).toLocaleString()}
                         </p>
@@ -773,11 +782,12 @@ export default function ExecutionGoalDetail() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">{t("taskDescription")}</label>
-                <Textarea
+                <RichTextEditor
                   value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder={language === "es" ? "Descripción opcional" : "Optional description"}
-                  rows={2}
+                  onChange={(val) => setNewTask({ ...newTask, description: val })}
+                  placeholder={language === "es" ? "Descripción opcional (usa checklists, resaltado, etc.)" : "Optional description (use checklists, highlights, etc.)"}
+                  minHeight="100px"
+                  showAttachments={false}
                 />
               </div>
               <div>
