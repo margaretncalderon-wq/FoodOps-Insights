@@ -52,7 +52,8 @@ export function ReportsSection() {
       suppliers: "/api/business-clarity/reports/supplier-spend", 
       events: "/api/business-clarity/reports/event-profitability", 
       assets: "/api/business-clarity/reports/asset-value",
-      costcenters: `/api/business-clarity/reports/by-cost-center?year=${now.getFullYear()}&month=${now.getMonth() + 1}`
+      costcenters: `/api/business-clarity/reports/by-cost-center?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
+      departments: `/api/business-clarity/reports/by-department?year=${now.getFullYear()}&month=${now.getMonth() + 1}`
     };
     axios.get(`${API}${endpoints[activeReport]}`, { withCredentials: true })
       .then(res => setReportData(res.data))
@@ -316,6 +317,7 @@ export function ReportsSection() {
     { key: "suppliers", label: isEs ? "Por Proveedor" : "By Supplier", icon: Building2 },
     { key: "events", label: isEs ? "Por Evento" : "By Event", icon: Calendar },
     { key: "costcenters", label: isEs ? "Por Centro Costo" : "By Cost Center", icon: Layers },
+    { key: "departments", label: isEs ? "Por Departamento" : "By Department", icon: Building2 },
     { key: "assets", label: isEs ? "Activos" : "Assets", icon: Package },
   ];
 
@@ -1032,6 +1034,178 @@ export function ReportsSection() {
                           : "This report shows the value of your operational assets (equipment and supplies) and loss tracking. Losses registered during inventory counts are reflected here, separating those absorbed as operational expense from those billed to clients."}
                       </p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeReport === "departments" && reportData && (
+            <div className="space-y-4" data-testid="department-report">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <Card className="bg-indigo-50 border-indigo-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="w-5 h-5 text-indigo-600" />
+                      <span className="text-sm text-indigo-600">{isEs ? "Departamentos" : "Departments"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-indigo-800">{reportData.summary?.total_departments || 0}</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-violet-50 border-violet-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-5 h-5 text-violet-600" />
+                      <span className="text-sm text-violet-600">{isEs ? "Empleados" : "Employees"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-violet-800">{reportData.summary?.total_employees || 0}</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Wallet className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm text-blue-600">{isEs ? "Presupuesto" : "Budget"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-800">{formatCurrency(reportData.summary?.total_budget)}</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-amber-50 border-amber-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-5 h-5 text-amber-600" />
+                      <span className="text-sm text-amber-600">{isEs ? "Gasto Real" : "Actual Spend"}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-800">{formatCurrency(reportData.summary?.total_actual)}</p>
+                    <p className="text-xs text-amber-600 mt-1">{reportData.summary?.overall_utilization || 0}% {isEs ? "utilización" : "utilization"}</p>
+                  </CardContent>
+                </Card>
+
+                <Card className={`${(reportData.summary?.total_variance || 0) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className={`w-5 h-5 ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`} />
+                      <span className={`text-sm ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {isEs ? "Variación" : "Variance"}
+                      </span>
+                    </div>
+                    <p className={`text-2xl font-bold ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-800" : "text-red-800"}`}>
+                      {formatCurrency(reportData.summary?.total_variance)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Period Info */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="w-4 h-4" />
+                {isEs ? "Período:" : "Period:"} {reportData.period?.label}
+              </div>
+
+              {/* Department Table */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    {isEs ? "Gasto por Departamento" : "Spend by Department"}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {isEs ? "Desglose de nómina, pagos a proveedores y gastos directos" : "Breakdown of payroll, supplier payments and direct expenses"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isEs ? "Departamento" : "Department"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Empleados" : "Employees"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Nómina" : "Payroll"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Proveedores" : "Suppliers"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Gastos" : "Expenses"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Total Real" : "Total Actual"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Presupuesto" : "Budget"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Variación" : "Variance"}</TableHead>
+                        <TableHead className="text-right">{isEs ? "Uso %" : "Use %"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(reportData.records || []).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            {isEs ? "No hay departamentos configurados. Crea departamentos en People Ops." : "No departments configured. Create departments in People Ops."}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {(reportData.records || []).map(r => (
+                        <TableRow key={r.department_id} className={r.status === "over" ? "bg-red-50/50" : ""} data-testid={`dept-row-${r.department_id}`}>
+                          <TableCell>
+                            <div className="font-medium">{r.department_name}</div>
+                            {r.cost_centers_count > 0 && (
+                              <div className="text-xs text-muted-foreground">{r.cost_centers_count} CC{r.cost_centers_count > 1 ? "s" : ""}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{r.employee_count}</TableCell>
+                          <TableCell className="text-right">
+                            <div>{formatCurrency(r.payroll_cost)}</div>
+                            {!r.payroll_is_actual && r.payroll_cost > 0 && (
+                              <span className="text-xs text-amber-600">{isEs ? "est." : "est."}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{formatCurrency(r.payables_cost)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(r.direct_expenses)}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(r.actual_spend)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(r.monthly_budget)}</TableCell>
+                          <TableCell className={`text-right font-medium ${r.variance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(r.variance)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-16 bg-muted rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-2 rounded-full ${r.utilization > 100 ? "bg-red-500" : r.utilization > 80 ? "bg-amber-500" : "bg-green-500"}`}
+                                  style={{ width: `${Math.min(r.utilization, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-medium ${r.utilization > 100 ? "text-red-600" : r.utilization > 80 ? "text-amber-600" : "text-green-600"}`}>
+                                {r.utilization}%
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(reportData.records || []).length > 0 && (
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell>{isEs ? "TOTAL" : "TOTAL"}</TableCell>
+                          <TableCell className="text-right">{reportData.summary?.total_employees || 0}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(reportData.summary?.total_payroll)}</TableCell>
+                          <TableCell className="text-right">-</TableCell>
+                          <TableCell className="text-right">-</TableCell>
+                          <TableCell className="text-right">{formatCurrency(reportData.summary?.total_actual)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(reportData.summary?.total_budget)}</TableCell>
+                          <TableCell className={`text-right ${(reportData.summary?.total_variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(reportData.summary?.total_variance)}
+                          </TableCell>
+                          <TableCell className="text-right">{reportData.summary?.overall_utilization || 0}%</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-indigo-50/50 border-indigo-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-indigo-600 mt-0.5" />
+                    <p className="text-sm text-indigo-800">
+                      {isEs
+                        ? "Este reporte agrupa costos por departamento. La nómina se calcula desde las entradas de nómina o se estima desde los salarios base. Los gastos de proveedores y directos se suman desde los centros de costo vinculados a cada departamento."
+                        : "This report groups costs by department. Payroll is calculated from payroll entries or estimated from base salaries. Supplier and direct expenses are aggregated from cost centers linked to each department."}
+                    </p>
                   </div>
                 </CardContent>
               </Card>

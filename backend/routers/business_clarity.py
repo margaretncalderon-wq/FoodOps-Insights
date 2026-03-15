@@ -2496,6 +2496,209 @@ async def get_cost_center_report(
         }
     }
 
+
+# ============== REPORT BY DEPARTMENT ==============
+
+@business_clarity_router.get("/reports/by-department")
+async def get_department_report(
+    year: int = None,
+    month: int = None,
+    user: User = Depends(get_current_user)
+):
+    """Get financial summary grouped by department - employees, payroll, expenses"""
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
+
+    # Get all departments
+    departments = await db.departments.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+
+    if not departments:
+        return {"records": [], "summary": {}, "period": {"year": year, "month": month}}
+
+    # Period date range
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+
+    # Get completed payroll period IDs for this month
+    payroll_periods = await db.payroll_periods.find(
+        {
+            "company_id": user.company_id,
+            "status": "completed",
+            "payment_date": {
+                "$gte": start_date.isoformat()[:10],
+                "$lt": end_date.isoformat()[:10]
+            }
+        },
+        {"_id": 0, "period_id": 1}
+    ).to_list(10)
+    period_ids = [p["period_id"] for p in payroll_periods]
+
+    # Get all cost centers (to map department -> cost centers -> expenses)
+    cost_centers = await db.cost_centers.find(
+        {"company_id": user.company_id, "department_id": {"$exists": True, "$ne": None}},
+        {"_id": 0, "cost_center_id": 1, "department_id": 1, "name": 1, "annual_budget": 1, "monthly_budgets": 1}
+    ).to_list(200)
+    dept_cc_map = {}
+    for cc in cost_centers:
+        did = cc.get("department_id")
+        if did:
+            dept_cc_map.setdefault(did, []).append(cc)
+
+    # Fixed cost categories linked to cost centers
+    fc_categories = await db.fixed_cost_categories.find(
+        {"company_id": user.company_id, "cost_center_id": {"$ne": None}},
+        {"_id": 0, "category_id": 1, "cost_center_id": 1}
+    ).to_list(200)
+    cc_to_cats = {}
+    for cat in fc_categories:
+        cc_to_cats.setdefault(cat["cost_center_id"], []).append(cat["category_id"])
+
+    records = []
+    total_employees = 0
+    total_payroll = 0
+    total_budget = 0
+    total_actual = 0
+
+    for dept in departments:
+        dept_id = dept.get("department_id")
+        dept_name = dept.get("name", "")
+
+        # Active employees in this department
+        emp_count = await db.employees.count_documents({
+            "company_id": user.company_id,
+            "department_id": dept_id,
+            "status": "active"
+        })
+
+        # Payroll cost for this department
+        payroll_cost = 0
+        is_payroll_actual = False
+
+        if period_ids:
+            payroll_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "period_id": {"$in": period_ids},
+                    "department_id": dept_id
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$total_employer_cost"}}}
+            ]
+            payroll_result = await db.payroll_entries.aggregate(payroll_pipeline).to_list(1)
+            if payroll_result and payroll_result[0]["total"] > 0:
+                payroll_cost = payroll_result[0]["total"]
+                is_payroll_actual = True
+
+        # Fallback: estimate from active employees
+        if not is_payroll_actual:
+            emp_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "department_id": dept_id,
+                    "status": "active"
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
+            ]
+            emp_result = await db.employees.aggregate(emp_pipeline).to_list(1)
+            if emp_result:
+                payroll_cost = emp_result[0]["total"] * 1.164
+
+        # Budget and expenses from cost centers in this department
+        dept_ccs = dept_cc_map.get(dept_id, [])
+        monthly_budget = 0
+        payables_cost = 0
+        direct_expenses = 0
+        budget_key = f"{year}-{str(month).zfill(2)}"
+
+        for cc in dept_ccs:
+            cc_id = cc.get("cost_center_id")
+            cc_code = cc.get("code") or cc.get("name")
+            mb = (cc.get("monthly_budgets") or {}).get(budget_key)
+            if mb is None:
+                ab = cc.get("annual_budget") or 0
+                mb = ab / 12 if ab > 0 else 0
+            monthly_budget += mb
+
+            # Supplier payables via fixed cost categories
+            linked_cats = cc_to_cats.get(cc_id, [])
+            if linked_cats:
+                pp = [
+                    {"$match": {
+                        "company_id": user.company_id,
+                        "fixed_cost_category_id": {"$in": linked_cats},
+                        "status": {"$ne": "cancelled"},
+                        "created_at": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+                    }},
+                    {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+                ]
+                pr = await db.supplier_payables.aggregate(pp).to_list(1)
+                payables_cost += pr[0]["total"] if pr else 0
+
+            # Direct expenses tagged to cost center
+            de_pipeline = [
+                {"$match": {
+                    "company_id": user.company_id,
+                    "cost_center": cc_code,
+                    "date": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]
+            de_result = await db.expenses.aggregate(de_pipeline).to_list(1)
+            direct_expenses += de_result[0]["total"] if de_result else 0
+
+        actual_spend = payroll_cost + payables_cost + direct_expenses
+        variance = monthly_budget - actual_spend
+        utilization = (actual_spend / monthly_budget * 100) if monthly_budget > 0 else 0
+
+        records.append({
+            "department_id": dept_id,
+            "department_name": dept_name,
+            "head_user_id": dept.get("head_user_id"),
+            "employee_count": emp_count,
+            "payroll_cost": round(payroll_cost, 2),
+            "payroll_is_actual": is_payroll_actual,
+            "payables_cost": round(payables_cost, 2),
+            "direct_expenses": round(direct_expenses, 2),
+            "actual_spend": round(actual_spend, 2),
+            "monthly_budget": round(monthly_budget, 2),
+            "variance": round(variance, 2),
+            "utilization": round(utilization, 1),
+            "cost_centers_count": len(dept_ccs),
+            "status": "over" if actual_spend > monthly_budget and monthly_budget > 0 else "under" if variance > 0 else "on_budget"
+        })
+
+        total_employees += emp_count
+        total_payroll += payroll_cost
+        total_budget += monthly_budget
+        total_actual += actual_spend
+
+    records.sort(key=lambda x: x["actual_spend"], reverse=True)
+
+    return {
+        "records": records,
+        "summary": {
+            "total_departments": len(departments),
+            "total_employees": total_employees,
+            "total_payroll": round(total_payroll, 2),
+            "total_budget": round(total_budget, 2),
+            "total_actual": round(total_actual, 2),
+            "total_variance": round(total_budget - total_actual, 2),
+            "overall_utilization": round((total_actual / total_budget * 100) if total_budget > 0 else 0, 1)
+        },
+        "period": {
+            "year": year,
+            "month": month,
+            "label": f"{year}-{str(month).zfill(2)}"
+        }
+    }
+
+
 @business_clarity_router.get("/reports/cost-center/{cc_id}/transactions")
 async def get_cost_center_transactions(
     cc_id: str,

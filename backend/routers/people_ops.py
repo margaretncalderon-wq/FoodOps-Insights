@@ -4087,3 +4087,101 @@ async def update_performance_goal(
         raise HTTPException(status_code=404, detail="Goal not found")
     
     return {"message": "Goal updated"}
+
+
+# ============== DEPARTMENT BACKFILL MIGRATION ==============
+
+@people_ops_router.post("/departments/backfill")
+async def backfill_department_ids(user: User = Depends(get_current_user)):
+    """
+    Migration: Backfill department_id for employees that have a 'department' string
+    but no 'department_id'. Matches the department string against existing departments.
+    """
+    company_id = user.company_id
+    if user.role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner/admin can run migrations")
+
+    # Get all departments for matching
+    departments = await db.departments.find(
+        {"company_id": company_id},
+        {"_id": 0, "department_id": 1, "name": 1}
+    ).to_list(200)
+
+    if not departments:
+        return {"message": "No departments found. Create departments first.", "updated": 0, "skipped": 0, "no_match": []}
+
+    # Build name -> department_id lookup (case-insensitive)
+    dept_map = {}
+    for d in departments:
+        dept_map[d["name"].strip().lower()] = d["department_id"]
+
+    # Find employees without department_id but with a department string
+    employees = await db.employees.find(
+        {
+            "company_id": company_id,
+            "$or": [
+                {"department_id": None},
+                {"department_id": {"$exists": False}}
+            ],
+            "department": {"$exists": True, "$ne": None, "$ne": ""}
+        },
+        {"_id": 0, "employee_id": 1, "name": 1, "department": 1}
+    ).to_list(5000)
+
+    updated = 0
+    skipped = 0
+    no_match = []
+
+    for emp in employees:
+        dept_str = (emp.get("department") or "").strip().lower()
+        if not dept_str:
+            skipped += 1
+            continue
+
+        matched_id = dept_map.get(dept_str)
+        if matched_id:
+            await db.employees.update_one(
+                {"employee_id": emp["employee_id"], "company_id": company_id},
+                {"$set": {"department_id": matched_id}}
+            )
+            updated += 1
+        else:
+            no_match.append({
+                "employee_id": emp["employee_id"],
+                "name": emp.get("name", ""),
+                "department": emp.get("department", "")
+            })
+
+    # Also update cost_center department links
+    cost_centers = await db.cost_centers.find(
+        {
+            "company_id": company_id,
+            "$or": [
+                {"department_id": None},
+                {"department_id": {"$exists": False}}
+            ],
+            "department_name": {"$exists": True, "$ne": None, "$ne": ""}
+        },
+        {"_id": 0, "cost_center_id": 1, "department_name": 1}
+    ).to_list(200)
+
+    cc_updated = 0
+    for cc in cost_centers:
+        cc_dept = (cc.get("department_name") or "").strip().lower()
+        matched_id = dept_map.get(cc_dept)
+        if matched_id:
+            await db.cost_centers.update_one(
+                {"cost_center_id": cc["cost_center_id"], "company_id": company_id},
+                {"$set": {"department_id": matched_id}}
+            )
+            cc_updated += 1
+
+    return {
+        "message": f"Backfill complete. {updated} employees updated, {cc_updated} cost centers linked.",
+        "updated": updated,
+        "cc_updated": cc_updated,
+        "skipped": skipped,
+        "no_match": no_match[:50],
+        "available_departments": [d["name"] for d in departments]
+    }
+
