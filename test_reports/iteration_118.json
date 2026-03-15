@@ -1,0 +1,132 @@
+{
+  "summary": "Social Media Settings org_id Bug Fix - Backend: 19/19 tests passed (100%). Frontend: Code review confirms await fetchData() implemented in all save/delete handlers.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_social_settings_org_id.py",
+    "/app/test_reports/pytest/pytest_social_settings_org_id.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend demand_studio.py: update_social_account (line 2535) now accepts org_id parameter and uses get_effective_company_id()",
+    "Backend demand_studio.py: delete_social_account (line 2552) now accepts org_id parameter and uses get_effective_company_id()",
+    "Backend demand_studio.py: delete_content_pillar (line 2603) now accepts org_id parameter and uses get_effective_company_id()",
+    "Backend demand_studio.py: delete_audience (line 2701) now accepts org_id parameter and uses get_effective_company_id()",
+    "Backend demand_studio.py: delete_segment (line 2774) now accepts org_id parameter and uses get_effective_company_id()",
+    "Frontend SocialMediaPage.js: handleSavePillar (line 541) uses orgParam and await fetchData()",
+    "Frontend SocialMediaPage.js: handleDeletePillar (line 564) uses getOrgParam() and await fetchData()",
+    "Frontend SocialMediaPage.js: handleSaveAudience (line 600) uses orgParam and await fetchData()",
+    "Frontend SocialMediaPage.js: handleDeleteAudience (line 623) uses getOrgParam() and await fetchData()",
+    "Frontend SocialMediaPage.js: handleSaveSegment (line 660) uses orgParam and await fetchData()",
+    "Frontend SocialMediaPage.js: handleDeleteSegment (line 683) uses getOrgParam() and await fetchData()",
+    "Frontend SocialMediaPage.js: handleSaveAccount (line 523) uses getOrgParam() and await fetchData()"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_social_settings_org_id.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed)",
+    "frontend": "100% - Code review confirms all fixes implemented"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Test data created and cleaned up during pytest run (TEST_Pillar_*, TEST_Audience_*, TEST_Segment_*, test_handle_*)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "5 backend endpoints now accept org_id parameter for shared organization operations. Frontend handlers use await fetchData() after saves to refresh data. All CRUD operations (create, update, delete) verified for pillars, audiences, segments, and accounts with org_id. Regression tests confirm backwards compatibility (endpoints work without org_id).",
+  "tested_features": {
+    "pillar_crud_with_org_id": {
+      "status": "PASS",
+      "endpoints": [
+        "POST /api/demand-studio/social/pillars?org_id=company_3ab116c0994d",
+        "PUT /api/demand-studio/social/pillars/{id}?org_id=company_3ab116c0994d",
+        "DELETE /api/demand-studio/social/pillars/{id}?org_id=company_3ab116c0994d"
+      ],
+      "verified": [
+        "Creates pillar in correct company (company_id matches org_id)",
+        "Updates pillar correctly",
+        "Deletes pillar and returns success"
+      ]
+    },
+    "audience_crud_with_org_id": {
+      "status": "PASS",
+      "endpoints": [
+        "POST /api/demand-studio/social/audiences?org_id=company_3ab116c0994d",
+        "PUT /api/demand-studio/social/audiences/{id}?org_id=company_3ab116c0994d",
+        "DELETE /api/demand-studio/social/audiences/{id}?org_id=company_3ab116c0994d"
+      ],
+      "verified": [
+        "Creates audience in correct company",
+        "Updates audience correctly",
+        "Deletes audience and returns success"
+      ]
+    },
+    "segment_crud_with_org_id": {
+      "status": "PASS",
+      "endpoints": [
+        "POST /api/demand-studio/social/segments?org_id=company_3ab116c0994d",
+        "PUT /api/demand-studio/social/segments/{id}?org_id=company_3ab116c0994d",
+        "DELETE /api/demand-studio/social/segments/{id}?org_id=company_3ab116c0994d"
+      ],
+      "verified": [
+        "Creates segment in correct company",
+        "Updates segment correctly",
+        "Deletes segment and returns success"
+      ]
+    },
+    "account_crud_with_org_id": {
+      "status": "PASS",
+      "endpoints": [
+        "POST /api/demand-studio/social/accounts?org_id=company_3ab116c0994d",
+        "PUT /api/demand-studio/social/accounts/{id}?org_id=company_3ab116c0994d",
+        "DELETE /api/demand-studio/social/accounts/{id}?org_id=company_3ab116c0994d"
+      ],
+      "verified": [
+        "Creates account in correct company",
+        "Updates account correctly",
+        "Deletes account and returns success"
+      ]
+    },
+    "regression_without_org_id": {
+      "status": "PASS",
+      "verified": [
+        "GET /api/demand-studio/social/accounts without org_id - 200 OK",
+        "GET /api/demand-studio/social/pillars without org_id - 200 OK",
+        "GET /api/demand-studio/social/audiences without org_id - 200 OK",
+        "GET /api/demand-studio/social/segments without org_id - 200 OK",
+        "Full CRUD pillar without org_id works for direct company owners"
+      ]
+    }
+  },
+  "api_verification": {
+    "POST /api/demand-studio/social/pillars?org_id=company_3ab116c0994d": "200 OK (created with correct company_id)",
+    "PUT /api/demand-studio/social/pillars/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "DELETE /api/demand-studio/social/pillars/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "POST /api/demand-studio/social/audiences?org_id=company_3ab116c0994d": "200 OK",
+    "PUT /api/demand-studio/social/audiences/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "DELETE /api/demand-studio/social/audiences/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "POST /api/demand-studio/social/segments?org_id=company_3ab116c0994d": "200 OK",
+    "PUT /api/demand-studio/social/segments/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "DELETE /api/demand-studio/social/segments/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "POST /api/demand-studio/social/accounts?org_id=company_3ab116c0994d": "200 OK",
+    "PUT /api/demand-studio/social/accounts/{id}?org_id=company_3ab116c0994d": "200 OK",
+    "DELETE /api/demand-studio/social/accounts/{id}?org_id=company_3ab116c0994d": "200 OK"
+  },
+  "bugs_fixed": [
+    {
+      "bug": "Dialog doesn't close and data isn't visible until re-login when saving in Social Media Settings",
+      "root_cause": "5 backend endpoints (update/delete for accounts, pillars, audiences, segments) were missing org_id parameter, using user.company_id instead of shared org's company_id. Frontend wasn't using await on fetchData()",
+      "fix": "Added org_id parameter to all 5 endpoints (update_social_account, delete_social_account, delete_content_pillar, delete_audience, delete_segment). Frontend handlers now use await fetchData()",
+      "verified": "pytest test_social_settings_org_id.py - 19/19 PASSED"
+    }
+  ]
+}

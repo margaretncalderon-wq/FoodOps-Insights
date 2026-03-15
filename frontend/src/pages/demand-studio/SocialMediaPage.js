@@ -416,7 +416,7 @@ export default function SocialMediaPage() {
       setPostDialogOpen(false);
       setEditingPost(null);
       resetPostForm();
-      fetchData();
+      await fetchData();
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving post:", error);
@@ -521,9 +521,11 @@ export default function SocialMediaPage() {
     setAccountSaving(true);
     try {
       await axios.post(`${API}/api/demand-studio/social/accounts${getOrgParam()}`, accountForm, { withCredentials: true });
+      toast.success(isEs ? "Cuenta guardada" : "Account saved");
       setAccountDialogOpen(false);
       setAccountForm({ platform: "instagram", handle: "", status: "active" });
-      fetchData();
+      await fetchData();
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving account:", error);
       toast.error(isEs ? "Error al guardar la cuenta" : "Error saving account");
@@ -547,7 +549,7 @@ export default function SocialMediaPage() {
       setPillarDialogOpen(false);
       setPillarForm({ name: "", description: "", platforms: [] });
       setEditingPillar(null);
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error("Error saving pillar:", error);
       toast.error(isEs ? "Error al guardar pilar" : "Error saving pillar");
@@ -561,7 +563,7 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/pillars/${pillarId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Pilar eliminado" : "Pillar deleted");
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error("Error deleting pillar:", error);
       toast.error(isEs ? "Error al eliminar pilar" : "Error deleting pillar");
@@ -606,7 +608,7 @@ export default function SocialMediaPage() {
       setAudienceDialogOpen(false);
       setAudienceForm({ name: "", description: "", platforms: [], sub_audiences: [] });
       setEditingAudience(null);
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error("Error saving audience:", error);
       toast.error(isEs ? "Error al guardar audiencia" : "Error saving audience");
@@ -620,7 +622,7 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/audiences/${audienceId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Audiencia eliminada" : "Audience deleted");
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error("Error deleting audience:", error);
       toast.error(isEs ? "Error al eliminar audiencia" : "Error deleting audience");
@@ -666,7 +668,7 @@ export default function SocialMediaPage() {
       setSegmentDialogOpen(false);
       setSegmentForm({ name: "", description: "", platforms: [], pillar_ids: [] });
       setEditingSegment(null);
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error("Error saving segment:", error);
       toast.error(isEs ? "Error al guardar segmento" : "Error saving segment");
@@ -680,7 +682,7 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/segments/${segmentId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Segmento eliminado" : "Segment deleted");
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error("Error deleting segment:", error);
       toast.error(isEs ? "Error al eliminar segmento" : "Error deleting segment");

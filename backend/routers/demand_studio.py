@@ -2532,9 +2532,9 @@ async def create_social_account(data: SocialAccountCreate, org_id: Optional[str]
     return account
 
 @demand_studio_router.put("/social/accounts/{account_id}")
-async def update_social_account(account_id: str, data: SocialAccountCreate, user: User = Depends(get_current_user)):
+async def update_social_account(account_id: str, data: SocialAccountCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Update a social account"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     result = await db.social_accounts.update_one(
         {"account_id": account_id, "company_id": company_id},
         {"$set": {
@@ -2549,9 +2549,9 @@ async def update_social_account(account_id: str, data: SocialAccountCreate, user
     return await db.social_accounts.find_one({"account_id": account_id}, {"_id": 0})
 
 @demand_studio_router.delete("/social/accounts/{account_id}")
-async def delete_social_account(account_id: str, user: User = Depends(get_current_user)):
+async def delete_social_account(account_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Delete a social account"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     result = await db.social_accounts.delete_one(
         {"account_id": account_id, "company_id": company_id}
     )
@@ -2600,9 +2600,9 @@ async def create_content_pillar(data: ContentPillarCreate, user: User = Depends(
     return pillar
 
 @demand_studio_router.delete("/social/pillars/{pillar_id}")
-async def delete_content_pillar(pillar_id: str, user: User = Depends(get_current_user)):
+async def delete_content_pillar(pillar_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Delete a content pillar"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     result = await db.content_pillars.delete_one(
         {"pillar_id": pillar_id, "company_id": company_id}
     )
@@ -2698,9 +2698,9 @@ async def update_audience(audience_id: str, data: AudienceCreate, user: User = D
     return updated
 
 @demand_studio_router.delete("/social/audiences/{audience_id}")
-async def delete_audience(audience_id: str, user: User = Depends(get_current_user)):
+async def delete_audience(audience_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Delete an audience"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     result = await db.audiences.delete_one(
         {"audience_id": audience_id, "company_id": company_id}
     )
@@ -2771,9 +2771,9 @@ async def update_segment(segment_id: str, data: SegmentCreate, user: User = Depe
     return updated
 
 @demand_studio_router.delete("/social/segments/{segment_id}")
-async def delete_segment(segment_id: str, user: User = Depends(get_current_user)):
+async def delete_segment(segment_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Delete a segment"""
-    company_id = user.company_id or user.active_org_id
+    company_id, _ = await get_effective_company_id(user, org_id)
     result = await db.segments.delete_one(
         {"segment_id": segment_id, "company_id": company_id}
     )
