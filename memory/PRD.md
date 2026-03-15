@@ -124,6 +124,22 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Bug fix: `Promise.all` en `fetchData` ahora tiene `.catch()` individual para resiliencia
    - Tests passed: 8/8 backend + frontend verificado
 
+9. **Bug Fix - Settings CRUD No Refresca Datos (P0)**:
+   - Root cause: `fetchData()` se llamaba sin args — recargaba datos de la org equivocada
+   - Fix: Todos los handlers de save/delete ahora llaman `fetchData(isOwnOrg ? null : selectedOrgId)`
+   - Tests passed: Verificado en 8 handlers
+
+10. **Feature - Mini-Reporte por Pilar en Calendario (UX)**:
+    - Nuevo endpoint: `GET /api/demand-studio/social/calendar/pillar-stats?year=&month=`
+    - Frontend: chips horizontales con icono, nombre, total posts y desglose por status (pub/prod/edit/cola)
+    - Tests passed: Endpoint + UI verificados
+
+11. **Bug Fix - Posts No Aparecen en Calendario (P0)**:
+    - Root cause: Calendar query solo buscaba `scheduled_at`/`posted_at`, ignorando posts sin fecha de programación
+    - Fix backend: Query ahora incluye `created_at` como fallback cuando `scheduled_at` es null
+    - Fix frontend: `getPostsForDay` ahora muestra posts en su `created_at` cuando no tienen `scheduled_at`
+    - Tests passed: 8/8 backend + frontend verificado
+
 ### Session: March 14, 2026
 
 #### Completed
