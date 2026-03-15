@@ -1,0 +1,97 @@
+{
+  "summary": "Tested Demand Studio Settings dialog close/refresh and Calendar pillar stats. Found and FIXED critical bug: missing toast import in SocialMediaPage.js prevented dialogs from closing after save. Backend APIs 14/14 passed. Frontend features verified working after fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "bug_fixed": {
+    "issue": "Missing toast import in SocialMediaPage.js",
+    "file": "/app/frontend/src/pages/demand-studio/SocialMediaPage.js",
+    "error": "ReferenceError: toast is not defined at handleSavePillar",
+    "cause": "toast.success() and toast.error() were being called but toast was not imported",
+    "fix": "Added: import { toast } from 'sonner';",
+    "impact": "This was preventing ALL save dialogs from closing properly (pillar, audience, segment, account) because the code crashed before reaching setDialogOpen(false)",
+    "verified": "After fix, dialogs close correctly and data refreshes"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demand_studio_settings.py",
+    "/app/test_reports/pytest/pytest_demand_studio_settings.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED: Missing 'import { toast } from sonner' in SocialMediaPage.js - was causing all Settings save operations to fail silently"
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/demand-studio/SocialMediaPage.js",
+    "/app/backend/tests/test_demand_studio_settings.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% - Features verified after toast fix"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created and cleaned up test pillars (TEST_UI_Verification_Pillar, TEST_Toast_Fix_Pillar)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Toast import fix applied. Settings tab save handlers now work correctly - dialog closes and data refreshes. Calendar pillar stats mini-report displays actual_percentage, target_percentage, and over_target alerts correctly. No over-target alerts visible because current posts don't exceed pillar targets by >10%.",
+  "tested_features": {
+    "backend_pillar_stats_api": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/calendar/pillar-stats",
+      "fields_verified": ["actual_percentage", "target_percentage", "over_target", "diff_from_target", "total_posts", "by_status"]
+    },
+    "backend_pillar_crud": {
+      "status": "PASS",
+      "tests": ["create", "read", "update", "delete"]
+    },
+    "backend_audience_crud": {
+      "status": "PASS", 
+      "tests": ["create", "update", "delete"]
+    },
+    "backend_segment_crud": {
+      "status": "PASS",
+      "tests": ["create", "update", "delete"]
+    },
+    "backend_account_crud": {
+      "status": "PASS",
+      "tests": ["create", "read", "delete"]
+    },
+    "frontend_settings_dialog_close": {
+      "status": "PASS (after fix)",
+      "issue_found": "toast is not defined error",
+      "fix_applied": "Added import { toast } from 'sonner'",
+      "verification": "Dialog closes after save, new pillar appears in list"
+    },
+    "frontend_calendar_pillar_stats": {
+      "status": "PASS",
+      "data_testid": "calendar-pillar-stats",
+      "content_verified": "Shows 'Sin pilar' with '6 posts 100%' and status badges (2 prod, 1 edit)"
+    }
+  },
+  "api_verification": {
+    "GET /api/demand-studio/social/calendar/pillar-stats": "200 OK - Returns actual_percentage, target_percentage, over_target fields",
+    "POST /api/demand-studio/social/pillars": "200 OK - Creates pillar",
+    "PUT /api/demand-studio/social/pillars/{id}": "200 OK - Updates pillar",
+    "DELETE /api/demand-studio/social/pillars/{id}": "200 OK - Deletes pillar",
+    "POST /api/demand-studio/social/audiences": "200 OK - Creates audience",
+    "PUT /api/demand-studio/social/audiences/{id}": "200 OK - Updates audience",
+    "DELETE /api/demand-studio/social/audiences/{id}": "200 OK - Deletes audience",
+    "POST /api/demand-studio/social/segments": "200 OK - Creates segment",
+    "PUT /api/demand-studio/social/segments/{id}": "200 OK - Updates segment",
+    "DELETE /api/demand-studio/social/segments/{id}": "200 OK - Deletes segment",
+    "POST /api/demand-studio/social/accounts": "200 OK - Creates account",
+    "DELETE /api/demand-studio/social/accounts/{id}": "200 OK - Deletes account"
+  },
+  "screenshots": [
+    ".screenshots/calendar_view.png - Calendar with pillar stats mini-report visible",
+    ".screenshots/settings_final.png - Settings tab with Content Pillars, Audiences, Segments sections"
+  ]
+}

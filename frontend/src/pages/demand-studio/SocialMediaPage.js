@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import axios from "axios";
+import { toast } from "sonner";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -386,7 +387,7 @@ export default function SocialMediaPage() {
 
   const fetchCalendarPosts = async () => {
     const startDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).toISOString();
-    const endDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).toISOString();
+    const endDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0, 23, 59, 59).toISOString();
     const orgParam = selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : "";
     
     try {
@@ -436,7 +437,8 @@ export default function SocialMediaPage() {
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving post:", error);
-      toast.error(isEs ? "Error al guardar el post" : "Error saving post");
+      const errMsg = error?.response?.data?.detail || (isEs ? "Error al guardar el post" : "Error saving post");
+      toast.error(errMsg);
     } finally {
       setPostSaving(false);
     }
@@ -446,7 +448,8 @@ export default function SocialMediaPage() {
     if (!window.confirm(isEs ? "¿Eliminar este post?" : "Delete this post?")) return;
     try {
       await axios.delete(`${API}/api/demand-studio/social/posts/${postId}${getOrgParam()}`, { withCredentials: true });
-      fetchData();
+      toast.success(isEs ? "Post eliminado" : "Post deleted");
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error deleting post:", error);
@@ -457,10 +460,11 @@ export default function SocialMediaPage() {
   const handleMarkAsPosted = async (postId) => {
     try {
       await axios.post(`${API}/api/demand-studio/social/posts/${postId}/mark-posted${getOrgParam()}`, {}, { withCredentials: true });
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error marking as posted:", error);
+      toast.error(isEs ? "Error al marcar como publicado" : "Error marking as posted");
     }
   };
 
@@ -478,7 +482,7 @@ export default function SocialMediaPage() {
     // Direct status change
     try {
       await axios.patch(`${API}/api/demand-studio/social/posts/${postId}${getOrgParam()}`, { status: targetStatus }, { withCredentials: true });
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error changing status:", error);
@@ -494,7 +498,7 @@ export default function SocialMediaPage() {
       }, { withCredentials: true });
       setQuickStatusDialog({ open: false, postId: null, targetStatus: null, postTitle: "" });
       setQuickProductionDate("");
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error changing status:", error);
@@ -513,7 +517,7 @@ export default function SocialMediaPage() {
       await axios.patch(`${API}/api/demand-studio/social/posts/${postId}${getOrgParam()}`, {
         scheduled_at: newDate + "T12:00:00"
       }, { withCredentials: true });
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error moving post:", error);
@@ -524,7 +528,7 @@ export default function SocialMediaPage() {
   const handleDuplicatePost = async (postId) => {
     try {
       await axios.post(`${API}/api/demand-studio/social/posts/${postId}/duplicate${getOrgParam()}`, {}, { withCredentials: true });
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error duplicating post:", error);
@@ -544,7 +548,8 @@ export default function SocialMediaPage() {
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving account:", error);
-      toast.error(isEs ? "Error al guardar la cuenta" : "Error saving account");
+      const errMsg = error?.response?.data?.detail || (isEs ? "Error al guardar la cuenta" : "Error saving account");
+      toast.error(errMsg);
     } finally {
       setAccountSaving(false);
     }
@@ -571,9 +576,11 @@ export default function SocialMediaPage() {
       setPillarTagInput("");
       setEditingPillar(null);
       await fetchData(isOwnOrg ? null : selectedOrgId);
+      fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving pillar:", error);
-      toast.error(isEs ? "Error al guardar pilar" : "Error saving pillar");
+      const errMsg = error?.response?.data?.detail || (isEs ? "Error al guardar pilar" : "Error saving pillar");
+      toast.error(errMsg);
     } finally {
       setPillarSaving(false);
     }
@@ -639,7 +646,8 @@ export default function SocialMediaPage() {
       await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error saving audience:", error);
-      toast.error(isEs ? "Error al guardar audiencia" : "Error saving audience");
+      const errMsg = error?.response?.data?.detail || (isEs ? "Error al guardar audiencia" : "Error saving audience");
+      toast.error(errMsg);
     } finally {
       setAudienceSaving(false);
     }
@@ -699,7 +707,8 @@ export default function SocialMediaPage() {
       await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error saving segment:", error);
-      toast.error(isEs ? "Error al guardar segmento" : "Error saving segment");
+      const errMsg = error?.response?.data?.detail || (isEs ? "Error al guardar segmento" : "Error saving segment");
+      toast.error(errMsg);
     } finally {
       setSegmentSaving(false);
     }
@@ -756,7 +765,7 @@ export default function SocialMediaPage() {
       setIdeaDialogOpen(false);
       setEditingIdea(null);
       resetIdeaForm();
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error saving idea:", error);
       toast.error(isEs ? "Error al guardar la idea" : "Error saving idea");
@@ -769,9 +778,10 @@ export default function SocialMediaPage() {
     if (!window.confirm(isEs ? "¿Eliminar esta idea?" : "Delete this idea?")) return;
     try {
       await axios.delete(`${API}/api/demand-studio/social/ideas/${ideaId}${getOrgParam()}`, { withCredentials: true });
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error deleting idea:", error);
+      toast.error(isEs ? "Error al eliminar la idea" : "Error deleting idea");
     }
   };
 
@@ -784,7 +794,7 @@ export default function SocialMediaPage() {
       setIdeaToConvert(null);
       setConvertTargetStatus("production");
       setConvertTargetAccount("");
-      fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error converting idea:", error);
@@ -1615,31 +1625,61 @@ export default function SocialMediaPage() {
 
           {/* Pillar Mini Report */}
           {calendarPillarStats && calendarPillarStats.pillars && calendarPillarStats.pillars.length > 0 && (
-            <div className="flex flex-wrap gap-3" data-testid="calendar-pillar-stats">
-              {calendarPillarStats.pillars.map(ps => {
-                const statusCounts = ps.by_status || {};
-                const posted = statusCounts.posted || 0;
-                const production = statusCounts.production || 0;
-                const editing = statusCounts.editing || 0;
-                const queue = (statusCounts.drafted || 0) + (statusCounts.calendar || 0) + (statusCounts.scheduled || 0);
-                return (
-                  <div key={ps.pillar_id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border bg-card" style={{ borderLeftWidth: 4, borderLeftColor: ps.color || "#6B7280" }}>
-                    <div className="flex items-center gap-2">
-                      {ps.icon && <span className="text-base">{ps.icon}</span>}
-                      <div>
-                        <p className="text-sm font-semibold leading-tight">{ps.name}</p>
-                        <p className="text-xs text-muted-foreground">{ps.total} {ps.total === 1 ? "post" : "posts"}</p>
+            <div className="space-y-2" data-testid="calendar-pillar-stats">
+              <div className="flex flex-wrap gap-3">
+                {calendarPillarStats.pillars.map(ps => {
+                  const statusCounts = ps.by_status || {};
+                  const posted = statusCounts.posted || 0;
+                  const production = statusCounts.production || 0;
+                  const editing = statusCounts.editing || 0;
+                  const queue = (statusCounts.drafted || 0) + (statusCounts.calendar || 0) + (statusCounts.scheduled || 0);
+                  const actualPct = ps.actual_percentage || 0;
+                  const targetPct = ps.target_percentage || 0;
+                  const isOver = ps.over_target;
+                  return (
+                    <div key={ps.pillar_id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border bg-card ${isOver ? 'border-red-300 bg-red-50/50' : ''}`} style={{ borderLeftWidth: 4, borderLeftColor: ps.color || "#6B7280" }}>
+                      <div className="flex items-center gap-2">
+                        {ps.icon && <span className="text-base">{ps.icon}</span>}
+                        <div>
+                          <p className="text-sm font-semibold leading-tight">{ps.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">{ps.total} {ps.total === 1 ? "post" : "posts"}</span>
+                            <span className="text-xs font-bold" style={{ color: isOver ? '#EF4444' : (ps.color || '#6B7280') }}>
+                              {actualPct}%
+                            </span>
+                            {targetPct > 0 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                / {targetPct}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 ml-2">
+                        {posted > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">{posted} {isEs ? "pub" : "pub"}</span>}
+                        {production > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{production} {isEs ? "prod" : "prod"}</span>}
+                        {editing > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{editing} {isEs ? "edit" : "edit"}</span>}
+                        {queue > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{queue} {isEs ? "cola" : "queue"}</span>}
+                        {isOver && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700" data-testid="pillar-over-alert">
+                            +{ps.diff_from_target}%
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex gap-1.5 ml-2">
-                      {posted > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">{posted} {isEs ? "pub" : "pub"}</span>}
-                      {production > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{production} {isEs ? "prod" : "prod"}</span>}
-                      {editing > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{editing} {isEs ? "edit" : "edit"}</span>}
-                      {queue > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{queue} {isEs ? "cola" : "queue"}</span>}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              {calendarPillarStats.pillars.some(ps => ps.over_target) && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs" data-testid="pillar-balance-warning">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                  <span>
+                    {isEs 
+                      ? `Algunos pilares superan su peso objetivo este mes. Revisa la distribución de contenido.`
+                      : `Some pillars exceed their target weight this month. Review content distribution.`}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           

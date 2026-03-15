@@ -3752,9 +3752,19 @@ async def get_calendar_pillar_stats(
         pillar_stats[pid]["total"] += count
         pillar_stats[pid]["by_status"][status] = pillar_stats[pid]["by_status"].get(status, 0) + count
     
+    # Calculate actual percentage and over-allocation alerts
+    pillar_list = sorted(pillar_stats.values(), key=lambda x: x["total"], reverse=True)
+    for ps in pillar_list:
+        ps["actual_percentage"] = round((ps["total"] / total_posts * 100), 1) if total_posts > 0 else 0
+        target = ps.get("weight_percentage") or 0
+        ps["target_percentage"] = target
+        # Flag if actual exceeds target by more than 10 percentage points
+        ps["over_target"] = (ps["actual_percentage"] > target + 10) if target > 0 else False
+        ps["diff_from_target"] = round(ps["actual_percentage"] - target, 1) if target > 0 else None
+    
     return {
         "total_posts": total_posts,
-        "pillars": sorted(pillar_stats.values(), key=lambda x: x["total"], reverse=True),
+        "pillars": pillar_list,
         "period": {"year": year, "month": month}
     }
 
