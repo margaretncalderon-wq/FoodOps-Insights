@@ -522,6 +522,9 @@ class ContentIdeaCreate(BaseModel):
     description: Optional[str] = None
     source_url: Optional[str] = None
     pillar_id: Optional[str] = None
+    segment_id: Optional[str] = None
+    audience_id: Optional[str] = None
+    social_account_id: Optional[str] = None
     tags: List[str] = []
     status: str = "new"  # new, reviewing, approved, used, archived
     content_body: Optional[str] = None  # Rich text HTML for internal notes, scripts
@@ -535,6 +538,9 @@ class ContentIdea(BaseModel):
     description: Optional[str] = None
     source_url: Optional[str] = None
     pillar_id: Optional[str] = None
+    segment_id: Optional[str] = None
+    audience_id: Optional[str] = None
+    social_account_id: Optional[str] = None
     tags: List[str] = []
     status: str = "new"
     content_body: Optional[str] = None  # Rich text HTML

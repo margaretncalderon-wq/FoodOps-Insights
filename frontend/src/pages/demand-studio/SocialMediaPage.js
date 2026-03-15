@@ -229,11 +229,15 @@ export default function SocialMediaPage() {
     description: "",
     source_url: "",
     pillar_id: "",
+    segment_id: "",
+    audience_id: "",
+    social_account_id: "",
     tags: [],
     status: "new",
     content_body: ""
   });
   const [tagInput, setTagInput] = useState("");
+  const [ideaGroupBy, setIdeaGroupBy] = useState("none"); // none, pillar, segment, audience, status
 
   useEffect(() => {
     fetchData();
@@ -797,6 +801,9 @@ export default function SocialMediaPage() {
       description: idea.description || "",
       source_url: idea.source_url || "",
       pillar_id: idea.pillar_id || "",
+      segment_id: idea.segment_id || "",
+      audience_id: idea.audience_id || "",
+      social_account_id: idea.social_account_id || "",
       tags: idea.tags || [],
       status: idea.status,
       content_body: idea.content_body || ""
@@ -810,6 +817,9 @@ export default function SocialMediaPage() {
       description: "",
       source_url: "",
       pillar_id: "",
+      segment_id: "",
+      audience_id: "",
+      social_account_id: "",
       tags: [],
       status: "new",
       content_body: ""
@@ -1362,12 +1372,26 @@ export default function SocialMediaPage() {
 
         {/* Ideas Tab */}
         <TabsContent value="ideas" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="font-semibold">{isEs ? "Ideas e Inspiración" : "Ideas & Inspiration"}</h3>
               <p className="text-sm text-muted-foreground">
                 {isEs ? "Guarda ideas de contenido para usar después" : "Save content ideas to use later"}
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={ideaGroupBy} onValueChange={setIdeaGroupBy}>
+                <SelectTrigger className="w-[180px] h-9" data-testid="idea-group-select">
+                  <SelectValue placeholder={isEs ? "Agrupar por..." : "Group by..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Sin agrupar" : "No grouping"}</SelectItem>
+                  <SelectItem value="pillar">{isEs ? "Por Pilar" : "By Pillar"}</SelectItem>
+                  <SelectItem value="segment">{isEs ? "Por Segmento" : "By Segment"}</SelectItem>
+                  <SelectItem value="audience">{isEs ? "Por Audiencia" : "By Audience"}</SelectItem>
+                  <SelectItem value="status">{isEs ? "Por Estado" : "By Status"}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -1380,88 +1404,156 @@ export default function SocialMediaPage() {
                 </p>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {allIdeas.map(idea => (
-                <Card key={idea.idea_id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium line-clamp-2">{idea.title}</h4>
-                      {getIdeaStatusBadge(idea.status)}
-                    </div>
-                    
-                    {idea.description && (
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{idea.description}</p>
-                    )}
-                    
-                    {idea.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {idea.tags.map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {idea.source_url && (
-                      <a 
-                        href={idea.source_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline flex items-center gap-1 mb-3"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        {isEs ? "Ver fuente" : "View source"}
-                      </a>
-                    )}
-                    
-                    <div className="flex justify-end gap-1 pt-2 border-t">
-                      {idea._from_post ? (
-                        <>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(idea.idea_id, "production", idea.title); }}
-                            title={isEs ? "Enviar a Producción" : "Send to Production"}
-                            data-testid="idea-to-production-btn"
-                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                          >
-                            <Video className="w-4 h-4 mr-1" />
-                            {isEs ? "Producción" : "Production"}
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditPost(idea._post)} title={isEs ? "Editar" : "Edit"}>
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeletePost(idea.idea_id)} title={isEs ? "Eliminar" : "Delete"}>
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          {idea.status !== "used" && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => { setIdeaToConvert(idea); setConvertIdeaDialogOpen(true); }}
-                              title={isEs ? "Convertir a post" : "Convert to post"}
-                            >
-                              <ArrowRight className="w-4 h-4 mr-1" />
-                              {isEs ? "A Post" : "To Post"}
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" onClick={() => openEditIdea(idea)}>
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteIdea(idea.idea_id)}>
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
-                        </>
+          ) : (() => {
+            // Group ideas
+            const grouped = {};
+            const getLabelForGroup = (key, groupType) => {
+              if (key === "_unassigned") return isEs ? "Sin asignar" : "Unassigned";
+              if (key === "used") return isEs ? "Usadas" : "Used";
+              if (groupType === "pillar") return pillars.find(p => p.pillar_id === key)?.name || key;
+              if (groupType === "segment") return segments.find(s => s.segment_id === key)?.name || key;
+              if (groupType === "audience") return audiences.find(a => a.audience_id === key)?.name || key;
+              if (groupType === "status") {
+                const s = IDEA_STATUSES.find(st => st.value === key);
+                return isEs ? (s?.labelEs || key) : (s?.label || key);
+              }
+              return key;
+            };
+            const getIconForGroup = (key, groupType) => {
+              if (groupType === "pillar") return pillars.find(p => p.pillar_id === key)?.icon;
+              return null;
+            };
+
+            if (ideaGroupBy === "none") {
+              // Separate used ideas at the bottom
+              const active = allIdeas.filter(i => i.status !== "used" && !i._from_post);
+              const used = allIdeas.filter(i => i.status === "used" || i._from_post);
+              if (active.length > 0) grouped["_active"] = active;
+              if (used.length > 0) grouped["used"] = used;
+            } else {
+              allIdeas.forEach(i => {
+                let key;
+                if (ideaGroupBy === "pillar") key = i.pillar_id || "_unassigned";
+                else if (ideaGroupBy === "segment") key = i.segment_id || "_unassigned";
+                else if (ideaGroupBy === "audience") key = i.audience_id || "_unassigned";
+                else if (ideaGroupBy === "status") key = i.status || "new";
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(i);
+              });
+            }
+
+            // Sort: _unassigned last, used last
+            const sortedKeys = Object.keys(grouped).sort((a, b) => {
+              if (a === "used") return 1;
+              if (b === "used") return -1;
+              if (a === "_unassigned") return 1;
+              if (b === "_unassigned") return -1;
+              if (a === "_active") return -1;
+              if (b === "_active") return 1;
+              return 0;
+            });
+
+            return (
+              <div className="space-y-6">
+                {sortedKeys.map(groupKey => {
+                  const items = grouped[groupKey];
+                  const showHeader = ideaGroupBy !== "none" || groupKey === "used";
+                  const label = groupKey === "_active" 
+                    ? (isEs ? "Activas" : "Active")
+                    : getLabelForGroup(groupKey, ideaGroupBy);
+                  const icon = getIconForGroup(groupKey, ideaGroupBy);
+                  
+                  return (
+                    <div key={groupKey}>
+                      {showHeader && (
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+                          {icon && <span>{icon}</span>}
+                          <h4 className="font-semibold text-sm">{label}</h4>
+                          <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                        </div>
                       )}
+                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {items.map(idea => {
+                          const ideaPillar = pillars.find(p => p.pillar_id === idea.pillar_id);
+                          const ideaSegment = segments.find(s => s.segment_id === idea.segment_id);
+                          const ideaAudience = audiences.find(a => a.audience_id === idea.audience_id);
+                          const ideaAccount = accounts.find(a => a.account_id === idea.social_account_id);
+                          return (
+                            <Card key={idea.idea_id} className="hover:shadow-md transition-shadow group" data-testid={`idea-card-${idea.idea_id}`}>
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-medium line-clamp-2 flex-1">{idea.title}</h4>
+                                  {getIdeaStatusBadge(idea.status)}
+                                </div>
+                                {idea.description && (
+                                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{idea.description}</p>
+                                )}
+                                {/* Metadata badges */}
+                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                  {ideaPillar && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                                      {ideaPillar.icon || ""} {ideaPillar.name}
+                                    </span>
+                                  )}
+                                  {ideaSegment && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">{ideaSegment.name}</span>
+                                  )}
+                                  {ideaAudience && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{ideaAudience.name}</span>
+                                  )}
+                                  {ideaAccount && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{ideaAccount.handle}</span>
+                                  )}
+                                </div>
+                                {idea.tags?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {idea.tags.map(tag => (
+                                      <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                                {idea.source_url && (
+                                  <a href={idea.source_url} target="_blank" rel="noopener noreferrer"
+                                    className="text-xs text-blue-500 hover:underline flex items-center gap-1 mb-2">
+                                    <ExternalLink className="w-3 h-3" />
+                                    {isEs ? "Ver fuente" : "View source"}
+                                  </a>
+                                )}
+                                <div className="flex justify-end gap-1 pt-2 border-t">
+                                  {idea._from_post ? (
+                                    <>
+                                      <Button variant="ghost" size="sm"
+                                        onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(idea.idea_id, "production", idea.title); }}
+                                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" data-testid="idea-to-production-btn">
+                                        <Video className="w-4 h-4 mr-1" />{isEs ? "Producción" : "Production"}
+                                      </Button>
+                                      <Button variant="ghost" size="icon" onClick={() => openEditPost(idea._post)}><Settings className="w-4 h-4" /></Button>
+                                      <Button variant="ghost" size="icon" onClick={() => handleDeletePost(idea.idea_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {idea.status !== "used" && (
+                                        <Button variant="ghost" size="sm"
+                                          onClick={() => { setIdeaToConvert(idea); setConvertIdeaDialogOpen(true); }}>
+                                          <ArrowRight className="w-4 h-4 mr-1" />{isEs ? "A Post" : "To Post"}
+                                        </Button>
+                                      )}
+                                      <Button variant="ghost" size="icon" onClick={() => openEditIdea(idea)}><Settings className="w-4 h-4" /></Button>
+                                      <Button variant="ghost" size="icon" onClick={() => handleDeleteIdea(idea.idea_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                    </>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* Calendar Tab */}
@@ -3162,19 +3254,63 @@ export default function SocialMediaPage() {
                 placeholder="https://..."
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">{isEs ? "Pilar" : "Pillar"}</label>
-              <Select value={ideaForm.pillar_id || "none"} onValueChange={v => setIdeaForm({...ideaForm, pillar_id: v === "none" ? "" : v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isEs ? "Sin pilar" : "No pillar"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{isEs ? "Sin pilar" : "No pillar"}</SelectItem>
-                  {pillars.map(p => (
-                    <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Pilar" : "Pillar"}</label>
+                <Select value={ideaForm.pillar_id || "none"} onValueChange={v => setIdeaForm({...ideaForm, pillar_id: v === "none" ? "" : v})}>
+                  <SelectTrigger data-testid="idea-pillar-select">
+                    <SelectValue placeholder={isEs ? "Sin pilar" : "No pillar"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin pilar" : "No pillar"}</SelectItem>
+                    {pillars.map(p => (
+                      <SelectItem key={p.pillar_id} value={p.pillar_id}>{p.icon || ""} {p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Segmento" : "Segment"}</label>
+                <Select value={ideaForm.segment_id || "none"} onValueChange={v => setIdeaForm({...ideaForm, segment_id: v === "none" ? "" : v})}>
+                  <SelectTrigger data-testid="idea-segment-select">
+                    <SelectValue placeholder={isEs ? "Sin segmento" : "No segment"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin segmento" : "No segment"}</SelectItem>
+                    {segments.map(s => (
+                      <SelectItem key={s.segment_id} value={s.segment_id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Audiencia" : "Audience"}</label>
+                <Select value={ideaForm.audience_id || "none"} onValueChange={v => setIdeaForm({...ideaForm, audience_id: v === "none" ? "" : v})}>
+                  <SelectTrigger data-testid="idea-audience-select">
+                    <SelectValue placeholder={isEs ? "Sin audiencia" : "No audience"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin audiencia" : "No audience"}</SelectItem>
+                    {audiences.map(a => (
+                      <SelectItem key={a.audience_id} value={a.audience_id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Cuenta" : "Account"}</label>
+                <Select value={ideaForm.social_account_id || "none"} onValueChange={v => setIdeaForm({...ideaForm, social_account_id: v === "none" ? "" : v})}>
+                  <SelectTrigger data-testid="idea-account-select">
+                    <SelectValue placeholder={isEs ? "Sin cuenta" : "No account"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin cuenta" : "No account"}</SelectItem>
+                    {accounts.map(a => (
+                      <SelectItem key={a.account_id} value={a.account_id}>{a.handle} ({a.platform})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Tags</label>
