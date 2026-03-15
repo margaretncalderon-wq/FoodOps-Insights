@@ -131,6 +131,11 @@ export default function ExecutionGoalDetail() {
   const [newAccessEmail, setNewAccessEmail] = useState("");
   const [newAccessRole, setNewAccessRole] = useState("team_member");
   const [grantingAccess, setGrantingAccess] = useState(false);
+  
+  // Note editing
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editNoteContent, setEditNoteContent] = useState("");
+  const [editNoteAttachments, setEditNoteAttachments] = useState([]);
 
   const ACCESS_ROLES = [
     { value: "team_member", label: "Team Member", labelEs: "Miembro del Equipo" },
@@ -323,6 +328,70 @@ export default function ExecutionGoalDetail() {
       setCreatingDependency(false);
     }
   };
+
+  // Edit/Delete Goal Notes
+  const startEditNote = (note, type = "goal") => {
+    setEditingNoteId(`${type}_${note.note_id}`);
+    setEditNoteContent(note.content || "");
+    setEditNoteAttachments(note.attachments || []);
+  };
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditNoteContent("");
+    setEditNoteAttachments([]);
+  };
+
+  const handleUpdateGoalNote = async (noteId) => {
+    try {
+      await axios.put(`${API}/execution-hub/goals/${goalId}/notes/${noteId}`, {
+        content: editNoteContent,
+        attachments: editNoteAttachments
+      }, { withCredentials: true });
+      toast.success(language === "es" ? "Nota actualizada" : "Note updated");
+      cancelEditNote();
+      fetchGoal();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al actualizar nota" : "Error updating note");
+    }
+  };
+
+  const handleDeleteGoalNote = async (noteId) => {
+    if (!window.confirm(language === "es" ? "¿Eliminar esta nota?" : "Delete this note?")) return;
+    try {
+      await axios.delete(`${API}/execution-hub/goals/${goalId}/notes/${noteId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Nota eliminada" : "Note deleted");
+      fetchGoal();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al eliminar nota" : "Error deleting note");
+    }
+  };
+
+  const handleUpdateTaskNote = async (taskId, noteId) => {
+    try {
+      await axios.put(`${API}/execution-hub/tasks/${taskId}/notes/${noteId}`, {
+        content: editNoteContent,
+        attachments: editNoteAttachments
+      }, { withCredentials: true });
+      toast.success(language === "es" ? "Nota actualizada" : "Note updated");
+      cancelEditNote();
+      fetchGoal();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al actualizar nota" : "Error updating note");
+    }
+  };
+
+  const handleDeleteTaskNote = async (taskId, noteId) => {
+    if (!window.confirm(language === "es" ? "¿Eliminar esta nota?" : "Delete this note?")) return;
+    try {
+      await axios.delete(`${API}/execution-hub/tasks/${taskId}/notes/${noteId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Nota eliminada" : "Note deleted");
+      fetchGoal();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al eliminar nota" : "Error deleting note");
+    }
+  };
+
 
   const handleUpdateDependencyStatus = async (depId, newStatus) => {
     try {
@@ -609,15 +678,48 @@ export default function ExecutionGoalDetail() {
                                 <div className="space-y-2 mb-3">
                                   {task.notes.map((note) => (
                                     <div key={note.note_id} className="bg-muted/50 rounded p-2 text-sm overflow-hidden">
-                                      <div className="text-foreground break-words overflow-hidden" dangerouslySetInnerHTML={{ __html: note.content }} />
-                                      {note.attachments?.length > 0 && (
-                                        <div className="mt-1.5">
-                                          <NoteAttachments attachments={note.attachments} readOnly />
+                                      {editingNoteId === `task_${note.note_id}` ? (
+                                        <div className="space-y-2">
+                                          <RichTextEditor
+                                            value={editNoteContent}
+                                            onChange={setEditNoteContent}
+                                            placeholder={language === "es" ? "Editar nota..." : "Edit note..."}
+                                            minHeight="50px"
+                                            showAttachments={false}
+                                          />
+                                          <NoteAttachments
+                                            attachments={editNoteAttachments}
+                                            onAttachmentsChange={setEditNoteAttachments}
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <Button size="sm" variant="ghost" onClick={cancelEditNote}>{language === "es" ? "Cancelar" : "Cancel"}</Button>
+                                            <Button size="sm" onClick={() => handleUpdateTaskNote(task.task_id, note.note_id)}>{language === "es" ? "Guardar" : "Save"}</Button>
+                                          </div>
                                         </div>
+                                      ) : (
+                                        <>
+                                          <div className="text-foreground break-words overflow-hidden" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                          {note.attachments?.length > 0 && (
+                                            <div className="mt-1.5">
+                                              <NoteAttachments attachments={note.attachments} readOnly />
+                                            </div>
+                                          )}
+                                          <div className="flex items-center justify-between mt-1">
+                                            <p className="text-xs text-muted-foreground">
+                                              {note.user_name} • {new Date(note.created_at).toLocaleString()}
+                                              {note.edited_at && <span className="ml-1">({language === "es" ? "editado" : "edited"})</span>}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                              <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => startEditNote(note, "task")}>
+                                                <Edit className="w-3 h-3" />
+                                              </Button>
+                                              <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => handleDeleteTaskNote(task.task_id, note.note_id)}>
+                                                <Trash2 className="w-3 h-3" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </>
                                       )}
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {note.user_name} • {new Date(note.created_at).toLocaleString()}
-                                      </p>
                                     </div>
                                   ))}
                                 </div>
@@ -800,15 +902,48 @@ export default function ExecutionGoalDetail() {
                   <div className="space-y-3">
                     {goal.notes?.map((note) => (
                       <div key={note.note_id} className="bg-muted/50 rounded-lg p-3 overflow-hidden">
-                        <div className="text-foreground text-sm break-words overflow-wrap-anywhere" dangerouslySetInnerHTML={{ __html: note.content }} />
-                        {note.attachments?.length > 0 && (
-                          <div className="mt-2">
-                            <NoteAttachments attachments={note.attachments} readOnly />
+                        {editingNoteId === `goal_${note.note_id}` ? (
+                          <div className="space-y-2">
+                            <RichTextEditor
+                              value={editNoteContent}
+                              onChange={setEditNoteContent}
+                              placeholder={language === "es" ? "Editar nota..." : "Edit note..."}
+                              minHeight="60px"
+                              showAttachments={false}
+                            />
+                            <NoteAttachments
+                              attachments={editNoteAttachments}
+                              onAttachmentsChange={setEditNoteAttachments}
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" variant="ghost" onClick={cancelEditNote}>{language === "es" ? "Cancelar" : "Cancel"}</Button>
+                              <Button size="sm" onClick={() => handleUpdateGoalNote(note.note_id)}>{language === "es" ? "Guardar" : "Save"}</Button>
+                            </div>
                           </div>
+                        ) : (
+                          <>
+                            <div className="text-foreground text-sm break-words overflow-wrap-anywhere" dangerouslySetInnerHTML={{ __html: note.content }} />
+                            {note.attachments?.length > 0 && (
+                              <div className="mt-2">
+                                <NoteAttachments attachments={note.attachments} readOnly />
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between mt-2">
+                              <p className="text-xs text-muted-foreground">
+                                {note.user_name} • {new Date(note.created_at).toLocaleString()}
+                                {note.edited_at && <span className="ml-1">({language === "es" ? "editado" : "edited"})</span>}
+                              </p>
+                              <div className="flex items-center gap-1">
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => startEditNote(note, "goal")} data-testid={`edit-goal-note-${note.note_id}`}>
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => handleDeleteGoalNote(note.note_id)} data-testid={`delete-goal-note-${note.note_id}`}>
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </>
                         )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {note.user_name} • {new Date(note.created_at).toLocaleString()}
-                        </p>
                       </div>
                     ))}
                   </div>

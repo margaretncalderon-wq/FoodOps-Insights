@@ -114,8 +114,17 @@ async def check_goal_access(goal_id: str, user: User, min_role: AccessRole = Acc
     if goal.get("owner_id") == user.user_id:
         return goal
     
-    # Check company membership for internal users
+    # Check company membership (direct or via memberships collection)
     if goal.get("company_id") == user.company_id:
+        return goal
+    
+    # Check memberships for shared orgs
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(20)
+    member_company_ids = [m.get("company_id") or m.get("organization_id") for m in memberships]
+    if goal.get("company_id") in member_company_ids:
         return goal
     
     # Check explicit access for external collaborators
@@ -183,11 +192,25 @@ async def get_execution_goals(
     """Get execution goals with optional scope filter for collaboration"""
     goals = []
     
+    # Get all visible company IDs (own + memberships)
+    visible_company_ids = set()
+    if user.company_id:
+        visible_company_ids.add(user.company_id)
+    
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(20)
+    for m in memberships:
+        mid = m.get("company_id") or m.get("organization_id")
+        if mid:
+            visible_company_ids.add(mid)
+    
     # Get owned goals (unless scope is "shared" only)
     if scope != "shared":
         query = {
             "$or": [
-                {"company_id": user.company_id},
+                {"company_id": {"$in": list(visible_company_ids)}},
                 {"owner_id": user.user_id}
             ]
         }
@@ -366,7 +389,7 @@ async def update_execution_goal(
     user: User = Depends(get_current_user)
 ):
     """Update an execution goal"""
-    goal = await check_goal_access(goal_id, user, AccessRole.OWNER)
+    goal = await check_goal_access(goal_id, user, AccessRole.TEAM_MEMBER)
     
     now = datetime.now(timezone.utc)
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
@@ -458,6 +481,62 @@ async def add_goal_note(
     )
     
     return note_entry
+
+
+@execution_hub_router.put("/goals/{goal_id}/notes/{note_id}")
+async def update_goal_note(goal_id: str, note_id: str, note: dict, user: User = Depends(get_current_user)):
+    """Update a goal note (only by the note author)"""
+    await check_goal_access(goal_id, user)
+    
+    goal = await db.execution_goals.find_one({"goal_id": goal_id}, {"_id": 0, "notes": 1})
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    note_found = False
+    for n in (goal.get("notes") or []):
+        if n.get("note_id") == note_id:
+            if n.get("user_id") != user.user_id:
+                raise HTTPException(status_code=403, detail="Solo puedes editar tus propias notas")
+            note_found = True
+            break
+    
+    if not note_found:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    await db.execution_goals.update_one(
+        {"goal_id": goal_id, "notes.note_id": note_id},
+        {"$set": {
+            "notes.$.content": note.get("content", ""),
+            "notes.$.attachments": note.get("attachments", []),
+            "notes.$.edited_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    return {"success": True}
+
+
+@execution_hub_router.delete("/goals/{goal_id}/notes/{note_id}")
+async def delete_goal_note(goal_id: str, note_id: str, user: User = Depends(get_current_user)):
+    """Delete a goal note (only by the note author or goal owner)"""
+    goal = await check_goal_access(goal_id, user)
+    
+    # Check if user is author or goal owner
+    note_found = False
+    for n in (goal.get("notes") or []):
+        if n.get("note_id") == note_id:
+            if n.get("user_id") != user.user_id and goal.get("owner_id") != user.user_id:
+                raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta nota")
+            note_found = True
+            break
+    
+    if not note_found:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    await db.execution_goals.update_one(
+        {"goal_id": goal_id},
+        {"$pull": {"notes": {"note_id": note_id}}}
+    )
+    return {"success": True}
+
 
 
 # ============== EXECUTION TASKS ==============
@@ -752,6 +831,65 @@ async def add_task_note(
     )
     
     return note_entry
+
+
+@execution_hub_router.put("/tasks/{task_id}/notes/{note_id}")
+async def update_task_note(task_id: str, note_id: str, note: dict, user: User = Depends(get_current_user)):
+    """Update a task note (only by the note author)"""
+    task = await db.execution_tasks.find_one({"task_id": task_id}, {"_id": 0})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    await check_goal_access(task["goal_id"], user)
+    
+    note_found = False
+    for n in (task.get("notes") or []):
+        if n.get("note_id") == note_id:
+            if n.get("user_id") != user.user_id:
+                raise HTTPException(status_code=403, detail="Solo puedes editar tus propias notas")
+            note_found = True
+            break
+    
+    if not note_found:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    await db.execution_tasks.update_one(
+        {"task_id": task_id, "notes.note_id": note_id},
+        {"$set": {
+            "notes.$.content": note.get("content", ""),
+            "notes.$.attachments": note.get("attachments", []),
+            "notes.$.edited_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    return {"success": True}
+
+
+@execution_hub_router.delete("/tasks/{task_id}/notes/{note_id}")
+async def delete_task_note(task_id: str, note_id: str, user: User = Depends(get_current_user)):
+    """Delete a task note (only by the note author or goal owner)"""
+    task = await db.execution_tasks.find_one({"task_id": task_id}, {"_id": 0})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    goal = await check_goal_access(task["goal_id"], user)
+    
+    note_found = False
+    for n in (task.get("notes") or []):
+        if n.get("note_id") == note_id:
+            if n.get("user_id") != user.user_id and goal.get("owner_id") != user.user_id:
+                raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta nota")
+            note_found = True
+            break
+    
+    if not note_found:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    await db.execution_tasks.update_one(
+        {"task_id": task_id},
+        {"$pull": {"notes": {"note_id": note_id}}}
+    )
+    return {"success": True}
+
 
 
 # ============== DECISIONS ==============

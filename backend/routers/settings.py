@@ -13,6 +13,71 @@ from config import db
 settings_router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
+
+# ==================== TEAM MEMBERS ====================
+
+@settings_router.get("/team")
+async def get_team_members(user: User = Depends(get_current_user)):
+    """Get all team members from user's company and shared organizations"""
+    visible_company_ids = set()
+    if user.company_id:
+        visible_company_ids.add(user.company_id)
+    
+    memberships = await db.memberships.find({
+        "user_id": user.user_id,
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+    }).to_list(20)
+    for m in memberships:
+        mid = m.get("company_id") or m.get("organization_id")
+        if mid:
+            visible_company_ids.add(mid)
+    
+    # Find all users who are members of any of these companies
+    all_memberships = await db.memberships.find({
+        "$and": [
+            {"$or": [
+                {"company_id": {"$in": list(visible_company_ids)}},
+                {"organization_id": {"$in": list(visible_company_ids)}}
+            ]},
+            {"$or": [{"status": "active"}, {"status": {"$exists": False}}]}
+        ]
+    }).to_list(500)
+    
+    user_ids = list(set(m.get("user_id") for m in all_memberships if m.get("user_id")))
+    
+    # Also include users who directly own these companies
+    direct_users = await db.users.find(
+        {"company_id": {"$in": list(visible_company_ids)}},
+        {"_id": 0, "user_id": 1}
+    ).to_list(500)
+    for u in direct_users:
+        if u.get("user_id") not in user_ids:
+            user_ids.append(u["user_id"])
+    
+    # Get user details
+    team = []
+    seen = set()
+    for uid in user_ids:
+        if uid in seen or uid == user.user_id:
+            continue
+        seen.add(uid)
+        u = await db.users.find_one({"user_id": uid}, {"_id": 0, "password_hash": 0})
+        if u:
+            # Find their role in the shared org
+            member_info = next((m for m in all_memberships if m.get("user_id") == uid), {})
+            team.append({
+                "user_id": u.get("user_id"),
+                "name": u.get("name") or u.get("email", "").split("@")[0],
+                "email": u.get("email"),
+                "role": member_info.get("role", "member"),
+                "department": u.get("department"),
+                "position": u.get("position"),
+            })
+    
+    return team
+
+
+
 # ==================== VARIABLE PAY CONFIGURATION ====================
 
 @settings_router.get("/variable-pay-config")
