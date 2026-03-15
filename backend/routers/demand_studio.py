@@ -3840,7 +3840,7 @@ async def delete_content_idea(idea_id: str, org_id: Optional[str] = None, user: 
     return {"success": True}
 
 @demand_studio_router.post("/social/ideas/{idea_id}/convert-to-post")
-async def convert_idea_to_post(idea_id: str, social_account_id: str, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+async def convert_idea_to_post(idea_id: str, social_account_id: str, target_status: Optional[str] = "production", org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Convert an idea to a social post"""
     if org_id:
         try:
@@ -3866,6 +3866,11 @@ async def convert_idea_to_post(idea_id: str, social_account_id: str, org_id: Opt
     if not idea:
         raise HTTPException(status_code=404, detail="Idea not found")
     
+    # Validate target_status
+    valid_post_statuses = ["production", "editing", "drafted", "calendar", "scheduled"]
+    if target_status not in valid_post_statuses:
+        target_status = "production"
+    
     now = datetime.now(timezone.utc)
     post = {
         "post_id": f"post_{uuid.uuid4().hex[:12]}",
@@ -3874,7 +3879,7 @@ async def convert_idea_to_post(idea_id: str, social_account_id: str, org_id: Opt
         "campaign_id": None,
         "pillar_id": idea.get("pillar_id"),
         "format": "post",
-        "status": "idea",
+        "status": target_status,
         "title": idea["title"],
         "caption": idea.get("description"),
         "hook": None,

@@ -1,0 +1,104 @@
+{
+  "summary": "Bug Fix Verification: Demand Studio Social - Idea to Post Conversion. Backend: 10/10 tests passed (100%). Frontend: Code review confirms all bug fixes implemented correctly. All data-testid attributes present.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_social_idea_conversion.py",
+    "/app/test_reports/pytest/pytest_social_idea_conversion.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend: POST /api/demand-studio/social/ideas/{id}/convert-to-post correctly accepts target_status query param (line 3843)",
+    "Backend: Converted post status is set to target_status (default: 'production'), NOT 'idea' (line 3882)",
+    "Backend: Converted post link_url is correctly set from idea's source_url (line 3889)",
+    "Frontend: Convert dialog has data-testid='convert-account-select' (line 3075)",
+    "Frontend: Convert dialog has data-testid='convert-status-select' (line 3090)",
+    "Frontend: Convert dialog has data-testid='convert-confirm-btn' (line 3105)",
+    "Frontend: Post edit form label shows 'URL Fuente (inspiración)' (line 2545)",
+    "Frontend: Queue table shows clickable 'URL Fuente' link for posts with link_url (lines 1656-1659)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_social_idea_conversion.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% - All bug fixes verified in code"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created and cleaned up test ideas during pytest execution",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug fixes verified: (1) Converting idea to post now accepts target_status param and creates post with correct status (not 'idea'), (2) link_url is preserved from idea's source_url, (3) Post edit form shows 'URL Fuente (inspiración)' label, (4) Convert dialog has all required data-testid attributes, (5) Queue table shows clickable URL Fuente link for posts with link_url.",
+  "tested_features": {
+    "idea_to_post_conversion_api": {
+      "status": "PASS",
+      "endpoint": "POST /api/demand-studio/social/ideas/{id}/convert-to-post",
+      "verified": [
+        "Accepts target_status query parameter",
+        "target_status=production creates post with status='production'",
+        "target_status=editing creates post with status='editing'",
+        "Default target_status is 'production' (not 'idea')",
+        "link_url is set from idea's source_url",
+        "Idea is marked as 'used' after conversion"
+      ]
+    },
+    "regression_apis": {
+      "status": "PASS",
+      "verified": [
+        "GET /api/demand-studio/social/ideas returns 200",
+        "GET /api/demand-studio/social/posts returns 200",
+        "GET /api/demand-studio/social/accounts returns 200",
+        "GET /api/business-clarity/reports/by-department returns 200"
+      ]
+    },
+    "frontend_bug_fixes": {
+      "status": "PASS",
+      "verified_in_code": [
+        "data-testid='convert-account-select' in SocialMediaPage.js:3075",
+        "data-testid='convert-status-select' in SocialMediaPage.js:3090",
+        "data-testid='convert-confirm-btn' in SocialMediaPage.js:3105",
+        "'URL Fuente (inspiración)' label in SocialMediaPage.js:2545",
+        "Clickable 'URL Fuente' link in queue table SocialMediaPage.js:1656-1659"
+      ]
+    }
+  },
+  "api_verification": {
+    "POST /api/demand-studio/social/ideas/{id}/convert-to-post?target_status=production": "200 OK - Creates post with status='production'",
+    "POST /api/demand-studio/social/ideas/{id}/convert-to-post?target_status=editing": "200 OK - Creates post with status='editing'",
+    "GET /api/demand-studio/social/ideas": "200 OK - Regression pass",
+    "GET /api/demand-studio/social/posts": "200 OK - Regression pass",
+    "GET /api/business-clarity/reports/by-department": "200 OK - Regression pass"
+  },
+  "bugs_fixed": [
+    {
+      "bug": "Converting idea to post created post with status='idea' instead of proper status",
+      "fix": "Backend now accepts target_status param and sets post.status correctly",
+      "verified": "pytest test_convert_idea_to_post_with_target_status_production PASSED"
+    },
+    {
+      "bug": "source_url from idea was not visible in converted post (link_url was empty)",
+      "fix": "Backend now copies idea.source_url to post.link_url",
+      "verified": "pytest test_get_post_shows_link_url PASSED"
+    },
+    {
+      "bug": "Post edit form label said 'Link URL' instead of 'URL Fuente (inspiración)'",
+      "fix": "Frontend label updated in SocialMediaPage.js:2545",
+      "verified": "Code review PASSED"
+    },
+    {
+      "bug": "Posts with link_url didn't show clickable URL Fuente link in queue table",
+      "fix": "Frontend now shows clickable link in SocialMediaPage.js:1656-1659",
+      "verified": "Code review PASSED"
+    }
+  ]
+}

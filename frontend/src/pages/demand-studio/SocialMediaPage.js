@@ -151,6 +151,8 @@ export default function SocialMediaPage() {
   const [editingIdea, setEditingIdea] = useState(null);
   const [convertIdeaDialogOpen, setConvertIdeaDialogOpen] = useState(false);
   const [ideaToConvert, setIdeaToConvert] = useState(null);
+  const [convertTargetStatus, setConvertTargetStatus] = useState("production");
+  const [convertTargetAccount, setConvertTargetAccount] = useState("");
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioAssets, setStudioAssets] = useState([]);
   
@@ -745,9 +747,11 @@ export default function SocialMediaPage() {
     if (!ideaToConvert || !accountId || convertingSaving) return;
     setConvertingSaving(true);
     try {
-      await axios.post(`${API}/api/demand-studio/social/ideas/${ideaToConvert.idea_id}/convert-to-post?social_account_id=${accountId}${selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : ""}`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/demand-studio/social/ideas/${ideaToConvert.idea_id}/convert-to-post?social_account_id=${accountId}&target_status=${convertTargetStatus}${selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : ""}`, {}, { withCredentials: true });
       setConvertIdeaDialogOpen(false);
       setIdeaToConvert(null);
+      setConvertTargetStatus("production");
+      setConvertTargetAccount("");
       fetchData();
       fetchCalendarPosts();
     } catch (error) {
@@ -1647,7 +1651,14 @@ export default function SocialMediaPage() {
                           <td className="p-3 text-sm">{getAccountName(post.social_account_id)}</td>
                           <td className="p-3">{getFormatBadge(post.format)}</td>
                           <td className="p-3">{getStatusBadge(post.status)}</td>
-                          <td className="p-3 text-sm font-medium max-w-[200px] truncate">{post.title}</td>
+                          <td className="p-3 text-sm font-medium max-w-[200px]">
+                            <div className="truncate">{post.title}</div>
+                            {post.link_url && (
+                              <a href={post.link_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block" title={post.link_url}>
+                                {isEs ? "URL Fuente" : "Source URL"}
+                              </a>
+                            )}
+                          </td>
                           <td className="p-3 text-sm">
                             {post.pillar_id ? pillars.find(p => p.pillar_id === post.pillar_id)?.name || "-" : "-"}
                           </td>
@@ -2531,7 +2542,7 @@ export default function SocialMediaPage() {
             </div>
             
             <div>
-              <label className="text-sm font-medium">Link URL</label>
+              <label className="text-sm font-medium">{isEs ? "URL Fuente (inspiración)" : "Source URL (inspiration)"}</label>
               <Input
                 value={postForm.link_url}
                 onChange={e => setPostForm({...postForm, link_url: e.target.value})}
@@ -3049,13 +3060,19 @@ export default function SocialMediaPage() {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {isEs 
-                ? `Selecciona la cuenta para crear un post a partir de "${ideaToConvert?.title}"`
-                : `Select the account to create a post from "${ideaToConvert?.title}"`}
+                ? `Selecciona la cuenta y el estado para crear un post a partir de "${ideaToConvert?.title}"`
+                : `Select the account and status to create a post from "${ideaToConvert?.title}"`}
             </p>
+            {ideaToConvert?.source_url && (
+              <div className="p-2 bg-muted/50 rounded text-xs">
+                <span className="font-medium">{isEs ? "URL Fuente:" : "Source URL:"}</span>{" "}
+                <a href={ideaToConvert.source_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{ideaToConvert.source_url}</a>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">{isEs ? "Cuenta" : "Account"}</label>
-              <Select onValueChange={handleConvertIdea}>
-                <SelectTrigger>
+              <Select value={convertTargetAccount} onValueChange={setConvertTargetAccount}>
+                <SelectTrigger data-testid="convert-account-select">
                   <SelectValue placeholder={isEs ? "Seleccionar cuenta..." : "Select account..."} />
                 </SelectTrigger>
                 <SelectContent>
@@ -3067,10 +3084,26 @@ export default function SocialMediaPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Estado del post" : "Post status"}</label>
+              <Select value={convertTargetStatus} onValueChange={setConvertTargetStatus}>
+                <SelectTrigger data-testid="convert-status-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.filter(s => !["idea", "posted", "archived"].includes(s.value)).map(s => (
+                    <SelectItem key={s.value} value={s.value}>{isEs ? s.labelEs : s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setConvertIdeaDialogOpen(false); setIdeaToConvert(null); }}>
+            <Button variant="outline" onClick={() => { setConvertIdeaDialogOpen(false); setIdeaToConvert(null); setConvertTargetAccount(""); setConvertTargetStatus("production"); }}>
               {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={() => handleConvertIdea(convertTargetAccount)} disabled={!convertTargetAccount || convertingSaving} data-testid="convert-confirm-btn">
+              {convertingSaving ? (isEs ? "Creando..." : "Creating...") : (isEs ? "Crear Post" : "Create Post")}
             </Button>
           </DialogFooter>
         </DialogContent>
