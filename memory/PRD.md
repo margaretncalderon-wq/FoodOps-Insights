@@ -74,6 +74,21 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Field is optional — registration works with or without it
    - All tests passed (6/6 backend, 100% frontend)
 
+2. **Business Clarity - Department Report (P2 Feature)**:
+   - New backend endpoint: `GET /api/business-clarity/reports/by-department?year=&month=`
+   - Groups financial data by department: employees, payroll, supplier costs, direct expenses
+   - Aggregates budget from linked cost centers
+   - Frontend: New "Por Departamento" tab in Executive Reports section
+   - Includes summary cards, detailed table with utilization bars, and totals row
+   - All tests passed (15/15 backend, 100% frontend)
+
+3. **Employee Department Backfill Migration (P2 Feature)**:
+   - New backend endpoint: `POST /api/people-ops/departments/backfill`
+   - Matches employees' `department` string to `department_id` (case-insensitive)
+   - Also backfills cost center `department_id` links
+   - Returns detailed results: updated count, unmatched employees, available departments
+   - Tests passed: 1 employee migrated successfully
+
 ### Session: March 14, 2026
 
 #### Completed
@@ -166,7 +181,8 @@ Build a comprehensive ERP application called Kora OS with modules for:
 1. **Unstable User Sessions**: RESOLVED - JWT-first auth, auto-refresh, 401 interceptor
 
 ### P2 - Data Migration
-1. **Employee department_id backfill**: Script needed
+1. **Employee department_id backfill**: COMPLETED (March 15, 2026)
+   - Endpoint: `POST /api/people-ops/departments/backfill`
    - Status: NOT STARTED
 
 ### P2 - Improvements
