@@ -104,6 +104,13 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Fixed: Frontend `fetchCalendarPosts` now passes `org_id` when viewing shared org
    - Tests passed: 14/14 backend + frontend code review verified
 
+6. **Activity Log Visible para Social Contributors (Feature)**:
+   - Backend: Endpoints `/api/activity-logs/` y `/api/activity-feed/recent` ahora aceptan `org_id` para mostrar logs de orgs compartidas
+   - Backend: Verificación de membresía antes de mostrar logs de otra org
+   - Frontend: `GlobalActivityLog` y `ActivityFeed` aceptan `orgId` prop
+   - Frontend: Botón de historial (History) agregado en Demand Studio Social con `data-testid='demand-studio-activity-log-btn'`
+   - Tests passed: 15/15 backend + frontend verificado
+
 ### Session: March 14, 2026
 
 #### Completed
