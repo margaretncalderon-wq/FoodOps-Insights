@@ -63,6 +63,17 @@ Build a comprehensive ERP application called Kora OS with modules for:
 
 ## What's Been Implemented
 
+### Session: March 15, 2026
+
+#### Completed
+1. **Deal Code on Registration Page (P0 Feature)**:
+   - Added `deal_code: Optional[str]` field to `UserCreate` model
+   - Backend `/api/auth/register` stores `deal_code` in both `users` and `companies` collections
+   - Backend `/api/auth/google/complete-registration` also accepts and stores `deal_code`
+   - Frontend: New input field in Step 3 of registration with placeholder "Deal Code (opcional)"
+   - Field is optional — registration works with or without it
+   - All tests passed (6/6 backend, 100% frontend)
+
 ### Session: March 14, 2026
 
 #### Completed
@@ -148,8 +159,8 @@ Build a comprehensive ERP application called Kora OS with modules for:
 ## Known Issues
 
 ### P0 - Critical
-1. **"Deal Code" input on registration page**: NOT STARTED
-   - Location: `frontend/src/pages/onboarding/RegisterPage.js`
+1. **"Deal Code" input on registration page**: COMPLETED (March 15, 2026)
+   - Location: `frontend/src/pages/RegisterPage.js`, `backend/models/auth.py`, `backend/routers/auth.py`
 
 ### P1 - High Priority
 1. **Unstable User Sessions**: RESOLVED - JWT-first auth, auto-refresh, 401 interceptor
