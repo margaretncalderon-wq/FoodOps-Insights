@@ -230,22 +230,30 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Feature (Partners): Notes tab with CommentsSection
 - Feature (Demand Studio): Sub-Audiences, Segment-Pillar linking, clickable notifications, reordered buttons
 
+### Session: March 15, 2026 (Fork 2)
+
+#### Completed
+1. **Bug Fix - Demand Studio: Save Dialog Not Closing (P0 Recurring)**:
+   - Root cause: Missing `import { toast } from 'sonner'` in SocialMediaPage.js
+   - `toast.success()` and `toast.error()` calls threw `ReferenceError` silently, preventing code from reaching `setDialogOpen(false)`
+   - Fix: Added import + all handlers now consistently use `await fetchData(isOwnOrg ? null : selectedOrgId)`
+   - Better error messages showing `error.response.data.detail` for API errors
+   - Testing: 14/14 backend tests passed, frontend verified
+
+2. **Feature - Calendar Pillar Stats with Percentages & Alerts (P1)**:
+   - Backend: `GET /api/demand-studio/social/calendar/pillar-stats` now returns `actual_percentage`, `target_percentage`, `over_target`, `diff_from_target`
+   - Frontend: Mini-report shows actual % vs target %, highlighted in pillar color
+   - Alert: Red border + badge when a pillar exceeds target by >10 percentage points
+   - Warning banner appears below stats when any pillar is over-allocated
+   - Testing: Verified via API and frontend screenshot
+
 ## Known Issues
 
 ### P0 - Critical
-1. **"Deal Code" input on registration page**: COMPLETED (March 15, 2026)
-   - Location: `frontend/src/pages/RegisterPage.js`, `backend/models/auth.py`, `backend/routers/auth.py`
+- All critical issues resolved
 
 ### P1 - High Priority
-1. **Unstable User Sessions**: RESOLVED - JWT-first auth, auto-refresh, 401 interceptor
-
-### P2 - Data Migration
-1. **Employee department_id backfill**: COMPLETED (March 15, 2026)
-   - Endpoint: `POST /api/people-ops/departments/backfill`
-   - Status: NOT STARTED
-
-### P2 - Improvements
-- Enhance Business Clarity reports with Department grouping/filtering
+- None pending
 
 ## Backlog / Future Tasks
 
@@ -259,6 +267,7 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Kora Comms Phase 1 (WhatsApp integration)
 - Complete internationalization (i18n)
 - Expand initial setup wizard
+- Refactor SocialMediaPage.js (~3500 lines) into smaller components
 
 ## Test Credentials
 - **Email**: demo.agency@kora.com
