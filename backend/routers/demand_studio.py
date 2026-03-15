@@ -63,6 +63,28 @@ async def get_effective_company_id(user: User, org_id: Optional[str] = None):
     return org_id, membership.get("role", "viewer")
 
 
+async def ensure_owner_membership(user: User):
+    """Auto-create membership for company owners who are missing one.
+    This fixes users who were created before the membership system was in place."""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return
+    
+    existing = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$or": [{"company_id": company_id}, {"organization_id": company_id}]
+    })
+    if not existing:
+        await db.memberships.insert_one({
+            "user_id": user.user_id,
+            "company_id": company_id,
+            "organization_id": company_id,
+            "role": "admin",
+            "status": "active",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+
+
 async def check_section_permission(
     user: User, 
     org_id: Optional[str], 
@@ -2411,6 +2433,8 @@ async def get_social_accounts(
     user: User = Depends(get_current_user)
 ):
     """Get all social media accounts (owned and optionally shared)"""
+    await ensure_owner_membership(user)
+    
     # If org_id is specified, get accounts for that org only
     if org_id:
         try:
@@ -2477,9 +2501,17 @@ async def get_social_accounts(
     return owned_accounts + shared_accounts
 
 @demand_studio_router.post("/social/accounts")
-async def create_social_account(data: SocialAccountCreate, user: User = Depends(get_current_user)):
+async def create_social_account(data: SocialAccountCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Create a social media account"""
-    company_id = user.company_id or user.active_org_id
+    await ensure_owner_membership(user)
+    
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
     if not company_id:
         raise HTTPException(status_code=400, detail="No organization context")
     
@@ -2760,6 +2792,8 @@ async def get_social_posts(
     user: User = Depends(get_current_user)
 ):
     """Get social posts with filters"""
+    await ensure_owner_membership(user)
+    
     try:
         company_id, can_write = await check_section_permission(user, org_id, "social_media", "viewer")
     except HTTPException:
@@ -2809,6 +2843,8 @@ async def get_social_posts(
 @demand_studio_router.post("/social/posts")
 async def create_social_post(data: SocialPostCreate, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
     """Create a social post"""
+    await ensure_owner_membership(user)
+    
     # Use org_id if provided (shared org context), otherwise fallback to user's company
     if org_id:
         try:
