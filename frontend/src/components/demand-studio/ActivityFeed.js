@@ -12,7 +12,7 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-export default function ActivityFeed({ accountId = null, limit = 10 }) {
+export default function ActivityFeed({ accountId = null, orgId = null, limit = 10 }) {
   const { language } = useLanguage();
   const isEs = language === "es";
   
@@ -24,6 +24,7 @@ export default function ActivityFeed({ accountId = null, limit = 10 }) {
     try {
       const params = new URLSearchParams();
       if (accountId) params.append("account_id", accountId);
+      if (orgId) params.append("org_id", orgId);
       params.append("limit", limit);
       params.append("days", 7);
       
@@ -43,7 +44,7 @@ export default function ActivityFeed({ accountId = null, limit = 10 }) {
 
   useEffect(() => {
     fetchActivities();
-  }, [accountId]);
+  }, [accountId, orgId]);
 
   const handleRefresh = () => {
     setRefreshing(true);

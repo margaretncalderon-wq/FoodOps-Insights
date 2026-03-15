@@ -61,7 +61,7 @@ const ACTION_INFO = {
   copy: { name: "Copied", icon: Copy, color: "bg-blue-100 text-blue-700" },
 };
 
-export function GlobalActivityLog({ trigger }) {
+export function GlobalActivityLog({ trigger, orgId = null }) {
   const { token } = useAuth();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -76,6 +76,7 @@ export function GlobalActivityLog({ trigger }) {
       params.append("limit", "100");
       if (moduleFilter !== "all") params.append("module", moduleFilter);
       if (actionFilter !== "all") params.append("action", actionFilter);
+      if (orgId) params.append("org_id", orgId);
       
       const res = await axios.get(`${API}/activity-logs/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },

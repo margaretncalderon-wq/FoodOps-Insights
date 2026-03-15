@@ -1,0 +1,125 @@
+{
+  "summary": "Activity Log & Activity Feed org_id Support Testing Complete. Backend: 15/15 tests passed (100%). Frontend: Activity Log button (data-testid='demand-studio-activity-log-btn') found and functional, Activity Log sheet opens correctly with 100 activities, ActivityFeed component (data-testid='activity-feed') visible in Overview tab.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_activity_log_org_id.py",
+    "/app/test_reports/pytest/pytest_activity_log_org_id.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend activity_logs.py: list_activity_logs correctly accepts org_id parameter (line 19) with membership verification (lines 31-40)",
+    "Backend activity_logs.py: get_entity_activity_history correctly accepts org_id parameter (line 60) with membership verification (lines 70-78)",
+    "Backend activity_feed.py: get_recent_activity correctly accepts org_id parameter (line 61) with membership verification (lines 72-78)",
+    "Frontend GlobalActivityLog.js: Correctly accepts orgId prop (line 64) and passes it as org_id query param (line 79)",
+    "Frontend ActivityFeed.js: Correctly accepts orgId prop (line 15) and passes it as org_id query param (line 27)",
+    "Frontend SocialMediaPage.js: GlobalActivityLog button has data-testid='demand-studio-activity-log-btn' (line 1125) and passes orgId correctly (line 1123)",
+    "Frontend SocialMediaPage.js: ActivityFeed component receives orgId correctly (line 1332)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_activity_log_org_id.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% - All components working"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "No new seed data created - used existing activity logs in DB",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Activity log org_id support fully tested and working. The GlobalActivityLog button is in the Social Media page tab actions area. ActivityFeed component is in the Overview tab of Social Media page. Both components correctly pass org_id to their respective API endpoints when viewing a shared organization.",
+  "tested_features": {
+    "activity_logs_org_id_parameter": {
+      "status": "PASS",
+      "endpoint": "GET /api/activity-logs/",
+      "verified": [
+        "Endpoint accepts org_id parameter",
+        "Backwards compatible - works without org_id",
+        "Works with module filter + org_id",
+        "Works with limit parameter"
+      ]
+    },
+    "activity_logs_entity_history_org_id": {
+      "status": "PASS",
+      "endpoint": "GET /api/activity-logs/entity/{type}/{id}",
+      "verified": [
+        "Endpoint accepts org_id parameter",
+        "Backwards compatible - works without org_id"
+      ]
+    },
+    "activity_feed_org_id_parameter": {
+      "status": "PASS",
+      "endpoint": "GET /api/activity-feed/recent",
+      "verified": [
+        "Endpoint accepts org_id parameter",
+        "Backwards compatible - works without org_id",
+        "Works with limit parameter",
+        "Works with days parameter"
+      ]
+    },
+    "global_activity_log_button": {
+      "status": "PASS",
+      "component": "GlobalActivityLog",
+      "verified": [
+        "Button present with data-testid='demand-studio-activity-log-btn'",
+        "Button opens Activity Log sheet on click",
+        "Sheet shows activity logs with filters (All Modules, All Actions)",
+        "Sheet displays '100 activities found'"
+      ]
+    },
+    "activity_feed_component": {
+      "status": "PASS",
+      "component": "ActivityFeed",
+      "verified": [
+        "Component visible with data-testid='activity-feed'",
+        "Shows 'Recent Activity' section in Overview tab",
+        "Displays user activity with account info"
+      ]
+    },
+    "regression_apis": {
+      "status": "PASS",
+      "verified": [
+        "GET /api/demand-studio/social/posts - 200 OK",
+        "GET /api/demand-studio/social/calendar with org_id - 200 OK",
+        "GET /api/demand-studio/social/calendar without org_id - 200 OK (backwards compatible)",
+        "GET /api/activity-logs/modules - 200 OK",
+        "GET /api/activity-logs/actions - 200 OK"
+      ]
+    }
+  },
+  "api_verification": {
+    "GET /api/activity-logs/": "200 OK",
+    "GET /api/activity-logs/?org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-logs/?module=demand_studio&org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-logs/?limit=10&org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-logs/entity/social_post/test-entity-id": "200 OK",
+    "GET /api/activity-logs/entity/social_post/test-entity-id?org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-feed/recent": "200 OK",
+    "GET /api/activity-feed/recent?org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-feed/recent?limit=5&org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-feed/recent?days=30&org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/demand-studio/social/posts": "200 OK",
+    "GET /api/demand-studio/social/calendar?org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/activity-logs/modules": "200 OK",
+    "GET /api/activity-logs/actions": "200 OK"
+  },
+  "frontend_verification": {
+    "GlobalActivityLog_button_visible": true,
+    "GlobalActivityLog_sheet_opens": true,
+    "ActivityFeed_component_visible": true,
+    "Social_Media_page_loads": true,
+    "data_testid_demand-studio-activity-log-btn": "found",
+    "data_testid_activity-feed": "found",
+    "data_testid_social-media-page": "found"
+  }
+}

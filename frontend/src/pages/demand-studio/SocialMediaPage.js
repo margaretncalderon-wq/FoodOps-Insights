@@ -34,7 +34,7 @@ import {
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
   Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal,
-  ArrowUpRight, GripVertical
+  ArrowUpRight, GripVertical, History
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -47,6 +47,7 @@ import ActivityFeed from "../../components/demand-studio/ActivityFeed";
 import { SocialMetricsSection } from "../../components/demand-studio/SocialMetricsSection";
 import CommentsSection from "../../components/shared/CommentsSection";
 import RichTextEditor from "../../components/ui/RichTextEditor";
+import { GlobalActivityLog } from "../../components/GlobalActivityLog";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -1118,6 +1119,14 @@ export default function SocialMediaPage() {
           </TabsList>
           
           <div className="flex gap-2">
+            <GlobalActivityLog 
+              orgId={selectedOrgId && !isOwnOrg ? selectedOrgId : null}
+              trigger={
+                <Button variant="outline" size="icon" data-testid="demand-studio-activity-log-btn">
+                  <History className="w-4 h-4" />
+                </Button>
+              }
+            />
             <Button variant="outline" onClick={() => setStudioOpen(true)}>
               <Wand2 className="w-4 h-4 mr-2" />
               Studio
@@ -1320,7 +1329,7 @@ export default function SocialMediaPage() {
 
           {/* Activity Feed - Recent Changes */}
           <div className="mt-6">
-            <ActivityFeed accountId={selectedAccountId} limit={8} />
+            <ActivityFeed accountId={selectedAccountId} orgId={selectedOrgId && !isOwnOrg ? selectedOrgId : null} limit={8} />
           </div>
         </TabsContent>
 

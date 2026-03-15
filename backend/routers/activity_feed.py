@@ -58,6 +58,7 @@ async def log_activity(
 @activity_feed_router.get("/recent")
 async def get_recent_activity(
     account_id: Optional[str] = None,
+    org_id: Optional[str] = None,
     limit: int = Query(default=20, le=50),
     days: int = Query(default=7, le=30),
     user: User = Depends(get_current_user)
@@ -65,8 +66,19 @@ async def get_recent_activity(
     """
     Get recent activity for the user's accounts.
     Shows activity from owned accounts and accounts shared with the user.
+    Supports org_id for viewing shared organization activity.
     """
-    company_id = user.company_id or user.active_org_id
+    # Determine target company
+    if org_id:
+        membership = await db.memberships.find_one({
+            "user_id": user.user_id,
+            "$or": [{"company_id": org_id}, {"organization_id": org_id}],
+            "status": "active"
+        })
+        company_id = org_id if membership else (user.company_id or user.active_org_id)
+    else:
+        company_id = user.company_id or user.active_org_id
+    
     if not company_id:
         return []
     
@@ -83,19 +95,21 @@ async def get_recent_activity(
         query["account_id"] = account_id
     else:
         # Get all accounts the user has access to
-        # 1. Owned accounts
+        # 1. Owned accounts for the target company
         owned_accounts = await db.social_accounts.find(
             {"company_id": company_id},
             {"account_id": 1}
         ).to_list(100)
         owned_ids = [a["account_id"] for a in owned_accounts]
         
-        # 2. Shared accounts
-        memberships = await db.account_memberships.find({
-            "user_id": user.user_id,
-            "status": "active"
-        }).to_list(100)
-        shared_ids = [m["social_account_id"] for m in memberships]
+        # 2. Shared accounts (only if not already in org context)
+        shared_ids = []
+        if not org_id:
+            memberships = await db.account_memberships.find({
+                "user_id": user.user_id,
+                "status": "active"
+            }).to_list(100)
+            shared_ids = [m["social_account_id"] for m in memberships]
         
         # Combine
         all_account_ids = list(set(owned_ids + shared_ids))
