@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
     company_name: Optional[str] = None
     industry_template: Optional[str] = "events_hospitality"  # events_hospitality, professional_services, generic
     industry_type: Optional[str] = None  # events, agency, generic - alternative to industry_template
+    deal_code: Optional[str] = None  # Referral/deal code for tracking
 
 
 class UserLogin(BaseModel):

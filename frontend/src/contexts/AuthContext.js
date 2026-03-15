@@ -276,16 +276,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const completeGoogleRegistration = async (tempToken, companyName, industryTemplate = "events_hospitality") => {
+  const completeGoogleRegistration = async (tempToken, companyName, industryTemplate = "events_hospitality", dealCode = null) => {
     setLoading(true);
     try {
+      const payload = { 
+        temp_token: tempToken, 
+        company_name: companyName,
+        industry_template: industryTemplate 
+      };
+      if (dealCode) payload.deal_code = dealCode;
       const response = await axios.post(
         `${API}/auth/google/complete-registration`,
-        { 
-          temp_token: tempToken, 
-          company_name: companyName,
-          industry_template: industryTemplate 
-        },
+        payload,
         { withCredentials: true }
       );
       if (response.data.access_token) {

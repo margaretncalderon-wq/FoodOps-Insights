@@ -119,6 +119,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     company_name: "",
+    deal_code: "",
     industry_template: "",
     selected_modules: [], // Module keys selected by user
   });
@@ -196,7 +197,7 @@ export default function RegisterPage() {
       // Handle Google registration vs normal registration
       if (isFromGoogle && googleTempToken) {
         // Complete Google registration with industry selection
-        await completeGoogleRegistration(googleTempToken, formData.company_name, formData.industry_template);
+        await completeGoogleRegistration(googleTempToken, formData.company_name, formData.industry_template, formData.deal_code || null);
         toast.success(language === "es" ? "¡Cuenta creada!" : "Account created!");
       } else {
         // Normal registration
@@ -689,6 +690,14 @@ export default function RegisterPage() {
                   required
                   className="h-11 bg-white border-[#E5E7EB] rounded-lg placeholder:text-[#9CA3AF]"
                   data-testid="register-company-input"
+                />
+                <Input
+                  type="text"
+                  placeholder={isEs ? "Deal Code (opcional)" : "Deal Code (optional)"}
+                  value={formData.deal_code}
+                  onChange={(e) => setFormData({ ...formData, deal_code: e.target.value })}
+                  className="h-11 bg-white border-[#E5E7EB] rounded-lg placeholder:text-[#9CA3AF]"
+                  data-testid="register-deal-code-input"
                 />
                 {!isFromGoogle && (
                   <>

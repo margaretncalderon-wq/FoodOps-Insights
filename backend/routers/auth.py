@@ -284,6 +284,7 @@ async def register(data: UserCreate, request: Request, response: Response):
         "default_language": "en",
         "currency": "USD",
         "default_tax_rate": 0.0,
+        "deal_code": data.deal_code,
         "created_at": now.isoformat()
     }
     await db.companies.insert_one(company_doc)
@@ -335,6 +336,7 @@ async def register(data: UserCreate, request: Request, response: Response):
         "company_id": company_id,
         "company_name": company_name,  # Store company name with user
         "role": "admin",
+        "deal_code": data.deal_code,
         "created_at": now.isoformat()
     }
     await db.users.insert_one(user_doc)
@@ -762,6 +764,7 @@ async def complete_google_registration(request: Request, response: Response):
     company_name = body.get("company_name")
     industry_template = body.get("industry_template", "events_hospitality")
     industry_type_input = body.get("industry_type")  # Support both formats
+    deal_code = body.get("deal_code")
     
     # If industry_type is provided, map it to industry_template
     if industry_type_input:
@@ -811,6 +814,7 @@ async def complete_google_registration(request: Request, response: Response):
         "name": company_name or f"Empresa de {name}",
         "industry_template": industry_template,
         "status": "active",
+        "deal_code": deal_code,
         "created_at": now.isoformat(),
         "settings": {
             "currency": "USD",
@@ -877,6 +881,7 @@ async def complete_google_registration(request: Request, response: Response):
         "role": "owner",
         "is_super_admin": False,
         "auth_provider": "google",
+        "deal_code": deal_code,
         "created_at": now.isoformat()
     }
     await db.users.insert_one(user_doc)
