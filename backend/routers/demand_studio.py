@@ -3664,7 +3664,8 @@ async def get_social_calendar(
         "status": {"$nin": ["archived"]},
         "$or": [
             {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
-            {"posted_at": {"$gte": start_date, "$lte": end_date}}
+            {"posted_at": {"$gte": start_date, "$lte": end_date}},
+            {"created_at": {"$gte": start_date, "$lte": end_date}, "scheduled_at": {"$in": [None, ""]}}
         ]
     }
     if account_id:
@@ -3682,6 +3683,82 @@ async def get_social_calendar(
             post["account"] = account
     
     return posts
+
+@demand_studio_router.get("/social/calendar/pillar-stats")
+async def get_calendar_pillar_stats(
+    year: int,
+    month: int,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get post count by pillar for a given month - mini report for calendar view"""
+    company_id, _ = await get_effective_company_id(user, org_id)
+    
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    start_str = start_date.isoformat()
+    end_str = end_date.isoformat()
+    
+    # Aggregate posts by pillar and status
+    pipeline = [
+        {"$match": {
+            "company_id": company_id,
+            "status": {"$nin": ["archived"]},
+            "$or": [
+                {"scheduled_at": {"$gte": start_str, "$lt": end_str}},
+                {"posted_at": {"$gte": start_str, "$lt": end_str}},
+                {"created_at": {"$gte": start_str, "$lt": end_str}, "scheduled_at": {"$in": [None, ""]}}
+            ]
+        }},
+        {"$group": {
+            "_id": {"pillar_id": "$pillar_id", "status": "$status"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    
+    results = await db.social_posts.aggregate(pipeline).to_list(200)
+    
+    # Get all pillars for names
+    pillars = await db.content_pillars.find(
+        {"company_id": company_id},
+        {"_id": 0, "pillar_id": 1, "name": 1, "icon": 1, "color": 1, "weight_percentage": 1}
+    ).to_list(50)
+    pillar_map = {p["pillar_id"]: p for p in pillars}
+    
+    # Build stats
+    pillar_stats = {}
+    total_posts = 0
+    for r in results:
+        pid = r["_id"]["pillar_id"] or "unassigned"
+        status = r["_id"]["status"]
+        count = r["count"]
+        total_posts += count
+        
+        if pid not in pillar_stats:
+            p_info = pillar_map.get(pid, {})
+            pillar_stats[pid] = {
+                "pillar_id": pid,
+                "name": p_info.get("name", "Sin pilar" if pid == "unassigned" else pid),
+                "icon": p_info.get("icon"),
+                "color": p_info.get("color"),
+                "weight_percentage": p_info.get("weight_percentage"),
+                "total": 0,
+                "by_status": {}
+            }
+        pillar_stats[pid]["total"] += count
+        pillar_stats[pid]["by_status"][status] = pillar_stats[pid]["by_status"].get(status, 0) + count
+    
+    return {
+        "total_posts": total_posts,
+        "pillars": sorted(pillar_stats.values(), key=lambda x: x["total"], reverse=True),
+        "period": {"year": year, "month": month}
+    }
+
+
 
 # ---- Content Ideas CRUD ----
 

@@ -1,0 +1,126 @@
+{
+  "summary": "Tested 3 calendar & settings fixes for ERP Kora OS. All fixes verified working: (1) fetchData with org params, (2) Calendar shows posts with created_at when no scheduled_at/posted_at, (3) Pillar stats mini-report above calendar. Backend: 8/8 tests PASSED. Frontend: All features verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Social Media page",
+        "issues": ["Console warnings about duplicate React keys in account/pillar rendering - non-blocking but should be addressed"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_calendar_fixes.py",
+    "/app/test_reports/pytest/pytest_calendar_fixes.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend calendar query correctly uses $or condition with created_at fallback when scheduled_at/posted_at are null",
+    "Pillar stats endpoint aggregates posts by pillar_id and status, returns structured data with pillar metadata",
+    "Frontend getPostsForDay function correctly implements created_at fallback logic",
+    "fetchData in save/delete handlers now correctly passes org params (isOwnOrg ? null : selectedOrgId)",
+    "Minor: React key warnings in console for duplicate keys - should add unique identifiers"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_calendar_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "100% - All features verified via Playwright"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Test posts created and cleaned up during pytest (TEST_CALENDAR_* prefixed)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Calendar fixes fully tested. Backend calendar endpoint includes created_at in query. Pillar stats endpoint at /api/demand-studio/social/calendar/pillar-stats returns monthly breakdown by pillar with status counts. Frontend calendar shows pillar stats chips with data-testid='calendar-pillar-stats'. Settings CRUD works with org_id parameter.",
+  "tested_features": {
+    "calendar_created_at_fallback": {
+      "status": "PASS",
+      "description": "Posts without scheduled_at/posted_at now appear on their created_at date in calendar",
+      "tests": [
+        "test_calendar_returns_posts_without_scheduled_at - Creates post without scheduled_at, verifies it appears in calendar",
+        "test_calendar_query_or_condition - Verifies calendar returns posts with different date types"
+      ]
+    },
+    "pillar_stats_endpoint": {
+      "status": "PASS",
+      "description": "GET /api/demand-studio/social/calendar/pillar-stats?year=2026&month=3 returns pillar breakdown",
+      "tests": [
+        "test_pillar_stats_endpoint_exists - Endpoint returns 200 with correct structure",
+        "test_pillar_stats_structure - Validates total_posts, pillars array, by_status breakdown",
+        "test_pillar_stats_with_org_id - Works with org_id parameter"
+      ],
+      "response_example": {
+        "total_posts": 5,
+        "pillars": [{"pillar_id": "unassigned", "name": "Sin pilar", "total": 5, "by_status": {"idea": 3, "editing": 1, "production": 1}}],
+        "period": {"year": 2026, "month": 3}
+      }
+    },
+    "pillar_stats_frontend": {
+      "status": "PASS",
+      "description": "Calendar view shows pillar mini-report chips above grid",
+      "verified": [
+        "data-testid='calendar-pillar-stats' container found",
+        "Displays pillar name, total count, and status breakdown (prod/edit/queue)",
+        "Content: 'Sin pilar 5 posts 1 prod 1 edit'"
+      ]
+    },
+    "settings_fetchdata_fix": {
+      "status": "PASS",
+      "description": "fetchData called with correct org params in all save/delete handlers",
+      "verified_in_frontend": [
+        "Settings tab loads correct org data",
+        "Content Pillars section shows 2 pillars (Test Pillar, Food Porn)",
+        "Social Accounts shows 7 accounts (4 Mine, 3 Shared)",
+        "Audiences and Segments sections load correctly"
+      ]
+    },
+    "regression_tests": {
+      "status": "PASS",
+      "tests": [
+        "test_calendar_posts_with_scheduled_at_still_work - Posts with scheduled_at appear on correct date",
+        "test_pillar_crud_with_org_id_regression - Pillar CRUD with org_id parameter works",
+        "test_post_crud_regression - Post CRUD operations work"
+      ]
+    }
+  },
+  "api_verification": {
+    "GET /api/demand-studio/social/calendar": "200 OK - Returns posts matching scheduled_at, posted_at, or created_at (when no schedule)",
+    "GET /api/demand-studio/social/calendar/pillar-stats": "200 OK - Returns pillar breakdown with totals and status counts",
+    "POST /api/demand-studio/social/pillars": "200 OK - Creates pillar with org_id",
+    "PUT /api/demand-studio/social/pillars/{id}": "200 OK - Updates pillar with org_id",
+    "DELETE /api/demand-studio/social/pillars/{id}": "200 OK - Deletes pillar with org_id"
+  },
+  "bugs_verified_fixed": [
+    {
+      "bug": "Settings CRUD showed wrong org's data after save",
+      "root_cause": "fetchData() was called without org args after save operations",
+      "fix": "fetchData now called with (isOwnOrg ? null : selectedOrgId) in handleSavePillar, handleDeletePillar, etc.",
+      "verified": "Settings page shows correct pillars/accounts for selected org"
+    },
+    {
+      "bug": "Posts created directly don't show in calendar",
+      "root_cause": "Calendar query only checked scheduled_at/posted_at, not created_at",
+      "fix": "Backend query includes created_at fallback: {'created_at': {...}, 'scheduled_at': {'$in': [None, '']}}",
+      "verified": "Posts without scheduled_at appear in calendar on their created_at date"
+    },
+    {
+      "bug": "Calendar needs mini-report by pillar per month",
+      "root_cause": "Feature not implemented",
+      "fix": "New endpoint GET /api/demand-studio/social/calendar/pillar-stats + frontend rendering",
+      "verified": "Pillar stats chips appear above calendar with icon, name, total, status breakdown"
+    }
+  ],
+  "screenshots": [
+    ".screenshots/calendar_final.png - Calendar view with posts on created_at dates",
+    ".screenshots/settings_page.png - Settings tab with pillars, accounts, audiences, segments"
+  ]
+}

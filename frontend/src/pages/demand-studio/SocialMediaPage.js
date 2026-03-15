@@ -133,6 +133,7 @@ export default function SocialMediaPage() {
   // Calendar
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarPosts, setCalendarPosts] = useState([]);
+  const [calendarPillarStats, setCalendarPillarStats] = useState(null);
   
   // Dialogs
   const [postDialogOpen, setPostDialogOpen] = useState(false);
@@ -385,10 +386,14 @@ export default function SocialMediaPage() {
     const orgParam = selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : "";
     
     try {
-      const response = await axios.get(`${API}/api/demand-studio/social/calendar?start_date=${startDate}&end_date=${endDate}${orgParam}`, { withCredentials: true });
-      setCalendarPosts(response.data);
+      const [postsRes, statsRes] = await Promise.all([
+        axios.get(`${API}/api/demand-studio/social/calendar?start_date=${startDate}&end_date=${endDate}${orgParam}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/calendar/pillar-stats?year=${calendarMonth.getFullYear()}&month=${calendarMonth.getMonth() + 1}${orgParam}`, { withCredentials: true }).catch(() => ({ data: null }))
+      ]);
+      setCalendarPosts(postsRes.data);
+      setCalendarPillarStats(statsRes.data);
     } catch (error) {
-      console.error("Error fetching calendar posts:", error);
+      console.error("Error fetching calendar data:", error);
     }
   };
 
@@ -423,7 +428,7 @@ export default function SocialMediaPage() {
       setPostDialogOpen(false);
       setEditingPost(null);
       resetPostForm();
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving post:", error);
@@ -531,7 +536,7 @@ export default function SocialMediaPage() {
       toast.success(isEs ? "Cuenta guardada" : "Account saved");
       setAccountDialogOpen(false);
       setAccountForm({ platform: "instagram", handle: "", status: "active" });
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving account:", error);
@@ -561,7 +566,7 @@ export default function SocialMediaPage() {
       setPillarForm({ name: "", description: "", what_is_it: "", why_it_matters: "", content_tags: [], weight_percentage: "", color: "", icon: "", platforms: [] });
       setPillarTagInput("");
       setEditingPillar(null);
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error saving pillar:", error);
       toast.error(isEs ? "Error al guardar pilar" : "Error saving pillar");
@@ -575,7 +580,7 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/pillars/${pillarId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Pilar eliminado" : "Pillar deleted");
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error deleting pillar:", error);
       toast.error(isEs ? "Error al eliminar pilar" : "Error deleting pillar");
@@ -627,7 +632,7 @@ export default function SocialMediaPage() {
       setAudienceDialogOpen(false);
       setAudienceForm({ name: "", description: "", platforms: [], sub_audiences: [] });
       setEditingAudience(null);
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error saving audience:", error);
       toast.error(isEs ? "Error al guardar audiencia" : "Error saving audience");
@@ -641,7 +646,7 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/audiences/${audienceId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Audiencia eliminada" : "Audience deleted");
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error deleting audience:", error);
       toast.error(isEs ? "Error al eliminar audiencia" : "Error deleting audience");
@@ -687,7 +692,7 @@ export default function SocialMediaPage() {
       setSegmentDialogOpen(false);
       setSegmentForm({ name: "", description: "", platforms: [], pillar_ids: [] });
       setEditingSegment(null);
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error saving segment:", error);
       toast.error(isEs ? "Error al guardar segmento" : "Error saving segment");
@@ -701,7 +706,7 @@ export default function SocialMediaPage() {
     try {
       await axios.delete(`${API}/api/demand-studio/social/segments/${segmentId}${getOrgParam()}`, { withCredentials: true });
       toast.success(isEs ? "Segmento eliminado" : "Segment deleted");
-      await fetchData();
+      await fetchData(isOwnOrg ? null : selectedOrgId);
     } catch (error) {
       console.error("Error deleting segment:", error);
       toast.error(isEs ? "Error al eliminar segmento" : "Error deleting segment");
@@ -955,7 +960,8 @@ export default function SocialMediaPage() {
     return filteredCalendarPosts.filter(p => {
       const scheduledDate = p.scheduled_at?.substring(0, 10);
       const postedDate = p.posted_at?.substring(0, 10);
-      return scheduledDate === dateStr || postedDate === dateStr;
+      const createdDate = (!p.scheduled_at && !p.posted_at) ? p.created_at?.substring(0, 10) : null;
+      return scheduledDate === dateStr || postedDate === dateStr || createdDate === dateStr;
     });
   };
 
@@ -1514,6 +1520,36 @@ export default function SocialMediaPage() {
               </Select>
             </div>
           </div>
+
+          {/* Pillar Mini Report */}
+          {calendarPillarStats && calendarPillarStats.pillars && calendarPillarStats.pillars.length > 0 && (
+            <div className="flex flex-wrap gap-3" data-testid="calendar-pillar-stats">
+              {calendarPillarStats.pillars.map(ps => {
+                const statusCounts = ps.by_status || {};
+                const posted = statusCounts.posted || 0;
+                const production = statusCounts.production || 0;
+                const editing = statusCounts.editing || 0;
+                const queue = (statusCounts.drafted || 0) + (statusCounts.calendar || 0) + (statusCounts.scheduled || 0);
+                return (
+                  <div key={ps.pillar_id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border bg-card" style={{ borderLeftWidth: 4, borderLeftColor: ps.color || "#6B7280" }}>
+                    <div className="flex items-center gap-2">
+                      {ps.icon && <span className="text-base">{ps.icon}</span>}
+                      <div>
+                        <p className="text-sm font-semibold leading-tight">{ps.name}</p>
+                        <p className="text-xs text-muted-foreground">{ps.total} {ps.total === 1 ? "post" : "posts"}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 ml-2">
+                      {posted > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">{posted} {isEs ? "pub" : "pub"}</span>}
+                      {production > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{production} {isEs ? "prod" : "prod"}</span>}
+                      {editing > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{editing} {isEs ? "edit" : "edit"}</span>}
+                      {queue > 0 && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{queue} {isEs ? "cola" : "queue"}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           
           <Card>
             <CardContent className="p-4">
