@@ -117,6 +117,13 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Frontend: Todos los handlers de save/delete ahora usan `await fetchData()` para refrescar datos inmediatamente
    - Tests passed: 19/19 backend + frontend verificado
 
+8. **Feature - Pilares de Contenido Enriquecidos (UX)**:
+   - Backend: Modelo `ContentPillar` enriquecido con `what_is_it`, `why_it_matters`, `content_tags`, `weight_percentage`, `color`, `icon`
+   - Frontend: Cards visuales con fondo de color, badge de porcentaje, barra de progreso, paneles oscuros para "Qué es"/"Por qué importa", tags como badges
+   - Frontend: Diálogo enriquecido con todos los campos nuevos + input de tags con Enter/botón
+   - Bug fix: `Promise.all` en `fetchData` ahora tiene `.catch()` individual para resiliencia
+   - Tests passed: 8/8 backend + frontend verificado
+
 ### Session: March 14, 2026
 
 #### Completed
