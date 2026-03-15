@@ -111,6 +111,12 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Frontend: Botón de historial (History) agregado en Demand Studio Social con `data-testid='demand-studio-activity-log-btn'`
    - Tests passed: 15/15 backend + frontend verificado
 
+7. **Bug Fix - Settings Dialog No Cierra / Datos No Refrescan (P0)**:
+   - Root cause: 5 endpoints backend (update/delete accounts, pillars, audiences, segments) no aceptaban `org_id`, usando `user.company_id` en vez de la org compartida
+   - Backend: Agregado `org_id` param a `update_social_account`, `delete_social_account`, `delete_content_pillar`, `delete_audience`, `delete_segment`
+   - Frontend: Todos los handlers de save/delete ahora usan `await fetchData()` para refrescar datos inmediatamente
+   - Tests passed: 19/19 backend + frontend verificado
+
 ### Session: March 14, 2026
 
 #### Completed
