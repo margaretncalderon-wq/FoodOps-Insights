@@ -374,9 +374,10 @@ export default function SocialMediaPage() {
   const fetchCalendarPosts = async () => {
     const startDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).toISOString();
     const endDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).toISOString();
+    const orgParam = selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : "";
     
     try {
-      const response = await axios.get(`${API}/api/demand-studio/social/calendar?start_date=${startDate}&end_date=${endDate}`, { withCredentials: true });
+      const response = await axios.get(`${API}/api/demand-studio/social/calendar?start_date=${startDate}&end_date=${endDate}${orgParam}`, { withCredentials: true });
       setCalendarPosts(response.data);
     } catch (error) {
       console.error("Error fetching calendar posts:", error);

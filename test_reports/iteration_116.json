@@ -1,0 +1,100 @@
+{
+  "summary": "Bug Fix Verification: Demand Studio Social Contributor Permissions. Backend: 14/14 tests passed (100%). Two critical bugs fixed: (1) Calendar endpoint now accepts org_id parameter, (2) social_viewer role now has write permissions (level 2).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_social_contributor_permissions.py",
+    "/app/test_reports/pytest/pytest_social_contributor_permissions.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend ROLE_HIERARCHY: social_viewer now at level 2 (line 105 in demand_studio.py)",
+    "Backend get_social_calendar: now accepts org_id parameter (line 3621)",
+    "Backend check_section_permission: can_write returns True for roles >= level 2 (line 135, 151)",
+    "Frontend fetchCalendarPosts: correctly builds orgParam with org_id when viewing shared org (line 377)",
+    "Frontend calendar API call: includes org_id parameter when viewing shared organization (line 380)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_social_contributor_permissions.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% - Code review confirms fixes implemented"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "No new seed data created - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Two bugs fixed in this iteration: (1) GET /api/demand-studio/social/calendar now accepts org_id parameter to filter posts by organization, (2) social_viewer role upgraded from level 1 to level 2 in ROLE_HIERARCHY, enabling write operations. Both fixes verified with pytest and code review.",
+  "tested_features": {
+    "calendar_org_id_parameter": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/calendar",
+      "verified": [
+        "Calendar endpoint accepts org_id parameter",
+        "Calendar returns posts filtered to specified org",
+        "Backwards compatible - still works without org_id"
+      ]
+    },
+    "social_viewer_write_permissions": {
+      "status": "PASS",
+      "verified": [
+        "ROLE_HIERARCHY: social_viewer = 2 (same as contributor)",
+        "check_section_permission returns can_write=True for social_viewer",
+        "my-permissions endpoint shows correct permissions"
+      ]
+    },
+    "posts_crud_with_org_id": {
+      "status": "PASS",
+      "verified": [
+        "GET /api/demand-studio/social/posts?org_id=company_3ab116c0994d - 200 OK",
+        "PATCH /api/demand-studio/social/posts/{id}?org_id=... status change - 200 OK"
+      ]
+    },
+    "regression_apis": {
+      "status": "PASS",
+      "verified": [
+        "GET /api/demand-studio/social/stats - 200 OK",
+        "GET /api/demand-studio/social/insights - 200 OK",
+        "GET /api/demand-studio/social/pillars - 200 OK",
+        "GET /api/demand-studio/social/ideas - 200 OK",
+        "GET /api/demand-studio/social/audiences - 200 OK",
+        "GET /api/demand-studio/social/segments - 200 OK",
+        "GET /api/demand-studio/social/accounts - 200 OK"
+      ]
+    }
+  },
+  "api_verification": {
+    "GET /api/demand-studio/social/calendar?start_date=...&end_date=...": "200 OK (backwards compatible)",
+    "GET /api/demand-studio/social/calendar?start_date=...&end_date=...&org_id=company_3ab116c0994d": "200 OK (BUG FIX VERIFIED)",
+    "GET /api/demand-studio/my-permissions": "200 OK",
+    "GET /api/demand-studio/my-permissions?org_id=company_3ab116c0994d": "200 OK",
+    "GET /api/demand-studio/social/posts?org_id=company_3ab116c0994d": "200 OK",
+    "PATCH /api/demand-studio/social/posts/{id}?org_id=company_3ab116c0994d": "200 OK (write permission verified)"
+  },
+  "bugs_fixed": [
+    {
+      "bug": "Posts don't appear in calendar when viewing from contributor account",
+      "root_cause": "Calendar endpoint didn't accept org_id parameter",
+      "fix": "Added org_id parameter to get_social_calendar endpoint (line 3621)",
+      "frontend_fix": "fetchCalendarPosts now builds orgParam with org_id (line 377)",
+      "verified": "pytest test_calendar_with_org_id_parameter PASSED"
+    },
+    {
+      "bug": "Contributors can't change post statuses or perform write operations",
+      "root_cause": "social_viewer role had level 1 (insufficient for writes)",
+      "fix": "Updated ROLE_HIERARCHY: social_viewer now level 2 (line 105)",
+      "verified": "pytest test_post_status_change_patch PASSED"
+    }
+  ]
+}

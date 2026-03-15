@@ -102,7 +102,8 @@ async def check_section_permission(
     ROLE_HIERARCHY = {
         "admin": 4, "editor": 3, 
         "contributor": 2, "social_contributor": 2, "ops": 2,
-        "viewer": 1, "social_viewer": 1
+        "social_viewer": 2,
+        "viewer": 1
     }
     
     own_company_id = user.company_id or user.active_org_id
@@ -198,7 +199,8 @@ async def get_my_permissions(
     ROLE_HIERARCHY = {
         "admin": 4, "editor": 3, 
         "contributor": 2, "social_contributor": 2, "ops": 2,
-        "viewer": 1, "social_viewer": 1
+        "social_viewer": 2,
+        "viewer": 1
     }
     
     # Build section permissions
@@ -3616,25 +3618,34 @@ async def get_social_calendar(
     start_date: str,
     end_date: str,
     account_id: Optional[str] = None,
+    org_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get posts for calendar view"""
-    company_id = user.company_id or user.active_org_id
-    if not company_id:
+    own_company_id = user.company_id or user.active_org_id
+    
+    # If org_id is specified, use that specific org
+    if org_id:
+        target_company_id = org_id
+    else:
+        target_company_id = own_company_id
+    
+    if not target_company_id:
         return []
     
     # Build list of visible company_ids
-    visible_company_ids = [company_id]
-    user_memberships = await db.memberships.find({
-        "user_id": user.user_id,
-        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-    }).to_list(50)
-    for m in user_memberships:
-        mid = m.get("company_id") or m.get("organization_id")
-        if mid and mid not in visible_company_ids:
-            visible_company_ids.append(mid)
+    visible_company_ids = [target_company_id]
+    if not org_id:
+        user_memberships = await db.memberships.find({
+            "user_id": user.user_id,
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }).to_list(50)
+        for m in user_memberships:
+            mid = m.get("company_id") or m.get("organization_id")
+            if mid and mid not in visible_company_ids:
+                visible_company_ids.append(mid)
     
-    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else company_id
+    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else target_company_id
     
     query = {
         "company_id": company_filter,
