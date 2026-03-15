@@ -2591,6 +2591,12 @@ async def create_content_pillar(data: ContentPillarCreate, user: User = Depends(
         "company_id": company_id,
         "name": data.name,
         "description": data.description,
+        "what_is_it": data.what_is_it,
+        "why_it_matters": data.why_it_matters,
+        "content_tags": data.content_tags or [],
+        "weight_percentage": data.weight_percentage,
+        "color": data.color,
+        "icon": data.icon,
         "platforms": data.platforms or [],  # Empty = all platforms
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
@@ -2622,6 +2628,12 @@ async def update_content_pillar(pillar_id: str, data: ContentPillarCreate, user:
         {"$set": {
             "name": data.name,
             "description": data.description,
+            "what_is_it": data.what_is_it,
+            "why_it_matters": data.why_it_matters,
+            "content_tags": data.content_tags or [],
+            "weight_percentage": data.weight_percentage,
+            "color": data.color,
+            "icon": data.icon,
             "platforms": data.platforms or [],
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}

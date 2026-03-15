@@ -382,6 +382,12 @@ class ContentPillarCreate(BaseModel):
     """Create a content pillar"""
     name: str
     description: Optional[str] = None
+    what_is_it: Optional[str] = None  # "Qué es" - detailed explanation
+    why_it_matters: Optional[str] = None  # "Por qué importa" - strategic importance
+    content_tags: List[str] = []  # Content type tags e.g. ["Reel visual", "Foto de plato HD"]
+    weight_percentage: Optional[float] = None  # Weight in content strategy (e.g., 40)
+    color: Optional[str] = None  # Card accent color
+    icon: Optional[str] = None  # Emoji or icon identifier
     platforms: List[str] = []  # ['instagram', 'linkedin', 'youtube', 'tiktok', 'facebook', 'twitter']
 
 
@@ -391,6 +397,12 @@ class ContentPillar(BaseModel):
     company_id: str
     name: str
     description: Optional[str] = None
+    what_is_it: Optional[str] = None
+    why_it_matters: Optional[str] = None
+    content_tags: List[str] = []
+    weight_percentage: Optional[float] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
     platforms: List[str] = []  # Empty means all platforms
     created_at: datetime
     updated_at: datetime

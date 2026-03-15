@@ -187,8 +187,15 @@ export default function SocialMediaPage() {
   const [pillarForm, setPillarForm] = useState({
     name: "",
     description: "",
+    what_is_it: "",
+    why_it_matters: "",
+    content_tags: [],
+    weight_percentage: "",
+    color: "",
+    icon: "",
     platforms: []
   });
+  const [pillarTagInput, setPillarTagInput] = useState("");
   const [editingPillar, setEditingPillar] = useState(null);
 
   const [audienceForm, setAudienceForm] = useState({
@@ -323,15 +330,15 @@ export default function SocialMediaPage() {
       const andParams = params.toString() ? `&${params.toString()}` : "";
       
       const [statsRes, postsRes, accountsRes, pillarsRes, audiencesRes, segmentsRes, campaignsRes, insightsRes, ideasRes, partnersRes] = await Promise.all([
-        axios.get(`${API}/api/demand-studio/social/stats${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/posts${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${andParams}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/pillars${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/audiences${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/segments${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/campaigns${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/insights${queryString}`, { withCredentials: true }),
-        axios.get(`${API}/api/demand-studio/social/ideas${queryString}`, { withCredentials: true }),
+        axios.get(`${API}/api/demand-studio/social/stats${queryString}`, { withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${API}/api/demand-studio/social/posts${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true${andParams}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/pillars${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/audiences${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/segments${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/campaigns${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/insights${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/demand-studio/social/ideas${queryString}`, { withCredentials: true }).catch(() => ({ data: [] })),
         axios.get(`${API}/api/partners`, { withCredentials: true }).catch(() => ({ data: { partners: [] } })),
       ]);
       
@@ -535,19 +542,24 @@ export default function SocialMediaPage() {
   };
 
   const handleSavePillar = async () => {
-    if (pillarSaving) return; // Prevent double-click
+    if (pillarSaving) return;
     setPillarSaving(true);
     try {
       const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
+      const payload = {
+        ...pillarForm,
+        weight_percentage: pillarForm.weight_percentage ? parseFloat(pillarForm.weight_percentage) : null
+      };
       if (editingPillar) {
-        await axios.put(`${API}/api/demand-studio/social/pillars/${editingPillar.pillar_id}${orgParam}`, pillarForm, { withCredentials: true });
+        await axios.put(`${API}/api/demand-studio/social/pillars/${editingPillar.pillar_id}${orgParam}`, payload, { withCredentials: true });
         toast.success(isEs ? "Pilar actualizado" : "Pillar updated");
       } else {
-        await axios.post(`${API}/api/demand-studio/social/pillars${orgParam}`, pillarForm, { withCredentials: true });
+        await axios.post(`${API}/api/demand-studio/social/pillars${orgParam}`, payload, { withCredentials: true });
         toast.success(isEs ? "Pilar creado" : "Pillar created");
       }
       setPillarDialogOpen(false);
-      setPillarForm({ name: "", description: "", platforms: [] });
+      setPillarForm({ name: "", description: "", what_is_it: "", why_it_matters: "", content_tags: [], weight_percentage: "", color: "", icon: "", platforms: [] });
+      setPillarTagInput("");
       setEditingPillar(null);
       await fetchData();
     } catch (error) {
@@ -575,8 +587,15 @@ export default function SocialMediaPage() {
     setPillarForm({ 
       name: pillar.name, 
       description: pillar.description || "",
+      what_is_it: pillar.what_is_it || "",
+      why_it_matters: pillar.why_it_matters || "",
+      content_tags: pillar.content_tags || [],
+      weight_percentage: pillar.weight_percentage || "",
+      color: pillar.color || "",
+      icon: pillar.icon || "",
       platforms: pillar.platforms || []
     });
+    setPillarTagInput("");
     setPillarDialogOpen(true);
   };
 
@@ -2138,49 +2157,94 @@ export default function SocialMediaPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">{isEs ? "Pilares de Contenido" : "Content Pillars"}</CardTitle>
-                <Button size="sm" onClick={() => { setEditingPillar(null); setPillarForm({ name: "", description: "", platforms: [] }); setPillarDialogOpen(true); }}>
+                <Button size="sm" onClick={() => { setEditingPillar(null); setPillarForm({ name: "", description: "", what_is_it: "", why_it_matters: "", content_tags: [], weight_percentage: "", color: "", icon: "", platforms: [] }); setPillarTagInput(""); setPillarDialogOpen(true); }}>
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
               </CardHeader>
               <CardContent>
                 {pillars.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{isEs ? "No hay pilares" : "No pillars"}</p>
+                  <p className="text-sm text-muted-foreground">{isEs ? "No hay pilares configurados. Agrega pilares para organizar tu estrategia de contenido." : "No pillars configured. Add pillars to organize your content strategy."}</p>
                 ) : (
-                  <div className="space-y-2">
-                    {pillars.map(pillar => (
-                      <div key={pillar.pillar_id} className="flex items-center justify-between p-2 bg-muted rounded-lg group">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{pillar.name}</p>
-                          {pillar.description && (
-                            <p className="text-xs text-muted-foreground">{pillar.description}</p>
+                  <div className="space-y-4">
+                    {pillars.map((pillar, idx) => {
+                      const PILLAR_COLORS = ["#E8E0F0", "#D4EDDA", "#FFF3CD", "#D1ECF1", "#F8D7DA", "#E2E3E5"];
+                      const PILLAR_ACCENTS = ["#7C3AED", "#10B981", "#F59E0B", "#0EA5E9", "#EF4444", "#6B7280"];
+                      const bgColor = pillar.color || PILLAR_COLORS[idx % PILLAR_COLORS.length];
+                      const accentColor = PILLAR_ACCENTS[idx % PILLAR_ACCENTS.length];
+                      return (
+                        <div key={pillar.pillar_id} className="rounded-xl p-5 relative group" style={{ backgroundColor: bgColor }} data-testid={`pillar-card-${pillar.pillar_id}`}>
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {pillar.icon && <span className="text-xl">{pillar.icon}</span>}
+                              <div>
+                                <h3 className="font-bold text-base text-gray-900">P{idx + 1} — {pillar.name}</h3>
+                                {pillar.description && <p className="text-sm text-gray-600">{pillar.description}</p>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {pillar.weight_percentage > 0 && (
+                                <span className="text-sm font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: `${accentColor}20`, color: accentColor }}>
+                                  {pillar.weight_percentage}%
+                                </span>
+                              )}
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPillar(pillar)}>
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeletePillar(pillar.pillar_id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          {pillar.weight_percentage > 0 && (
+                            <div className="w-1/3 h-1.5 rounded-full bg-black/10 mb-3">
+                              <div className="h-1.5 rounded-full" style={{ width: `${Math.min(pillar.weight_percentage, 100)}%`, backgroundColor: accentColor }} />
+                            </div>
                           )}
-                          {pillar.platforms && pillar.platforms.length > 0 ? (
-                            <div className="flex gap-1 mt-1">
+                          {/* Qué es / Por qué importa */}
+                          {(pillar.what_is_it || pillar.why_it_matters) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                              {pillar.what_is_it && (
+                                <div className="bg-gray-900/80 rounded-lg p-3">
+                                  <span className="text-xs font-semibold text-emerald-400">{isEs ? "Qué es:" : "What it is:"}</span>
+                                  <p className="text-sm text-gray-200 mt-1">{pillar.what_is_it}</p>
+                                </div>
+                              )}
+                              {pillar.why_it_matters && (
+                                <div className="bg-gray-900/80 rounded-lg p-3">
+                                  <span className="text-xs font-semibold text-amber-400">{isEs ? "Por qué importa:" : "Why it matters:"}</span>
+                                  <p className="text-sm text-gray-200 mt-1">{pillar.why_it_matters}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {/* Content tags */}
+                          {pillar.content_tags && pillar.content_tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {pillar.content_tags.map((tag, i) => (
+                                <span key={i} className="text-xs px-3 py-1.5 rounded-full bg-white/70 text-gray-800 font-medium border border-gray-200">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {/* Platform icons */}
+                          {pillar.platforms && pillar.platforms.length > 0 && (
+                            <div className="flex gap-1 mt-2">
                               {pillar.platforms.map(p => {
                                 const opt = PLATFORM_OPTIONS.find(o => o.value === p);
                                 const Icon = opt?.icon || Hash;
-                                return (
-                                  <span key={p} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-background rounded border">
-                                    <Icon className="w-3 h-3" />
-                                  </span>
-                                );
+                                return <Icon key={p} className="w-3.5 h-3.5 text-gray-500" />;
                               })}
                             </div>
-                          ) : (
-                            <p className="text-[10px] text-muted-foreground mt-1">{isEs ? "Todas las plataformas" : "All platforms"}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPillar(pillar)}>
-                            <Edit className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeletePillar(pillar.pillar_id)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -2650,26 +2714,109 @@ export default function SocialMediaPage() {
 
       {/* Pillar Dialog */}
       <Dialog open={pillarDialogOpen} onOpenChange={(open) => { setPillarDialogOpen(open); if (!open) setEditingPillar(null); }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPillar ? (isEs ? "Editar Pilar" : "Edit Pillar") : (isEs ? "Nuevo Pilar" : "New Pillar")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">{isEs ? "Nombre" : "Name"}</label>
-              <Input
-                value={pillarForm.name}
-                onChange={e => setPillarForm({...pillarForm, name: e.target.value})}
-                placeholder={isEs ? "Ej: Educación, Ventas, BTS" : "E.g., Education, Sales, BTS"}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-sm font-medium">{isEs ? "Nombre" : "Name"}</label>
+                <Input
+                  value={pillarForm.name}
+                  onChange={e => setPillarForm({...pillarForm, name: e.target.value})}
+                  placeholder={isEs ? "Ej: Food porn, BTS, Social proof" : "E.g., Food porn, BTS, Social proof"}
+                  data-testid="pillar-name-input"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Icono (emoji)" : "Icon (emoji)"}</label>
+                <Input
+                  value={pillarForm.icon}
+                  onChange={e => setPillarForm({...pillarForm, icon: e.target.value})}
+                  placeholder="🍽️"
+                  className="text-center text-lg"
+                  maxLength={4}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Peso %" : "Weight %"}</label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={pillarForm.weight_percentage}
+                  onChange={e => setPillarForm({...pillarForm, weight_percentage: e.target.value})}
+                  placeholder="40"
+                  data-testid="pillar-weight-input"
+                />
+              </div>
             </div>
             <div>
-              <label className="text-sm font-medium">{isEs ? "Descripción" : "Description"}</label>
+              <label className="text-sm font-medium">{isEs ? "Subtítulo / Objetivo" : "Subtitle / Objective"}</label>
               <Input
                 value={pillarForm.description}
                 onChange={e => setPillarForm({...pillarForm, description: e.target.value})}
-                placeholder={isEs ? "Descripción opcional" : "Optional description"}
+                placeholder={isEs ? "Lo que para el pulgar y genera deseo" : "What stops the scroll and creates desire"}
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "¿Qué es?" : "What is it?"}</label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={pillarForm.what_is_it}
+                onChange={e => setPillarForm({...pillarForm, what_is_it: e.target.value})}
+                placeholder={isEs ? "Platos, buffets, montajes fotografiados de manera impactante..." : "Dishes, buffets, table setups photographed beautifully..."}
+                rows={3}
+                data-testid="pillar-what-is-it"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "¿Por qué importa?" : "Why does it matter?"}</label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={pillarForm.why_it_matters}
+                onChange={e => setPillarForm({...pillarForm, why_it_matters: e.target.value})}
+                placeholder={isEs ? "La comida bien presentada genera deseo universal..." : "Well-presented food generates universal desire..."}
+                rows={3}
+                data-testid="pillar-why-matters"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Tags de Tipos de Contenido" : "Content Type Tags"}</label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={pillarTagInput}
+                  onChange={e => setPillarTagInput(e.target.value)}
+                  placeholder={isEs ? "Ej: Reel visual, Foto HD..." : "E.g., Visual reel, HD Photo..."}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && pillarTagInput.trim()) {
+                      e.preventDefault();
+                      setPillarForm({...pillarForm, content_tags: [...(pillarForm.content_tags || []), pillarTagInput.trim()]});
+                      setPillarTagInput("");
+                    }
+                  }}
+                  data-testid="pillar-tag-input"
+                />
+                <Button type="button" size="sm" variant="outline" onClick={() => {
+                  if (pillarTagInput.trim()) {
+                    setPillarForm({...pillarForm, content_tags: [...(pillarForm.content_tags || []), pillarTagInput.trim()]});
+                    setPillarTagInput("");
+                  }
+                }}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {pillarForm.content_tags && pillarForm.content_tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {pillarForm.content_tags.map((tag, i) => (
+                    <Badge key={i} variant="secondary" className="gap-1 cursor-pointer" onClick={() => setPillarForm({...pillarForm, content_tags: pillarForm.content_tags.filter((_, j) => j !== i)})}>
+                      {tag}
+                      <span className="text-xs ml-0.5">x</span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">
@@ -2705,7 +2852,7 @@ export default function SocialMediaPage() {
             <Button variant="outline" onClick={() => setPillarDialogOpen(false)} disabled={pillarSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSavePillar} disabled={!pillarForm.name || pillarSaving}>
+            <Button onClick={handleSavePillar} disabled={!pillarForm.name || pillarSaving} data-testid="pillar-save-btn">
               {pillarSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
