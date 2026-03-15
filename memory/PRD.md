@@ -89,6 +89,15 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Returns detailed results: updated count, unmatched employees, available departments
    - Tests passed: 1 employee migrated successfully
 
+4. **Bug Fix - Demand Studio: Idea to Post Conversion (P0)**:
+   - Fixed: Converting idea to post now sets proper status (production/editing/etc.) instead of 'idea'
+   - Backend accepts `target_status` query param on convert endpoint
+   - Frontend: New conversion dialog with account AND status selector
+   - Fixed: `source_url` from idea now preserved as `link_url` in converted post
+   - Fixed: Post edit form label now says "URL Fuente (inspiración)" instead of "Link URL"
+   - Fixed: Posts with link_url show clickable "URL Fuente" link in queue table
+   - Tests passed: 10/10 backend + frontend code review verified
+
 ### Session: March 14, 2026
 
 #### Completed
