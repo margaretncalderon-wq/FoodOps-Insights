@@ -140,6 +140,14 @@ Build a comprehensive ERP application called Kora OS with modules for:
     - Fix frontend: `getPostsForDay` ahora muestra posts en su `created_at` cuando no tienen `scheduled_at`
     - Tests passed: 8/8 backend + frontend verificado
 
+12. **Feature - Ideas Organizadas con Campos de Post (UX)**:
+    - Backend: Modelo `ContentIdea` enriquecido con `segment_id`, `audience_id`, `social_account_id`
+    - Frontend: Selector "Agrupar por" con 5 opciones (Sin agrupar, Pilar, Segmento, Audiencia, Estado)
+    - Frontend: Cards muestran badges de pilar (violeta), segmento (sky), audiencia (emerald), cuenta (gray)
+    - Frontend: Ideas usadas se agrupan al final automáticamente
+    - Frontend: Diálogo de idea con 4 selectores (pilar, segmento, audiencia, cuenta) en grid 2x2
+    - Tests passed: 7/7 backend + frontend verificado
+
 ### Session: March 14, 2026
 
 #### Completed
