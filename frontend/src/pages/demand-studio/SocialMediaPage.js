@@ -66,9 +66,10 @@ const FORMATS = [
 
 const STATUSES = [
   { value: "idea", label: "Idea", labelEs: "Idea", color: "bg-gray-100 text-gray-800" },
+  { value: "calendar", label: "Calendar", labelEs: "Calendarizado", color: "bg-cyan-100 text-cyan-800" },
   { value: "production", label: "Production", labelEs: "Producción", color: "bg-orange-100 text-orange-800" },
   { value: "editing", label: "Editing", labelEs: "Edición", color: "bg-purple-100 text-purple-800" },
-  { value: "drafted", label: "Drafted", labelEs: "Borrador", color: "bg-yellow-100 text-yellow-800" },
+  { value: "drafted", label: "Ready", labelEs: "Listo", color: "bg-yellow-100 text-yellow-800" },
   { value: "scheduled", label: "Scheduled", labelEs: "Programado", color: "bg-blue-100 text-blue-800" },
   { value: "posted", label: "Posted", labelEs: "Publicado", color: "bg-green-100 text-green-800" },
   { value: "archived", label: "Archived", labelEs: "Archivado", color: "bg-gray-100 text-gray-600" },
@@ -1097,6 +1098,10 @@ export default function SocialMediaPage() {
               <Grid3X3 className="w-4 h-4" />
               <span className="hidden sm:inline">Feed</span>
             </TabsTrigger>
+            <TabsTrigger value="archived" className="gap-2">
+              <Archive className="w-4 h-4" />
+              <span className="hidden sm:inline">{isEs ? "Archivados" : "Archived"}</span>
+            </TabsTrigger>
             <TabsTrigger value="metrics" className="gap-2">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Métricas" : "Metrics"}</span>
@@ -1443,7 +1448,7 @@ export default function SocialMediaPage() {
                   <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
                   {accounts.map(a => (
                     <SelectItem key={a.account_id} value={a.account_id}>
-                      {a.handle}
+                      <span className="flex items-center gap-2">{getPlatformIcon(a.platform)} {a.handle || a.account_name || a.platform}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1501,7 +1506,6 @@ export default function SocialMediaPage() {
                                 <div className="space-y-1 mt-1">
                                   {dayPosts.slice(0, 3).map((post, postIdx) => {
                                     const platform = post.account?.platform;
-                                    const platformInfo = getPlatformInfo(platform);
                                     return (
                                       <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
                                         {(dragProvided, dragSnapshot) => (
@@ -1516,7 +1520,7 @@ export default function SocialMediaPage() {
                                             data-testid="calendar-draggable-post"
                                           >
                                             <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
-                                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${platformInfo.color}`}></span>
+                                            <span className="flex-shrink-0">{getPlatformIcon(platform)}</span>
                                             <span className="truncate">{post.title}</span>
                                           </div>
                                         )}
@@ -1553,7 +1557,7 @@ export default function SocialMediaPage() {
                 <SelectItem value="all">{isEs ? "Todas" : "All"}</SelectItem>
                 {accounts.map(a => (
                   <SelectItem key={a.account_id} value={a.account_id}>
-                    {a.handle} ({a.platform})
+                    <span className="flex items-center gap-2">{getPlatformIcon(a.platform)} {a.handle || a.account_name || a.platform}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1922,6 +1926,81 @@ export default function SocialMediaPage() {
         {/* Feed Tab */}
         <TabsContent value="feed">
           <FeedTab campaigns={campaigns} pillars={pillars} />
+        </TabsContent>
+
+        {/* Archived Tab */}
+        <TabsContent value="archived">
+          <Card>
+            <CardHeader>
+              <CardTitle>{isEs ? "Posts Archivados" : "Archived Posts"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const archivedPosts = posts.filter(p => p.status === "archived");
+                const archivedIdeas = ideas.filter(i => i.status === "archived");
+                if (archivedPosts.length === 0 && archivedIdeas.length === 0) {
+                  return <p className="text-muted-foreground text-center py-8">{isEs ? "No hay elementos archivados" : "No archived items"}</p>;
+                }
+                return (
+                  <div className="space-y-4">
+                    {archivedPosts.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">{isEs ? "Posts" : "Posts"} ({archivedPosts.length})</h3>
+                        <div className="space-y-2">
+                          {archivedPosts.map(post => {
+                            const account = accounts.find(a => a.account_id === post.social_account_id);
+                            const platformIcon = getPlatformIcon(account?.platform);
+                            return (
+                              <div key={post.post_id} className="flex items-center justify-between border rounded-lg p-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="text-lg">{platformIcon}</span>
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">{post.title}</p>
+                                    <p className="text-xs text-muted-foreground">{post.caption?.substring(0, 60)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Button size="sm" variant="outline" onClick={() => { openEditPost(post); }}>
+                                    <Edit className="w-3.5 h-3.5 mr-1" /> {isEs ? "Editar" : "Edit"}
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeletePost(post.post_id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {archivedIdeas.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">{isEs ? "Ideas Archivadas" : "Archived Ideas"} ({archivedIdeas.length})</h3>
+                        <div className="space-y-2">
+                          {archivedIdeas.map(idea => (
+                            <div key={idea.idea_id} className="flex items-center justify-between border rounded-lg p-3">
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">{idea.title}</p>
+                                <p className="text-xs text-muted-foreground">{idea.description?.substring(0, 60)}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Button size="sm" variant="outline" onClick={() => { openEditIdea(idea); }}>
+                                  <Edit className="w-3.5 h-3.5 mr-1" /> {isEs ? "Editar" : "Edit"}
+                                </Button>
+                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteIdea(idea.idea_id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Metrics Tab */}

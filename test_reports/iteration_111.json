@@ -1,0 +1,88 @@
+{
+  "summary": "Demand Studio Social Media fixes fully tested. Backend: 7/7 tests passed (100%). Frontend: All 6 features verified - Archived tab present, Calendar status option in New Post dialog, Ready/Listo label (changed from Drafted/Borrador), platform icons in calendar filter dropdown, platform icons on calendar post cards.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demand_studio_social_fixes.py",
+    "/app/test_reports/pytest/pytest_demand_studio_social_fixes.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend: ensure_owner_membership() at line 66-85 in demand_studio.py auto-creates membership for company owners missing one",
+    "Backend: Function is called from get_social_accounts (line 2436), get_social_posts (line 2795), create_social_account (line 2506), create_social_post (line 2846)",
+    "Backend: duplicate_social_post endpoint at line 3240-3295 works correctly, creates copy with 'idea' status",
+    "Frontend: STATUSES array at line 67-76 now includes 'calendar' between 'idea' and 'production'",
+    "Frontend: 'drafted' status label changed to 'Ready'/'Listo' (line 72)",
+    "Frontend: Archived tab added at line 1101-1104 between Feed and Metrics tabs",
+    "Frontend: getPlatformIcon() function at line 944-953 returns platform-specific icons",
+    "Frontend: Calendar dropdown filter shows platform icons next to account names (line 1450-1455)",
+    "Code quality is good - proper data-testid attributes present, clean implementation"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_demand_studio_social_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% - All 6 features verified"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created TEST_ prefixed posts with various statuses during backend testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Demand Studio Social Media fixes are complete. Key features: 1) ensure_owner_membership auto-creates membership for company owners, 2) 'calendar' status added between idea and production, 3) 'Drafted/Borrador' renamed to 'Ready/Listo', 4) Archived tab added to view archived posts, 5) Platform icons shown in calendar channel filter dropdown and on calendar post cards, 6) Duplicate post endpoint works correctly.",
+  "tested_features": {
+    "feature_1_ensure_owner_membership": {
+      "status": "PASS",
+      "endpoint": "GET /api/demand-studio/social/accounts (triggers ensure_owner_membership)",
+      "verified": "Returns 200, auto-creates membership if missing"
+    },
+    "feature_2_calendar_status": {
+      "status": "PASS",
+      "endpoint": "POST /api/demand-studio/social/posts",
+      "verified": "Can create post with status='calendar', appears in New Post dialog dropdown"
+    },
+    "feature_3_ready_label": {
+      "status": "PASS",
+      "location": "New Post dialog > Status dropdown",
+      "verified": "Status shows 'Ready' (EN) / 'Listo' (ES) instead of 'Drafted'/'Borrador'"
+    },
+    "feature_4_archived_tab": {
+      "status": "PASS",
+      "location": "Social Media page > Tabs",
+      "verified": "Archived tab visible between Feed and Metrics, shows 'No archived items' when empty"
+    },
+    "feature_5_platform_icons_calendar_filter": {
+      "status": "PASS",
+      "location": "Calendar tab > Channel filter dropdown",
+      "verified": "Each account shows platform icon (Instagram, TikTok, LinkedIn etc) next to name"
+    },
+    "feature_6_platform_icons_calendar_cards": {
+      "status": "PASS",
+      "location": "Calendar tab > Post cards",
+      "verified": "Calendar post cards display platform icons (SVG) instead of colored dots"
+    },
+    "feature_7_duplicate_post": {
+      "status": "PASS",
+      "endpoint": "POST /api/demand-studio/social/posts/{id}/duplicate",
+      "verified": "Creates copy with '(copy)' suffix and 'idea' status"
+    }
+  },
+  "api_verification": {
+    "GET /api/demand-studio/social/accounts": "200 OK - Returns accounts array, triggers ensure_owner_membership",
+    "GET /api/demand-studio/social/posts": "200 OK - Returns posts array",
+    "POST /api/demand-studio/social/posts (calendar status)": "200 OK - Creates post with calendar status",
+    "PATCH /api/demand-studio/social/posts/{id}": "200 OK - Can change status to calendar",
+    "POST /api/demand-studio/social/posts/{id}/duplicate": "200 OK - Creates duplicate with (copy) suffix",
+    "GET /api/demand-studio/social/posts?status=archived": "200 OK - Filters archived posts"
+  }
+}

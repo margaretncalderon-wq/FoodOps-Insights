@@ -452,7 +452,7 @@ class SocialPostCreate(BaseModel):
     sub_audience_id: Optional[str] = None
     segment_id: Optional[str] = None
     format: str = "post"  # reel, carousel, post, story, live
-    status: str = "idea"  # idea, production, editing, drafted, scheduled, posted, archived
+    status: str = "idea"  # idea, calendar, production, editing, drafted, scheduled, posted, archived
     title: str
     caption: Optional[str] = None
     hook: Optional[str] = None
