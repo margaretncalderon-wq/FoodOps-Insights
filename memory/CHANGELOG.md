@@ -1,48 +1,46 @@
 # Kora OS - Changelog
 
-## March 14, 2026
+## March 14-15, 2026
 
 ### Feature: Rich Text Content Editor for Posts & Ideas (Demand Studio)
 - Added `content_body` field to SocialPostCreate, SocialPost, ContentIdeaCreate, ContentIdea models
-- Enhanced RichTextEditor with Strikethrough and Checklist buttons
+- Enhanced RichTextEditor with Strikethrough, Checklist, multi-color highlight picker (9 colors)
 - Integrated as "Contenido / Script" section in Post and Idea dialogs
-- All CRUD endpoints handle content_body (create, update, duplicate, convert)
+- Fixed Enter key and bullet points visibility in editor
+
+### Feature: RichTextEditor + File Attachments in Execution Hub
+- Integrated RichTextEditor for Goal Notes, Task Descriptions, and Task Notes
+- File attachments in notes (images, PDFs, Word, Excel, video - max 15MB)
+- NoteAttachments component with image thumbnails and document download links
 
 ### Bug Fix: Full CRUD Access for Shared Company Profiles (Demand Studio)
 - Fixed 8 backend endpoints to accept `org_id` query param with membership fallback
 - Frontend: All CRUD calls now send org_id via getOrgParam()
 
-### Bug Fix: RichTextEditor Issues
-- Fixed Enter key not creating new lines (manual br insertion)
-- Fixed bullet points and numbered lists not visible (explicit CSS list-style-type)
-- Added multi-color highlight picker (9 colors + remove option)
+### Bug Fix: Missing Memberships for Company Owners (Ciano Gourmet)
+- Root cause: Users who owned companies had no membership record, breaking aggregated visibility
+- Fix: `ensure_owner_membership()` auto-creates admin membership on first API call
+- Migration: Backfilled 40 missing memberships across all users
 
-### Feature: RichTextEditor in Execution Hub
-- Integrated RichTextEditor for Goal Notes, Task Descriptions, and Task Notes
-- Replaced plain Textarea/Input with full rich text editing capabilities
-- Notes/descriptions now render HTML with dangerouslySetInnerHTML
+### Feature: New "Calendarizado/Calendar" Status
+- Added between "Idea" and "Production" for scheduling workflow
+
+### Feature: Renamed "Borrador/Drafted" to "Listo/Ready"
+- Status label updated across all views and dropdowns
+
+### Feature: Archived Tab in Demand Studio
+- New tab between Feed and Metrics shows archived posts and ideas
+- Edit, restore, or delete archived items directly
+
+### Feature: Platform Icons in Calendar
+- Calendar post cards show platform icons (Instagram, TikTok, etc.) instead of colored dots
+- Channel filter dropdown shows platform icons next to account names
 
 ### Bug Fix: Text Overflow in Execution Hub
-- Fixed horizontal text overflow in task cards, note cards, decisions, and dependencies
-- Added break-words, overflow-hidden, min-w-0 to all text containers
+- Fixed horizontal overflow in tasks, notes, decisions, dependencies
 
-### Feature: File Attachments in Execution Hub Notes
-- New upload endpoint: POST /api/execution-hub/upload-attachment (images, PDFs, Word, Excel, PPT, CSV, video, max 15MB)
-- New serve route: GET /api/uploads/exec_attachments/{filename}
-- NoteAttachments component: upload UI with preview (image thumbnails) and download links (documents)
-- Integrated in Goal Notes and Task Notes with "Adjuntar archivo" button
-- Backend: goal notes and task notes now store `attachments` array
-- Tests: Backend 7/7, Frontend 100%
+### Bug Fix: Delete Tasks in Execution Hub
+- New DELETE /api/execution-hub/tasks/{id} endpoint with task count update
 
 ## March 12, 2026
-
-### Feature: Sub-Audiences in Metrics/Insights
-### Feature: Quick Status Change Buttons  
-### Feature: Calendar Drag & Drop
-### Bug Fix: Unstable User Sessions (P1 recurring 6+)
-### Bug Fix: Team Visibility in Demand Studio
-### Bug Fix: Production Login Failure
-### Bug Fix: Incomplete Modules for Invited Users
-### Bug Fix: Incorrect Company Name in Org Switcher
-### Bug Fix: Save Dialog Issues
-### Bug Fix: Deleted Posts on Calendar
+### Previous session fixes (auth, visibility, notifications, UI)
