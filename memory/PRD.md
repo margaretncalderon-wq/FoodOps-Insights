@@ -98,6 +98,12 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Fixed: Posts with link_url show clickable "URL Fuente" link in queue table
    - Tests passed: 10/10 backend + frontend code review verified
 
+5. **Bug Fix - Demand Studio: Social Contributor Full Access (P0)**:
+   - Fixed: Calendar endpoint now accepts `org_id` param to show posts from shared orgs
+   - Fixed: `social_viewer` role upgraded to level 2 (same as contributor) for full write access
+   - Fixed: Frontend `fetchCalendarPosts` now passes `org_id` when viewing shared org
+   - Tests passed: 14/14 backend + frontend code review verified
+
 ### Session: March 14, 2026
 
 #### Completed
