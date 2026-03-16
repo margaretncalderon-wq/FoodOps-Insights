@@ -253,7 +253,15 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Added auto-create company for users who have no company at all
    - Fix: Uses `company_id or active_org_id`, checks memberships, auto-creates if needed
 
-5. **Feature - Notification Deep Linking & Comment Badges (P1)**:
+6. **Feature - Real-time Presence System (P1)**:
+   - Backend: 4 endpoints in `/api/presence/` (heartbeat, online, entity/{type}/{id}, leave)
+   - Presence stored in MongoDB `presence` collection with 60-second online threshold
+   - Sidebar: PresenceAvatarStack shows online team members with green dot + tooltip (name + current activity)
+   - Post table: Mini Figma-style avatars next to posts being edited by others
+   - Post dialog: Blue EntityPresenceBar shows "X está viendo esto" when others are editing same post
+   - Polling every 30s for presence heartbeat + notification updates
+   - usePresence hook handles all polling logic
+   - Testing: 16/17 backend, 100% frontend verified
    - Notifications now include entity_id in link (e.g., `/demand-studio/social-media?openPost=xxx`)
    - NotificationBell uses React Router navigate() for internal links
    - SocialMediaPage handles `?openPost=xxx` URL param and auto-opens the post dialog
