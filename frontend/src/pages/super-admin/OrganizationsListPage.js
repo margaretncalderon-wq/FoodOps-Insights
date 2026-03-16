@@ -13,7 +13,7 @@ import { Progress } from "../../components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../../components/ui/dialog";
 import { 
   Building2, Search, Filter, ChevronLeft, ChevronRight, 
-  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw, Key, Trash2
+  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw, Key, Trash2, Plus
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -44,6 +44,12 @@ export default function OrganizationsListPage() {
   const [orgToDelete, setOrgToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  
+  // Create org modal state
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgIndustry, setNewOrgIndustry] = useState("general");
+  const [creatingOrg, setCreatingOrg] = useState(false);
 
   useEffect(() => {
     fetchOrganizations();
@@ -186,6 +192,28 @@ export default function OrganizationsListPage() {
     setDeleting(false);
   };
 
+  const handleCreateOrg = async () => {
+    if (!newOrgName) {
+      toast.error("El nombre es requerido");
+      return;
+    }
+    setCreatingOrg(true);
+    try {
+      await axios.post(`${API}/api/super-admin/organizations`, {
+        name: newOrgName,
+        industry_template: newOrgIndustry
+      }, { withCredentials: true });
+      toast.success("Organización creada exitosamente");
+      setShowCreateOrgModal(false);
+      setNewOrgName("");
+      setNewOrgIndustry("general");
+      fetchOrganizations();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error al crear organización");
+    }
+    setCreatingOrg(false);
+  };
+
   const getStatusBadge = (org, subscription) => {
     const status = org?.organization?.status || "active";
     const subStatus = subscription?.status;
@@ -214,9 +242,15 @@ export default function OrganizationsListPage() {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900" data-testid="orgs-page-title">Organizaciones</h1>
-        <p className="text-gray-500">Administra todas las organizaciones de la plataforma</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900" data-testid="orgs-page-title">Organizaciones</h1>
+          <p className="text-gray-500">Administra todas las organizaciones de la plataforma</p>
+        </div>
+        <Button onClick={() => setShowCreateOrgModal(true)} data-testid="create-org-btn">
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Organización
+        </Button>
       </div>
 
       {/* Filters */}
@@ -611,6 +645,54 @@ export default function OrganizationsListPage() {
                 <Trash2 className="w-4 h-4 mr-2" />
               )}
               Eliminar Permanentemente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Organization Modal */}
+      <Dialog open={showCreateOrgModal} onOpenChange={setShowCreateOrgModal}>
+        <DialogContent className="bg-white border-gray-200 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
+              <Building2 className="w-5 h-5 text-blue-600" />
+              Nueva Organización
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-gray-700">Nombre</Label>
+              <Input
+                value={newOrgName}
+                onChange={(e) => setNewOrgName(e.target.value)}
+                placeholder="Nombre de la empresa"
+                className="bg-white border-gray-300 text-gray-900"
+                data-testid="create-org-name-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-700">Industria</Label>
+              <Select value={newOrgIndustry} onValueChange={setNewOrgIndustry}>
+                <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="events_hospitality">Eventos & Hospitalidad</SelectItem>
+                  <SelectItem value="professional_services">Servicios Profesionales</SelectItem>
+                  <SelectItem value="marketing_agency">Agencia de Marketing</SelectItem>
+                  <SelectItem value="ecommerce">E-Commerce</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateOrgModal(false)} className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateOrg} disabled={creatingOrg || !newOrgName}>
+              {creatingOrg ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Crear
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -12805,6 +12805,38 @@ async def list_all_organizations(
         "total_pages": (total + limit - 1) // limit
     }
 
+
+@super_admin_router.post("/organizations")
+async def create_organization(data: dict, admin: User = Depends(get_super_admin)):
+    """Create a new organization (Super Admin only)"""
+    name = data.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Nombre es requerido")
+    
+    now = datetime.now(timezone.utc)
+    company_id = f"company_{uuid.uuid4().hex[:12]}"
+    
+    company_doc = {
+        "company_id": company_id,
+        "name": name,
+        "industry_template": data.get("industry_template", "general"),
+        "logo_url": None,
+        "primary_color": "#3A4D3F",
+        "secondary_color": "#E5DCC5",
+        "default_language": "es",
+        "currency": "USD",
+        "default_tax_rate": 0.0,
+        "status": "active",
+        "created_at": now.isoformat(),
+        "created_by_admin": admin.user_id
+    }
+    await db.companies.insert_one(company_doc)
+    
+    await log_super_admin_action(admin.user_id, "create_organization", company_id, {"name": name})
+    
+    return {"success": True, "company_id": company_id, "name": name}
+
+
 @super_admin_router.get("/organizations/{company_id}")
 async def get_organization_detail(company_id: str, admin: User = Depends(get_super_admin)):
     """Get detailed organization info (Super Admin only)"""
@@ -16031,7 +16063,7 @@ async def get_all_users(user: User = Depends(get_current_user)):
     if not user.is_super_admin:
         raise HTTPException(status_code=403, detail="Super admin access required")
     
-    users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(1000)
+    users = await db.users.find({}, {"_id": 0, "hashed_password": 0, "password_hash": 0}).to_list(1000)
     return users
 
 @super_admin_router.post("/users")
@@ -16070,6 +16102,30 @@ async def create_user(
     await db.users.insert_one(new_user)
     del new_user["hashed_password"]
     return {"success": True, "user": {k: v for k, v in new_user.items() if k != "_id"}}
+
+
+@super_admin_router.get("/users/{user_id}/memberships")
+async def get_user_memberships(user_id: str, user: User = Depends(get_current_user)):
+    """Get all memberships for a user (super admin only)"""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    
+    memberships = await db.memberships.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Enrich with company names
+    for m in memberships:
+        cid = m.get("company_id") or m.get("organization_id")
+        if cid:
+            company = await db.companies.find_one({"company_id": cid}, {"_id": 0, "name": 1})
+            m["company_name"] = company.get("name") if company else cid
+            if not m.get("company_id"):
+                m["company_id"] = cid
+    
+    return memberships
+
 
 @super_admin_router.patch("/users/{user_id}")
 async def update_user(

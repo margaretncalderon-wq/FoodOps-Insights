@@ -33,8 +33,18 @@ export default function UserManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
+  const [showAssignOrgModal, setShowAssignOrgModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [userMemberships, setUserMemberships] = useState([]);
+  
+  // New org form
+  const [newOrg, setNewOrg] = useState({ name: "", industry_template: "general" });
+  
+  // Assign org form
+  const [assignOrgId, setAssignOrgId] = useState("");
+  const [assignOrgRole, setAssignOrgRole] = useState("viewer");
   
   // New user form
   const [newUser, setNewUser] = useState({
@@ -94,7 +104,8 @@ export default function UserManagementPage() {
         name: selectedUser.name,
         role: selectedUser.role,
         is_super_admin: selectedUser.is_super_admin,
-        is_active: selectedUser.is_active
+        is_active: selectedUser.is_active,
+        company_id: selectedUser.company_id
       }, { withCredentials: true });
       toast.success(isEs ? "Usuario actualizado" : "User updated");
       setShowEditModal(false);
@@ -136,6 +147,70 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleCreateOrg = async () => {
+    if (!newOrg.name) {
+      toast.error(isEs ? "El nombre es requerido" : "Name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await axios.post(`${API}/api/super-admin/organizations`, newOrg, { withCredentials: true });
+      toast.success(isEs ? "Organización creada" : "Organization created");
+      setShowCreateOrgModal(false);
+      setNewOrg({ name: "", industry_template: "general" });
+      await fetchData();
+      // If triggered from create user, set the new org
+      if (res.data?.company_id) {
+        setNewUser(prev => ({ ...prev, company_id: res.data.company_id }));
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fetchUserMemberships = async (userId) => {
+    try {
+      const res = await axios.get(`${API}/api/super-admin/users/${userId}/memberships`, { withCredentials: true });
+      setUserMemberships(res.data || []);
+    } catch (error) {
+      setUserMemberships([]);
+    }
+  };
+
+  const handleAssignOrg = async () => {
+    if (!assignOrgId || !selectedUser) return;
+    setSaving(true);
+    try {
+      await axios.post(`${API}/api/super-admin/organizations/${assignOrgId}/members`, {
+        email: selectedUser.email,
+        name: selectedUser.name,
+        role: assignOrgRole,
+        password: "temp"
+      }, { withCredentials: true });
+      toast.success(isEs ? "Organización asignada" : "Organization assigned");
+      setAssignOrgId("");
+      setAssignOrgRole("viewer");
+      await fetchUserMemberships(selectedUser.user_id);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveMembership = async (membershipId, companyId) => {
+    if (!confirm(isEs ? "¿Remover de esta organización?" : "Remove from this organization?")) return;
+    try {
+      await axios.delete(`${API}/api/super-admin/organizations/${companyId}/members/${membershipId}`, { withCredentials: true });
+      toast.success(isEs ? "Removido" : "Removed");
+      if (selectedUser) await fetchUserMemberships(selectedUser.user_id);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error");
+    }
+  };
+
   const handleResetPassword = async (userId) => {
     const newPassword = prompt(isEs ? "Nueva contraseña:" : "New password:");
     if (!newPassword) return;
@@ -160,8 +235,9 @@ export default function UserManagementPage() {
   });
 
   const getOrgName = (companyId) => {
-    const org = organizations.find(o => o.company_id === companyId);
-    return org?.name || companyId || "Sin organización";
+    if (!companyId) return "Sin organización";
+    const org = organizations.find(o => o.organization?.company_id === companyId);
+    return org?.organization?.name || companyId;
   };
 
   const getRoleBadge = (role, isSuperAdmin) => {
@@ -249,8 +325,8 @@ export default function UserManagementPage() {
               <SelectContent>
                 <SelectItem value="all">{isEs ? "Todas" : "All"}</SelectItem>
                 {organizations.map(org => (
-                  <SelectItem key={org.company_id} value={org.company_id}>
-                    {org.name}
+                  <SelectItem key={org.organization?.company_id} value={org.organization?.company_id}>
+                    {org.organization?.name || org.organization?.company_id}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -336,7 +412,9 @@ export default function UserManagementPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          setSelectedUser({...user});
+                          const u = {...user};
+                          setSelectedUser(u);
+                          fetchUserMemberships(user.user_id);
                           setShowEditModal(true);
                         }}
                         title={isEs ? "Editar" : "Edit"}
@@ -396,14 +474,21 @@ export default function UserManagementPage() {
             </div>
             <div className="space-y-2">
               <Label>{isEs ? "Organización" : "Organization"}</Label>
-              <Select value={newUser.company_id} onValueChange={(v) => setNewUser({...newUser, company_id: v})}>
+              <Select value={newUser.company_id} onValueChange={(v) => {
+                if (v === "new_org") {
+                  setShowCreateOrgModal(true);
+                } else {
+                  setNewUser({...newUser, company_id: v});
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="new_org">{isEs ? "+ Crear nueva organización" : "+ Create new organization"}</SelectItem>
                   {organizations.map(org => (
-                    <SelectItem key={org.company_id} value={org.company_id}>
-                      {org.name}
+                    <SelectItem key={org.organization?.company_id} value={org.organization?.company_id}>
+                      {org.organization?.name || org.organization?.company_id}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -444,36 +529,58 @@ export default function UserManagementPage() {
 
       {/* Edit User Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isEs ? "Editar Usuario" : "Edit User"}</DialogTitle>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nombre</Label>
-                <Input
-                  value={selectedUser.name || ""}
-                  onChange={(e) => setSelectedUser({...selectedUser, name: e.target.value})}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input
+                    value={selectedUser.name || ""}
+                    onChange={(e) => setSelectedUser({...selectedUser, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={selectedUser.email} disabled className="bg-muted" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input value={selectedUser.email} disabled className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label>Rol</Label>
-                <Select value={selectedUser.role} onValueChange={(v) => setSelectedUser({...selectedUser, role: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="owner">Owner</SelectItem>
-                    <SelectItem value="finance">Finance</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{isEs ? "Organización Principal" : "Primary Organization"}</Label>
+                  <Select 
+                    value={selectedUser.company_id || ""} 
+                    onValueChange={(v) => setSelectedUser({...selectedUser, company_id: v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isEs ? "Sin organización" : "No organization"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map(org => (
+                        <SelectItem key={org.organization?.company_id} value={org.organization?.company_id}>
+                          {org.organization?.name || org.organization?.company_id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Rol</Label>
+                  <Select value={selectedUser.role} onValueChange={(v) => setSelectedUser({...selectedUser, role: v})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="finance">Finance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -489,6 +596,54 @@ export default function UserManagementPage() {
                     onCheckedChange={(v) => setSelectedUser({...selectedUser, is_active: v})}
                   />
                   <Label>{isEs ? "Activo" : "Active"}</Label>
+                </div>
+              </div>
+
+              {/* Memberships Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-semibold">{isEs ? "Organizaciones del usuario" : "User Organizations"}</Label>
+                  <Button 
+                    size="sm" variant="outline" 
+                    onClick={() => setShowAssignOrgModal(true)}
+                    data-testid="assign-org-btn"
+                  >
+                    <Building2 className="w-3 h-3 mr-1" />
+                    {isEs ? "Asignar Org" : "Assign Org"}
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {/* Show primary org */}
+                  {selectedUser.company_id && (
+                    <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-primary/5 border">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">{getOrgName(selectedUser.company_id)}</span>
+                      </div>
+                      <Badge className="bg-primary">Principal</Badge>
+                    </div>
+                  )}
+                  {/* Show memberships */}
+                  {userMemberships.filter(m => m.company_id !== selectedUser.company_id).map(m => (
+                    <div key={m.membership_id} className="flex items-center justify-between px-3 py-2 rounded-lg border">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{getOrgName(m.company_id)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{m.role}</Badge>
+                        <Button 
+                          size="icon" variant="ghost" className="h-6 w-6 text-destructive" 
+                          onClick={() => handleRemoveMembership(m.membership_id, m.company_id)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {userMemberships.filter(m => m.company_id !== selectedUser.company_id).length === 0 && !selectedUser.company_id && (
+                    <p className="text-sm text-muted-foreground text-center py-2">{isEs ? "Sin organizaciones" : "No organizations"}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -553,6 +708,101 @@ export default function UserManagementPage() {
             </Button>
             <Button onClick={handleUpdatePermissions} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Guardar" : "Save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Organization Modal */}
+      <Dialog open={showCreateOrgModal} onOpenChange={setShowCreateOrgModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Crear Nueva Organización" : "Create New Organization"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{isEs ? "Nombre" : "Name"}</Label>
+              <Input
+                value={newOrg.name}
+                onChange={(e) => setNewOrg({...newOrg, name: e.target.value})}
+                placeholder={isEs ? "Nombre de la empresa" : "Company name"}
+                data-testid="new-org-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isEs ? "Industria" : "Industry"}</Label>
+              <Select value={newOrg.industry_template} onValueChange={(v) => setNewOrg({...newOrg, industry_template: v})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="events_hospitality">Eventos & Hospitalidad</SelectItem>
+                  <SelectItem value="professional_services">Servicios Profesionales</SelectItem>
+                  <SelectItem value="marketing_agency">Agencia de Marketing</SelectItem>
+                  <SelectItem value="ecommerce">E-Commerce</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateOrgModal(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateOrg} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Crear" : "Create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Organization Modal */}
+      <Dialog open={showAssignOrgModal} onOpenChange={setShowAssignOrgModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Asignar Organización" : "Assign Organization"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              {isEs ? "Agregar" : "Add"} <strong>{selectedUser?.name}</strong> {isEs ? "a una organización" : "to an organization"}
+            </div>
+            <div className="space-y-2">
+              <Label>{isEs ? "Organización" : "Organization"}</Label>
+              <Select value={assignOrgId} onValueChange={setAssignOrgId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations.map(org => (
+                    <SelectItem key={org.organization?.company_id} value={org.organization?.company_id}>
+                      {org.organization?.name || org.organization?.company_id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Rol</Label>
+              <Select value={assignOrgRole} onValueChange={setAssignOrgRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">{isEs ? "Visor" : "Viewer"}</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="social_contributor">Social Contributor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignOrgModal(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleAssignOrg} disabled={saving || !assignOrgId}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Asignar" : "Assign")}
             </Button>
           </DialogFooter>
         </DialogContent>
