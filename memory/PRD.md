@@ -250,9 +250,16 @@ Build a comprehensive ERP application called Kora OS with modules for:
 3. **Bug Fix - Own Demand Studio Not Visible (P0)**:
    - Root cause: `GET /api/user/organizations` only checked `user.company_id`, ignoring `user.active_org_id`
    - For users where `company_id` is null but `active_org_id` is set, their own org didn't appear
-   - Also: membership query could KeyError on records with `organization_id` instead of `company_id`
-   - Also: membership status filter didn't handle missing `status` field
-   - Fix: Uses `company_id or active_org_id`, handles both membership fields, flexible status query
+   - Added auto-create company for users who have no company at all
+   - Fix: Uses `company_id or active_org_id`, checks memberships, auto-creates if needed
+
+4. **Feature - Super Admin: Org Management & Names (P1)**:
+   - Show organization NAMES instead of company IDs throughout Super Admin
+   - Create organizations from Super Admin (OrganizationsListPage + UserManagementPage)
+   - Assign organizations to users in Edit User modal (change primary org)
+   - View/manage user memberships in Edit User modal
+   - New backend endpoints: POST /super-admin/organizations, GET /super-admin/users/{user_id}/memberships
+   - Testing: 7/7 backend, 100% frontend verified
 
 ## Known Issues
 
