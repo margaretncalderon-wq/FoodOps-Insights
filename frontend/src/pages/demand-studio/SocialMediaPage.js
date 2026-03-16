@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { usePresence } from "../../hooks/usePresence";
+import { EntityPresenceBar, PresenceAvatarStack } from "../../components/PresenceAvatars";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -162,6 +164,17 @@ export default function SocialMediaPage() {
   
   // Comment/notification counts per post (for inline badges)
   const [postCommentCounts, setPostCommentCounts] = useState({});
+
+  // Presence: track which post is being edited and get entity viewers
+  const editingEntityId = postDialogOpen && editingPost ? editingPost.post_id : null;
+  const editingEntityTitle = postDialogOpen && editingPost ? editingPost.title : null;
+  const { entityViewers, leaveEntity, onlineUsers: pageOnlineUsers } = usePresence({
+    page: "demand-studio/social-media",
+    entityType: editingEntityId ? "social_post" : null,
+    entityId: editingEntityId,
+    entityTitle: editingEntityTitle,
+    orgId: selectedOrgId && !isOwnOrg ? selectedOrgId : null
+  });
   
   // Forms
   const [postForm, setPostForm] = useState({
@@ -1930,6 +1943,14 @@ export default function SocialMediaPage() {
                           <td className="p-3 text-sm font-medium max-w-[200px]">
                             <div className="flex items-center gap-1.5">
                               <div className="truncate">{post.title}</div>
+                              {/* Online editors indicator */}
+                              {(() => {
+                                const editors = pageOnlineUsers.filter(u => u.entity_id === post.post_id);
+                                if (editors.length > 0) {
+                                  return <PresenceAvatarStack users={editors} size="xs" maxShow={2} />;
+                                }
+                                return null;
+                              })()}
                               {(() => {
                                 const cc = postCommentCounts[post.post_id];
                                 if (!cc) return null;
@@ -2695,6 +2716,11 @@ export default function SocialMediaPage() {
             </DialogTitle>
           </DialogHeader>
           
+          {/* Show who else is editing this post (Figma-style) */}
+          {editingPost && entityViewers.length > 0 && (
+            <EntityPresenceBar viewers={entityViewers} isEs={isEs} />
+          )}
+
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -2954,7 +2980,7 @@ export default function SocialMediaPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setPostDialogOpen(false); setEditingPost(null); }} disabled={postSaving}>
+            <Button variant="outline" onClick={() => { setPostDialogOpen(false); setEditingPost(null); leaveEntity(); }} disabled={postSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSavePost} disabled={!postForm.social_account_id || !postForm.title || postSaving}>

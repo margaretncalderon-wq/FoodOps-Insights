@@ -18152,6 +18152,11 @@ api_router.include_router(exports_router)  # /api/exports/*
 from routers.comments import comments_router
 api_router.include_router(comments_router)  # /api/comments/*
 
+# Include Presence router
+from routers.presence import presence_router
+api_router.include_router(presence_router)  # /api/presence/*
+
+
 # General file upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):

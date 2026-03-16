@@ -1,8 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useModules } from "../contexts/ModulesContext";
+import { usePresence } from "../hooks/usePresence";
+import { PresenceAvatarStack } from "./PresenceAvatars";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -78,6 +80,10 @@ export const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Get current page name for presence
+  const currentPage = location.pathname.split("/").filter(Boolean).join("/") || "dashboard";
+  const { onlineUsers } = usePresence({ page: currentPage });
 
   // Build navigation items from enabled modules
   const navItems = useMemo(() => {
@@ -169,6 +175,19 @@ export const Layout = ({ children }) => {
             <ApprovalQueueBell />
             <NotificationBell />
           </div>
+
+          {/* Online team members */}
+          {onlineUsers.length > 0 && (
+            <div className="mb-3 px-2">
+              <PresenceAvatarStack 
+                users={onlineUsers} 
+                size="sm" 
+                maxShow={5} 
+                showActivity 
+                label={`${onlineUsers.length} online`}
+              />
+            </div>
+          )}
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
