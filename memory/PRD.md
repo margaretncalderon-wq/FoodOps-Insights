@@ -253,13 +253,14 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Added auto-create company for users who have no company at all
    - Fix: Uses `company_id or active_org_id`, checks memberships, auto-creates if needed
 
-4. **Feature - Super Admin: Org Management & Names (P1)**:
-   - Show organization NAMES instead of company IDs throughout Super Admin
-   - Create organizations from Super Admin (OrganizationsListPage + UserManagementPage)
-   - Assign organizations to users in Edit User modal (change primary org)
-   - View/manage user memberships in Edit User modal
-   - New backend endpoints: POST /super-admin/organizations, GET /super-admin/users/{user_id}/memberships
-   - Testing: 7/7 backend, 100% frontend verified
+5. **Feature - Notification Deep Linking & Comment Badges (P1)**:
+   - Notifications now include entity_id in link (e.g., `/demand-studio/social-media?openPost=xxx`)
+   - NotificationBell uses React Router navigate() for internal links
+   - SocialMediaPage handles `?openPost=xxx` URL param and auto-opens the post dialog
+   - Inline comment badges next to posts (blue @badge for unread, gray for read-only comments)
+   - Badges visible in: Queue table, Calendar kanban, Production queue, Editing queue
+   - New endpoint: GET /api/comments/counts/by-entities (aggregates comment + unread notification counts)
+   - Testing: 10/10 backend, 100% frontend verified
 
 ## Known Issues
 
