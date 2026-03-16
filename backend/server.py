@@ -17978,10 +17978,11 @@ async def get_user_organizations(user: User = Depends(get_current_user)):
     """
     organizations = []
     
-    # 1. Get user's own organization
-    if user.company_id:
+    # 1. Get user's own organization (check both company_id and active_org_id)
+    own_company_id = user.company_id or user.active_org_id
+    if own_company_id:
         own_company = await db.companies.find_one(
-            {"company_id": user.company_id},
+            {"company_id": own_company_id},
             {"_id": 0, "company_id": 1, "name": 1, "logo": 1}
         )
         if own_company:
@@ -17996,18 +17997,25 @@ async def get_user_organizations(user: User = Depends(get_current_user)):
     # 2. Get organizations shared with user (via memberships)
     memberships = await db.memberships.find({
         "user_id": user.user_id,
-        "status": "active"
+        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
     }).to_list(100)
     
     if memberships:
-        company_ids = [m["company_id"] for m in memberships if m.get("company_id") != user.company_id]
-        if company_ids:
+        # Extract company_id from memberships, handling both company_id and organization_id fields
+        # Exclude the user's own company
+        shared_ids = set()
+        membership_map = {}
+        for m in memberships:
+            cid = m.get("company_id") or m.get("organization_id")
+            if cid and cid != own_company_id:
+                shared_ids.add(cid)
+                membership_map[cid] = m
+        
+        if shared_ids:
             shared_companies = await db.companies.find(
-                {"company_id": {"$in": company_ids}},
+                {"company_id": {"$in": list(shared_ids)}},
                 {"_id": 0, "company_id": 1, "name": 1, "logo": 1}
             ).to_list(100)
-            
-            membership_map = {m["company_id"]: m for m in memberships}
             
             for company in shared_companies:
                 membership = membership_map.get(company["company_id"], {})

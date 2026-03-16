@@ -247,6 +247,13 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Warning banner appears below stats when any pillar is over-allocated
    - Testing: Verified via API and frontend screenshot
 
+3. **Bug Fix - Own Demand Studio Not Visible (P0)**:
+   - Root cause: `GET /api/user/organizations` only checked `user.company_id`, ignoring `user.active_org_id`
+   - For users where `company_id` is null but `active_org_id` is set, their own org didn't appear
+   - Also: membership query could KeyError on records with `organization_id` instead of `company_id`
+   - Also: membership status filter didn't handle missing `status` field
+   - Fix: Uses `company_id or active_org_id`, handles both membership fields, flexible status query
+
 ## Known Issues
 
 ### P0 - Critical
