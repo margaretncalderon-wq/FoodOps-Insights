@@ -17975,34 +17975,68 @@ async def get_user_organizations(user: User = Depends(get_current_user)):
     Get all organizations the user has access to:
     - Organizations they own/admin
     - Organizations shared with them (via memberships)
+    If the user has no own company, one is auto-created.
     """
     organizations = []
     
-    # 1. Get user's own organization (check both company_id and active_org_id)
+    # 1. Determine user's own company ID
     own_company_id = user.company_id or user.active_org_id
-    if own_company_id:
-        own_company = await db.companies.find_one(
-            {"company_id": own_company_id},
-            {"_id": 0, "company_id": 1, "name": 1, "logo": 1}
-        )
-        if own_company:
-            organizations.append({
-                "org_id": own_company["company_id"],
-                "name": own_company.get("name", "Mi Empresa"),
-                "logo": own_company.get("logo"),
-                "is_own": True,
-                "role": "owner"
-            })
     
-    # 2. Get organizations shared with user (via memberships)
+    # 2. If no company_id, check memberships for owner/admin role
+    if not own_company_id:
+        own_membership = await db.memberships.find_one({
+            "user_id": user.user_id,
+            "role": {"$in": ["owner", "admin"]},
+            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+        }, {"_id": 0})
+        if own_membership:
+            own_company_id = own_membership.get("company_id") or own_membership.get("organization_id")
+    
+    # 3. If still no company, auto-create one for the user
+    if not own_company_id:
+        import uuid
+        from datetime import datetime, timezone
+        own_company_id = f"company_{uuid.uuid4().hex[:12]}"
+        now = datetime.now(timezone.utc)
+        user_name = user.name or user.email.split("@")[0]
+        company_doc = {
+            "company_id": own_company_id,
+            "name": f"{user_name}",
+            "industry_template": "general",
+            "logo_url": None,
+            "primary_color": "#3A4D3F",
+            "secondary_color": "#E5DCC5",
+            "default_language": "es",
+            "currency": "USD",
+            "created_at": now.isoformat()
+        }
+        await db.companies.insert_one(company_doc)
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$set": {"company_id": own_company_id}}
+        )
+    
+    # 4. Fetch own company document
+    own_company = await db.companies.find_one(
+        {"company_id": own_company_id},
+        {"_id": 0, "company_id": 1, "name": 1, "logo": 1, "logo_url": 1}
+    )
+    if own_company:
+        organizations.append({
+            "org_id": own_company["company_id"],
+            "name": own_company.get("name", "Mi Empresa"),
+            "logo": own_company.get("logo") or own_company.get("logo_url"),
+            "is_own": True,
+            "role": "owner"
+        })
+    
+    # 5. Get organizations shared with user (via memberships), excluding own
     memberships = await db.memberships.find({
         "user_id": user.user_id,
         "$or": [{"status": "active"}, {"status": {"$exists": False}}]
     }).to_list(100)
     
     if memberships:
-        # Extract company_id from memberships, handling both company_id and organization_id fields
-        # Exclude the user's own company
         shared_ids = set()
         membership_map = {}
         for m in memberships:
@@ -18014,7 +18048,7 @@ async def get_user_organizations(user: User = Depends(get_current_user)):
         if shared_ids:
             shared_companies = await db.companies.find(
                 {"company_id": {"$in": list(shared_ids)}},
-                {"_id": 0, "company_id": 1, "name": 1, "logo": 1}
+                {"_id": 0, "company_id": 1, "name": 1, "logo": 1, "logo_url": 1}
             ).to_list(100)
             
             for company in shared_companies:
@@ -18022,7 +18056,7 @@ async def get_user_organizations(user: User = Depends(get_current_user)):
                 organizations.append({
                     "org_id": company["company_id"],
                     "name": company.get("name", "Empresa"),
-                    "logo": company.get("logo"),
+                    "logo": company.get("logo") or company.get("logo_url"),
                     "is_own": False,
                     "role": membership.get("role", "viewer"),
                     "permissions": membership.get("permissions", {})
