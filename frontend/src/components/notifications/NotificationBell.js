@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { 
   Bell, Check, CheckCheck, X, Target, 
-  ExternalLink, Loader2 
+  ExternalLink, Loader2, MessageSquare
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -13,6 +14,7 @@ import { API_BASE as API } from "../../utils/api";
 export default function NotificationBell() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -110,10 +112,15 @@ export default function NotificationBell() {
     if (!notification.read) {
       markAsRead(notification.notification_id);
     }
-    if (notification.link) {
-      window.location.href = notification.link;
-    }
     setIsOpen(false);
+    if (notification.link) {
+      // Use React Router for internal links
+      if (notification.link.startsWith("/")) {
+        navigate(notification.link);
+      } else {
+        window.location.href = notification.link;
+      }
+    }
   };
 
   const formatTime = (dateStr) => {
@@ -138,7 +145,7 @@ export default function NotificationBell() {
       case "follow_up_reminder":
         return <Bell className="w-4 h-4 text-amber-600" />;
       case "mention":
-        return <Target className="w-4 h-4 text-blue-500" />;
+        return <MessageSquare className="w-4 h-4 text-blue-500" />;
       default:
         return <Bell className="w-4 h-4 text-blue-500" />;
     }

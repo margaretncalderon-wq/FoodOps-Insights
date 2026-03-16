@@ -1,0 +1,117 @@
+{
+  "summary": "Tested Demand Studio notification deep linking and comment badges features for Kora OS ERP. All features working correctly: Backend APIs (10/10 passed), Frontend features (deep linking, comment badges in table/calendar/production/editing views) all verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Dialog modals",
+        "issues": ["Missing DialogDescription for ARIA accessibility - shows console warnings but doesn't affect functionality"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_comment_counts_notifications.py",
+    "/app/test_reports/pytest/pytest_comment_counts_notifications.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_comment_counts_notifications.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (all UI features verified)"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "Created test comment with @mention on post_f6f2934fbcfc (cleaned up after test)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Comment counts and notification deep linking features fully working: 1) GET /api/comments/counts/by-entities returns comment counts and unread notifications per entity, 2) POST /api/comments creates notifications with link=/demand-studio/social-media?openPost={entity_id}, 3) NotificationBell uses React Router navigate() for internal links (line 119), 4) SocialMediaPage handles ?openPost=xxx and opens post dialog (useEffect on line 433), 5) Comment badges show in Queue table (blue @badge for unread, gray for read-only), Calendar kanban (blue dot for unread), and Production/Editing views.",
+  "tested_features": {
+    "backend_comment_counts_endpoint": {
+      "status": "PASS",
+      "endpoint": "GET /api/comments/counts/by-entities",
+      "tests": [
+        "endpoint_exists",
+        "returns_dict",
+        "structure_has_comments_and_unread",
+        "handles_multiple_entity_ids",
+        "empty_entity_ids_returns_empty_dict"
+      ]
+    },
+    "backend_notification_deep_linking": {
+      "status": "PASS",
+      "tests": [
+        "mentionable_users_endpoint",
+        "comment_with_mention_creates_notification",
+        "notification_link_format_includes_entity_id"
+      ]
+    },
+    "backend_comments_route_order": {
+      "status": "PASS",
+      "tests": ["counts_by_entities_route_before_dynamic_route"]
+    },
+    "frontend_deep_linking": {
+      "status": "PASS",
+      "url_tested": "/demand-studio/social-media?openPost=post_f6f2934fbcfc",
+      "result": "Dialog opens with Edit Post form, URL param cleaned up after opening"
+    },
+    "frontend_notification_bell": {
+      "status": "PASS",
+      "tests": [
+        "uses_useNavigate_for_internal_links",
+        "dropdown_opens_on_click",
+        "shows_notifications_list"
+      ]
+    },
+    "frontend_comment_badges": {
+      "status": "PASS",
+      "views_tested": {
+        "Queue_table": "Shows @1 badge next to 'Post del 31 de marzo'",
+        "Calendar_kanban": "Blue dot indicator for posts with unread comments",
+        "Production_view": "Shows @1 badge next to post titles",
+        "Editing_view": "Comment badges visible on editing items"
+      }
+    }
+  },
+  "api_verification": {
+    "GET /api/comments/counts/by-entities": "200 OK - Returns {entity_id: {comments: N, unread: N, last_comment_at: timestamp}}",
+    "GET /api/comments/mentions/users": "200 OK - Returns array of mentionable users",
+    "POST /api/comments": "200 OK - Creates comment and notification with deep link",
+    "GET /api/comments/{entity_type}/{entity_id}": "200 OK - Returns comments for entity"
+  },
+  "code_verification": {
+    "NotificationBell.js": {
+      "useNavigate": "line 2 (imported), line 17 (initialized), line 119 (used for internal links)",
+      "window.location.href": "line 121 (only for external links)"
+    },
+    "SocialMediaPage.js": {
+      "deep_linking_useEffect": "lines 433-474 - handles openPost and openIdea URL params",
+      "comment_badges_queue": "lines 1930-1951 - AtSign badge with blue/gray colors",
+      "comment_badges_calendar": "line 1800 - blue dot for unread",
+      "comment_badges_production": "lines 2094-2103 - AtSign badge",
+      "comment_badges_editing": "lines 2207-2216 - AtSign badge"
+    },
+    "comments.py": {
+      "counts_route": "line 136 - /counts/by-entities BEFORE dynamic routes",
+      "notification_link": "line 252 - /demand-studio/social-media?openPost={entity_id}"
+    }
+  },
+  "screenshots": [
+    ".screenshots/dashboard_after_login.png - Dashboard with notification bell visible",
+    ".screenshots/deep_link_dialog_open.png - Edit Post dialog opened via ?openPost param",
+    ".screenshots/queue_view.png - Queue table showing @1 comment badge",
+    ".screenshots/calendar_view_with_badges.png - Calendar with posts",
+    ".screenshots/production_view.png - Production view with comment badges",
+    ".screenshots/editing_view.png - Editing view",
+    ".screenshots/notification_dropdown.png - Notification dropdown with items"
+  ]
+}

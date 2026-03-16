@@ -133,6 +133,50 @@ async def get_mentionable_users(
         return []
 
 
+@comments_router.get("/counts/by-entities")
+async def get_comment_counts_by_entities(
+    entity_type: str = Query("social_post"),
+    entity_ids: str = Query(""),
+    org_id: Optional[str] = Query(None),
+    user: User = Depends(get_current_user)
+):
+    """Get comment counts and unread notification counts for a list of entity IDs"""
+    company_id = org_id or user.active_org_id or user.company_id
+    if not company_id:
+        return {}
+    
+    ids = [eid.strip() for eid in entity_ids.split(",") if eid.strip()]
+    if not ids:
+        return {}
+    
+    # Get comment counts per entity using aggregation
+    pipeline = [
+        {"$match": {"company_id": company_id, "entity_type": {"$in": [entity_type, "post"]}, "entity_id": {"$in": ids}}},
+        {"$group": {"_id": "$entity_id", "count": {"$sum": 1}, "last_at": {"$max": "$created_at"}}}
+    ]
+    comment_counts = {}
+    async for doc in db.comments.aggregate(pipeline):
+        comment_counts[doc["_id"]] = {"comments": doc["count"], "last_comment_at": doc["last_at"]}
+    
+    # Get unread notification counts per entity for this user
+    notif_pipeline = [
+        {"$match": {
+            "user_id": user.user_id,
+            "read": {"$ne": True},
+            "entity_id": {"$in": ids}
+        }},
+        {"$group": {"_id": "$entity_id", "unread": {"$sum": 1}}}
+    ]
+    async for doc in db.notifications.aggregate(notif_pipeline):
+        eid = doc["_id"]
+        if eid in comment_counts:
+            comment_counts[eid]["unread"] = doc["unread"]
+        else:
+            comment_counts[eid] = {"comments": 0, "unread": doc["unread"], "last_comment_at": None}
+    
+    return comment_counts
+
+
 # IMPORTANT: Dynamic routes must come AFTER static routes
 @comments_router.get("/{entity_type}/{entity_id}")
 async def get_comments(
@@ -203,12 +247,12 @@ async def create_comment(data: CommentCreate, user: User = Depends(get_current_u
     
     # Create notifications for mentioned users
     for mention in (data.mentions or []):
-        # Build navigation link based on entity type
+        # Build navigation link based on entity type - include entity_id for deep linking
         entity_links = {
-            "social_post": "/demand-studio",
-            "post": "/demand-studio",
-            "idea": "/demand-studio",
-            "note": "/demand-studio",
+            "social_post": f"/demand-studio/social-media?openPost={data.entity_id}",
+            "post": f"/demand-studio/social-media?openPost={data.entity_id}",
+            "idea": f"/demand-studio/social-media?openIdea={data.entity_id}",
+            "note": "/demand-studio/social-media?view=notes",
             "partner": f"/partners/{data.entity_id}",
         }
         link = entity_links.get(data.entity_type, "")

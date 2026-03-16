@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -90,6 +90,7 @@ export default function SocialMediaPage() {
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Get org context from parent (DemandStudioPage)
   const outletContext = useOutletContext() || {};
@@ -158,6 +159,9 @@ export default function SocialMediaPage() {
   const [convertTargetAccount, setConvertTargetAccount] = useState("");
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioAssets, setStudioAssets] = useState([]);
+  
+  // Comment/notification counts per post (for inline badges)
+  const [postCommentCounts, setPostCommentCounts] = useState({});
   
   // Forms
   const [postForm, setPostForm] = useState({
@@ -401,6 +405,73 @@ export default function SocialMediaPage() {
       console.error("Error fetching calendar data:", error);
     }
   };
+
+  // Fetch comment/notification counts for visible posts
+  const fetchPostCommentCounts = async (postIds) => {
+    if (!postIds || postIds.length === 0) return;
+    try {
+      const orgParam = selectedOrgId && !isOwnOrg ? `&org_id=${selectedOrgId}` : "";
+      const res = await axios.get(
+        `${API}/api/comments/counts/by-entities?entity_type=social_post&entity_ids=${postIds.join(",")}${orgParam}`,
+        { withCredentials: true }
+      );
+      setPostCommentCounts(prev => ({ ...prev, ...(res.data || {}) }));
+    } catch (error) {
+      // Silently fail
+    }
+  };
+
+  // Fetch comment counts when posts change
+  useEffect(() => {
+    if (posts.length > 0) {
+      const postIds = posts.map(p => p.post_id);
+      fetchPostCommentCounts(postIds);
+    }
+  }, [posts]);
+
+  // Deep linking: handle ?openPost=xxx or ?openIdea=xxx from notification clicks
+  useEffect(() => {
+    const openPostId = searchParams.get("openPost");
+    const openIdeaId = searchParams.get("openIdea");
+    
+    if (openPostId && posts.length > 0) {
+      const post = posts.find(p => p.post_id === openPostId);
+      if (post) {
+        setEditingPost(post);
+        setPostForm({
+          social_account_id: post.social_account_id || "",
+          campaign_id: post.campaign_id || "",
+          pillar_id: post.pillar_id || "",
+          audience_id: post.audience_id || "",
+          sub_audience_id: post.sub_audience_id || "",
+          segment_id: post.segment_id || "",
+          format: post.format || "post",
+          status: post.status || "idea",
+          title: post.title || "",
+          caption: post.caption || "",
+          hook: post.hook || "",
+          cta: post.cta || "",
+          scheduled_at: post.scheduled_at ? post.scheduled_at.slice(0, 16) : "",
+          production_date: post.production_date ? post.production_date.slice(0, 10) : "",
+          link_url: post.link_url || "",
+          notes: post.notes || "",
+          content_body: post.content_body || ""
+        });
+        setPostDialogOpen(true);
+        // Clean up URL params
+        setSearchParams({}, { replace: true });
+      }
+    }
+    
+    if (openIdeaId && ideas.length > 0) {
+      const idea = ideas.find(i => i.idea_id === openIdeaId);
+      if (idea) {
+        setEditingIdea(idea);
+        setIdeaDialogOpen(true);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [posts, ideas, searchParams]);
 
   const handleSavePost = async () => {
     if (postSaving) return;
@@ -1725,6 +1796,12 @@ export default function SocialMediaPage() {
                                             <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
                                             <span className="flex-shrink-0">{getPlatformIcon(platform)}</span>
                                             <span className="truncate">{post.title}</span>
+                                            {postCommentCounts[post.post_id]?.unread > 0 && (
+                                              <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                            )}
+                                            {postCommentCounts[post.post_id]?.comments > 0 && !postCommentCounts[post.post_id]?.unread && (
+                                              <AtSign className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+                                            )}
                                           </div>
                                         )}
                                       </Draggable>
@@ -1851,7 +1928,28 @@ export default function SocialMediaPage() {
                           <td className="p-3">{getFormatBadge(post.format)}</td>
                           <td className="p-3">{getStatusBadge(post.status)}</td>
                           <td className="p-3 text-sm font-medium max-w-[200px]">
-                            <div className="truncate">{post.title}</div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="truncate">{post.title}</div>
+                              {(() => {
+                                const cc = postCommentCounts[post.post_id];
+                                if (!cc) return null;
+                                const hasUnread = cc.unread > 0;
+                                const hasComments = cc.comments > 0;
+                                if (!hasComments && !hasUnread) return null;
+                                return (
+                                  <span 
+                                    className={`inline-flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                                      hasUnread ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                                    }`}
+                                    title={`${cc.comments} ${isEs ? 'comentarios' : 'comments'}${hasUnread ? `, ${cc.unread} ${isEs ? 'nuevos' : 'new'}` : ''}`}
+                                    data-testid="post-comment-badge"
+                                  >
+                                    <AtSign className="w-2.5 h-2.5" />
+                                    {cc.comments}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             {post.link_url && (
                               <a href={post.link_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block" title={post.link_url}>
                                 {isEs ? "URL Fuente" : "Source URL"}
@@ -1991,7 +2089,21 @@ export default function SocialMediaPage() {
                               onClick={() => openEditPost(post)}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{post.title}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium truncate">{post.title}</p>
+                                  {postCommentCounts[post.post_id]?.unread > 0 && (
+                                    <span className="inline-flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500 text-white" data-testid="post-comment-badge">
+                                      <AtSign className="w-2.5 h-2.5" />
+                                      {postCommentCounts[post.post_id].unread}
+                                    </span>
+                                  )}
+                                  {postCommentCounts[post.post_id]?.comments > 0 && !postCommentCounts[post.post_id]?.unread && (
+                                    <span className="inline-flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                      <AtSign className="w-2.5 h-2.5" />
+                                      {postCommentCounts[post.post_id].comments}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                                   <span>{getAccountName(post.social_account_id)}</span>
                                   <span>•</span>
@@ -2090,7 +2202,21 @@ export default function SocialMediaPage() {
                         onClick={() => openEditPost(post)}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{post.title}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium truncate">{post.title}</p>
+                            {postCommentCounts[post.post_id]?.unread > 0 && (
+                              <span className="inline-flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500 text-white" data-testid="post-comment-badge">
+                                <AtSign className="w-2.5 h-2.5" />
+                                {postCommentCounts[post.post_id].unread}
+                              </span>
+                            )}
+                            {postCommentCounts[post.post_id]?.comments > 0 && !postCommentCounts[post.post_id]?.unread && (
+                              <span className="inline-flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                <AtSign className="w-2.5 h-2.5" />
+                                {postCommentCounts[post.post_id].comments}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                             <span>{getAccountName(post.social_account_id)}</span>
                             <span>•</span>
