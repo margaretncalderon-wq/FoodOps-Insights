@@ -253,7 +253,13 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Added auto-create company for users who have no company at all
    - Fix: Uses `company_id or active_org_id`, checks memberships, auto-creates if needed
 
-6. **Feature - Real-time Presence System (P1)**:
+7. **Bug Fix - Data Isolation in Demand Studio (P0 Critical)**:
+   - Root cause: When viewing own org (no org_id), endpoints aggregated ALL company_ids from memberships
+   - This caused posts from Ciano Gourmet and StaffDO to appear when viewing Margaret's own account
+   - Fix: Removed `visible_company_ids` aggregation from 5 endpoints (posts, calendar, stats, insights, ideas)
+   - All endpoints now use simple `{"company_id": company_id}` queries
+   - Secondary fix: `company_filter` undefined variable in get_social_stats (found by testing agent)
+   - Testing: 13/13 backend tests passed, all endpoints verified
    - Backend: 4 endpoints in `/api/presence/` (heartbeat, online, entity/{type}/{id}, leave)
    - Presence stored in MongoDB `presence` collection with 60-second online threshold
    - Sidebar: PresenceAvatarStack shows online team members with green dot + tooltip (name + current activity)
