@@ -287,6 +287,7 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - **QR Code visual**: react-qr-code generates scannable QR codes in dialogs (GuestFlowSection + StaffDashboard)
    - **Event Logo**: logo_url field on activations, displayed on all public pages (GuestJoinPage, GuestStatusPage, NowServingPage)
    - **Demand Studio link**: New endpoint `/api/guest-flow/event/{id}/linked-marketing-activation` connects Guest Flow with existing marketing activations
+   - **Modo Kiosko**: Pagina full-screen `/guest/kiosk/:id` con QR grande, logo, "Ahora Sirviendo", contador en cola, y lista de siguientes. Auto-refresh cada 6s. Accesible desde StaffDashboard y GuestFlowSection.
    - DR WhatsApp number normalization (809/829/849 area codes)
    - Duplicate entry prevention via normalized WhatsApp number
    - Queue actions: activate, pause, resume, close, reset, call-next, move up/down, cancel, re-add

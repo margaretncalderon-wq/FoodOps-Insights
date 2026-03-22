@@ -113,6 +113,7 @@ const GuestJoinPage = lazy(() => import("./pages/guest-flow/GuestJoinPage"));
 const GuestStatusPage = lazy(() => import("./pages/guest-flow/GuestStatusPage"));
 const NowServingPage = lazy(() => import("./pages/guest-flow/NowServingPage"));
 const StaffDashboardPage = lazy(() => import("./pages/guest-flow/StaffDashboardPage"));
+const KioskPage = lazy(() => import("./pages/guest-flow/KioskPage"));
 
 // Venues & Locations pages
 const VenuesPage = lazy(() => import("./pages/VenuesPage"));
@@ -314,6 +315,7 @@ function AppRouter() {
       <Route path="/guest/join/:activationId" element={<GuestJoinPage />} />
       <Route path="/guest/status/:entryId" element={<GuestStatusPage />} />
       <Route path="/guest/now-serving/:activationId" element={<NowServingPage />} />
+      <Route path="/guest/kiosk/:activationId" element={<KioskPage />} />
       
       {/* Guest Flow - Staff Dashboard (Protected) */}
       <Route path="/guest/staff/:activationId" element={<ProtectedRoute><StaffDashboardPage /></ProtectedRoute>} />

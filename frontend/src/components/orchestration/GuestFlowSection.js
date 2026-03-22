@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   Users, Plus, ExternalLink, Copy, Play, Pause,
-  QrCode, Clock, CheckCircle, Loader2, Hash, Link2
+  QrCode, Clock, CheckCircle, Loader2, Hash, Link2, Monitor
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -240,7 +240,10 @@ export default function GuestFlowSection({ eventId, language }) {
             </p>
           </div>
           <DialogFooter className="flex-col sm:flex-col gap-2">
-            <Button onClick={() => { if(qrDialog) copyLink(qrDialog.activation_id); }} className="w-full" data-testid="qr-copy-link-btn">
+            <Button onClick={() => window.open(`/guest/kiosk/${qrDialog?.activation_id}`, "_blank")} className="w-full" data-testid="qr-open-kiosk-btn">
+              <Monitor className="w-4 h-4 mr-1" /> Abrir Modo Kiosko
+            </Button>
+            <Button variant="outline" onClick={() => { if(qrDialog) copyLink(qrDialog.activation_id); }} className="w-full" data-testid="qr-copy-link-btn">
               <Copy className="w-4 h-4 mr-1" /> Copiar Enlace
             </Button>
             <Button variant="outline" onClick={() => window.open(`/guest/now-serving/${qrDialog?.activation_id}`, "_blank")} className="w-full" data-testid="qr-open-display-btn">

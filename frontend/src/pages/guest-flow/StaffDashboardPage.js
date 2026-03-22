@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import {
   Loader2, Users, ArrowUp, ArrowDown, Phone, CheckCircle, XCircle, Play, Pause,
-  RotateCcw, ChevronRight, MessageCircle, Hash, Clock, MoreVertical, Copy, ExternalLink, QrCode
+  RotateCcw, ChevronRight, MessageCircle, Hash, Clock, MoreVertical, Copy, ExternalLink, QrCode, Monitor
 } from "lucide-react";
 import QRCode from "react-qr-code";
 
@@ -168,6 +168,9 @@ export default function StaffDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => window.open(`/guest/kiosk/${activationId}`, "_blank")} className="text-zinc-400 hover:text-white" data-testid="kiosk-btn">
+              <Monitor className="w-4 h-4 mr-1" /> Kiosko
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setQrDialog(true)} className="text-zinc-400 hover:text-white" data-testid="show-qr-btn">
               <QrCode className="w-4 h-4 mr-1" /> QR
             </Button>
