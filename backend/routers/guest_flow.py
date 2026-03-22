@@ -54,6 +54,8 @@ async def create_activation(data: dict, user: User = Depends(get_current_user)):
         "queue_status": "inactive",
         "average_service_time": data.get("average_service_time", 3),
         "assigned_queue_manager": data.get("assigned_queue_manager"),
+        "logo_url": data.get("logo_url", ""),
+        "marketing_activation_id": data.get("marketing_activation_id"),
         "current_queue_number": 0,
         "now_serving_number": 0,
         "now_serving_entry_id": None,
@@ -96,7 +98,7 @@ async def update_activation(activation_id: str, data: dict, user: User = Depends
     """Update an activation."""
     now = datetime.now(timezone.utc)
     allowed = ["activation_name", "activation_type", "date", "status", "queue_status",
-               "average_service_time", "assigned_queue_manager"]
+               "average_service_time", "assigned_queue_manager", "logo_url"]
     updates = {k: v for k, v in data.items() if k in allowed}
     updates["updated_at"] = now.isoformat()
 
@@ -349,7 +351,8 @@ async def public_get_activation(activation_id: str):
     activation = await db.gf_activations.find_one(
         {"activation_id": activation_id},
         {"_id": 0, "activation_id": 1, "activation_name": 1, "queue_status": 1,
-         "average_service_time": 1, "now_serving_number": 1, "activation_type": 1}
+         "average_service_time": 1, "now_serving_number": 1, "activation_type": 1,
+         "logo_url": 1}
     )
     if not activation:
         raise HTTPException(status_code=404, detail="Activation not found")
@@ -453,7 +456,7 @@ async def public_queue_status(entry_id: str):
     activation = await db.gf_activations.find_one(
         {"activation_id": entry["activation_id"]},
         {"_id": 0, "activation_name": 1, "queue_status": 1, "average_service_time": 1,
-         "now_serving_number": 1, "activation_type": 1}
+         "now_serving_number": 1, "activation_type": 1, "logo_url": 1}
     )
 
     # Calculate people ahead
@@ -471,6 +474,7 @@ async def public_queue_status(entry_id: str):
         "entry_id": entry["entry_id"],
         "activation_name": activation.get("activation_name", "") if activation else "",
         "activation_type": activation.get("activation_type", "") if activation else "",
+        "logo_url": activation.get("logo_url", "") if activation else "",
         "queue_number": entry["queue_number"],
         "current_position": entry["current_position"],
         "people_ahead": people_ahead,
@@ -487,7 +491,8 @@ async def public_now_serving(activation_id: str):
     """Public: Now serving display for monitors."""
     activation = await db.gf_activations.find_one(
         {"activation_id": activation_id},
-        {"_id": 0, "activation_name": 1, "queue_status": 1, "now_serving_number": 1, "activation_type": 1}
+        {"_id": 0, "activation_name": 1, "queue_status": 1, "now_serving_number": 1,
+         "activation_type": 1, "logo_url": 1}
     )
     if not activation:
         raise HTTPException(status_code=404, detail="Activation not found")
@@ -513,6 +518,7 @@ async def public_now_serving(activation_id: str):
     return {
         "activation_name": activation["activation_name"],
         "activation_type": activation.get("activation_type", ""),
+        "logo_url": activation.get("logo_url", ""),
         "queue_status": activation["queue_status"],
         "now_serving_number": activation.get("now_serving_number", 0),
         "now_serving_entry": now_serving_entry,
@@ -556,6 +562,22 @@ async def get_activity_log(activation_id: str, limit: int = 50, user: User = Dep
         {"activation_id": activation_id}, {"_id": 0}
     ).sort("timestamp", -1).limit(limit).to_list(limit)
     return logs
+
+
+@guest_flow_router.get("/event/{event_id}/linked-marketing-activation")
+async def get_linked_marketing_activation(event_id: str, user: User = Depends(get_current_user)):
+    """Get linked marketing activation for an event (from Demand Studio)."""
+    event = await db.events.find_one({"event_id": event_id}, {"_id": 0, "linked_activation_id": 1, "name": 1})
+    if not event or not event.get("linked_activation_id"):
+        return None
+
+    activation = await db.marketing_activations.find_one(
+        {"activation_id": event["linked_activation_id"]},
+        {"_id": 0, "activation_id": 1, "name": 1, "activation_type": 1, "status": 1,
+         "start_date": 1, "end_date": 1, "location": 1, "budget": 1}
+    )
+    return activation
+
 
 
 # --- Internal Helpers ---

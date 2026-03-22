@@ -50,6 +50,7 @@ export default function NowServingPage() {
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col" data-testid="now-serving-page">
       {/* Header */}
       <div className="text-center pt-8 pb-4 border-b border-zinc-900">
+        {data.logo_url && <img src={data.logo_url} alt="Logo" className="h-12 object-contain mx-auto mb-3" data-testid="event-logo" />}
         <p className="text-zinc-500 text-xs uppercase tracking-widest">{data.activation_name}</p>
         {isPaused && <p className="text-amber-400 text-sm mt-1 font-medium">Cola pausada</p>}
         {isClosed && <p className="text-red-400 text-sm mt-1 font-medium">Cola cerrada</p>}

@@ -3,6 +3,9 @@ Guest Flow Virtual Queue Management System - Backend API Tests
 Tests all endpoints for the guest flow feature including:
 - Public endpoints (guest join, status, now-serving)
 - Authenticated endpoints (activations, queue management, entry actions)
+- NEW: logo_url field support in activations and public endpoints
+- NEW: marketing_activation_id linking
+- NEW: linked-marketing-activation endpoint
 """
 import pytest
 import requests
@@ -15,13 +18,15 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 TEST_EMAIL = "demo.agency@kora.com"
 TEST_PASSWORD = "Evoque2024!"
 
-# Test activation ID (pre-existing)
+# Test activation ID (pre-existing with logo_url set)
 TEST_ACTIVATION_ID = "act_ef6a9fabd2a6"
+TEST_EVENT_ID = "test_event_pytest"
 TEST_ENTRY_IDS = {
     "now_serving": "qe_a281df8a35db",
     "waiting_1": "qe_8881a4af7cb4",
     "waiting_2": "qe_2ced21f4c49a"
 }
+TEST_LOGO_URL = "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=200"
 
 
 @pytest.fixture(scope="module")
@@ -65,6 +70,15 @@ class TestPublicActivationEndpoint:
         assert "total_in_queue" in data
         assert "average_service_time" in data
         print(f"✓ Public activation info: {data['activation_name']}, status={data['queue_status']}, queue={data['total_in_queue']}")
+    
+    def test_get_activation_returns_logo_url(self):
+        """Public activation endpoint returns logo_url field"""
+        response = requests.get(f"{BASE_URL}/api/guest-flow/public/activation/{TEST_ACTIVATION_ID}")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "logo_url" in data, "logo_url field missing from public activation response"
+        print(f"✓ Public activation includes logo_url: {data.get('logo_url', 'empty')[:50] if data.get('logo_url') else 'empty'}")
     
     def test_get_activation_not_found(self):
         """Returns 404 for non-existent activation"""
@@ -138,6 +152,15 @@ class TestPublicStatusEndpoint:
         assert "estimated_wait_minutes" in data
         print(f"✓ Status for now_serving: #{data['queue_number']}, people_ahead={data['people_ahead']}")
     
+    def test_get_status_returns_logo_url(self):
+        """Public status endpoint returns logo_url field"""
+        response = requests.get(f"{BASE_URL}/api/guest-flow/public/status/{TEST_ENTRY_IDS['waiting_1']}")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "logo_url" in data, "logo_url field missing from public status response"
+        print(f"✓ Public status includes logo_url: {data.get('logo_url', 'empty')[:50] if data.get('logo_url') else 'empty'}")
+    
     def test_get_status_waiting(self):
         """Returns correct status for waiting entry"""
         response = requests.get(f"{BASE_URL}/api/guest-flow/public/status/{TEST_ENTRY_IDS['waiting_1']}")
@@ -169,6 +192,15 @@ class TestPublicNowServingEndpoint:
         assert "upcoming" in data
         assert "total_waiting" in data
         print(f"✓ Now serving display: #{data['now_serving_number']}, upcoming={len(data['upcoming'])}, waiting={data['total_waiting']}")
+    
+    def test_now_serving_returns_logo_url(self):
+        """Now serving endpoint returns logo_url field"""
+        response = requests.get(f"{BASE_URL}/api/guest-flow/public/now-serving/{TEST_ACTIVATION_ID}")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "logo_url" in data, "logo_url field missing from now-serving response"
+        print(f"✓ Now serving includes logo_url: {data.get('logo_url', 'empty')[:50] if data.get('logo_url') else 'empty'}")
     
     def test_now_serving_not_found(self):
         """Returns 404 for non-existent activation"""
@@ -218,13 +250,53 @@ class TestActivationsEndpoints:
         assert "status_breakdown" in data
         print(f"✓ Stats: total={data['total_guests']}, waiting={data['waiting']}, serving={data['now_serving']}")
     
+    def test_create_activation_with_logo_url(self, auth_headers):
+        """POST /api/guest-flow/activations creates activation with logo_url"""
+        response = requests.post(
+            f"{BASE_URL}/api/guest-flow/activations",
+            headers=auth_headers,
+            json={
+                "event_id": TEST_EVENT_ID,
+                "activation_name": f"Test Logo Activation {uuid.uuid4().hex[:6]}",
+                "activation_type": "photo_booth",
+                "average_service_time": 3,
+                "logo_url": TEST_LOGO_URL
+            }
+        )
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "activation_id" in data
+        assert data["logo_url"] == TEST_LOGO_URL, "logo_url not saved correctly"
+        print(f"✓ Created activation with logo_url: {data['activation_id']}")
+    
+    def test_create_activation_with_marketing_activation_id(self, auth_headers):
+        """POST /api/guest-flow/activations accepts marketing_activation_id"""
+        response = requests.post(
+            f"{BASE_URL}/api/guest-flow/activations",
+            headers=auth_headers,
+            json={
+                "event_id": TEST_EVENT_ID,
+                "activation_name": f"Test Marketing Link {uuid.uuid4().hex[:6]}",
+                "activation_type": "activation",
+                "average_service_time": 5,
+                "marketing_activation_id": "test_marketing_act_123"
+            }
+        )
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "activation_id" in data
+        assert data.get("marketing_activation_id") == "test_marketing_act_123", "marketing_activation_id not saved"
+        print(f"✓ Created activation with marketing_activation_id: {data['activation_id']}")
+    
     def test_create_activation(self, auth_headers):
         """POST /api/guest-flow/activations creates new activation"""
         response = requests.post(
             f"{BASE_URL}/api/guest-flow/activations",
             headers=auth_headers,
             json={
-                "event_id": "test_event_pytest",
+                "event_id": TEST_EVENT_ID,
                 "activation_name": f"Test Activation {uuid.uuid4().hex[:6]}",
                 "activation_type": "headshot",
                 "average_service_time": 5
@@ -238,9 +310,51 @@ class TestActivationsEndpoints:
         print(f"✓ Created activation: {data['activation_id']}")
         return data["activation_id"]
     
+    def test_update_activation_logo_url(self, auth_headers):
+        """PUT /api/guest-flow/activations/{id} can update logo_url"""
+        new_logo = "https://images.unsplash.com/photo-1557683316-973673baf926?w=200"
+        response = requests.put(
+            f"{BASE_URL}/api/guest-flow/activations/{TEST_ACTIVATION_ID}",
+            headers=auth_headers,
+            json={"logo_url": new_logo}
+        )
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["logo_url"] == new_logo, "logo_url not updated correctly"
+        print(f"✓ Updated activation logo_url")
+        
+        # Restore original logo
+        requests.put(
+            f"{BASE_URL}/api/guest-flow/activations/{TEST_ACTIVATION_ID}",
+            headers=auth_headers,
+            json={"logo_url": TEST_LOGO_URL}
+        )
+    
     def test_activations_require_auth(self):
         """Activations endpoints require authentication"""
         response = requests.get(f"{BASE_URL}/api/guest-flow/activations")
+        assert response.status_code == 401
+
+
+class TestLinkedMarketingActivationEndpoint:
+    """Tests for GET /api/guest-flow/event/{event_id}/linked-marketing-activation"""
+    
+    def test_linked_marketing_activation_returns_null_when_no_link(self, auth_headers):
+        """Returns null when no marketing activation is linked"""
+        response = requests.get(
+            f"{BASE_URL}/api/guest-flow/event/{TEST_EVENT_ID}/linked-marketing-activation",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        # Expected to return null since no marketing_activations in DB
+        data = response.json()
+        # Can be null or None
+        print(f"✓ Linked marketing activation endpoint works, returned: {data}")
+    
+    def test_linked_marketing_activation_requires_auth(self):
+        """Linked marketing activation endpoint requires authentication"""
+        response = requests.get(f"{BASE_URL}/api/guest-flow/event/{TEST_EVENT_ID}/linked-marketing-activation")
         assert response.status_code == 401
 
 

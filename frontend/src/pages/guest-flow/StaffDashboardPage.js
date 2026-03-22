@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import {
   Loader2, Users, ArrowUp, ArrowDown, Phone, CheckCircle, XCircle, Play, Pause,
-  RotateCcw, ChevronRight, MessageCircle, Hash, Clock, MoreVertical, Copy, ExternalLink
+  RotateCcw, ChevronRight, MessageCircle, Hash, Clock, MoreVertical, Copy, ExternalLink, QrCode
 } from "lucide-react";
+import QRCode from "react-qr-code";
 
 import { API_BASE as API } from "../../utils/api";
 
@@ -43,6 +44,7 @@ export default function StaffDashboardPage() {
   const [whatsappDialog, setWhatsappDialog] = useState(null);
   const [noteDialog, setNoteDialog] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [qrDialog, setQrDialog] = useState(false);
   const intervalRef = useRef(null);
 
   const fetchAll = useCallback(async () => {
@@ -166,8 +168,11 @@ export default function StaffDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setQrDialog(true)} className="text-zinc-400 hover:text-white" data-testid="show-qr-btn">
+              <QrCode className="w-4 h-4 mr-1" /> QR
+            </Button>
             <Button variant="ghost" size="sm" onClick={copyQrLink} className="text-zinc-400 hover:text-white" data-testid="copy-qr-link-btn">
-              <Copy className="w-4 h-4 mr-1" /> QR Link
+              <Copy className="w-4 h-4 mr-1" /> Link
             </Button>
             <Button variant="ghost" size="sm" onClick={() => window.open(`/guest/now-serving/${activationId}`, "_blank")} className="text-zinc-400 hover:text-white" data-testid="open-display-btn">
               <ExternalLink className="w-4 h-4 mr-1" /> Display
@@ -360,6 +365,29 @@ export default function StaffDashboardPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoteDialog(null)} className="border-zinc-700 text-zinc-300">Cancelar</Button>
             <Button onClick={saveNote} className="bg-white text-black hover:bg-zinc-200" data-testid="save-note-btn">Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialog} onOpenChange={setQrDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center">{activation?.activation_name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4" data-testid="qr-code-display">
+            {activation?.logo_url && <img src={activation.logo_url} alt="Logo" className="h-12 object-contain" />}
+            <div className="bg-white p-4 rounded-2xl">
+              <QRCode value={`${window.location.origin}/guest/join/${activationId}`} size={220} level="H" />
+            </div>
+            <p className="text-xs text-zinc-500 text-center break-all px-4">
+              {`${window.location.origin}/guest/join/${activationId}`}
+            </p>
+          </div>
+          <DialogFooter className="flex-col sm:flex-col gap-2">
+            <Button onClick={copyQrLink} className="w-full bg-white text-black hover:bg-zinc-200" data-testid="qr-copy-btn">
+              <Copy className="w-4 h-4 mr-1" /> Copiar Enlace
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -20,7 +20,7 @@ export default function GuestJoinPage() {
     fetch(`${API}/api/guest-flow/public/activation/${activationId}`)
       .then(r => r.json())
       .then(data => { setActivation(data); setLoading(false); })
-      .catch(() => { setError("No se encontró la activación"); setLoading(false); });
+      .catch(() => { setError("No se encontro la activacion"); setLoading(false); });
   }, [activationId]);
 
   const handleSubmit = async (e) => {
@@ -38,10 +38,12 @@ export default function GuestJoinPage() {
       if (!res.ok) { setError(data.detail || "Error al unirse"); setSubmitting(false); return; }
       setResult(data);
     } catch {
-      setError("Error de conexión");
+      setError("Error de conexion");
     }
     setSubmitting(false);
   };
+
+  const logoUrl = activation?.logo_url;
 
   if (loading) {
     return (
@@ -56,6 +58,7 @@ export default function GuestJoinPage() {
     return (
       <div className="min-h-screen bg-zinc-950 text-white flex flex-col" data-testid="guest-join-confirmation">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+          {logoUrl && <img src={logoUrl} alt="Logo" className="h-14 object-contain mb-6" data-testid="event-logo" />}
           <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
             <CheckCircle className="w-8 h-8 text-emerald-400" />
           </div>
@@ -65,7 +68,7 @@ export default function GuestJoinPage() {
           <div className="w-full max-w-sm space-y-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-3">
               <div className="flex justify-between">
-                <span className="text-zinc-500 text-sm">Posición</span>
+                <span className="text-zinc-500 text-sm">Posicion</span>
                 <span className="font-semibold">{result.position || 1}</span>
               </div>
               <div className="flex justify-between">
@@ -91,6 +94,9 @@ export default function GuestJoinPage() {
             Puedes seguir disfrutando del evento mientras esperas.
           </p>
         </div>
+        <div className="text-center py-4">
+          <p className="text-zinc-700 text-[10px] tracking-wide">POWERED BY KORA OS</p>
+        </div>
       </div>
     );
   }
@@ -102,13 +108,17 @@ export default function GuestJoinPage() {
         <div className="w-full max-w-sm">
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-              <Users className="w-6 h-6 text-zinc-300" />
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-16 object-contain mx-auto mb-5" data-testid="event-logo" />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto mb-4">
+                <Users className="w-6 h-6 text-zinc-300" />
+              </div>
+            )}
             <h1 className="text-2xl font-bold tracking-tight mb-1">
-              {activation?.activation_name || "Activación"}
+              {activation?.activation_name || "Activacion"}
             </h1>
-            <p className="text-zinc-500 text-sm">Únete a la cola virtual</p>
+            <p className="text-zinc-500 text-sm">Unete a la cola virtual</p>
             {activation?.total_in_queue > 0 && (
               <p className="text-zinc-400 text-xs mt-2">
                 {activation.total_in_queue} {activation.total_in_queue === 1 ? "persona" : "personas"} en espera
@@ -119,9 +129,9 @@ export default function GuestJoinPage() {
           {activation?.queue_status !== "active" ? (
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center">
               <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-              <p className="text-zinc-300 font-medium">La cola no está activa</p>
+              <p className="text-zinc-300 font-medium">La cola no esta activa</p>
               <p className="text-zinc-500 text-sm mt-1">
-                {activation?.queue_status === "paused" ? "La cola está pausada. Intenta más tarde." : "Esta activación aún no ha iniciado."}
+                {activation?.queue_status === "paused" ? "La cola esta pausada. Intenta mas tarde." : "Esta activacion aun no ha iniciado."}
               </p>
             </div>
           ) : (
@@ -150,7 +160,7 @@ export default function GuestJoinPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400 text-sm">Tamaño del grupo (opcional)</Label>
+                <Label className="text-zinc-400 text-sm">Tamano del grupo (opcional)</Label>
                 <Input
                   type="number" min={1} max={20}
                   value={form.group_size}

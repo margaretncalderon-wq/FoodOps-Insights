@@ -61,11 +61,15 @@ export default function GuestStatusPage() {
   const StatusIcon = cfg.icon;
   const isActive = ["waiting", "almost_up"].includes(data.status);
   const isServing = data.status === "now_serving";
+  const logoUrl = data.logo_url;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col" data-testid="guest-status-page">
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm space-y-6">
+          {/* Logo */}
+          {logoUrl && <img src={logoUrl} alt="Logo" className="h-14 object-contain mx-auto" data-testid="event-logo" />}
+
           {/* Queue Number */}
           <div className="text-center">
             <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Tu numero</p>
