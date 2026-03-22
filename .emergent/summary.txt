@@ -1,157 +1,141 @@
 <analysis>**original_problem_statement:**
-The user's primary goal for this session was to resolve a series of bugs and implement several new features within the Demand Studio module of their Kora OS application. The initial handoff summary detailed a large body of previously completed work, and this session built directly on that foundation.
+The user has requested to build a new, full-stack feature called Guest Flow within the existing Kora OS event project structure. This feature is intended to be a live operational tool for managing guest movement and virtual queues for on-site event activations (e.g., photo booths, headshot stations).
 
-Key requests addressed in this session were:
-1.  **P0 Task:** Add a Deal Code input to the user registration page.
-2.  **P2 Tasks:** Enhance Business Clarity reports with department-level filtering and create a data migration script to populate department data for existing employees.
-3.  **Demand Studio Bugs & Features:**
-    *   Fix the conversion of Ideas to Posts so that the source URL is preserved and the new post moves to the correct status queue.
-    *   Grant Social Contributor roles full CRUD permissions and fix calendar visibility for shared organizations.
-    *   Make the activity log visible to contributors viewing a shared organization's dashboard.
-    *   Fix a recurring bug where saving or deleting items in the Settings tab failed to close the dialog or refresh the UI, especially for contributor roles.
-    *   Address an issue where Content Pillars were not displaying correctly, and enrich them with new fields (, , tags, weight) and a more visual card-based design.
-    *   Fix a bug preventing posts created directly (not from an idea) from appearing on the calendar.
-    *   Add a monthly mini-report to the calendar view, summarizing post counts by content pillar.
-    *   Completely overhaul the Ideas section to allow ideas to be enriched with pillars, segments, and audiences, and to be filtered/grouped by these attributes.
-    *   Ensure that when an idea is converted to a post, its associated pillar, segment, and audience are transferred to the new post.
-    *   Fix a critical date-related bug where posts scheduled for the 31st day of a month were not appearing on the calendar.
+The core goal is to allow guests to scan a QR code, join a digital queue with their name and WhatsApp number, and see their live status on their phone. Event staff will use a tablet-friendly dashboard to manage the queue and notify guests via a click-to-chat WhatsApp button.
+
+**PRODUCT REQUIREMENTS:**
+
+1.  **Guest Flow Section:** A new operational block within  to display activation status, QR link, queue stats, and quick actions.
+2.  **Guest Join Experience:** A public, mobile-first page for guests to join the queue. It must handle Dominican Republic WhatsApp numbers and prevent duplicate entries.
+3.  **Personal Queue Status Page:** A unique, auto-refreshing page for each guest to track their position in the queue.
+4.  **Staff Queue Dashboard:** A secure, tablet-friendly interface for staff to manage the queue, reorder guests, and trigger actions like Call Next or Complete.
+5.  **WhatsApp Click-to-Chat:** A button to open a pre-filled WhatsApp message to notify guests (not a full API integration at this stage).
+6.  **Live Now Serving Screen:** A public-facing display to show the current and upcoming queue numbers.
+7.  **Data Model:** Implementation of new database collections for , , and .
+8.  **UI/UX:** A premium, minimal, and clean interface matching the existing Kora OS style, with Spanish labels for the staff-facing UI.
+9.  **Integration:** The feature must feel like a native part of the existing  tab.
+10. **Permissions:** The system should be role-aware (Admin, Event Lead, Queue Manager, Viewer).
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-The application is a full-stack ERP built with React, FastAPI, and MongoDB. This session focused almost exclusively on the Demand Studio module, delivering significant enhancements and stability improvements.
-
--   **Membership-Aware Architecture Solidified:** Nearly all permission and data visibility bugs were traced back to endpoints not respecting the shared organization context (). A massive effort was completed to make all relevant endpoints in Demand Studio (settings, activity logs, calendar, posts, ideas) membership-aware, which has stabilized the collaborative features of the application.
--   **Enriched Content Strategy Features:** The Content Pillars and Ideas sections have been transformed from simple lists into rich, filterable, and more strategic tools. Pillars now contain descriptive fields and weights, and Ideas can be categorized with the same metadata as full posts, allowing for better planning.
--   **Robust UI Refresh Logic:** A persistent bug where the UI failed to update after mutations (save/delete) was resolved by enforcing a strict pattern:  is now called in all relevant handlers, ensuring the UI always re-fetches data for the currently selected organization.
--   **Calendar Enhancements:** The social media calendar is now more comprehensive. It includes a new monthly mini-report by pillar and correctly displays all posts, including those newly created without a specific schedule date and those scheduled on the last day of the month.
--   **Completed Foundational Tasks:** The requested Deal Code feature for onboarding and the By Department business report have been fully implemented.
+The project is a full-stack Kora OS ERP application with React, FastAPI, and MongoDB. The agent has just begun scaffolding the new Guest Flow feature. The initial backend router and one of the guest-facing frontend pages have been created, but no logic has been implemented yet.
 
 **Last working item**:
--   **Last item agent was working**: The agent addressed two user requests concurrently:
-    1.  **Bug Fix (Calendar):** A bug preventing posts on the 31st of the month from appearing on the calendar. The agent identified and corrected an off-by-one error in the  calculation in .
-    2.  **Feature (Idea Conversion):** A feature to automatically transfer , , and  from an Idea to a Post during conversion. The agent modified the backend endpoint  to include this logic.
--   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: Y
--   **Which testing method agent to use?**: both. First, ask the user to verify the fixes. If issues persist, the testing agent should be used to (1) create a post on March 31st and confirm it appears on the calendar, and (2) convert an idea with a pillar, segment, and audience, then verify the new post contains that data.
+-   **Last item agent was working**: The agent was in the initial scaffolding phase for the new Guest Flow feature. They successfully created the backend router file  and the first frontend page . The work has just begun.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: both. This is a large, multi-faceted feature. Once a significant portion is implemented, the agent should use the  to perform comprehensive end-to-end tests covering both the backend API and the various frontend user flows (guest join, staff dashboard, etc.).
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Calendar Date & Idea Conversion Fixes (P0)**
-    -   **Description**: The user reported that posts scheduled on the 31st of a month don't appear on the calendar, and that metadata (pillar, segment, audience) is not transferred when an idea is converted to a post.
-    -   **Attempted fixes**:
-        1.  **Calendar:** The agent corrected the  calculation logic in  to correctly include the last day of the month.
-        2.  **Idea Conversion:** The agent updated the backend endpoint  in  to copy the required IDs from the source idea to the new post.
-    -   **Next debug checklist**:
-        1.  Confirm with the user that both fixes are working as expected.
-        2.  If the calendar bug is not fixed, check the browser's Network tab to inspect the  and  parameters being sent to the  endpoint.
-        3.  If idea conversion is still failing, inspect the database record for the newly created post to identify which fields were not transferred.
-    -   **Status**: USER VERIFICATION PENDING
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on other issue**: None
+-   None.
 
 **In progress Task List**:
--   None.
+-   **Task 1: Build Guest Flow Feature (P0)**
+    -   **Description**: Implement the full-stack Guest Flow virtual queue management system as per the detailed user requirements.
+    -   **Where to resume**: The basic file structure has been initiated. The next step is to create the remaining frontend page/component files as planned (, , , ). After scaffolding the frontend files, the agent should proceed to implement the backend logic in , including data models and all necessary API endpoints.
+    -   **What will be achieved with this?**: A complete, integrated virtual queue management system for live events, accessible from the  module.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on something**: None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **P1:** Clarify and potentially implement drag and drop functionality. The user asked ya tenemos drag and drop, implying a desire for this feature, likely for reordering ideas or rescheduling posts on the calendar. This needs to be discussed with the user.
+    -   **P0 - Phase 1: Backend Implementation:**
+        -   Define Pydantic models for , , and .
+        -   Implement all required API endpoints in  for CRUD operations on activations, managing queue entries (join, update status, reorder), and fetching data for the dashboards.
+    -   **P0 - Phase 2: Frontend Implementation:**
+        -   Build the UI for all created pages: , , , and .
+        -   Build the  component to be embedded in the .
+    -   **P0 - Phase 3: Integration and Logic:**
+        -   Integrate the  into .
+        -   Implement routing for the new public and private pages in .
+        -   Add frontend logic to interact with the new backend endpoints for all user flows.
 -   **Future Tasks**:
-    -   Integrate Staffdo.com API for recruitment.
-    -   Integrate Social Media APIs (Meta, TikTok).
-    -   Integrate an Email Marketing Provider (e.g., Mailchimp/Brevo).
-    -   Implement full UTM tracking.
-    -   Kora Comms - Phase 1 (WhatsApp integration).
-    -   Complete internationalization (i18n) of the application.
-    -   Expand the initial setup wizard beyond finance.
+    -   Refactor .
+    -   Integrate Staffdo.com, Meta, and TikTok APIs.
+    -   Integrate an Email Marketing Provider.
+    -   Implement full UTM tracking and Kora Comms (WhatsApp).
+    -   Complete application-wide internationalization (i18n).
 
 **Completed work in this session**
--   **Feature (Onboarding):** Added a Deal Code input to the registration page.
--   **Feature (Reporting):** Implemented a By Department report in Business Clarity.
--   **Feature (Data Migration):** Created an endpoint to backfill  for employees.
--   **Feature (Demand Studio):** Fully enriched the Content Pillars system with new fields and a new UI.
--   **Feature (Demand Studio):** Overhauled the Ideas tab with filtering, grouping, and enriched data fields.
--   **Feature (Demand Studio):** Added a monthly mini-report by pillar to the social media calendar.
--   **Bug Fix (Critical - Permissions):** Fixed all CRUD and data-fetching operations in Demand Studio's Settings and Activity Log to be membership-aware, resolving all reported issues for contributor roles.
--   **Bug Fix (Critical - UI/UX):** Resolved a bug preventing dialogs from closing and the UI from refreshing after save/delete actions in the settings tab.
--   **Bug Fix (Demand Studio):** Fixed the idea-to-post conversion flow.
--   **Bug Fix (Demand Studio):** Fixed calendar visibility for newly created posts.
--   **Bug Fix (Demand Studio):** Corrected a date calculation bug that hid posts on the 31st of the month.
--   **Feature (Demand Studio):** Implemented the transfer of metadata (pillar, etc.) from an idea to a post upon conversion.
+-   **Feature: Guest Flow Scaffolding**:
+    -   Created and registered the backend router: .
+    -   Created the initial frontend page: .
+-   **Bug Fix: Presence Filtering**: Fixed the  endpoint to correctly filter online users by their current organization ().
+-   **Bug Fix: Data Isolation in Demand Studio**: Resolved a critical bug across multiple Demand Studio endpoints (, , etc.) that incorrectly showed data from all shared organizations instead of just the selected one.
+-   **Bug Fix: User's Own Organization Not Appearing**: Implemented a fallback in  to auto-create a personal company for a user if they don't have one, fixing an issue where some users couldn't see their own workspace.
+-   **Feature: Super Admin Enhancements**: Added functionality for Super Admins to create organizations, assign users to them, and view organization names instead of IDs in the user management panel.
+-   **Feature: Notification Enhancements**: Implemented deep linking for mention notifications (navigating directly to the post) and added comment/notification count badges to posts in all relevant views.
+-   **Feature: Real-time Presence System**: Built a polling-based presence system showing online users in the global sidebar and indicating who is actively editing a post with live collaboration avatars.
 
 **Earlier issues found/mentioned but not fixed**
--   None. All issues raised during this session were addressed.
+-   None.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: Unstable user sessions.
--   **Recurrence count**: 0 in this session.
--   **Status**: RESOLVED.
+-   None.
 
 **Code Architecture**
-deal_codedeal_codeorg_idorg_iddeal_code
+
 
 **Key Technical Concepts**
--   **Mandatory Membership-Awareness:** The core architectural lesson from this session is that any endpoint dealing with shared data **must** be membership-aware. The pattern involves accepting an , using a helper to determine the effective company ID for the query, and applying it to all database operations. This was the fix for nearly every permission and visibility bug.
--   **Resilient Asynchronous Data Fetching:** A pattern was established to make data loading more robust. Instead of a single  that fails completely if one request fails, each promise within the  now has its own  handler. This ensures that the UI can still render partial data even if one of the API calls fails.
--   **Correct State Refresh:** A persistent UI refresh bug was fixed by enforcing that all data mutation handlers (save, delete, update) must call . Passing the correct organization ID ensures the UI re-fetches and displays data for the context the user is actually viewing.
+-   Full-stack feature development using React, FastAPI, and MongoDB.
+-   Integration of a new module into an existing, complex component ().
+-   Creation of both public (non-authenticated) and private (authenticated) routes and pages.
+-   API design for real-time queue management.
 
 **key DB schema**
--   **users**: Added .
--   **companies**: Added .
--   **content_pillars**: Added , , , .
--   **content_ideas**: Added , , .
+-   **activations**: (To be created) Will store details like , , , .
+-   **queue_entries**: (To be created) Will store guest information like , , , and .
+-   **queue_activity_log**: (To be created) Will log all actions performed on the queue.
 
 **All files of reference**
--   : The monolithic component containing almost all frontend changes for this session.
--   : The backend router with all corresponding API fixes and new endpoints for Demand Studio.
--    & : Files for the Deal Code feature.
--    & : Files for the By Department report feature.
+-    (New file for backend logic)
+-    (New file for the guest join UI)
+-    (Existing file where the feature will be integrated)
+-    (Modified to include the new router)
 
 **Areas that need refactoring**:
--    has grown to over 5000 lines and manages state for at least five distinct functional areas (posts, ideas, calendar, settings, reporting). It is now extremely difficult to maintain. It is **critical** that future work in this file begins by refactoring the relevant section into its own smaller components and custom hooks (e.g., , ) to isolate state and logic.
+-   The  file is still over 3600 lines long and remains a significant piece of technical debt that should be addressed in the future.
 
 **key api endpoints**
--   : (New) Triggers a data migration to assign departments to employees.
--   : (New) Fetches data for the By Department report.
--   : (New) Fetches monthly post counts grouped by pillar for the calendar mini-report.
--   **All CRUD endpoints** in  for settings (accounts, pillars, audiences, segments) were **MODIFIED** to accept  and be fully membership-aware.
--    was **MODIFIED** to transfer pillar, segment, and audience data to the new post.
+-   The agent is starting to build the structure for a new set of endpoints under the  prefix, which will handle all logic for activations and queue management.
 
 **Critical Info for New Agent**
--   **¡DEBES RESPONDER EN ESPAÑOL!** All user communication must be in Spanish.
--   **Verification First**: Your first action is to confirm with the user if the last two fixes are working: (1) posts appearing on the 31st of the month, and (2) metadata being transferred when an idea is converted to a post.
--   **Tackle the Monolith**: The  file is unmaintainably large. Before adding any new features to Demand Studio, you should plan to refactor the relevant part of this component. Propose this to the user as a necessary step for stability and future development.
--   **Clarify Drag and Drop**: The user made a comment ya tenemos drag and drop (do we have drag and drop). You need to ask what they envision for this feature. It is likely a request to be able to reorder ideas or reschedule posts on the calendar. This should be clarified, planned, and prioritized.
+-   **¡DEBES RESPONDER EN ESPAÑOL!** All communication with the user must be in Spanish.
+-   You are in the very early stages of building a large new feature, Guest Flow. The initial files have been created, but the core logic and remaining UI are yet to be built.
+-   Follow the user's detailed product requirements and the plan you presented. The immediate next step is to create the remaining placeholder files for the frontend (, , , ) before moving on to implementing the backend endpoints.
+-   This feature requires public-facing, unauthenticated pages. Ensure routing and security are handled correctly to distinguish between the public guest flow and the private staff dashboard.
 
 **documents and test reports created in this job**
--    through 
+-    to 
 -    (updated multiple times)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Asked if drag and drop exists, then requested that Ideas be organized with the same fields as Posts (pillar, segment, etc.) and be groupable. **Status: RESOLVED**.
-2.  **User**: Confirmed the plan for Ideas, and reported a new bug: posts on March 31st don't appear on the calendar. **Status: RESOLVED (by agent, pending user verification)**.
-3.  **User**: Reported 3 issues: problems deleting/adding pillars, wanted a mini-report by pillar on the calendar, and posts created directly weren't showing on the calendar. **Status: RESOLVED**.
-4.  **User**: Reported that content pillars were still not showing up and requested to enrich them with new fields ('what is it?', 'why does it matter?', tags). **Status: RESOLVED**.
-5.  **User**: Reported that the save dialog in social media settings doesn't close and data doesn't refresh without a page reload. **Status: RESOLVED**.
-6.  **User**: Clarified that the activity log they want to see is the one that already exists. **Status: N/A**.
-7.  **User**: Requested that the existing activity log be made visible. **Status: RESOLVED**.
-8.  **User**: Reported that social contributor accounts couldn't see calendar posts or change statuses and asked for full access. **Status: RESOLVED**.
-9.  **User**: Reported that the source URL from an idea wasn't visible on the post and that converting an idea didn't move it to the correct queue. **Status: RESOLVED**.
-10. **User**: Instructed the agent to complete the P0 task (termina p0). **Status: RESOLVED**.
+1.  **User**: Approved the plan to build the Guest Flow feature. **Status: In Progress**.
+2.  **User**: Provided a detailed Product Requirement Document for the new Guest Flow feature. **Status: Acknowledged**.
+3.  **User**: Reported a bug where online presence status was not being filtered by organization. **Status: RESOLVED**.
+4.  **User**: Approved the  summary for the Demand Studio data isolation fix. **Status: N/A**.
+5.  **User**: Reported a critical data isolation bug in Demand Studio where they were seeing posts from all shared organizations even when viewing their own. **Status: RESOLVED**.
+6.  **User**: Approved the  summary for the real-time presence system. **Status: N/A**.
+7.  **User**: Provided choices for implementing the real-time presence feature, selecting polling. **Status: RESOLVED**.
+8.  **User**: Confirmed their desire for a real-time presence feature to see who is editing online. **Status: RESOLVED**.
+9.  **User**: Reported issues with notifications: no deep linking to comments and a request for notification badges on posts. **Status: RESOLVED**.
+10. **User**: Approved the  summary for Super Admin enhancements. **Status: N/A**.
 
 **Project Health Check:**
--   **Broken**: None known. The last implemented fixes are pending user verification.
--   **Mocked**: Social media metrics (likes, shares, etc.) are still not connected to live APIs.
+-   **Broken**: None.
+-   **Mocked**: Social media metrics in Demand Studio are still using placeholder data.
 
 **3rd Party Integrations**
 -   **Active**: YouTube Data API, Emergent LLM Key, Zapier / Make.
 -   **Planned**: Staffdo.com, Meta (Instagram), TikTok, Email Marketing Provider (e.g., Mailchimp/Brevo).
 
 **Testing status**
--   **Testing agent used after significant changes**: YES, extensively after each feature completion.
+-   **Testing agent used after significant changes**: YES, used for all major bug fixes in this session.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: 11 new test reports created in .
+-   **Test files created**:  through .
 -   **Known regressions**: None.
 
 **Credentials to test flow:**
@@ -163,4 +147,4 @@ deal_codedeal_codeorg_idorg_iddeal_code
     -   **Password:** 
 
 **What agent forgot to execute**
--   Nothing. The agent successfully addressed all user requests and bug reports from this session. The only open point is to proactively clarify the user's drag and drop comment to define the next feature.</analysis>
+-   Nothing has been forgotten. The agent is currently at the beginning of a new, large feature request.</analysis>

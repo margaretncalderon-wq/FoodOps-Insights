@@ -8,7 +8,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://content-pillars-beta.preview.emergentagent.com"
+    BASE_URL = "https://virtual-queue-8.preview.emergentagent.com"
 
 # Test credentials
 AGENCY_USER = {

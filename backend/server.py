@@ -18156,6 +18156,11 @@ api_router.include_router(comments_router)  # /api/comments/*
 from routers.presence import presence_router
 api_router.include_router(presence_router)  # /api/presence/*
 
+# Include Guest Flow router
+from routers.guest_flow import guest_flow_router
+api_router.include_router(guest_flow_router)  # /api/guest-flow/*
+
+
 
 # General file upload endpoint
 @api_router.post("/upload")
