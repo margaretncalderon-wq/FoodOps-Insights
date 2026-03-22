@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import GuestFlowSection from "./GuestFlowSection";
 
 const PHASE_STATUSES = [
   { value: "pending", label: "Pending", labelEs: "Pendiente", color: "bg-gray-100 text-gray-700" },
@@ -371,6 +372,9 @@ export default function OperationalFlowTab({ eventId }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Guest Flow Section */}
+      <GuestFlowSection eventId={eventId} language={language} />
 
       {/* Save Button */}
       <div className="flex justify-end">
