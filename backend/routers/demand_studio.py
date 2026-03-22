@@ -2817,20 +2817,9 @@ async def get_social_posts(
     if not company_id:
         return []
     
-    # Build list of company_ids the user can see
-    visible_company_ids = [company_id]
-    if not org_id:
-        # Also include companies where user is an active member
-        user_memberships = await db.memberships.find({
-            "user_id": user.user_id,
-            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-        }).to_list(50)
-        for m in user_memberships:
-            mid = m.get("company_id") or m.get("organization_id")
-            if mid and mid not in visible_company_ids:
-                visible_company_ids.append(mid)
-    
-    query = {"company_id": {"$in": visible_company_ids}} if len(visible_company_ids) > 1 else {"company_id": company_id}
+    # When org_id is specified, only query that specific org
+    # When viewing own org (no org_id), only query own company
+    query = {"company_id": company_id}
     if account_id:
         query["social_account_id"] = account_id
     if campaign_id:
@@ -3437,26 +3426,13 @@ async def get_social_stats(
             "pendingIdeas": 0
         }
     
-    # Build list of visible company_ids
-    visible_company_ids = [company_id]
-    if not org_id:
-        user_memberships = await db.memberships.find({
-            "user_id": user.user_id,
-            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-        }).to_list(50)
-        for m in user_memberships:
-            mid = m.get("company_id") or m.get("organization_id")
-            if mid and mid not in visible_company_ids:
-                visible_company_ids.append(mid)
-    
-    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else company_id
-    
+    # Only query the target company (own or specified org)
     now = datetime.now(timezone.utc)
     week_from_now = (now + timedelta(days=7)).isoformat()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
     
     # Base query
-    base_query = {"company_id": company_filter}
+    base_query = {"company_id": company_id}
     if account_id:
         base_query["social_account_id"] = account_id
     
@@ -3473,7 +3449,7 @@ async def get_social_stats(
         active_accounts = 1
     else:
         active_accounts = await db.social_accounts.count_documents({
-            "company_id": company_filter,
+            "company_id": company_id,
             "status": "active"
         })
     
@@ -3482,7 +3458,7 @@ async def get_social_stats(
     campaign_linked = await db.social_posts.count_documents(campaign_query)
     
     # Pending ideas
-    ideas_query = {"company_id": company_filter}
+    ideas_query = {"company_id": company_id}
     if account_id:
         ideas_query["account_id"] = account_id
     pending_ideas = await db.social_ideas.count_documents({
@@ -3513,20 +3489,8 @@ async def get_social_insights(
     if not company_id:
         return {"byFormat": [], "byPillar": [], "byStatus": [], "byAudience": [], "bySubAudience": []}
     
-    # Build list of visible company_ids
-    visible_company_ids = [company_id]
-    if not org_id:
-        user_memberships = await db.memberships.find({
-            "user_id": user.user_id,
-            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-        }).to_list(50)
-        for m in user_memberships:
-            mid = m.get("company_id") or m.get("organization_id")
-            if mid and mid not in visible_company_ids:
-                visible_company_ids.append(mid)
-    
-    # Base match condition
-    base_match = {"company_id": {"$in": visible_company_ids}} if len(visible_company_ids) > 1 else {"company_id": company_id}
+    # Only query the target company (own or specified org)
+    base_match = {"company_id": company_id}
     if account_id:
         base_match["social_account_id"] = account_id
     
@@ -3645,22 +3609,9 @@ async def get_social_calendar(
     if not target_company_id:
         return []
     
-    # Build list of visible company_ids
-    visible_company_ids = [target_company_id]
-    if not org_id:
-        user_memberships = await db.memberships.find({
-            "user_id": user.user_id,
-            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-        }).to_list(50)
-        for m in user_memberships:
-            mid = m.get("company_id") or m.get("organization_id")
-            if mid and mid not in visible_company_ids:
-                visible_company_ids.append(mid)
-    
-    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else target_company_id
-    
+    # Only query the target company (own or specified org)
     query = {
-        "company_id": company_filter,
+        "company_id": target_company_id,
         "status": {"$nin": ["archived"]},
         "$or": [
             {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
@@ -3789,21 +3740,8 @@ async def get_content_ideas(
     if not company_id:
         return []
     
-    # Build list of visible company_ids
-    visible_company_ids = [company_id]
-    if not org_id:
-        user_memberships = await db.memberships.find({
-            "user_id": user.user_id,
-            "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-        }).to_list(50)
-        for m in user_memberships:
-            mid = m.get("company_id") or m.get("organization_id")
-            if mid and mid not in visible_company_ids:
-                visible_company_ids.append(mid)
-    
-    company_filter = {"$in": visible_company_ids} if len(visible_company_ids) > 1 else company_id
-    
-    query = {"company_id": company_filter}
+    # Only query the target company (own or specified org)
+    query = {"company_id": company_id}
     if status:
         query["status"] = status
     if pillar_id:

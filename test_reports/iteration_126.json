@@ -1,0 +1,101 @@
+{
+  "summary": "Tested and fixed data isolation bug in Demand Studio Social Media endpoints. The bug caused posts from ALL shared organizations to show when viewing own account. Fixed by removing membership aggregation that merged all company IDs. Also found and fixed a secondary bug: 'company_filter' was undefined in get_social_stats endpoint (should be 'company_id'). All 13 tests now pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_data_isolation_fix.py",
+    "/app/test_reports/pytest/pytest_data_isolation_fix.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/routers/demand_studio.py",
+    "/app/backend/tests/test_data_isolation_fix.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Data isolation fix verified working. Key changes: 1) All 5 endpoints (posts, calendar, stats, insights, ideas) now use simple {'company_id': company_id} queries instead of aggregating all company IDs from memberships. 2) Fixed secondary bug in get_social_stats where 'company_filter' was undefined (changed to 'company_id' on lines 3452 and 3461). User's own company_id is 'company_3ab116c0994d'. Shared org tested was 'company_cfab77cb94c1'.",
+  "tested_features": {
+    "data_isolation_posts": {
+      "endpoint": "GET /api/demand-studio/social/posts",
+      "status": "PASS",
+      "tests": [
+        "without_org_id_returns_only_own_company",
+        "with_org_id_returns_only_that_org",
+        "no_cross_contamination"
+      ],
+      "verification": "All 6 posts returned have company_id='company_3ab116c0994d' (user's own company)"
+    },
+    "data_isolation_calendar": {
+      "endpoint": "GET /api/demand-studio/social/calendar",
+      "status": "PASS",
+      "tests": [
+        "without_org_id_returns_only_own_company",
+        "with_org_id_returns_only_that_org"
+      ]
+    },
+    "data_isolation_stats": {
+      "endpoint": "GET /api/demand-studio/social/stats",
+      "status": "PASS (after fix)",
+      "bug_found": "company_filter was undefined, changed to company_id",
+      "tests": [
+        "without_org_id_returns_only_own_company",
+        "with_org_id_returns_only_that_org"
+      ]
+    },
+    "data_isolation_ideas": {
+      "endpoint": "GET /api/demand-studio/social/ideas",
+      "status": "PASS",
+      "tests": [
+        "without_org_id_returns_only_own_company",
+        "with_org_id_returns_only_that_org"
+      ],
+      "verification": "1 idea returned has company_id='company_3ab116c0994d' (user's own company)"
+    },
+    "data_isolation_insights": {
+      "endpoint": "GET /api/demand-studio/social/insights",
+      "status": "PASS",
+      "verification": "Returns stats only for user's own company"
+    }
+  },
+  "api_verification": {
+    "GET /api/demand-studio/social/posts": "200 OK - Returns only posts from user's own company (6 posts, all company_3ab116c0994d)",
+    "GET /api/demand-studio/social/posts?org_id=company_cfab77cb94c1": "200 OK - Returns only posts from specified org (or 403 if no access)",
+    "GET /api/demand-studio/social/calendar": "200 OK - Returns only calendar events from user's own company",
+    "GET /api/demand-studio/social/stats": "200 OK - Returns stats only for user's own company (was 500 before fix)",
+    "GET /api/demand-studio/social/ideas": "200 OK - Returns only ideas from user's own company (1 idea)",
+    "GET /api/demand-studio/social/insights": "200 OK - Returns insights only for user's own company"
+  },
+  "bug_fix_applied": {
+    "file": "/app/backend/routers/demand_studio.py",
+    "function": "get_social_stats",
+    "line_numbers": [3452, 3461],
+    "issue": "Used undefined variable 'company_filter' instead of 'company_id'",
+    "fix": "Changed 'company_filter' to 'company_id' in two places"
+  },
+  "rca_of_the_issue": {
+    "root_cause": "The get_social_stats endpoint had a typo where 'company_filter' was used instead of 'company_id'. This was likely a leftover from a previous refactoring where the variable name was changed but not all references were updated.",
+    "reproduction_steps": [
+      "1. Login as demo.agency@kora.com",
+      "2. Call GET /api/demand-studio/social/stats",
+      "3. Observe 500 Internal Server Error",
+      "4. Check backend logs: NameError: name 'company_filter' is not defined"
+    ],
+    "mitigation": "Changed 'company_filter' to 'company_id' on lines 3452 and 3461 in demand_studio.py"
+  }
+}
