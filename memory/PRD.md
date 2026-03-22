@@ -281,15 +281,18 @@ Build a comprehensive ERP application called Kora OS with modules for:
 #### Completed
 1. **Feature - Guest Flow: Virtual Queue Management System (P0)**:
    - Full-stack feature for managing guest queues at live event activations (photo booths, headshots, etc.)
-   - Backend: Complete router `/api/guest-flow/` with 14 endpoints (activations CRUD, queue management, public guest endpoints, WhatsApp click-to-chat, stats, activity log)
+   - Backend: Complete router `/api/guest-flow/` with 15 endpoints (activations CRUD, queue management, public guest endpoints, WhatsApp click-to-chat, stats, activity log, linked marketing activation)
    - Frontend: 4 new pages - GuestJoinPage (public form), GuestStatusPage (auto-refresh status), StaffDashboardPage (tablet-friendly queue management), NowServingPage (display screen)
    - GuestFlowSection component integrated into OperationalFlowTab for event-level activation management
+   - **QR Code visual**: react-qr-code generates scannable QR codes in dialogs (GuestFlowSection + StaffDashboard)
+   - **Event Logo**: logo_url field on activations, displayed on all public pages (GuestJoinPage, GuestStatusPage, NowServingPage)
+   - **Demand Studio link**: New endpoint `/api/guest-flow/event/{id}/linked-marketing-activation` connects Guest Flow with existing marketing activations
    - DR WhatsApp number normalization (809/829/849 area codes)
    - Duplicate entry prevention via normalized WhatsApp number
    - Queue actions: activate, pause, resume, close, reset, call-next, move up/down, cancel, re-add
    - DB collections: gf_activations, gf_queue_entries, gf_activity_log
    - Routes: /guest/join/:id (public), /guest/status/:id (public), /guest/now-serving/:id (public), /guest/staff/:id (protected)
-   - Testing: 26/26 backend, 100% frontend (all 4 pages verified)
+   - Testing: 34 backend tests + 100% frontend verified (iterations 127-128)
 
 ## Known Issues
 
