@@ -276,6 +276,21 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - New endpoint: GET /api/comments/counts/by-entities (aggregates comment + unread notification counts)
    - Testing: 10/10 backend, 100% frontend verified
 
+### Session: March 22, 2026
+
+#### Completed
+1. **Feature - Guest Flow: Virtual Queue Management System (P0)**:
+   - Full-stack feature for managing guest queues at live event activations (photo booths, headshots, etc.)
+   - Backend: Complete router `/api/guest-flow/` with 14 endpoints (activations CRUD, queue management, public guest endpoints, WhatsApp click-to-chat, stats, activity log)
+   - Frontend: 4 new pages - GuestJoinPage (public form), GuestStatusPage (auto-refresh status), StaffDashboardPage (tablet-friendly queue management), NowServingPage (display screen)
+   - GuestFlowSection component integrated into OperationalFlowTab for event-level activation management
+   - DR WhatsApp number normalization (809/829/849 area codes)
+   - Duplicate entry prevention via normalized WhatsApp number
+   - Queue actions: activate, pause, resume, close, reset, call-next, move up/down, cancel, re-add
+   - DB collections: gf_activations, gf_queue_entries, gf_activity_log
+   - Routes: /guest/join/:id (public), /guest/status/:id (public), /guest/now-serving/:id (public), /guest/staff/:id (protected)
+   - Testing: 26/26 backend, 100% frontend (all 4 pages verified)
+
 ## Known Issues
 
 ### P0 - Critical
@@ -293,7 +308,7 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Full UTM tracking
 
 ### P4 - Features
-- Kora Comms Phase 1 (WhatsApp integration)
+- Kora Comms Phase 1 (WhatsApp full API integration)
 - Complete internationalization (i18n)
 - Expand initial setup wizard
 - Refactor SocialMediaPage.js (~3500 lines) into smaller components
@@ -303,11 +318,16 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - **Password**: Evoque2024!
 
 ## Key Files Reference
+- `backend/routers/guest_flow.py` - Guest Flow endpoints (14 endpoints)
+- `frontend/src/pages/guest-flow/GuestJoinPage.js` - Public guest join form
+- `frontend/src/pages/guest-flow/GuestStatusPage.js` - Public guest status display
+- `frontend/src/pages/guest-flow/NowServingPage.js` - Public now serving display
+- `frontend/src/pages/guest-flow/StaffDashboardPage.js` - Staff queue management dashboard
+- `frontend/src/components/orchestration/GuestFlowSection.js` - Integration into OperationalFlowTab
 - `backend/models/demand_studio.py` - Pydantic models (SocialPostCreate, Audience, SubAudience)
 - `backend/routers/demand_studio.py` - All Demand Studio endpoints
-- `backend/routers/auth.py` - Authentication (investigate for session issues)
+- `backend/routers/auth.py` - Authentication
 - `frontend/src/pages/demand-studio/SocialMediaPage.js` - Main social media page
-- `frontend/src/components/demand-studio/SocialMetricsSection.js` - Social metrics component
 
 ## User Language Preference
 Spanish (es) - All user communication should be in Spanish
