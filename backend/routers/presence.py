@@ -52,15 +52,24 @@ async def get_online_users(
     org_id: Optional[str] = Query(None),
     user: User = Depends(get_current_user)
 ):
-    """Get all currently online users (within the last 60 seconds)"""
+    """Get currently online users filtered by the selected organization context"""
     threshold = (datetime.now(timezone.utc) - timedelta(seconds=ONLINE_THRESHOLD_SECONDS)).isoformat()
-    company_id = org_id or user.company_id or user.active_org_id
+    own_company_id = user.company_id or user.active_org_id
     
-    # Get users online across all orgs the current user has access to
+    # Determine which org context to filter by
+    target_org = org_id if org_id else own_company_id
+    
     query = {
         "last_seen": {"$gte": threshold},
         "user_id": {"$ne": user.user_id}
     }
+    
+    if target_org:
+        # Show users who are viewing the same org OR whose company matches
+        query["$or"] = [
+            {"org_id": target_org},
+            {"company_id": target_org}
+        ]
     
     online = await db.presence.find(query, {"_id": 0}).to_list(100)
     
@@ -74,6 +83,7 @@ async def get_online_users(
 async def get_entity_presence(
     entity_type: str,
     entity_id: str,
+    org_id: Optional[str] = Query(None),
     user: User = Depends(get_current_user)
 ):
     """Get users currently viewing/editing a specific entity"""
@@ -85,6 +95,10 @@ async def get_entity_presence(
         "last_seen": {"$gte": threshold},
         "user_id": {"$ne": user.user_id}
     }
+    
+    # Filter by org context if provided
+    if org_id:
+        query["org_id"] = org_id
     
     viewers = await db.presence.find(query, {"_id": 0}).to_list(50)
     
