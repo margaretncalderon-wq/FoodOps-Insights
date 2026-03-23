@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { Toaster } from "./components/ui/sonner";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { ModulesProvider } from "./contexts/ModulesContext";
+import { ModulesProvider, useModules } from "./contexts/ModulesContext";
 import { OrgConfigProvider } from "./contexts/OrgConfigContext";
 import { Loader2 } from "lucide-react";
 
@@ -251,6 +251,35 @@ const ProtectedRoute = ({ children, requireSuperAdmin = false }) => {
   return children;
 };
 
+// Module-aware route protection
+const ModuleProtectedRoute = ({ children, modulePath }) => {
+  const { user, loading: authLoading } = useAuth();
+  const { modules, loading: modulesLoading } = useModules();
+  const location = useLocation();
+
+  if (authLoading || modulesLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  // Check if the module is in the user's enabled modules
+  if (modulePath && modules && modules.length > 0) {
+    const hasAccess = modules.some(m => modulePath.startsWith(m.path) || m.path.startsWith(modulePath));
+    if (!hasAccess) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
+  return children;
+};
+
 function AppRouter() {
   const location = useLocation();
 
@@ -325,10 +354,10 @@ function AppRouter() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       
       {/* Client Engagement Module - Contains CRM, Proposals & Agreements, Calendar */}
-      <Route path="/client-engagement/*" element={<ProtectedRoute><ClientEngagementPage /></ProtectedRoute>} />
+      <Route path="/client-engagement/*" element={<ModuleProtectedRoute modulePath="/client-engagement"><ClientEngagementPage /></ModuleProtectedRoute>} />
       
       {/* Legacy routes redirect to Client Engagement */}
-      <Route path="/crm/*" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
+      <Route path="/crm/*" element={<ModuleProtectedRoute modulePath="/client-engagement"><CRMPage /></ModuleProtectedRoute>} />
       <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
       <Route path="/events/:eventId" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
@@ -338,23 +367,23 @@ function AppRouter() {
       <Route path="/recipes/new" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/recipes/:recipeId" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
-      <Route path="/food-ops/*" element={<ProtectedRoute><FoodOpsPage /></ProtectedRoute>} />
-      <Route path="/ops-supplies/*" element={<ProtectedRoute><OperationsSuppliesPage /></ProtectedRoute>} />
-      <Route path="/business-clarity/*" element={<ProtectedRoute><BusinessClarityPage /></ProtectedRoute>} />
-      <Route path="/people-ops/*" element={<ProtectedRoute><PeopleOpsPage /></ProtectedRoute>} />
-      <Route path="/event-orchestration/*" element={<ProtectedRoute><EventOrchestrationPage /></ProtectedRoute>} />
-      <Route path="/execution-hub" element={<ProtectedRoute><ExecutionHubPage /></ProtectedRoute>} />
-      <Route path="/execution-hub/:goalId" element={<ProtectedRoute><ExecutionGoalDetail /></ProtectedRoute>} />
+      <Route path="/food-ops/*" element={<ModuleProtectedRoute modulePath="/food-ops"><FoodOpsPage /></ModuleProtectedRoute>} />
+      <Route path="/ops-supplies/*" element={<ModuleProtectedRoute modulePath="/ops-supplies"><OperationsSuppliesPage /></ModuleProtectedRoute>} />
+      <Route path="/business-clarity/*" element={<ModuleProtectedRoute modulePath="/business-clarity"><BusinessClarityPage /></ModuleProtectedRoute>} />
+      <Route path="/people-ops/*" element={<ModuleProtectedRoute modulePath="/people-ops"><PeopleOpsPage /></ModuleProtectedRoute>} />
+      <Route path="/event-orchestration/*" element={<ModuleProtectedRoute modulePath="/event-orchestration"><EventOrchestrationPage /></ModuleProtectedRoute>} />
+      <Route path="/execution-hub" element={<ModuleProtectedRoute modulePath="/execution-hub"><ExecutionHubPage /></ModuleProtectedRoute>} />
+      <Route path="/execution-hub/:goalId" element={<ModuleProtectedRoute modulePath="/execution-hub"><ExecutionGoalDetail /></ModuleProtectedRoute>} />
       <Route path="/collaborations" element={<ProtectedRoute><CollaborationDashboard /></ProtectedRoute>} />
-      <Route path="/venues" element={<ProtectedRoute><VenuesPage /></ProtectedRoute>} />
+      <Route path="/venues" element={<ModuleProtectedRoute modulePath="/venues"><VenuesPage /></ModuleProtectedRoute>} />
       
       {/* Partners Module */}
-      <Route path="/partners" element={<ProtectedRoute><PartnersPage /></ProtectedRoute>} />
-      <Route path="/partners/new" element={<ProtectedRoute><PartnerFormPage /></ProtectedRoute>} />
-      <Route path="/partners/:partnerId" element={<ProtectedRoute><PartnerDetailPage /></ProtectedRoute>} />
-      <Route path="/partners/:partnerId/edit" element={<ProtectedRoute><PartnerFormPage /></ProtectedRoute>} />
+      <Route path="/partners" element={<ModuleProtectedRoute modulePath="/partners"><PartnersPage /></ModuleProtectedRoute>} />
+      <Route path="/partners/new" element={<ModuleProtectedRoute modulePath="/partners"><PartnerFormPage /></ModuleProtectedRoute>} />
+      <Route path="/partners/:partnerId" element={<ModuleProtectedRoute modulePath="/partners"><PartnerDetailPage /></ModuleProtectedRoute>} />
+      <Route path="/partners/:partnerId/edit" element={<ModuleProtectedRoute modulePath="/partners"><PartnerFormPage /></ModuleProtectedRoute>} />
       
-      <Route path="/demand-studio" element={<ProtectedRoute><DemandStudioPage /></ProtectedRoute>}>
+      <Route path="/demand-studio" element={<ModuleProtectedRoute modulePath="/demand-studio"><DemandStudioPage /></ModuleProtectedRoute>}>
         <Route index element={<DemandStudioOverview />} />
         <Route path="campaigns" element={<CampaignsPage />} />
         <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />

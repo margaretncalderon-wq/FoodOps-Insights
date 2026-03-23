@@ -595,7 +595,7 @@ async def debug_cookies(request: Request):
     }
 
 
-@auth_router.get("/me", response_model=User)
+@auth_router.get("/me")
 async def get_me(request: Request, response: Response, user: User = Depends(get_current_user)):
     """Get current authenticated user - used to restore session on page refresh.
     Also refreshes the JWT token if it's close to expiration."""
@@ -603,7 +603,10 @@ async def get_me(request: Request, response: Response, user: User = Depends(get_
     new_token = create_jwt_token(user.user_id)
     set_auth_cookie(response, new_token, request)
     
-    return user
+    # Return user data with refreshed token so frontend can update localStorage
+    user_dict = user.dict() if hasattr(user, 'dict') else user.model_dump()
+    user_dict["access_token"] = new_token
+    return user_dict
 
 
 @auth_router.post("/refresh")

@@ -114,13 +114,54 @@ const PERMISSION_GROUPS = [
   {
     module: "settings",
     label: "Settings",
-    labelEs: "Configuración",
+    labelEs: "Configuracion",
     icon: Settings2,
     permissions: [
-      { key: "settings.view", label: "View Settings", labelEs: "Ver Configuración" },
-      { key: "settings.manage", label: "Manage Settings", labelEs: "Gestionar Configuración" },
+      { key: "settings.view", label: "View Settings", labelEs: "Ver Configuracion" },
+      { key: "settings.manage", label: "Manage Settings", labelEs: "Gestionar Configuracion" },
       { key: "settings.users", label: "Manage Users", labelEs: "Gestionar Usuarios" },
       { key: "settings.roles", label: "Manage Roles", labelEs: "Gestionar Roles" },
+    ]
+  },
+  {
+    module: "client_engagement",
+    label: "Client Engagement",
+    labelEs: "Client Engagement",
+    icon: Users,
+    permissions: [
+      { key: "client_engagement.view", label: "View Client Engagement", labelEs: "Ver Client Engagement" },
+      { key: "client_engagement.manage", label: "Manage Leads & Clients", labelEs: "Gestionar Leads y Clientes" },
+      { key: "client_engagement.proposals", label: "Create Proposals", labelEs: "Crear Propuestas" },
+    ]
+  },
+  {
+    module: "execution_hub",
+    label: "Execution Hub",
+    labelEs: "Execution Hub",
+    icon: Briefcase,
+    permissions: [
+      { key: "execution_hub.view", label: "View Execution Hub", labelEs: "Ver Execution Hub" },
+      { key: "execution_hub.manage", label: "Manage Goals & Tasks", labelEs: "Gestionar Metas y Tareas" },
+    ]
+  },
+  {
+    module: "partners",
+    label: "Partners",
+    labelEs: "Partners",
+    icon: Users,
+    permissions: [
+      { key: "partners.view", label: "View Partners", labelEs: "Ver Partners" },
+      { key: "partners.manage", label: "Manage Partners", labelEs: "Gestionar Partners" },
+    ]
+  },
+  {
+    module: "business_clarity",
+    label: "Business Clarity",
+    labelEs: "Business Clarity",
+    icon: Landmark,
+    permissions: [
+      { key: "business_clarity.view", label: "View Business Clarity", labelEs: "Ver Business Clarity" },
+      { key: "business_clarity.manage", label: "Manage Finances", labelEs: "Gestionar Finanzas" },
     ]
   },
 ];
@@ -145,7 +186,8 @@ const DEFAULT_ROLES = [
       "events.view", "crm.view", 
       "finance.view", "finance.invoices", "finance.payments", "finance.payables", "finance.fixed_costs",
       "reports.executive", "reports.sales", "reports.pl", "reports.budget_alerts", "reports.regulatory",
-      "people_ops.cost_centers"
+      "people_ops.cost_centers",
+      "client_engagement.view", "business_clarity.view", "business_clarity.manage"
     ],
     is_system: true
   },
@@ -154,14 +196,15 @@ const DEFAULT_ROLES = [
     name: "Human Resources", 
     name_es: "Recursos Humanos",
     description: "Access to People Ops, employees and payroll management",
-    description_es: "Acceso a People Ops, gestión de empleados y nómina",
+    description_es: "Acceso a People Ops, gestion de empleados y nomina",
     permissions: [
       "events.view", "crm.view",
       "people_ops.employees.view", "people_ops.employees.edit",
       "people_ops.payroll.view", "people_ops.payroll.edit",
       "people_ops.time_off.view", "people_ops.time_off.approve",
       "people_ops.offboarding",
-      "reports.budget_alerts"
+      "reports.budget_alerts",
+      "client_engagement.view", "execution_hub.view"
     ],
     is_system: true
   },
@@ -174,7 +217,8 @@ const DEFAULT_ROLES = [
     permissions: [
       "events.view", "events.create", "events.edit", 
       "crm.view", 
-      "culinary.view", "culinary.manage", "culinary.purchases"
+      "culinary.view", "culinary.manage", "culinary.purchases",
+      "client_engagement.view", "execution_hub.view", "partners.view"
     ],
     is_system: true
   },
@@ -183,11 +227,12 @@ const DEFAULT_ROLES = [
     name: "Marketing", 
     name_es: "Marketing",
     description: "Access to Demand Studio, campaigns and social metrics",
-    description_es: "Acceso a Demand Studio, campañas y métricas sociales",
+    description_es: "Acceso a Demand Studio, campanas y metricas sociales",
     permissions: [
       "events.view", "crm.view",
       "demand_studio.view", "demand_studio.campaigns", "demand_studio.content", 
-      "demand_studio.social_metrics", "demand_studio.connect_accounts"
+      "demand_studio.social_metrics", "demand_studio.connect_accounts",
+      "client_engagement.view", "partners.view"
     ],
     is_system: true
   },
