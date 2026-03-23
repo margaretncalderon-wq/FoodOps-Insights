@@ -1,5 +1,5 @@
 # routers/people_ops.py - People Operations / RRHH Routes
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -291,6 +291,113 @@ async def delete_department(
     )
     
     return {"message": "Department deactivated", "department_id": department_id}
+
+
+
+# ==================== POSITIONS ====================
+
+@people_ops_router.get("/positions")
+async def get_positions(user: User = Depends(get_current_user)):
+    """Get all positions for the organization"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+
+    positions = await db.positions.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0}
+    ).sort("display_order", 1).to_list(200)
+
+    for pos in positions:
+        pos["employee_count"] = await db.employees.count_documents({
+            "company_id": company_id,
+            "position_id": pos["position_id"],
+            "status": {"$ne": "terminated"}
+        })
+
+    return positions
+
+
+@people_ops_router.post("/positions")
+async def create_position(request: Request, user: User = Depends(get_current_user)):
+    """Create a new position"""
+    data = await request.json()
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+
+    position_id = f"pos_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+
+    doc = {
+        "position_id": position_id,
+        "company_id": company_id,
+        "title": data.get("title", ""),
+        "department_id": data.get("department_id"),
+        "level": data.get("level", ""),
+        "description": data.get("description", ""),
+        "reports_to_position_id": data.get("reports_to_position_id"),
+        "is_active": True,
+        "display_order": data.get("display_order", 0),
+        "created_by": user.user_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.positions.insert_one(doc)
+    doc.pop("_id", None)
+    doc["employee_count"] = 0
+    return doc
+
+
+@people_ops_router.put("/positions/{position_id}")
+async def update_position(position_id: str, request: Request, user: User = Depends(get_current_user)):
+    """Update a position"""
+    data = await request.json()
+    company_id = user.company_id or user.active_org_id
+
+    existing = await db.positions.find_one(
+        {"position_id": position_id, "company_id": company_id}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    allowed = ["title", "department_id", "level", "description", "reports_to_position_id", "display_order", "is_active"]
+    updates = {k: data[k] for k in allowed if k in data}
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.positions.update_one(
+        {"position_id": position_id},
+        {"$set": updates}
+    )
+
+    updated = await db.positions.find_one({"position_id": position_id}, {"_id": 0})
+    updated["employee_count"] = await db.employees.count_documents({
+        "company_id": company_id, "position_id": position_id, "status": {"$ne": "terminated"}
+    })
+    return updated
+
+
+@people_ops_router.delete("/positions/{position_id}")
+async def delete_position(position_id: str, user: User = Depends(get_current_user)):
+    """Deactivate a position"""
+    company_id = user.company_id or user.active_org_id
+    existing = await db.positions.find_one(
+        {"position_id": position_id, "company_id": company_id}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    emp_count = await db.employees.count_documents({
+        "position_id": position_id, "status": {"$ne": "terminated"}
+    })
+    if emp_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete position with {emp_count} assigned employees")
+
+    await db.positions.update_one(
+        {"position_id": position_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Position deactivated", "position_id": position_id}
 
 
 # ==================== COST CENTERS ====================

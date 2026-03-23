@@ -299,6 +299,15 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Multiple concurrent sessions from different browsers confirmed working
    - Testing: 8/8 backend + 100% frontend verified (iteration_129)
 
+4. **Feature - People Ops: Departamentos y Posiciones (March 23, 2026)**:
+   - Reescrito OrgChartSection con 3 sub-tabs: Departamentos, Posiciones, Organigrama
+   - CRUD completo para departamentos (crear, editar, eliminar, jerarquía padre)
+   - CRUD completo para posiciones (crear, editar, eliminar, nivel, departamento, reporta a)
+   - Nuevos endpoints backend: GET/POST/PUT/DELETE /api/people-ops/positions
+   - Posiciones agrupadas por departamento con conteo de empleados
+   - Organigrama visual expandible con posiciones y empleados por departamento
+   - Testing: APIs verificadas + UI verificada via screenshot
+
    - **Modo Kiosko**: Pagina full-screen `/guest/kiosk/:id` con QR grande, logo, "Ahora Sirviendo", contador en cola, y lista de siguientes. Auto-refresh cada 6s. Accesible desde StaffDashboard y GuestFlowSection.
    - DR WhatsApp number normalization (809/829/849 area codes)
    - Duplicate entry prevention via normalized WhatsApp number
