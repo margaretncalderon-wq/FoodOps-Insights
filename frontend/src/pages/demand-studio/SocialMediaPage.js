@@ -2130,6 +2130,12 @@ export default function SocialMediaPage() {
                                   <span>•</span>
                                   <span>{getFormatBadge(post.format)}</span>
                                 </div>
+                                {post.link_url && (
+                                  <a href={post.link_url.startsWith('http') ? post.link_url : `https://${post.link_url}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1" title={post.link_url} data-testid="production-post-link-url">
+                                    <ExternalLink className="w-3 h-3" />
+                                    {isEs ? "URL Fuente" : "Source URL"}
+                                  </a>
+                                )}
                               </div>
                               <div>
                                 {getStatusBadge(post.status)}
@@ -2252,6 +2258,12 @@ export default function SocialMediaPage() {
                               </>
                             )}
                           </div>
+                          {post.link_url && (
+                            <a href={post.link_url.startsWith('http') ? post.link_url : `https://${post.link_url}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1" title={post.link_url} data-testid="editing-post-link-url">
+                              <ExternalLink className="w-3 h-3" />
+                              {isEs ? "URL Fuente" : "Source URL"}
+                            </a>
+                          )}
                         </div>
                         <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                           <Button 
@@ -2939,11 +2951,19 @@ export default function SocialMediaPage() {
             
             <div>
               <label className="text-sm font-medium">{isEs ? "URL Fuente (inspiración)" : "Source URL (inspiration)"}</label>
-              <Input
-                value={postForm.link_url}
-                onChange={e => setPostForm({...postForm, link_url: e.target.value})}
-                placeholder="https://..."
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  value={postForm.link_url}
+                  onChange={e => setPostForm({...postForm, link_url: e.target.value})}
+                  placeholder="https://..."
+                  className="flex-1"
+                />
+                {postForm.link_url && (
+                  <a href={postForm.link_url.startsWith('http') ? postForm.link_url : `https://${postForm.link_url}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-blue-500 hover:text-blue-700 transition-colors" data-testid="post-link-url-open">
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
             </div>
             
             <div>
@@ -3441,11 +3461,19 @@ export default function SocialMediaPage() {
             </div>
             <div>
               <label className="text-sm font-medium">{isEs ? "URL Fuente (inspiración)" : "Source URL (inspiration)"}</label>
-              <Input
-                value={ideaForm.source_url}
-                onChange={e => setIdeaForm({...ideaForm, source_url: e.target.value})}
-                placeholder="https://..."
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  value={ideaForm.source_url}
+                  onChange={e => setIdeaForm({...ideaForm, source_url: e.target.value})}
+                  placeholder="https://..."
+                  className="flex-1"
+                />
+                {ideaForm.source_url && (
+                  <a href={ideaForm.source_url.startsWith('http') ? ideaForm.source_url : `https://${ideaForm.source_url}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-blue-500 hover:text-blue-700 transition-colors" data-testid="idea-link-url-open">
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
