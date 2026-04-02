@@ -323,6 +323,18 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Routes: /guest/join/:id (public), /guest/status/:id (public), /guest/now-serving/:id (public), /guest/staff/:id (protected)
    - Testing: 34 backend tests + 100% frontend verified (iterations 127-128)
 
+### Session: April 2, 2026
+
+#### Completed
+1. **Enhancement - All URLs Clickable in Demand Studio (P0)**:
+   - Post edit dialog: Added ExternalLink icon next to URL Fuente input (opens link in new tab when URL present)
+   - Idea edit dialog: Added ExternalLink icon next to URL Fuente input
+   - Production tab: Added clickable "URL Fuente" link under each post with link_url
+   - Editing tab: Added clickable "URL Fuente" link under each post with link_url
+   - All links have target="_blank" and rel="noopener noreferrer"
+   - HTTP prefix auto-added for URLs without protocol
+   - Testing: 100% frontend verified (iteration_131)
+
 ## Known Issues
 
 ### P0 - Critical
