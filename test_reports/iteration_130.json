@@ -1,0 +1,69 @@
+{
+  "summary": "Bug fix verification COMPLETE: Comments isolation in Social Media posts is working correctly. The fix (key={editingPost.post_id} + useEffect to clear comments on entityId change) successfully prevents comments from leaking between posts.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_comments_isolation.py",
+    "/app/test_reports/pytest/pytest_comments_isolation.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_comments_isolation.py"
+  ],
+  "success_rate": {
+    "backend": "100% (6/6 tests passed)",
+    "frontend": "100% (all comment isolation tests passed)"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Comments isolation bug is FIXED. The fix in SocialMediaPage.js (line 2974: key={editingPost.post_id}) and CommentsSection.js (lines 69-73: useEffect clears comments on entityId change) works correctly. Test posts: post_f6f2934fbcfc (2 comments), post_e629ad2d789a (1 comment), post_85921a53ee06 (0 comments).",
+  "tested_features": {
+    "backend_tests": {
+      "GET /api/comments/social_post/post_f6f2934fbcfc": "PASS - Returns exactly 2 comments",
+      "GET /api/comments/social_post/post_e629ad2d789a": "PASS - Returns exactly 1 comment",
+      "GET /api/comments/social_post/post_85921a53ee06": "PASS - Returns 0 comments",
+      "Comments don't leak between posts": "PASS - No overlap in comment IDs",
+      "POST /api/comments creates isolated comment": "PASS - New comment only appears on target entity",
+      "GET /api/comments/counts/by-entities": "PASS - Returns correct counts per entity"
+    },
+    "frontend_tests": {
+      "Navigate to Social Media page": "PASS - Via Demand Generation > Channels > Social Media",
+      "Open 'Post del 31 de marzo' (2 comments)": "PASS - Shows exactly 2 comments with correct content",
+      "Close dialog and open 'Test Idea con URL'": "PASS - Shows 0 comments (correctly cleared)",
+      "Create new comment on one post": "PASS - Comment appears only on target post",
+      "Verify comment doesn't leak to other post": "PASS - New comment NOT visible on different post"
+    }
+  },
+  "bug_fix_verification": {
+    "bug_description": "Comments in Demand Studio Social Media were showing on all posts instead of being isolated per post",
+    "fix_applied": [
+      "Added key={editingPost.post_id} to CommentsSection in SocialMediaPage.js (line 2974)",
+      "Added useEffect in CommentsSection.js (lines 69-73) to clear comments[], replyingTo, editingComment when entityId changes"
+    ],
+    "verification_results": {
+      "post_31_marzo_comments": "2 comments displayed correctly",
+      "test_idea_comments": "0 comments displayed (correctly cleared when switching)",
+      "new_comment_isolation": "Created comment 'Test isolation comment 3daba92a' only appears on target post, NOT on other posts"
+    },
+    "status": "VERIFIED - Bug fix is working correctly"
+  },
+  "screenshots": [
+    ".screenshots/post_31_marzo_dialog.png - Post with 2 comments",
+    ".screenshots/test_idea_dialog.png - Different post with 0 comments",
+    ".screenshots/new_comment_created.png - New comment created on Test Idea post",
+    ".screenshots/other_post_comments.png - Post del 31 de marzo still shows only its 2 original comments"
+  ]
+}
