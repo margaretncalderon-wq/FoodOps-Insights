@@ -2971,6 +2971,7 @@ export default function SocialMediaPage() {
             {editingPost && (
               <div className="border-t pt-4 mt-4">
                 <CommentsSection 
+                  key={editingPost.post_id}
                   entityType="social_post" 
                   entityId={editingPost.post_id}
                   orgId={selectedOrgId}
@@ -3555,6 +3556,7 @@ export default function SocialMediaPage() {
             {editingIdea && (
               <div className="border-t pt-4 mt-4">
                 <CommentsSection 
+                  key={editingIdea.idea_id}
                   entityType="idea" 
                   entityId={editingIdea.idea_id}
                   orgId={selectedOrgId}

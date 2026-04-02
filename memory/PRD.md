@@ -308,6 +308,13 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Organigrama visual expandible con posiciones y empleados por departamento
    - Testing: APIs verificadas + UI verificada via screenshot
 
+5. **Bug Fix - Comments showing on all posts (April 2, 2026)**:
+   - Fixed CommentsSection rendering stale comments when switching between posts
+   - Added `key={editingPost.post_id}` to force clean remount on post change
+   - Added `useEffect` to clear comments state when entityId changes
+   - Also fixed for ideas: `key={editingIdea.idea_id}`
+   - Backend confirmed: comments properly isolated by entity_id (API returns correct data per post)
+
    - **Modo Kiosko**: Pagina full-screen `/guest/kiosk/:id` con QR grande, logo, "Ahora Sirviendo", contador en cola, y lista de siguientes. Auto-refresh cada 6s. Accesible desde StaffDashboard y GuestFlowSection.
    - DR WhatsApp number normalization (809/829/849 area codes)
    - Duplicate entry prevention via normalized WhatsApp number

@@ -64,6 +64,13 @@ export default function CommentsSection({ entityType, entityId, orgId = null, cl
   useEffect(() => {
     fetchComments();
   }, [fetchComments]);
+
+  // Clear stale comments when entity changes
+  useEffect(() => {
+    setComments([]);
+    setReplyingTo(null);
+    setEditingComment(null);
+  }, [entityId]);
   
   const fetchMentionUsers = async (search) => {
     try {

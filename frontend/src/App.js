@@ -269,9 +269,13 @@ const ModuleProtectedRoute = ({ children, modulePath }) => {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  // Check if the module is in the user's enabled modules
+  // Only enforce module check when modules are loaded and not empty
+  // If modules array is empty (API failed or no modules configured), allow access
   if (modulePath && modules && modules.length > 0) {
-    const hasAccess = modules.some(m => modulePath.startsWith(m.path) || m.path.startsWith(modulePath));
+    const hasAccess = modules.some(m => {
+      const mPath = m.path || "";
+      return mPath === modulePath || modulePath.startsWith(mPath + "/") || mPath.startsWith(modulePath);
+    });
     if (!hasAccess) {
       return <Navigate to="/dashboard" replace />;
     }
