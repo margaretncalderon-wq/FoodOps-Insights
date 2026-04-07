@@ -1,6 +1,6 @@
 # routers/crm.py - CRM module routes
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import uuid
 import math
@@ -15,6 +15,7 @@ from models.crm import (
 )
 from utils.activity_logger import log_activity, user_info
 from utils.email_service import send_lead_assignment_notification
+from routers.notifications import create_notification
 
 
 # ============== CAMPAIGN AUTO-LINK HELPER ==============
@@ -2976,4 +2977,207 @@ async def get_weekly_progress(
         "week_start": date_from,
         "week_end": date_to,
         "progress": progress
+    }
+
+
+# ============== WEEKLY SUMMARY NOTIFICATIONS ==============
+
+@crm_router.post("/reports/send-weekly-summary")
+async def send_weekly_summary(user: User = Depends(get_current_user)):
+    """
+    Generate and send weekly goal summary notifications.
+    - Each salesperson gets their own progress notification
+    - Admins/managers get a full team summary
+    Debounced: won't send again if already sent today for this company.
+    """
+    now = datetime.now(timezone.utc)
+    today_str = now.strftime("%Y-%m-%d")
+
+    # Check if already sent today
+    existing = await db.weekly_summary_log.find_one({
+        "company_id": user.company_id,
+        "date": today_str
+    })
+    if existing:
+        return {"message": "Summary already sent today", "sent": False, "sent_at": existing.get("sent_at")}
+
+    # Get weekly progress data
+    week_start = now - timedelta(days=now.weekday())
+    week_end = week_start + timedelta(days=6)
+    date_from = week_start.strftime("%Y-%m-%d")
+    date_to = week_end.strftime("%Y-%m-%d")
+    date_from_iso = date_from + "T00:00:00"
+    date_to_iso = date_to + "T23:59:59"
+
+    # Fetch goals
+    goals = await db.sales_goals.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
+    goals_map = {g["owner_id"]: g for g in goals}
+
+    if not goals:
+        return {"message": "No goals configured", "sent": False}
+
+    # Fetch comm_logs this week
+    comm_logs = await db.comm_logs.find(
+        {"company_id": user.company_id, "created_at": {"$gte": date_from_iso, "$lte": date_to_iso}},
+        {"_id": 0}
+    ).to_list(10000)
+
+    # Fetch new leads this week
+    leads = await db.leads.find(
+        {"company_id": user.company_id, "created_at": {"$gte": date_from_iso, "$lte": date_to_iso}},
+        {"_id": 0, "owner_id": 1}
+    ).to_list(10000)
+
+    # Fetch conversions this week
+    conversions = await db.leads.find(
+        {"company_id": user.company_id, "status": "Converted", "updated_at": {"$gte": date_from_iso, "$lte": date_to_iso}},
+        {"_id": 0, "owner_id": 1}
+    ).to_list(10000)
+
+    # Aggregate per owner
+    actuals = {}
+    for log in comm_logs:
+        oid = log.get("owner_id")
+        if not oid:
+            continue
+        if oid not in actuals:
+            actuals[oid] = {"calls": 0, "emails": 0, "whatsapp": 0, "new_leads": 0, "conversions": 0}
+        ct = (log.get("comm_type") or "").lower()
+        if ct == "call":
+            actuals[oid]["calls"] += 1
+        elif ct == "email":
+            actuals[oid]["emails"] += 1
+        elif ct in ("whatsapp", "message"):
+            actuals[oid]["whatsapp"] += 1
+
+    for lead in leads:
+        oid = lead.get("owner_id")
+        if oid:
+            actuals.setdefault(oid, {"calls": 0, "emails": 0, "whatsapp": 0, "new_leads": 0, "conversions": 0})
+            actuals[oid]["new_leads"] += 1
+
+    for c in conversions:
+        oid = c.get("owner_id")
+        if oid:
+            actuals.setdefault(oid, {"calls": 0, "emails": 0, "whatsapp": 0, "new_leads": 0, "conversions": 0})
+            actuals[oid]["conversions"] += 1
+
+    # Fetch owner names
+    all_ids = list(set(list(goals_map.keys()) + list(actuals.keys())))
+    owner_names = {}
+    if all_ids:
+        users_data = await db.users.find({"user_id": {"$in": all_ids}}, {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}).to_list(100)
+        for u in users_data:
+            name = u.get("name") or f'{u.get("first_name", "")} {u.get("last_name", "")}'.strip() or u.get("email", "").split("@")[0].replace(".", " ").title()
+            owner_names[u["user_id"]] = name
+
+    # Build summaries and send notifications
+    notifications_sent = 0
+    team_lines = []
+
+    for oid, goal in goals_map.items():
+        actual = actuals.get(oid, {"calls": 0, "emails": 0, "whatsapp": 0, "new_leads": 0, "conversions": 0})
+        name = owner_names.get(oid, "?")
+
+        goal_fields = [
+            ("calls", "weekly_calls", "Llamadas"),
+            ("emails", "weekly_emails", "Emails"),
+            ("whatsapp", "weekly_whatsapp", "WhatsApp"),
+            ("new_leads", "weekly_new_leads", "Leads Nuevos"),
+            ("conversions", "weekly_conversions", "Conversiones"),
+        ]
+
+        total_goal = 0
+        total_actual = 0
+        lines = []
+        for actual_key, goal_key, label in goal_fields:
+            g = goal.get(goal_key, 0)
+            a = actual.get(actual_key, 0)
+            if g > 0:
+                pct = min(round(a / g * 100), 999)
+                total_goal += g
+                total_actual += a
+                status = "OK" if pct >= 100 else f"{pct}%"
+                lines.append(f"  {label}: {a}/{g} ({status})")
+
+        overall_pct = min(round(total_actual / total_goal * 100), 999) if total_goal > 0 else 0
+
+        # Notification for the salesperson
+        if overall_pct >= 100:
+            title = f"Meta semanal alcanzada ({overall_pct}%)"
+            priority = "normal"
+        elif overall_pct >= 60:
+            title = f"Progreso semanal: {overall_pct}%"
+            priority = "normal"
+        else:
+            title = f"Progreso semanal bajo: {overall_pct}%"
+            priority = "high"
+
+        message = f"Semana {date_from} al {date_to}:\n" + "\n".join(lines)
+
+        await create_notification(
+            user_id=oid,
+            notification_type="sales_goal_summary",
+            title=title,
+            message=message,
+            link="/client-engagement/crm/sales-report",
+            metadata={"overall_percentage": overall_pct, "week_start": date_from},
+            priority=priority
+        )
+        notifications_sent += 1
+
+        # Build team summary line
+        emoji = "OK" if overall_pct >= 100 else f"{overall_pct}%"
+        team_lines.append(f"  {name}: {emoji}")
+
+    # Send team summary to admins
+    if team_lines:
+        admin_users = await db.users.find(
+            {"company_id": user.company_id, "role": {"$in": ["owner", "admin", "manager"]}},
+            {"_id": 0, "user_id": 1}
+        ).to_list(50)
+
+        team_msg = f"Resumen semanal del equipo ({date_from} al {date_to}):\n" + "\n".join(team_lines)
+
+        for admin in admin_users:
+            await create_notification(
+                user_id=admin["user_id"],
+                notification_type="sales_team_summary",
+                title=f"Resumen semanal del equipo",
+                message=team_msg,
+                link="/client-engagement/crm/sales-report",
+                metadata={"week_start": date_from, "team_size": len(team_lines)},
+                priority="normal"
+            )
+            notifications_sent += 1
+
+    # Log that we sent today
+    await db.weekly_summary_log.insert_one({
+        "company_id": user.company_id,
+        "date": today_str,
+        "sent_at": now.isoformat(),
+        "sent_by": user.user_id,
+        "notifications_sent": notifications_sent
+    })
+
+    return {
+        "message": f"Summary sent: {notifications_sent} notifications",
+        "sent": True,
+        "notifications_sent": notifications_sent,
+        "sent_at": now.isoformat()
+    }
+
+
+@crm_router.get("/reports/weekly-summary-status")
+async def get_weekly_summary_status(user: User = Depends(get_current_user)):
+    """Check if weekly summary was already sent today"""
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    existing = await db.weekly_summary_log.find_one(
+        {"company_id": user.company_id, "date": today_str},
+        {"_id": 0}
+    )
+    return {
+        "sent_today": existing is not None,
+        "sent_at": existing.get("sent_at") if existing else None,
+        "notifications_sent": existing.get("notifications_sent", 0) if existing else 0
     }

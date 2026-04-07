@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   RefreshCw, Download, TrendingUp, Users, Target, BarChart3,
   Calendar, UserCircle, ArrowUpRight, Trash2, AlertTriangle,
-  Phone, Mail, MessageCircle, UserPlus, CheckCircle2, Settings2, Activity
+  Phone, Mail, MessageCircle, UserPlus, CheckCircle2, Settings2, Activity,
+  Bell, Send, Check
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -41,6 +42,8 @@ export default function SalesReportSection() {
 
   // Goals dialog
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [summaryStatus, setSummaryStatus] = useState({ sent_today: false, sent_at: null, notifications_sent: 0 });
+  const [sendingSummary, setSendingSummary] = useState(false);
   const [goalForm, setGoalForm] = useState({
     owner_id: "",
     weekly_calls: 0,
@@ -108,12 +111,38 @@ export default function SalesReportSection() {
     }
   }, []);
 
+  const fetchSummaryStatus = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/reports/weekly-summary-status`, { withCredentials: true });
+      setSummaryStatus(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchReport();
     fetchDaily();
     fetchWeeklyProgress();
     fetchGoals();
-  }, [fetchReport, fetchDaily, fetchWeeklyProgress, fetchGoals]);
+    fetchSummaryStatus();
+  }, [fetchReport, fetchDaily, fetchWeeklyProgress, fetchGoals, fetchSummaryStatus]);
+
+  const handleSendSummary = async () => {
+    setSendingSummary(true);
+    try {
+      const res = await axios.post(`${API}/api/crm/reports/send-weekly-summary`, null, { withCredentials: true });
+      if (res.data.sent) {
+        toast.success(isEs ? `Resumen enviado: ${res.data.notifications_sent} notificaciones` : `Summary sent: ${res.data.notifications_sent} notifications`);
+      } else {
+        toast.info(res.data.message);
+      }
+      fetchSummaryStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+    setSendingSummary(false);
+  };
 
   // Goals CRUD
   const handleSaveGoal = async () => {
@@ -514,17 +543,35 @@ export default function SalesReportSection() {
         {/* === WEEKLY GOALS TAB === */}
         <TabsContent value="goals" className="space-y-4">
           {/* Week info */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
                 {isEs ? "Semana:" : "Week:"} {weeklyProgress.week_start && new Date(weeklyProgress.week_start + "T12:00:00").toLocaleDateString(isEs ? "es-ES" : "en-US", { month: "short", day: "numeric" })} — {weeklyProgress.week_end && new Date(weeklyProgress.week_end + "T12:00:00").toLocaleDateString(isEs ? "es-ES" : "en-US", { month: "short", day: "numeric" })}
               </span>
             </div>
-            <Button size="sm" onClick={() => openGoalDialog()} data-testid="add-sales-goal-btn">
-              <Settings2 className="w-4 h-4 mr-1.5" />
-              {isEs ? "Configurar Meta" : "Set Goal"}
-            </Button>
+            <div className="flex items-center gap-2">
+              {summaryStatus.sent_today ? (
+                <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 border border-green-200 rounded-full px-3 py-1" data-testid="summary-sent-badge">
+                  <Check className="w-3.5 h-3.5" />
+                  {isEs ? "Resumen enviado hoy" : "Summary sent today"}
+                  {summaryStatus.sent_at && (
+                    <span className="text-green-500 ml-1">
+                      ({new Date(summaryStatus.sent_at).toLocaleTimeString(isEs ? "es-ES" : "en-US", { hour: "2-digit", minute: "2-digit" })})
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={handleSendSummary} disabled={sendingSummary || salesGoals.length === 0} data-testid="send-summary-btn" className="gap-1.5">
+                  {sendingSummary ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+                  {isEs ? "Enviar Resumen" : "Send Summary"}
+                </Button>
+              )}
+              <Button size="sm" onClick={() => openGoalDialog()} data-testid="add-sales-goal-btn">
+                <Settings2 className="w-4 h-4 mr-1.5" />
+                {isEs ? "Configurar Meta" : "Set Goal"}
+              </Button>
+            </div>
           </div>
 
           {/* Goals cards */}
