@@ -1793,6 +1793,8 @@ export default function SocialMediaPage() {
                                 <div className="space-y-1 mt-1">
                                   {dayPosts.slice(0, 3).map((post, postIdx) => {
                                     const platform = post.account?.platform;
+                                    const isPosted = post.status === 'posted';
+                                    const formatIcon = post.format === 'reel' ? '🎬' : post.format === 'carousel' ? '📸' : post.format === 'story' ? '⏱' : post.format === 'live' ? '🔴' : '📄';
                                     return (
                                       <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
                                         {(dragProvided, dragSnapshot) => (
@@ -1801,14 +1803,16 @@ export default function SocialMediaPage() {
                                             {...dragProvided.draggableProps}
                                             {...dragProvided.dragHandleProps}
                                             className={`text-xs p-1 rounded truncate cursor-grab flex items-center gap-1 ${
-                                              post.status === 'posted' ? 'bg-green-100' : 'bg-blue-100'
+                                              isPosted ? 'bg-green-50 opacity-60' : 'bg-blue-100'
                                             } ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}`}
                                             onClick={() => openEditPost(post)}
                                             data-testid="calendar-draggable-post"
                                           >
                                             <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
                                             <span className="flex-shrink-0">{getPlatformIcon(platform)}</span>
-                                            <span className="truncate">{post.title}</span>
+                                            <span className="flex-shrink-0 text-[10px] leading-none">{formatIcon}</span>
+                                            <span className={`truncate ${isPosted ? 'line-through' : ''}`}>{post.title}</span>
+                                            {isPosted && <Check className="w-3 h-3 text-green-600 flex-shrink-0" />}
                                             {postCommentCounts[post.post_id]?.unread > 0 && (
                                               <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                                             )}
