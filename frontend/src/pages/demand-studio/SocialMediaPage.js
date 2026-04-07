@@ -142,6 +142,7 @@ export default function SocialMediaPage() {
   // Dialogs
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
   const [pillarDialogOpen, setPillarDialogOpen] = useState(false);
   const [postSaving, setPostSaving] = useState(false);
   const [accountSaving, setAccountSaving] = useState(false);
@@ -624,9 +625,15 @@ export default function SocialMediaPage() {
     if (accountSaving) return;
     setAccountSaving(true);
     try {
-      await axios.post(`${API}/api/demand-studio/social/accounts${getOrgParam()}`, accountForm, { withCredentials: true });
-      toast.success(isEs ? "Cuenta guardada" : "Account saved");
+      if (editingAccount) {
+        await axios.put(`${API}/api/demand-studio/social/accounts/${editingAccount.account_id}${getOrgParam()}`, accountForm, { withCredentials: true });
+        toast.success(isEs ? "Cuenta actualizada" : "Account updated");
+      } else {
+        await axios.post(`${API}/api/demand-studio/social/accounts${getOrgParam()}`, accountForm, { withCredentials: true });
+        toast.success(isEs ? "Cuenta guardada" : "Account saved");
+      }
       setAccountDialogOpen(false);
+      setEditingAccount(null);
       setAccountForm({ platform: "instagram", handle: "", status: "active" });
       await fetchData(isOwnOrg ? null : selectedOrgId);
       fetchCalendarPosts();
@@ -637,6 +644,33 @@ export default function SocialMediaPage() {
     } finally {
       setAccountSaving(false);
     }
+  };
+
+  const handleDeleteAccount = async (account) => {
+    if (!window.confirm(isEs 
+      ? `¿Eliminar la cuenta @${account.handle}? Se perderá toda la configuración asociada.` 
+      : `Delete account @${account.handle}? All associated configuration will be lost.`)) return;
+    try {
+      await axios.delete(`${API}/api/demand-studio/social/accounts/${account.account_id}${getOrgParam()}`, { withCredentials: true });
+      toast.success(isEs ? "Cuenta eliminada" : "Account deleted");
+      await fetchData(isOwnOrg ? null : selectedOrgId);
+      fetchCalendarPosts();
+    } catch (error) {
+      const errMsg = error?.response?.data?.detail || (isEs ? "Error al eliminar" : "Error deleting");
+      toast.error(errMsg);
+    }
+  };
+
+  const openEditAccount = (account) => {
+    setEditingAccount(account);
+    setAccountForm({ platform: account.platform, handle: account.handle, status: account.status || "active" });
+    setAccountDialogOpen(true);
+  };
+
+  const openNewAccount = () => {
+    setEditingAccount(null);
+    setAccountForm({ platform: "instagram", handle: "", status: "active" });
+    setAccountDialogOpen(true);
   };
 
   const handleSavePillar = async () => {
@@ -2388,7 +2422,7 @@ export default function SocialMediaPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-base">{isEs ? "Cuentas Sociales" : "Social Accounts"}</CardTitle>
-                <Button size="sm" onClick={() => setAccountDialogOpen(true)}>
+                <Button size="sm" onClick={openNewAccount} data-testid="add-account-btn">
                   <Plus className="w-4 h-4 mr-1" />
                   {isEs ? "Agregar" : "Add"}
                 </Button>
@@ -2466,7 +2500,7 @@ export default function SocialMediaPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             {account._access_type === "shared" && (
                               <Badge variant="secondary" className="text-[10px]">
                                 {account._role === "social_contributor" ? (isEs ? "Editar" : "Edit") : (isEs ? "Ver" : "View")}
@@ -2475,6 +2509,16 @@ export default function SocialMediaPage() {
                             <Badge variant={account.status === "active" ? "default" : "secondary"}>
                               {account.status}
                             </Badge>
+                            {account._access_type !== "shared" && (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditAccount(account)} data-testid={`edit-account-${account.account_id}`}>
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteAccount(account)} data-testid={`delete-account-${account.account_id}`}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -3017,10 +3061,10 @@ export default function SocialMediaPage() {
       </Dialog>
 
       {/* Account Dialog */}
-      <Dialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen}>
-        <DialogContent>
+      <Dialog open={accountDialogOpen} onOpenChange={(open) => { setAccountDialogOpen(open); if (!open) setEditingAccount(null); }}>
+        <DialogContent data-testid="account-dialog">
           <DialogHeader>
-            <DialogTitle>{isEs ? "Nueva Cuenta" : "New Account"}</DialogTitle>
+            <DialogTitle>{editingAccount ? (isEs ? "Editar Cuenta" : "Edit Account") : (isEs ? "Nueva Cuenta" : "New Account")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -3042,16 +3086,32 @@ export default function SocialMediaPage() {
                 value={accountForm.handle}
                 onChange={e => setAccountForm({...accountForm, handle: e.target.value})}
                 placeholder="@username"
+                data-testid="account-handle-input"
               />
             </div>
+            {editingAccount && (
+              <div>
+                <label className="text-sm font-medium">Status</label>
+                <Select value={accountForm.status} onValueChange={v => setAccountForm({...accountForm, status: v})}>
+                  <SelectTrigger data-testid="account-status-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">{isEs ? "Activa" : "Active"}</SelectItem>
+                    <SelectItem value="paused">{isEs ? "Pausada" : "Paused"}</SelectItem>
+                    <SelectItem value="inactive">{isEs ? "Inactiva" : "Inactive"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAccountDialogOpen(false)} disabled={accountSaving}>
+            <Button variant="outline" onClick={() => { setAccountDialogOpen(false); setEditingAccount(null); }} disabled={accountSaving}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
-            <Button onClick={handleSaveAccount} disabled={!accountForm.handle || accountSaving}>
+            <Button onClick={handleSaveAccount} disabled={!accountForm.handle || accountSaving} data-testid="save-account-btn">
               {accountSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
-              {isEs ? "Guardar" : "Save"}
+              {editingAccount ? (isEs ? "Actualizar" : "Update") : (isEs ? "Guardar" : "Save")}
             </Button>
           </DialogFooter>
         </DialogContent>

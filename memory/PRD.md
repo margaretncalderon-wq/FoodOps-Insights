@@ -369,6 +369,14 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Available in all RichTextEditor instances (post Content/Script, idea Content/Script)
    - Testing: Visual verification via screenshot
 
+5. **Feature - Social Account CRUD in Settings (P0)**:
+   - Added Edit button (pencil icon) per account — opens dialog with pre-filled platform, handle, and status selector
+   - Added Delete button (trash icon) per account — with confirmation dialog
+   - Shared accounts (from clients) only show View badge, no edit/delete (correct permission handling)
+   - Dialog switches between "New Account" and "Edit Account" modes
+   - Status selector (Active/Paused/Inactive) only shown in edit mode
+   - Testing: Visual verification via screenshot (4 edit + 4 delete buttons confirmed)
+
 ## Known Issues
 
 ### P0 - Critical
