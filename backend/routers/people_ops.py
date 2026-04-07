@@ -400,6 +400,125 @@ async def delete_position(position_id: str, user: User = Depends(get_current_use
     return {"message": "Position deactivated", "position_id": position_id}
 
 
+
+@people_ops_router.get("/org-chart")
+async def get_org_chart(user: User = Depends(get_current_user)):
+    """Get full org chart data: departments, positions with assigned employees, and vacancies"""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+
+    departments = await db.departments.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0}
+    ).sort("display_order", 1).to_list(200)
+
+    positions = await db.positions.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0}
+    ).sort("display_order", 1).to_list(500)
+
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": {"$ne": "terminated"}},
+        {"_id": 0, "employee_id": 1, "full_name": 1, "first_name": 1, "last_name": 1,
+         "email": 1, "job_title": 1, "department": 1, "department_id": 1,
+         "position_id": 1, "contract_type": 1, "status": 1, "is_manager": 1,
+         "hire_date": 1}
+    ).to_list(2000)
+
+    # Get open job postings (vacancies)
+    vacancies = await db.job_postings.find(
+        {"company_id": company_id, "status": "open"},
+        {"_id": 0, "id": 1, "title": 1, "department": 1, "position_id": 1, "status": 1}
+    ).to_list(200)
+
+    # Build position map with employees
+    pos_employees = {}
+    for emp in employees:
+        pid = emp.get("position_id")
+        if pid:
+            pos_employees.setdefault(pid, []).append(emp)
+
+    # Build position map with vacancies
+    pos_vacancies = {}
+    for v in vacancies:
+        pid = v.get("position_id")
+        if pid:
+            pos_vacancies.setdefault(pid, []).append(v)
+
+    # Enrich positions
+    for pos in positions:
+        pid = pos["position_id"]
+        pos["employees"] = pos_employees.get(pid, [])
+        pos["vacancies"] = pos_vacancies.get(pid, [])
+        pos["is_vacant"] = len(pos["employees"]) == 0
+        pos["has_open_vacancy"] = len(pos["vacancies"]) > 0
+
+    # Employees not assigned to any position
+    assigned_emp_ids = set()
+    for emps in pos_employees.values():
+        for e in emps:
+            assigned_emp_ids.add(e["employee_id"])
+    unassigned_employees = [e for e in employees if e["employee_id"] not in assigned_emp_ids]
+
+    return {
+        "departments": departments,
+        "positions": positions,
+        "employees": employees,
+        "vacancies": vacancies,
+        "unassigned_employees": unassigned_employees
+    }
+
+
+@people_ops_router.patch("/employees/{employee_id}/assign-position")
+async def assign_employee_position(employee_id: str, request: Request, user: User = Depends(get_current_user)):
+    """Assign an employee to a position and department"""
+    company_id, _ = await check_people_ops_access(user, "edit")
+    data = await request.json()
+
+    update = {}
+    if "position_id" in data:
+        update["position_id"] = data["position_id"]
+        # Auto-set department from position
+        if data["position_id"]:
+            pos = await db.positions.find_one(
+                {"position_id": data["position_id"], "company_id": company_id},
+                {"_id": 0, "department_id": 1, "title": 1}
+            )
+            if pos:
+                update["job_title"] = pos.get("title", "")
+                dept_id = pos.get("department_id")
+                if dept_id:
+                    dept = await db.departments.find_one(
+                        {"department_id": dept_id},
+                        {"_id": 0, "name": 1}
+                    )
+                    update["department_id"] = dept_id
+                    update["department"] = dept.get("name", "") if dept else ""
+
+    if "department_id" in data and "position_id" not in data:
+        update["department_id"] = data["department_id"]
+        dept = await db.departments.find_one(
+            {"department_id": data["department_id"]},
+            {"_id": 0, "name": 1}
+        )
+        update["department"] = dept.get("name", "") if dept else ""
+
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    result = await db.employees.update_one(
+        {"employee_id": employee_id, "company_id": company_id},
+        {"$set": update}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    return {"message": "Position assigned", "updated": update}
+
+
 # ==================== COST CENTERS ====================
 
 @people_ops_router.get("/cost-centers")
@@ -1354,11 +1473,23 @@ async def get_banks():
 
 @people_ops_router.get("/reference/departments")
 async def get_departments(user: User = Depends(get_current_user)):
-    """Get list of departments used in the organization"""
+    """Get list of departments - merged from org structure and employee records"""
     company_id = user.company_id or user.active_org_id
     
-    departments = await db.employees.distinct("department", {"company_id": company_id})
-    return [d for d in departments if d]
+    # Get departments from org structure (db.departments)
+    org_depts = await db.departments.find(
+        {"company_id": company_id},
+        {"_id": 0, "name": 1}
+    ).to_list(200)
+    org_dept_names = [d["name"] for d in org_depts if d.get("name")]
+    
+    # Get departments from employee records (legacy)
+    emp_depts = await db.employees.distinct("department", {"company_id": company_id})
+    emp_dept_names = [d for d in emp_depts if d]
+    
+    # Merge and deduplicate
+    all_depts = sorted(set(org_dept_names + emp_dept_names))
+    return all_depts
 
 
 # ==================== SALARY CHANGES ====================
@@ -3697,6 +3828,8 @@ async def create_job_posting(
         "company_id": company_id,
         "title": data.get("title"),
         "department": data.get("department"),
+        "department_id": data.get("department_id"),
+        "position_id": data.get("position_id"),
         "location": data.get("location"),
         "employment_type": data.get("employment_type", "full_time"),
         "salary_min": data.get("salary_min"),
@@ -3887,6 +4020,85 @@ async def update_candidate_scorecard(
         raise HTTPException(status_code=404, detail="Candidate not found")
     
     return {"message": "Scorecard updated"}
+
+
+
+@people_ops_router.post("/recruitment/candidates/{candidate_id}/hire")
+async def hire_candidate(candidate_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Convert a candidate to an employee"""
+    company_id, _ = await check_people_ops_access(user, "edit")
+
+    candidate = await db.recruitment_candidates.find_one(
+        {"id": candidate_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    # Get the job posting for department/position info
+    job = None
+    if candidate.get("job_posting_id"):
+        job = await db.job_postings.find_one(
+            {"id": candidate["job_posting_id"], "company_id": company_id},
+            {"_id": 0}
+        )
+
+    # Check duplicate email
+    existing = await db.employees.find_one({"company_id": company_id, "email": candidate.get("email")})
+    if existing:
+        raise HTTPException(status_code=400, detail="Employee with this email already exists")
+
+    now = datetime.now(timezone.utc)
+    employee_id = f"emp_{uuid.uuid4().hex[:12]}"
+    count = await db.employees.count_documents({"company_id": company_id})
+    employee_number = f"EMP-{str(count + 1).zfill(4)}"
+
+    # Resolve department name
+    department_name = data.get("department") or (job.get("department") if job else "")
+    department_id = data.get("department_id") or (job.get("department_id") if job else None)
+    position_id = data.get("position_id") or (job.get("position_id") if job else None)
+    job_title = data.get("job_title") or (job.get("title") if job else "")
+
+    if department_id and not department_name:
+        dept = await db.departments.find_one({"department_id": department_id}, {"_id": 0, "name": 1})
+        department_name = dept.get("name", "") if dept else ""
+
+    employee_doc = {
+        "employee_id": employee_id,
+        "company_id": company_id,
+        "employee_number": employee_number,
+        "first_name": candidate.get("first_name", ""),
+        "last_name": candidate.get("last_name", ""),
+        "full_name": f"{candidate.get('first_name', '')} {candidate.get('last_name', '')}".strip(),
+        "email": candidate.get("email", ""),
+        "phone": candidate.get("phone", ""),
+        "job_title": job_title,
+        "department": department_name,
+        "department_id": department_id,
+        "position_id": position_id,
+        "contract_type": data.get("contract_type", "full_time"),
+        "hire_date": data.get("hire_date", now.strftime("%Y-%m-%d")),
+        "base_salary": data.get("base_salary", 0),
+        "payment_frequency": data.get("payment_frequency", "biweekly"),
+        "status": "active",
+        "is_manager": data.get("is_manager", False),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+
+    await db.employees.insert_one(employee_doc)
+
+    # Update candidate stage to hired
+    await db.recruitment_candidates.update_one(
+        {"id": candidate_id, "company_id": company_id},
+        {"$set": {"stage": "hired", "hired_employee_id": employee_id, "updated_at": now}}
+    )
+
+    # Close the job posting if all positions filled (optional)
+
+    # Remove _id before returning
+    employee_doc.pop("_id", None)
+    return {"message": "Candidate hired successfully", "employee_id": employee_id, "employee": employee_doc}
 
 
 # ==================== ONBOARDING ====================

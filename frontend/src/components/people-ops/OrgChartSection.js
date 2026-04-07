@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -7,13 +8,13 @@ import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Users, Building2, ChevronDown, ChevronRight, RefreshCw, User,
-  Plus, Pencil, Trash2, Briefcase, Layers
+  Plus, Pencil, Trash2, Briefcase, Layers, UserPlus, AlertCircle,
+  Link2, Eye
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,60 +31,77 @@ const POSITION_LEVELS = [
   { value: "intern", label: "Pasante", labelEn: "Intern" },
 ];
 
+const LEVEL_COLORS = {
+  executive: "border-red-300 bg-red-50",
+  director: "border-orange-300 bg-orange-50",
+  manager: "border-amber-300 bg-amber-50",
+  lead: "border-blue-300 bg-blue-50",
+  senior: "border-indigo-300 bg-indigo-50",
+  mid: "border-slate-300 bg-slate-50",
+  junior: "border-gray-300 bg-gray-50",
+  intern: "border-gray-200 bg-gray-50/50",
+};
+
 export function OrgChartSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [activeTab, setActiveTab] = useState("departments");
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
+  const [orgData, setOrgData] = useState({ departments: [], positions: [], employees: [], vacancies: [], unassigned_employees: [] });
+  const [activeTab, setActiveTab] = useState("visual");
+  const [expandedDepts, setExpandedDepts] = useState({});
 
   // Department dialog
-  const [deptDialog, setDeptDialog] = useState(false);
+  const [deptDialogOpen, setDeptDialogOpen] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
-  const [deptForm, setDeptForm] = useState({ name: "", code: "", description: "", head_user_id: "", parent_department_id: "" });
+  const [deptForm, setDeptForm] = useState({ name: "", code: "", description: "" });
 
   // Position dialog
-  const [posDialog, setPosDialog] = useState(false);
+  const [posDialogOpen, setPosDialogOpen] = useState(false);
   const [editingPos, setEditingPos] = useState(null);
   const [posForm, setPosForm] = useState({ title: "", department_id: "", level: "", description: "", reports_to_position_id: "" });
+
+  // Assign employee dialog
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignPosition, setAssignPosition] = useState(null);
+  const [assignEmployeeId, setAssignEmployeeId] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empRes, deptRes, posRes] = await Promise.all([
-        axios.get(`${API}/api/people-ops/employees`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/departments`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/positions`, { withCredentials: true }),
-      ]);
-      setEmployees(empRes.data.filter(e => e.status !== "terminated"));
-      setDepartments(Array.isArray(deptRes.data) ? deptRes.data : []);
-      setPositions(Array.isArray(posRes.data) ? posRes.data : []);
-    } catch {
-      toast.error(isEs ? "Error al cargar datos" : "Error loading data");
+      const res = await axios.get(`${API}/api/people-ops/org-chart`, { withCredentials: true });
+      setOrgData(res.data);
+      // Expand all departments by default
+      const exp = {};
+      (res.data.departments || []).forEach(d => { exp[d.department_id] = true; });
+      setExpandedDepts(prev => ({ ...exp, ...prev }));
+    } catch (err) {
+      console.error("Error fetching org chart:", err);
+      toast.error(isEs ? "Error cargando organigrama" : "Error loading org chart");
     }
     setLoading(false);
   }, [isEs]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const toggleDept = (deptId) => {
+    setExpandedDepts(prev => ({ ...prev, [deptId]: !prev[deptId] }));
+  };
+
   // Department CRUD
   const openDeptDialog = (dept = null) => {
     if (dept) {
       setEditingDept(dept);
-      setDeptForm({ name: dept.name || "", code: dept.code || "", description: dept.description || "", head_user_id: dept.head_user_id || "", parent_department_id: dept.parent_department_id || "" });
+      setDeptForm({ name: dept.name || "", code: dept.code || "", description: dept.description || "" });
     } else {
       setEditingDept(null);
-      setDeptForm({ name: "", code: "", description: "", head_user_id: "", parent_department_id: "" });
+      setDeptForm({ name: "", code: "", description: "" });
     }
-    setDeptDialog(true);
+    setDeptDialogOpen(true);
   };
 
-  const saveDept = async () => {
-    if (!deptForm.name.trim()) return;
+  const handleSaveDept = async () => {
     try {
       if (editingDept) {
         await axios.put(`${API}/api/people-ops/departments/${editingDept.department_id}`, deptForm, { withCredentials: true });
@@ -92,14 +110,14 @@ export function OrgChartSection() {
         await axios.post(`${API}/api/people-ops/departments`, deptForm, { withCredentials: true });
         toast.success(isEs ? "Departamento creado" : "Department created");
       }
-      setDeptDialog(false);
+      setDeptDialogOpen(false);
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
     }
   };
 
-  const deleteDept = async (dept) => {
+  const handleDeleteDept = async (dept) => {
     if (!confirm(isEs ? `Eliminar departamento "${dept.name}"?` : `Delete department "${dept.name}"?`)) return;
     try {
       await axios.delete(`${API}/api/people-ops/departments/${dept.department_id}`, { withCredentials: true });
@@ -111,19 +129,18 @@ export function OrgChartSection() {
   };
 
   // Position CRUD
-  const openPosDialog = (pos = null) => {
+  const openPosDialog = (pos = null, deptId = null) => {
     if (pos) {
       setEditingPos(pos);
       setPosForm({ title: pos.title || "", department_id: pos.department_id || "", level: pos.level || "", description: pos.description || "", reports_to_position_id: pos.reports_to_position_id || "" });
     } else {
       setEditingPos(null);
-      setPosForm({ title: "", department_id: "", level: "", description: "", reports_to_position_id: "" });
+      setPosForm({ title: "", department_id: deptId || "", level: "", description: "", reports_to_position_id: "" });
     }
-    setPosDialog(true);
+    setPosDialogOpen(true);
   };
 
-  const savePos = async () => {
-    if (!posForm.title.trim()) return;
+  const handleSavePos = async () => {
     try {
       if (editingPos) {
         await axios.put(`${API}/api/people-ops/positions/${editingPos.position_id}`, posForm, { withCredentials: true });
@@ -132,14 +149,14 @@ export function OrgChartSection() {
         await axios.post(`${API}/api/people-ops/positions`, posForm, { withCredentials: true });
         toast.success(isEs ? "Posicion creada" : "Position created");
       }
-      setPosDialog(false);
+      setPosDialogOpen(false);
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
     }
   };
 
-  const deletePos = async (pos) => {
+  const handleDeletePos = async (pos) => {
     if (!confirm(isEs ? `Eliminar posicion "${pos.title}"?` : `Delete position "${pos.title}"?`)) return;
     try {
       await axios.delete(`${API}/api/people-ops/positions/${pos.position_id}`, { withCredentials: true });
@@ -150,20 +167,36 @@ export function OrgChartSection() {
     }
   };
 
-  const toggleNode = (id) => {
-    setExpandedNodes(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  // Assign employee to position
+  const openAssignDialog = (pos) => {
+    setAssignPosition(pos);
+    setAssignEmployeeId("");
+    setAssignDialogOpen(true);
   };
 
+  const handleAssignEmployee = async () => {
+    if (!assignEmployeeId || !assignPosition) return;
+    try {
+      await axios.patch(
+        `${API}/api/people-ops/employees/${assignEmployeeId}/assign-position`,
+        { position_id: assignPosition.position_id },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Empleado asignado" : "Employee assigned");
+      setAssignDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+  const { departments, positions, unassigned_employees } = orgData;
+  const totalPositions = positions.length;
+  const filledPositions = positions.filter(p => p.employees?.length > 0).length;
+  const vacantPositions = totalPositions - filledPositions;
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
   }
 
   return (
@@ -171,121 +204,275 @@ export function OrgChartSection() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Building2 className="w-5 h-5" />
-            {isEs ? "Estructura Organizacional" : "Organization Structure"}
-          </h2>
           <p className="text-sm text-muted-foreground">
-            {departments.length} {isEs ? "departamentos" : "departments"} &middot; {positions.length} {isEs ? "posiciones" : "positions"} &middot; {employees.length} {isEs ? "empleados" : "employees"}
+            {departments.length} {isEs ? "departamentos" : "departments"} &middot; {totalPositions} {isEs ? "posiciones" : "positions"} &middot; {orgData.employees.length} {isEs ? "empleados" : "employees"}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData}>
-          <RefreshCw className="w-4 h-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button size="sm" onClick={() => openDeptDialog()} data-testid="add-dept-btn">
+            <Plus className="w-4 h-4 mr-1" /> {isEs ? "Departamento" : "Department"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => openPosDialog()} data-testid="add-position-btn">
+            <Plus className="w-4 h-4 mr-1" /> {isEs ? "Posicion" : "Position"}
+          </Button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{departments.filter(d => d.is_active).length}</div>
-              <div className="text-xs text-muted-foreground">{isEs ? "Departamentos" : "Departments"}</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Briefcase className="w-5 h-5 text-violet-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{positions.length}</div>
-              <div className="text-xs text-muted-foreground">{isEs ? "Posiciones" : "Positions"}</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <Users className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{employees.length}</div>
-              <div className="text-xs text-muted-foreground">{isEs ? "Empleados" : "Employees"}</div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card><CardContent className="pt-3 pb-3">
+          <div className="flex items-center gap-2 mb-1"><Building2 className="w-4 h-4 text-blue-500" /><span className="text-xs text-muted-foreground">{isEs ? "Departamentos" : "Departments"}</span></div>
+          <div className="text-xl font-bold">{departments.length}</div>
+        </CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3">
+          <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-500" /><span className="text-xs text-muted-foreground">{isEs ? "Posiciones" : "Positions"}</span></div>
+          <div className="text-xl font-bold">{totalPositions}</div>
+        </CardContent></Card>
+        <Card className="border-green-200 bg-green-50/30"><CardContent className="pt-3 pb-3">
+          <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-green-600" /><span className="text-xs text-green-700">{isEs ? "Ocupadas" : "Filled"}</span></div>
+          <div className="text-xl font-bold text-green-700">{filledPositions}</div>
+        </CardContent></Card>
+        <Card className={vacantPositions > 0 ? "border-amber-200 bg-amber-50/30" : ""}><CardContent className="pt-3 pb-3">
+          <div className="flex items-center gap-2 mb-1"><AlertCircle className="w-4 h-4 text-amber-500" /><span className="text-xs text-amber-700">{isEs ? "Vacantes" : "Vacant"}</span></div>
+          <div className="text-xl font-bold text-amber-700">{vacantPositions}</div>
+        </CardContent></Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="departments" className="gap-1" data-testid="tab-departments">
-            <Building2 className="w-3.5 h-3.5" /> {isEs ? "Departamentos" : "Departments"}
-          </TabsTrigger>
-          <TabsTrigger value="positions" className="gap-1" data-testid="tab-positions">
-            <Briefcase className="w-3.5 h-3.5" /> {isEs ? "Posiciones" : "Positions"}
-          </TabsTrigger>
-          <TabsTrigger value="chart" className="gap-1" data-testid="tab-chart">
-            <Layers className="w-3.5 h-3.5" /> {isEs ? "Organigrama" : "Org Chart"}
-          </TabsTrigger>
+          <TabsTrigger value="visual" className="gap-1"><Layers className="w-3.5 h-3.5" /> {isEs ? "Organigrama" : "Org Chart"}</TabsTrigger>
+          <TabsTrigger value="departments" className="gap-1"><Building2 className="w-3.5 h-3.5" /> {isEs ? "Departamentos" : "Departments"}</TabsTrigger>
+          <TabsTrigger value="positions" className="gap-1"><Briefcase className="w-3.5 h-3.5" /> {isEs ? "Posiciones" : "Positions"}</TabsTrigger>
         </TabsList>
 
-        {/* Departments Tab */}
+        {/* === VISUAL ORG CHART === */}
+        <TabsContent value="visual" className="space-y-4">
+          {departments.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">{isEs ? "No hay departamentos" : "No departments"}</p>
+              <Button className="mt-3" size="sm" onClick={() => openDeptDialog()}>
+                <Plus className="w-4 h-4 mr-1" /> {isEs ? "Crear Departamento" : "Create Department"}
+              </Button>
+            </CardContent></Card>
+          ) : (
+            <div className="space-y-4">
+              {departments.map(dept => {
+                const deptPositions = positions.filter(p => p.department_id === dept.department_id);
+                const deptEmployeeCount = deptPositions.reduce((sum, p) => sum + (p.employees?.length || 0), 0);
+                const deptVacantCount = deptPositions.filter(p => p.is_vacant).length;
+                const isExpanded = expandedDepts[dept.department_id] !== false;
+
+                return (
+                  <Card key={dept.department_id} className="overflow-hidden" data-testid={`dept-card-${dept.department_id}`}>
+                    {/* Department Header */}
+                    <div
+                      className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/30 transition-colors border-b"
+                      onClick={() => toggleDept(dept.department_id)}
+                    >
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-700`}>
+                        <Building2 className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{dept.name}</h3>
+                          {dept.code && <Badge variant="outline" className="text-[10px]">{dept.code}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          <span>{deptPositions.length} {isEs ? "posiciones" : "positions"}</span>
+                          <span>{deptEmployeeCount} {isEs ? "empleados" : "employees"}</span>
+                          {deptVacantCount > 0 && (
+                            <span className="text-amber-600 font-medium">{deptVacantCount} {isEs ? "vacantes" : "vacant"}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openPosDialog(null, dept.department_id); }} title={isEs ? "Agregar posicion" : "Add position"}>
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openDeptDialog(dept); }}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={e => { e.stopPropagation(); handleDeleteDept(dept); }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                        {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                      </div>
+                    </div>
+
+                    {/* Positions Grid */}
+                    {isExpanded && (
+                      <CardContent className="p-4">
+                        {deptPositions.length === 0 ? (
+                          <div className="text-center py-6 text-muted-foreground text-sm">
+                            <Briefcase className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p>{isEs ? "Sin posiciones definidas" : "No positions defined"}</p>
+                            <Button variant="link" size="sm" className="mt-1" onClick={() => openPosDialog(null, dept.department_id)}>
+                              <Plus className="w-3 h-3 mr-1" /> {isEs ? "Agregar" : "Add"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {deptPositions.map(pos => {
+                              const levelColor = LEVEL_COLORS[pos.level] || "border-gray-200 bg-gray-50";
+                              const hasEmployees = pos.employees && pos.employees.length > 0;
+                              const reportsTo = positions.find(p => p.position_id === pos.reports_to_position_id);
+
+                              return (
+                                <div
+                                  key={pos.position_id}
+                                  className={`rounded-lg border-2 p-3 transition-all ${levelColor} ${!hasEmployees ? 'border-dashed' : ''}`}
+                                  data-testid={`position-card-${pos.position_id}`}
+                                >
+                                  {/* Position Header */}
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div>
+                                      <h4 className="font-medium text-sm">{pos.title}</h4>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        {pos.level && (
+                                          <Badge variant="outline" className="text-[10px] py-0">
+                                            {POSITION_LEVELS.find(l => l.value === pos.level)?.[isEs ? 'label' : 'labelEn'] || pos.level}
+                                          </Badge>
+                                        )}
+                                        {reportsTo && (
+                                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                            <Link2 className="w-2.5 h-2.5" /> {reportsTo.title}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-0.5">
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openPosDialog(pos)}>
+                                        <Pencil className="w-3 h-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => handleDeletePos(pos)}>
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  {/* Employees in this position */}
+                                  {hasEmployees ? (
+                                    <div className="space-y-1.5">
+                                      {pos.employees.map(emp => (
+                                        <div
+                                          key={emp.employee_id}
+                                          className="flex items-center gap-2 p-1.5 rounded-md bg-white/70 border cursor-pointer hover:bg-white transition-colors"
+                                          onClick={() => navigate(`/people-ops/employee/${emp.employee_id}`)}
+                                          data-testid={`emp-in-pos-${emp.employee_id}`}
+                                        >
+                                          <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-[10px] font-medium text-violet-700">
+                                              {emp.first_name?.[0]}{emp.last_name?.[0]}
+                                            </span>
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-medium truncate">{emp.full_name}</p>
+                                            <p className="text-[10px] text-muted-foreground truncate">{emp.email}</p>
+                                          </div>
+                                          <Badge variant="outline" className="text-[10px] py-0 flex-shrink-0">
+                                            {emp.status === "active" ? (isEs ? "Activo" : "Active") : emp.status}
+                                          </Badge>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    /* Vacant Position */
+                                    <div className="text-center py-2">
+                                      <div className="inline-flex items-center gap-1.5 text-amber-600 text-xs font-medium mb-2">
+                                        <AlertCircle className="w-3.5 h-3.5" />
+                                        {isEs ? "Posicion vacante" : "Vacant position"}
+                                      </div>
+                                      {pos.has_open_vacancy && (
+                                        <p className="text-[10px] text-blue-600 mb-1">{isEs ? "Vacante abierta en reclutamiento" : "Open in recruitment"}</p>
+                                      )}
+                                      <div className="flex items-center justify-center gap-1">
+                                        <Button variant="outline" size="sm" className="h-6 text-[11px] px-2" onClick={() => openAssignDialog(pos)} data-testid={`assign-to-${pos.position_id}`}>
+                                          <UserPlus className="w-3 h-3 mr-1" />
+                                          {isEs ? "Asignar" : "Assign"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
+
+              {/* Unassigned Employees */}
+              {unassigned_employees.length > 0 && (
+                <Card className="border-amber-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                      {isEs ? `Empleados sin posicion asignada (${unassigned_employees.length})` : `Unassigned employees (${unassigned_employees.length})`}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {unassigned_employees.map(emp => (
+                        <div
+                          key={emp.employee_id}
+                          className="flex items-center gap-2 p-2 rounded-md border border-dashed border-amber-300 bg-amber-50/50 cursor-pointer hover:bg-amber-50 transition-colors"
+                          onClick={() => navigate(`/people-ops/employee/${emp.employee_id}`)}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-medium text-amber-700">{emp.first_name?.[0]}{emp.last_name?.[0]}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{emp.full_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{emp.job_title || emp.department || emp.email}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* === DEPARTMENTS TAB === */}
         <TabsContent value="departments" className="space-y-4">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => openDeptDialog()} data-testid="add-department-btn">
+            <Button size="sm" onClick={() => openDeptDialog()}>
               <Plus className="w-4 h-4 mr-1" /> {isEs ? "Nuevo Departamento" : "New Department"}
             </Button>
           </div>
-
           {departments.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Building2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-30" />
-                <p className="text-muted-foreground">{isEs ? "No hay departamentos creados" : "No departments created"}</p>
-                <Button size="sm" variant="outline" className="mt-3" onClick={() => openDeptDialog()} data-testid="empty-add-dept-btn">
-                  <Plus className="w-4 h-4 mr-1" /> {isEs ? "Crear primer departamento" : "Create first department"}
-                </Button>
-              </CardContent>
-            </Card>
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>{isEs ? "No hay departamentos" : "No departments"}</p>
+            </CardContent></Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="departments-list">
-              {departments.filter(d => d.is_active !== false).map(dept => {
+            <div className="space-y-2">
+              {departments.map(dept => {
                 const deptPositions = positions.filter(p => p.department_id === dept.department_id);
-                const deptEmployees = employees.filter(e => e.department_id === dept.department_id);
-                const parentDept = departments.find(d => d.department_id === dept.parent_department_id);
-
+                const deptEmpCount = deptPositions.reduce((s, p) => s + (p.employees?.length || 0), 0);
                 return (
-                  <Card key={dept.department_id} data-testid={`dept-card-${dept.department_id}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium">{dept.name}</h4>
-                            {dept.code && <Badge variant="outline" className="text-[10px]">{dept.code}</Badge>}
-                          </div>
-                          {dept.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{dept.description}</p>}
-                          {parentDept && (
-                            <p className="text-xs text-blue-600 mt-1">{isEs ? "Reporta a" : "Reports to"}: {parentDept.name}</p>
-                          )}
-                          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{deptEmployees.length} {isEs ? "empleados" : "employees"}</span>
-                            <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{deptPositions.length} {isEs ? "posiciones" : "positions"}</span>
-                          </div>
+                  <Card key={dept.department_id} className="hover:border-primary/30 transition-colors">
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"><Building2 className="w-5 h-5 text-blue-700" /></div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2"><h4 className="font-medium">{dept.name}</h4>{dept.code && <Badge variant="outline" className="text-[10px]">{dept.code}</Badge>}</div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{dept.description || ""}</p>
+                        <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{deptPositions.length} {isEs ? "posiciones" : "positions"}</span>
+                          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{deptEmpCount} {isEs ? "empleados" : "employees"}</span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDeptDialog(dept)} data-testid={`edit-dept-${dept.department_id}`}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => deleteDept(dept)} data-testid={`delete-dept-${dept.department_id}`}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDeptDialog(dept)}><Pencil className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteDept(dept)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -295,168 +482,59 @@ export function OrgChartSection() {
           )}
         </TabsContent>
 
-        {/* Positions Tab */}
+        {/* === POSITIONS TAB === */}
         <TabsContent value="positions" className="space-y-4">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => openPosDialog()} data-testid="add-position-btn">
+            <Button size="sm" onClick={() => openPosDialog()} data-testid="add-position-btn-tab">
               <Plus className="w-4 h-4 mr-1" /> {isEs ? "Nueva Posicion" : "New Position"}
             </Button>
           </div>
-
           {positions.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Briefcase className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-30" />
-                <p className="text-muted-foreground">{isEs ? "No hay posiciones definidas" : "No positions defined"}</p>
-                <Button size="sm" variant="outline" className="mt-3" onClick={() => openPosDialog()} data-testid="empty-add-pos-btn">
-                  <Plus className="w-4 h-4 mr-1" /> {isEs ? "Crear primera posicion" : "Create first position"}
-                </Button>
-              </CardContent>
-            </Card>
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              <Briefcase className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>{isEs ? "No hay posiciones" : "No positions"}</p>
+            </CardContent></Card>
           ) : (
-            <div className="space-y-2" data-testid="positions-list">
-              {departments.filter(d => d.is_active !== false).map(dept => {
+            <div className="space-y-2">
+              {departments.map(dept => {
                 const deptPositions = positions.filter(p => p.department_id === dept.department_id);
                 if (deptPositions.length === 0) return null;
                 return (
                   <div key={dept.department_id}>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                       <Building2 className="w-3.5 h-3.5" /> {dept.name}
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-                      {deptPositions.map(pos => {
-                        const lvl = POSITION_LEVELS.find(l => l.value === pos.level);
-                        return (
-                          <Card key={pos.position_id} data-testid={`pos-card-${pos.position_id}`}>
-                            <CardContent className="p-3 flex items-center justify-between">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm">{pos.title}</span>
-                                  {lvl && <Badge variant="outline" className="text-[10px]">{isEs ? lvl.label : lvl.labelEn}</Badge>}
-                                </div>
-                                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                  <span><Users className="w-3 h-3 inline mr-0.5" />{pos.employee_count || 0}</span>
-                                  {pos.description && <span className="truncate max-w-[150px]">{pos.description}</span>}
-                                </div>
+                    <div className="space-y-1.5 ml-4 mb-4">
+                      {deptPositions.map(pos => (
+                        <Card key={pos.position_id} className={`${pos.is_vacant ? 'border-dashed border-amber-300' : ''}`}>
+                          <CardContent className="flex items-center gap-3 p-3">
+                            <Briefcase className={`w-4 h-4 ${pos.is_vacant ? 'text-amber-500' : 'text-indigo-500'}`} />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{pos.title}</span>
+                                {pos.level && <Badge variant="outline" className="text-[10px] py-0">{pos.level}</Badge>}
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openPosDialog(pos)} data-testid={`edit-pos-${pos.position_id}`}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => deletePos(pos)} data-testid={`delete-pos-${pos.position_id}`}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-              {/* Unassigned positions */}
-              {positions.filter(p => !p.department_id).length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                    {isEs ? "Sin departamento" : "Unassigned"}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {positions.filter(p => !p.department_id).map(pos => {
-                      const lvl = POSITION_LEVELS.find(l => l.value === pos.level);
-                      return (
-                        <Card key={pos.position_id}>
-                          <CardContent className="p-3 flex items-center justify-between">
-                            <div>
-                              <span className="font-medium text-sm">{pos.title}</span>
-                              {lvl && <Badge variant="outline" className="text-[10px] ml-2">{isEs ? lvl.label : lvl.labelEn}</Badge>}
+                              {pos.employees?.length > 0 && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {pos.employees.map(e => e.full_name).join(", ")}
+                                </p>
+                              )}
+                              {pos.is_vacant && <p className="text-xs text-amber-600 mt-0.5">{isEs ? "Vacante" : "Vacant"}</p>}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openPosDialog(pos)}><Pencil className="w-3.5 h-3.5" /></Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deletePos(pos)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            <div className="flex gap-1">
+                              {pos.is_vacant && (
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openAssignDialog(pos)}>
+                                  <UserPlus className="w-3 h-3 mr-1" /> {isEs ? "Asignar" : "Assign"}
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPosDialog(pos)}><Pencil className="w-3 h-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeletePos(pos)}><Trash2 className="w-3 h-3" /></Button>
                             </div>
                           </CardContent>
                         </Card>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Org Chart Tab */}
-        <TabsContent value="chart" className="space-y-4">
-          {departments.filter(d => d.is_active !== false).length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Layers className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-30" />
-                <p className="text-muted-foreground">{isEs ? "Crea departamentos y posiciones primero" : "Create departments and positions first"}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {departments.filter(d => d.is_active !== false).map(dept => {
-                const deptEmployees = employees.filter(e => e.department_id === dept.department_id);
-                const deptPositions = positions.filter(p => p.department_id === dept.department_id);
-                const isExpanded = expandedNodes.has(dept.department_id);
-
-                return (
-                  <Card key={dept.department_id} className="overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-3 cursor-pointer" onClick={() => toggleNode(dept.department_id)}>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Building2 className="w-4 h-4" />
-                        {dept.name}
-                        {dept.code && <span className="text-xs text-muted-foreground">({dept.code})</span>}
-                        {isExpanded ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
-                      </CardTitle>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{deptEmployees.length} {isEs ? "empleados" : "employees"}</span>
-                        <span>{deptPositions.length} {isEs ? "posiciones" : "positions"}</span>
-                      </div>
-                    </CardHeader>
-                    {isExpanded && (
-                      <CardContent className="p-3">
-                        {deptPositions.length > 0 && (
-                          <div className="mb-3">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">{isEs ? "Posiciones" : "Positions"}</p>
-                            <div className="space-y-1">
-                              {deptPositions.map(pos => {
-                                const lvl = POSITION_LEVELS.find(l => l.value === pos.level);
-                                return (
-                                  <div key={pos.position_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-violet-50 rounded">
-                                    <Briefcase className="w-3 h-3 text-violet-500" />
-                                    <span>{pos.title}</span>
-                                    {lvl && <Badge variant="outline" className="text-[9px]">{isEs ? lvl.label : lvl.labelEn}</Badge>}
-                                    <span className="text-xs text-muted-foreground ml-auto">{pos.employee_count || 0}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        {deptEmployees.length > 0 ? (
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {deptEmployees.map(emp => (
-                              <div key={emp.employee_id} className="flex items-center gap-2 py-1">
-                                <Avatar className="w-6 h-6">
-                                  <AvatarImage src={emp.profile_photo} />
-                                  <AvatarFallback className="text-xs">{emp.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm truncate">{emp.full_name}</div>
-                                  <div className="text-xs text-muted-foreground truncate">{emp.job_title}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground text-center py-3">{isEs ? "Sin empleados" : "No employees"}</p>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
                 );
               })}
             </div>
@@ -465,107 +543,110 @@ export function OrgChartSection() {
       </Tabs>
 
       {/* Department Dialog */}
-      <Dialog open={deptDialog} onOpenChange={setDeptDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingDept ? (isEs ? "Editar Departamento" : "Edit Department") : (isEs ? "Nuevo Departamento" : "New Department")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{isEs ? "Nombre" : "Name"}</Label>
-                <Input value={deptForm.name} onChange={e => setDeptForm({ ...deptForm, name: e.target.value })} placeholder={isEs ? "Ej: Operaciones" : "E.g.: Operations"} data-testid="dept-name-input" />
-              </div>
-              <div>
-                <Label>{isEs ? "Codigo" : "Code"}</Label>
-                <Input value={deptForm.code} onChange={e => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })} placeholder="OPS" maxLength={5} data-testid="dept-code-input" />
-              </div>
-            </div>
-            <div>
-              <Label>{isEs ? "Descripcion" : "Description"}</Label>
-              <Textarea value={deptForm.description} onChange={e => setDeptForm({ ...deptForm, description: e.target.value })} rows={2} data-testid="dept-desc-input" />
-            </div>
-            {departments.length > 0 && (
-              <div>
-                <Label>{isEs ? "Departamento padre" : "Parent Department"}</Label>
-                <Select value={deptForm.parent_department_id || "none"} onValueChange={v => setDeptForm({ ...deptForm, parent_department_id: v === "none" ? "" : v })}>
-                  <SelectTrigger data-testid="dept-parent-select"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{isEs ? "Ninguno (raiz)" : "None (root)"}</SelectItem>
-                    {departments.filter(d => d.department_id !== editingDept?.department_id && d.is_active !== false).map(d => (
-                      <SelectItem key={d.department_id} value={d.department_id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+      <Dialog open={deptDialogOpen} onOpenChange={setDeptDialogOpen}>
+        <DialogContent data-testid="dept-dialog">
+          <DialogHeader><DialogTitle>{editingDept ? (isEs ? "Editar Departamento" : "Edit Department") : (isEs ? "Nuevo Departamento" : "New Department")}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>{isEs ? "Nombre" : "Name"}</Label><Input value={deptForm.name} onChange={e => setDeptForm({ ...deptForm, name: e.target.value })} data-testid="dept-name-input" /></div>
+            <div><Label>{isEs ? "Codigo" : "Code"}</Label><Input value={deptForm.code} onChange={e => setDeptForm({ ...deptForm, code: e.target.value })} placeholder="e.g. MKT, DEV, HR" /></div>
+            <div><Label>{isEs ? "Descripcion" : "Description"}</Label><Textarea value={deptForm.description} onChange={e => setDeptForm({ ...deptForm, description: e.target.value })} rows={2} /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeptDialog(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
-            <Button onClick={saveDept} disabled={!deptForm.name.trim()} data-testid="save-dept-btn">{editingDept ? (isEs ? "Guardar" : "Save") : (isEs ? "Crear" : "Create")}</Button>
+            <Button variant="outline" onClick={() => setDeptDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleSaveDept} disabled={!deptForm.name} data-testid="save-dept-btn">{editingDept ? (isEs ? "Actualizar" : "Update") : (isEs ? "Crear" : "Create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Position Dialog */}
-      <Dialog open={posDialog} onOpenChange={setPosDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingPos ? (isEs ? "Editar Posicion" : "Edit Position") : (isEs ? "Nueva Posicion" : "New Position")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+      <Dialog open={posDialogOpen} onOpenChange={setPosDialogOpen}>
+        <DialogContent data-testid="pos-dialog">
+          <DialogHeader><DialogTitle>{editingPos ? (isEs ? "Editar Posicion" : "Edit Position") : (isEs ? "Nueva Posicion" : "New Position")}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>{isEs ? "Titulo" : "Title"}</Label><Input value={posForm.title} onChange={e => setPosForm({ ...posForm, title: e.target.value })} data-testid="pos-title-input" /></div>
             <div>
-              <Label>{isEs ? "Titulo" : "Title"}</Label>
-              <Input value={posForm.title} onChange={e => setPosForm({ ...posForm, title: e.target.value })} placeholder={isEs ? "Ej: Gerente de Operaciones" : "E.g.: Operations Manager"} data-testid="pos-title-input" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{isEs ? "Departamento" : "Department"}</Label>
-                <Select value={posForm.department_id || "none"} onValueChange={v => setPosForm({ ...posForm, department_id: v === "none" ? "" : v })}>
-                  <SelectTrigger data-testid="pos-dept-select"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                    {departments.filter(d => d.is_active !== false).map(d => (
-                      <SelectItem key={d.department_id} value={d.department_id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>{isEs ? "Nivel" : "Level"}</Label>
-                <Select value={posForm.level || "none"} onValueChange={v => setPosForm({ ...posForm, level: v === "none" ? "" : v })}>
-                  <SelectTrigger data-testid="pos-level-select"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{isEs ? "Sin definir" : "Not defined"}</SelectItem>
-                    {POSITION_LEVELS.map(l => (
-                      <SelectItem key={l.value} value={l.value}>{isEs ? l.label : l.labelEn}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Label>{isEs ? "Departamento" : "Department"}</Label>
+              <Select value={posForm.department_id || "none"} onValueChange={v => setPosForm({ ...posForm, department_id: v === "none" ? "" : v })}>
+                <SelectTrigger data-testid="pos-dept-select"><SelectValue placeholder={isEs ? "Seleccionar..." : "Select..."} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Seleccionar..." : "Select..."}</SelectItem>
+                  {departments.map(d => <SelectItem key={d.department_id} value={d.department_id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <Label>{isEs ? "Descripcion" : "Description"}</Label>
-              <Textarea value={posForm.description} onChange={e => setPosForm({ ...posForm, description: e.target.value })} rows={2} data-testid="pos-desc-input" />
+              <Label>{isEs ? "Nivel" : "Level"}</Label>
+              <Select value={posForm.level || "none"} onValueChange={v => setPosForm({ ...posForm, level: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Seleccionar..." : "Select..."}</SelectItem>
+                  {POSITION_LEVELS.map(l => <SelectItem key={l.value} value={l.value}>{isEs ? l.label : l.labelEn}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-            {positions.length > 0 && (
-              <div>
-                <Label>{isEs ? "Reporta a (posicion)" : "Reports to (position)"}</Label>
-                <Select value={posForm.reports_to_position_id || "none"} onValueChange={v => setPosForm({ ...posForm, reports_to_position_id: v === "none" ? "" : v })}>
-                  <SelectTrigger data-testid="pos-reports-select"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{isEs ? "Ninguna" : "None"}</SelectItem>
-                    {positions.filter(p => p.position_id !== editingPos?.position_id).map(p => (
-                      <SelectItem key={p.position_id} value={p.position_id}>{p.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label>{isEs ? "Reporta a" : "Reports To"}</Label>
+              <Select value={posForm.reports_to_position_id || "none"} onValueChange={v => setPosForm({ ...posForm, reports_to_position_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Ninguno" : "None"}</SelectItem>
+                  {positions.filter(p => p.position_id !== editingPos?.position_id).map(p => <SelectItem key={p.position_id} value={p.position_id}>{p.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>{isEs ? "Descripcion" : "Description"}</Label><Textarea value={posForm.description} onChange={e => setPosForm({ ...posForm, description: e.target.value })} rows={2} /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPosDialog(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
-            <Button onClick={savePos} disabled={!posForm.title.trim()} data-testid="save-pos-btn">{editingPos ? (isEs ? "Guardar" : "Save") : (isEs ? "Crear" : "Create")}</Button>
+            <Button variant="outline" onClick={() => setPosDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleSavePos} disabled={!posForm.title} data-testid="save-pos-btn">{editingPos ? (isEs ? "Actualizar" : "Update") : (isEs ? "Crear" : "Create")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Employee Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent data-testid="assign-dialog">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Asignar Empleado a Posicion" : "Assign Employee to Position"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {assignPosition && (
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-sm font-medium">{assignPosition.title}</p>
+                <p className="text-xs text-muted-foreground">{departments.find(d => d.department_id === assignPosition.department_id)?.name || ""}</p>
+              </div>
+            )}
+            <div>
+              <Label>{isEs ? "Empleado" : "Employee"}</Label>
+              <Select value={assignEmployeeId || "none"} onValueChange={v => setAssignEmployeeId(v === "none" ? "" : v)}>
+                <SelectTrigger data-testid="assign-employee-select"><SelectValue placeholder={isEs ? "Seleccionar empleado..." : "Select employee..."} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isEs ? "Seleccionar..." : "Select..."}</SelectItem>
+                  {/* Show unassigned employees first, then all */}
+                  {unassigned_employees.length > 0 && (
+                    <>
+                      {unassigned_employees.map(emp => (
+                        <SelectItem key={emp.employee_id} value={emp.employee_id}>
+                          {emp.full_name} ({isEs ? "sin posicion" : "unassigned"})
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  {orgData.employees.filter(e => !unassigned_employees.find(u => u.employee_id === e.employee_id)).map(emp => (
+                    <SelectItem key={emp.employee_id} value={emp.employee_id}>
+                      {emp.full_name} — {emp.job_title || ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleAssignEmployee} disabled={!assignEmployeeId} data-testid="confirm-assign-btn">
+              <UserPlus className="w-4 h-4 mr-1" />
+              {isEs ? "Asignar" : "Assign"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -103,6 +103,7 @@ export function RecruitmentSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("open");
   const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
   
   // Job Dialog
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
@@ -111,6 +112,8 @@ export function RecruitmentSection() {
   const [jobForm, setJobForm] = useState({
     title: "",
     department: "",
+    department_id: "",
+    position_id: "",
     location: "",
     employment_type: "full_time",
     salary_min: "",
@@ -142,17 +145,24 @@ export function RecruitmentSection() {
   const [scorecardCandidate, setScorecardCandidate] = useState(null);
   const [scorecardForm, setScorecardForm] = useState([]);
 
+  // Hire Dialog
+  const [hireDialogOpen, setHireDialogOpen] = useState(false);
+  const [hireCandidate, setHireCandidate] = useState(null);
+  const [hireForm, setHireForm] = useState({ hire_date: "", contract_type: "full_time", base_salary: "", job_title: "" });
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobsRes, candidatesRes, deptRes] = await Promise.all([
+      const [jobsRes, candidatesRes, deptRes, posRes] = await Promise.all([
         axios.get(`${API}/api/people-ops/recruitment/jobs?status=${statusFilter}`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/recruitment/candidates`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/reference/departments`, { withCredentials: true })
+        axios.get(`${API}/api/people-ops/reference/departments`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/positions`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setJobPostings(jobsRes.data || []);
       setCandidates(candidatesRes.data || []);
       setDepartments(deptRes.data || []);
+      setPositions(posRes.data || []);
     } catch (err) {
       console.error("Error fetching recruitment data:", err);
       // Initialize with empty arrays on error
@@ -221,6 +231,8 @@ export function RecruitmentSection() {
     setJobForm({
       title: "",
       department: "",
+      department_id: "",
+      position_id: "",
       location: "",
       employment_type: "full_time",
       salary_min: "",
@@ -247,6 +259,40 @@ export function RecruitmentSection() {
       scorecard: []
     });
     setSelectedCandidate(null);
+  };
+
+  // Hire functions
+  const openHireDialog = (candidate) => {
+    const job = jobPostings.find(j => j.id === candidate.job_posting_id);
+    setHireCandidate(candidate);
+    setHireForm({
+      hire_date: new Date().toISOString().split("T")[0],
+      contract_type: "full_time",
+      base_salary: "",
+      job_title: job?.title || "",
+      department: job?.department || "",
+      department_id: job?.department_id || "",
+      position_id: job?.position_id || ""
+    });
+    setHireDialogOpen(true);
+  };
+
+  const handleHireCandidate = async () => {
+    if (!hireCandidate) return;
+    setSaving(true);
+    try {
+      await axios.post(
+        `${API}/api/people-ops/recruitment/candidates/${hireCandidate.id}/hire`,
+        hireForm,
+        { withCredentials: true }
+      );
+      toast.success(isEs ? "Candidato contratado exitosamente" : "Candidate hired successfully");
+      setHireDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al contratar" : "Error hiring"));
+    }
+    setSaving(false);
   };
 
   // Scorecard functions
@@ -695,9 +741,9 @@ export function RecruitmentSection() {
                               )}
                               {candidate.stage !== "hired" && candidate.stage !== "rejected" && (
                                 <>
-                                  <DropdownMenuItem onClick={() => updateCandidateStage(candidate.id, "hired")}>
+                                  <DropdownMenuItem onClick={() => openHireDialog(candidate)} data-testid={`hire-candidate-${candidate.id}`}>
                                     <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
-                                    {isEs ? "Marcar Contratado" : "Mark Hired"}
+                                    {isEs ? "Contratar" : "Hire"}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => updateCandidateStage(candidate.id, "rejected")}>
                                     <XCircle className="w-4 h-4 mr-2 text-red-600" />
@@ -810,6 +856,23 @@ export function RecruitmentSection() {
                   <SelectContent>
                     {departments.map((dept) => (
                       <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{isEs ? "Posicion (organigrama)" : "Position (org chart)"}</label>
+                <Select value={jobForm.position_id || "none"} onValueChange={(v) => {
+                  const pos = positions.find(p => p.position_id === v);
+                  setJobForm({ ...jobForm, position_id: v === "none" ? "" : v, department_id: pos?.department_id || jobForm.department_id });
+                }}>
+                  <SelectTrigger data-testid="job-position-select">
+                    <SelectValue placeholder={isEs ? "Vincular posicion..." : "Link position..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin vincular" : "Not linked"}</SelectItem>
+                    {positions.map((pos) => (
+                      <SelectItem key={pos.position_id} value={pos.position_id}>{pos.title}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1188,6 +1251,65 @@ export function RecruitmentSection() {
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
               {isEs ? "Guardar Scorecard" : "Save Scorecard"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hire Dialog */}
+      <Dialog open={hireDialogOpen} onOpenChange={setHireDialogOpen}>
+        <DialogContent data-testid="hire-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              {isEs ? "Contratar Candidato" : "Hire Candidate"}
+            </DialogTitle>
+          </DialogHeader>
+          {hireCandidate && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="font-medium">{hireCandidate.first_name} {hireCandidate.last_name}</p>
+                <p className="text-sm text-muted-foreground">{hireCandidate.email}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{isEs ? "Puesto" : "Job Title"}</label>
+                  <Input value={hireForm.job_title} onChange={e => setHireForm({ ...hireForm, job_title: e.target.value })} data-testid="hire-job-title" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{isEs ? "Fecha de Ingreso" : "Hire Date"}</label>
+                  <Input type="date" value={hireForm.hire_date} onChange={e => setHireForm({ ...hireForm, hire_date: e.target.value })} data-testid="hire-date" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{isEs ? "Tipo de Contrato" : "Contract Type"}</label>
+                  <Select value={hireForm.contract_type} onValueChange={v => setHireForm({ ...hireForm, contract_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full_time">{isEs ? "Tiempo Completo" : "Full Time"}</SelectItem>
+                      <SelectItem value="part_time">{isEs ? "Medio Tiempo" : "Part Time"}</SelectItem>
+                      <SelectItem value="contract">{isEs ? "Contrato" : "Contract"}</SelectItem>
+                      <SelectItem value="freelance">Freelance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{isEs ? "Salario Base" : "Base Salary"}</label>
+                  <Input type="number" value={hireForm.base_salary} onChange={e => setHireForm({ ...hireForm, base_salary: e.target.value })} placeholder="0" data-testid="hire-salary" />
+                </div>
+              </div>
+              {hireForm.position_id && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4" />
+                  {isEs ? "Se asignara a la posicion del organigrama vinculada a esta vacante" : "Will be assigned to the linked org chart position"}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHireDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleHireCandidate} disabled={saving} className="bg-green-600 hover:bg-green-700" data-testid="confirm-hire-btn">
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              {isEs ? "Confirmar Contratacion" : "Confirm Hire"}
             </Button>
           </DialogFooter>
         </DialogContent>
