@@ -377,6 +377,17 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Status selector (Active/Paused/Inactive) only shown in edit mode
    - Testing: Visual verification via screenshot (4 edit + 4 delete buttons confirmed)
 
+6. **Feature - People Ops Complete Overhaul (P0)**:
+   - **Bug Fix**: Department dropdown in Recruitment now reads from `db.departments` (was reading from empty `db.employees.distinct`)
+   - **Visual Org Chart**: Departments as collapsible cards → Positions with color-coded levels → Employees or "Vacant" with Assign button
+   - **Stats bar**: Departments, Positions, Filled, Vacant counts
+   - **Unassigned employees** section at bottom showing employees without position
+   - **Assign employee to position**: Dialog from Org Chart assigns employee and auto-updates department/job_title
+   - **Position linked to Vacancies**: New `position_id` field in job postings connects Recruitment to Org Structure
+   - **Hire candidate flow**: "Contratar" button creates employee directly from candidate with department/position/salary
+   - New endpoints: `GET /api/people-ops/org-chart`, `PATCH /api/people-ops/employees/{id}/assign-position`, `POST /api/people-ops/recruitment/candidates/{id}/hire`
+   - Testing: 23/23 backend + 100% frontend verified (iteration_134)
+
 ## Known Issues
 
 ### P0 - Critical
