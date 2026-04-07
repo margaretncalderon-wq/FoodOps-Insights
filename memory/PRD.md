@@ -362,6 +362,13 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - Nueva colección: `weekly_summary_log` (debounce tracking)
    - Testing: 14/14 backend + 100% frontend verified (iteration_133)
 
+4. **Enhancement - Text Color in RichTextEditor (P0)**:
+   - Added text color picker (Type icon) to the RichTextEditor toolbar
+   - 10 colors: Negro, Rojo, Naranja, Amarillo, Verde, Azul, Morado, Rosa, Gris + Quitar
+   - Uses `document.execCommand('foreColor')` for applying colors
+   - Available in all RichTextEditor instances (post Content/Script, idea Content/Script)
+   - Testing: Visual verification via screenshot
+
 ## Known Issues
 
 ### P0 - Critical

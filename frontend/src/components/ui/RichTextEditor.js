@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "../ui/button";
 import { 
   Bold, Italic, Underline, Strikethrough, List, ListOrdered, 
-  Link2, Highlighter, CheckSquare, Paperclip, AtSign, Smile
+  Link2, Highlighter, CheckSquare, Paperclip, AtSign, Smile, Type
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
@@ -20,6 +20,19 @@ const HIGHLIGHT_COLORS = [
   { color: "transparent", label: "Quitar" },
 ];
 
+const TEXT_COLORS = [
+  { color: "#000000", label: "Negro" },
+  { color: "#dc2626", label: "Rojo" },
+  { color: "#ea580c", label: "Naranja" },
+  { color: "#ca8a04", label: "Amarillo" },
+  { color: "#16a34a", label: "Verde" },
+  { color: "#2563eb", label: "Azul" },
+  { color: "#7c3aed", label: "Morado" },
+  { color: "#db2777", label: "Rosa" },
+  { color: "#6b7280", label: "Gris" },
+  { color: "remove", label: "Quitar" },
+];
+
 export default function RichTextEditor({ 
   value, 
   onChange, 
@@ -30,6 +43,7 @@ export default function RichTextEditor({
   const editorRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showTextColorPicker, setShowTextColorPicker] = useState(false);
   const isInitialized = useRef(false);
 
   useEffect(() => {
@@ -116,6 +130,15 @@ export default function RichTextEditor({
     setShowHighlightPicker(false);
   };
 
+  const applyTextColor = (color) => {
+    if (color === 'remove') {
+      execCommand('removeFormat');
+    } else {
+      execCommand('foreColor', color);
+    }
+    setShowTextColorPicker(false);
+  };
+
   const insertChecklist = () => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -199,6 +222,39 @@ export default function RichTextEditor({
                     style={{ backgroundColor: hc.color === 'transparent' ? '#fff' : hc.color }} 
                   />
                   <span>{hc.label}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Popover open={showTextColorPicker} onOpenChange={setShowTextColorPicker}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Color de texto" data-testid="rte-text-color">
+              <Type className="w-3.5 h-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start" side="bottom">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5 px-1">Color de texto</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {TEXT_COLORS.map(tc => (
+                <button
+                  key={tc.color}
+                  type="button"
+                  className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded text-xs hover:bg-muted/60 transition-colors"
+                  onClick={() => applyTextColor(tc.color)}
+                  data-testid={`rte-textcolor-${tc.label.toLowerCase()}`}
+                >
+                  <span 
+                    className="w-5 h-5 rounded-full border border-border/60 shrink-0 flex items-center justify-center text-[10px] font-bold" 
+                    style={{ 
+                      color: tc.color === 'remove' ? '#6b7280' : tc.color,
+                      backgroundColor: tc.color === 'remove' ? '#f3f4f6' : `${tc.color}15`
+                    }} 
+                  >
+                    {tc.color === 'remove' ? '✕' : 'A'}
+                  </span>
+                  <span className="text-[10px] leading-none">{tc.label}</span>
                 </button>
               ))}
             </div>
