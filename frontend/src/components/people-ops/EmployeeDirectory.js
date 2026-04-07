@@ -91,20 +91,20 @@ export function EmployeeDirectory() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empRes, deptRes, orgDeptRes, ccRes, statsRes, jobsRes] = await Promise.all([
+      const [empRes, deptRes, orgDeptRes, ccRes, statsRes, posRes] = await Promise.all([
         axios.get(`${API}/api/people-ops/employees?status=${statusFilter}${departmentFilter ? `&department=${departmentFilter}` : ''}`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/reference/departments`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/departments`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/employees/stats/summary`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/recruitment/jobs`, { withCredentials: true })
+        axios.get(`${API}/api/people-ops/positions`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setEmployees(empRes.data);
       setDepartments(deptRes.data);
       setOrgDepartments(orgDeptRes.data || []);
       setCostCenters(ccRes.data);
       setStats(statsRes.data);
-      setJobPostings(jobsRes.data || []);
+      setJobPostings(posRes.data || []);
       
       // Filter managers from employees
       const mgrs = empRes.data.filter(e => e.is_manager && e.status === "active");
@@ -134,11 +134,11 @@ export function EmployeeDirectory() {
       return;
     }
     
-    // Get job title from job posting if selected
+    // Get job title from position if selected
     let jobTitle = formData.job_title;
     if (formData.job_role_id && !jobTitle) {
-      const job = jobPostings.find(j => j.id === formData.job_role_id);
-      jobTitle = job?.title || "";
+      const pos = jobPostings.find(j => j.position_id === formData.job_role_id);
+      jobTitle = pos?.title || "";
     }
     
     // Get department name if selected
@@ -151,7 +151,8 @@ export function EmployeeDirectory() {
     const payload = {
       ...formData,
       job_title: jobTitle,
-      department: deptName
+      department: deptName,
+      position_id: formData.job_role_id || undefined
     };
     
     setSaving(true);
@@ -389,11 +390,12 @@ export function EmployeeDirectory() {
               <Select 
                 value={formData.job_role_id || "none"} 
                 onValueChange={(v) => {
-                  const job = jobPostings.find(j => j.id === v);
+                  const pos = jobPostings.find(j => j.position_id === v);
                   setFormData({ 
                     ...formData, 
                     job_role_id: v === "none" ? "" : v,
-                    job_title: job?.title || formData.job_title
+                    job_title: pos?.title || formData.job_title,
+                    department_id: pos?.department_id || formData.department_id
                   });
                 }}
               >
@@ -402,15 +404,15 @@ export function EmployeeDirectory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{isEs ? "Seleccionar..." : "Select..."}</SelectItem>
-                  {jobPostings.map(job => (
-                    <SelectItem key={job.id} value={job.id}>
-                      {job.title}
+                  {jobPostings.map(pos => (
+                    <SelectItem key={pos.position_id} value={pos.position_id}>
+                      {pos.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                {isEs ? "Crear puestos en Recruitment > Vacantes" : "Create roles in Recruitment > Job Postings"}
+                {isEs ? "Crear puestos en Estructura Organizacional > Posiciones" : "Create roles in Org Chart > Positions"}
               </p>
             </div>
             <div>
