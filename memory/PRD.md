@@ -335,6 +335,23 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - HTTP prefix auto-added for URLs without protocol
    - Testing: 100% frontend verified (iteration_131)
 
+### Session: April 7, 2026
+
+#### Completed
+1. **Bug Fix - Lead-to-Client Conversion Duplicates (P0)**:
+   - Root cause: `get_outreach_leads` and `get_inbound_leads` endpoints did not filter out leads with `status: "Converted"`
+   - Fix: Added `"status": {"$ne": "Converted"}` to both MongoDB queries
+   - Converted leads no longer appear in Outreach or Inbound lists
+   - Testing: 12/12 backend + 100% frontend verified (iteration_132)
+
+2. **Feature - Enhanced Sales Report with Daily Activity & Weekly Goals (P1)**:
+   - **3 new tabs**: Overview (existing, preserved), Daily Activity (new), Weekly Goals (new)
+   - **Daily Activity tab**: Per-owner summary cards (calls, emails, WhatsApp, new leads, conversions, total) + daily breakdown table with date/owner/activity counts
+   - **Weekly Goals tab**: Admin can set weekly targets per salesperson (calls, emails, WhatsApp, new leads, conversions). Shows progress bars with % completion. Week range auto-calculated (Mon-Sun).
+   - **3 new backend endpoints**: `GET /api/crm/reports/daily-activity`, `GET/POST/DELETE /api/crm/sales-goals`, `GET /api/crm/reports/weekly-progress`
+   - New DB collection: `sales_goals` (company_id, owner_id, weekly_* targets)
+   - Testing: 12/12 backend + 100% frontend verified (iteration_132)
+
 ## Known Issues
 
 ### P0 - Critical
