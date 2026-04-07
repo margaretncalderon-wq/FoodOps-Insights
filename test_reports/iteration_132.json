@@ -1,0 +1,113 @@
+{
+  "summary": "Testing COMPLETE for CRM Sales Report bug fix and new features. All 12 backend tests passed. Frontend UI verified with all 3 tabs working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_crm_sales_report.py",
+    "/app/test_reports/pytest/pytest_crm_sales_report.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_crm_sales_report.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% - All UI elements verified"
+  },
+  "test_credentials": {
+    "email": "demo.agency@kora.com",
+    "password": "Evoque2024!"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CRM Sales Report features fully tested. Bug fix for converted leads exclusion verified. New Daily Activity and Weekly Goals tabs working correctly.",
+  "tested_features": {
+    "bug_fix_outreach_excludes_converted": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/outreach",
+      "details": "Verified no leads with status 'Converted' are returned"
+    },
+    "bug_fix_inbound_excludes_converted": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/inbound",
+      "details": "Verified no leads with status 'Converted' are returned"
+    },
+    "daily_activity_endpoint": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/reports/daily-activity",
+      "details": "Returns correct structure with daily array and owner_totals array"
+    },
+    "daily_activity_date_filters": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/reports/daily-activity?date_from=X&date_to=Y",
+      "details": "Date filters work correctly"
+    },
+    "sales_goals_get": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/sales-goals",
+      "details": "Returns all goals for the company"
+    },
+    "sales_goals_create": {
+      "status": "PASS",
+      "endpoint": "POST /api/crm/sales-goals",
+      "details": "Creates/updates weekly goal with all fields (weekly_calls, weekly_emails, weekly_whatsapp, weekly_new_leads, weekly_conversions)"
+    },
+    "sales_goals_validation": {
+      "status": "PASS",
+      "endpoint": "POST /api/crm/sales-goals",
+      "details": "Returns 400 when owner_id is missing"
+    },
+    "sales_goals_delete": {
+      "status": "PASS",
+      "endpoint": "DELETE /api/crm/sales-goals/{owner_id}",
+      "details": "Deletes goal successfully, returns 404 for non-existent"
+    },
+    "weekly_progress_endpoint": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/reports/weekly-progress",
+      "details": "Returns week_start, week_end, and progress array with metrics"
+    },
+    "weekly_progress_owner_filter": {
+      "status": "PASS",
+      "endpoint": "GET /api/crm/reports/weekly-progress?owner_id=X",
+      "details": "Owner filter works correctly"
+    },
+    "frontend_3_tabs": {
+      "status": "PASS",
+      "details": "Sales Report page has 3 tabs: Overview, Daily Activity, Weekly Goals"
+    },
+    "frontend_daily_activity_tab": {
+      "status": "PASS",
+      "details": "Shows daily breakdown table with Date, Owner, activity icons (calls, emails, whatsapp, new leads, conversions, total)"
+    },
+    "frontend_weekly_goals_tab": {
+      "status": "PASS",
+      "details": "Shows 'Set Goal' button, week range display, and empty state with 'Create First Goal' button"
+    },
+    "frontend_goal_dialog": {
+      "status": "PASS",
+      "details": "Dialog opens with Salesperson dropdown and 5 goal input fields (Calls/week, Emails/week, WhatsApp/week, New leads/week, Conversions/week)"
+    },
+    "frontend_filters": {
+      "status": "PASS",
+      "details": "Date From, Date To, Owner dropdown, and Unassigned toggle all present"
+    }
+  },
+  "playwright_test_results": {
+    "sales_report_page_load": "PASS",
+    "tabs_present": "PASS - Found 3 tabs: Overview, Daily Activity, Weekly Goals",
+    "daily_activity_tab": "PASS - Table with daily breakdown found",
+    "weekly_goals_tab": "PASS - Set Goal button found",
+    "goal_dialog": "PASS - All 5 input fields and owner select found",
+    "filters": "PASS - All 4 filter controls found"
+  }
+}

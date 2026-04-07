@@ -799,9 +799,9 @@ async def get_crm_stats(user: User = Depends(get_current_user)):
 
 @crm_router.get("/outreach")
 async def get_outreach_leads(user: User = Depends(get_current_user)):
-    """Get outreach leads - proactively contacted by the team"""
+    """Get outreach leads - proactively contacted by the team (excludes converted)"""
     leads = await db.leads.find(
-        {"company_id": user.company_id, "lead_type": "outreach"},
+        {"company_id": user.company_id, "lead_type": "outreach", "status": {"$ne": "Converted"}},
         {"_id": 0}
     ).sort("created_at", -1).to_list(2000)
     
@@ -886,9 +886,9 @@ async def update_outreach_status(lead_id: str, outreach_status: str, user: User 
 
 @crm_router.get("/inbound")
 async def get_inbound_leads(user: User = Depends(get_current_user)):
-    """Get inbound leads - contacts from forms, email, social"""
+    """Get inbound leads - contacts from forms, email, social (excludes converted)"""
     leads = await db.leads.find(
-        {"company_id": user.company_id, "lead_type": {"$ne": "outreach"}},
+        {"company_id": user.company_id, "lead_type": {"$ne": "outreach"}, "status": {"$ne": "Converted"}},
         {"_id": 0}
     ).sort("created_at", -1).to_list(2000)
     
@@ -2596,4 +2596,384 @@ async def webhook_test(company_slug: str):
             "source": "Meta Lead Ads",
             "campaign_code": "CAM-XXXXX"
         }
+    }
+
+
+
+# ============== SALES DAILY ACTIVITY ==============
+
+@crm_router.get("/reports/daily-activity")
+async def get_daily_activity(
+    user: User = Depends(get_current_user),
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    owner_id: Optional[str] = None
+):
+    """
+    Daily activity breakdown per salesperson.
+    Returns per-day rows with: calls, emails, whatsapp, follow_ups, new_leads, conversions.
+    """
+    user_role = getattr(user, 'role_id', None)
+    if user_role == "sales":
+        owner_id = user.user_id
+
+    now = datetime.now(timezone.utc)
+    if not date_from:
+        # Default: last 7 days
+        from_dt = now - __import__('datetime').timedelta(days=6)
+        date_from = from_dt.strftime("%Y-%m-%d")
+    if not date_to:
+        date_to = now.strftime("%Y-%m-%d")
+
+    date_from_iso = date_from + "T00:00:00"
+    date_to_iso = date_to + "T23:59:59"
+
+    # Fetch comm_logs in range
+    comm_query = {"company_id": user.company_id, "created_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    if owner_id and owner_id != "all":
+        comm_query["owner_id"] = owner_id
+    comm_logs = await db.comm_logs.find(comm_query, {"_id": 0}).to_list(10000)
+
+    # Fetch leads created in range
+    lead_query = {"company_id": user.company_id, "created_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    if owner_id and owner_id != "all":
+        lead_query["owner_id"] = owner_id
+    leads = await db.leads.find(lead_query, {"_id": 0, "lead_id": 1, "owner_id": 1, "status": 1, "created_at": 1}).to_list(10000)
+
+    # Fetch conversions (leads marked Converted in range)
+    conv_query = {"company_id": user.company_id, "status": "Converted", "updated_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    if owner_id and owner_id != "all":
+        conv_query["owner_id"] = owner_id
+    converted_leads = await db.leads.find(conv_query, {"_id": 0, "lead_id": 1, "owner_id": 1, "updated_at": 1}).to_list(10000)
+
+    # Fetch follow-ups completed in range
+    fu_query = {"company_id": user.company_id, "completed_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    if owner_id and owner_id != "all":
+        fu_query["completed_by"] = owner_id
+    follow_ups_done = await db.leads.find(
+        {"company_id": user.company_id, "follow_up_completed_at": {"$gte": date_from_iso, "$lte": date_to_iso}},
+        {"_id": 0}
+    ).to_list(0)  # Might not have this field - gracefully handle
+
+    # Build daily buckets: key = "owner_id|date"
+    daily = {}
+
+    def get_bucket(oid, date_str):
+        key = f"{oid or '__unassigned__'}|{date_str}"
+        if key not in daily:
+            daily[key] = {
+                "owner_id": oid or None,
+                "date": date_str,
+                "calls": 0,
+                "emails": 0,
+                "whatsapp": 0,
+                "meetings": 0,
+                "messages": 0,
+                "notes": 0,
+                "follow_ups_completed": 0,
+                "new_leads": 0,
+                "conversions": 0,
+                "total_activities": 0
+            }
+        return daily[key]
+
+    # Process comm_logs
+    for log in comm_logs:
+        date_str = (log.get("created_at") or "")[:10]
+        if not date_str:
+            continue
+        bucket = get_bucket(log.get("owner_id"), date_str)
+        comm_type = (log.get("comm_type") or "").lower()
+        if comm_type == "call":
+            bucket["calls"] += 1
+        elif comm_type == "email":
+            bucket["emails"] += 1
+        elif comm_type in ("whatsapp", "message"):
+            bucket["whatsapp"] += 1
+        elif comm_type == "meeting":
+            bucket["meetings"] += 1
+        elif comm_type == "note":
+            bucket["notes"] += 1
+        else:
+            bucket["messages"] += 1
+        bucket["total_activities"] += 1
+
+    # Process new leads
+    for lead in leads:
+        date_str = (lead.get("created_at") or "")[:10]
+        if not date_str:
+            continue
+        bucket = get_bucket(lead.get("owner_id"), date_str)
+        bucket["new_leads"] += 1
+        bucket["total_activities"] += 1
+
+    # Process conversions
+    for lead in converted_leads:
+        date_str = (lead.get("updated_at") or "")[:10]
+        if not date_str:
+            continue
+        bucket = get_bucket(lead.get("owner_id"), date_str)
+        bucket["conversions"] += 1
+        bucket["total_activities"] += 1
+
+    # Fetch owner names
+    owner_ids = list(set(b["owner_id"] for b in daily.values() if b["owner_id"]))
+    owner_names = {}
+    if owner_ids:
+        users_data = await db.users.find(
+            {"user_id": {"$in": owner_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}
+        ).to_list(100)
+        for u in users_data:
+            name = u.get("name")
+            if not name:
+                first = u.get("first_name") or ""
+                last = u.get("last_name") or ""
+                name = f"{first} {last}".strip()
+            if not name:
+                name = u.get("email", "").split("@")[0].replace(".", " ").title()
+            owner_names[u["user_id"]] = name
+
+    # Build result
+    result = []
+    for bucket in daily.values():
+        bucket["owner_name"] = owner_names.get(bucket["owner_id"], "Sin Asignar")
+        result.append(bucket)
+
+    # Sort by date desc, then owner_name
+    result.sort(key=lambda x: (-x["date"].replace("-", "").zfill(8).__hash__(), x["owner_name"]))
+    result.sort(key=lambda x: x["date"], reverse=True)
+
+    # Calculate totals per owner
+    owner_totals = {}
+    for r in result:
+        oid = r["owner_id"] or "__unassigned__"
+        if oid not in owner_totals:
+            owner_totals[oid] = {
+                "owner_id": r["owner_id"],
+                "owner_name": r["owner_name"],
+                "calls": 0, "emails": 0, "whatsapp": 0, "meetings": 0,
+                "notes": 0, "messages": 0, "follow_ups_completed": 0,
+                "new_leads": 0, "conversions": 0, "total_activities": 0, "active_days": 0
+            }
+        t = owner_totals[oid]
+        for k in ["calls", "emails", "whatsapp", "meetings", "notes", "messages", "follow_ups_completed", "new_leads", "conversions", "total_activities"]:
+            t[k] += r[k]
+        if r["total_activities"] > 0:
+            t["active_days"] += 1
+
+    return {
+        "daily": result,
+        "owner_totals": list(owner_totals.values()),
+        "date_from": date_from,
+        "date_to": date_to
+    }
+
+
+# ============== SALES WEEKLY GOALS ==============
+
+@crm_router.get("/sales-goals")
+async def get_sales_goals(user: User = Depends(get_current_user)):
+    """Get weekly sales goals for all team members"""
+    goals = await db.sales_goals.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(100)
+    return goals
+
+
+@crm_router.post("/sales-goals")
+async def upsert_sales_goal(data: dict, user: User = Depends(get_current_user)):
+    """Create or update weekly sales goal for a team member. Admin/manager only."""
+    target_owner_id = data.get("owner_id")
+    if not target_owner_id:
+        raise HTTPException(status_code=400, detail="owner_id required")
+
+    now = datetime.now(timezone.utc)
+    goal_data = {
+        "company_id": user.company_id,
+        "owner_id": target_owner_id,
+        "weekly_calls": data.get("weekly_calls", 0),
+        "weekly_emails": data.get("weekly_emails", 0),
+        "weekly_whatsapp": data.get("weekly_whatsapp", 0),
+        "weekly_new_leads": data.get("weekly_new_leads", 0),
+        "weekly_conversions": data.get("weekly_conversions", 0),
+        "weekly_follow_ups": data.get("weekly_follow_ups", 0),
+        "updated_at": now.isoformat(),
+        "updated_by": user.user_id
+    }
+
+    existing = await db.sales_goals.find_one(
+        {"company_id": user.company_id, "owner_id": target_owner_id}
+    )
+
+    if existing:
+        await db.sales_goals.update_one(
+            {"company_id": user.company_id, "owner_id": target_owner_id},
+            {"$set": goal_data}
+        )
+    else:
+        goal_data["goal_id"] = f"goal_{uuid.uuid4().hex[:12]}"
+        goal_data["created_at"] = now.isoformat()
+        await db.sales_goals.insert_one(goal_data)
+
+    # Return clean (no _id)
+    result = await db.sales_goals.find_one(
+        {"company_id": user.company_id, "owner_id": target_owner_id},
+        {"_id": 0}
+    )
+    return result
+
+
+@crm_router.delete("/sales-goals/{owner_id}")
+async def delete_sales_goal(owner_id: str, user: User = Depends(get_current_user)):
+    """Delete weekly sales goal for a team member"""
+    result = await db.sales_goals.delete_one(
+        {"company_id": user.company_id, "owner_id": owner_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return {"message": "Goal deleted"}
+
+
+@crm_router.get("/reports/weekly-progress")
+async def get_weekly_progress(
+    user: User = Depends(get_current_user),
+    owner_id: Optional[str] = None
+):
+    """
+    Get current week progress vs goals for each salesperson.
+    """
+    user_role = getattr(user, 'role_id', None)
+    if user_role == "sales":
+        owner_id = user.user_id
+
+    # Calculate current week range (Monday to Sunday)
+    now = datetime.now(timezone.utc)
+    week_start = now - __import__('datetime').timedelta(days=now.weekday())
+    week_end = week_start + __import__('datetime').timedelta(days=6)
+
+    date_from = week_start.strftime("%Y-%m-%d")
+    date_to = week_end.strftime("%Y-%m-%d")
+
+    # Fetch goals
+    goal_query = {"company_id": user.company_id}
+    if owner_id and owner_id != "all":
+        goal_query["owner_id"] = owner_id
+    goals = await db.sales_goals.find(goal_query, {"_id": 0}).to_list(100)
+    goals_map = {g["owner_id"]: g for g in goals}
+
+    # Fetch this week's comm_logs
+    date_from_iso = date_from + "T00:00:00"
+    date_to_iso = date_to + "T23:59:59"
+
+    comm_query = {"company_id": user.company_id, "created_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    comm_logs = await db.comm_logs.find(comm_query, {"_id": 0}).to_list(10000)
+
+    # Fetch new leads this week
+    lead_query = {"company_id": user.company_id, "created_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    leads = await db.leads.find(lead_query, {"_id": 0, "owner_id": 1, "created_at": 1}).to_list(10000)
+
+    # Fetch conversions this week
+    conv_query = {"company_id": user.company_id, "status": "Converted", "updated_at": {"$gte": date_from_iso, "$lte": date_to_iso}}
+    conversions = await db.leads.find(conv_query, {"_id": 0, "owner_id": 1}).to_list(10000)
+
+    # Aggregate per owner
+    actuals = {}
+
+    def get_actual(oid):
+        if oid not in actuals:
+            actuals[oid] = {"calls": 0, "emails": 0, "whatsapp": 0, "new_leads": 0, "conversions": 0, "follow_ups": 0}
+        return actuals[oid]
+
+    for log in comm_logs:
+        oid = log.get("owner_id")
+        if not oid:
+            continue
+        a = get_actual(oid)
+        ct = (log.get("comm_type") or "").lower()
+        if ct == "call":
+            a["calls"] += 1
+        elif ct == "email":
+            a["emails"] += 1
+        elif ct in ("whatsapp", "message"):
+            a["whatsapp"] += 1
+
+    for lead in leads:
+        oid = lead.get("owner_id")
+        if not oid:
+            continue
+        get_actual(oid)["new_leads"] += 1
+
+    for c in conversions:
+        oid = c.get("owner_id")
+        if not oid:
+            continue
+        get_actual(oid)["conversions"] += 1
+
+    # Fetch owner names
+    all_owner_ids = list(set(list(goals_map.keys()) + list(actuals.keys())))
+    owner_names = {}
+    if all_owner_ids:
+        users_data = await db.users.find(
+            {"user_id": {"$in": all_owner_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}
+        ).to_list(100)
+        for u in users_data:
+            name = u.get("name")
+            if not name:
+                first = u.get("first_name") or ""
+                last = u.get("last_name") or ""
+                name = f"{first} {last}".strip()
+            if not name:
+                name = u.get("email", "").split("@")[0].replace(".", " ").title()
+            owner_names[u["user_id"]] = name
+
+    # Build progress for each owner with goals
+    progress = []
+    for oid in all_owner_ids:
+        if owner_id and owner_id != "all" and oid != owner_id:
+            continue
+        goal = goals_map.get(oid, {})
+        actual = actuals.get(oid, {"calls": 0, "emails": 0, "whatsapp": 0, "new_leads": 0, "conversions": 0, "follow_ups": 0})
+
+        metrics = []
+        goal_fields = [
+            ("calls", "weekly_calls", "Llamadas"),
+            ("emails", "weekly_emails", "Emails"),
+            ("whatsapp", "weekly_whatsapp", "WhatsApp"),
+            ("new_leads", "weekly_new_leads", "Leads Nuevos"),
+            ("conversions", "weekly_conversions", "Conversiones"),
+        ]
+        total_goal = 0
+        total_actual = 0
+        for actual_key, goal_key, label in goal_fields:
+            g = goal.get(goal_key, 0)
+            a = actual.get(actual_key, 0)
+            total_goal += g
+            total_actual += a
+            if g > 0:
+                metrics.append({
+                    "label": label,
+                    "goal": g,
+                    "actual": a,
+                    "percentage": min(round(a / g * 100, 1), 999) if g > 0 else 0
+                })
+
+        progress.append({
+            "owner_id": oid,
+            "owner_name": owner_names.get(oid, "Desconocido"),
+            "has_goals": bool(goal),
+            "metrics": metrics,
+            "total_goal": total_goal,
+            "total_actual": total_actual,
+            "overall_percentage": min(round(total_actual / total_goal * 100, 1), 999) if total_goal > 0 else 0
+        })
+
+    progress.sort(key=lambda x: -x["overall_percentage"])
+
+    return {
+        "week_start": date_from,
+        "week_end": date_to,
+        "progress": progress
     }
