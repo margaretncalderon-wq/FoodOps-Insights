@@ -352,6 +352,16 @@ Build a comprehensive ERP application called Kora OS with modules for:
    - New DB collection: `sales_goals` (company_id, owner_id, weekly_* targets)
    - Testing: 12/12 backend + 100% frontend verified (iteration_132)
 
+3. **Feature - Weekly Summary Notifications (P1)**:
+   - Botón "Enviar Resumen" en tab Weekly Goals envía notificaciones personalizadas
+   - Cada vendedor recibe su progreso individual (desglose por métrica con %)
+   - Admins/managers reciben resumen completo del equipo
+   - Debounce: máximo 1 envío por día por empresa
+   - Badge verde "Resumen enviado hoy" con hora cuando ya se envió
+   - 2 nuevos endpoints: `POST /api/crm/reports/send-weekly-summary`, `GET /api/crm/reports/weekly-summary-status`
+   - Nueva colección: `weekly_summary_log` (debounce tracking)
+   - Testing: 14/14 backend + 100% frontend verified (iteration_133)
+
 ## Known Issues
 
 ### P0 - Critical
