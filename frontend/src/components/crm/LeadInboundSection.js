@@ -92,6 +92,17 @@ export default function LeadInboundSection() {
     is_primary: false
   });
 
+  const handleMoveToOutreach = async (lead) => {
+    try {
+      await axios.put(`${API}/api/leads/${lead.lead_id}`, { lead_type: "outreach" }, { withCredentials: true });
+      toast.success(isEs ? "Lead movido a Outreach" : "Lead moved to Outreach");
+      fetchLeads();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Error");
+    }
+  };
+
+
   // Helper to clean "nan" string values from lead data
   const cleanNanValues = useCallback((lead) => {
     if (!lead) return lead;
@@ -710,6 +721,11 @@ export default function LeadInboundSection() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleMoveToOutreach(lead)}>
+                  <ArrowRight className="w-4 h-4 mr-2 text-orange-600" />
+                  {isEs ? "Mover a Outreach" : "Move to Outreach"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => openFollowUp(lead)}>
                   <CalendarPlus className="w-4 h-4 mr-2" />
                   {isEs ? "Seguimiento" : "Follow-up"}

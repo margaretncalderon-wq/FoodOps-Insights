@@ -263,7 +263,7 @@ async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current
     allowed_fields = [
         "lead_name", "name", "email", "phone", "whatsapp", "company_name", "company",
         "client_type", "industry", "rnc", "address", "city", "country", "message", "notes", "owner_id", "event_type",
-        "estimated_value", "budget_range", "guest_count", "event_date", "source"
+        "estimated_value", "budget_range", "guest_count", "event_date", "source", "lead_type"
     ]
     
     updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
