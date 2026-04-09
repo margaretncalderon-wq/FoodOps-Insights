@@ -655,12 +655,15 @@ export default function LeadOutreachSection() {
     .sort((a, b) => {
       const nameA = (a.lead_name || a.name || a.company_name || "").toLowerCase();
       const nameB = (b.lead_name || b.name || b.company_name || "").toLowerCase();
+      // For sort label display: use company name if no person name
+      const sortNameA = ((a.lead_name && a.lead_name.trim()) ? a.lead_name : (a.company_name || a.lead_name || "")).toLowerCase();
+      const sortNameB = ((b.lead_name && b.lead_name.trim()) ? b.lead_name : (b.company_name || b.lead_name || "")).toLowerCase();
       const dateA = new Date(a.created_at || 0);
       const dateB = new Date(b.created_at || 0);
       
       switch (sortBy) {
-        case "alpha_asc": return nameA.localeCompare(nameB);
-        case "alpha_desc": return nameB.localeCompare(nameA);
+        case "alpha_asc": return sortNameA.localeCompare(sortNameB);
+        case "alpha_desc": return sortNameB.localeCompare(sortNameA);
         case "date_asc": return dateA - dateB;
         case "date_desc": 
         default: return dateB - dateA;
@@ -827,6 +830,7 @@ export default function LeadOutreachSection() {
     const contactName = lead.lead_name || lead.name || "";
     const companyName = lead.company_name || "";
     const isCompanyOnly = (!contactName.trim() || contactName.toLowerCase().trim() === companyName.toLowerCase().trim()) && hasCompany;
+    const isPersonOnly = contactName.trim() && !hasCompany;
     const dupeReasons = getDuplicateReasons(lead);
 
     return (
@@ -834,55 +838,56 @@ export default function LeadOutreachSection() {
         key={lead.lead_id} 
         className={`cursor-pointer hover:bg-muted/50 ${dupeReasons.length > 0 ? "bg-yellow-50/50 dark:bg-yellow-900/10" : ""}`}
       >
+        {/* Combined Lead column: Name + Company + Contact icons + Type badge */}
         <TableCell className="font-medium">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {dupeReasons.length > 0 && (
-              <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" 
+              <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0 mt-0.5" 
                 title={`${isEs ? "Duplicado" : "Duplicate"}: ${dupeReasons.join(", ")}`} />
             )}
             {isCompanyOnly ? (
-              <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <Building2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             ) : (
-              <User className="w-4 h-4 text-violet-600 shrink-0" />
+              <User className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
             )}
-            <div className="min-w-0">
-              {isCompanyOnly ? (
-                <span className="truncate block text-muted-foreground italic text-sm">{isEs ? "Sin contacto" : "No contact"}</span>
-              ) : (
-                <span className="truncate block">{contactName || "-"}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                {isCompanyOnly ? (
+                  <span className="truncate font-semibold">{companyName}</span>
+                ) : (
+                  <span className="truncate">{contactName || "-"}</span>
+                )}
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${isCompanyOnly ? "bg-blue-50 text-blue-700 border-blue-200" : isPersonOnly ? "bg-violet-50 text-violet-700 border-violet-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
+                  {isCompanyOnly ? "B2B" : isPersonOnly ? (isEs ? "Directo" : "Direct") : "B2B"}
+                </Badge>
+              </div>
+              {/* Subtitle: company for person leads */}
+              {!isCompanyOnly && hasCompany && (
+                <span className="text-xs text-muted-foreground truncate block">
+                  {companyName}
+                </span>
               )}
+              {/* Contact icons inline */}
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {lead.email && (
+                  <a href={`mailto:${lead.email}`} className="text-blue-500 hover:text-blue-700" title={lead.email}>
+                    <Mail className="w-3 h-3" />
+                  </a>
+                )}
+                {lead.phone && (
+                  <a href={`tel:${lead.phone}`} className="text-muted-foreground hover:text-foreground" title={lead.phone}>
+                    <Phone className="w-3 h-3" />
+                  </a>
+                )}
+                {lead.whatsapp && (
+                  <a href={getWhatsAppLink(lead.whatsapp)} target="_blank" rel="noopener noreferrer" 
+                     className="text-green-500 hover:text-green-700" title="WhatsApp">
+                    <MessageCircle className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
             </div>
           </div>
-        </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-1.5">
-            {lead.whatsapp && (
-              <a href={getWhatsAppLink(lead.whatsapp)} target="_blank" rel="noopener noreferrer" 
-                 className="text-green-600 hover:text-green-700" title="WhatsApp">
-                <MessageCircle className="w-3.5 h-3.5" />
-              </a>
-            )}
-            {lead.email && (
-              <a href={`mailto:${lead.email}`} className="text-blue-600 hover:text-blue-700" title="Email">
-                <Mail className="w-3.5 h-3.5" />
-              </a>
-            )}
-            {lead.phone && (
-              <a href={`tel:${lead.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
-                <Phone className="w-3.5 h-3.5" />
-              </a>
-            )}
-          </div>
-        </TableCell>
-        <TableCell>
-          {hasCompany ? (
-            <span className="flex items-center gap-1 text-sm truncate font-medium">
-              <Building2 className="w-3 h-3 shrink-0 text-blue-600" />
-              <span className="truncate">{companyName}</span>
-            </span>
-          ) : (
-            <span className="text-muted-foreground">-</span>
-          )}
         </TableCell>
         <TableCell>{getSourceBadge(lead.source)}</TableCell>
         <TableCell>{getStatusBadge(getEffectiveStatus(lead))}</TableCell>
@@ -1129,9 +1134,7 @@ export default function LeadOutreachSection() {
           <Table className="crm-table" style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
             <TableHeader>
               <TableRow>
-                <TableHead style={{ width: '200px' }}>{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead style={{ width: '90px' }}>{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead style={{ width: '140px' }}>{isEs ? "Empresa" : "Company"}</TableHead>
+                <TableHead style={{ width: '280px' }}>{isEs ? "Lead" : "Lead"}</TableHead>
                 <TableHead style={{ width: '100px' }}>{isEs ? "Fuente" : "Source"}</TableHead>
                 <TableHead style={{ width: '90px' }}>{isEs ? "Estado" : "Status"}</TableHead>
                 <TableHead style={{ width: '100px' }}>{isEs ? "Seguimiento" : "Follow-up"}</TableHead>
@@ -1142,7 +1145,7 @@ export default function LeadOutreachSection() {
             <TableBody>
               {sortedAndFilteredLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay leads de outreach" : "No outreach leads"}
                   </TableCell>
                 </TableRow>
@@ -1150,7 +1153,7 @@ export default function LeadOutreachSection() {
                 groupedLeads.map(group => (
                   <>
                     <TableRow key={`group-${group.key}`} className="bg-muted/60 hover:bg-muted/80">
-                      <TableCell colSpan={8} className="py-2">
+                      <TableCell colSpan={6} className="py-2">
                         <div className="flex items-center gap-2 font-semibold text-sm">
                           {groupBy === "company" ? (
                             <Building2 className="w-4 h-4 text-blue-600" />
