@@ -1,0 +1,61 @@
+{
+  "summary": "CRM Improvements Testing - All features verified: A-Z default sort, Group by (company/status), Source badges, Company-only lead styling, Normalize sources endpoint",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_tested": {
+    "outreach_section": {
+      "default_sort_az": "PASS - Sort dropdown shows 'A-Z (Name)' as default",
+      "source_column_badges": "PASS - Shows colored badges (Importación, Outreach, LinkedIn, Cold Call)",
+      "group_by_selector": "PASS - Shows 3 options: No grouping, By Company, By Status",
+      "group_by_company": "PASS - Shows company headers with lead count badges",
+      "group_by_status": "PASS - Shows status headers with colored dots (New 12)",
+      "company_only_leads": "PASS - Blue Building icon + 'Company only' subtitle for company-only leads",
+      "person_leads": "PASS - Violet User icon for person leads"
+    },
+    "inbound_section": {
+      "default_sort_az": "PASS - Sort dropdown shows 'A-Z (Name)' as default",
+      "source_column_badges": "PASS - Shows colored badges (Website, Meta Ads, Email)",
+      "group_by_selector": "PASS - Shows 3 options: No grouping, By Company, By Status",
+      "group_by_company": "PASS - Shows company headers (Import Lead Corp 1, No Company 10)",
+      "company_column": "PASS - Shows company for person leads, '-' for company-only"
+    },
+    "backend_normalize_sources": {
+      "endpoint": "PASS - POST /api/crm/normalize-sources works",
+      "result": "0 normalized (already normalized in previous session)"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_crm_improvements.py",
+    "/app/test_reports/pytest/pytest_crm_improvements.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_crm_improvements.py"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% (all features verified via Playwright)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CRM improvements fully tested. Outreach and Inbound sections have: A-Z default sort, Group by selector (none/company/status), Source column with colored badges, Company-only lead visual distinction (blue Building icon + 'Solo empresa' subtitle). Backend normalize-sources endpoint works. Session cookies expire quickly - login before each page navigation.",
+  "data_verified": {
+    "outreach_leads": 16,
+    "outreach_sources": ["Cold Call", "LinkedIn", "Importación", "Outreach"],
+    "inbound_leads": 12,
+    "inbound_sources": ["Website", "Meta Ads", "Email"],
+    "company_only_leads": 4,
+    "person_leads": 12,
+    "lead_sources_available": 13
+  }
+}

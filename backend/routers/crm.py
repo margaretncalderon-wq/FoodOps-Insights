@@ -3340,3 +3340,54 @@ async def get_leads_by_source(
     result.sort(key=lambda x: -x["total"])
 
     return result
+
+
+
+# ============== SOURCE NORMALIZATION ==============
+
+@crm_router.post("/normalize-sources")
+async def normalize_lead_sources(user: User = Depends(get_current_user)):
+    """Normalize all lead sources to consistent capitalization and naming."""
+    source_map = {
+        "import": "Importación",
+        "importación": "Importación",
+        "importacion": "Importación",
+        "website": "Website",
+        "website form": "Website",
+        "web": "Website",
+        "outreach": "Outreach",
+        "cold call": "Cold Call",
+        "cold_call": "Cold Call",
+        "email": "Email",
+        "email campaign": "Email Campaign",
+        "linkedin": "LinkedIn",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "google": "Google",
+        "referido": "Referido",
+        "referral": "Referido",
+        "meta lead ads": "Meta Ads",
+        "meta ads": "Meta Ads",
+        "tiktok": "TikTok",
+        "whatsapp": "WhatsApp",
+        "evento": "Evento",
+        "event": "Evento",
+    }
+    
+    updated = 0
+    leads = await db.leads.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "lead_id": 1, "source": 1}
+    ).to_list(None)
+    
+    for lead in leads:
+        src = (lead.get("source") or "").strip()
+        normalized = source_map.get(src.lower(), None)
+        if normalized and normalized != src:
+            await db.leads.update_one(
+                {"lead_id": lead["lead_id"]},
+                {"$set": {"source": normalized}}
+            )
+            updated += 1
+    
+    return {"normalized": updated, "total_checked": len(leads)}

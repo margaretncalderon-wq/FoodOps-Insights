@@ -61,7 +61,8 @@ export default function LeadInboundSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("date_desc");
+  const [sortBy, setSortBy] = useState("alpha_asc");
+  const [groupBy, setGroupBy] = useState("none");
   const [selectedLead, setSelectedLead] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
@@ -201,8 +202,8 @@ export default function LeadInboundSection() {
       return matchesSearch && matchesStatus && matchesOwner;
     })
     .sort((a, b) => {
-      const nameA = (a.company_name || a.lead_name || "").toLowerCase();
-      const nameB = (b.company_name || b.lead_name || "").toLowerCase();
+      const nameA = (a.lead_name || a.name || a.company_name || "").toLowerCase();
+      const nameB = (b.lead_name || b.name || b.company_name || "").toLowerCase();
       const dateA = new Date(a.created_at || 0);
       const dateB = new Date(b.created_at || 0);
       
@@ -214,6 +215,30 @@ export default function LeadInboundSection() {
         default: return dateB - dateA;
       }
     });
+
+  // Group leads
+  const groupedLeads = useMemo(() => {
+    if (groupBy === "none") return null;
+    const groups = {};
+    sortedAndFilteredLeads.forEach(lead => {
+      let key;
+      if (groupBy === "company") {
+        key = (lead.company_name || lead.company || "").trim() || (isEs ? "Sin Empresa" : "No Company");
+      } else if (groupBy === "status") {
+        key = (lead.status || "New");
+      }
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(lead);
+    });
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      if (groupBy === "status") {
+        const order = { "New": 0, "Contacted": 1, "Converted": 2 };
+        return (order[a] ?? 99) - (order[b] ?? 99);
+      }
+      return a.localeCompare(b);
+    });
+    return sortedKeys.map(key => ({ key, leads: groups[key] }));
+  }, [sortedAndFilteredLeads, groupBy, isEs]);
 
   // Normalize string for comparison - removes accents, special chars, common suffixes
   const normalizeForComparison = useCallback((str) => {
@@ -554,6 +579,158 @@ export default function LeadInboundSection() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
 
+  // Source badge helper
+  const getSourceBadge = (source) => {
+    const s = (source || "").trim();
+    if (!s) return <span className="text-muted-foreground text-xs">-</span>;
+    const colors = {
+      "LinkedIn": "bg-blue-100 text-blue-800",
+      "Instagram": "bg-pink-100 text-pink-800",
+      "Facebook": "bg-indigo-100 text-indigo-800",
+      "Google": "bg-red-100 text-red-800",
+      "Website": "bg-green-100 text-green-800",
+      "Referido": "bg-amber-100 text-amber-800",
+      "Cold Call": "bg-slate-100 text-slate-800",
+      "Email": "bg-cyan-100 text-cyan-800",
+      "Meta Ads": "bg-blue-100 text-blue-800",
+      "Outreach": "bg-violet-100 text-violet-800",
+      "WhatsApp": "bg-emerald-100 text-emerald-800",
+      "Evento": "bg-orange-100 text-orange-800",
+      "Importación": "bg-gray-100 text-gray-700",
+    };
+    return <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colors[s] || "bg-gray-100 text-gray-700"}`}>{s}</Badge>;
+  };
+
+  // Render a single inbound lead row
+  const renderInboundRow = (lead) => {
+    const hasCompany = lead.company_name && lead.company_name.trim();
+    const contactName = lead.lead_name || lead.name || "";
+    const companyName = lead.company_name || "";
+    const isCompanyOnly = (!contactName.trim() || contactName.toLowerCase().trim() === companyName.toLowerCase().trim()) && hasCompany;
+    const dupeReasons = getDuplicateReasons(lead);
+
+    return (
+      <TableRow 
+        key={lead.lead_id} 
+        className={`cursor-pointer hover:bg-muted/50 ${isNewLead(lead) ? "bg-blue-50/30" : ""} ${dupeReasons.length > 0 ? "bg-yellow-50/50 dark:bg-yellow-900/10" : ""}`}
+      >
+        <TableCell className="font-medium">
+          <div className="flex items-center gap-2">
+            {dupeReasons.length > 0 && (
+              <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" 
+                title={`${isEs ? "Duplicado" : "Duplicate"}: ${dupeReasons.join(", ")}`} />
+            )}
+            {isCompanyOnly ? (
+              <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+            ) : (
+              <User className="w-4 h-4 text-violet-600 shrink-0" />
+            )}
+            <div className="min-w-0">
+              {isCompanyOnly ? (
+                <span className="truncate block font-semibold text-blue-700 dark:text-blue-400">{companyName}</span>
+              ) : (
+                <span className="truncate block">{contactName || "-"}</span>
+              )}
+              {isCompanyOnly && (
+                <span className="text-[10px] text-muted-foreground">{isEs ? "Solo empresa" : "Company only"}</span>
+              )}
+            </div>
+            {isNewLead(lead) && (
+              <Badge className="bg-blue-500 text-white text-[10px] px-1 py-0">NEW</Badge>
+            )}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-1.5">
+            {lead.whatsapp && (
+              <a href={getWhatsAppLink(lead.whatsapp)} target="_blank" rel="noopener noreferrer" 
+                 className="text-green-600 hover:text-green-700" title="WhatsApp">
+                <MessageCircle className="w-3.5 h-3.5" />
+              </a>
+            )}
+            {lead.email && (
+              <a href={`mailto:${lead.email}`} className="text-blue-600 hover:text-blue-700" title="Email">
+                <Mail className="w-3.5 h-3.5" />
+              </a>
+            )}
+            {lead.phone && (
+              <a href={`tel:${lead.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
+                <Phone className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+        </TableCell>
+        <TableCell>
+          {hasCompany && !isCompanyOnly ? (
+            <span className="flex items-center gap-1 text-sm truncate">
+              <Building2 className="w-3 h-3 shrink-0 text-muted-foreground" />
+              <span className="truncate">{companyName}</span>
+            </span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </TableCell>
+        <TableCell>{getSourceBadge(lead.source)}</TableCell>
+        <TableCell>
+          {lead.event_type ? <Badge variant="outline" className="text-[10px]">{lead.event_type}</Badge> : <span className="text-muted-foreground">-</span>}
+        </TableCell>
+        <TableCell>
+          {lead.estimated_guest_count ? (
+            <div className="flex items-center gap-1 text-xs">
+              <Users className="w-3 h-3" />
+              {lead.estimated_guest_count}
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-xs">-</span>
+          )}
+        </TableCell>
+        <TableCell>{getStatusBadge(lead.status)}</TableCell>
+        <TableCell>
+          {lead.owner_id ? (
+            <Badge variant="outline" className="text-[10px]">
+              {lead.owner_name || users.find(u => u.user_id === lead.owner_id)?.name || lead.owner_id.replace("user_", "").slice(0, 8)}
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground text-xs">-</span>
+          )}
+        </TableCell>
+        <TableCell>
+          <div className="flex gap-0.5">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => viewLead(lead)} title={isEs ? "Ver" : "View"}>
+              <Eye className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openAssign(lead)} title={isEs ? "Asignar" : "Assign"}>
+              <UserPlus className="w-3.5 h-3.5" />
+            </Button>
+            {lead.status !== "Converted" && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openConvert(lead)} 
+                title={isEs ? "Convertir" : "Convert"} data-testid={`convert-inbound-${lead.lead_id}`}>
+                <ArrowRight className="w-3.5 h-3.5 text-green-600" />
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openFollowUp(lead)}>
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  {isEs ? "Seguimiento" : "Follow-up"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openDelete(lead)} className="text-red-600">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isEs ? "Eliminar" : "Delete"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   return (
     <div className="space-y-6" data-testid="lead-inbound-section">
       {/* Header */}
@@ -662,10 +839,21 @@ export default function LeadInboundSection() {
             <SelectValue placeholder={isEs ? "Ordenar" : "Sort"} />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="alpha_asc">{isEs ? "A-Z (Nombre)" : "A-Z (Name)"}</SelectItem>
+            <SelectItem value="alpha_desc">{isEs ? "Z-A (Nombre)" : "Z-A (Name)"}</SelectItem>
             <SelectItem value="date_desc">{isEs ? "Más reciente" : "Newest first"}</SelectItem>
             <SelectItem value="date_asc">{isEs ? "Más antiguo" : "Oldest first"}</SelectItem>
-            <SelectItem value="alpha_asc">{isEs ? "A-Z (Empresa)" : "A-Z (Company)"}</SelectItem>
-            <SelectItem value="alpha_desc">{isEs ? "Z-A (Empresa)" : "Z-A (Company)"}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={groupBy} onValueChange={setGroupBy}>
+          <SelectTrigger className="w-[180px]" data-testid="inbound-group-by">
+            <Users className="w-4 h-4 mr-2" />
+            <SelectValue placeholder={isEs ? "Agrupar" : "Group by"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">{isEs ? "Sin agrupar" : "No grouping"}</SelectItem>
+            <SelectItem value="company">{isEs ? "Por Empresa" : "By Company"}</SelectItem>
+            <SelectItem value="status">{isEs ? "Por Estado" : "By Status"}</SelectItem>
           </SelectContent>
         </Select>
         {(statusFilter !== "all" || ownerFilter !== "all") && (
@@ -710,134 +898,49 @@ export default function LeadInboundSection() {
           <Table className="crm-table" style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
             <TableHeader>
               <TableRow>
-                <TableHead style={{ width: '100px' }}>{isEs ? "Fuente" : "Source"}</TableHead>
                 <TableHead style={{ width: '180px' }}>{isEs ? "Nombre" : "Name"}</TableHead>
-                <TableHead style={{ width: '120px' }}>{isEs ? "Contacto" : "Contact"}</TableHead>
-                <TableHead style={{ width: '120px' }}>{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
-                <TableHead style={{ width: '80px' }}>{isEs ? "Invitados" : "Guests"}</TableHead>
-                <TableHead style={{ width: '100px' }}>{isEs ? "Estado" : "Status"}</TableHead>
-                <TableHead style={{ width: '100px' }}>Owner</TableHead>
+                <TableHead style={{ width: '90px' }}>{isEs ? "Contacto" : "Contact"}</TableHead>
+                <TableHead style={{ width: '130px' }}>{isEs ? "Empresa" : "Company"}</TableHead>
+                <TableHead style={{ width: '90px' }}>{isEs ? "Fuente" : "Source"}</TableHead>
+                <TableHead style={{ width: '100px' }}>{isEs ? "Tipo Evento" : "Event Type"}</TableHead>
+                <TableHead style={{ width: '70px' }}>{isEs ? "Invitados" : "Guests"}</TableHead>
+                <TableHead style={{ width: '80px' }}>{isEs ? "Estado" : "Status"}</TableHead>
+                <TableHead style={{ width: '80px' }}>Owner</TableHead>
                 <TableHead style={{ width: '100px' }}>{isEs ? "Acciones" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedAndFilteredLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {isEs ? "No hay leads inbound" : "No inbound leads"}
                   </TableCell>
                 </TableRow>
-              ) : (
-                sortedAndFilteredLeads.map((lead) => {
-                  const dupeReasons = getDuplicateReasons(lead);
-                  return (
-                  <TableRow 
-                    key={lead.lead_id} 
-                    className={`cursor-pointer hover:bg-muted/50 ${isNewLead(lead) ? "bg-blue-50/50" : ""} ${dupeReasons.length > 0 ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {dupeReasons.length > 0 && (
-                          <AlertTriangle 
-                            className="w-4 h-4 text-yellow-600 flex-shrink-0" 
-                            title={`${isEs ? "Duplicado" : "Duplicate"}: ${dupeReasons.join(", ")}`} 
-                          />
-                        )}
-                        {getSourceIcon(lead.source)}
-                        <span className="text-sm">{lead.source}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {lead.lead_name}
-                        {isNewLead(lead) && (
-                          <Badge className="bg-blue-500 text-white text-xs">NEW</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {lead.whatsapp && (
-                          <a href={getWhatsAppLink(lead.whatsapp)} target="_blank" rel="noopener noreferrer" 
-                             className="text-green-600 hover:text-green-700" title="WhatsApp">
-                            <MessageCircle className="w-4 h-4" />
-                          </a>
-                        )}
-                        {lead.email && (
-                          <a href={`mailto:${lead.email}`} className="text-blue-600 hover:text-blue-700" title="Email">
-                            <Mail className="w-4 h-4" />
-                          </a>
-                        )}
-                        {lead.phone && (
-                          <a href={`tel:${lead.phone}`} className="text-muted-foreground hover:text-foreground" title={isEs ? "Llamar" : "Call"}>
-                            <Phone className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{lead.event_type}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {lead.estimated_guest_count ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Users className="w-3 h-3" />
-                          {lead.estimated_guest_count}
+              ) : groupedLeads ? (
+                groupedLeads.map(group => (
+                  <>
+                    <TableRow key={`group-${group.key}`} className="bg-muted/60 hover:bg-muted/80">
+                      <TableCell colSpan={9} className="py-2">
+                        <div className="flex items-center gap-2 font-semibold text-sm">
+                          {groupBy === "company" ? (
+                            <Building2 className="w-4 h-4 text-blue-600" />
+                          ) : (
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 
+                              group.key === "New" ? "#22c55e" : 
+                              group.key === "Contacted" ? "#3b82f6" : 
+                              group.key === "Converted" ? "#8b5cf6" : "#6b7280" 
+                            }} />
+                          )}
+                          <span>{group.key}</span>
+                          <Badge variant="secondary" className="text-xs ml-1">{group.leads.length}</Badge>
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                    <TableCell>
-                      {lead.owner_id ? (
-                        <Badge variant="outline" className="text-xs">
-                          {lead.owner_name || users.find(u => u.user_id === lead.owner_id)?.name || lead.owner_id.replace("user_", "").slice(0, 8)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => viewLead(lead)} title={isEs ? "Ver" : "View"}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openAssign(lead)} title={isEs ? "Asignar" : "Assign"}>
-                          <UserPlus className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openFollowUp(lead)} title={isEs ? "Seguimiento" : "Follow-up"}>
-                          <CalendarPlus className="w-4 h-4" />
-                        </Button>
-                        {lead.status !== "Converted" && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => openConvert(lead)} 
-                            title={isEs ? "Convertir" : "Convert"}
-                            data-testid={`convert-inbound-${lead.lead_id}`}
-                          >
-                            <ArrowRight className="w-4 h-4 text-green-600" />
-                          </Button>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openDelete(lead)} className="text-red-600">
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {isEs ? "Eliminar" : "Delete"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  );
-                })
+                      </TableCell>
+                    </TableRow>
+                    {group.leads.map(lead => renderInboundRow(lead))}
+                  </>
+                ))
+              ) : (
+                sortedAndFilteredLeads.map(lead => renderInboundRow(lead))
               )}
             </TableBody>
           </Table>
