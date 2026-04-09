@@ -28,99 +28,89 @@ Build a comprehensive ERP application called Kora OS with modules for:
 
 ### People Ops
 - Employee management with comprehensive profiles
-- Dropdowns for Job Role (sourced from Recruitment), Department, and Manager
-- Banking Info section (international-friendly)
 - Org chart based on reporting hierarchy
+- Hire flow from Recruitment to Employee creation
 
 ### Business Clarity
-- Expense Categories & Budgets with types (Variable, Operating, Investment)
-- Cost Center Budgets: Automated calculation from linked Expense Categories
-- Invoices, Payments, Receivables, Payables management
+- Expense Categories & Budgets
+- Cost Center Budgets
+- Invoices, Payments, Receivables, Payables
 - Executive Dashboard with Profit Signals
-- Stripe integration for payments
+- Stripe integration
 
 ### Super Admin Panel
-- Demo Accounts Management: Create, edit, extend trial, convert to paid
-- Module Filtering for Demo Accounts
-- Pricing Configuration
-- Kora Core Configuration
+- Demo Accounts Management
+- Module Filtering, Pricing, Kora Core Configuration
 
 ### Demand Studio
-- Social media post management (create, edit, schedule, publish)
-- Content Pillars, Audiences (with granular Sub-Audiences), Segments
-- Campaign management with tracking codes
-- Social metrics (manual + YouTube API integration)
-- Ideas bank with conversion to posts
-- Calendar and Queue views
-- Collaboration features (mentions, comments, shared organizations)
+- Social media post management with rich text editor
+- Content Pillars, Audiences, Campaigns
+- Calendar and Queue views with format indicators
+- Social account CRUD
 
 ### CRM / Client Engagement
 - Intelligent lead conversion: 3 modes (Solo Cliente, Cliente+Evento Existente, Cliente+Evento Nuevo)
 - Lead Sources catalog with auto-seeded defaults
-- CSV Import with configurable lead_type (outreach/inbound) and source
-- Company deduplication during imports
-- Sales Reports with daily activity, weekly goals, and team notifications
-- Leads by source report with conversion rates
-- Owner assignment and follow-up management
+- CSV Import with configurable lead_type and source, company deduplication
+- Sales Reports with daily activity, weekly goals, team notifications
+- Leads by source report
+- **List view**: A-Z sort by name, group by company/status, Source column with colored badges
+- **Visual distinction**: Company-only leads (blue, "Solo empresa"), person leads (violet icon)
+- **Kanban view**: Drag-and-drop pipeline with configurable stages
 
 ## Tech Stack
 - **Frontend**: React with Shadcn/UI components
 - **Backend**: FastAPI (Python)
 - **Database**: MongoDB
 - **Payments**: Stripe integration
-- **Auth**: JWT-based authentication (cookie + localStorage)
+- **Auth**: JWT-based authentication
 
 ## What's Been Implemented
 
-### Session: April 9, 2026
+### Session: April 9, 2026 (Part 2)
 
 #### Completed
-1. **CRM Intelligent Lead Conversion (P0)**:
-   - Backend: `POST /api/leads/{lead_id}/convert` supports 3 modes via body params: `create_event` (bool) and `existing_event_id` (string)
-   - Mode 1: "Solo Cliente" - creates client without event
-   - Mode 2: "Cliente + Evento Existente" - links to existing event/activation
-   - Mode 3: "Cliente + Evento Nuevo" - creates new event automatically
-   - Frontend: Both Outreach and Inbound conversion dialogs updated with 3 selectable cards + event selector dropdown
-   - Backend: `GET /api/crm/events-list` provides events and activations for linking
-   - Testing: 18/18 backend tests passed, 100% frontend (iteration_135)
+1. **CRM List View Overhaul**:
+   - Default sort changed from "Newest first" to "A-Z (Nombre)" in both Outreach and Inbound
+   - Sort now prioritizes `lead_name` (person) over `company_name`
+   - Added "Group by" selector: Sin agrupar / Por Empresa / Por Estado
+   - Group headers show icon + name + count badge
+   - Status grouping shows colored dots matching status colors
 
-2. **Lead Sources Catalog (P0)**:
-   - CRUD endpoints: `GET/POST/DELETE /api/crm/lead-sources`
-   - Auto-seeds 12 default sources (LinkedIn, Instagram, Facebook, Google, Referido, etc.)
-   - Integrated into import UI as source selector
-   - Testing: Verified via backend tests
+2. **Source Column & Normalization**:
+   - Added Source column with colored badges to Outreach table (Inbound already had it)
+   - Backend endpoint `POST /api/crm/normalize-sources` cleans up inconsistent source names
+   - Normalized: "import" → "Importación", "website" → "Website", etc.
+   - 8 sources normalized in existing data
 
-3. **CSV Import Overhaul (P0)**:
-   - Default lead_type changed from "inbound" to "outreach"
-   - Default source changed from "import" to "Outreach"
-   - Accepts query params: `default_lead_type` and `default_source`
-   - Company deduplication: checks `company_entities` collection before creating
-   - Frontend: Import section shows lead type selector and source selector
-   - Testing: Verified via backend tests
+3. **Visual Distinction Person vs Company**:
+   - Company-only leads: blue Building icon + bold blue name + "Solo empresa" subtitle
+   - Person leads: violet User icon + normal font
+   - Company column shows "-" for company-only entries (avoids duplication)
 
-4. **Leads by Source Report (P0)**:
-   - `GET /api/crm/reports/by-source` returns breakdown with conversion rates
-   - Testing: Verified
+4. **Testing**: 100% pass rate - Backend 9/9, Frontend all features (iteration_136)
+
+### Session: April 9, 2026 (Part 1)
+
+#### Completed
+1. **CRM Intelligent Lead Conversion** - 3 modes with event selector
+2. **Lead Sources Catalog** - CRUD + 12 auto-seeded defaults
+3. **CSV Import Overhaul** - Default outreach, company dedup, source param
+4. **Leads by Source Report** - Conversion rate breakdown
+5. **Testing**: 18/18 backend, 100% frontend (iteration_135)
 
 ### Previous Sessions (Summary)
-- Demand Studio: Clickable URLs, text colors, calendar states, social account CRUD, rich text editor, collaboration, comments, presence
+- Demand Studio: Clickable URLs, text colors, calendar states, social account CRUD
 - People Ops: Org Chart, Recruitment, Employee creation, hire flow
-- CRM: Sales Reports, Weekly Goals, Notifications, Lead assignment, Follow-ups
+- CRM: Sales Reports, Weekly Goals, Notifications
 - Guest Flow: Virtual queue management, QR codes, kiosk mode
 - Business Clarity: Department reports, expense categories, stripe payments
-- Settings: Import/Export, role management, module protection
-
-## Known Issues
-
-### P0 - Critical
-- All critical issues resolved
-
-### P1 - High Priority
-- None pending
+- Settings: Import/Export, role management
 
 ## Backlog / Future Tasks
 
 ### P1 - Next Up
+- **CRM Kanban Dashboard** enhancement (already functional, could add metrics/charts)
 - Add Logo Image Upload via Object Storage for Guest Flow
 - Refactor `SocialMediaPage.js` (~3700 lines) into smaller components
 - Extract import/export logic from `server.py` to its own router
@@ -131,22 +121,21 @@ Build a comprehensive ERP application called Kora OS with modules for:
 - Email Marketing Provider (Mailchimp/Brevo)
 
 ### P3 - Features
-- Kora Comms Phase 1 (WhatsApp full API integration)
+- Kora Comms Phase 1 (WhatsApp full API)
 - Complete internationalization (i18n)
 - Full UTM tracking
-- Expand initial setup wizard
 
 ## Test Credentials
-- **Email**: demo.agency@kora.com
-- **Password**: Evoque2024!
+- **Admin**: demo.agency@kora.com / Evoque2024!
 - **Team**: team.test@staffdo.com / Evoque2024!
 
 ## Key Files Reference
-- `backend/routers/crm.py` - CRM endpoints (lead conversion, sources, reports)
+- `backend/routers/crm.py` - CRM endpoints, lead conversion, sources, normalize
 - `backend/server.py` - CSV Import/Export endpoints
-- `frontend/src/components/crm/LeadOutreachSection.js` - Outreach leads with conversion dialog
-- `frontend/src/components/crm/LeadInboundSection.js` - Inbound leads with conversion dialog
-- `frontend/src/components/settings/ImportExportSection.js` - Import/Export UI with lead options
+- `frontend/src/components/crm/LeadOutreachSection.js` - Outreach with grouping/sorting
+- `frontend/src/components/crm/LeadInboundSection.js` - Inbound with grouping/sorting
+- `frontend/src/components/crm/LeadKanbanView.js` - Kanban pipeline view
+- `frontend/src/components/settings/ImportExportSection.js` - Import UI
 
-## User Language Preference
-Spanish (es) - All user communication should be in Spanish
+## User Language
+Spanish (es)
