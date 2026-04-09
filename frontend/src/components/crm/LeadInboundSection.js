@@ -627,12 +627,9 @@ export default function LeadInboundSection() {
             )}
             <div className="min-w-0">
               {isCompanyOnly ? (
-                <span className="truncate block font-semibold text-blue-700 dark:text-blue-400">{companyName}</span>
+                <span className="truncate block text-muted-foreground italic text-sm">{isEs ? "Sin contacto" : "No contact"}</span>
               ) : (
                 <span className="truncate block">{contactName || "-"}</span>
-              )}
-              {isCompanyOnly && (
-                <span className="text-[10px] text-muted-foreground">{isEs ? "Solo empresa" : "Company only"}</span>
               )}
             </div>
             {isNewLead(lead) && (
@@ -661,9 +658,9 @@ export default function LeadInboundSection() {
           </div>
         </TableCell>
         <TableCell>
-          {hasCompany && !isCompanyOnly ? (
-            <span className="flex items-center gap-1 text-sm truncate">
-              <Building2 className="w-3 h-3 shrink-0 text-muted-foreground" />
+          {hasCompany ? (
+            <span className="flex items-center gap-1 text-sm truncate font-medium">
+              <Building2 className="w-3 h-3 shrink-0 text-blue-600" />
               <span className="truncate">{companyName}</span>
             </span>
           ) : (
