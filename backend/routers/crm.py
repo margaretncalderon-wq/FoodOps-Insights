@@ -1,5 +1,5 @@
 # routers/crm.py - CRM module routes
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 import uuid
@@ -285,14 +285,23 @@ async def update_lead(lead_id: str, data: dict, user: User = Depends(get_current
 
 
 @leads_router.post("/{lead_id}/convert")
-async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
-    """Convert a lead to Client + Contact + Event"""
+async def convert_lead(lead_id: str, request: Request, user: User = Depends(get_current_user)):
+    """Convert a lead to Client, optionally with Event (new or existing)"""
     lead = await db.leads.find_one({"lead_id": lead_id, "company_id": user.company_id}, {"_id": 0})
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
     if lead.get("status") == "Converted":
         raise HTTPException(status_code=400, detail="Lead already converted")
+    
+    # Parse body
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    
+    create_event = body.get("create_event", False)
+    existing_event_id = body.get("existing_event_id")  # Link to existing event
     
     # OWNER ENFORCEMENT: Block conversion if no owner assigned
     lead_owner_id = lead.get("owner_id")
@@ -379,49 +388,68 @@ async def convert_lead(lead_id: str, user: User = Depends(get_current_user)):
     if not existing_contact:
         await db.contacts.insert_one(contact_doc)
     
-    # Create event
-    event_id = f"event_{uuid.uuid4().hex[:12]}"
-    event_date = None
-    event_date_tbd = True
-    if lead.get("event_date") and lead.get("event_date") != "TBD":
-        try:
-            event_date = datetime.fromisoformat(lead["event_date"]).isoformat()
-            event_date_tbd = False
-        except:
-            event_date_tbd = True
+    # Event handling: 3 modes
+    event_id = None
     
-    event_doc = {
-        "event_id": event_id,
-        "company_id": user.company_id,
-        "client_id": client_id,
-        "name": f"{lead.get('event_type', 'Event')} - {lead.get('lead_name', 'New Event')}",
-        "event_type": lead.get("event_type", "other"),
-        "event_date": event_date,
-        "event_date_tbd": event_date_tbd,
-        "end_date": None,
-        "is_booking": False,
-        "venue": None,
-        "guest_count": lead.get("estimated_guest_count") or 0,
-        "budget": 0.0,
-        "notes": lead.get("message"),
-        "status": "planning",
-        "stage": "Inquiry Received",
-        "expected_value": None,
-        "next_followup_date": None,
-        "next_step": None,
-        "lost_reason": None,
-        "source": lead.get("source"),
-        "timeline": [],
-        "tasks": [],
-        "menu_items": [],
-        "documents": [],
-        "created_at": now.isoformat(),
-        "updated_at": now.isoformat()
-    }
-    await db.events.insert_one(event_doc)
+    if existing_event_id:
+        # Mode 1: Link to existing event
+        existing_event = await db.events.find_one(
+            {"event_id": existing_event_id, "company_id": user.company_id},
+            {"_id": 0, "event_id": 1}
+        )
+        if existing_event:
+            event_id = existing_event_id
+            # Update event with client_id if not set
+            await db.events.update_one(
+                {"event_id": existing_event_id},
+                {"$set": {"client_id": client_id, "updated_at": now.isoformat()}}
+            )
+            await db.clients.update_one({"client_id": client_id}, {"$inc": {"events_count": 1}})
     
-    # Update client events count
-    await db.clients.update_one({"client_id": client_id}, {"$inc": {"events_count": 1}})
+    elif create_event:
+        # Mode 2: Create new event
+        event_id = f"event_{uuid.uuid4().hex[:12]}"
+        event_date = None
+        event_date_tbd = True
+        if lead.get("event_date") and lead.get("event_date") != "TBD":
+            try:
+                event_date = datetime.fromisoformat(lead["event_date"]).isoformat()
+                event_date_tbd = False
+            except:
+                event_date_tbd = True
+        
+        event_doc = {
+            "event_id": event_id,
+            "company_id": user.company_id,
+            "client_id": client_id,
+            "name": f"{lead.get('event_type', 'Event')} - {lead.get('lead_name', 'New Event')}",
+            "event_type": lead.get("event_type", "other"),
+            "event_date": event_date,
+            "event_date_tbd": event_date_tbd,
+            "end_date": None,
+            "is_booking": False,
+            "venue": None,
+            "guest_count": lead.get("estimated_guest_count") or 0,
+            "budget": 0.0,
+            "notes": lead.get("message"),
+            "status": "planning",
+            "stage": "Inquiry Received",
+            "expected_value": None,
+            "next_followup_date": None,
+            "next_step": None,
+            "lost_reason": None,
+            "source": lead.get("source"),
+            "timeline": [],
+            "tasks": [],
+            "menu_items": [],
+            "documents": [],
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.events.insert_one(event_doc)
+        await db.clients.update_one({"client_id": client_id}, {"$inc": {"events_count": 1}})
+    
+    # else: Mode 3 - Client only, no event
     
     # Mark lead as converted
     await db.leads.update_one(
@@ -3181,3 +3209,134 @@ async def get_weekly_summary_status(user: User = Depends(get_current_user)):
         "sent_at": existing.get("sent_at") if existing else None,
         "notifications_sent": existing.get("notifications_sent", 0) if existing else 0
     }
+
+
+# ============== LEAD SOURCES CATALOG ==============
+
+DEFAULT_SOURCES = [
+    "LinkedIn", "Instagram", "Facebook", "Google", "Referido", "Evento",
+    "Website", "Cold Call", "Email Campaign", "WhatsApp", "Base de Datos", "Otro"
+]
+
+@crm_router.get("/lead-sources")
+async def get_lead_sources(user: User = Depends(get_current_user)):
+    """Get lead sources catalog"""
+    sources = await db.lead_sources.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("name", 1).to_list(200)
+    if not sources:
+        # Seed defaults
+        now = datetime.now(timezone.utc).isoformat()
+        for s in DEFAULT_SOURCES:
+            await db.lead_sources.insert_one({
+                "source_id": f"src_{uuid.uuid4().hex[:8]}",
+                "company_id": user.company_id,
+                "name": s,
+                "created_at": now
+            })
+        sources = await db.lead_sources.find(
+            {"company_id": user.company_id},
+            {"_id": 0}
+        ).sort("name", 1).to_list(200)
+    return sources
+
+
+@crm_router.post("/lead-sources")
+async def create_lead_source(data: dict, user: User = Depends(get_current_user)):
+    """Create a new lead source"""
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name required")
+    existing = await db.lead_sources.find_one({"company_id": user.company_id, "name": name})
+    if existing:
+        raise HTTPException(status_code=400, detail="Source already exists")
+    doc = {
+        "source_id": f"src_{uuid.uuid4().hex[:8]}",
+        "company_id": user.company_id,
+        "name": name,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.lead_sources.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@crm_router.delete("/lead-sources/{source_id}")
+async def delete_lead_source(source_id: str, user: User = Depends(get_current_user)):
+    result = await db.lead_sources.delete_one({"source_id": source_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return {"message": "Deleted"}
+
+
+# ============== EVENTS LIST (for conversion linking) ==============
+
+@crm_router.get("/events-list")
+async def get_events_list(user: User = Depends(get_current_user)):
+    """Get events for linking during conversion"""
+    events = await db.events.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "event_id": 1, "name": 1, "event_type": 1, "event_date": 1, "status": 1, "client_id": 1}
+    ).sort("created_at", -1).to_list(500)
+    
+    # Also get guest flow activations
+    activations = await db.gf_activations.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "activation_id": 1, "event_name": 1, "status": 1, "event_id": 1}
+    ).sort("created_at", -1).to_list(200)
+    
+    return {"events": events, "activations": activations}
+
+
+# ============== IMPORT LOG ==============
+
+@crm_router.get("/import-logs")
+async def get_import_logs(user: User = Depends(get_current_user)):
+    """Get import history"""
+    logs = await db.import_logs.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return logs
+
+
+# ============== REPORT: LEADS BY SOURCE ==============
+
+@crm_router.get("/reports/by-source")
+async def get_leads_by_source(
+    user: User = Depends(get_current_user),
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
+):
+    """Get lead counts and conversion rates grouped by source"""
+    query = {"company_id": user.company_id}
+    if date_from:
+        query.setdefault("created_at", {})["$gte"] = date_from + "T00:00:00"
+    if date_to:
+        query.setdefault("created_at", {})["$lte"] = date_to + "T23:59:59"
+
+    leads = await db.leads.find(query, {"_id": 0, "source": 1, "status": 1}).to_list(10000)
+
+    sources = {}
+    for lead in leads:
+        src = lead.get("source") or "Sin Fuente"
+        if src not in sources:
+            sources[src] = {"source": src, "total": 0, "converted": 0, "new": 0, "contacted": 0, "interested": 0}
+        sources[src]["total"] += 1
+        status = (lead.get("status") or "").lower()
+        if status == "converted":
+            sources[src]["converted"] += 1
+        elif status == "new" or status == "nuevo":
+            sources[src]["new"] += 1
+        elif status in ("contacted", "contactado"):
+            sources[src]["contacted"] += 1
+        elif status in ("interested", "interesado"):
+            sources[src]["interested"] += 1
+
+    result = list(sources.values())
+    for r in result:
+        r["conversion_rate"] = round(r["converted"] / r["total"] * 100, 1) if r["total"] > 0 else 0
+    result.sort(key=lambda x: -x["total"])
+
+    return result

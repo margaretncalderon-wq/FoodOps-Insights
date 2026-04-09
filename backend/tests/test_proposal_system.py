@@ -7,7 +7,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://erp-queue-system.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://lead-conversion-hub-15.preview.emergentagent.com').rstrip('/')
 
 # Test credentials
 TEST_EMAIL = "test@test.com"

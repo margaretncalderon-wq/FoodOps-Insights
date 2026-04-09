@@ -104,6 +104,9 @@ export default function LeadOutreachSection() {
   const [editOpen, setEditOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
+  const [convertMode, setConvertMode] = useState(null); // null, "client_only", "new_event", "existing_event"
+  const [eventsList, setEventsList] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
@@ -250,6 +253,17 @@ export default function LeadOutreachSection() {
       setUsers(Array.from(ownerIds).map(id => ({ user_id: id, name: `User ${id.slice(-6)}` })));
     }
   }, [leads]);
+
+  // Fetch events list for conversion linking
+  const fetchEventsList = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/events-list`, { withCredentials: true });
+      setEventsList(res.data?.events || []);
+    } catch (err) {
+      console.error("Error fetching events list:", err);
+      setEventsList([]);
+    }
+  }, []);
 
   useEffect(() => { 
     // Fetch both in parallel on mount
@@ -534,6 +548,9 @@ export default function LeadOutreachSection() {
 
   const openConvert = (lead) => {
     setSelectedLead(lead);
+    setConvertMode(null);
+    setSelectedEventId("");
+    fetchEventsList();
     setConvertOpen(true);
   };
 
@@ -1512,67 +1529,98 @@ export default function LeadOutreachSection() {
       </Dialog>
 
       {/* Convert Dialog */}
-      <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
-        <DialogContent>
+      <Dialog open={convertOpen} onOpenChange={(open) => { setConvertOpen(open); if (!open) { setConvertMode(null); setSelectedEventId(""); } }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{isEs ? "Convertir Lead" : "Convert Lead"}</DialogTitle>
+            <DialogTitle>{isEs ? "Convertir Lead a Cliente" : "Convert Lead to Client"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {isEs 
-                ? `¿Cómo deseas convertir a "${selectedLead?.lead_name}"?`
-                : `How would you like to convert "${selectedLead?.lead_name}"?`}
+                ? `Selecciona cómo convertir "${selectedLead?.lead_name || selectedLead?.company_name}":`
+                : `Select how to convert "${selectedLead?.lead_name || selectedLead?.company_name}":`}
             </p>
             {selectedLead && (
               <div className="p-3 bg-muted rounded-lg text-sm">
-                <p className="font-medium mb-2">{isEs ? "Datos a transferir:" : "Data to transfer:"}</p>
                 <ul className="space-y-1 text-muted-foreground">
-                  <li>• {isEs ? "Nombre" : "Name"}: {selectedLead.lead_name}</li>
-                  <li>• Email: {selectedLead.email}</li>
-                  {selectedLead.phone && <li>• {isEs ? "Teléfono" : "Phone"}: {selectedLead.phone}</li>}
-                  {selectedLead.whatsapp && <li>• WhatsApp: {selectedLead.whatsapp}</li>}
-                  {selectedLead.rnc && <li>• RNC: {selectedLead.rnc}</li>}
-                  {selectedLead.company_name && <li>• {isEs ? "Empresa" : "Company"}: {selectedLead.company_name}</li>}
-                  {selectedLead.address && <li>• {isEs ? "Dirección" : "Address"}: {selectedLead.address}</li>}
+                  <li>• {selectedLead.lead_name}</li>
+                  {selectedLead.email && <li>• {selectedLead.email}</li>}
+                  {selectedLead.company_name && <li>• {selectedLead.company_name}</li>}
                 </ul>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3">
               <Card 
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => handleConvert(true)}
-                data-testid="convert-with-event"
+                className={`cursor-pointer transition-colors ${convertMode === "client_only" ? "border-primary ring-2 ring-primary/20" : "hover:border-primary/50"}`}
+                onClick={() => setConvertMode("client_only")}
+                data-testid="convert-client-only"
               >
-                <CardContent className="pt-6 text-center">
-                  <CalendarPlus className="w-12 h-12 mx-auto mb-4 text-primary" />
-                  <h3 className="font-semibold">{isEs ? "Crear Cliente + Evento" : "Create Client + Event"}</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {isEs 
-                      ? "Crea el cliente y abre un nuevo evento"
-                      : "Create client and open a new event"}
-                  </p>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <UserCheck className="w-8 h-8 text-muted-foreground shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm">{isEs ? "Solo Cliente" : "Client Only"}</h3>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Sin evento asociado" : "No associated event"}</p>
+                  </div>
                 </CardContent>
               </Card>
               <Card 
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => handleConvert(false)}
-                data-testid="convert-client-only"
+                className={`cursor-pointer transition-colors ${convertMode === "existing_event" ? "border-primary ring-2 ring-primary/20" : "hover:border-primary/50"}`}
+                onClick={() => setConvertMode("existing_event")}
+                data-testid="convert-existing-event"
               >
-                <CardContent className="pt-6 text-center">
-                  <UserCheck className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="font-semibold">{isEs ? "Solo Cliente" : "Client Only"}</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {isEs 
-                      ? "Crea solo el cliente sin evento"
-                      : "Create client without event"}
-                  </p>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <ArrowRight className="w-8 h-8 text-blue-500 shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm">{isEs ? "Cliente + Evento Existente" : "Client + Existing Event"}</h3>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Vincular a un evento o activación existente" : "Link to existing event or activation"}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`cursor-pointer transition-colors ${convertMode === "new_event" ? "border-primary ring-2 ring-primary/20" : "hover:border-primary/50"}`}
+                onClick={() => setConvertMode("new_event")}
+                data-testid="convert-with-event"
+              >
+                <CardContent className="p-4 flex items-center gap-4">
+                  <CalendarPlus className="w-8 h-8 text-primary shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm">{isEs ? "Cliente + Evento Nuevo" : "Client + New Event"}</h3>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Crear un nuevo evento automáticamente" : "Create a new event automatically"}</p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
+            {convertMode === "existing_event" && (
+              <div>
+                <Label className="mb-1 block">{isEs ? "Seleccionar Evento" : "Select Event"}</Label>
+                <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                  <SelectTrigger data-testid="convert-event-selector">
+                    <SelectValue placeholder={isEs ? "Buscar evento..." : "Search event..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventsList.map(ev => (
+                      <SelectItem key={ev.event_id} value={ev.event_id}>
+                        {ev.name} {ev.event_date ? `(${ev.event_date.split("T")[0]})` : ""}
+                      </SelectItem>
+                    ))}
+                    {eventsList.length === 0 && (
+                      <SelectItem value="__none" disabled>{isEs ? "No hay eventos" : "No events"}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConvertOpen(false)}>
               {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={() => handleConvert(convertMode)}
+              disabled={!convertMode || (convertMode === "existing_event" && !selectedEventId)}
+              data-testid="convert-confirm-btn"
+            >
+              {isEs ? "Convertir" : "Convert"}
             </Button>
           </DialogFooter>
         </DialogContent>

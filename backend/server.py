@@ -15580,7 +15580,9 @@ async def export_leads(
 @import_export_router.post("/leads/import")
 async def import_leads(
     file: UploadFile = File(...),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    default_lead_type: Optional[str] = None,
+    default_source: Optional[str] = None
 ):
     """Import leads from CSV or Excel - supports both lead format and client format"""
     
@@ -15641,11 +15643,12 @@ async def import_leads(
                 if pd.isna(guest_count): guest_count = 0
                 
                 # Handle 'tipo' column from client format -> lead_type
-                lead_type_raw = row.get('tipo_lead') or row.get('lead_type') or row.get('tipo') or "inbound"
-                if pd.isna(lead_type_raw): lead_type_raw = "inbound"
+                lead_type_raw = row.get('tipo_lead') or row.get('lead_type') or row.get('tipo') or ""
+                if pd.isna(lead_type_raw) or not str(lead_type_raw).strip():
+                    lead_type_raw = default_lead_type or "outreach"
                 lead_type = str(lead_type_raw).lower().strip()
                 if lead_type not in ["inbound", "outreach"]:
-                    lead_type = "outreach" if "outreach" in lead_type.lower() else "inbound"
+                    lead_type = "outreach" if "outreach" in lead_type.lower() else "outreach"
                 
                 # Build notes from multiple fields (for client format)
                 notes_parts = []
@@ -15697,7 +15700,7 @@ async def import_leads(
                     "city": clean_value(row.get('ciudad')) or clean_value(row.get('city')),
                     "country": clean_value(row.get('pais')) or clean_value(row.get('country')) or "República Dominicana",
                     "rnc": clean_value(row.get('rnc')),
-                    "source": clean_value(row.get('fuente')) or clean_value(row.get('source')) or "import",
+                    "source": clean_value(row.get('fuente')) or clean_value(row.get('source')) or default_source or "Outreach",
                     "status": final_status,
                     "estimated_value": float(estimated_value) if estimated_value else 0,
                     "budget_range": clean_value(row.get('rango_presupuesto')) or clean_value(row.get('budget_range')),
@@ -15725,6 +15728,22 @@ async def import_leads(
                     lead_data["company_id"] = user.company_id
                     lead_data["created_at"] = datetime.now(timezone.utc).isoformat()
                     await db.leads.insert_one(lead_data)
+                
+                # Company deduplication: if company_name exists, ensure it's in company_entities
+                if company:
+                    existing_company = await db.company_entities.find_one({
+                        "organization_id": user.company_id,
+                        "name": {"$regex": f"^{company.strip()}$", "$options": "i"}
+                    })
+                    if not existing_company:
+                        await db.company_entities.insert_one({
+                            "entity_id": f"ent_{uuid.uuid4().hex[:12]}",
+                            "organization_id": user.company_id,
+                            "name": company.strip(),
+                            "status": "Lead",
+                            "source": lead_data.get("source", "Outreach"),
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        })
                 
                 imported += 1
                 

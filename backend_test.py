@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone, timedelta
 
 class EEPEvoqueAPITester:
-    def __init__(self, base_url="https://erp-queue-system.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://lead-conversion-hub-15.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.session = requests.Session()  # Use session to maintain cookies
         self.token = None

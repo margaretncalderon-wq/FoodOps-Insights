@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Button } from "../ui/button";
@@ -28,6 +28,19 @@ export default function ImportExportSection({ filter }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [exportFormat, setExportFormat] = useState("csv");
+  const [leadImportType, setLeadImportType] = useState("outreach");
+  const [leadImportSource, setLeadImportSource] = useState("");
+  const [leadSources, setLeadSources] = useState([]);
+
+  useEffect(() => {
+    const fetchSources = async () => {
+      try {
+        const res = await axios.get(`${API}/api/crm/lead-sources`, { withCredentials: true });
+        setLeadSources(res.data || []);
+      } catch { /* ignore */ }
+    };
+    fetchSources();
+  }, []);
 
   const allModules = [
     { 
@@ -115,9 +128,21 @@ export default function ImportExportSection({ filter }) {
     const formData = new FormData();
     formData.append('file', file);
     
+    // Build query params for leads import
+    let queryParams = "";
+    if (type === "leads") {
+      const params = new URLSearchParams();
+      if (leadImportType) params.append("default_lead_type", leadImportType);
+      // "from_csv" means use source from CSV file, so don't send default_source
+      if (leadImportSource && leadImportSource !== "from_csv") {
+        params.append("default_source", leadImportSource);
+      }
+      queryParams = params.toString() ? `?${params.toString()}` : "";
+    }
+    
     try {
       const response = await axios.post(
-        `${API}/api/import-export/${type}/import`,
+        `${API}/api/import-export/${type}/import${queryParams}`,
         formData,
         { 
           withCredentials: true,
@@ -251,6 +276,39 @@ export default function ImportExportSection({ filter }) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Lead-specific import options */}
+                  {module.id === "leads" && (
+                    <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">{isEs ? "Tipo de Lead" : "Lead Type"}</Label>
+                          <Select value={leadImportType} onValueChange={setLeadImportType}>
+                            <SelectTrigger className="h-8 text-xs" data-testid="import-lead-type-selector">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="outreach">Outreach</SelectItem>
+                              <SelectItem value="inbound">Inbound</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">{isEs ? "Fuente" : "Source"}</Label>
+                          <Select value={leadImportSource} onValueChange={setLeadImportSource}>
+                            <SelectTrigger className="h-8 text-xs" data-testid="import-lead-source-selector">
+                              <SelectValue placeholder={isEs ? "Fuente..." : "Source..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="from_csv">{isEs ? "Desde CSV" : "From CSV"}</SelectItem>
+                              {leadSources.map(s => (
+                                <SelectItem key={s.source_id} value={s.name}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <Input
                     type="file"
                     accept=".csv,.xlsx,.xls"

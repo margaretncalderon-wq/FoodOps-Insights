@@ -16,7 +16,7 @@ import io
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://erp-queue-system.preview.emergentagent.com"
+    BASE_URL = "https://lead-conversion-hub-15.preview.emergentagent.com"
 
 # Test credentials
 TEST_EMAIL = "demo.agency@kora.com"
