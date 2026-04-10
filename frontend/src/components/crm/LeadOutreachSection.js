@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useTerminology } from "../../hooks/useTerminology";
-import LeadMapSection from "./LeadMapSection";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent } from "../ui/card";
@@ -1084,9 +1083,6 @@ export default function LeadOutreachSection() {
           );
         })}
       </div>
-
-      {/* Lead Map */}
-      <LeadMapSection onCityFilter={(city) => setCityFilter(city)} />
 
       {/* Search & Filters */}
       <div className="flex flex-wrap gap-4">

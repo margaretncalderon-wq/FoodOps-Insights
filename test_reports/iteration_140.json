@@ -1,0 +1,74 @@
+{
+  "summary": "Iteration 140: Interactive Leaflet Map Feature - All tests passed. Map successfully moved from Outreach to CRM Dashboard with real OpenStreetMap tiles and interactive markers.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": []
+  },
+  "test_report_links": [
+    "/app/frontend/src/components/crm/LeadMapInteractive.js",
+    "/app/frontend/src/components/crm/CrmDashboard.js"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Old LeadMapSection.js file still exists but is not imported anywhere - can be deleted for cleanup"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (geo-stats API working)",
+    "frontend": "100% (all map features verified)"
+  },
+  "test_credentials": {
+    "admin": "demo.agency@kora.com / Evoque2024!"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Interactive Leaflet map feature fully tested. Map moved from Outreach section to CRM Dashboard. Uses react-leaflet v5.0.0 with CartoDB light tiles. CircleMarkers show lead counts by city with popups. City legend bar allows filtering. Old LeadMapSection.js exists but is unused.",
+  "features_verified": {
+    "crm_dashboard_map": {
+      "leaflet_container": "PASS - Leaflet map container renders correctly",
+      "openstreetmap_tiles": "PASS - CartoDB light tiles load correctly",
+      "zoom_controls": "PASS - +/- zoom buttons visible and functional",
+      "scroll_wheel_zoom": "PASS - Disabled as expected (scrollWheelZoom={false})",
+      "circle_markers": "PASS - 4 markers rendered at city positions (Santiago, Santo Domingo, Punta Cana)",
+      "marker_popups": "PASS - Clicking marker shows popup with city name, total leads, and status breakdown",
+      "city_legend_bar": "PASS - Shows city names with counts and percentages",
+      "city_filter": "PASS - Clicking city button filters data, Clear button appears",
+      "auto_fit_bounds": "PASS - Map auto-fits to show all markers",
+      "lead_map_badge": "PASS - Shows '26 leads' badge"
+    },
+    "outreach_section": {
+      "map_removed": "PASS - Leaflet map NOT present in Outreach section",
+      "status_cards": "PASS - All status cards visible (New, Contacted, No Response, Engaged, Qualified, Proposal, Negotiation)",
+      "search_filters": "PASS - Search input and filter dropdowns working",
+      "leads_table": "PASS - Table displays leads correctly"
+    },
+    "dashboard_kpi_cards": {
+      "total_leads": "PASS - Shows 28 total leads",
+      "contacted": "PASS - Shows 8 contacted",
+      "hot_leads": "PASS - Shows 0 hot leads",
+      "won": "PASS - Shows 0 won"
+    },
+    "conversion_funnel": "PASS - All 7 stages visible with correct counts",
+    "top_sources": "PASS - Shows Website, Outreach, Importación, LinkedIn, Cold Call"
+  },
+  "geo_stats_api_response": {
+    "cities": [
+      {"city": "Santiago", "total": 2, "new": 2},
+      {"city": "Punta Cana", "total": 1, "new": 1},
+      {"city": "Santo Domingo", "total": 1, "new": 1},
+      {"city": "Santo Domingo", "total": 1, "new": 1}
+    ],
+    "no_city_count": 21
+  },
+  "dependencies_verified": {
+    "react-leaflet": "^5.0.0",
+    "leaflet": "^1.9.4"
+  }
+}

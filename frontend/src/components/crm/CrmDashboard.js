@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { TrendingUp, TrendingDown, Users, Target, DollarSign, ArrowRight, BarChart3 } from "lucide-react";
 import { API_BASE as API } from "../../utils/api";
+import LeadMapInteractive from "./LeadMapInteractive";
 
 const STAGE_COLORS = {
   "New": "#3b82f6",
@@ -276,6 +277,13 @@ export default function CrmDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Interactive Lead Map */}
+      <Card>
+        <CardContent className="pt-4">
+          <LeadMapInteractive />
+        </CardContent>
+      </Card>
     </div>
   );
 }
