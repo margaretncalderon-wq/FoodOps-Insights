@@ -6,53 +6,36 @@ Build a comprehensive ERP application called Kora OS with modules for People Ops
 ## What's Been Implemented
 
 ### Session: April 10, 2026 — Latest
-1. **Map: Leads vs Clients** — Blue markers = leads, green markers = clients. Click city → dialog with full lead+client list. Backend geo-stats now aggregates both collections. New city-detail endpoint. (iteration_142)
-2. **Follow-up Completion Dialog** — "Completar" now opens dialog with notes textarea + optional next follow-up scheduling. Notes saved as comm_log entry. (iteration_142)
-3. **CRM Dynamic Lists** — Segmentation by status/city/source/tags/type/email. Integrated in Email Marketing. (iteration_141)
-4. **Locale Settings** — Multi-currency (11), timezone (19), language. LocaleContext utilities. (iteration_141)
-5. **i18n Completions** — 50+ missing ES translations. (iteration_141)
-6. **Interactive Leaflet Map** — Real OpenStreetMap in Dashboard. (iteration_140)
-7. **In-app Notifications** — Conversion alerts for owner + managers. (iteration_139)
-8. **Lead Source + Event/Activation** — 14 sources with pickers. (iteration_139)
-9. **CRM Dashboard** — KPIs, Funnel, Top Sources. (iteration_138)
-10. **Pipeline Stages** — 7 stages aligned backend/frontend. (iteration_138)
-
-### Previous Sessions
-- Sprint 1: Tags, Service Areas, Map, City Filter
-- April 9: Lead Conversion, Sources, CSV Import, List View
-- Earlier: Demand Studio, People Ops, Guest Flow, Business Clarity, Settings
+1. **Social Account Org-Level Visibility** — Fixed account sharing so team members can see accounts shared with any member of their org + accounts from companies shared via company_sharing with social_media permission. (iteration_143)
+2. **Map: Leads vs Clients** — Blue/green markers, click for city detail list. (iteration_142)
+3. **Follow-up Completion Dialog** — Notes + next follow-up scheduling. (iteration_142)
+4. **CRM Dynamic Lists** — Segmentation for email marketing. (iteration_141)
+5. **Locale Settings** — Multi-currency, timezone, language. (iteration_141)
+6. **i18n Completions** — ES translations. (iteration_141)
+7. **Interactive Leaflet Map** — OpenStreetMap in Dashboard. (iteration_140)
+8. **Notifications, Sources, Dashboard, Pipeline** — (iterations 138-139)
 
 ## Backlog
 
 ### P1
 - Logo upload via Object Storage
-- Unified Contact Model (merge Lead+Client lifecycle)
-- Unify 5 Comms components into 1-2
-- Email sending integration (Resend/Brevo) — needs API key
+- Unified Contact Model
+- Unify Comms components
+- Email sending integration (needs API key)
 
 ### P1 — Technical Debt
 - Refactor SocialMediaPage.js (~3700 lines)
 - Extract import/export from server.py
+- Fix company-sharing/members KeyError bug
 
 ### P2
-- Staffdo.com, Meta, TikTok APIs
-- UTM tracking
+- Staffdo.com, Meta, TikTok APIs, UTM tracking
 
 ### P3
-- WhatsApp Business API
-- Additional languages (FR, PT)
+- WhatsApp Business API, additional languages
 
 ## Test Credentials
 - Admin: demo.agency@kora.com / Evoque2024!
 - Team: team.test@staffdo.com / Evoque2024!
-
-## Key Files
-- `backend/routers/crm.py` — CRM endpoints (geo-stats, follow-ups, dynamic lists, pipeline)
-- `frontend/src/components/crm/LeadMapInteractive.js` — Leaflet map with leads (blue) + clients (green)
-- `frontend/src/components/crm/FollowUpsSection.js` — Follow-ups with completion dialog
-- `frontend/src/components/crm/CrmDashboard.js` — Dashboard + map
-- `frontend/src/components/crm/DynamicListsSection.js` — Segmentation lists
-- `frontend/src/contexts/LocaleContext.js` — Multi-currency/timezone
-- `frontend/src/contexts/LanguageContext.js` — i18n EN/ES
 
 ## User Language: Spanish (es)
