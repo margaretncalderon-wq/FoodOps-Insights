@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useTerminology } from "../../hooks/useTerminology";
+import LeadMapSection from "./LeadMapSection";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent } from "../ui/card";
@@ -100,6 +101,8 @@ export default function LeadOutreachSection() {
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [sortBy, setSortBy] = useState("alpha_asc"); // alpha_asc default now
   const [groupBy, setGroupBy] = useState("none"); // "none", "company", "status"
+  const [cityFilter, setCityFilter] = useState(null);
+  const [tags, setTags] = useState([]);
   const [viewMode, setViewMode] = useState("list"); // "list" or "kanban"
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -266,9 +269,16 @@ export default function LeadOutreachSection() {
     }
   }, []);
 
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/tags`, { withCredentials: true });
+      setTags(res.data || []);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => { 
     // Fetch both in parallel on mount
-    Promise.all([fetchLeads(true), fetchUsers()]);
+    Promise.all([fetchLeads(true), fetchUsers(), fetchTags()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -651,7 +661,9 @@ export default function LeadOutreachSection() {
                           (ownerFilter === "unassigned" && !lead.owner_id) ||
                           lead.owner_id === ownerFilter;
       
-      return matchesSearch && matchesStatus && matchesOwner;
+      const matchesCity = !cityFilter || (lead.city || "").toLowerCase() === cityFilter.toLowerCase();
+      
+      return matchesSearch && matchesStatus && matchesOwner && matchesCity;
     })
     .sort((a, b) => {
       const nameA = (a.lead_name || a.name || a.company_name || "").toLowerCase();
@@ -893,6 +905,20 @@ export default function LeadOutreachSection() {
                     <MessageCircle className="w-3 h-3" />
                   </a>
                 )}
+                {/* Tags */}
+                {(lead.tags || []).length > 0 && tags.length > 0 && (
+                  <>
+                    {lead.tags.slice(0, 2).map(tagId => {
+                      const tag = tags.find(t => t.tag_id === tagId);
+                      return tag ? (
+                        <span key={tagId} className="text-[9px] px-1 py-0 rounded-sm font-medium" style={{ backgroundColor: tag.color + "20", color: tag.color }}>
+                          {tag.name}
+                        </span>
+                      ) : null;
+                    })}
+                    {lead.tags.length > 2 && <span className="text-[9px] text-muted-foreground">+{lead.tags.length - 2}</span>}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1038,6 +1064,9 @@ export default function LeadOutreachSection() {
           );
         })}
       </div>
+
+      {/* Lead Map */}
+      <LeadMapSection onCityFilter={(city) => setCityFilter(city)} />
 
       {/* Search & Filters */}
       <div className="flex flex-wrap gap-4">

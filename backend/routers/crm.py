@@ -3391,3 +3391,163 @@ async def normalize_lead_sources(user: User = Depends(get_current_user)):
             updated += 1
     
     return {"normalized": updated, "total_checked": len(leads)}
+
+
+# ============== TAGS ==============
+
+@crm_router.get("/tags")
+async def get_tags(user: User = Depends(get_current_user)):
+    tags = await db.crm_tags.find(
+        {"company_id": user.company_id}, {"_id": 0}
+    ).sort("name", 1).to_list(None)
+    if not tags:
+        defaults = [
+            {"name": "VIP", "color": "#8b5cf6"},
+            {"name": "Hot Lead", "color": "#ef4444"},
+            {"name": "Referido", "color": "#f59e0b"},
+            {"name": "Corporativo", "color": "#3b82f6"},
+            {"name": "Social", "color": "#ec4899"},
+            {"name": "Hotel", "color": "#06b6d4"},
+            {"name": "Gobierno", "color": "#64748b"},
+            {"name": "Recurrente", "color": "#22c55e"},
+        ]
+        now = datetime.now(timezone.utc).isoformat()
+        for d in defaults:
+            d["tag_id"] = f"tag_{uuid.uuid4().hex[:10]}"
+            d["company_id"] = user.company_id
+            d["created_at"] = now
+        await db.crm_tags.insert_many(defaults)
+        tags = await db.crm_tags.find(
+            {"company_id": user.company_id}, {"_id": 0}
+        ).sort("name", 1).to_list(None)
+    return tags
+
+@crm_router.post("/tags")
+async def create_tag(data: dict, user: User = Depends(get_current_user)):
+    tag = {
+        "tag_id": f"tag_{uuid.uuid4().hex[:10]}",
+        "company_id": user.company_id,
+        "name": data.get("name", "").strip(),
+        "color": data.get("color", "#6b7280"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    if not tag["name"]:
+        raise HTTPException(status_code=400, detail="Tag name is required")
+    await db.crm_tags.insert_one(tag)
+    tag.pop("_id", None)
+    return tag
+
+@crm_router.delete("/tags/{tag_id}")
+async def delete_tag(tag_id: str, user: User = Depends(get_current_user)):
+    await db.crm_tags.delete_one({"tag_id": tag_id, "company_id": user.company_id})
+    await db.leads.update_many(
+        {"company_id": user.company_id},
+        {"$pull": {"tags": tag_id}}
+    )
+    return {"deleted": True}
+
+@crm_router.post("/leads/{lead_id}/tags")
+async def update_lead_tags(lead_id: str, data: dict, user: User = Depends(get_current_user)):
+    tags = data.get("tags", [])
+    await db.leads.update_one(
+        {"lead_id": lead_id, "company_id": user.company_id},
+        {"$set": {"tags": tags}}
+    )
+    return {"updated": True}
+
+# ============== SERVICE AREAS ==============
+
+@crm_router.get("/service-areas")
+async def get_service_areas(user: User = Depends(get_current_user)):
+    areas = await db.service_areas.find(
+        {"company_id": user.company_id}, {"_id": 0}
+    ).sort("country", 1).to_list(None)
+    if not areas:
+        default = {
+            "area_id": f"area_{uuid.uuid4().hex[:10]}",
+            "company_id": user.company_id,
+            "country": "República Dominicana",
+            "country_code": "DO",
+            "regions": [
+                {"name": "Distrito Nacional", "cities": ["Santo Domingo"]},
+                {"name": "Santo Domingo", "cities": ["Santo Domingo Este", "Santo Domingo Norte", "Santo Domingo Oeste"]},
+                {"name": "Santiago", "cities": ["Santiago de los Caballeros"]},
+                {"name": "La Altagracia", "cities": ["Punta Cana", "Higüey", "Bayahíbe"]},
+                {"name": "Puerto Plata", "cities": ["Puerto Plata", "Sosúa", "Cabarete"]},
+                {"name": "La Romana", "cities": ["La Romana", "Casa de Campo"]},
+                {"name": "Samaná", "cities": ["Samaná", "Las Terrenas"]},
+            ],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.service_areas.insert_one(default)
+        default.pop("_id", None)
+        areas = [default]
+    return areas
+
+@crm_router.post("/service-areas")
+async def create_service_area(data: dict, user: User = Depends(get_current_user)):
+    area = {
+        "area_id": f"area_{uuid.uuid4().hex[:10]}",
+        "company_id": user.company_id,
+        "country": data.get("country", "").strip(),
+        "country_code": data.get("country_code", "").strip().upper(),
+        "regions": data.get("regions", []),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    if not area["country"]:
+        raise HTTPException(status_code=400, detail="Country name required")
+    await db.service_areas.insert_one(area)
+    area.pop("_id", None)
+    return area
+
+@crm_router.put("/service-areas/{area_id}")
+async def update_service_area(area_id: str, data: dict, user: User = Depends(get_current_user)):
+    updates = {}
+    if "country" in data: updates["country"] = data["country"]
+    if "country_code" in data: updates["country_code"] = data["country_code"]
+    if "regions" in data: updates["regions"] = data["regions"]
+    if updates:
+        await db.service_areas.update_one(
+            {"area_id": area_id, "company_id": user.company_id},
+            {"$set": updates}
+        )
+    updated = await db.service_areas.find_one(
+        {"area_id": area_id}, {"_id": 0}
+    )
+    return updated
+
+@crm_router.delete("/service-areas/{area_id}")
+async def delete_service_area(area_id: str, user: User = Depends(get_current_user)):
+    await db.service_areas.delete_one({"area_id": area_id, "company_id": user.company_id})
+    return {"deleted": True}
+
+# ============== GEO STATS ==============
+
+@crm_router.get("/geo-stats")
+async def get_geo_stats(user: User = Depends(get_current_user)):
+    """Get lead counts grouped by city for map visualization."""
+    pipeline = [
+        {"$match": {"company_id": user.company_id, "status": {"$nin": ["Converted", "Discarded"]}}},
+        {"$group": {
+            "_id": {"city": {"$ifNull": ["$city", ""]}, "country": {"$ifNull": ["$country", ""]}},
+            "total": {"$sum": 1},
+            "new": {"$sum": {"$cond": [{"$eq": ["$status", "New"]}, 1, 0]}},
+            "contacted": {"$sum": {"$cond": [{"$eq": ["$status", "Contacted"]}, 1, 0]}},
+            "engaged": {"$sum": {"$cond": [{"$eq": ["$status", "Engaged"]}, 1, 0]}},
+        }},
+        {"$sort": {"total": -1}}
+    ]
+    results = await db.leads.aggregate(pipeline).to_list(None)
+    cities = []
+    for r in results:
+        city = r["_id"]["city"].strip()
+        if city:
+            cities.append({
+                "city": city,
+                "country": r["_id"]["country"],
+                "total": r["total"],
+                "new": r["new"],
+                "contacted": r["contacted"],
+                "engaged": r["engaged"],
+            })
+    return {"cities": cities, "no_city_count": sum(r["total"] for r in results if not r["_id"]["city"].strip())}

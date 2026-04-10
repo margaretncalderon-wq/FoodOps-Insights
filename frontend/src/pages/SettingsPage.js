@@ -46,6 +46,7 @@ import IndustryConfigSection from "../components/settings/IndustryConfigSection"
 import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
 import PartnerCapabilitiesSection from "../components/settings/PartnerCapabilitiesSection";
 import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
+import CrmConfigSection from "../components/settings/CrmConfigSection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
@@ -1098,7 +1099,7 @@ export default function SettingsPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    ["automations", "integrations"].includes(activeSettingsTab)
+                    ["automations", "integrations", "crm-config"].includes(activeSettingsTab)
                       ? "border-emerald-600 text-emerald-600"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                   }`}>
@@ -1115,6 +1116,10 @@ export default function SettingsPage() {
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("integrations")} className={activeSettingsTab === "integrations" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <Plug className="w-4 h-4 mr-2" />
                     {language === "es" ? "Integraciones" : "Integrations"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("crm-config")} className={activeSettingsTab === "crm-config" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Tag className="w-4 h-4 mr-2" />
+                    {language === "es" ? "CRM Config" : "CRM Config"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1257,6 +1262,11 @@ export default function SettingsPage() {
               <IntegrationsSettingsSection />
             </div>
           </TabsContent>
+
+          <TabsContent value="crm-config">
+            <CrmConfigSection />
+          </TabsContent>
+
 
           {/* Feature Flags Tab */}
           <TabsContent value="features">
