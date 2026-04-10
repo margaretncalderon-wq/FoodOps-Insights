@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { 
   RefreshCw, Phone, Mail, Calendar, User, Building2,
-  Clock, CheckCircle, AlertTriangle, CalendarDays, Users, UserCircle
+  Clock, CheckCircle, AlertTriangle, CalendarDays, Users, UserCircle, FileText
 } from "lucide-react";
+import { Textarea } from "../ui/textarea";
 
 import { API_BASE as API } from "../../utils/api";
 
@@ -29,10 +30,17 @@ export default function FollowUpsSection() {
   const [followUps, setFollowUps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [editForm, setEditForm] = useState({
     next_follow_up_date: "",
     follow_up_type: "Call"
+  });
+  const [completeForm, setCompleteForm] = useState({
+    notes: "",
+    schedule_next: false,
+    next_follow_up_date: "",
+    next_follow_up_type: "Call"
   });
   
   // Owner filter state
@@ -79,10 +87,35 @@ export default function FollowUpsSection() {
     fetchFollowUps(); 
   }, [fetchFollowUps]);
 
-  const handleComplete = async (item) => {
+  const openComplete = (item) => {
+    setSelectedItem(item);
+    setCompleteForm({
+      notes: "",
+      schedule_next: false,
+      next_follow_up_date: "",
+      next_follow_up_type: "Call"
+    });
+    setCompleteDialogOpen(true);
+  };
+
+  const handleComplete = async () => {
+    if (!selectedItem) return;
     try {
-      await axios.post(`${API}/api/crm/follow-ups/${item.entity_type}/${item.entity_id}/complete`, {}, { withCredentials: true });
+      const payload = {
+        notes: completeForm.notes,
+        follow_up_type_completed: selectedItem.follow_up_type || "Call",
+      };
+      if (completeForm.schedule_next && completeForm.next_follow_up_date) {
+        payload.next_follow_up_date = completeForm.next_follow_up_date;
+        payload.next_follow_up_type = completeForm.next_follow_up_type;
+      }
+      await axios.post(
+        `${API}/api/crm/follow-ups/${selectedItem.entity_type}/${selectedItem.entity_id}/complete`,
+        payload,
+        { withCredentials: true }
+      );
       toast.success(isEs ? "Seguimiento completado" : "Follow-up completed");
+      setCompleteDialogOpen(false);
       fetchFollowUps();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Error");
@@ -184,7 +217,7 @@ export default function FollowUpsSection() {
               <CalendarDays className="w-4 h-4 mr-1" />
               {isEs ? "Reagendar" : "Reschedule"}
             </Button>
-            <Button size="sm" onClick={() => handleComplete(item)}>
+            <Button size="sm" onClick={() => openComplete(item)} data-testid="complete-followup-btn">
               <CheckCircle className="w-4 h-4 mr-1" />
               {isEs ? "Completar" : "Complete"}
             </Button>
@@ -352,6 +385,91 @@ export default function FollowUpsSection() {
             </Button>
             <Button onClick={handleReschedule}>
               {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Dialog */}
+      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              {isEs ? "Completar Seguimiento" : "Complete Follow-up"}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedItem && (
+            <div className="space-y-4">
+              <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                <p className="font-medium">{selectedItem.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {FOLLOW_UP_TYPES.find(t => t.value === selectedItem.follow_up_type)?.[isEs ? "labelEs" : "labelEn"] || selectedItem.follow_up_type}
+                  {" — "}
+                  {new Date(selectedItem.follow_up_date).toLocaleDateString()}
+                </p>
+              </div>
+
+              <div>
+                <Label>{isEs ? "¿Qué pasó? (Notas del seguimiento)" : "What happened? (Follow-up notes)"}</Label>
+                <Textarea
+                  value={completeForm.notes}
+                  onChange={(e) => setCompleteForm({ ...completeForm, notes: e.target.value })}
+                  placeholder={isEs ? "Ej: Se habló con el cliente, interesado en propuesta..." : "E.g.: Spoke with client, interested in proposal..."}
+                  rows={3}
+                  data-testid="complete-followup-notes"
+                />
+              </div>
+
+              <div className="border-t pt-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={completeForm.schedule_next}
+                    onChange={(e) => setCompleteForm({ ...completeForm, schedule_next: e.target.checked })}
+                    className="rounded"
+                  />
+                  {isEs ? "Agendar próximo seguimiento" : "Schedule next follow-up"}
+                </label>
+
+                {completeForm.schedule_next && (
+                  <div className="grid grid-cols-2 gap-3 pl-6">
+                    <div>
+                      <Label className="text-xs">{isEs ? "Fecha" : "Date"}</Label>
+                      <Input
+                        type="date"
+                        value={completeForm.next_follow_up_date}
+                        onChange={(e) => setCompleteForm({ ...completeForm, next_follow_up_date: e.target.value })}
+                        data-testid="next-followup-date"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{isEs ? "Tipo" : "Type"}</Label>
+                      <Select value={completeForm.next_follow_up_type} onValueChange={(v) => setCompleteForm({ ...completeForm, next_follow_up_type: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FOLLOW_UP_TYPES.map(type => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {isEs ? type.labelEs : type.labelEn}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleComplete} data-testid="confirm-complete-btn">
+              <CheckCircle className="w-4 h-4 mr-1" />
+              {isEs ? "Completar" : "Complete"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1126,16 +1126,33 @@ async def update_follow_up(
 
 
 @crm_router.post("/follow-ups/{entity_type}/{entity_id}/complete")
-async def complete_follow_up(entity_type: str, entity_id: str, user: User = Depends(get_current_user)):
-    """Mark a follow-up as completed"""
+async def complete_follow_up(entity_type: str, entity_id: str, request: Request, user: User = Depends(get_current_user)):
+    """Mark a follow-up as completed, optionally with notes and next follow-up"""
     now = datetime.now(timezone.utc)
     
+    # Parse optional body
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    
+    notes = body.get("notes", "").strip()
+    next_date = body.get("next_follow_up_date")
+    next_type = body.get("next_follow_up_type")
+    
     update_data = {
-        "next_follow_up_date": None,
-        "follow_up_type": None,
+        "follow_up_completed_at": now.isoformat(),
         "last_contact_date": now.isoformat(),
         "updated_at": now.isoformat()
     }
+    
+    # If next follow-up scheduled, set it; otherwise clear
+    if next_date:
+        update_data["next_follow_up_date"] = next_date
+        update_data["follow_up_type"] = next_type or "Call"
+    else:
+        update_data["next_follow_up_date"] = None
+        update_data["follow_up_type"] = None
     
     if entity_type == "lead":
         result = await db.leads.update_one(
@@ -1153,7 +1170,25 @@ async def complete_follow_up(entity_type: str, entity_id: str, user: User = Depe
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} not found")
     
-    # Auto-sync to Google Calendar (remove event since follow-up is complete)
+    # Log communication if notes provided
+    if notes:
+        comm_id = f"comm_{uuid.uuid4().hex[:12]}"
+        comm_doc = {
+            "comm_id": comm_id,
+            "company_id": user.company_id,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "channel": body.get("follow_up_type_completed") or "Call",
+            "direction": "outbound",
+            "subject": "Follow-up completed",
+            "content": notes,
+            "logged_by": user.user_id,
+            "logged_by_name": user.email,
+            "created_at": now.isoformat(),
+        }
+        await db.comm_logs.insert_one(comm_doc)
+    
+    # Auto-sync to Google Calendar
     try:
         from routers.google_calendar import auto_sync_follow_up
         if entity_type == "lead":
@@ -1165,7 +1200,7 @@ async def complete_follow_up(entity_type: str, entity_id: str, user: User = Depe
     except Exception as e:
         print(f"Calendar sync failed (non-blocking): {e}")
     
-    return {"message": "Follow-up completed"}
+    return {"message": "Follow-up completed", "next_scheduled": bool(next_date)}
 
 
 # ============== COMMUNICATION LOG ==============
@@ -3577,8 +3612,9 @@ async def delete_service_area(area_id: str, user: User = Depends(get_current_use
 
 @crm_router.get("/geo-stats")
 async def get_geo_stats(user: User = Depends(get_current_user)):
-    """Get lead counts grouped by city for map visualization."""
-    pipeline = [
+    """Get lead and client counts grouped by city for map visualization."""
+    # Leads aggregation
+    lead_pipeline = [
         {"$match": {"company_id": user.company_id, "status": {"$nin": ["Converted", "Discarded"]}}},
         {"$group": {
             "_id": {"city": {"$ifNull": ["$city", ""]}, "country": {"$ifNull": ["$country", ""]}},
@@ -3589,20 +3625,67 @@ async def get_geo_stats(user: User = Depends(get_current_user)):
         }},
         {"$sort": {"total": -1}}
     ]
-    results = await db.leads.aggregate(pipeline).to_list(None)
-    cities = []
-    for r in results:
+    lead_results = await db.leads.aggregate(lead_pipeline).to_list(None)
+
+    # Clients aggregation
+    client_pipeline = [
+        {"$match": {"company_id": user.company_id, "status": {"$nin": ["Inactive", "Deleted"]}}},
+        {"$project": {"city": {"$ifNull": [{"$trim": {"input": {"$ifNull": ["$city", ""]}}}, ""]}, "country": {"$ifNull": ["$country", ""]}}},
+        {"$match": {"city": {"$ne": ""}}},
+        {"$group": {"_id": {"city": "$city", "country": "$country"}, "total": {"$sum": 1}}},
+        {"$sort": {"total": -1}}
+    ]
+    client_results = await db.clients.aggregate(client_pipeline).to_list(None)
+
+    # Build combined city map
+    city_map = {}
+    for r in lead_results:
         city = r["_id"]["city"].strip()
         if city:
-            cities.append({
-                "city": city,
-                "country": r["_id"]["country"],
-                "total": r["total"],
-                "new": r["new"],
-                "contacted": r["contacted"],
-                "engaged": r["engaged"],
-            })
-    return {"cities": cities, "no_city_count": sum(r["total"] for r in results if not r["_id"]["city"].strip())}
+            key = city.lower()
+            if key not in city_map:
+                city_map[key] = {"city": city, "country": r["_id"]["country"], "leads": 0, "clients": 0, "new": 0, "contacted": 0, "engaged": 0}
+            city_map[key]["leads"] += r["total"]
+            city_map[key]["new"] += r["new"]
+            city_map[key]["contacted"] += r["contacted"]
+            city_map[key]["engaged"] += r["engaged"]
+
+    for r in client_results:
+        city = r["_id"]["city"].strip()
+        if city:
+            key = city.lower()
+            if key not in city_map:
+                city_map[key] = {"city": city, "country": r["_id"]["country"], "leads": 0, "clients": 0, "new": 0, "contacted": 0, "engaged": 0}
+            city_map[key]["clients"] += r["total"]
+
+    cities = sorted(city_map.values(), key=lambda c: c["leads"] + c["clients"], reverse=True)
+    # Add total field for backwards compat
+    for c in cities:
+        c["total"] = c["leads"] + c["clients"]
+
+    no_city_leads = sum(r["total"] for r in lead_results if not r["_id"]["city"].strip())
+    return {"cities": cities, "no_city_count": no_city_leads}
+
+
+@crm_router.get("/geo-stats/city-detail")
+async def get_city_detail(city: str, user: User = Depends(get_current_user)):
+    """Get leads and clients for a specific city"""
+    leads = await db.leads.find(
+        {"company_id": user.company_id, "city": {"$regex": f"^{city}$", "$options": "i"}, "status": {"$nin": ["Converted", "Discarded"]}},
+        {"_id": 0, "lead_id": 1, "lead_name": 1, "email": 1, "phone": 1, "source": 1, "status": 1, "outreach_status": 1, "lead_type": 1, "company_name": 1}
+    ).to_list(500)
+    # Clean NaN
+    for l in leads:
+        for k, v in list(l.items()):
+            if isinstance(v, float) and v != v:
+                l[k] = None
+
+    clients = await db.clients.find(
+        {"company_id": user.company_id, "city": {"$regex": f"^{city}$", "$options": "i"}},
+        {"_id": 0, "client_id": 1, "display_name": 1, "email": 1, "phone": 1, "source": 1, "status": 1, "client_type": 1}
+    ).to_list(500)
+
+    return {"city": city, "leads": leads, "clients": clients}
 
 
 # ============== DYNAMIC LISTS (Segmentation for Email Marketing) ==============
