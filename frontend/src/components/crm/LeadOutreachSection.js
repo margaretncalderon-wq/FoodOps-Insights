@@ -119,6 +119,7 @@ export default function LeadOutreachSection() {
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null); // For showing warning when creating
+  const [leadSources, setLeadSources] = useState([]);
   const [form, setForm] = useState({
     lead_name: "",
     email: "",
@@ -132,7 +133,10 @@ export default function LeadOutreachSection() {
     country: "República Dominicana",
     message: "",
     owner_id: "",
-    event_type: ""
+    event_type: "",
+    source: "Outreach",
+    source_event_id: "",
+    activation_id: ""
   });
   const [editForm, setEditForm] = useState({
     lead_name: "",
@@ -279,9 +283,16 @@ export default function LeadOutreachSection() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchLeadSources = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/crm/lead-sources`, { withCredentials: true });
+      setLeadSources(res.data || []);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => { 
     // Fetch both in parallel on mount
-    Promise.all([fetchLeads(true), fetchUsers(), fetchTags()]);
+    Promise.all([fetchLeads(true), fetchUsers(), fetchTags(), fetchLeadSources()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -298,7 +309,10 @@ export default function LeadOutreachSection() {
       city: "",
       message: "",
       owner_id: "",
-      event_type: "corporate"
+      event_type: "corporate",
+      source: "Outreach",
+      source_event_id: "",
+      activation_id: ""
     });
   };
 
@@ -418,7 +432,9 @@ export default function LeadOutreachSection() {
       const payload = {
         ...form,
         lead_type: "outreach",
-        source: "Outreach",
+        source: form.source || "Outreach",
+        source_event_id: form.source_event_id || null,
+        activation_id: form.activation_id || null,
         owner_id: form.owner_id === "unassigned" ? null : form.owner_id
       };
       
@@ -837,6 +853,7 @@ export default function LeadOutreachSection() {
       "Outreach": "bg-violet-100 text-violet-800",
       "WhatsApp": "bg-emerald-100 text-emerald-800",
       "Evento": "bg-orange-100 text-orange-800",
+      "Activación": "bg-teal-100 text-teal-800",
       "Importación": "bg-gray-100 text-gray-700",
     };
     return <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colors[s] || "bg-gray-100 text-gray-700"}`}>{s}</Badge>;
@@ -1025,7 +1042,7 @@ export default function LeadOutreachSection() {
               Kanban
             </Button>
           </div>
-          <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="new-outreach-btn">
+          <Button onClick={() => { resetForm(); fetchEventsList(); setDialogOpen(true); }} data-testid="new-outreach-btn">
             <Plus className="w-4 h-4 mr-2" />
             {isEs ? "Nuevo Outreach" : "New Outreach"}
           </Button>
@@ -1359,6 +1376,56 @@ export default function LeadOutreachSection() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Source + Event/Activation Link */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Fuente" : "Source"}</Label>
+                <Select value={form.source || "Outreach"} onValueChange={(v) => setForm({ ...form, source: v, source_event_id: "", activation_id: "" })}>
+                  <SelectTrigger data-testid="lead-source-select">
+                    <SelectValue placeholder={isEs ? "Seleccionar fuente" : "Select source"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadSources.map(s => (
+                      <SelectItem key={s.source_id || s.name} value={s.name}>{s.name}</SelectItem>
+                    ))}
+                    {leadSources.length === 0 && <SelectItem value="Outreach">Outreach</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+              {(form.source === "Evento" || form.source === "Event") && (
+                <div>
+                  <Label>{isEs ? "Evento asociado" : "Linked Event"}</Label>
+                  <Select value={form.source_event_id || "none"} onValueChange={(v) => setForm({ ...form, source_event_id: v === "none" ? "" : v })}>
+                    <SelectTrigger data-testid="lead-source-event-select">
+                      <SelectValue placeholder={isEs ? "Seleccionar evento" : "Select event"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{isEs ? "Sin evento" : "No event"}</SelectItem>
+                      {eventsList.map(ev => (
+                        <SelectItem key={ev.event_id} value={ev.event_id}>{ev.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(form.source === "Activación" || form.source === "Activation") && (
+                <div>
+                  <Label>{isEs ? "Activación asociada" : "Linked Activation"}</Label>
+                  <Select value={form.activation_id || "none"} onValueChange={(v) => setForm({ ...form, activation_id: v === "none" ? "" : v })}>
+                    <SelectTrigger data-testid="lead-source-activation-select">
+                      <SelectValue placeholder={isEs ? "Seleccionar activación" : "Select activation"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{isEs ? "Sin activación" : "No activation"}</SelectItem>
+                      {eventsList.map(ev => (
+                        <SelectItem key={ev.event_id} value={ev.event_id}>{ev.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div>

@@ -108,6 +108,7 @@ class LeadCreate(BaseModel):
     attribution_source: Optional[str] = None  # manual, link, qr, import
     # Marketing Activation Attribution
     activation_id: Optional[str] = None  # Linked marketing activation (for ROI tracking)
+    source_event_id: Optional[str] = None  # Linked event as lead source
 
 
 class Lead(BaseModel):

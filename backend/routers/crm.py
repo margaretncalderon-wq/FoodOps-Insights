@@ -15,7 +15,7 @@ from models.crm import (
 )
 from utils.activity_logger import log_activity, user_info
 from utils.email_service import send_lead_assignment_notification
-from routers.notifications import create_notification
+from routers.notifications import create_notification, notify_org_admins
 
 
 # ============== CAMPAIGN AUTO-LINK HELPER ==============
@@ -462,6 +462,37 @@ async def convert_lead(lead_id: str, request: Request, user: User = Depends(get_
         }}
     )
     
+    # Send in-app notifications for conversion
+    lead_name = lead.get("lead_name", "Lead")
+    notif_title = f"Lead convertido: {lead_name}"
+    notif_message = f"{lead_name} ha sido convertido a cliente exitosamente."
+    notif_link = f"/crm/clients"
+    notif_metadata = {"lead_id": lead_id, "client_id": client_id, "event_id": event_id}
+    
+    # Notify the lead owner
+    if lead_owner_id and lead_owner_id != user.user_id:
+        await create_notification(
+            user_id=lead_owner_id,
+            notification_type="lead_converted",
+            title=notif_title,
+            message=notif_message,
+            link=notif_link,
+            metadata=notif_metadata,
+            priority="high"
+        )
+    
+    # Notify org admins/managers (excluding the user who converted)
+    await notify_org_admins(
+        org_id=user.company_id,
+        notification_type="lead_converted",
+        title=notif_title,
+        message=notif_message,
+        link=notif_link,
+        metadata=notif_metadata,
+        priority="high",
+        exclude_user_id=user.user_id
+    )
+    
     return {
         "message": "Lead converted successfully",
         "client_id": client_id,
@@ -850,9 +881,11 @@ async def create_outreach_lead(data: LeadCreate, user: User = Depends(get_curren
         "lead_id": lead_id,
         "company_id": user.company_id,
         "lead_type": "outreach",
-        "source": "Outreach",
+        "source": data.source or "Outreach",
         "status": "New",
         "outreach_status": "New",
+        "source_event_id": data.source_event_id,
+        "activation_id": data.activation_id,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     })
@@ -3215,7 +3248,7 @@ async def get_weekly_summary_status(user: User = Depends(get_current_user)):
 
 DEFAULT_SOURCES = [
     "LinkedIn", "Instagram", "Facebook", "Google", "Referido", "Evento",
-    "Website", "Cold Call", "Email Campaign", "WhatsApp", "Base de Datos", "Otro"
+    "Activación", "Website", "Cold Call", "Email Campaign", "WhatsApp", "Outreach", "Base de Datos", "Otro"
 ]
 
 @crm_router.get("/lead-sources")
@@ -3239,6 +3272,25 @@ async def get_lead_sources(user: User = Depends(get_current_user)):
             {"company_id": user.company_id},
             {"_id": 0}
         ).sort("name", 1).to_list(200)
+    else:
+        # Ensure new default sources are added
+        existing_names = {s["name"] for s in sources}
+        now = datetime.now(timezone.utc).isoformat()
+        added = False
+        for s in DEFAULT_SOURCES:
+            if s not in existing_names:
+                await db.lead_sources.insert_one({
+                    "source_id": f"src_{uuid.uuid4().hex[:8]}",
+                    "company_id": user.company_id,
+                    "name": s,
+                    "created_at": now
+                })
+                added = True
+        if added:
+            sources = await db.lead_sources.find(
+                {"company_id": user.company_id},
+                {"_id": 0}
+            ).sort("name", 1).to_list(200)
     return sources
 
 
