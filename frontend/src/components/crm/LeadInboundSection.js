@@ -17,7 +17,7 @@ import {
   Search, Phone, Mail, Building2, RefreshCw, User, Calendar, 
   Globe, Instagram, MessageSquare, UserPlus, Eye, ArrowRight,
   Clock, Star, CalendarPlus, UserCheck, Users, FileText,
-  MessageCircle, ExternalLink, DollarSign, Info, Trash2, AlertTriangle, ArrowUpDown, MoreHorizontal, Plus
+  MessageCircle, ExternalLink, DollarSign, Info, Trash2, AlertTriangle, ArrowUpDown, MoreHorizontal, Plus, MapPin
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import { Textarea } from "../ui/textarea";
@@ -237,6 +237,8 @@ export default function LeadInboundSection() {
         key = (lead.company_name || lead.company || "").trim() || (isEs ? "Sin Empresa" : "No Company");
       } else if (groupBy === "status") {
         key = (lead.status || "New");
+      } else if (groupBy === "city") {
+        key = (lead.city || "").trim() || (isEs ? "Sin Ciudad" : "No City");
       }
       if (!groups[key]) groups[key] = [];
       groups[key].push(lead);
@@ -655,6 +657,11 @@ export default function LeadInboundSection() {
               {!isCompanyOnly && hasCompany && (
                 <span className="text-xs text-muted-foreground truncate block">{companyName}</span>
               )}
+              {lead.city && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <MapPin className="w-2.5 h-2.5" />{lead.city}
+                </span>
+              )}
               <div className="flex items-center gap-1.5 mt-0.5">
                 {lead.email && (
                   <a href={`mailto:${lead.email}`} className="text-blue-500 hover:text-blue-700" title={lead.email}>
@@ -865,6 +872,7 @@ export default function LeadInboundSection() {
             <SelectItem value="none">{isEs ? "Sin agrupar" : "No grouping"}</SelectItem>
             <SelectItem value="company">{isEs ? "Por Empresa" : "By Company"}</SelectItem>
             <SelectItem value="status">{isEs ? "Por Estado" : "By Status"}</SelectItem>
+            <SelectItem value="city">{isEs ? "Por Ciudad" : "By City"}</SelectItem>
           </SelectContent>
         </Select>
         {(statusFilter !== "all" || ownerFilter !== "all") && (
@@ -933,6 +941,8 @@ export default function LeadInboundSection() {
                         <div className="flex items-center gap-2 font-semibold text-sm">
                           {groupBy === "company" ? (
                             <Building2 className="w-4 h-4 text-blue-600" />
+                          ) : groupBy === "city" ? (
+                            <MapPin className="w-4 h-4 text-rose-500" />
                           ) : (
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 
                               group.key === "New" ? "#22c55e" : 

@@ -18,7 +18,7 @@ import {
   Plus, Search, Phone, Mail, Building2, RefreshCw, User, 
   MoreHorizontal, CheckCircle, Eye, Clock, CalendarPlus,
   ArrowRight, UserCheck, Filter, MessageCircle, ExternalLink, Info, Edit,
-  LayoutList, Kanban, Trash2, AlertTriangle, ArrowUpDown, Users, UserPlus
+  LayoutList, Kanban, Trash2, AlertTriangle, ArrowUpDown, Users, UserPlus, MapPin
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 import CommunicationsTimeline from "./CommunicationsTimeline";
@@ -282,6 +282,7 @@ export default function LeadOutreachSection() {
       client_type: "Individual",
       rnc: "",
       address: "",
+      city: "",
       message: "",
       owner_id: "",
       event_type: "corporate"
@@ -670,7 +671,7 @@ export default function LeadOutreachSection() {
       }
     });
 
-  // Group leads by company or status
+  // Group leads by company, status, or city
   const groupedLeads = useMemo(() => {
     if (groupBy === "none") return null;
     
@@ -681,6 +682,8 @@ export default function LeadOutreachSection() {
         key = (lead.company_name || lead.company || "").trim() || (isEs ? "Sin Empresa" : "No Company");
       } else if (groupBy === "status") {
         key = getEffectiveStatus(lead) || "New";
+      } else if (groupBy === "city") {
+        key = (lead.city || "").trim() || (isEs ? "Sin Ciudad" : "No City");
       }
       if (!groups[key]) groups[key] = [];
       groups[key].push(lead);
@@ -865,6 +868,11 @@ export default function LeadOutreachSection() {
               {!isCompanyOnly && hasCompany && (
                 <span className="text-xs text-muted-foreground truncate block">
                   {companyName}
+                </span>
+              )}
+              {lead.city && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <MapPin className="w-2.5 h-2.5" />{lead.city}
                 </span>
               )}
               {/* Contact icons inline */}
@@ -1090,6 +1098,7 @@ export default function LeadOutreachSection() {
             <SelectItem value="none">{isEs ? "Sin agrupar" : "No grouping"}</SelectItem>
             <SelectItem value="company">{isEs ? "Por Empresa" : "By Company"}</SelectItem>
             <SelectItem value="status">{isEs ? "Por Estado" : "By Status"}</SelectItem>
+            <SelectItem value="city">{isEs ? "Por Ciudad" : "By City"}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1157,6 +1166,8 @@ export default function LeadOutreachSection() {
                         <div className="flex items-center gap-2 font-semibold text-sm">
                           {groupBy === "company" ? (
                             <Building2 className="w-4 h-4 text-blue-600" />
+                          ) : groupBy === "city" ? (
+                            <MapPin className="w-4 h-4 text-rose-500" />
                           ) : (
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 
                               group.key === "New" ? "#22c55e" : 
