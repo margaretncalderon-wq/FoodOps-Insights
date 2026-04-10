@@ -3,93 +3,84 @@
 ## Original Problem Statement
 Build a comprehensive ERP application called Kora OS with modules for People Ops, Business Clarity, Recruitment, Settings, Super Admin, Demand Studio, CRM/Client Engagement, Partners.
 
-## Core CRM Requirements (Current Focus)
-- Intelligent lead conversion: 3 modes (Solo Cliente, Cliente+Evento Existente, Cliente+Evento Nuevo)
-- Lead Sources catalog + CSV Import with dedup
-- Combined "Lead" column (name+company+contact+type badge)
-- Smart sort A-Z + Group by company/status/city
-- Tags predefinidos en Settings (CRUD, 8 defaults, aplicables a leads)
-- Áreas de servicio en Settings (países+regiones+ciudades, default RD)
-- Mapa interactivo real (Leaflet/OpenStreetMap) de leads por ciudad en Dashboard CRM
-- Filtro por ciudad en lista Outreach
-- Kanban pipeline view
-- Sales Reports + Weekly Goals
-- CRM Dashboard con embudo de conversión y KPI métricas
-- 7 Pipeline Stages: New → Contacted → Qualified → Proposal → Negotiation → Won → Lost
-- In-app notifications al convertir lead a cliente (owner + managers)
-- Fuentes de lead con asociación a eventos/activaciones
-
 ## What's Been Implemented
 
+### Session: April 10, 2026 — Sprint 4 (Email Marketing + i18n + Multi-currency)
+1. **CRM Dynamic Lists** — Segmentation engine: filter leads by status, city, source, tags, lead type, has_email. CRUD endpoints + preview. Integrated into Email Marketing page as "Listas" tab. (iteration_141)
+2. **Locale Settings (Multi-currency + Timezone)** — New "Regional" section in Settings > Company. Supports 11 currencies (DOP, USD, EUR, MXN, COP, PEN, ARS, CLP, BRL, GBP, CAD) and 19 timezones. LocaleContext provides `formatCurrency`, `formatDate`, `formatDateTime` utilities. (iteration_141)
+3. **i18n Completions** — Fixed all missing Spanish translations in LanguageContext: Locations/Venues section (50+ keys), Documents section (contract, invoice, notSigned), common keys (duplicate, booking). (iteration_141)
+
 ### Session: April 10, 2026 — Sprint 2
-1. **Interactive Leaflet Map** — Replaced bubble visualization with real OpenStreetMap map with CircleMarkers. Moved from Outreach to Dashboard. Popups with lead counts. City legend bar. (iteration_140)
-2. **In-app Notifications on Conversion** — Auto-notifications to owner + org admins/managers on lead conversion. (iteration_139)
-3. **Lead Source with Event/Activation Linking** — Source dropdown (14 defaults incl. Activación, Outreach) with conditional event/activation picker. (iteration_139)
-4. **CRM Dashboard** — KPI cards, Conversion Funnel (7 stages), Top Sources, Period filter. (iteration_138)
-5. **Pipeline Stage Alignment** — Backend accepts all 9 statuses. Outreach/Inbound sections synced. (iteration_138)
-6. **Inbound Status Expansion** — 9 status filter options with full color palette + Spanish labels. (iteration_138)
+1. **Interactive Leaflet Map** — Real OpenStreetMap in Dashboard with CircleMarkers. (iteration_140)
+2. **In-app Notifications on Conversion** — Auto-notify owner + admins/managers. (iteration_139)
+3. **Lead Source + Event/Activation Linking** — 14 default sources with conditional event/activation picker. (iteration_139)
+4. **CRM Dashboard** — KPIs, Funnel, Top Sources, Period filter. (iteration_138)
+5. **Pipeline Stage Alignment** — 7 stages synced backend/frontend. (iteration_138)
+6. **Inbound Status Expansion** — Full pipeline statuses. (iteration_138)
 
 ### Session: April 10, 2026 — Sprint 1
-1. CRM Tags — CRUD en Settings, 8 defaults (iteration_137)
-2. Service Areas — CRUD en Settings, default RD
-3. Lead Map — Original bubble map (now replaced with Leaflet)
-4. City Filter — Filtro activo desde mapa o group-by
-5. Source Normalization — Backend cleanup
+1. CRM Tags — CRUD, 8 defaults. (iteration_137)
+2. Service Areas — CRUD, default RD.
+3. Lead Map — Original bubbles (replaced with Leaflet).
+4. City Filter, Source Normalization.
 
 ### Session: April 9, 2026
-1. CRM Lead Conversion — 3 modes (iteration_135)
-2. Lead Sources Catalog — CRUD + 14 defaults
-3. CSV Import Overhaul (iteration_136)
-4. CRM List View Overhaul
-5. Move to Outreach button in Inbound
+1. Lead Conversion — 3 modes. (iteration_135)
+2. Lead Sources — CRUD + 14 defaults. (iteration_136)
+3. CSV Import, List View Overhaul, Move to Outreach.
 
 ### Previous Sessions
 - Demand Studio, People Ops, Guest Flow, Business Clarity, Settings
 
 ## Architecture
-- Leads and Clients remain separate entities
-- Tags, Service Areas, Lead Sources = Settings-managed catalogs
-- Geo-stats aggregated from lead city field
-- Outreach and Inbound are separate sections (user explicit choice)
-- Notifications use existing in-app system (NotificationBell + notifications router)
-- Interactive map uses react-leaflet v5 + CartoDB light tiles (no API key needed)
+- Leads and Clients = separate entities
+- Outreach and Inbound = separate sections
+- Tags, Service Areas, Lead Sources, Dynamic Lists = Settings-managed catalogs
+- Notifications = existing in-app system
+- Map = react-leaflet v5 + CartoDB tiles
+- Locale = LocaleContext (formatCurrency, formatDate, formatDateTime)
+- i18n = LanguageContext (EN/ES) + inline isEs pattern
 
 ## Backlog
 
 ### P1 — Sprint 3: Unified Contact & Comms
-- Logo upload vía Object Storage para Guest Flow
-- Unified Contact Model (Merge Lead+Client lifecycle)
+- Logo upload via Object Storage
+- Unified Contact Model (merge Lead+Client lifecycle)
 - Unify 5 Comms components into 1-2
+
+### P1 — Email Marketing (needs API key)
+- Actual email sending integration (Resend or Brevo) — awaiting user API key
+- Campaign send flow with scheduling
+- Open/click tracking from real sends
 
 ### P1 — Technical Debt
 - Refactor SocialMediaPage.js (~3700 lines)
 - Extract import/export from server.py
-
-### P2 — Sprint 4: Email Marketing
-- Listas dinámicas (segmentación por ciudad+tags+status)
-- Integración email real (Brevo/Resend)
-- Templates y campañas
+- Fix duplicate 'Santo Domingo' key in geo-stats
 
 ### P2 — Integrations
 - Staffdo.com, Meta, TikTok APIs
 - UTM tracking completo
 
 ### P3 — International Scale
-- Multi-moneda, Timezone, i18n, WhatsApp Business API
+- WhatsApp Business API
+- Additional languages (FR, PT)
+- Geo-detection automatica
 
 ## Test Credentials
 - Admin: demo.agency@kora.com / Evoque2024!
 - Team: team.test@staffdo.com / Evoque2024!
 
 ## Key Files
-- `backend/routers/crm.py` — All CRM endpoints
-- `backend/routers/notifications.py` — In-app notification system
-- `frontend/src/components/crm/CrmDashboard.js` — Dashboard with funnel, KPIs & map
-- `frontend/src/components/crm/LeadMapInteractive.js` — Leaflet interactive map
-- `frontend/src/components/crm/LeadOutreachSection.js` — Outreach list (map removed)
-- `frontend/src/components/crm/LeadInboundSection.js` — Inbound list
-- `frontend/src/components/notifications/NotificationBell.js` — Bell icon
-- `frontend/src/pages/CRMPageNew.js` — CRM page routes
-- `backend/models/crm.py` — LeadCreate model
+- `backend/routers/crm.py` — All CRM endpoints incl. dynamic lists
+- `backend/routers/organization_config.py` — Org config + locale settings
+- `backend/routers/notifications.py` — In-app notifications
+- `frontend/src/contexts/LocaleContext.js` — Multi-currency/timezone/locale
+- `frontend/src/contexts/LanguageContext.js` — i18n translations (EN/ES)
+- `frontend/src/components/crm/CrmDashboard.js` — Dashboard + map
+- `frontend/src/components/crm/LeadMapInteractive.js` — Leaflet map
+- `frontend/src/components/crm/DynamicListsSection.js` — Segmentation lists
+- `frontend/src/components/settings/LocaleSettingsSection.js` — Locale UI
+- `frontend/src/pages/demand-studio/EmailMarketingPage.js` — Email + Lists
 
 ## User Language: Spanish (es)
