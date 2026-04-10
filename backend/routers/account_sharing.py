@@ -66,12 +66,15 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
     """
     Get all social accounts accessible to the user:
     - Accounts owned by user's organization
-    - Accounts shared with the user directly
+    - Accounts shared with the user directly (account_memberships)
+    - Accounts shared with any team member in user's org (org-level visibility)
+    - Accounts from companies shared with user via company_sharing (with social_media permission)
     
     Returns a unified list for the account selector dropdown.
     """
     company_id = user.company_id or user.active_org_id
     accounts = []
+    seen_ids = set()
     
     # 1. Get accounts owned by user's organization
     if company_id:
@@ -84,6 +87,7 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
             acc["_access_type"] = "owned"
             acc["_role"] = "owner"
             accounts.append(acc)
+            seen_ids.add(acc["account_id"])
     
     # 2. Get accounts shared with this user directly
     memberships = await db.account_memberships.find({
@@ -91,8 +95,29 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
         "status": "active"
     }).to_list(100)
     
+    # 3. Also get accounts shared with ANY user in the same org (team visibility)
+    if company_id:
+        # Find all user_ids in the same org
+        org_users = await db.users.find(
+            {"company_id": company_id},
+            {"_id": 0, "user_id": 1}
+        ).to_list(500)
+        org_user_ids = [u["user_id"] for u in org_users]
+        
+        # Get all account_memberships for any org member
+        org_memberships = await db.account_memberships.find({
+            "user_id": {"$in": org_user_ids},
+            "status": "active"
+        }).to_list(200)
+        
+        # Merge: user's own + org team's (deduplicated, user's own role takes priority)
+        user_membership_ids = {m["social_account_id"] for m in memberships}
+        for om in org_memberships:
+            if om["social_account_id"] not in user_membership_ids:
+                memberships.append(om)
+    
     if memberships:
-        shared_account_ids = [m["social_account_id"] for m in memberships]
+        shared_account_ids = list(set(m["social_account_id"] for m in memberships))
         membership_map = {m["social_account_id"]: m for m in memberships}
         
         shared_accounts = await db.social_accounts.find(
@@ -101,16 +126,15 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
         ).to_list(100)
         
         # Get owner company names for context
-        company_ids = list(set(a.get("company_id") for a in shared_accounts if a.get("company_id")))
+        ext_company_ids = list(set(a.get("company_id") for a in shared_accounts if a.get("company_id")))
         companies = await db.companies.find(
-            {"company_id": {"$in": company_ids}},
+            {"company_id": {"$in": ext_company_ids}},
             {"_id": 0, "company_id": 1, "name": 1}
         ).to_list(100)
         company_map = {c["company_id"]: c["name"] for c in companies}
         
         for acc in shared_accounts:
-            # Don't add if already in owned accounts
-            if any(a["account_id"] == acc["account_id"] for a in accounts):
+            if acc["account_id"] in seen_ids:
                 continue
             
             membership = membership_map.get(acc["account_id"], {})
@@ -119,6 +143,50 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
             acc["_shared_by"] = company_map.get(acc.get("company_id"), "Unknown")
             acc["_granted_at"] = membership.get("created_at")
             accounts.append(acc)
+            seen_ids.add(acc["account_id"])
+    
+    # 4. Get accounts from companies shared via company_sharing (social_media permission)
+    if company_id:
+        # Find memberships where this user's org members have access to other companies
+        company_memberships = await db.memberships.find({
+            "user_id": {"$in": org_user_ids if company_id else [user.user_id]},
+            "status": "active",
+            "permissions.social_media.enabled": True
+        }).to_list(100)
+        
+        shared_company_ids = list(set(
+            m["company_id"] for m in company_memberships 
+            if m.get("company_id") and m["company_id"] != company_id
+        ))
+        
+        if shared_company_ids:
+            company_accounts = await db.social_accounts.find(
+                {"company_id": {"$in": shared_company_ids}},
+                {"_id": 0}
+            ).to_list(100)
+            
+            # Get company names
+            ext_companies = await db.companies.find(
+                {"company_id": {"$in": shared_company_ids}},
+                {"_id": 0, "company_id": 1, "name": 1}
+            ).to_list(100)
+            ext_company_map = {c["company_id"]: c["name"] for c in ext_companies}
+            
+            # Find the best role from memberships
+            role_map = {}
+            for m in company_memberships:
+                cid = m["company_id"]
+                sm_perm = m.get("permissions", {}).get("social_media", {})
+                role_map[cid] = sm_perm.get("role", "viewer")
+            
+            for acc in company_accounts:
+                if acc["account_id"] in seen_ids:
+                    continue
+                acc["_access_type"] = "company_shared"
+                acc["_role"] = role_map.get(acc.get("company_id"), "viewer")
+                acc["_shared_by"] = ext_company_map.get(acc.get("company_id"), "Unknown")
+                accounts.append(acc)
+                seen_ids.add(acc["account_id"])
     
     return accounts
 
