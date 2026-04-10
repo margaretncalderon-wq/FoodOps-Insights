@@ -5,6 +5,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ModulesProvider, useModules } from "./contexts/ModulesContext";
 import { OrgConfigProvider } from "./contexts/OrgConfigContext";
+import { LocaleProvider } from "./contexts/LocaleContext";
 import { Loader2 } from "lucide-react";
 
 // App version for cache busting - increment this on major updates
@@ -435,8 +436,10 @@ function App() {
         <LanguageProvider>
           <ModulesProvider>
             <OrgConfigProvider>
-              <AppRouter />
-              <Toaster position="top-right" richColors />
+              <LocaleProvider>
+                <AppRouter />
+                <Toaster position="top-right" richColors />
+              </LocaleProvider>
             </OrgConfigProvider>
           </ModulesProvider>
         </LanguageProvider>

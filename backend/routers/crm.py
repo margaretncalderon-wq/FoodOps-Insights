@@ -3603,3 +3603,144 @@ async def get_geo_stats(user: User = Depends(get_current_user)):
                 "engaged": r["engaged"],
             })
     return {"cities": cities, "no_city_count": sum(r["total"] for r in results if not r["_id"]["city"].strip())}
+
+
+# ============== DYNAMIC LISTS (Segmentation for Email Marketing) ==============
+
+@crm_router.get("/dynamic-lists")
+async def get_dynamic_lists(user: User = Depends(get_current_user)):
+    """Get all saved dynamic lists for the organization"""
+    lists = await db.crm_dynamic_lists.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return lists
+
+
+@crm_router.post("/dynamic-lists")
+async def create_dynamic_list(data: dict, user: User = Depends(get_current_user)):
+    """Create a dynamic list with segmentation criteria"""
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "list_id": f"list_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "name": name,
+        "description": data.get("description", ""),
+        "filters": {
+            "statuses": data.get("statuses", []),
+            "cities": data.get("cities", []),
+            "sources": data.get("sources", []),
+            "tags": data.get("tags", []),
+            "lead_types": data.get("lead_types", []),
+            "has_email": data.get("has_email", False),
+        },
+        "created_at": now,
+        "updated_at": now,
+        "created_by": user.user_id,
+    }
+    await db.crm_dynamic_lists.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@crm_router.get("/dynamic-lists/{list_id}")
+async def get_dynamic_list(list_id: str, user: User = Depends(get_current_user)):
+    """Get a dynamic list with its matching leads"""
+    dl = await db.crm_dynamic_lists.find_one(
+        {"list_id": list_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not dl:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    leads = await _query_leads_by_filters(user.company_id, dl.get("filters", {}))
+    dl["leads"] = leads
+    dl["count"] = len(leads)
+    return dl
+
+
+@crm_router.post("/dynamic-lists/preview")
+async def preview_dynamic_list(data: dict, user: User = Depends(get_current_user)):
+    """Preview leads matching filter criteria without saving"""
+    filters = {
+        "statuses": data.get("statuses", []),
+        "cities": data.get("cities", []),
+        "sources": data.get("sources", []),
+        "tags": data.get("tags", []),
+        "lead_types": data.get("lead_types", []),
+        "has_email": data.get("has_email", False),
+    }
+    leads = await _query_leads_by_filters(user.company_id, filters)
+    return {"count": len(leads), "leads": leads}
+
+
+@crm_router.put("/dynamic-lists/{list_id}")
+async def update_dynamic_list(list_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update a dynamic list"""
+    dl = await db.crm_dynamic_lists.find_one({"list_id": list_id, "company_id": user.company_id})
+    if not dl:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    update = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if "name" in data:
+        update["name"] = data["name"]
+    if "description" in data:
+        update["description"] = data["description"]
+    for key in ["statuses", "cities", "sources", "tags", "lead_types", "has_email"]:
+        if key in data:
+            update[f"filters.{key}"] = data[key]
+
+    await db.crm_dynamic_lists.update_one({"list_id": list_id}, {"$set": update})
+    result = await db.crm_dynamic_lists.find_one({"list_id": list_id}, {"_id": 0})
+    return result
+
+
+@crm_router.delete("/dynamic-lists/{list_id}")
+async def delete_dynamic_list(list_id: str, user: User = Depends(get_current_user)):
+    result = await db.crm_dynamic_lists.delete_one({"list_id": list_id, "company_id": user.company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="List not found")
+    return {"deleted": True}
+
+
+async def _query_leads_by_filters(company_id: str, filters: dict) -> list:
+    """Internal helper to query leads matching dynamic list filters"""
+    query = {"company_id": company_id}
+
+    statuses = filters.get("statuses", [])
+    if statuses:
+        query["$or"] = [
+            {"status": {"$in": statuses}},
+            {"outreach_status": {"$in": statuses}},
+        ]
+
+    cities = filters.get("cities", [])
+    if cities:
+        query["city"] = {"$in": cities}
+
+    sources = filters.get("sources", [])
+    if sources:
+        query["source"] = {"$in": sources}
+
+    tags = filters.get("tags", [])
+    if tags:
+        query["tags"] = {"$in": tags}
+
+    lead_types = filters.get("lead_types", [])
+    if lead_types:
+        query["lead_type"] = {"$in": lead_types}
+
+    if filters.get("has_email"):
+        query["email"] = {"$exists": True, "$nin": [None, "", "nan", "null"]}
+
+    leads = await db.leads.find(query, {"_id": 0, "lead_id": 1, "lead_name": 1, "email": 1, "phone": 1, "company_name": 1, "city": 1, "source": 1, "status": 1, "outreach_status": 1, "lead_type": 1, "tags": 1}).to_list(5000)
+    # Clean any non-serializable values
+    for lead in leads:
+        for key, val in list(lead.items()):
+            if isinstance(val, float) and (val != val):  # NaN check
+                lead[key] = None
+    return leads

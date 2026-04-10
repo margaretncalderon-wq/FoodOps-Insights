@@ -35,6 +35,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import EmailSequencesSection from "../../components/demand-studio/EmailSequencesSection";
+import DynamicListsSection from "../../components/crm/DynamicListsSection";
 
 const EMAIL_STATUSES = [
   { value: "draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-800" },
@@ -198,6 +199,10 @@ export default function EmailMarketingPage() {
           <TabsTrigger value="templates" className="gap-2">
             <FileText className="w-4 h-4" />
             {isEs ? "Plantillas" : "Templates"}
+          </TabsTrigger>
+          <TabsTrigger value="lists" className="gap-2">
+            <Users className="w-4 h-4" />
+            {isEs ? "Listas" : "Lists"}
           </TabsTrigger>
         </TabsList>
 
@@ -514,6 +519,11 @@ export default function EmailMarketingPage() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Dynamic Lists Tab */}
+        <TabsContent value="lists">
+          <DynamicListsSection />
         </TabsContent>
       </Tabs>
     </div>

@@ -47,6 +47,7 @@ import TerminologySettingsSection from "../components/settings/TerminologySettin
 import PartnerCapabilitiesSection from "../components/settings/PartnerCapabilitiesSection";
 import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
 import CrmConfigSection from "../components/settings/CrmConfigSection";
+import LocaleSettingsSection from "../components/settings/LocaleSettingsSection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
@@ -1016,7 +1017,7 @@ export default function SettingsPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    ["branding", "terminology", "templates"].includes(activeSettingsTab)
+                    ["branding", "terminology", "templates", "locale"].includes(activeSettingsTab)
                       ? "border-emerald-600 text-emerald-600"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                   }`}>
@@ -1037,6 +1038,10 @@ export default function SettingsPage() {
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("templates")} className={activeSettingsTab === "templates" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <FileText className="w-4 h-4 mr-2" />
                     {language === "es" ? "Plantillas" : "Templates"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("locale")} className={activeSettingsTab === "locale" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <Globe className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Regional" : "Locale"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1265,6 +1270,10 @@ export default function SettingsPage() {
 
           <TabsContent value="crm-config">
             <CrmConfigSection />
+          </TabsContent>
+
+          <TabsContent value="locale">
+            <LocaleSettingsSection />
           </TabsContent>
 
 

@@ -1,0 +1,97 @@
+{
+  "summary": "Iteration 141: Dynamic Lists, Locale Settings, and Email Marketing Integration - All backend tests passed (18/18). Frontend features verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {
+        "component": "CRM Dashboard / Dynamic Lists",
+        "issue": "Duplicate key warning for 'Santo Domingo' in geo-stats data",
+        "priority": "LOW",
+        "details": "Console shows: 'Encountered two children with the same key, Santo Domingo'. This is because there are multiple entries for Santo Domingo in the geo-stats API response."
+      },
+      {
+        "component": "Dynamic Lists Dialog",
+        "issue": "Missing aria-describedby for DialogContent",
+        "priority": "LOW",
+        "details": "Accessibility warning - DialogContent missing Description or aria-describedby"
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dynamic_lists_locale.py",
+    "/app/test_reports/pytest/pytest_dynamic_lists_locale.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Geo-stats API returns duplicate 'Santo Domingo' entries causing React key warning - consider deduplicating in backend or using unique keys in frontend"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_dynamic_lists_locale.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "admin": "demo.agency@kora.com / Evoque2024!"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Dynamic Lists, Locale Settings, and Email Marketing integration fully tested. All new features working correctly. Minor console warnings for duplicate keys in geo-stats data.",
+  "features_verified": {
+    "locale_settings": {
+      "get_locale_endpoint": "PASS - Returns currency, timezone, language with supported options",
+      "update_currency": "PASS - Currency update works correctly",
+      "update_timezone": "PASS - Timezone update works correctly",
+      "update_language": "PASS - Language update works correctly",
+      "invalid_currency_rejected": "PASS - Returns 400 for invalid currency",
+      "invalid_timezone_rejected": "PASS - Returns 400 for invalid timezone",
+      "frontend_locale_section": "PASS - Settings > Company > Regional shows Language, Currency, Timezone selectors",
+      "frontend_selectors": "PASS - All data-testid attributes present (locale-language-select, locale-currency-select, locale-timezone-select)"
+    },
+    "dynamic_lists": {
+      "get_lists_endpoint": "PASS - Returns array of dynamic lists",
+      "create_list_endpoint": "PASS - Creates list with filters (statuses, cities, sources, tags, lead_types, has_email)",
+      "preview_endpoint": "PASS - Returns matching leads count and list",
+      "delete_endpoint": "PASS - Deletes list and returns 404 on subsequent GET",
+      "validation": "PASS - Requires name, returns 400 if missing",
+      "frontend_lists_tab": "PASS - Email Marketing > Channels > Email > Lists tab shows Dynamic Lists section",
+      "frontend_create_dialog": "PASS - Create dialog shows all filter options (Status, Cities, Sources, Tags, Lead Type, has_email)",
+      "frontend_buttons": "PASS - New List, Preview, Create List buttons all present with data-testid"
+    },
+    "crm_dashboard": {
+      "stats_endpoint": "PASS - Returns total_clients, total_leads, etc.",
+      "geo_stats_endpoint": "PASS - Returns cities with lead counts",
+      "lead_sources_endpoint": "PASS - Returns lead sources list",
+      "tags_endpoint": "PASS - Returns tags list",
+      "frontend_dashboard": "PASS - Shows KPI cards, Conversion Funnel, Top Sources, Lead Map",
+      "leaflet_map": "PASS - Interactive map with markers for cities"
+    },
+    "email_marketing": {
+      "emails_endpoint": "PASS - Returns email campaigns list",
+      "campaigns_endpoint": "PASS - Returns marketing campaigns list",
+      "frontend_tabs": "PASS - Shows Campaigns, Sequences, Templates, Lists tabs"
+    }
+  },
+  "api_endpoints_tested": [
+    "GET /api/org-config/locale",
+    "PUT /api/org-config/locale",
+    "GET /api/crm/dynamic-lists",
+    "POST /api/crm/dynamic-lists",
+    "POST /api/crm/dynamic-lists/preview",
+    "DELETE /api/crm/dynamic-lists/{list_id}",
+    "GET /api/crm/stats",
+    "GET /api/crm/geo-stats",
+    "GET /api/crm/lead-sources",
+    "GET /api/crm/tags",
+    "GET /api/demand-studio/emails",
+    "GET /api/demand-studio/campaigns"
+  ]
+}

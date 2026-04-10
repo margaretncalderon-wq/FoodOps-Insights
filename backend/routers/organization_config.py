@@ -163,6 +163,14 @@ async def update_organization_config(
     if data.client_types is not None:
         update_data["client_types"] = data.client_types
     
+    # Locale settings
+    if hasattr(data, 'currency') and data.currency is not None:
+        update_data["currency"] = data.currency
+    if hasattr(data, 'timezone') and data.timezone is not None:
+        update_data["timezone"] = data.timezone
+    if hasattr(data, 'language') and data.language is not None:
+        update_data["language"] = data.language
+    
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         await db.organization_configs.update_one(
@@ -300,3 +308,82 @@ async def get_terminology(
             terminology[term] = default_value
     
     return terminology
+
+
+# ============== LOCALE SETTINGS (Currency, Timezone, Language) ==============
+
+SUPPORTED_CURRENCIES = [
+    {"code": "DOP", "name": "Peso Dominicano", "symbol": "RD$", "locale": "es-DO"},
+    {"code": "USD", "name": "US Dollar", "symbol": "$", "locale": "en-US"},
+    {"code": "EUR", "name": "Euro", "symbol": "\u20ac", "locale": "de-DE"},
+    {"code": "MXN", "name": "Peso Mexicano", "symbol": "$", "locale": "es-MX"},
+    {"code": "COP", "name": "Peso Colombiano", "symbol": "$", "locale": "es-CO"},
+    {"code": "PEN", "name": "Sol Peruano", "symbol": "S/", "locale": "es-PE"},
+    {"code": "ARS", "name": "Peso Argentino", "symbol": "$", "locale": "es-AR"},
+    {"code": "CLP", "name": "Peso Chileno", "symbol": "$", "locale": "es-CL"},
+    {"code": "BRL", "name": "Real Brasileño", "symbol": "R$", "locale": "pt-BR"},
+    {"code": "GBP", "name": "British Pound", "symbol": "\u00a3", "locale": "en-GB"},
+    {"code": "CAD", "name": "Canadian Dollar", "symbol": "CA$", "locale": "en-CA"},
+]
+
+SUPPORTED_TIMEZONES = [
+    "America/Santo_Domingo", "America/New_York", "America/Chicago",
+    "America/Denver", "America/Los_Angeles", "America/Mexico_City",
+    "America/Bogota", "America/Lima", "America/Santiago",
+    "America/Argentina/Buenos_Aires", "America/Sao_Paulo",
+    "America/Panama", "America/Caracas", "America/Puerto_Rico",
+    "Europe/Madrid", "Europe/London", "Europe/Paris", "Europe/Berlin",
+    "UTC",
+]
+
+
+@org_config_router.get("/locale")
+async def get_locale_settings(user: User = Depends(get_current_user)):
+    """Get locale settings for the organization"""
+    config = await db.organization_configs.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "currency": 1, "timezone": 1, "language": 1}
+    )
+    return {
+        "currency": (config or {}).get("currency", "DOP"),
+        "timezone": (config or {}).get("timezone", "America/Santo_Domingo"),
+        "language": (config or {}).get("language", "es"),
+        "supported_currencies": SUPPORTED_CURRENCIES,
+        "supported_timezones": SUPPORTED_TIMEZONES,
+    }
+
+
+@org_config_router.put("/locale")
+async def update_locale_settings(data: dict, user: User = Depends(get_current_user)):
+    """Update locale settings for the organization"""
+    update = {"updated_at": datetime.now(timezone.utc).isoformat()}
+
+    if "currency" in data:
+        valid_codes = [c["code"] for c in SUPPORTED_CURRENCIES]
+        if data["currency"] not in valid_codes:
+            raise HTTPException(status_code=400, detail=f"Invalid currency. Must be one of: {valid_codes}")
+        update["currency"] = data["currency"]
+
+    if "timezone" in data:
+        if data["timezone"] not in SUPPORTED_TIMEZONES:
+            raise HTTPException(status_code=400, detail="Invalid timezone")
+        update["timezone"] = data["timezone"]
+
+    if "language" in data:
+        if data["language"] not in ["en", "es"]:
+            raise HTTPException(status_code=400, detail="Invalid language. Must be 'en' or 'es'")
+        update["language"] = data["language"]
+
+    # Upsert - create config if it doesn't exist
+    existing = await db.organization_configs.find_one({"company_id": user.company_id})
+    if existing:
+        await db.organization_configs.update_one(
+            {"company_id": user.company_id}, {"$set": update}
+        )
+    else:
+        update["config_id"] = f"config_{uuid.uuid4().hex[:12]}"
+        update["company_id"] = user.company_id
+        update["created_at"] = update["updated_at"]
+        await db.organization_configs.insert_one(update)
+
+    return await get_locale_settings(user)
