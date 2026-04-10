@@ -5,7 +5,7 @@ import { Layout } from "../components/Layout";
 import axios from "axios";
 import { Card, CardContent } from "../components/ui/card";
 import { 
-  UserPlus, Inbox, Clock, MessageSquare, UserCircle, Users, RefreshCw
+  UserPlus, Inbox, Clock, MessageSquare, UserCircle, Users, RefreshCw, BarChart3
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -17,6 +17,7 @@ const FollowUpsSection = lazy(() => import("../components/crm/FollowUpsSection")
 const CommsLogSection = lazy(() => import("../components/crm/CommsLogSection"));
 const OwnerAssignmentSection = lazy(() => import("../components/crm/OwnerAssignmentSection"));
 const ClientsSection = lazy(() => import("../components/crm/ClientsSection"));
+const CrmDashboard = lazy(() => import("../components/crm/CrmDashboard"));
 
 // Standalone Comms Log view wrapper
 function CommsLogView() {
@@ -135,6 +136,11 @@ export default function CRMPage({ embedded = false }) {
   const basePath = embedded ? "/client-engagement/crm" : "/crm";
 
   const sections = [
+    {
+      path: `${basePath}/dashboard`,
+      label: "Dashboard",
+      icon: BarChart3
+    },
     { 
       path: `${basePath}/outreach`, 
       label: "Lead Outreach", 
@@ -206,7 +212,8 @@ export default function CRMPage({ embedded = false }) {
       <div className="flex-1 overflow-auto p-6">
         <Suspense fallback={<div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>}>
           <Routes>
-            <Route path="/" element={<Navigate to={`${basePath}/outreach`} replace />} />
+            <Route path="/" element={<Navigate to={`${basePath}/dashboard`} replace />} />
+            <Route path="dashboard" element={<CrmDashboard />} />
             <Route path="outreach" element={<LeadOutreachSection />} />
             <Route path="inbound" element={<LeadInboundSection />} />
             <Route path="follow-ups" element={<FollowUpsSection />} />

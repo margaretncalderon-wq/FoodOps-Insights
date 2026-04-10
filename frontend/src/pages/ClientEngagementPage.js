@@ -27,6 +27,7 @@ const FollowUpsSection = lazy(() => import("../components/crm/FollowUpsSection")
 const CommsLogSection = lazy(() => import("../components/crm/CommsLogSection"));
 const OwnerAssignmentSection = lazy(() => import("../components/crm/OwnerAssignmentSection"));
 const SalesReportSection = lazy(() => import("../components/crm/SalesReportSection"));
+const CrmDashboard = lazy(() => import("../components/crm/CrmDashboard"));
 const ClientsSection = lazy(() => import("../components/crm/ClientsSection"));
 const CommsInboxSection = lazy(() => import("../components/crm/CommsInboxSection"));
 
@@ -100,6 +101,7 @@ export default function ClientEngagementPage() {
 
   // CRM dropdown items
   const crmItems = [
+    { path: "/client-engagement/crm/dashboard", label: "Dashboard", icon: BarChart3 },
     { path: "/client-engagement/crm/inbox", label: isEs ? "Bandeja Comms" : "Comms Inbox", icon: Inbox, highlight: true },
     { path: "/client-engagement/crm/outreach", label: "Outreach", icon: UserPlus, badge: stats.outreach_leads },
     { path: "/client-engagement/crm/inbound", label: "Inbound", icon: Inbox, badge: stats.inbound_leads },
@@ -240,7 +242,8 @@ export default function ClientEngagementPage() {
             <Route path="events" element={<Navigate to="/client-engagement/proposals" replace />} />
             
             {/* CRM Routes */}
-            <Route path="crm" element={<Navigate to="crm/inbox" replace />} />
+            <Route path="crm" element={<Navigate to="crm/dashboard" replace />} />
+            <Route path="crm/dashboard" element={<CrmDashboard />} />
             <Route path="crm/inbox" element={<CommsInboxSection />} />
             <Route path="crm/companies" element={<CompaniesSection />} />
             <Route path="crm/outreach" element={<LeadOutreachSection />} />

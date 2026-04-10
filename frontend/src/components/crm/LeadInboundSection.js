@@ -41,6 +41,11 @@ const STATUS_FILTERS = [
   { value: "all", labelEn: "All", labelEs: "Todos" },
   { value: "New", labelEn: "New", labelEs: "Nuevo" },
   { value: "Contacted", labelEn: "Contacted", labelEs: "Contactado" },
+  { value: "Qualified", labelEn: "Qualified", labelEs: "Calificado" },
+  { value: "Proposal", labelEn: "Proposal", labelEs: "Propuesta" },
+  { value: "Negotiation", labelEn: "Negotiation", labelEs: "Negociación" },
+  { value: "Won", labelEn: "Won", labelEs: "Ganado" },
+  { value: "Lost", labelEn: "Lost", labelEs: "Perdido" },
   { value: "Converted", labelEn: "Converted", labelEs: "Convertido" }
 ];
 
@@ -408,10 +413,16 @@ export default function LeadInboundSection() {
     const colors = {
       New: "bg-blue-100 text-blue-700 border-blue-300",
       Contacted: "bg-yellow-100 text-yellow-700 border-yellow-300",
+      Qualified: "bg-purple-100 text-purple-700 border-purple-300",
+      Proposal: "bg-pink-100 text-pink-700 border-pink-300",
+      Negotiation: "bg-orange-100 text-orange-700 border-orange-300",
+      Won: "bg-emerald-100 text-emerald-700 border-emerald-300",
+      Lost: "bg-red-100 text-red-700 border-red-300",
       Converted: "bg-green-100 text-green-700 border-green-300",
       Discarded: "bg-gray-100 text-gray-700 border-gray-300"
     };
-    return <Badge className={colors[status] || colors.New}>{status}</Badge>;
+    const labelEs = { New: "Nuevo", Contacted: "Contactado", Qualified: "Calificado", Proposal: "Propuesta", Negotiation: "Negociación", Won: "Ganado", Lost: "Perdido", Converted: "Convertido", Discarded: "Descartado" };
+    return <Badge className={colors[status] || colors.New}>{isEs ? (labelEs[status] || status) : status}</Badge>;
   };
 
   const viewLead = (lead) => {

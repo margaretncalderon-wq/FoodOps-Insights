@@ -5,26 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { TrendingUp, TrendingDown, Users, Target, DollarSign, ArrowRight, BarChart3, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, Target, DollarSign, ArrowRight, BarChart3 } from "lucide-react";
 import { API_BASE as API } from "../../utils/api";
 
 const STAGE_COLORS = {
   "New": "#3b82f6",
   "Contacted": "#f59e0b",
-  "NoResponse": "#6b7280",
-  "Engaged": "#22c55e",
   "Qualified": "#8b5cf6",
   "Proposal": "#ec4899",
   "Negotiation": "#f97316",
   "Won": "#22c55e",
   "Lost": "#ef4444",
-  "Converted": "#22c55e",
 };
 
 const STAGE_LABELS_ES = {
-  "New": "Nuevo", "Contacted": "Contactado", "NoResponse": "Sin Respuesta",
-  "Engaged": "Interesado", "Qualified": "Calificado", "Proposal": "Propuesta",
-  "Negotiation": "Negociación", "Won": "Ganado", "Lost": "Perdido", "Converted": "Convertido",
+  "New": "Nuevo", "Contacted": "Contactado", "Qualified": "Calificado",
+  "Proposal": "Propuesta", "Negotiation": "Negociación", "Won": "Ganado", "Lost": "Perdido",
 };
 
 export default function CrmDashboard() {
@@ -63,24 +59,32 @@ export default function CrmDashboard() {
 
   // Funnel stages
   const funnelData = useMemo(() => {
-    const stages = ["New", "Contacted", "Engaged", "Qualified", "Proposal", "Negotiation"];
+    const stages = ["New", "Contacted", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
     const counts = {};
     stages.forEach(s => { counts[s] = 0; });
 
     filteredLeads.forEach(l => {
       const st = l.outreach_status || l.pipeline_stage || l.status || "New";
-      // Map to nearest funnel stage
-      if (st === "NoResponse") counts["Contacted"] = (counts["Contacted"] || 0);
-      else if (counts[st] !== undefined) counts[st]++;
+      if (counts[st] !== undefined) counts[st]++;
+      else if (st === "NoResponse" || st === "Engaged") counts["Contacted"]++;
+      else if (st === "Converted") counts["Won"]++;
       else counts["New"]++;
     });
 
-    return stages.map((stage, idx) => {
+    // For funnel conversion rates, use the active pipeline (excluding Won/Lost)
+    const funnelStages = ["New", "Contacted", "Qualified", "Proposal", "Negotiation"];
+    const funnelEntries = funnelStages.map((stage, idx) => {
       const count = counts[stage];
-      const prevCount = idx > 0 ? counts[stages[idx - 1]] : filteredLeads.length;
+      const prevCount = idx > 0 ? counts[funnelStages[idx - 1]] : filteredLeads.length;
       const convRate = prevCount > 0 ? ((count / prevCount) * 100).toFixed(0) : 0;
       return { stage, count, convRate: idx === 0 ? 100 : convRate };
     });
+
+    // Add Won and Lost as outcome stages
+    funnelEntries.push({ stage: "Won", count: counts["Won"], convRate: filteredLeads.length > 0 ? ((counts["Won"] / filteredLeads.length) * 100).toFixed(0) : 0 });
+    funnelEntries.push({ stage: "Lost", count: counts["Lost"], convRate: filteredLeads.length > 0 ? ((counts["Lost"] / filteredLeads.length) * 100).toFixed(0) : 0 });
+
+    return funnelEntries;
   }, [filteredLeads]);
 
   // Summary metrics
@@ -93,7 +97,7 @@ export default function CrmDashboard() {
     }).length;
     const hot = filteredLeads.filter(l => {
       const s = l.outreach_status || l.pipeline_stage || l.status || "";
-      return ["Qualified", "Proposal", "Negotiation", "Engaged"].includes(s);
+      return ["Qualified", "Proposal", "Negotiation"].includes(s);
     }).length;
 
     // Source breakdown
@@ -108,7 +112,17 @@ export default function CrmDashboard() {
     const outreachCount = filteredLeads.filter(l => l.lead_type === "outreach").length;
     const inboundCount = filteredLeads.filter(l => l.lead_type !== "outreach").length;
 
-    return { total, withFollowUp, contacted, hot, topSources, outreachCount, inboundCount };
+    // Won/Lost counts
+    const won = filteredLeads.filter(l => {
+      const s = l.outreach_status || l.pipeline_stage || l.status || "";
+      return s === "Won" || s === "Converted";
+    }).length;
+    const lost = filteredLeads.filter(l => {
+      const s = l.outreach_status || l.pipeline_stage || l.status || "";
+      return s === "Lost";
+    }).length;
+
+    return { total, withFollowUp, contacted, hot, topSources, outreachCount, inboundCount, won, lost };
   }, [filteredLeads, isEs]);
 
   const maxFunnel = Math.max(...funnelData.map(d => d.count), 1);
@@ -189,13 +203,13 @@ export default function CrmDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">{isEs ? "Con Seguimiento" : "With Follow-up"}</p>
-                <p className="text-2xl font-bold">{metrics.withFollowUp}</p>
+                <p className="text-xs text-muted-foreground">{isEs ? "Ganados" : "Won"}</p>
+                <p className="text-2xl font-bold text-emerald-600">{metrics.won}</p>
               </div>
-              <ChevronRight className="w-8 h-8 text-green-500 opacity-30" />
+              <DollarSign className="w-8 h-8 text-emerald-500 opacity-30" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {metrics.total > 0 ? `${((metrics.withFollowUp / metrics.total) * 100).toFixed(0)}%` : "0%"} {isEs ? "planificados" : "scheduled"}
+              {metrics.total > 0 ? `${((metrics.won / metrics.total) * 100).toFixed(0)}%` : "0%"} {isEs ? "tasa cierre" : "win rate"}
             </p>
           </CardContent>
         </Card>

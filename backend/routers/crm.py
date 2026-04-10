@@ -895,7 +895,7 @@ async def cleanup_nan_values(user: User = Depends(get_current_user)):
 @crm_router.put("/outreach/{lead_id}/status")
 async def update_outreach_status(lead_id: str, outreach_status: str, user: User = Depends(get_current_user)):
     """Update outreach status for a lead"""
-    valid_statuses = ["New", "Contacted", "NoResponse", "Engaged"]
+    valid_statuses = ["New", "Contacted", "NoResponse", "Engaged", "Qualified", "Proposal", "Negotiation", "Won", "Lost"]
     if outreach_status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
     
@@ -904,7 +904,7 @@ async def update_outreach_status(lead_id: str, outreach_status: str, user: User 
         {"lead_id": lead_id, "company_id": user.company_id},
         {"$set": {
             "outreach_status": outreach_status,
-            "last_contact_date": now.isoformat() if outreach_status in ["Contacted", "Engaged"] else None,
+            "last_contact_date": now.isoformat() if outreach_status in ["Contacted", "Engaged", "Qualified", "Proposal", "Negotiation", "Won"] else None,
             "updated_at": now.isoformat()
         }}
     )
