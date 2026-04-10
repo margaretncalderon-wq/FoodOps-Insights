@@ -1,99 +1,81 @@
 # Kora OS - Product Requirements Document
 
 ## Original Problem Statement
-Build a comprehensive ERP application called Kora OS with modules for:
-- People Ops (HR management)
-- Business Clarity (Financials)
-- Recruitment
-- Settings & Organization Structure
-- Super Admin Panel for managing organizations and demo accounts
-- Demand Studio (Social Media & Marketing)
-- CRM / Client Engagement
-- Partners
+Build a comprehensive ERP application called Kora OS with modules for People Ops, Business Clarity, Recruitment, Settings, Super Admin, Demand Studio, CRM/Client Engagement, Partners.
 
-## User Personas
-- **Super Admin**: Platform-level access for managing all organizations
-- **Admin/Owner**: Full access to all modules and configuration within their org
-- **Finance**: Access to Business Clarity and financial reports
-- **HR**: Access to People Ops, limited payroll approval
-- **Manager**: View-limited access to team in People Ops
-- **Editor/Viewer**: Content and invoice management
-
-## Core Requirements
-
-### CRM / Client Engagement
+## Core CRM Requirements (Current Focus)
 - Intelligent lead conversion: 3 modes (Solo Cliente, Cliente+Evento Existente, Cliente+Evento Nuevo)
-- Lead Sources catalog with auto-seeded defaults
-- CSV Import with configurable lead_type and source, company deduplication
-- Sales Reports with daily activity, weekly goals, team notifications
-- Leads by source report
-- **Combined "Lead" column**: Name + Company + Contact icons + B2B/Directo badge in single cell
-- **Smart sort**: A-Z uses company name for company-only leads, person name for person leads
-- **Group by**: company or status with collapsible headers
-- **Source badges**: Colored by source type (LinkedIn=blue, Instagram=pink, etc.)
-- **Kanban view**: Drag-and-drop pipeline with configurable stages
-
-### Demand Studio
-- Social media post management with rich text editor and text colors
-- Content Pillars, Audiences, Campaigns
-- Calendar with format indicators and published states
-- Social account CRUD
-
-### People Ops
-- Employee management, Org Chart, Recruitment, Hire flow
-
-### Business Clarity
-- Expense Categories, Cost Center Budgets, Invoices, Payments, Stripe
-
-## Tech Stack
-- **Frontend**: React with Shadcn/UI components
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
-- **Auth**: JWT-based authentication
+- Lead Sources catalog + CSV Import with dedup
+- Combined "Lead" column (name+company+contact+type badge)
+- Smart sort A-Z + Group by company/status/city
+- **Tags predefinidos** en Settings (CRUD, 8 defaults, aplicables a leads)
+- **Áreas de servicio** en Settings (países+regiones+ciudades, default RD)
+- **Mapa interactivo** de leads por ciudad (burbujas, hover, click=filtra)
+- **Filtro por ciudad** en lista Outreach
+- Kanban pipeline view
+- Sales Reports + Weekly Goals
 
 ## What's Been Implemented
 
+### Session: April 10, 2026 — Sprint 1
+1. **CRM Tags** — CRUD en Settings, 8 defaults (VIP, Hot Lead, Referido, etc.), asignables a leads, visibles en tabla (iteration_137)
+2. **Service Areas** — CRUD en Settings, default RD con 7 regiones y ciudades principales, expandible
+3. **Lead Map** — Mapa de burbujas por ciudad, hover=tooltip detallado, click=filtra lista, barra de desglose con %
+4. **City Filter** — Filtro activo desde mapa o group-by en Outreach
+5. **Source Normalization** — Backend cleanup + endpoint
+
 ### Session: April 9, 2026
+1. CRM Intelligent Lead Conversion — 3 modes (iteration_135)
+2. Lead Sources Catalog — CRUD + 12 defaults
+3. CSV Import Overhaul — Default outreach, company dedup, source param
+4. CRM List View Overhaul — Combined Lead column, sort, grouping (iteration_136)
+5. Move to Outreach button in Inbound
 
-1. **CRM Intelligent Lead Conversion** — 3 modes: Solo Cliente, Cliente+Evento Existente, Cliente+Evento Nuevo (iteration_135)
-2. **Lead Sources Catalog** — CRUD + 12 auto-seeded defaults
-3. **CSV Import Overhaul** — Default outreach, company dedup, source param
-4. **CRM List View Overhaul** — Combined Lead column (name+company+contact+type badge), smart A-Z sort, group by company/status, Source column with colored badges (iteration_136)
-5. **Source Normalization** — Backend endpoint + 8 sources cleaned up
+### Previous Sessions
+- Demand Studio, People Ops, Guest Flow, Business Clarity, Settings
 
-### Previous Sessions (Summary)
-- Demand Studio: Clickable URLs, text colors, calendar states, social account CRUD
-- People Ops: Org Chart, Recruitment, Employee creation, hire flow
-- CRM: Sales Reports, Weekly Goals, Notifications
-- Guest Flow: Virtual queue, QR codes, kiosk mode
-- Business Clarity: Department reports, expense categories, stripe payments
-- Settings: Import/Export, role management
+## Architecture
+- Leads and Clients remain **separate entities** (clients used for proposals)
+- Tags, Service Areas, Lead Sources = Settings-managed catalogs
+- Geo-stats aggregated from lead city field
 
-## Backlog / Future Tasks
+## Backlog
 
-### P1 - Next Up
-- Add Logo Image Upload via Object Storage for Guest Flow
-- Refactor `SocialMediaPage.js` (~3700 lines)
-- Extract import/export logic from `server.py` to own router
+### P0 — Next (Sprint 2: Lifecycle + Dashboard)
+- Expand lifecycle stages: New → Contactado → Interesado → Negociación → Cerrado
+- Dashboard funnel visual en CRM
+- Dashboard ejecutivo con conversion rates
 
-### P2 - Integrations
-- Staffdo.com, Meta (Instagram), TikTok APIs
-- Email Marketing (Mailchimp/Brevo)
+### P1 — Sprint 3: Email Marketing
+- Listas dinámicas (segmentación por ciudad+tags+status)
+- Integración email real (Brevo/Resend)
+- Templates y campañas
 
-### P3 - Features
-- WhatsApp API (Kora Comms)
-- i18n, UTM tracking
+### P1 — Technical Debt
+- Refactor SocialMediaPage.js (~3700 lines)
+- Extract import/export from server.py
+- Unify 5 Comms components into 1-2
+
+### P2 — Integrations
+- Staffdo.com, Meta, TikTok APIs
+- Logo upload via Object Storage
+
+### P3 — International Scale
+- Multi-moneda (USD, DOP, EUR, MXN)
+- Timezone-aware
+- i18n completo
+- Geo-detection automática
+- WhatsApp Business API
 
 ## Test Credentials
-- **Admin**: demo.agency@kora.com / Evoque2024!
-- **Team**: team.test@staffdo.com / Evoque2024!
+- Admin: demo.agency@kora.com / Evoque2024!
+- Team: team.test@staffdo.com / Evoque2024!
 
 ## Key Files
-- `backend/routers/crm.py` — CRM endpoints
-- `backend/server.py` — CSV Import/Export
-- `frontend/src/components/crm/LeadOutreachSection.js` — Outreach list
+- `backend/routers/crm.py` — All CRM endpoints (tags, areas, geo-stats, leads, sources)
+- `frontend/src/components/settings/CrmConfigSection.js` — Tags + Service Areas UI
+- `frontend/src/components/crm/LeadMapSection.js` — Interactive lead map
+- `frontend/src/components/crm/LeadOutreachSection.js` — Outreach list with map+tags
 - `frontend/src/components/crm/LeadInboundSection.js` — Inbound list
-- `frontend/src/components/crm/LeadKanbanView.js` — Kanban view
 
-## User Language
-Spanish (es)
+## User Language: Spanish (es)
