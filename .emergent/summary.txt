@@ -1,150 +1,137 @@
-<analysis>**original_problem_statement:**
-The user has requested to build a new, full-stack feature called Guest Flow within the existing Kora OS event project structure. This feature is intended to be a live operational tool for managing guest movement and virtual queues for on-site event activations (e.g., photo booths, headshot stations).
-
-The core goal is to allow guests to scan a QR code, join a digital queue with their name and WhatsApp number, and see their live status on their phone. Event staff will use a tablet-friendly dashboard to manage the queue and notify guests via a click-to-chat WhatsApp button.
+<analysis>**original_problem_statement:** 
+Build a comprehensive ERP application called Kora OS with modules for People Ops, Business, Demand Studio, Event Orchestration, and CRM. Recent focus has been on scaling the CRM module to be globally competitive by adding unified contact columns, geographical filtering, interactive maps, customizable tags, and lifecycle pipeline stages. 
 
 **PRODUCT REQUIREMENTS:**
+1. **CRM Scaling:** Clear separation of Leads/Companies in UI, interactive Lead map by city, custom tags, and expanded pipeline stages (New → Contacted → Qualified → Proposal → Negotiation → Won → Lost).
+2. **Settings:** dedicated CRM Config section to manage Tags, Service Areas, and Pipeline Stages.
+3. **Dashboards:** Visual sales funnel and metrics dashboard for the CRM.
 
-1.  **Guest Flow Section:** A new operational block within  to display activation status, QR link, queue stats, and quick actions.
-2.  **Guest Join Experience:** A public, mobile-first page for guests to join the queue. It must handle Dominican Republic WhatsApp numbers and prevent duplicate entries.
-3.  **Personal Queue Status Page:** A unique, auto-refreshing page for each guest to track their position in the queue.
-4.  **Staff Queue Dashboard:** A secure, tablet-friendly interface for staff to manage the queue, reorder guests, and trigger actions like Call Next or Complete.
-5.  **WhatsApp Click-to-Chat:** A button to open a pre-filled WhatsApp message to notify guests (not a full API integration at this stage).
-6.  **Live Now Serving Screen:** A public-facing display to show the current and upcoming queue numbers.
-7.  **Data Model:** Implementation of new database collections for , , and .
-8.  **UI/UX:** A premium, minimal, and clean interface matching the existing Kora OS style, with Spanish labels for the staff-facing UI.
-9.  **Integration:** The feature must feel like a native part of the existing  tab.
-10. **Permissions:** The system should be role-aware (Admin, Event Lead, Queue Manager, Viewer).
+**User's preferred language**: Spanish (es)
+**INSTRUCT NEXT AGENT: YOU MUST RESPOND IN SPANISH ONLY.**
 
-**User's preferred language**: Spanish
+**what currently exists?** 
+A highly functional CRM with fully separated but parallel Outreach and Inbound sections. The CRM now features a unified Lead column (merging Name, Company, Contact Icons, and B2B/Direct badges), Group by City functionality, a new Move to Outreach action for inbound leads, and a fully functioning Interactive Map. The Settings module now includes a CRM Config tab for managing Tags and Service Areas. 
 
-**what currently exists?**
-The project is a full-stack Kora OS ERP application with React, FastAPI, and MongoDB. The agent has just begun scaffolding the new Guest Flow feature. The initial backend router and one of the guest-facing frontend pages have been created, but no logic has been implemented yet.
+**Last working item**: 
+    - **Last item agent was working**: CRM Sprint 2: Lifecycle Stages & Funnel Dashboard. The agent updated the  array in  to match the backend's 7 pipeline stages (New, Contacted, Qualified, Proposal, Negotiation, Won, Lost) and created a new file .
+    - **Status**: IN PROGRESS
+    - **Agent Testing Done**: N
+    - **Which testing method agent to use?** both (Screenshot tool for UI verification, followed by  once the dashboard is fully integrated).
+    - **User Testing Done**: N
 
-**Last working item**:
--   **Last item agent was working**: The agent was in the initial scaffolding phase for the new Guest Flow feature. They successfully created the backend router file  and the first frontend page . The work has just begun.
--   **Status**: IN PROGRESS
--   **Agent Testing Done**: N
--   **Which testing method agent to use?**: both. This is a large, multi-faceted feature. Once a significant portion is implemented, the agent should use the  to perform comprehensive end-to-end tests covering both the backend API and the various frontend user flows (guest join, staff dashboard, etc.).
--   **User Testing Done**: N
+**All Pending/In progress Issue list**: 
+  None currently broken, but UI alignment is pending for the statuses.
 
-**All Pending/In progress Issue list**:
--   None.
-
-**In progress Task List**:
--   **Task 1: Build Guest Flow Feature (P0)**
-    -   **Description**: Implement the full-stack Guest Flow virtual queue management system as per the detailed user requirements.
-    -   **Where to resume**: The basic file structure has been initiated. The next step is to create the remaining frontend page/component files as planned (, , , ). After scaffolding the frontend files, the agent should proceed to implement the backend logic in , including data models and all necessary API endpoints.
-    -   **What will be achieved with this?**: A complete, integrated virtual queue management system for live events, accessible from the  module.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on something**: None.
+**In progress Task List**: 
+  Task 1: CRM Funnel Dashboard & Status Alignment (Sprint 2)
+     - Where to resume: Implement the newly created  to show a visual funnel and metrics. Integrate this dashboard into the CRM view. Update  so its statuses also match the new 7 pipeline stages.
+     - What will be achieved with this? Gives the sales team a visual executive dashboard (funnel, conversion rates) and aligns all static frontend UI statuses with the dynamic backend pipeline stages.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on something: No
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks**:
-    -   **P0 - Phase 1: Backend Implementation:**
-        -   Define Pydantic models for , , and .
-        -   Implement all required API endpoints in  for CRUD operations on activations, managing queue entries (join, update status, reorder), and fetching data for the dashboards.
-    -   **P0 - Phase 2: Frontend Implementation:**
-        -   Build the UI for all created pages: , , , and .
-        -   Build the  component to be embedded in the .
-    -   **P0 - Phase 3: Integration and Logic:**
-        -   Integrate the  into .
-        -   Implement routing for the new public and private pages in .
-        -   Add frontend logic to interact with the new backend endpoints for all user flows.
--   **Future Tasks**:
-    -   Refactor .
-    -   Integrate Staffdo.com, Meta, and TikTok APIs.
-    -   Integrate an Email Marketing Provider.
-    -   Implement full UTM tracking and Kora Comms (WhatsApp).
-    -   Complete application-wide internationalization (i18n).
+  Upcoming Tasks:
+  - Add Logo Image Upload via Object Storage for Guest Flow (P1).
+  - Sprint 3: Unified Contact Model (Merge Lead and Client into a single lifecycle entity to prevent duplication upon conversion) (P1).
+  - Sprint 3: Unify Communications components (Currently 5 redundant comms components: , , , etc.) (P1).
+  
+  Future Tasks:
+  - Sprint 4: Email Marketing Integration (Brevo/Resend) + Dynamic Lists (P2).
+  - Refactor  (Currently ~3700 lines, huge technical debt) (P2).
+  - Extract import/export logic from  to a dedicated router (P2).
+  - Integrate Staffdo.com, Meta (Instagram), TikTok APIs (P2).
+  - Implement full UTM tracking (P2).
+  - Complete application-wide internationalization (i18n), multi-currency, and timezone awareness (P3).
+  *(Note: User explicitly requested to KEEP Outreach and Inbound as separate sections. Do NOT merge them).*
 
 **Completed work in this session**
--   **Feature: Guest Flow Scaffolding**:
-    -   Created and registered the backend router: .
-    -   Created the initial frontend page: .
--   **Bug Fix: Presence Filtering**: Fixed the  endpoint to correctly filter online users by their current organization ().
--   **Bug Fix: Data Isolation in Demand Studio**: Resolved a critical bug across multiple Demand Studio endpoints (, , etc.) that incorrectly showed data from all shared organizations instead of just the selected one.
--   **Bug Fix: User's Own Organization Not Appearing**: Implemented a fallback in  to auto-create a personal company for a user if they don't have one, fixing an issue where some users couldn't see their own workspace.
--   **Feature: Super Admin Enhancements**: Added functionality for Super Admins to create organizations, assign users to them, and view organization names instead of IDs in the user management panel.
--   **Feature: Notification Enhancements**: Implemented deep linking for mention notifications (navigating directly to the post) and added comment/notification count badges to posts in all relevant views.
--   **Feature: Real-time Presence System**: Built a polling-based presence system showing online users in the global sidebar and indicating who is actively editing a post with live collaboration avatars.
+- CRM Lead Conversion: Implemented 3 conversion options (Solo Cliente, Cliente+Evento Existente, Cliente+Nuevo Evento) (DONE)
+- CRM Lead Import: Defaulted to outreach, deduplicated companies, and added global source parameter (DONE)
+- Unified Lead Column: Combined Lead Name + Company + Contact Icons + B2B Badge in a single cell for clarity (DONE)
+- Added Move to Outreach dropdown action in Inbound Section (DONE)
+- Added Group by City, MapPin icons, and city visibility in CRM tables (DONE)
+- Backend Endpoints: Added  and  (DONE)
+- Settings: Created  for managing tags and service areas (DONE)
+- Interactive Map: Built  and integrated it above the Outreach list (DONE)
 
 **Earlier issues found/mentioned but not fixed**
--   None.
+None.
 
 **Known issue recurrence from previous fork**
--   None.
+None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   Full-stack feature development using React, FastAPI, and MongoDB.
--   Integration of a new module into an existing, complex component ().
--   Creation of both public (non-authenticated) and private (authenticated) routes and pages.
--   API design for real-time queue management.
+React Hooks, FastAPI routing, MongoDB (Aggregations, deduplication logic), Pipeline stages syncing between DB and static UI arrays.
 
 **key DB schema**
--   **activations**: (To be created) Will store details like , , , .
--   **queue_entries**: (To be created) Will store guest information like , , , and .
--   **queue_activity_log**: (To be created) Will log all actions performed on the queue.
+  - : {lead_id, lead_name, company_name, email, source, status, city, pipeline_stage, tags[]}
+  - : {tag_id, name, color}
+  - : {area_id, country, regions[]}
 
-**All files of reference**
--    (New file for backend logic)
--    (New file for the guest join UI)
--    (Existing file where the feature will be integrated)
--    (Modified to include the new router)
+**changes in tech stack**
+None.
 
-**Areas that need refactoring**:
--   The  file is still over 3600 lines long and remains a significant piece of technical debt that should be addressed in the future.
+**All files of reference** 
+  -  (Created, needs implementation)
+  -  (Statuses updated, map integrated)
+  -  (Needs status updates to match Outreach)
+  -  (Pipeline stages logic)
+
+**Areas that need refactoring**: 
+  -  (~3700 lines).
+  -  contains heavy route logic for imports/exports.
+  - CRM Communications components (5 files doing similar things).
 
 **key api endpoints**
--   The agent is starting to build the structure for a new set of endpoints under the  prefix, which will handle all logic for activations and queue management.
+  - 
+  - 
+  - 
 
-**Critical Info for New Agent**
--   **¡DEBES RESPONDER EN ESPAÑOL!** All communication with the user must be in Spanish.
--   You are in the very early stages of building a large new feature, Guest Flow. The initial files have been created, but the core logic and remaining UI are yet to be built.
--   Follow the user's detailed product requirements and the plan you presented. The immediate next step is to create the remaining placeholder files for the frontend (, , , ) before moving on to implementing the backend endpoints.
--   This feature requires public-facing, unauthenticated pages. Ensure routing and security are handled correctly to distinguish between the public guest flow and the private staff dashboard.
+**Critical Info for New Agent** 
+- **LANGUAGE REQUIREMENT:** You MUST speak Spanish to the user.
+- **Sprint 2 Progress:** You are actively working on the Funnel Dashboard requested by the user. The empty file  was just created. Implement it and place it attractively in the CRM UI.
+- **Outreach vs Inbound:** Do NOT attempt to merge  and . The user explicitly chose Option C (leave them separated) because they serve different business functions.
 
-**documents and test reports created in this job**
--    to 
--    (updated multiple times)
+**documents and test reports created in this job** 
+  -  (CRM Conversion & Import overhaul)
+  -  (CRM Table column unification & sorting)
+  -  (CRM Tags, Service Areas, Interactive Map)
+  -  (Updated with Sprint 1 & 2 roadmap)
 
-**Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Approved the plan to build the Guest Flow feature. **Status: In Progress**.
-2.  **User**: Provided a detailed Product Requirement Document for the new Guest Flow feature. **Status: Acknowledged**.
-3.  **User**: Reported a bug where online presence status was not being filtered by organization. **Status: RESOLVED**.
-4.  **User**: Approved the  summary for the Demand Studio data isolation fix. **Status: N/A**.
-5.  **User**: Reported a critical data isolation bug in Demand Studio where they were seeing posts from all shared organizations even when viewing their own. **Status: RESOLVED**.
-6.  **User**: Approved the  summary for the real-time presence system. **Status: N/A**.
-7.  **User**: Provided choices for implementing the real-time presence feature, selecting polling. **Status: RESOLVED**.
-8.  **User**: Confirmed their desire for a real-time presence feature to see who is editing online. **Status: RESOLVED**.
-9.  **User**: Reported issues with notifications: no deep linking to comments and a request for notification badges on posts. **Status: RESOLVED**.
-10. **User**: Approved the  summary for Super Admin enhancements. **Status: N/A**.
+**Last 10 User Messages and any pending HUMAN messages** 
+ 1. **User**: ahora dice nombre y empresa no sera lo mismo? (RESOLVED - unified columns)
+ 2. **User**: combinemos nombre y empresa. tipo de contacto b2b o director? (RESOLVED)
+ 3. **User**: ayudame a mover los que importe que SE fueron a inbound to outbound como podria hacerse? (RESOLVED - added 'Move to Outreach' button)
+ 4. **User**: me gustaria ver los leads por ciudad se puede? (RESOLVED)
+ 5. **User**: ambas y que si quiero ver leads por cuidad pueda (RESOLVED - grouped by city)
+ 6. **User**: analiza el client engagement... quiero entender como puedo filtrar leads por ciudad ? seria posible añadir un mapa... (RESOLVED - proposed Sprint roadmap)
+ 7. **User**: c hibrido entonces cual seria el plan de trabajo? y hablando de marketing emails etc como manejamos la base de datos? (RESOLVED)
+ 8. **User**: opero solo RD con miras a operar en otros países... Que mas nos falta para ser un CRM super potente? (RESOLVED - provided analysis)
+ 9. **User**: no rompas nada. si ves alguna secuencia rompe otra dame opciones en fusionar Outreach/Inbound se queda entonces inbound como fuente? (RESOLVED - User chose NOT to merge Outreach/Inbound)
+ 10. **User (Pending context)**: continua -> Agent started Sprint 2 (aligning pipeline stages and creating ), but stopped after creating the empty file.
 
 **Project Health Check:**
--   **Broken**: None.
--   **Mocked**: Social media metrics in Demand Studio are still using placeholder data.
+- Broken: Nothing currently.
+- Mocked: Empty .
 
-**3rd Party Integrations**
--   **Active**: YouTube Data API, Emergent LLM Key, Zapier / Make.
--   **Planned**: Staffdo.com, Meta (Instagram), TikTok, Email Marketing Provider (e.g., Mailchimp/Brevo).
+**3rd Party Integrations** 
+  - Emergent LLM Key — Uses Emergent LLM Key
+  - YouTube Data API — Requires User Key
+  - Zapier / Make — Requires User Webhooks
 
 **Testing status**
--   **Testing agent used after significant changes**: YES, used for all major bug fixes in this session.
--   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**:  through .
--   **Known regressions**: None.
+  - Testing agent used after significant changes: YES (Iterations 135, 136, 137 all passed 100%)
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: , , 
+  - Known regressions: None
 
 **Credentials to test flow:**
--   **Admin User**:
-    -   **Email:** 
-    -   **Password:** 
--   **Team Member / Social Contributor**:
-    -   **Email:** 
-    -   **Password:** 
+  - Admin User:  / 
+  - Team Member:  / 
 
 **What agent forgot to execute**
--   Nothing has been forgotten. The agent is currently at the beginning of a new, large feature request.</analysis>
+The agent modified the  constant in  to match the 7 backend pipeline stages, but did not make the equivalent update in . The agent also created  but ran out of tokens before writing the component code and inserting it into the UI. Pick up directly by implementing the dashboard and syncing the statuses across the CRM views.</analysis>

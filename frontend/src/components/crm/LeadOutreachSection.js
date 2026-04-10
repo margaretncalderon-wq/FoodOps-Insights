@@ -65,7 +65,10 @@ const OUTREACH_STATUSES = [
   { value: "New", labelEn: "New", labelEs: "Nuevo", color: "bg-blue-100 text-blue-700" },
   { value: "Contacted", labelEn: "Contacted", labelEs: "Contactado", color: "bg-yellow-100 text-yellow-700" },
   { value: "NoResponse", labelEn: "No Response", labelEs: "Sin Respuesta", color: "bg-gray-100 text-gray-700" },
-  { value: "Engaged", labelEn: "Engaged", labelEs: "Interesado", color: "bg-green-100 text-green-700" }
+  { value: "Engaged", labelEn: "Engaged", labelEs: "Interesado", color: "bg-green-100 text-green-700" },
+  { value: "Qualified", labelEn: "Qualified", labelEs: "Calificado", color: "bg-purple-100 text-purple-700" },
+  { value: "Proposal", labelEn: "Proposal", labelEs: "Propuesta", color: "bg-pink-100 text-pink-700" },
+  { value: "Negotiation", labelEn: "Negotiation", labelEs: "Negociación", color: "bg-orange-100 text-orange-700" },
 ];
 
 const CLIENT_TYPES = [
@@ -704,7 +707,7 @@ export default function LeadOutreachSection() {
     // Sort group keys
     const sortedKeys = Object.keys(groups).sort((a, b) => {
       if (groupBy === "status") {
-        const order = { "New": 0, "Contacted": 1, "No Response": 2, "Engaged": 3, "Qualified": 4 };
+        const order = { "New": 0, "Contacted": 1, "NoResponse": 2, "Engaged": 3, "Qualified": 4, "Proposal": 5, "Negotiation": 6 };
         return (order[a] ?? 99) - (order[b] ?? 99);
       }
       return a.localeCompare(b);

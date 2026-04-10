@@ -164,7 +164,7 @@ class TestStripeCheckout(TestAuth):
             json={
                 "plan_id": "plan_professional",
                 "billing_cycle": "monthly",
-                "origin_url": "https://lead-conversion-hub-15.preview.emergentagent.com"
+                "origin_url": "https://pipeline-stage-view.preview.emergentagent.com"
             }
         )
         
@@ -203,7 +203,7 @@ class TestStripeCheckout(TestAuth):
             json={
                 "plan_id": "plan_enterprise",
                 "billing_cycle": "yearly",
-                "origin_url": "https://lead-conversion-hub-15.preview.emergentagent.com"
+                "origin_url": "https://pipeline-stage-view.preview.emergentagent.com"
             }
         )
         
@@ -226,7 +226,7 @@ class TestStripeCheckout(TestAuth):
             json={
                 "plan_id": "plan_starter",
                 "billing_cycle": "monthly",
-                "origin_url": "https://lead-conversion-hub-15.preview.emergentagent.com"
+                "origin_url": "https://pipeline-stage-view.preview.emergentagent.com"
             }
         )
         
@@ -262,7 +262,7 @@ class TestStripeCheckout(TestAuth):
             json={
                 "plan_id": "plan_professional",
                 "billing_cycle": "monthly",
-                "origin_url": "https://lead-conversion-hub-15.preview.emergentagent.com"
+                "origin_url": "https://pipeline-stage-view.preview.emergentagent.com"
             }
         )
         
