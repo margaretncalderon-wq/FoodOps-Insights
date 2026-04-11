@@ -343,7 +343,7 @@ async def generate_follow_up_reminders(
             notification_type="follow_up_reminder",
             title=title,
             message=message,
-            link=f"/client-engagement/crm/{fu['entity_type']}s/{fu['entity_id']}",
+            link=f"/crm/follow-ups",
             metadata={
                 "entity_type": fu["entity_type"],
                 "entity_id": fu["entity_id"],

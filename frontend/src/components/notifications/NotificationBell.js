@@ -114,12 +114,14 @@ export default function NotificationBell() {
     }
     setIsOpen(false);
     if (notification.link) {
-      // Use React Router for internal links
-      if (notification.link.startsWith("/")) {
-        navigate(notification.link);
-      } else {
-        window.location.href = notification.link;
-      }
+      // Small delay to let the dropdown close and auth state stabilize
+      setTimeout(() => {
+        if (notification.link.startsWith("/")) {
+          navigate(notification.link);
+        } else if (notification.link.startsWith("http")) {
+          window.open(notification.link, "_blank");
+        }
+      }, 100);
     }
   };
 
