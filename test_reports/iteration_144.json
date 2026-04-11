@@ -1,0 +1,91 @@
+{
+  "summary": "Iteration 144: Unified Sharing Logic for Social Accounts - All backend tests passed (13/13, 1 skipped due to pre-existing bug). Frontend verified working. The GET /api/account-sharing/my-accounts endpoint now correctly includes accounts from memberships with social roles (social_viewer, social_contributor, editor, viewer, contributor). Role restrictions relaxed: ops role can now share accounts, invite collaborators, and share company.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/company-sharing/members",
+        "issue": "Returns 500 Internal Server Error - KeyError: 'membership_id' (pre-existing bug from iteration 143)",
+        "priority": "LOW",
+        "note": "Not related to current changes"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_unified_sharing_logic.py",
+    "/app/test_reports/pytest/pytest_unified_sharing_logic.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "account_sharing.py correctly implements 4-step account retrieval: 1) owned by company_id, 2) account_memberships for user+team, 3) memberships with social roles (social_viewer, social_contributor, editor, viewer, contributor), 4) memberships with permissions.social_media.enabled",
+    "Role mapping correctly converts social_contributor/editor -> contributor, social_viewer -> viewer",
+    "Deduplication using seen_ids set prevents duplicate accounts",
+    "ops role correctly added to allowed roles in share_account_with_user (line 239), invite_social_collaborator (line 127), and invite_company_collaborator (line 61)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_unified_sharing_logic.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 passed, 1 skipped - pre-existing bug)",
+    "frontend": "100% (Social Media page loads, account selector works, My Accounts section visible)"
+  },
+  "test_credentials": {
+    "admin": "demo.agency@kora.com / Evoque2024!"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Unified sharing logic verified. The /api/account-sharing/my-accounts endpoint now has 4 steps: 1) owned by company_id, 2) account_memberships for user+team, 3) memberships with social roles pointing to other companies, 4) memberships with permissions.social_media.enabled. Role mapping: social_contributor/editor -> contributor, social_viewer -> viewer. ops role can now share accounts, invite collaborators, and share company. Pre-existing bug: /api/company-sharing/members returns 500.",
+  "features_verified": {
+    "my_accounts_endpoint": {
+      "returns_owned_accounts": "PASS - Accounts with _access_type='owned' and _role='owner'",
+      "returns_company_shared_accounts": "PASS - Accounts with _access_type='company_shared' from cross-org memberships",
+      "role_mapping": "PASS - social_contributor/editor -> contributor, social_viewer -> viewer",
+      "no_duplicates": "PASS - Deduplication by account_id working correctly",
+      "all_required_fields": "PASS - All accounts have account_id, _access_type, _role"
+    },
+    "ops_role_permissions": {
+      "account_sharing_share": "PASS - POST /api/account-sharing/share accepts ops role (no 403)",
+      "social_sharing_invite": "PASS - POST /api/social-sharing/collaborators/invite accepts ops role (no 403)",
+      "company_sharing_invite": "PASS - POST /api/company-sharing/invite accepts ops role (no 403)"
+    },
+    "social_sharing_endpoints": {
+      "available_orgs": "PASS - Returns own org with role='owner' and shared orgs with social roles",
+      "collaborators": "PASS - Lists collaborators with role and source fields"
+    },
+    "company_sharing_endpoints": {
+      "check_permission": "PASS - Returns has_access, role, is_own fields"
+    },
+    "frontend_integration": {
+      "social_media_page_loads": "PASS - Page loads at /demand-studio/social-media",
+      "account_selector_present": "PASS - Account selector with data-testid='account-selector' found",
+      "my_accounts_section": "PASS - 'My Accounts' section visible in dropdown"
+    }
+  },
+  "api_endpoints_tested": [
+    "GET /api/account-sharing/my-accounts - Returns owned, shared, and company_shared accounts with proper role mapping",
+    "POST /api/account-sharing/share - Accepts ops role (previously only owner/admin/manager)",
+    "POST /api/social-sharing/collaborators/invite - Accepts ops role",
+    "POST /api/company-sharing/invite - Accepts ops role",
+    "GET /api/social-sharing/available-orgs - Returns own and shared organizations",
+    "GET /api/social-sharing/collaborators - Lists all collaborators",
+    "GET /api/company-sharing/check-permission - Checks section permission"
+  ],
+  "code_changes_verified": {
+    "account_sharing.py": {
+      "get_my_accessible_accounts": "Step 4 now queries memberships with social roles (social_viewer, social_contributor, editor, viewer, contributor) for cross-org access",
+      "share_account_with_user": "Line ~239 now allows ops role in addition to owner/admin/manager"
+    },
+    "social_sharing.py": {
+      "invite_social_collaborator": "Line ~127 now allows ops role"
+    },
+    "company_sharing.py": {
+      "invite_company_collaborator": "Line ~61 now allows ops role"
+    }
+  }
+}

@@ -58,7 +58,7 @@ async def invite_company_collaborator(
         raise HTTPException(status_code=400, detail="No organization found")
     
     # Check permissions
-    if user.role not in ["owner", "admin"]:
+    if user.role not in ["owner", "admin", "ops"]:
         raise HTTPException(status_code=403, detail="Only owners/admins can share the company")
     
     # Get company info

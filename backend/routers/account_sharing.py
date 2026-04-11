@@ -145,19 +145,46 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
             accounts.append(acc)
             seen_ids.add(acc["account_id"])
     
-    # 4. Get accounts from companies shared via company_sharing (social_media permission)
+    # 4. Get accounts from companies shared via company_sharing OR social_sharing memberships
     if company_id:
-        # Find memberships where this user's org members have access to other companies
+        # 4a. company_sharing: memberships with permissions.social_media.enabled
         company_memberships = await db.memberships.find({
             "user_id": {"$in": org_user_ids if company_id else [user.user_id]},
             "status": "active",
             "permissions.social_media.enabled": True
         }).to_list(100)
         
-        shared_company_ids = list(set(
-            m["company_id"] for m in company_memberships 
-            if m.get("company_id") and m["company_id"] != company_id
-        ))
+        # 4b. social_sharing: memberships with social roles (social_viewer, social_contributor, editor, viewer, contributor)
+        social_role_memberships = await db.memberships.find({
+            "user_id": {"$in": org_user_ids if company_id else [user.user_id]},
+            "status": "active",
+            "role": {"$in": ["social_viewer", "social_contributor", "viewer", "contributor", "editor"]},
+            "company_id": {"$ne": company_id}
+        }).to_list(100)
+        
+        # Combine both sources
+        all_cross_memberships = company_memberships + social_role_memberships
+        
+        # Deduplicate by company_id, picking best role
+        role_priority = {"editor": 3, "social_contributor": 3, "contributor": 2, "social_viewer": 1, "viewer": 1}
+        best_by_company = {}
+        for m in all_cross_memberships:
+            cid = m.get("company_id")
+            if not cid or cid == company_id:
+                continue
+            # Determine role from social_media permission or membership role
+            sm_perm = m.get("permissions", {}).get("social_media", {})
+            role = sm_perm.get("role") if sm_perm.get("enabled") else m.get("role", "viewer")
+            # Map social roles to simpler ones
+            if role in ("social_contributor", "editor"):
+                role = "contributor"
+            elif role in ("social_viewer",):
+                role = "viewer"
+            priority = role_priority.get(role, 0)
+            if cid not in best_by_company or priority > best_by_company[cid][1]:
+                best_by_company[cid] = (role, priority)
+        
+        shared_company_ids = list(best_by_company.keys())
         
         if shared_company_ids:
             company_accounts = await db.social_accounts.find(
@@ -165,26 +192,19 @@ async def get_my_accessible_accounts(user: User = Depends(get_current_user)):
                 {"_id": 0}
             ).to_list(100)
             
-            # Get company names
             ext_companies = await db.companies.find(
                 {"company_id": {"$in": shared_company_ids}},
                 {"_id": 0, "company_id": 1, "name": 1}
             ).to_list(100)
             ext_company_map = {c["company_id"]: c["name"] for c in ext_companies}
             
-            # Find the best role from memberships
-            role_map = {}
-            for m in company_memberships:
-                cid = m["company_id"]
-                sm_perm = m.get("permissions", {}).get("social_media", {})
-                role_map[cid] = sm_perm.get("role", "viewer")
-            
             for acc in company_accounts:
                 if acc["account_id"] in seen_ids:
                     continue
+                acc_cid = acc.get("company_id")
                 acc["_access_type"] = "company_shared"
-                acc["_role"] = role_map.get(acc.get("company_id"), "viewer")
-                acc["_shared_by"] = ext_company_map.get(acc.get("company_id"), "Unknown")
+                acc["_role"] = best_by_company.get(acc_cid, ("viewer", 0))[0]
+                acc["_shared_by"] = ext_company_map.get(acc_cid, "Unknown")
                 accounts.append(acc)
                 seen_ids.add(acc["account_id"])
     
@@ -216,7 +236,7 @@ async def share_account_with_user(
         raise HTTPException(status_code=404, detail="Account not found or not owned by you")
     
     # Check permissions
-    if user.role not in ["owner", "admin", "manager"]:
+    if user.role not in ["owner", "admin", "manager", "ops"]:
         raise HTTPException(status_code=403, detail="Only admins can share accounts")
     
     # Find user to share with

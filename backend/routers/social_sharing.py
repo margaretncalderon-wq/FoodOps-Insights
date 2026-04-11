@@ -124,7 +124,7 @@ async def invite_social_collaborator(
         raise HTTPException(status_code=400, detail="No organization found")
     
     # Check permissions (only admin/owner can invite)
-    if user.role not in ["owner", "admin", "manager"]:
+    if user.role not in ["owner", "admin", "manager", "ops"]:
         raise HTTPException(status_code=403, detail="Only admins can invite collaborators")
     
     # Find the user to invite
