@@ -325,7 +325,7 @@ export default function SocialMediaPage() {
       const account = accessibleAccounts.find(a => a.account_id === accountId);
       setSelectedAccountId(accountId);
       setSelectedAccount(account);
-      setIsViewingShared(account?._access_type === "shared");
+      setIsViewingShared(account?._access_type === "shared" || account?._access_type === "company_shared");
       setLoading(true);
       fetchData(isOwnOrg ? null : selectedOrgId, accountId);
     }
@@ -1125,7 +1125,7 @@ export default function SocialMediaPage() {
 
   // Separate owned and shared accounts
   const ownedAccounts = accessibleAccounts.filter(a => a._access_type === "owned");
-  const sharedAccounts = accessibleAccounts.filter(a => a._access_type === "shared");
+  const sharedAccounts = accessibleAccounts.filter(a => a._access_type === "shared" || a._access_type === "company_shared");
 
   return (
     <div className="space-y-6" data-testid="social-media-page">
@@ -1145,7 +1145,7 @@ export default function SocialMediaPage() {
                   <div className="flex items-center gap-2">
                     {getPlatformIcon(selectedAccount.platform)}
                     <span>@{selectedAccount.handle}</span>
-                    {selectedAccount._access_type === "shared" && (
+                    {(selectedAccount._access_type === "shared" || selectedAccount._access_type === "company_shared") && (
                       <Badge variant="secondary" className="text-[10px] ml-1">
                         {isEs ? "Compartida" : "Shared"}
                       </Badge>
