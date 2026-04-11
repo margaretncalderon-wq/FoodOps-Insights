@@ -3,33 +3,35 @@
 ## Original Problem Statement
 Build a comprehensive ERP application called Kora OS with modules for People Ops, Business Clarity, Recruitment, Settings, Super Admin, Demand Studio, CRM/Client Engagement, Partners.
 
-## What's Been Implemented
+## What's Been Implemented (Latest Session - April 10, 2026)
 
-### Session: April 10, 2026 — Latest
-1. **Social Account Org-Level Visibility** — Fixed account sharing so team members can see accounts shared with any member of their org + accounts from companies shared via company_sharing with social_media permission. (iteration_143)
-2. **Map: Leads vs Clients** — Blue/green markers, click for city detail list. (iteration_142)
-3. **Follow-up Completion Dialog** — Notes + next follow-up scheduling. (iteration_142)
-4. **CRM Dynamic Lists** — Segmentation for email marketing. (iteration_141)
-5. **Locale Settings** — Multi-currency, timezone, language. (iteration_141)
-6. **i18n Completions** — ES translations. (iteration_141)
-7. **Interactive Leaflet Map** — OpenStreetMap in Dashboard. (iteration_140)
-8. **Notifications, Sources, Dashboard, Pipeline** — (iterations 138-139)
+### Sharing Unification
+- **Unified social account visibility** — `my-accounts` endpoint now reads 4 sources: owned, account_memberships, social role memberships (social_viewer/contributor/editor), and company_sharing permissions. (iteration_144)
+- **ops role can share** — Previously only owner/admin/manager. Now ops can share accounts, invite collaborators, and share company. (iteration_144)
+
+### CRM & Dashboard
+- Map: Leads (blue) vs Clients (green) with city detail dialog (iteration_142)
+- Follow-up completion dialog with notes + next scheduling (iteration_142)
+- Dynamic Lists for email segmentation (iteration_141)
+- Locale Settings: multi-currency, timezone (iteration_141)
+- i18n ES completions (iteration_141)
+- Interactive Leaflet Map (iteration_140)
+- Notifications, Sources, Dashboard, Pipeline (iterations 138-139)
+- Tags, Service Areas, Map, City Filter (Sprint 1)
+- Lead Conversion, Sources, CSV Import (April 9)
 
 ## Backlog
-
 ### P1
 - Logo upload via Object Storage
-- Unified Contact Model
-- Unify Comms components
-- Email sending integration (needs API key)
-
-### P1 — Technical Debt
-- Refactor SocialMediaPage.js (~3700 lines)
-- Extract import/export from server.py
+- Unified Contact Model (merge Lead+Client)
+- Unify Comms components (5 → 1-2)
+- Email sending integration (Resend/Brevo — needs API key)
 - Fix company-sharing/members KeyError bug
 
 ### P2
-- Staffdo.com, Meta, TikTok APIs, UTM tracking
+- Refactor SocialMediaPage.js (~3700 lines)
+- Staffdo.com, Meta, TikTok APIs
+- UTM tracking
 
 ### P3
 - WhatsApp Business API, additional languages
