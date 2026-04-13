@@ -3,22 +3,23 @@
 ## Original Problem Statement
 Build a comprehensive ERP application called Kora OS with modules for People Ops, Business Clarity, Recruitment, Settings, Super Admin, Demand Studio, CRM/Client Engagement, Partners.
 
-## What's Been Implemented (Latest Session - April 10-11, 2026)
+## What's Been Implemented (Latest Session)
 
-### Sharing Fix (CRITICAL)
-- **Frontend bug fixed**: `SocialMediaPage.js` dropdown only filtered `_access_type === "shared"` but cross-org accounts have `_access_type === "company_shared"`. Now includes both. (iteration_144+)
-- **Backend unified**: `my-accounts` reads 4 sources: owned, account_memberships, social role memberships, company_sharing permissions.
-- **ops role can share**: Relaxed permissions across all 3 sharing routers.
-- **Verified end-to-end**: Pame (Margaret's assistant) now sees staffdo + cianogourmet in account selector dropdown.
+### Execution Hub Security Fix (CRITICAL)
+- **Per-goal visibility**: private (owner + invited) / team (owner + assignees) / org (everyone in org). Default: org. (iteration_145)
+- **Cross-org leak fixed**: Removed blanket membership access. Cross-org only via explicit sharing (shared_entities + execution_access).
+- **UI**: Visibility selector in create dialog (3 options with icons + explanatory text). Badges on goal cards (Private=red lock, Team=blue users).
+
+### Sharing Fixes
+- Unified social account visibility (4 sources). (iteration_144)
+- Frontend `company_shared` filter fix. (iteration_144+)
+- ops role can share. (iteration_144)
 
 ### CRM & Dashboard
-- Map: Leads (blue) vs Clients (green) with city detail dialog
-- Follow-up completion dialog with notes + next scheduling
-- Dynamic Lists for email segmentation
-- Locale Settings: multi-currency, timezone
-- i18n ES completions
-- Interactive Leaflet Map
-- Notifications, Sources, Dashboard, Pipeline, Tags, Service Areas
+- Map: Leads vs Clients with city detail. Follow-up completion dialog. Dynamic Lists. Locale Settings. i18n. Interactive Leaflet Map. Notifications, Sources, Dashboard, Pipeline, Tags, Service Areas.
+
+### Notification Bug
+- Fixed invalid links causing logout on click. (iteration_145-)
 
 ## Backlog
 ### P1
