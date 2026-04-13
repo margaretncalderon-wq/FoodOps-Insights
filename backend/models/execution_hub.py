@@ -169,6 +169,7 @@ class ExecutionGoalCreate(BaseModel):
     impact_areas: List[ImpactArea] = []
     start_date: Optional[datetime] = None
     target_date: Optional[datetime] = None
+    visibility: Optional[str] = "org"  # "private" | "team" | "org"
 
 
 class ExecutionGoalUpdate(BaseModel):
@@ -180,6 +181,7 @@ class ExecutionGoalUpdate(BaseModel):
     impact_areas: Optional[List[ImpactArea]] = None
     start_date: Optional[datetime] = None
     target_date: Optional[datetime] = None
+    visibility: Optional[str] = None  # "private" | "team" | "org"
 
 
 class ExecutionGoal(BaseModel):

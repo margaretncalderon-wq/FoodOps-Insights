@@ -114,40 +114,50 @@ async def check_goal_access(goal_id: str, user: User, min_role: AccessRole = Acc
     if goal.get("owner_id") == user.user_id:
         return goal
     
-    # Check company membership (direct or via memberships collection)
+    visibility = goal.get("visibility", "org")
+    
+    # Same company checks (respecting visibility)
     if goal.get("company_id") == user.company_id:
-        return goal
+        if visibility == "org" or visibility is None:
+            return goal
+        if visibility == "team":
+            # Check if user is assigned to any task in this goal
+            task = await db.execution_tasks.find_one({
+                "goal_id": goal_id,
+                "assignees.user_id": user.user_id
+            })
+            if task:
+                return goal
+        # visibility == "private" — fall through to explicit access check
     
-    # Check memberships for shared orgs
-    memberships = await db.memberships.find({
-        "user_id": user.user_id,
-        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-    }).to_list(20)
-    member_company_ids = [m.get("company_id") or m.get("organization_id") for m in memberships]
-    if goal.get("company_id") in member_company_ids:
-        return goal
-    
-    # Check explicit access for external collaborators
+    # Check explicit individual access (execution_access)
     access = await db.execution_access.find_one({
         "goal_id": goal_id,
         "user_id": user.user_id
     })
+    if access:
+        role_hierarchy = {
+            AccessRole.VIEWER: 0,
+            AccessRole.COLLABORATOR: 1,
+            AccessRole.TEAM_MEMBER: 2,
+            AccessRole.OWNER: 3
+        }
+        if role_hierarchy.get(access.get("role"), 0) < role_hierarchy.get(min_role, 0):
+            raise HTTPException(status_code=403, detail="No tienes permisos suficientes")
+        return goal
     
-    if not access:
-        raise HTTPException(status_code=403, detail="No tienes acceso a esta meta")
+    # Check cross-org sharing (shared_entities)
+    if user.company_id:
+        shared = await db.shared_entities.find_one({
+            "entity_id": goal_id,
+            "entity_type": "project",
+            "target_org_id": user.company_id,
+            "status": "active"
+        })
+        if shared:
+            return goal
     
-    # Check minimum role
-    role_hierarchy = {
-        AccessRole.VIEWER: 0,
-        AccessRole.COLLABORATOR: 1,
-        AccessRole.TEAM_MEMBER: 2,
-        AccessRole.OWNER: 3
-    }
-    
-    if role_hierarchy.get(access.get("role"), 0) < role_hierarchy.get(min_role, 0):
-        raise HTTPException(status_code=403, detail="No tienes permisos suficientes")
-    
-    return goal
+    raise HTTPException(status_code=403, detail="No tienes acceso a esta meta")
 
 
 async def send_execution_notification(email: str, subject: str, body: str):
@@ -189,65 +199,89 @@ async def get_execution_goals(
     context_type: Optional[str] = None,
     scope: Optional[str] = None  # "owned" | "shared" | None (both)
 ):
-    """Get execution goals with optional scope filter for collaboration"""
+    """Get execution goals filtered by visibility permissions"""
     goals = []
-    
-    # Get all visible company IDs (own + memberships)
-    visible_company_ids = set()
-    if user.company_id:
-        visible_company_ids.add(user.company_id)
-    
-    memberships = await db.memberships.find({
-        "user_id": user.user_id,
-        "$or": [{"status": "active"}, {"status": {"$exists": False}}]
-    }).to_list(20)
-    for m in memberships:
-        mid = m.get("company_id") or m.get("organization_id")
-        if mid:
-            visible_company_ids.add(mid)
+    seen_ids = set()
     
     # Get owned goals (unless scope is "shared" only)
     if scope != "shared":
-        query = {
-            "$or": [
-                {"company_id": {"$in": list(visible_company_ids)}},
-                {"owner_id": user.user_id}
-            ]
-        }
+        # 1. Goals owned by user (always visible regardless of visibility)
+        owner_query = {"owner_id": user.user_id}
         if status:
-            query["status"] = status
+            owner_query["status"] = status
         if context_type:
-            query["context_type"] = context_type
+            owner_query["context_type"] = context_type
         
-        owned_goals = await db.execution_goals.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-        
-        # Mark as owned
+        owned_goals = await db.execution_goals.find(owner_query, {"_id": 0}).sort("created_at", -1).to_list(500)
         for g in owned_goals:
             g["_access_type"] = "owned"
-        goals.extend(owned_goals)
+            goals.append(g)
+            seen_ids.add(g["goal_id"])
         
-        # Also get goals where user has explicit access (individual sharing)
+        # 2. Goals in user's org with visibility=org (everyone in org sees these)
+        if user.company_id:
+            org_query = {
+                "company_id": user.company_id,
+                "goal_id": {"$nin": list(seen_ids)},
+                "$or": [
+                    {"visibility": "org"},
+                    {"visibility": {"$exists": False}},  # Backwards compat: no visibility = org
+                ]
+            }
+            if status:
+                org_query["status"] = status
+            if context_type:
+                org_query["context_type"] = context_type
+            
+            org_goals = await db.execution_goals.find(org_query, {"_id": 0}).sort("created_at", -1).to_list(500)
+            for g in org_goals:
+                g["_access_type"] = "owned"
+                goals.append(g)
+                seen_ids.add(g["goal_id"])
+        
+        # 3. Goals with visibility=team where user is assigned to a task
+        if user.company_id:
+            # Find tasks assigned to this user
+            assigned_tasks = await db.execution_tasks.find(
+                {"assignees.user_id": user.user_id},
+                {"_id": 0, "goal_id": 1}
+            ).to_list(200)
+            assigned_goal_ids = list(set(t["goal_id"] for t in assigned_tasks) - seen_ids)
+            
+            if assigned_goal_ids:
+                team_query = {
+                    "goal_id": {"$in": assigned_goal_ids},
+                    "visibility": "team",
+                    "company_id": user.company_id
+                }
+                if status:
+                    team_query["status"] = status
+                
+                team_goals = await db.execution_goals.find(team_query, {"_id": 0}).to_list(200)
+                for g in team_goals:
+                    g["_access_type"] = "owned"
+                    goals.append(g)
+                    seen_ids.add(g["goal_id"])
+        
+        # 4. Goals where user has explicit individual access (execution_access)
         shared_access = await db.execution_access.find(
             {"user_id": user.user_id},
             {"_id": 0, "goal_id": 1}
         ).to_list(100)
         
-        shared_goal_ids = [a["goal_id"] for a in shared_access]
-        if shared_goal_ids:
-            shared_goals = await db.execution_goals.find(
-                {"goal_id": {"$in": shared_goal_ids}},
+        explicit_goal_ids = [a["goal_id"] for a in shared_access if a["goal_id"] not in seen_ids]
+        if explicit_goal_ids:
+            explicit_goals = await db.execution_goals.find(
+                {"goal_id": {"$in": explicit_goal_ids}},
                 {"_id": 0}
             ).to_list(100)
-            
-            existing_ids = {g["goal_id"] for g in goals}
-            for sg in shared_goals:
-                if sg["goal_id"] not in existing_ids:
-                    sg["_access_type"] = "owned"  # Individual access = treat as owned
-                    goals.append(sg)
+            for sg in explicit_goals:
+                sg["_access_type"] = "owned"
+                goals.append(sg)
+                seen_ids.add(sg["goal_id"])
     
-    # Get cross-org shared goals (unless scope is "owned" only)
+    # 5. Cross-org shared goals (via shared_entities - explicit sharing only)
     if scope != "owned" and user.company_id:
-        # Find shared entities for this org
         shared_entities = await db.shared_entities.find({
             "target_org_id": user.company_id,
             "entity_type": "project",
@@ -255,17 +289,16 @@ async def get_execution_goals(
         }, {"_id": 0, "entity_id": 1, "source_org_name": 1, "permission_level": 1, "scope": 1}).to_list(100)
         
         if shared_entities:
-            shared_goal_ids = [s["entity_id"] for s in shared_entities]
+            shared_goal_ids = [s["entity_id"] for s in shared_entities if s["entity_id"] not in seen_ids]
             shared_info = {s["entity_id"]: s for s in shared_entities}
             
-            shared_goals = await db.execution_goals.find(
-                {"goal_id": {"$in": shared_goal_ids}},
-                {"_id": 0}
-            ).to_list(100)
-            
-            existing_ids = {g["goal_id"] for g in goals}
-            for sg in shared_goals:
-                if sg["goal_id"] not in existing_ids:
+            if shared_goal_ids:
+                shared_goals = await db.execution_goals.find(
+                    {"goal_id": {"$in": shared_goal_ids}},
+                    {"_id": 0}
+                ).to_list(100)
+                
+                for sg in shared_goals:
                     info = shared_info.get(sg["goal_id"], {})
                     sg["_access_type"] = "shared"
                     sg["_shared_from"] = info.get("source_org_name", "Unknown")
@@ -315,6 +348,7 @@ async def create_execution_goal(
         "owner_id": user.user_id,
         "owner_name": user.name or user.email,
         "status": ExecutionStatus.PLANNING.value,
+        "visibility": data.visibility or "org",
         "context_type": data.context_type.value,
         "context_id": data.context_id,
         "context_name": context_name,
@@ -1365,6 +1399,7 @@ async def create_goal_from_event(
         "owner_id": user.user_id,
         "owner_name": user.name or user.email,
         "status": ExecutionStatus.PLANNING.value,
+        "visibility": data.get("visibility", "org"),
         "context_type": "event",
         "context_id": event_id,
         "context_name": event["name"],

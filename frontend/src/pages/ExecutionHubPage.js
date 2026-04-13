@@ -42,6 +42,9 @@ import {
   Pause,
   Archive,
   CircleDot,
+  Lock,
+  Globe,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -108,6 +111,7 @@ export default function ExecutionHubPage() {
     context_type: "organizational",
     impact_areas: [],
     target_date: "",
+    visibility: "org",
   });
 
   const fetchData = useCallback(async () => {
@@ -158,6 +162,7 @@ export default function ExecutionHubPage() {
         context_type: "organizational",
         impact_areas: [],
         target_date: "",
+        visibility: "org",
       });
       fetchData();
     } catch (error) {
@@ -393,6 +398,18 @@ export default function ExecutionHubPage() {
                               {goal._shared_from || (language === "es" ? "Compartido" : "Shared")}
                             </Badge>
                           )}
+                          {goal.visibility === "private" && (
+                            <Badge variant="outline" className="text-xs bg-red-500/10 text-red-400 border-red-500/20">
+                              <Lock className="w-3 h-3 mr-1" />
+                              {language === "es" ? "Privado" : "Private"}
+                            </Badge>
+                          )}
+                          {goal.visibility === "team" && (
+                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/20">
+                              <Users className="w-3 h-3 mr-1" />
+                              {language === "es" ? "Equipo" : "Team"}
+                            </Badge>
+                          )}
                           {goal.context_type && (
                             <span className="text-xs text-muted-foreground">
                               {t(contextConfig[goal.context_type]?.labelKey)}
@@ -547,6 +564,47 @@ export default function ExecutionHubPage() {
                   onChange={(e) => setNewGoal({ ...newGoal, target_date: e.target.value })}
                   data-testid="goal-target-date"
                 />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  {language === "es" ? "Visibilidad" : "Visibility"}
+                </label>
+                <Select
+                  value={newGoal.visibility}
+                  onValueChange={(v) => setNewGoal({ ...newGoal, visibility: v })}
+                >
+                  <SelectTrigger data-testid="goal-visibility-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="org">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-3.5 h-3.5" />
+                        {language === "es" ? "Toda la organización" : "Entire organization"}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="team">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5" />
+                        {language === "es" ? "Solo mi equipo (asignados)" : "Team only (assignees)"}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="private">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5" />
+                        {language === "es" ? "Privado (solo yo + invitados)" : "Private (only me + invited)"}
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {newGoal.visibility === "private" 
+                    ? (language === "es" ? "Solo tú y personas con acceso explícito podrán ver esta meta" : "Only you and explicitly shared people can see this goal")
+                    : newGoal.visibility === "team"
+                    ? (language === "es" ? "Solo tú y los asignados a tareas podrán ver esta meta" : "Only you and task assignees can see this goal")
+                    : (language === "es" ? "Todos en tu organización pueden ver esta meta" : "Everyone in your organization can see this goal")}
+                </p>
               </div>
             </div>
             
