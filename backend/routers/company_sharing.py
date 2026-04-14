@@ -180,7 +180,7 @@ async def get_company_members(user: User = Depends(get_current_user)):
     for m in memberships:
         u = users_map.get(m["user_id"], {})
         members.append({
-            "membership_id": m["membership_id"],
+            "membership_id": m.get("membership_id", f"mem_{m.get('user_id','unknown')}"),
             "user_id": m["user_id"],
             "email": u.get("email"),
             "name": f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or u.get("email"),

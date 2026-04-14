@@ -155,11 +155,17 @@ async def list_companies(
     
     # Enrich with contacts count
     for company in companies:
+        ce_id = company.get("company_entity_id") or company.get("entity_id")
+        if not ce_id:
+            continue
         contacts_count = await db.contacts.count_documents({
             "organization_id": org_id,
-            "company_entity_id": company["company_entity_id"]
+            "company_entity_id": ce_id
         })
         company["contacts_count"] = contacts_count
+        # Normalize field name for frontend
+        if "company_entity_id" not in company and "entity_id" in company:
+            company["company_entity_id"] = company["entity_id"]
     
     return companies
 
@@ -221,17 +227,25 @@ async def get_company(company_entity_id: str, user: User = Depends(get_current_u
     org_id = user.company_id or user.active_org_id
     
     company = await db.company_entities.find_one({
-        "company_entity_id": company_entity_id,
-        "organization_id": org_id
+        "$or": [
+            {"company_entity_id": company_entity_id, "organization_id": org_id},
+            {"entity_id": company_entity_id, "organization_id": org_id},
+        ]
     }, {"_id": 0})
     
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
+    ce_id = company.get("company_entity_id") or company.get("entity_id")
+    
+    # Normalize field
+    if "company_entity_id" not in company:
+        company["company_entity_id"] = ce_id
+    
     # Get contacts
     contacts = await db.contacts.find({
         "organization_id": org_id,
-        "company_entity_id": company_entity_id
+        "company_entity_id": ce_id
     }, {"_id": 0}).sort("is_primary", -1).to_list(100)
     
     company["contacts"] = contacts
@@ -239,7 +253,7 @@ async def get_company(company_entity_id: str, user: User = Depends(get_current_u
     # Get associated leads
     leads = await db.leads.find({
         "company_id": org_id,
-        "company_entity_id": company_entity_id
+        "company_entity_id": ce_id
     }, {"_id": 0, "lead_id": 1, "lead_name": 1, "status": 1, "created_at": 1}).to_list(50)
     
     company["leads"] = leads

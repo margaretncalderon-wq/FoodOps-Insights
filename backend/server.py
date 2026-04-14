@@ -11369,6 +11369,27 @@ async def startup_init_plans():
     # Create database indexes for performance
     from config import create_indexes
     await create_indexes()
+    # Migrate company_entities: normalize id fields
+    await _migrate_company_entity_ids()
+
+
+async def _migrate_company_entity_ids():
+    """One-time migration: ensure all company_entities have company_entity_id field"""
+    try:
+        # Fix records with 'entity_id' but no 'company_entity_id'
+        r1 = await db.company_entities.update_many(
+            {"company_entity_id": {"$exists": False}, "entity_id": {"$exists": True}},
+            [{"$set": {"company_entity_id": "$entity_id"}}]
+        )
+        # Fix records with 'id' but no 'company_entity_id'
+        r2 = await db.company_entities.update_many(
+            {"company_entity_id": {"$exists": False}, "id": {"$exists": True}},
+            [{"$set": {"company_entity_id": "$id", "organization_id": {"$ifNull": ["$organization_id", "$company_id"]}}}]
+        )
+        if r1.modified_count or r2.modified_count:
+            print(f"[Migration] Fixed company_entity_ids: {r1.modified_count + r2.modified_count} records")
+    except Exception as e:
+        print(f"[Migration] company_entity_id migration skipped: {e}")
 
 # ---- Plans Endpoints ----
 
@@ -15737,6 +15758,7 @@ async def import_leads(
                     })
                     if not existing_company:
                         await db.company_entities.insert_one({
+                            "company_entity_id": f"ent_{uuid.uuid4().hex[:12]}",
                             "entity_id": f"ent_{uuid.uuid4().hex[:12]}",
                             "organization_id": user.company_id,
                             "name": company.strip(),

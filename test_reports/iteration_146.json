@@ -1,0 +1,91 @@
+{
+  "summary": "Iteration 146: Companies Bug Fix - All backend tests passed (11/11). Frontend verified working. The GET /api/companies endpoint no longer crashes with KeyError: 'company_entity_id'. Companies page shows 17 companies with proper status badges, contacts count, and expandable rows. Company sharing endpoint /api/company-sharing/members also fixed (no KeyError on membership_id).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_companies_bug_fix.py",
+    "/app/test_reports/pytest/pytest_companies_bug_fix.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "companies.py list_companies (line ~158) correctly handles missing company_entity_id by using: ce_id = company.get('company_entity_id') or company.get('entity_id')",
+    "companies.py get_company (line ~229) queries by both company_entity_id and entity_id using $or operator",
+    "companies.py normalizes field name for frontend (line ~167): if 'company_entity_id' not in company and 'entity_id' in company: company['company_entity_id'] = company['entity_id']",
+    "company_sharing.py get_company_members (line ~182) uses .get() for membership_id with fallback: m.get('membership_id', f\"mem_{m.get('user_id','unknown')}\")",
+    "server.py startup migration _migrate_company_entity_ids (line ~11376) auto-fixes records with entity_id or id but no company_entity_id"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_companies_bug_fix.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (Companies page loads, 17 companies displayed, expansion works, contacts section visible)"
+  },
+  "test_credentials": {
+    "admin": "demo.agency@kora.com / Evoque2024!"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Companies bug fix verified. The KeyError: 'company_entity_id' is fixed. The root cause was 3 different ID formats in company_entities collection: company_entity_id (new API), entity_id (CSV import), id (old migration). Fix normalizes all records to have company_entity_id field. Startup migration runs automatically. Company sharing endpoint also fixed for membership_id KeyError.",
+  "features_verified": {
+    "backend_companies_endpoints": {
+      "list_companies_returns_200": "PASS - GET /api/companies returns 200 (not 500 KeyError)",
+      "list_companies_has_company_entity_id": "PASS - All companies have company_entity_id field (normalized)",
+      "list_companies_has_contacts_count": "PASS - All companies have contacts_count field",
+      "get_company_detail_returns_200": "PASS - GET /api/companies/{id} returns 200 with contacts and leads arrays",
+      "get_company_by_entity_id_format": "PASS - Companies with old 'entity_id' format are accessible",
+      "search_companies": "PASS - Search filter works",
+      "status_filter": "PASS - Status filter works (Lead, Active, etc.)"
+    },
+    "backend_company_sharing_endpoints": {
+      "get_company_members_returns_200": "PASS - GET /api/company-sharing/members returns 200 (not 500 KeyError on membership_id)",
+      "check_permission_endpoint": "PASS - GET /api/company-sharing/check-permission returns has_access, role, is_own"
+    },
+    "backend_company_industries": {
+      "list_industries": "PASS - GET /api/companies/industries returns predefined and custom industries"
+    },
+    "backend_company_contacts": {
+      "list_company_contacts": "PASS - GET /api/companies/{id}/contacts returns contacts list"
+    },
+    "frontend_companies_page": {
+      "page_loads": "PASS - Companies page loads at /client-engagement/crm/companies",
+      "companies_section_present": "PASS - data-testid='companies-section' found",
+      "companies_displayed": "PASS - 17 companies displayed in list",
+      "stats_cards": "PASS - Shows 17 Total Companies, 0 Active/Clients, 10 Leads, 0 Total Contacts",
+      "new_company_button": "PASS - data-testid='new-company-btn' found",
+      "company_expansion": "PASS - Clicking company expands to show Contacts section",
+      "status_badges": "PASS - Shows active, Lead, Contactado badges",
+      "no_errors": "PASS - No error messages on page"
+    }
+  },
+  "api_endpoints_tested": [
+    "GET /api/companies - Returns list of companies with company_entity_id normalized",
+    "GET /api/companies/{id} - Returns company detail with contacts and leads arrays",
+    "GET /api/companies?search=test - Search filter works",
+    "GET /api/companies?status=Lead - Status filter works",
+    "GET /api/companies/{id}/contacts - Returns contacts for a company",
+    "GET /api/companies/industries - Returns predefined and custom industries",
+    "GET /api/company-sharing/members - Returns members and pending invitations",
+    "GET /api/company-sharing/check-permission - Returns permission check result"
+  ],
+  "bug_fix_verification": {
+    "issue": "Companies page showed empty because GET /api/companies crashed with KeyError: 'company_entity_id'",
+    "root_cause": "company_entities collection had 3 different ID formats: 'company_entity_id' (new API), 'entity_id' (CSV import), 'id' (old migration)",
+    "fix_description": "1) Normalizing all records to have company_entity_id, 2) Making list/get endpoints handle all formats, 3) Adding startup migration, 4) Fixing CSV import to use correct field name",
+    "fix_locations": [
+      "/app/backend/routers/companies.py - list_companies handles missing company_entity_id",
+      "/app/backend/routers/companies.py - get_company queries by both company_entity_id and entity_id",
+      "/app/backend/routers/company_sharing.py - get_company_members uses .get() for membership_id",
+      "/app/backend/server.py - startup migration _migrate_company_entity_ids"
+    ],
+    "verification_status": "VERIFIED - Backend tests pass (11/11), frontend shows 17 companies, no 500 error"
+  }
+}
