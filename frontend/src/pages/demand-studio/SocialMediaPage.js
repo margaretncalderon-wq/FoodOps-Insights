@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { 
-  Plus, Calendar, List, BarChart3, Hash, Instagram, 
+  Plus, Calendar, List, BarChart3, Hash, Instagram, Layers,
   Loader2, Play, Copy, Archive, Check, Settings, Edit,
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
@@ -138,6 +138,18 @@ export default function SocialMediaPage() {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarPosts, setCalendarPosts] = useState([]);
   const [calendarPillarStats, setCalendarPillarStats] = useState(null);
+  
+  // Format colors & Story Series
+  const [formatColors, setFormatColors] = useState({
+    post: "#22c55e", reel: "#a855f7", story: "#eab308", carousel: "#3b82f6", live: "#ef4444"
+  });
+  const [seriesDialogOpen, setSeriesDialogOpen] = useState(false);
+  const [seriesForm, setSeriesForm] = useState({
+    social_account_id: "", campaign_id: "", series_name: "Story",
+    count: 5, format: "story", status: "idea", scheduled_at: "", items: []
+  });
+  const [storyTemplates, setStoryTemplates] = useState([]);
+  const [seriesSaving, setSeriesSaving] = useState(false);
   
   // Dialogs
   const [postDialogOpen, setPostDialogOpen] = useState(false);
@@ -298,6 +310,8 @@ export default function SocialMediaPage() {
   useEffect(() => {
     fetchAccessibleAccounts();
     fetchAvailableOrgs(); // Keep for backwards compatibility
+    fetchFormatColors();
+    fetchStoryTemplates();
   }, []);
 
   // Refetch data when org changes from parent context
@@ -383,6 +397,22 @@ export default function SocialMediaPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch format colors and story templates
+  const fetchFormatColors = async () => {
+    try {
+      const res = await axios.get(`${API}/api/demand-studio/social/format-colors`, { withCredentials: true });
+      if (res.data && typeof res.data === 'object') setFormatColors(res.data);
+    } catch { /* use defaults */ }
+  };
+
+  const fetchStoryTemplates = async () => {
+    try {
+      const orgParam = selectedOrgId && !isOwnOrg ? `?org_id=${selectedOrgId}` : "";
+      const res = await axios.get(`${API}/api/demand-studio/social/story-templates${orgParam}`, { withCredentials: true });
+      setStoryTemplates(res.data || []);
+    } catch { /* ignore */ }
   };
 
   // Handle org change (legacy, for backwards compatibility)
@@ -540,6 +570,50 @@ export default function SocialMediaPage() {
       console.error("Error deleting post:", error);
       toast.error(isEs ? "Error al eliminar el post" : "Error deleting post");
     }
+  };
+
+  // Story Series creation
+  const handleCreateSeries = async () => {
+    if (!seriesForm.social_account_id) {
+      toast.error(isEs ? "Selecciona una cuenta" : "Select an account");
+      return;
+    }
+    setSeriesSaving(true);
+    try {
+      await axios.post(`${API}/api/demand-studio/social/posts/batch${getOrgParam()}`, seriesForm, { withCredentials: true });
+      toast.success(isEs ? `Serie de ${seriesForm.count} stories creada` : `Series of ${seriesForm.count} stories created`);
+      setSeriesDialogOpen(false);
+      setSeriesForm({ social_account_id: "", campaign_id: "", series_name: "Story", count: 5, format: "story", status: "idea", scheduled_at: "", items: [] });
+      await fetchData(isOwnOrg ? null : selectedOrgId);
+      fetchCalendarPosts();
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Error");
+    } finally {
+      setSeriesSaving(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    const name = prompt(isEs ? "Nombre de la plantilla:" : "Template name:");
+    if (!name) return;
+    try {
+      await axios.post(`${API}/api/demand-studio/social/story-templates`, {
+        name, format: seriesForm.format, count: seriesForm.count,
+        items: seriesForm.items.length > 0 ? seriesForm.items : Array.from({ length: seriesForm.count }, (_, i) => ({ title: `${seriesForm.series_name} ${i + 1}/${seriesForm.count}` }))
+      }, { withCredentials: true });
+      toast.success(isEs ? "Plantilla guardada" : "Template saved");
+      fetchStoryTemplates();
+    } catch { toast.error("Error"); }
+  };
+
+  const applyTemplate = (template) => {
+    setSeriesForm({
+      ...seriesForm,
+      format: template.format || "story",
+      count: template.count || template.items?.length || 5,
+      series_name: template.name,
+      items: template.items || [],
+    });
   };
 
   const handleMarkAsPosted = async (postId) => {
@@ -1304,6 +1378,10 @@ export default function SocialMediaPage() {
               <Plus className="w-4 h-4 mr-2" />
               {isEs ? "Nuevo Post" : "New Post"}
             </Button>
+            <Button variant="outline" onClick={() => { setSeriesForm({ ...seriesForm, social_account_id: accounts[0]?.account_id || "" }); setSeriesDialogOpen(true); }} data-testid="new-series-button">
+              <Layers className="w-4 h-4 mr-2" />
+              {isEs ? "Serie de Stories" : "Story Series"}
+            </Button>
           </div>
         </div>
 
@@ -1829,6 +1907,9 @@ export default function SocialMediaPage() {
                                     const platform = post.account?.platform;
                                     const isPosted = post.status === 'posted';
                                     const formatIcon = post.format === 'reel' ? '🎬' : post.format === 'carousel' ? '📸' : post.format === 'story' ? '⏱' : post.format === 'live' ? '🔴' : '📄';
+                                    const fmtColor = formatColors[post.format] || "#3b82f6";
+                                    const acctColor = post.account?.color || null;
+                                    const seriesLabel = post.series_id ? ` ${post.series_index || ''}/${post.series_count || ''}` : '';
                                     return (
                                       <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
                                         {(dragProvided, dragSnapshot) => (
@@ -1837,15 +1918,20 @@ export default function SocialMediaPage() {
                                             {...dragProvided.draggableProps}
                                             {...dragProvided.dragHandleProps}
                                             className={`text-xs p-1 rounded truncate cursor-grab flex items-center gap-1 ${
-                                              isPosted ? 'bg-green-50 opacity-60' : 'bg-blue-100'
+                                              isPosted ? 'opacity-50' : ''
                                             } ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}`}
+                                            style={{
+                                              ...dragProvided.draggableProps.style,
+                                              backgroundColor: isPosted ? '#f0fdf4' : `${fmtColor}18`,
+                                              borderLeft: acctColor ? `3px solid ${acctColor}` : `3px solid ${fmtColor}40`,
+                                            }}
                                             onClick={() => openEditPost(post)}
                                             data-testid="calendar-draggable-post"
                                           >
                                             <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
                                             <span className="flex-shrink-0">{getPlatformIcon(platform)}</span>
                                             <span className="flex-shrink-0 text-[10px] leading-none">{formatIcon}</span>
-                                            <span className={`truncate ${isPosted ? 'line-through' : ''}`}>{post.title}</span>
+                                            <span className={`truncate ${isPosted ? 'line-through' : ''}`}>{post.title}{seriesLabel ? <span className="text-[8px] opacity-60">{seriesLabel}</span> : ''}</span>
                                             {isPosted && <Check className="w-3 h-3 text-green-600 flex-shrink-0" />}
                                             {postCommentCounts[post.post_id]?.unread > 0 && (
                                               <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
@@ -3768,6 +3854,107 @@ export default function SocialMediaPage() {
             </Button>
             <Button onClick={confirmQuickStatusChange} data-testid="confirm-quick-status-btn">
               {isEs ? "Confirmar" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Story Series Dialog */}
+      <Dialog open={seriesDialogOpen} onOpenChange={setSeriesDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5" />
+              {isEs ? "Nueva Serie de Stories" : "New Story Series"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Cuenta" : "Account"}</label>
+              <Select value={seriesForm.social_account_id} onValueChange={v => setSeriesForm({...seriesForm, social_account_id: v})}>
+                <SelectTrigger data-testid="series-account-select">
+                  <SelectValue placeholder={isEs ? "Seleccionar cuenta" : "Select account"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map(a => (
+                    <SelectItem key={a.account_id} value={a.account_id}>{a.handle || a.platform}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Nombre de la serie" : "Series Name"}</label>
+                <Input value={seriesForm.series_name} onChange={e => setSeriesForm({...seriesForm, series_name: e.target.value})} data-testid="series-name-input" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Cantidad" : "Count"}</label>
+                <Input type="number" min={2} max={30} value={seriesForm.count} onChange={e => setSeriesForm({...seriesForm, count: parseInt(e.target.value) || 2})} data-testid="series-count-input" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Formato" : "Format"}</label>
+                <Select value={seriesForm.format} onValueChange={v => setSeriesForm({...seriesForm, format: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FORMATS.map(f => <SelectItem key={f.value} value={f.value}>{isEs ? f.labelEs : f.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Fecha" : "Date"}</label>
+                <Input type="date" value={seriesForm.scheduled_at} onChange={e => setSeriesForm({...seriesForm, scheduled_at: e.target.value})} />
+              </div>
+            </div>
+            {campaigns.length > 0 && (
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Campaña (opcional)" : "Campaign (optional)"}</label>
+                <Select value={seriesForm.campaign_id || "none"} onValueChange={v => setSeriesForm({...seriesForm, campaign_id: v === "none" ? "" : v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin campaña" : "No campaign"}</SelectItem>
+                    {campaigns.map(c => <SelectItem key={c.campaign_id} value={c.campaign_id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {/* Templates */}
+            {storyTemplates.length > 0 && (
+              <div>
+                <label className="text-xs text-muted-foreground">{isEs ? "Aplicar plantilla" : "Apply template"}</label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {storyTemplates.map(t => (
+                    <button key={t.template_id} onClick={() => applyTemplate(t)}
+                      className="text-xs px-2 py-0.5 rounded-full border bg-muted/50 hover:bg-muted transition-all">
+                      {t.name} ({t.count})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Preview */}
+            <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{isEs ? "Se crearán:" : "Will create:"}</p>
+              {Array.from({ length: Math.min(seriesForm.count, 8) }, (_, i) => (
+                <div key={i} className="text-xs flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ backgroundColor: `${formatColors[seriesForm.format]}30`, color: formatColors[seriesForm.format] }}>{i+1}</span>
+                  <span>{seriesForm.items[i]?.title || `${seriesForm.series_name} ${i+1}/${seriesForm.count}`}</span>
+                </div>
+              ))}
+              {seriesForm.count > 8 && <p className="text-[10px] text-muted-foreground">+{seriesForm.count - 8} más...</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={handleSaveTemplate} className="mr-auto text-xs">
+              {isEs ? "Guardar plantilla" : "Save template"}
+            </Button>
+            <Button variant="outline" onClick={() => setSeriesDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateSeries} disabled={seriesSaving} data-testid="create-series-btn">
+              <Layers className="w-4 h-4 mr-1" />
+              {seriesSaving ? "..." : isEs ? `Crear ${seriesForm.count} Stories` : `Create ${seriesForm.count} Stories`}
             </Button>
           </DialogFooter>
         </DialogContent>

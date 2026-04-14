@@ -4356,3 +4356,180 @@ async def delete_manual_metrics(
         raise HTTPException(status_code=404, detail="Entry not found")
     
     return {"message": "Entry deleted", "entry_id": entry_id}
+
+
+# ============== STORY SERIES (Batch Creation) ==============
+
+@demand_studio_router.post("/social/posts/batch")
+async def create_post_batch(data: dict, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Create a batch of posts (story series) at once"""
+    await ensure_owner_membership(user)
+    
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
+    count = data.get("count", 1)
+    if count < 1 or count > 30:
+        raise HTTPException(status_code=400, detail="Count must be 1-30")
+    
+    series_id = f"series_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    base = {
+        "company_id": company_id,
+        "social_account_id": data.get("social_account_id"),
+        "campaign_id": data.get("campaign_id") or None,
+        "pillar_id": data.get("pillar_id") or None,
+        "format": data.get("format", "story"),
+        "status": data.get("status", "idea"),
+        "scheduled_at": data.get("scheduled_at") or None,
+        "production_date": data.get("production_date") or None,
+        "series_id": series_id,
+        "series_count": count,
+        "created_by_user_id": user.user_id,
+        "owner_user_id": user.user_id,
+    }
+    
+    # Use items from template or generate sequential titles
+    items = data.get("items", [])
+    posts = []
+    
+    for i in range(count):
+        post = {**base}
+        post["post_id"] = f"post_{uuid.uuid4().hex[:12]}"
+        post["series_index"] = i + 1
+        
+        if i < len(items) and items[i]:
+            post["title"] = items[i].get("title", f"Story {i+1}/{count}")
+            post["caption"] = items[i].get("caption", "")
+            post["hook"] = items[i].get("hook", "")
+            post["cta"] = items[i].get("cta", "")
+            post["notes"] = items[i].get("notes", "")
+        else:
+            series_name = data.get("series_name", "Story")
+            post["title"] = f"{series_name} {i+1}/{count}"
+            post["caption"] = ""
+            post["hook"] = ""
+            post["cta"] = ""
+            post["notes"] = ""
+        
+        post["content_body"] = ""
+        post["link_url"] = ""
+        post["posted_at"] = None
+        post["created_at"] = now.isoformat()
+        post["updated_at"] = now.isoformat()
+        posts.append(post)
+    
+    await db.social_posts.insert_many(posts)
+    # Remove _id from each for response
+    for p in posts:
+        p.pop("_id", None)
+    
+    return {"series_id": series_id, "count": count, "posts": posts}
+
+
+# ============== STORY TEMPLATES ==============
+
+@demand_studio_router.get("/social/story-templates")
+async def get_story_templates(org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get saved story series templates"""
+    company_id = org_id or user.company_id or user.active_org_id
+    templates = await db.story_templates.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return templates
+
+
+@demand_studio_router.post("/social/story-templates")
+async def create_story_template(data: dict, user: User = Depends(get_current_user)):
+    """Save a story series as a reusable template"""
+    company_id = user.company_id or user.active_org_id
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Template name required")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    template = {
+        "template_id": f"stpl_{uuid.uuid4().hex[:12]}",
+        "company_id": company_id,
+        "name": name,
+        "description": data.get("description", ""),
+        "format": data.get("format", "story"),
+        "items": data.get("items", []),
+        "count": len(data.get("items", [])) or data.get("count", 1),
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.story_templates.insert_one(template)
+    template.pop("_id", None)
+    return template
+
+
+@demand_studio_router.delete("/social/story-templates/{template_id}")
+async def delete_story_template(template_id: str, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    result = await db.story_templates.delete_one({"template_id": template_id, "company_id": company_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"deleted": True}
+
+
+# ============== FORMAT COLORS & ACCOUNT COLORS ==============
+
+@demand_studio_router.get("/social/format-colors")
+async def get_format_colors(user: User = Depends(get_current_user)):
+    """Get format color configuration"""
+    company_id = user.company_id or user.active_org_id
+    config = await db.organization_configs.find_one(
+        {"company_id": company_id},
+        {"_id": 0, "format_colors": 1}
+    )
+    defaults = {
+        "post": "#22c55e",
+        "reel": "#a855f7",
+        "story": "#eab308",
+        "carousel": "#3b82f6",
+        "live": "#ef4444",
+    }
+    return (config or {}).get("format_colors", defaults)
+
+
+@demand_studio_router.put("/social/format-colors")
+async def update_format_colors(data: dict, user: User = Depends(get_current_user)):
+    """Update format color configuration"""
+    company_id = user.company_id or user.active_org_id
+    existing = await db.organization_configs.find_one({"company_id": company_id})
+    if existing:
+        await db.organization_configs.update_one(
+            {"company_id": company_id},
+            {"$set": {"format_colors": data, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    else:
+        await db.organization_configs.insert_one({
+            "config_id": f"config_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "format_colors": data,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+    return data
+
+
+@demand_studio_router.put("/social/accounts/{account_id}/color")
+async def update_account_color(account_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update a social account's display color"""
+    color = data.get("color", "")
+    result = await db.social_accounts.update_one(
+        {"account_id": account_id},
+        {"$set": {"color": color, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {"account_id": account_id, "color": color}

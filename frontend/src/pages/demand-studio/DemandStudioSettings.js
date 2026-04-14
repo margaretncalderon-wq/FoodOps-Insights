@@ -38,6 +38,13 @@ export default function DemandStudioSettings() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
 
+  // Format & Account Colors
+  const [formatColors, setFormatColors] = useState({
+    post: "#22c55e", reel: "#a855f7", story: "#eab308", carousel: "#3b82f6", live: "#ef4444"
+  });
+  const [socialAccounts, setSocialAccounts] = useState([]);
+  const [colorsSaving, setColorsSaving] = useState(false);
+
   // Handle OAuth callback parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -159,7 +166,36 @@ export default function DemandStudioSettings() {
 
   useEffect(() => {
     fetchMembers();
+    // Fetch format colors and accounts
+    const fetchColors = async () => {
+      try {
+        const [colorsRes, acctsRes] = await Promise.all([
+          axios.get(`${API}/api/demand-studio/social/format-colors`, { withCredentials: true }).catch(() => ({ data: null })),
+          axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true`, { withCredentials: true }).catch(() => ({ data: [] })),
+        ]);
+        if (colorsRes.data) setFormatColors(colorsRes.data);
+        setSocialAccounts(acctsRes.data || []);
+      } catch { /* ignore */ }
+    };
+    fetchColors();
   }, [fetchMembers]);
+
+  const handleSaveFormatColors = async () => {
+    setColorsSaving(true);
+    try {
+      await axios.put(`${API}/api/demand-studio/social/format-colors`, formatColors, { withCredentials: true });
+      toast.success(isEs ? "Colores guardados" : "Colors saved");
+    } catch { toast.error("Error"); }
+    setColorsSaving(false);
+  };
+
+  const handleSaveAccountColor = async (accountId, color) => {
+    try {
+      await axios.put(`${API}/api/demand-studio/social/accounts/${accountId}/color`, { color }, { withCredentials: true });
+      setSocialAccounts(prev => prev.map(a => a.account_id === accountId ? { ...a, color } : a));
+      toast.success(isEs ? "Color guardado" : "Color saved");
+    } catch { toast.error("Error"); }
+  };
 
   const handleRemoveMember = async (membershipId) => {
     if (!confirm(isEs ? "¿Eliminar acceso de este colaborador?" : "Remove this collaborator's access?")) {
@@ -227,6 +263,10 @@ export default function DemandStudioSettings() {
           <TabsTrigger value="brand-hub" className="gap-1">
             <Sparkles className="w-4 h-4" />
             Brand Hub
+          </TabsTrigger>
+          <TabsTrigger value="colors" className="gap-1">
+            <Settings className="w-4 h-4" />
+            {isEs ? "Colores" : "Colors"}
           </TabsTrigger>
         </TabsList>
 
@@ -612,6 +652,76 @@ export default function DemandStudioSettings() {
         {/* Brand Hub Tab */}
         <TabsContent value="brand-hub" className="mt-6">
           <BrandHub />
+        </TabsContent>
+
+        {/* Colors Tab */}
+        <TabsContent value="colors" className="mt-6 space-y-6">
+          {/* Format Colors */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{isEs ? "Colores por Formato" : "Format Colors"}</CardTitle>
+              <CardDescription>{isEs ? "Estos colores se usan en el calendario para identificar cada tipo de contenido" : "These colors are used in the calendar to identify each content type"}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { key: "post", label: "Post" },
+                { key: "reel", label: "Reel" },
+                { key: "story", label: isEs ? "Historia" : "Story" },
+                { key: "carousel", label: isEs ? "Carrusel" : "Carousel" },
+                { key: "live", label: isEs ? "En Vivo" : "Live" },
+              ].map(fmt => (
+                <div key={fmt.key} className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={formatColors[fmt.key] || "#3b82f6"}
+                    onChange={e => setFormatColors({ ...formatColors, [fmt.key]: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer border-0"
+                    data-testid={`format-color-${fmt.key}`}
+                  />
+                  <span className="text-sm font-medium w-20">{fmt.label}</span>
+                  <div className="flex-1 h-6 rounded" style={{ backgroundColor: `${formatColors[fmt.key]}20`, borderLeft: `4px solid ${formatColors[fmt.key]}` }}>
+                    <span className="text-xs px-2 leading-6" style={{ color: formatColors[fmt.key] }}>{isEs ? "Vista previa" : "Preview"}</span>
+                  </div>
+                </div>
+              ))}
+              <Button size="sm" onClick={handleSaveFormatColors} disabled={colorsSaving} data-testid="save-format-colors-btn">
+                <Check className="w-4 h-4 mr-1" />
+                {colorsSaving ? "..." : isEs ? "Guardar Colores" : "Save Colors"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Account Colors */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{isEs ? "Colores por Cuenta Social" : "Account Colors"}</CardTitle>
+              <CardDescription>{isEs ? "Asigna un color a cada cuenta para identificarla en el calendario" : "Assign a color to each account to identify it in the calendar"}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {socialAccounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{isEs ? "No hay cuentas sociales" : "No social accounts"}</p>
+              ) : (
+                socialAccounts.map(acc => (
+                  <div key={acc.account_id} className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={acc.color || "#94a3b8"}
+                      onChange={e => handleSaveAccountColor(acc.account_id, e.target.value)}
+                      className="w-8 h-8 rounded cursor-pointer border-0"
+                      data-testid={`account-color-${acc.account_id}`}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Instagram className="w-4 h-4 text-pink-500" />
+                      <span className="text-sm font-medium">{acc.handle || acc.platform}</span>
+                    </div>
+                    {acc.color && (
+                      <div className="w-16 h-4 rounded" style={{ backgroundColor: acc.color, opacity: 0.6 }} />
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
