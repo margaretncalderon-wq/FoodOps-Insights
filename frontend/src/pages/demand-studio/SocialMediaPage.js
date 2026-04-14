@@ -3903,6 +3903,17 @@ export default function SocialMediaPage() {
                 </Select>
               </div>
               <div>
+                <label className="text-sm font-medium">Status</label>
+                <Select value={seriesForm.status} onValueChange={v => setSeriesForm({...seriesForm, status: v})}>
+                  <SelectTrigger data-testid="series-status-select"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{isEs ? s.labelEs : s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="text-sm font-medium">{isEs ? "Fecha" : "Date"}</label>
                 <Input type="date" value={seriesForm.scheduled_at} onChange={e => setSeriesForm({...seriesForm, scheduled_at: e.target.value})} />
               </div>
@@ -3933,16 +3944,42 @@ export default function SocialMediaPage() {
                 </div>
               </div>
             )}
-            {/* Preview */}
-            <div className="bg-muted/30 rounded-lg p-3 space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">{isEs ? "Se crearán:" : "Will create:"}</p>
-              {Array.from({ length: Math.min(seriesForm.count, 8) }, (_, i) => (
-                <div key={i} className="text-xs flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ backgroundColor: `${formatColors[seriesForm.format]}30`, color: formatColors[seriesForm.format] }}>{i+1}</span>
-                  <span>{seriesForm.items[i]?.title || `${seriesForm.series_name} ${i+1}/${seriesForm.count}`}</span>
-                </div>
-              ))}
-              {seriesForm.count > 8 && <p className="text-[10px] text-muted-foreground">+{seriesForm.count - 8} más...</p>}
+            {/* Editable story items */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{isEs ? "Contenido de cada historia" : "Story content"}</label>
+              <div className="max-h-[250px] overflow-y-auto space-y-2 pr-1">
+                {Array.from({ length: seriesForm.count }, (_, i) => {
+                  const item = seriesForm.items[i] || {};
+                  const updateItem = (field, value) => {
+                    const newItems = [...seriesForm.items];
+                    while (newItems.length <= i) newItems.push({});
+                    newItems[i] = { ...newItems[i], [field]: value };
+                    setSeriesForm({ ...seriesForm, items: newItems });
+                  };
+                  return (
+                    <div key={i} className="flex items-start gap-2 p-2 rounded-lg border bg-muted/20">
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-1" style={{ backgroundColor: `${formatColors[seriesForm.format]}30`, color: formatColors[seriesForm.format] }}>{i+1}</span>
+                      <div className="flex-1 space-y-1">
+                        <Input
+                          placeholder={`${seriesForm.series_name} ${i+1}/${seriesForm.count}`}
+                          value={item.title || ""}
+                          onChange={e => updateItem("title", e.target.value)}
+                          className="h-7 text-xs"
+                          data-testid={`series-item-title-${i}`}
+                        />
+                        <textarea
+                          placeholder={isEs ? "Texto de la historia..." : "Story text..."}
+                          value={item.caption || ""}
+                          onChange={e => updateItem("caption", e.target.value)}
+                          rows={2}
+                          className="w-full text-xs px-2 py-1 rounded border bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                          data-testid={`series-item-caption-${i}`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <DialogFooter className="flex gap-2">
