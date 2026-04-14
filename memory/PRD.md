@@ -5,21 +5,18 @@ Build a comprehensive ERP application called Kora OS with modules for People Ops
 
 ## What's Been Implemented (Latest Session)
 
-### Execution Hub Security Fix (CRITICAL)
-- **Per-goal visibility**: private (owner + invited) / team (owner + assignees) / org (everyone in org). Default: org. (iteration_145)
-- **Cross-org leak fixed**: Removed blanket membership access. Cross-org only via explicit sharing (shared_entities + execution_access).
-- **UI**: Visibility selector in create dialog (3 options with icons + explanatory text). Badges on goal cards (Private=red lock, Team=blue users).
+### Companies Bug Fix (CRITICAL - Client-facing)
+- **Root cause**: `company_entities` collection had 3 inconsistent ID formats: `company_entity_id` (API), `entity_id` (CSV import), `id` (old migration). The `list_companies` endpoint crashed with `KeyError: 'company_entity_id'`, showing empty page.
+- **Fix**: Startup migration normalizes all records. Endpoints handle all formats. CSV import corrected. `company_sharing/members` KeyError also fixed. (iteration_146)
 
-### Sharing Fixes
-- Unified social account visibility (4 sources). (iteration_144)
-- Frontend `company_shared` filter fix. (iteration_144+)
-- ops role can share. (iteration_144)
+### Execution Hub Security Fix
+- Per-goal visibility (private/team/org). Cross-org leak removed. (iteration_145)
+
+### Sharing Unification
+- Social account org-level visibility. Frontend company_shared filter fix. ops role can share. (iteration_144)
 
 ### CRM & Dashboard
-- Map: Leads vs Clients with city detail. Follow-up completion dialog. Dynamic Lists. Locale Settings. i18n. Interactive Leaflet Map. Notifications, Sources, Dashboard, Pipeline, Tags, Service Areas.
-
-### Notification Bug
-- Fixed invalid links causing logout on click. (iteration_145-)
+- Map: Leads vs Clients. Follow-ups. Dynamic Lists. Locale. i18n. Leaflet Map. Notifications. Dashboard. Pipeline. Tags.
 
 ## Backlog
 ### P1
@@ -27,7 +24,6 @@ Build a comprehensive ERP application called Kora OS with modules for People Ops
 - Unified Contact Model
 - Unify Comms components
 - Email sending integration (needs API key)
-- Fix company-sharing/members KeyError
 
 ### P2
 - Refactor SocialMediaPage.js (~3700 lines)
