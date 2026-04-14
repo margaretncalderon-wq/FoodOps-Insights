@@ -138,6 +138,8 @@ export default function SocialMediaPage() {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarPosts, setCalendarPosts] = useState([]);
   const [calendarPillarStats, setCalendarPillarStats] = useState(null);
+  const [calViewMode, setCalViewMode] = useState("month"); // "month" | "week" | "day"
+  const [calSelectedDate, setCalSelectedDate] = useState(new Date());
   
   // Format colors & Story Series
   const [formatColors, setFormatColors] = useState({
@@ -1177,6 +1179,92 @@ export default function SocialMediaPage() {
     });
   };
 
+  const getPostsForDate = (date) => {
+    if (!date) return [];
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return filteredCalendarPosts.filter(p => {
+      const scheduledDate = p.scheduled_at?.substring(0, 10);
+      const postedDate = p.posted_at?.substring(0, 10);
+      const createdDate = (!p.scheduled_at && !p.posted_at) ? p.created_at?.substring(0, 10) : null;
+      return scheduledDate === dateStr || postedDate === dateStr || createdDate === dateStr;
+    });
+  };
+
+  const getWeekDays = () => {
+    const d = new Date(calSelectedDate);
+    const dayOfWeek = d.getDay();
+    const start = new Date(d);
+    start.setDate(d.getDate() - dayOfWeek);
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      return day;
+    });
+  };
+
+  const navigateCalendar = (dir) => {
+    if (calViewMode === "month") {
+      setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + dir));
+    } else if (calViewMode === "week") {
+      const d = new Date(calSelectedDate);
+      d.setDate(d.getDate() + (dir * 7));
+      setCalSelectedDate(d);
+      if (d.getMonth() !== calendarMonth.getMonth()) setCalendarMonth(new Date(d.getFullYear(), d.getMonth()));
+    } else {
+      const d = new Date(calSelectedDate);
+      d.setDate(d.getDate() + dir);
+      setCalSelectedDate(d);
+      if (d.getMonth() !== calendarMonth.getMonth()) setCalendarMonth(new Date(d.getFullYear(), d.getMonth()));
+    }
+  };
+
+  const calendarTitle = () => {
+    if (calViewMode === "month") return calendarMonth.toLocaleDateString(isEs ? 'es' : 'en', { month: 'long', year: 'numeric' });
+    if (calViewMode === "week") {
+      const days = getWeekDays();
+      const f = days[0].toLocaleDateString(isEs ? 'es' : 'en', { month: 'short', day: 'numeric' });
+      const l = days[6].toLocaleDateString(isEs ? 'es' : 'en', { month: 'short', day: 'numeric', year: 'numeric' });
+      return `${f} - ${l}`;
+    }
+    return calSelectedDate.toLocaleDateString(isEs ? 'es' : 'en', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  const renderCalPostItem = (post, postIdx, droppableId) => {
+    const isPosted = post.status === 'posted';
+    const formatIcon = post.format === 'reel' ? '🎬' : post.format === 'carousel' ? '📸' : post.format === 'story' ? '⏱' : post.format === 'live' ? '🔴' : '📄';
+    const fmtColor = formatColors[post.format] || "#3b82f6";
+    const acctColor = post.account?.color || null;
+    const seriesLabel = post.series_id ? ` ${post.series_index || ''}/${post.series_count || ''}` : '';
+    return (
+      <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
+        {(dragProvided, dragSnapshot) => (
+          <div
+            ref={dragProvided.innerRef}
+            {...dragProvided.draggableProps}
+            {...dragProvided.dragHandleProps}
+            className={`text-xs p-1.5 rounded cursor-grab flex items-center gap-1 ${
+              isPosted ? 'opacity-50' : ''
+            } ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}`}
+            style={{
+              ...dragProvided.draggableProps.style,
+              backgroundColor: isPosted ? '#f0fdf4' : `${fmtColor}18`,
+              borderLeft: acctColor ? `3px solid ${acctColor}` : `3px solid ${fmtColor}40`,
+            }}
+            onClick={() => openEditPost(post)}
+            data-testid="calendar-draggable-post"
+          >
+            <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
+            <span className="flex-shrink-0">{getPlatformIcon(post.account?.platform)}</span>
+            <span className="flex-shrink-0 text-[10px] leading-none">{formatIcon}</span>
+            <span className={`truncate ${isPosted ? 'line-through' : ''}`}>{post.title}{seriesLabel ? <span className="text-[8px] opacity-60">{seriesLabel}</span> : ''}</span>
+            {isPosted && <Check className="w-3 h-3 text-green-600 flex-shrink-0" />}
+            {postCommentCounts[post.post_id]?.unread > 0 && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
+          </div>
+        )}
+      </Draggable>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1766,15 +1854,33 @@ export default function SocialMediaPage() {
         <TabsContent value="calendar" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}>
+              <Button variant="outline" size="icon" onClick={() => navigateCalendar(-1)}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <h3 className="font-semibold min-w-[150px] text-center">
-                {calendarMonth.toLocaleDateString(isEs ? 'es' : 'en', { month: 'long', year: 'numeric' })}
+              <h3 className="font-semibold min-w-[200px] text-center capitalize">
+                {calendarTitle()}
               </h3>
-              <Button variant="outline" size="icon" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}>
+              <Button variant="outline" size="icon" onClick={() => navigateCalendar(1)}>
                 <ChevronRight className="w-4 h-4" />
               </Button>
+              <Button variant="ghost" size="sm" className="text-xs ml-2" onClick={() => { setCalSelectedDate(new Date()); setCalendarMonth(new Date()); }}>
+                {isEs ? "Hoy" : "Today"}
+              </Button>
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+              {[
+                { value: "day", label: isEs ? "Día" : "Day" },
+                { value: "week", label: isEs ? "Semana" : "Week" },
+                { value: "month", label: isEs ? "Mes" : "Month" },
+              ].map(v => (
+                <button key={v.value} onClick={() => setCalViewMode(v.value)}
+                  className={`text-xs px-3 py-1 rounded-md transition-all ${calViewMode === v.value ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  data-testid={`cal-view-${v.value}`}>
+                  {v.label}
+                </button>
+              ))}
             </div>
             
             {/* Calendar Filters */}
@@ -1882,6 +1988,9 @@ export default function SocialMediaPage() {
           <Card>
             <CardContent className="p-4">
               <DragDropContext onDragEnd={handleCalendarDragEnd}>
+
+                {/* ===== MONTH VIEW ===== */}
+                {calViewMode === "month" && (
                 <div className="grid grid-cols-7 gap-1">
                   {[isEs ? 'Dom' : 'Sun', isEs ? 'Lun' : 'Mon', isEs ? 'Mar' : 'Tue', isEs ? 'Mié' : 'Wed', isEs ? 'Jue' : 'Thu', isEs ? 'Vie' : 'Fri', isEs ? 'Sáb' : 'Sat'].map(day => (
                     <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
@@ -1891,59 +2000,21 @@ export default function SocialMediaPage() {
                   {getDaysInMonth().map((day, idx) => {
                     const dayPosts = getPostsForDay(day);
                     const dateStr = day ? `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : `empty-${idx}`;
+                    const isToday = day && new Date().getDate() === day && new Date().getMonth() === calendarMonth.getMonth() && new Date().getFullYear() === calendarMonth.getFullYear();
                     return (
                       <Droppable droppableId={`cal-${dateStr}`} key={idx} isDropDisabled={!day}>
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                            className={`min-h-[80px] p-1 border rounded transition-colors ${day ? 'bg-background' : 'bg-muted/30'} ${snapshot.isDraggingOver && day ? 'bg-blue-50 border-blue-300' : ''}`}
+                            className={`min-h-[80px] p-1 border rounded transition-colors cursor-pointer ${day ? 'bg-background hover:bg-muted/30' : 'bg-muted/30'} ${snapshot.isDraggingOver && day ? 'bg-blue-50 border-blue-300' : ''} ${isToday ? 'ring-2 ring-blue-400' : ''}`}
+                            onClick={() => day && (setCalSelectedDate(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)), setCalViewMode("day"))}
                           >
                             {day && (
                               <>
-                                <span className="text-xs font-medium">{day}</span>
+                                <span className={`text-xs font-medium ${isToday ? 'text-blue-600' : ''}`}>{day}</span>
                                 <div className="space-y-1 mt-1">
-                                  {dayPosts.slice(0, 3).map((post, postIdx) => {
-                                    const platform = post.account?.platform;
-                                    const isPosted = post.status === 'posted';
-                                    const formatIcon = post.format === 'reel' ? '🎬' : post.format === 'carousel' ? '📸' : post.format === 'story' ? '⏱' : post.format === 'live' ? '🔴' : '📄';
-                                    const fmtColor = formatColors[post.format] || "#3b82f6";
-                                    const acctColor = post.account?.color || null;
-                                    const seriesLabel = post.series_id ? ` ${post.series_index || ''}/${post.series_count || ''}` : '';
-                                    return (
-                                      <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
-                                        {(dragProvided, dragSnapshot) => (
-                                          <div
-                                            ref={dragProvided.innerRef}
-                                            {...dragProvided.draggableProps}
-                                            {...dragProvided.dragHandleProps}
-                                            className={`text-xs p-1 rounded truncate cursor-grab flex items-center gap-1 ${
-                                              isPosted ? 'opacity-50' : ''
-                                            } ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}`}
-                                            style={{
-                                              ...dragProvided.draggableProps.style,
-                                              backgroundColor: isPosted ? '#f0fdf4' : `${fmtColor}18`,
-                                              borderLeft: acctColor ? `3px solid ${acctColor}` : `3px solid ${fmtColor}40`,
-                                            }}
-                                            onClick={() => openEditPost(post)}
-                                            data-testid="calendar-draggable-post"
-                                          >
-                                            <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
-                                            <span className="flex-shrink-0">{getPlatformIcon(platform)}</span>
-                                            <span className="flex-shrink-0 text-[10px] leading-none">{formatIcon}</span>
-                                            <span className={`truncate ${isPosted ? 'line-through' : ''}`}>{post.title}{seriesLabel ? <span className="text-[8px] opacity-60">{seriesLabel}</span> : ''}</span>
-                                            {isPosted && <Check className="w-3 h-3 text-green-600 flex-shrink-0" />}
-                                            {postCommentCounts[post.post_id]?.unread > 0 && (
-                                              <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                            )}
-                                            {postCommentCounts[post.post_id]?.comments > 0 && !postCommentCounts[post.post_id]?.unread && (
-                                              <AtSign className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                                            )}
-                                          </div>
-                                        )}
-                                      </Draggable>
-                                    );
-                                  })}
+                                  {dayPosts.slice(0, 3).map((post, postIdx) => renderCalPostItem(post, postIdx, `cal-${dateStr}`))}
                                   {dayPosts.length > 3 && (
                                     <span className="text-xs text-muted-foreground">+{dayPosts.length - 3} más</span>
                                   )}
@@ -1957,6 +2028,116 @@ export default function SocialMediaPage() {
                     );
                   })}
                 </div>
+                )}
+
+                {/* ===== WEEK VIEW ===== */}
+                {calViewMode === "week" && (
+                <div className="grid grid-cols-7 gap-2">
+                  {getWeekDays().map((date, idx) => {
+                    const dayPosts = getPostsForDate(date);
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    const dayName = date.toLocaleDateString(isEs ? 'es' : 'en', { weekday: 'short' });
+                    return (
+                      <Droppable droppableId={`cal-${dateStr}`} key={idx}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`min-h-[300px] p-2 border rounded-lg transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50 border-blue-300' : 'bg-background'} ${isToday ? 'ring-2 ring-blue-400' : ''}`}
+                          >
+                            <div className={`text-center mb-2 pb-2 border-b cursor-pointer hover:text-blue-600 ${isToday ? 'text-blue-600' : ''}`}
+                              onClick={() => { setCalSelectedDate(date); setCalViewMode("day"); }}>
+                              <p className="text-xs text-muted-foreground capitalize">{dayName}</p>
+                              <p className={`text-lg font-bold ${isToday ? 'text-blue-600' : ''}`}>{date.getDate()}</p>
+                            </div>
+                            <div className="space-y-1.5">
+                              {dayPosts.map((post, postIdx) => renderCalPostItem(post, postIdx, `cal-${dateStr}`))}
+                              {dayPosts.length === 0 && (
+                                <p className="text-[10px] text-muted-foreground text-center pt-4">{isEs ? "Sin posts" : "No posts"}</p>
+                              )}
+                            </div>
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    );
+                  })}
+                </div>
+                )}
+
+                {/* ===== DAY VIEW ===== */}
+                {calViewMode === "day" && (() => {
+                  const dayPosts = getPostsForDate(calSelectedDate);
+                  const dateStr = `${calSelectedDate.getFullYear()}-${String(calSelectedDate.getMonth() + 1).padStart(2, '0')}-${String(calSelectedDate.getDate()).padStart(2, '0')}`;
+                  const hours = Array.from({ length: 16 }, (_, i) => i + 6); // 6am to 9pm
+                  return (
+                    <Droppable droppableId={`cal-${dateStr}`}>
+                      {(provided) => (
+                        <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1">
+                          {/* Unscheduled posts (no time) */}
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">{isEs ? "Posts del día" : "Day's posts"} ({dayPosts.length})</p>
+                            <div className="space-y-2">
+                              {dayPosts.length === 0 ? (
+                                <div className="text-center py-12 text-muted-foreground">
+                                  <Calendar className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                  <p className="text-sm">{isEs ? "No hay posts para este día" : "No posts for this day"}</p>
+                                </div>
+                              ) : (
+                                dayPosts.map((post, postIdx) => {
+                                  const isPosted = post.status === 'posted';
+                                  const fmtColor = formatColors[post.format] || "#3b82f6";
+                                  const acctColor = post.account?.color || null;
+                                  const formatIcon = post.format === 'reel' ? '🎬' : post.format === 'carousel' ? '📸' : post.format === 'story' ? '⏱' : post.format === 'live' ? '🔴' : '📄';
+                                  const statusInfo = STATUSES.find(s => s.value === post.status);
+                                  return (
+                                    <Draggable key={post.post_id} draggableId={post.post_id} index={postIdx}>
+                                      {(dragProvided, dragSnapshot) => (
+                                        <div
+                                          ref={dragProvided.innerRef}
+                                          {...dragProvided.draggableProps}
+                                          {...dragProvided.dragHandleProps}
+                                          className={`p-3 rounded-lg cursor-pointer transition-all hover:shadow-md ${isPosted ? 'opacity-60' : ''} ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400' : ''}`}
+                                          style={{
+                                            ...dragProvided.draggableProps.style,
+                                            backgroundColor: `${fmtColor}10`,
+                                            borderLeft: `4px solid ${acctColor || fmtColor}`,
+                                          }}
+                                          onClick={() => openEditPost(post)}
+                                          data-testid="calendar-day-post"
+                                        >
+                                          <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-2">
+                                              <span>{formatIcon}</span>
+                                              <span className="font-medium text-sm">{post.title}</span>
+                                              {post.series_id && <span className="text-[10px] text-muted-foreground">{post.series_index}/{post.series_count}</span>}
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                              {statusInfo && <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusInfo.color}`}>{isEs ? statusInfo.labelEs : statusInfo.label}</span>}
+                                              {post.account && <span className="text-[10px] text-muted-foreground">{post.account.handle}</span>}
+                                            </div>
+                                          </div>
+                                          {post.caption && <p className="text-xs text-muted-foreground line-clamp-2">{post.caption}</p>}
+                                          {post.scheduled_at && (
+                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                              {new Date(post.scheduled_at).toLocaleTimeString(isEs ? 'es' : 'en', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  );
+                })()}
               </DragDropContext>
             </CardContent>
           </Card>
