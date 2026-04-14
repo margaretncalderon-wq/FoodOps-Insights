@@ -113,16 +113,22 @@ export default function NotificationBell() {
       markAsRead(notification.notification_id);
     }
     setIsOpen(false);
-    if (notification.link) {
-      // Small delay to let the dropdown close and auth state stabilize
-      setTimeout(() => {
-        if (notification.link.startsWith("/")) {
-          navigate(notification.link);
-        } else if (notification.link.startsWith("http")) {
-          window.open(notification.link, "_blank");
+    
+    const link = notification.link;
+    if (!link || typeof link !== 'string') return;
+    
+    // Small delay to let dropdown close and auth state stabilize
+    setTimeout(() => {
+      try {
+        if (link.startsWith("/")) {
+          navigate(link);
+        } else if (link.startsWith("http")) {
+          window.open(link, "_blank");
         }
-      }, 100);
-    }
+      } catch (e) {
+        console.error("Navigation error:", e);
+      }
+    }, 150);
   };
 
   const formatTime = (dateStr) => {

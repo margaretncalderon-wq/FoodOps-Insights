@@ -169,12 +169,16 @@ export default function DemandStudioSettings() {
     // Fetch format colors and accounts
     const fetchColors = async () => {
       try {
-        const [colorsRes, acctsRes] = await Promise.all([
-          axios.get(`${API}/api/demand-studio/social/format-colors`, { withCredentials: true }).catch(() => ({ data: null })),
-          axios.get(`${API}/api/demand-studio/social/accounts?include_shared=true`, { withCredentials: true }).catch(() => ({ data: [] })),
-        ]);
-        if (colorsRes.data) setFormatColors(colorsRes.data);
-        setSocialAccounts(acctsRes.data || []);
+        const colorsRes = await axios.get(`${API}/api/demand-studio/social/format-colors`, { withCredentials: true }).catch(() => null);
+        if (colorsRes && colorsRes.data && typeof colorsRes.data === 'object' && !Array.isArray(colorsRes.data)) {
+          setFormatColors(prev => ({ ...prev, ...colorsRes.data }));
+        }
+      } catch { /* use defaults */ }
+      try {
+        const acctsRes = await axios.get(`${API}/api/account-sharing/my-accounts`, { withCredentials: true }).catch(() => null);
+        if (acctsRes && Array.isArray(acctsRes.data)) {
+          setSocialAccounts(acctsRes.data);
+        }
       } catch { /* ignore */ }
     };
     fetchColors();
@@ -701,7 +705,7 @@ export default function DemandStudioSettings() {
               {socialAccounts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{isEs ? "No hay cuentas sociales" : "No social accounts"}</p>
               ) : (
-                socialAccounts.map(acc => (
+                socialAccounts.filter(acc => acc && acc.account_id).map(acc => (
                   <div key={acc.account_id} className="flex items-center gap-3">
                     <input
                       type="color"
@@ -712,7 +716,7 @@ export default function DemandStudioSettings() {
                     />
                     <div className="flex items-center gap-2">
                       <Instagram className="w-4 h-4 text-pink-500" />
-                      <span className="text-sm font-medium">{acc.handle || acc.platform}</span>
+                      <span className="text-sm font-medium">{acc.handle || acc.platform || "Account"}</span>
                     </div>
                     {acc.color && (
                       <div className="w-16 h-4 rounded" style={{ backgroundColor: acc.color, opacity: 0.6 }} />
