@@ -2786,12 +2786,68 @@ export default function SocialMediaPage() {
                                 </Button>
                               </>
                             )}
+                            {(account._access_type === "shared" || account._access_type === "company_shared") && ["contributor", "editor", "social_contributor", "owner"].includes(account._role) && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditAccount(account)} data-testid={`edit-shared-account-${account.account_id}`}>
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Format & Account Colors */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">{isEs ? "Colores del Calendario" : "Calendar Colors"}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">{isEs ? "Color por tipo de contenido" : "Color by content type"}</p>
+                  <div className="grid grid-cols-5 gap-3">
+                    {[
+                      { key: "post", label: "Post" },
+                      { key: "reel", label: "Reel" },
+                      { key: "story", label: isEs ? "Historia" : "Story" },
+                      { key: "carousel", label: isEs ? "Carrusel" : "Carousel" },
+                      { key: "live", label: "Live" },
+                    ].map(fmt => (
+                      <div key={fmt.key} className="flex items-center gap-2">
+                        <input type="color" value={formatColors[fmt.key] || "#3b82f6"}
+                          onChange={e => {
+                            const newColors = { ...formatColors, [fmt.key]: e.target.value };
+                            setFormatColors(newColors);
+                            axios.put(`${API}/api/demand-studio/social/format-colors`, newColors, { withCredentials: true }).catch(() => {});
+                          }}
+                          className="w-6 h-6 rounded cursor-pointer border-0" />
+                        <span className="text-xs">{fmt.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">{isEs ? "Color por cuenta (borde en calendario)" : "Color per account (calendar border)"}</p>
+                  <div className="space-y-2">
+                    {accounts.map(acc => (
+                      <div key={acc.account_id} className="flex items-center gap-2">
+                        <input type="color" value={acc.color || "#94a3b8"}
+                          onChange={e => {
+                            axios.put(`${API}/api/demand-studio/social/accounts/${acc.account_id}/color`, { color: e.target.value }, { withCredentials: true }).catch(() => {});
+                            // Optimistic update
+                            const el = document.querySelector(`[data-testid="account-color-inline-${acc.account_id}"]`);
+                            if (el) el.value = e.target.value;
+                          }}
+                          className="w-6 h-6 rounded cursor-pointer border-0"
+                          data-testid={`account-color-inline-${acc.account_id}`} />
+                        <span className="text-xs">{acc.handle || acc.platform}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
