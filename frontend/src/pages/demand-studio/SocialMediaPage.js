@@ -1291,7 +1291,7 @@ export default function SocialMediaPage() {
               backgroundColor: isPosted ? '#f0fdf4' : `${fmtColor}18`,
               borderLeft: acctColor ? `3px solid ${acctColor}` : `3px solid ${fmtColor}40`,
             }}
-            onClick={() => openEditPost(post)}
+            onClick={(e) => { e.stopPropagation(); openEditPost(post); }}
             data-testid="calendar-draggable-post"
           >
             <GripVertical className="w-2 h-2 text-muted-foreground flex-shrink-0" />
@@ -2150,7 +2150,7 @@ export default function SocialMediaPage() {
                                             backgroundColor: `${fmtColor}10`,
                                             borderLeft: `4px solid ${acctColor || fmtColor}`,
                                           }}
-                                          onClick={() => openEditPost(post)}
+                                          onClick={(e) => { e.stopPropagation(); openEditPost(post); }}
                                           data-testid="calendar-day-post"
                                         >
                                           <div className="flex items-center justify-between mb-1">
