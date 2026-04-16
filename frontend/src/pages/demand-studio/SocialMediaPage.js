@@ -37,7 +37,7 @@ import {
   ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
   ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
   Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal,
-  ArrowUpRight, GripVertical, History
+  ArrowUpRight, GripVertical, History, RefreshCw
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -152,6 +152,15 @@ export default function SocialMediaPage() {
   });
   const [storyTemplates, setStoryTemplates] = useState([]);
   const [seriesSaving, setSeriesSaving] = useState(false);
+  
+  // Recurring posts
+  const [recurDialogOpen, setRecurDialogOpen] = useState(false);
+  const [recurForm, setRecurForm] = useState({
+    social_account_id: "", campaign_id: "", format: "post", status: "calendar",
+    title: "", caption: "", frequency: "weekly", days_of_week: [],
+    start_date: "", end_date: "", repeat_count: 8,
+  });
+  const [recurSaving, setRecurSaving] = useState(false);
   
   // Dialogs
   const [postDialogOpen, setPostDialogOpen] = useState(false);
@@ -616,6 +625,38 @@ export default function SocialMediaPage() {
       series_name: template.name,
       items: template.items || [],
     });
+  };
+
+  // Recurring posts
+  const handleCreateRecurring = async () => {
+    if (!recurForm.social_account_id) {
+      toast.error(isEs ? "Selecciona una cuenta" : "Select an account");
+      return;
+    }
+    if (!recurForm.start_date) {
+      toast.error(isEs ? "Selecciona fecha inicio" : "Select start date");
+      return;
+    }
+    if (!recurForm.title) {
+      toast.error(isEs ? "Agrega un título" : "Add a title");
+      return;
+    }
+    setRecurSaving(true);
+    try {
+      const payload = { ...recurForm };
+      // Convert Python weekday (Mon=0) to JS weekday mapping
+      // days_of_week is already in Python format (Mon=0..Sun=6)
+      const res = await axios.post(`${API}/api/demand-studio/social/posts/recurring${getOrgParam()}`, payload, { withCredentials: true });
+      toast.success(isEs ? `${res.data.count} posts recurrentes creados` : `${res.data.count} recurring posts created`);
+      setRecurDialogOpen(false);
+      setRecurForm({ social_account_id: "", campaign_id: "", format: "post", status: "calendar", title: "", caption: "", frequency: "weekly", days_of_week: [], start_date: "", end_date: "", repeat_count: 8 });
+      await fetchData(isOwnOrg ? null : selectedOrgId);
+      fetchCalendarPosts();
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Error");
+    } finally {
+      setRecurSaving(false);
+    }
   };
 
   const handleMarkAsPosted = async (postId) => {
@@ -1257,6 +1298,7 @@ export default function SocialMediaPage() {
             <span className="flex-shrink-0">{getPlatformIcon(post.account?.platform)}</span>
             <span className="flex-shrink-0 text-[10px] leading-none">{formatIcon}</span>
             <span className={`truncate ${isPosted ? 'line-through' : ''}`}>{post.title}{seriesLabel ? <span className="text-[8px] opacity-60">{seriesLabel}</span> : ''}</span>
+            {post.recurrence_id && <RefreshCw className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />}
             {isPosted && <Check className="w-3 h-3 text-green-600 flex-shrink-0" />}
             {postCommentCounts[post.post_id]?.unread > 0 && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
           </div>
@@ -1469,6 +1511,10 @@ export default function SocialMediaPage() {
             <Button variant="outline" onClick={() => { setSeriesForm({ ...seriesForm, social_account_id: accounts[0]?.account_id || "" }); setSeriesDialogOpen(true); }} data-testid="new-series-button">
               <Layers className="w-4 h-4 mr-2" />
               {isEs ? "Serie de Stories" : "Story Series"}
+            </Button>
+            <Button variant="outline" onClick={() => { setRecurForm({ ...recurForm, social_account_id: accounts[0]?.account_id || "" }); setRecurDialogOpen(true); }} data-testid="new-recurring-button">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {isEs ? "Recurrente" : "Recurring"}
             </Button>
           </div>
         </div>
@@ -4229,6 +4275,151 @@ export default function SocialMediaPage() {
             <Button onClick={handleCreateSeries} disabled={seriesSaving} data-testid="create-series-btn">
               <Layers className="w-4 h-4 mr-1" />
               {seriesSaving ? "..." : isEs ? `Crear ${seriesForm.count} Stories` : `Create ${seriesForm.count} Stories`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recurring Posts Dialog */}
+      <Dialog open={recurDialogOpen} onOpenChange={setRecurDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5" />
+              {isEs ? "Post Recurrente" : "Recurring Post"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Account */}
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Cuenta" : "Account"}</label>
+              <Select value={recurForm.social_account_id} onValueChange={v => setRecurForm({...recurForm, social_account_id: v})}>
+                <SelectTrigger data-testid="recur-account-select"><SelectValue placeholder={isEs ? "Seleccionar" : "Select"} /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map(a => <SelectItem key={a.account_id} value={a.account_id}>{a.handle || a.platform}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Title + Caption */}
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Título" : "Title"}</label>
+              <Input value={recurForm.title} onChange={e => setRecurForm({...recurForm, title: e.target.value})} placeholder={isEs ? "Ej: Tips del Martes" : "E.g.: Tuesday Tips"} data-testid="recur-title" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Texto / Caption" : "Caption"}</label>
+              <textarea value={recurForm.caption} onChange={e => setRecurForm({...recurForm, caption: e.target.value})} rows={3}
+                placeholder={isEs ? "Texto del post recurrente..." : "Recurring post text..."} className="w-full text-sm px-3 py-2 rounded-md border bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring" data-testid="recur-caption" />
+            </div>
+
+            {/* Format + Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Formato" : "Format"}</label>
+                <Select value={recurForm.format} onValueChange={v => setRecurForm({...recurForm, format: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FORMATS.map(f => <SelectItem key={f.value} value={f.value}>{isEs ? f.labelEs : f.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Status</label>
+                <Select value={recurForm.status} onValueChange={v => setRecurForm({...recurForm, status: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{isEs ? s.labelEs : s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Frequency */}
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Frecuencia" : "Frequency"}</label>
+              <Select value={recurForm.frequency} onValueChange={v => setRecurForm({...recurForm, frequency: v, days_of_week: []})}>
+                <SelectTrigger data-testid="recur-frequency"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">{isEs ? "Diario" : "Daily"}</SelectItem>
+                  <SelectItem value="weekly">{isEs ? "Semanal" : "Weekly"}</SelectItem>
+                  <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+                  <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Days of week (for weekly) */}
+            {recurForm.frequency === "weekly" && (
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Días de la semana" : "Days of the week"}</label>
+                <div className="flex gap-1 mt-1">
+                  {[
+                    { d: 0, l: isEs ? "Lun" : "Mon" },
+                    { d: 1, l: isEs ? "Mar" : "Tue" },
+                    { d: 2, l: isEs ? "Mié" : "Wed" },
+                    { d: 3, l: isEs ? "Jue" : "Thu" },
+                    { d: 4, l: isEs ? "Vie" : "Fri" },
+                    { d: 5, l: isEs ? "Sáb" : "Sat" },
+                    { d: 6, l: isEs ? "Dom" : "Sun" },
+                  ].map(({ d, l }) => (
+                    <button key={d} onClick={() => {
+                      const days = recurForm.days_of_week.includes(d) ? recurForm.days_of_week.filter(x => x !== d) : [...recurForm.days_of_week, d];
+                      setRecurForm({...recurForm, days_of_week: days});
+                    }}
+                      className={`text-xs px-2.5 py-1 rounded-md border transition-all ${recurForm.days_of_week.includes(d) ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted'}`}
+                      data-testid={`recur-day-${d}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Date range */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Fecha inicio" : "Start date"}</label>
+                <Input type="date" value={recurForm.start_date} onChange={e => setRecurForm({...recurForm, start_date: e.target.value})} data-testid="recur-start-date" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Repeticiones" : "Repeat count"}</label>
+                <Input type="number" min={1} max={52} value={recurForm.repeat_count} onChange={e => setRecurForm({...recurForm, repeat_count: parseInt(e.target.value) || 1})} data-testid="recur-count" />
+              </div>
+            </div>
+
+            {campaigns.length > 0 && (
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Campaña (opcional)" : "Campaign (optional)"}</label>
+                <Select value={recurForm.campaign_id || "none"} onValueChange={v => setRecurForm({...recurForm, campaign_id: v === "none" ? "" : v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin campaña" : "No campaign"}</SelectItem>
+                    {campaigns.map(c => <SelectItem key={c.campaign_id} value={c.campaign_id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Preview */}
+            <div className="bg-muted/30 rounded-lg p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                {isEs ? "Se crearán posts en estas fechas:" : "Posts will be created on:"}
+              </p>
+              <p className="text-sm font-bold" style={{ color: formatColors[recurForm.format] }}>
+                {recurForm.frequency === "daily" ? (isEs ? `${recurForm.repeat_count} días seguidos` : `${recurForm.repeat_count} consecutive days`)
+                  : recurForm.frequency === "weekly" ? (isEs ? `Cada ${recurForm.days_of_week.length || 1} día(s)/semana × ${recurForm.repeat_count} semanas` : `${recurForm.days_of_week.length || 1} day(s)/week × ${recurForm.repeat_count} weeks`)
+                  : recurForm.frequency === "biweekly" ? (isEs ? `Cada 2 semanas × ${recurForm.repeat_count}` : `Every 2 weeks × ${recurForm.repeat_count}`)
+                  : (isEs ? `Mensual × ${recurForm.repeat_count}` : `Monthly × ${recurForm.repeat_count}`)}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecurDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleCreateRecurring} disabled={recurSaving} data-testid="create-recurring-btn">
+              <RefreshCw className="w-4 h-4 mr-1" />
+              {recurSaving ? "..." : isEs ? "Crear Recurrente" : "Create Recurring"}
             </Button>
           </DialogFooter>
         </DialogContent>

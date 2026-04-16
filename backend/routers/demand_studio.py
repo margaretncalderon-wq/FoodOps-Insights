@@ -4533,3 +4533,142 @@ async def update_account_color(account_id: str, data: dict, user: User = Depends
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"account_id": account_id, "color": color}
+
+
+# ============== RECURRING / MULTI-DAY POSTS ==============
+
+@demand_studio_router.post("/social/posts/recurring")
+async def create_recurring_posts(data: dict, org_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Create recurring posts across multiple dates"""
+    await ensure_owner_membership(user)
+    
+    if org_id:
+        try:
+            company_id, _ = await check_section_permission(user, org_id, "social_media", "contributor")
+        except HTTPException:
+            company_id = org_id
+    else:
+        company_id = user.company_id or user.active_org_id
+    
+    frequency = data.get("frequency", "weekly")  # daily, weekly, biweekly, monthly
+    days_of_week = data.get("days_of_week", [])   # [0=Sun,1=Mon,...6=Sat] for weekly
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
+    repeat_count = data.get("repeat_count", 0)    # alternative to end_date
+    
+    if not start_date:
+        raise HTTPException(status_code=400, detail="start_date is required")
+    
+    # Calculate all dates
+    from dateutil.relativedelta import relativedelta
+    start = datetime.fromisoformat(start_date)
+    dates = []
+    
+    if frequency == "daily":
+        max_dates = repeat_count or 30
+        for i in range(max_dates):
+            d = start + timedelta(days=i)
+            if end_date and d > datetime.fromisoformat(end_date):
+                break
+            dates.append(d)
+    
+    elif frequency == "weekly":
+        if not days_of_week:
+            days_of_week = [start.weekday()]  # default to start day
+        max_weeks = repeat_count or 12
+        current = start
+        end = datetime.fromisoformat(end_date) if end_date else start + timedelta(weeks=max_weeks)
+        while current <= end and len(dates) < 100:
+            if current.weekday() in days_of_week and current >= start:
+                dates.append(current)
+            current += timedelta(days=1)
+    
+    elif frequency == "biweekly":
+        max_count = repeat_count or 12
+        for i in range(max_count):
+            d = start + timedelta(weeks=i * 2)
+            if end_date and d > datetime.fromisoformat(end_date):
+                break
+            dates.append(d)
+    
+    elif frequency == "monthly":
+        max_count = repeat_count or 6
+        for i in range(max_count):
+            d = start + relativedelta(months=i)
+            if end_date and d > datetime.fromisoformat(end_date):
+                break
+            dates.append(d)
+    
+    if not dates:
+        raise HTTPException(status_code=400, detail="No dates generated with given parameters")
+    if len(dates) > 100:
+        dates = dates[:100]
+    
+    recurrence_id = f"recur_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    posts = []
+    for i, date in enumerate(dates):
+        post = {
+            "post_id": f"post_{uuid.uuid4().hex[:12]}",
+            "company_id": company_id,
+            "social_account_id": data.get("social_account_id"),
+            "campaign_id": data.get("campaign_id") or None,
+            "pillar_id": data.get("pillar_id") or None,
+            "format": data.get("format", "post"),
+            "status": data.get("status", "calendar"),
+            "title": data.get("title", "Recurring Post"),
+            "caption": data.get("caption", ""),
+            "hook": data.get("hook", ""),
+            "cta": data.get("cta", ""),
+            "notes": data.get("notes", ""),
+            "content_body": data.get("content_body", ""),
+            "link_url": data.get("link_url", ""),
+            "scheduled_at": date.isoformat(),
+            "production_date": None,
+            "posted_at": None,
+            "recurrence_id": recurrence_id,
+            "recurrence_index": i + 1,
+            "recurrence_total": len(dates),
+            "recurrence_frequency": frequency,
+            "created_by_user_id": user.user_id,
+            "owner_user_id": user.user_id,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+        posts.append(post)
+    
+    await db.social_posts.insert_many(posts)
+    for p in posts:
+        p.pop("_id", None)
+    
+    return {
+        "recurrence_id": recurrence_id,
+        "frequency": frequency,
+        "count": len(posts),
+        "dates": [d.strftime("%Y-%m-%d") for d in dates],
+        "posts": posts
+    }
+
+
+@demand_studio_router.put("/social/posts/recurring/{recurrence_id}/bulk-update")
+async def bulk_update_recurring(recurrence_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Update all future posts in a recurrence group"""
+    company_id = user.company_id or user.active_org_id
+    
+    update = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    for field in ["title", "caption", "hook", "cta", "notes", "content_body", "status", "format"]:
+        if field in data:
+            update[field] = data[field]
+    
+    # Only update future (unposted) posts
+    result = await db.social_posts.update_many(
+        {
+            "recurrence_id": recurrence_id,
+            "company_id": company_id,
+            "status": {"$ne": "posted"}
+        },
+        {"$set": update}
+    )
+    
+    return {"updated": result.modified_count, "recurrence_id": recurrence_id}
