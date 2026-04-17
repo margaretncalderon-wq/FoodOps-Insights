@@ -539,11 +539,11 @@ async def get_planned_posts(
     if not company_id:
         return []
     
-    # Get posts that are scheduled or drafted (not posted)
+    # Get posts that are scheduled or drafted (not posted) - include all pipeline statuses
     posts = await db.social_posts.find(
         {
             "company_id": company_id,
-            "status": {"$in": ["scheduled", "drafted", "idea"]}
+            "status": {"$nin": ["posted", "archived"]}
         },
         {"_id": 0}
     ).sort("scheduled_at", 1).limit(limit).to_list(limit)
