@@ -80,6 +80,7 @@ from routers.automation import automation_router
 from routers.sharing import sharing_router
 from routers.notes import notes_router
 from routers.people_ops import people_ops_router
+from routers.launch import launch_router
 from models.crm import (
     LeadCreate, Lead, ContactCreate, Contact,
     ClientCreate, Client, CommLogCreate, CommLog,
@@ -18200,6 +18201,7 @@ api_router.include_router(presence_router)  # /api/presence/*
 # Include Guest Flow router
 from routers.guest_flow import guest_flow_router
 api_router.include_router(guest_flow_router)  # /api/guest-flow/*
+api_router.include_router(launch_router)  # /api/launch/*
 
 
 

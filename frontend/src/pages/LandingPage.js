@@ -1,258 +1,779 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { useLanguage } from "../contexts/LanguageContext";
-import { 
-  Users, Briefcase, Calendar, ChefHat, Package, Megaphone, Building2,
-  ArrowRight, Check, Globe, Play, Zap, Target, TrendingUp
+import { API_BASE as API } from "../utils/api";
+import {
+  Activity, Puzzle, Target, Briefcase, Megaphone, ClipboardList,
+  UtensilsCrossed, Package, Building2, Users, Calendar,
+  ArrowRight, Check, Globe, Sparkles, MapPin, Mic2, Zap, Star,
+  TrendingUp, ChevronRight, Quote, Loader2,
 } from "lucide-react";
 
-// Module highlights - only the most important 4 features per module
+// =============================================================
+// MODULES (same order as in-app sidebar: general → specific)
+// Each module gets a realistic mock visual rendered in the right panel.
+// =============================================================
 const moduleHighlights = [
   {
-    id: "demand",
-    icon: Megaphone,
-    color: "from-pink-500 to-rose-500",
-    bgColor: "bg-pink-500/10",
-    title: "Demand Studio",
-    subtitle: "Marketing & Growth",
-    subtitleEs: "Marketing y Crecimiento",
+    id: "system_pulse",
+    icon: Activity,
+    accent: "#AED768",
+    title: "System Pulse",
+    titleEs: "System Pulse",
+    subtitle: "Real-time command center",
+    subtitleEs: "Centro de mando en tiempo real",
+    description: "One screen to see everything: revenue, pipeline, events of the week and team activity.",
+    descriptionEs: "Una sola vista para ver todo: facturación, pipeline, eventos de la semana y actividad del equipo.",
     features: [
-      { en: "Campaign management (online & offline)", es: "Gestión de campañas (online y offline)" },
-      { en: "Social media planning", es: "Planificación de redes sociales" },
-      { en: "Spend tracking & ROI", es: "Control de gastos y ROI" },
-      { en: "Lead attribution", es: "Atribución de leads" }
-    ]
+      { en: "Live KPIs across all modules", es: "KPIs en vivo de todos los módulos" },
+      { en: "Today's events & follow-ups", es: "Eventos y follow-ups del día" },
+      { en: "Cash position & receivables", es: "Caja y cuentas por cobrar" },
+      { en: "Team presence & approvals", es: "Presencia del equipo y aprobaciones" },
+    ],
+    mockType: "dashboard",
   },
   {
-    id: "client",
-    icon: Users,
-    color: "from-blue-500 to-cyan-500",
-    bgColor: "bg-blue-500/10",
+    id: "client_engagement",
+    icon: Puzzle,
+    accent: "#3B82F6",
     title: "Client Engagement",
-    subtitle: "Sales & CRM",
-    subtitleEs: "Ventas y CRM",
+    titleEs: "Client Engagement",
+    subtitle: "CRM, pipeline & client portal",
+    subtitleEs: "CRM, pipeline y portal de clientes",
+    description: "Capture leads, track conversion and centralize every client conversation.",
+    descriptionEs: "Captura leads, mide conversión y centraliza cada conversación con tus clientes.",
     features: [
-      { en: "Pipeline & lead tracking", es: "Pipeline y seguimiento de leads" },
-      { en: "Proposals & contracts", es: "Propuestas y contratos" },
-      { en: "Client communication log", es: "Registro de comunicaciones" },
-      { en: "Client portal access", es: "Portal de clientes" }
-    ]
+      { en: "Visual pipeline with stages", es: "Pipeline visual con etapas" },
+      { en: "Proposals, contracts & e-sign", es: "Propuestas, contratos y firma digital" },
+      { en: "Client portal with documents", es: "Portal de clientes con documentos" },
+      { en: "Lead source attribution", es: "Atribución de leads por fuente" },
+    ],
+    mockType: "crm",
   },
   {
-    id: "event",
-    icon: Calendar,
-    color: "from-purple-500 to-violet-500",
-    bgColor: "bg-purple-500/10",
-    title: "Event Suite",
-    subtitle: "Events & Venues",
-    subtitleEs: "Eventos y Venues",
-    features: [
-      { en: "Event blueprints & templates", es: "Plantillas de eventos" },
-      { en: "Run of show timeline", es: "Timeline de eventos" },
-      { en: "Venue & room management", es: "Gestión de venues y salones" },
-      { en: "Production documents", es: "Documentos de producción" }
-    ]
-  },
-  {
-    id: "projects",
+    id: "execution_hub",
     icon: Target,
-    color: "from-indigo-500 to-blue-500",
-    bgColor: "bg-indigo-500/10",
-    title: "Project Orchestration",
-    subtitle: "Projects & Deliverables",
-    subtitleEs: "Proyectos y Entregables",
+    accent: "#8B5CF6",
+    title: "Execution Hub",
+    titleEs: "Execution Hub",
+    subtitle: "Goals, projects & deliverables",
+    subtitleEs: "Metas, proyectos y entregables",
+    description: "Translate strategy into goals, milestones and tasks the whole team can see.",
+    descriptionEs: "Convierte la estrategia en metas, hitos y tareas que todo el equipo ve.",
     features: [
-      { en: "Project planning & milestones", es: "Planificación y hitos" },
-      { en: "Task management", es: "Gestión de tareas" },
-      { en: "Team collaboration", es: "Colaboración de equipo" },
-      { en: "Client deliverables", es: "Entregables al cliente" }
-    ]
+      { en: "OKRs with progress tracking", es: "OKRs con tracking de progreso" },
+      { en: "Project timelines & milestones", es: "Timelines y hitos de proyectos" },
+      { en: "Task management & ownership", es: "Gestión de tareas y responsables" },
+      { en: "Team & client deliverables", es: "Entregables internos y al cliente" },
+    ],
+    mockType: "goals",
   },
   {
-    id: "culinary",
-    icon: ChefHat,
-    color: "from-orange-500 to-amber-500",
-    bgColor: "bg-orange-500/10",
+    id: "business_clarity",
+    icon: Briefcase,
+    accent: "#10B981",
+    title: "Business Clarity",
+    titleEs: "Business Clarity",
+    subtitle: "Finance & executive view",
+    subtitleEs: "Finanzas y visión ejecutiva",
+    description: "Invoices, payments, cash flow and the financial signals you need to decide.",
+    descriptionEs: "Facturas, pagos, flujo de caja y las señales financieras para decidir bien.",
+    features: [
+      { en: "Invoicing & receivables", es: "Facturación y cuentas por cobrar" },
+      { en: "Cash flow & period close", es: "Flujo de caja y cierre de período" },
+      { en: "Cost-center budgets", es: "Presupuestos por centro de costo" },
+      { en: "Profit signals & alerts", es: "Alertas de rentabilidad" },
+    ],
+    mockType: "finance",
+  },
+  {
+    id: "demand_studio",
+    icon: Megaphone,
+    accent: "#EC4899",
+    title: "Demand Generation",
+    titleEs: "Demand Generation",
+    subtitle: "Marketing, content & growth",
+    subtitleEs: "Marketing, contenido y crecimiento",
+    description: "Plan campaigns, schedule posts, preview your feed and tie spend to revenue.",
+    descriptionEs: "Planifica campañas, programa posts, previsualiza tu feed y une gasto con ingresos.",
+    features: [
+      { en: "Editorial calendar (day/week/month)", es: "Calendario editorial (día/semana/mes)" },
+      { en: "Instagram-style feed preview", es: "Preview de feed estilo Instagram" },
+      { en: "Campaign ROI & lead attribution", es: "ROI de campaña y atribución de leads" },
+      { en: "Story series & multi-day posts", es: "Series de historias y posts multi-día" },
+    ],
+    mockType: "studio",
+  },
+  {
+    id: "event_orchestration",
+    icon: ClipboardList,
+    accent: "#F97316",
+    title: "Event Orchestration",
+    titleEs: "Event Orchestration",
+    subtitle: "Events, run-of-show & venues",
+    subtitleEs: "Eventos, run of show y venues",
+    description: "From the brief to the run-of-show: blueprints, timelines, suppliers and production docs.",
+    descriptionEs: "Del brief al run of show: plantillas, timelines, proveedores y documentos de producción.",
+    features: [
+      { en: "Reusable event blueprints", es: "Plantillas reusables de evento" },
+      { en: "Run of show timeline", es: "Timeline run of show" },
+      { en: "Suppliers, BEO & rentals", es: "Proveedores, BEO y rentas" },
+      { en: "Client-facing event portal", es: "Portal de evento para el cliente" },
+    ],
+    mockType: "event",
+  },
+  {
+    id: "culinary_intelligence",
+    icon: UtensilsCrossed,
+    accent: "#D97706",
     title: "Culinary Intelligence",
-    subtitle: "Food Operations",
-    subtitleEs: "Operaciones Culinarias",
+    titleEs: "Inteligencia Culinaria",
+    subtitle: "Recipes, costing & production",
+    subtitleEs: "Recetas, costeo y producción",
+    description: "Real recipe costing, plated menus, production planning and supplier orders.",
+    descriptionEs: "Costeo real de recetas, menús emplatados, planificación de producción y órdenes a proveedores.",
     features: [
       { en: "Recipe costing & margins", es: "Costeo de recetas y márgenes" },
-      { en: "Production planning", es: "Planificación de producción" },
-      { en: "Inventory management", es: "Gestión de inventario" },
-      { en: "Vendor ordering", es: "Órdenes a proveedores" }
-    ]
+      { en: "Plated menu builder", es: "Constructor de menú emplatado" },
+      { en: "Production planning by event", es: "Planificación de producción por evento" },
+      { en: "Vendor purchase orders", es: "Órdenes de compra a proveedores" },
+    ],
+    mockType: "culinary",
   },
   {
-    id: "finance",
-    icon: Briefcase,
-    color: "from-emerald-500 to-teal-500",
-    bgColor: "bg-emerald-500/10",
-    title: "Business Clarity",
-    subtitle: "Finance & Leadership",
-    subtitleEs: "Finanzas y Liderazgo",
-    features: [
-      { en: "Invoices & payments", es: "Facturas y pagos" },
-      { en: "Budget tracking", es: "Control de presupuesto" },
-      { en: "Executive dashboard", es: "Dashboard ejecutivo" },
-      { en: "Profit signals & alerts", es: "Alertas de rentabilidad" }
-    ]
-  },
-  {
-    id: "resources",
+    id: "resource_management",
     icon: Package,
-    color: "from-slate-500 to-gray-600",
-    bgColor: "bg-slate-500/10",
+    accent: "#64748B",
     title: "Resource Management",
-    subtitle: "Assets & Scheduling",
-    subtitleEs: "Activos y Programación",
+    titleEs: "Gestión de Recursos",
+    subtitle: "Inventory, equipment & schedules",
+    subtitleEs: "Inventario, equipos y programación",
+    description: "Track every resource: inventory, equipment, availability and maintenance.",
+    descriptionEs: "Controla cada recurso: inventario, equipos, disponibilidad y mantenimiento.",
     features: [
-      { en: "Equipment tracking", es: "Control de equipos" },
+      { en: "Inventory & stock movements", es: "Inventario y movimientos de stock" },
+      { en: "Equipment tracking & QR codes", es: "Tracking de equipos y códigos QR" },
       { en: "Resource scheduling", es: "Programación de recursos" },
-      { en: "Maintenance schedules", es: "Programación de mantenimiento" },
-      { en: "Availability management", es: "Gestión de disponibilidad" }
-    ]
-  }
-];
-
-// Integrations - using reliable CDN icons
-const integrations = [
-  { name: "Google Workspace", logo: "https://www.gstatic.com/images/branding/product/2x/hh_google_g_512dp.png" },
-  { name: "DocuSign", logo: "https://cdn.brandfetch.io/idS6L1qwUH/w/400/h/400/theme/dark/icon.png" },
-  { name: "Meta", logo: "https://cdn.brandfetch.io/idP9n85XT2/theme/dark/symbol.svg" },
-  { name: "Google Ads", logo: "https://cdn.brandfetch.io/idGBh5d47W/theme/dark/symbol.svg" },
-  { name: "Stripe", logo: "https://cdn.brandfetch.io/idxAg10C0L/theme/dark/symbol.svg" },
-  { name: "WhatsApp", logo: "https://cdn.brandfetch.io/idZvUjJPKC/theme/dark/symbol.svg" }
-];
-
-// Pricing plans - Updated to reflect Kora Core + Add-ons model
-const pricingPlans = [
-  {
-    name: "Kora Core",
-    price: "$69",
-    period: "/mo",
-    periodEs: "/mes",
-    tagline: "Everything you need to run your business.",
-    taglineEs: "Todo lo que necesitas para operar tu negocio.",
-    features: ["CRM & Pipeline", "Client Management", "Proposals & Invoices", "Financial Dashboard", "Unlimited users", "All industries"],
-    featuresEs: ["CRM y Pipeline", "Gestión de Clientes", "Propuestas y Facturas", "Dashboard Financiero", "Usuarios ilimitados", "Todas las industrias"],
-    cta: "Start 7-Day Trial",
-    ctaEs: "Prueba 7 Días Gratis",
-    highlight: true
-  }
-];
-
-// Add-on modules for Kora Core
-const addonModules = [
-  {
-    name: "Event Suite",
-    nameEs: "Suite de Eventos",
-    price: "$39/mo",
-    priceEs: "$39/mes",
-    description: "Event Orchestration + Venues combined",
-    descriptionEs: "Orquestación de Eventos + Venues combinados",
-    icon: Calendar
+      { en: "Maintenance reminders", es: "Recordatorios de mantenimiento" },
+    ],
+    mockType: "resources",
   },
   {
-    name: "Project Orchestration",
-    nameEs: "Orquestación de Proyectos",
-    price: "$39/mo",
-    priceEs: "$39/mes",
-    description: "Project planning, timelines & deliverables",
-    descriptionEs: "Planificación de proyectos, timelines y entregables",
-    icon: Target
-  },
-  {
-    name: "Culinary Intelligence",
-    nameEs: "Inteligencia Culinaria",
-    price: "$29/mo",
-    priceEs: "$29/mes",
-    description: "Recipe costing & inventory management",
-    descriptionEs: "Costeo de recetas y gestión de inventario",
-    icon: ChefHat
-  },
-  {
-    name: "Demand Studio",
-    nameEs: "Demand Studio",
-    price: "$29/mo",
-    priceEs: "$29/mes",
-    description: "Marketing campaigns & ROI tracking",
-    descriptionEs: "Campañas de marketing y seguimiento de ROI",
-    icon: Megaphone
-  },
-  {
-    name: "Resource Management",
-    nameEs: "Gestión de Recursos",
-    price: "$19/mo",
-    priceEs: "$19/mes",
-    description: "Equipment, venues & resource scheduling",
-    descriptionEs: "Equipos, venues y programación de recursos",
-    icon: Package
-  }
-];
-
-// Industries we serve
-const industries = [
-  {
-    name: "Events & Hospitality",
-    nameEs: "Eventos y Hospitalidad",
-    description: "Catering, weddings, corporate events, venues",
-    descriptionEs: "Catering, bodas, eventos corporativos, venues",
-    icon: Calendar,
-    color: "bg-purple-100 text-purple-600"
-  },
-  {
-    name: "Professional Services",
-    nameEs: "Servicios Profesionales",
-    description: "Agencies, consulting, legal, accounting",
-    descriptionEs: "Agencias, consultoría, legal, contabilidad",
-    icon: Briefcase,
-    color: "bg-blue-100 text-blue-600"
-  },
-  {
-    name: "General Services",
-    nameEs: "Servicios Generales",
-    description: "Any service-based business",
-    descriptionEs: "Cualquier negocio basado en servicios",
+    id: "venues",
     icon: Building2,
-    color: "bg-emerald-100 text-emerald-600"
-  }
+    accent: "#0EA5E9",
+    title: "Venues & Locations",
+    titleEs: "Venues y Locaciones",
+    subtitle: "Spaces, rooms & layouts",
+    subtitleEs: "Espacios, salones y layouts",
+    description: "Manage venues, rooms, capacities, room setups and availability.",
+    descriptionEs: "Gestiona venues, salones, capacidades, montajes y disponibilidad.",
+    features: [
+      { en: "Venue & room library", es: "Librería de venues y salones" },
+      { en: "Room setup templates", es: "Plantillas de room setup" },
+      { en: "Capacity & seating charts", es: "Capacidad y diagramas de mesas" },
+      { en: "Availability calendar", es: "Calendario de disponibilidad" },
+    ],
+    mockType: "venues",
+  },
+  {
+    id: "people_ops",
+    icon: Users,
+    accent: "#06B6D4",
+    title: "People Ops",
+    titleEs: "People Ops",
+    subtitle: "Team, payroll & culture",
+    subtitleEs: "Equipo, nómina y cultura",
+    description: "Onboard, schedule and pay your team — and keep them in the loop.",
+    descriptionEs: "Incorpora, programa y paga a tu equipo — y mantenlo informado.",
+    features: [
+      { en: "Team directory & roles", es: "Directorio y roles del equipo" },
+      { en: "Shifts & timesheets", es: "Turnos y hojas de horas" },
+      { en: "Payroll preparation", es: "Preparación de nómina" },
+      { en: "Internal announcements", es: "Anuncios internos" },
+    ],
+    mockType: "team",
+  },
 ];
 
+// =============================================================
+// DIFFERENTIATORS (replaces vanity stats)
+// =============================================================
+const differentiators = [
+  {
+    icon: Zap,
+    en: "Built by operators, for operators",
+    es: "Hecho por operadores, para operadores",
+    descEn: "Born inside a real agency. Every module solves a problem we lived.",
+    descEs: "Nacido dentro de una agencia real. Cada módulo resuelve un problema que vivimos.",
+  },
+  {
+    icon: Puzzle,
+    en: "One platform, every department",
+    es: "Una plataforma, todos los departamentos",
+    descEn: "Sales, ops, finance, marketing — connected, not glued together.",
+    descEs: "Ventas, ops, finanzas, marketing — conectados, no pegados con cinta.",
+  },
+  {
+    icon: Globe,
+    en: "Designed for LATAM creative industries",
+    es: "Diseñado para industrias creativas LATAM",
+    descEn: "Bilingual, multi-currency, local tax (ITBIS) and event-first workflows.",
+    descEs: "Bilingüe, multi-moneda, impuestos locales (ITBIS) y flujos pensados para eventos.",
+  },
+  {
+    icon: TrendingUp,
+    en: "Clarity over chaos",
+    es: "Claridad sobre el caos",
+    descEn: "Reach Sunday calm. Know what's happening, what's missing and what's next.",
+    descEs: "Llega al domingo en calma. Sabes qué pasa, qué falta y qué sigue.",
+  },
+];
+
+// =============================================================
+// HOOK: Countdown to May 1, 2026 (event start)
+// =============================================================
+const EVENT_START = new Date("2026-05-01T09:00:00-04:00").getTime(); // DR / EST
+function useCountdown() {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const diff = Math.max(0, EVENT_START - now);
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / (1000 * 60)) % 60);
+  const seconds = Math.floor((diff / 1000) % 60);
+  return { days, hours, minutes, seconds, isLive: diff === 0 };
+}
+
+// =============================================================
+// REALISTIC MOCK VISUALS PER MODULE
+// =============================================================
+function ModuleMock({ type, accent }) {
+  const Bar = ({ w = "100%", c = "#E5E7EB", h = 8 }) => (
+    <div style={{ width: w, height: h, background: c, borderRadius: 999 }} />
+  );
+
+  const wrap = "bg-white rounded-2xl shadow-2xl p-5 w-full max-w-md text-[#1F2937]";
+
+  if (type === "dashboard") {
+    return (
+      <div className={wrap}>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-semibold text-[#6B7280]">SYSTEM PULSE</span>
+          <span className="text-[10px] text-[#10B981] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />LIVE</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {[
+            { label: "MRR", val: "$48,210", trend: "+12%" },
+            { label: "Pipeline", val: "$214K", trend: "+8%" },
+            { label: "Eventos hoy", val: "3", trend: "·" },
+          ].map((k) => (
+            <div key={k.label} className="bg-[#F7F8FA] rounded-lg p-2.5">
+              <p className="text-[9px] text-[#6B7280] uppercase tracking-wider">{k.label}</p>
+              <p className="text-base font-bold">{k.val}</p>
+              <p className="text-[10px]" style={{ color: accent }}>{k.trend}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs font-semibold text-[#6B7280] mb-2">Cash flow · 30d</p>
+        <svg viewBox="0 0 200 60" className="w-full h-14 mb-3">
+          <polyline fill="none" stroke={accent} strokeWidth="2.5" points="0,40 20,32 40,38 60,28 80,30 100,18 120,22 140,12 160,18 180,8 200,14" />
+          <polyline fill={accent} fillOpacity="0.15" points="0,40 20,32 40,38 60,28 80,30 100,18 120,22 140,12 160,18 180,8 200,14 200,60 0,60" />
+        </svg>
+        <div className="flex items-center gap-2 text-[10px] text-[#6B7280]">
+          <span className="px-2 py-0.5 rounded-full bg-[#F7F8FA]">5 follow-ups</span>
+          <span className="px-2 py-0.5 rounded-full bg-[#F7F8FA]">2 aprobaciones</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "crm") {
+    const stages = [
+      { name: "New", n: 8, c: "#94A3B8" },
+      { name: "Qualified", n: 5, c: "#3B82F6" },
+      { name: "Proposal", n: 3, c: "#8B5CF6" },
+      { name: "Won", n: 2, c: "#10B981" },
+    ];
+    return (
+      <div className={wrap}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-[#6B7280]">PIPELINE</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: accent + "22", color: accent }}>$214K</span>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
+          {stages.map((s) => (
+            <div key={s.name} className="bg-[#F7F8FA] rounded-lg p-2 text-center">
+              <p className="text-[9px] text-[#6B7280] truncate">{s.name}</p>
+              <p className="text-sm font-bold" style={{ color: s.c }}>{s.n}</p>
+              <div className="h-1 rounded-full mt-1" style={{ background: s.c, opacity: 0.3 }} />
+            </div>
+          ))}
+        </div>
+        {[
+          { name: "María R.", co: "Bodas Dorada", v: "$8,400", st: "Proposal", c: "#8B5CF6" },
+          { name: "Carlos M.", co: "Banco Popular", v: "$24,000", st: "Qualified", c: "#3B82F6" },
+          { name: "Lucía F.", co: "Estudio Avila", v: "$3,200", st: "Won", c: "#10B981" },
+        ].map((l) => (
+          <div key={l.name} className="flex items-center gap-2 py-2 border-t border-[#F1F5F9]">
+            <div className="w-7 h-7 rounded-full text-[10px] font-bold flex items-center justify-center" style={{ background: l.c + "22", color: l.c }}>
+              {l.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold truncate">{l.name}</p>
+              <p className="text-[10px] text-[#6B7280] truncate">{l.co}</p>
+            </div>
+            <span className="text-[11px] font-bold" style={{ color: l.c }}>{l.v}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "goals") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">GOALS · Q2 2026</span>
+        <div className="space-y-3 mt-3">
+          {[
+            { g: "Cerrar 12 eventos corporativos", p: 75, c: accent },
+            { g: "Lanzar Kora OS al mercado", p: 90, c: "#3B82F6" },
+            { g: "Reducir tiempo de propuesta 40%", p: 55, c: "#F97316" },
+          ].map((x) => (
+            <div key={x.g}>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium truncate pr-2">{x.g}</span>
+                <span className="font-bold" style={{ color: x.c }}>{x.p}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-[#F1F5F9] overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${x.p}%`, background: x.c }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 pt-3 border-t border-[#F1F5F9] grid grid-cols-3 gap-2 text-center">
+          <div><p className="text-base font-bold">14</p><p className="text-[9px] text-[#6B7280]">tareas hoy</p></div>
+          <div><p className="text-base font-bold">3</p><p className="text-[9px] text-[#6B7280]">en revisión</p></div>
+          <div><p className="text-base font-bold" style={{ color: accent }}>92%</p><p className="text-[9px] text-[#6B7280]">a tiempo</p></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "finance") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">CASH FLOW · ABRIL</span>
+        <div className="flex items-baseline gap-2 mt-1 mb-3">
+          <span className="text-2xl font-bold">$ 184,520</span>
+          <span className="text-xs font-semibold" style={{ color: accent }}>+18%</span>
+        </div>
+        <div className="grid grid-cols-12 gap-1 h-20 items-end mb-3">
+          {[40, 55, 35, 60, 75, 50, 80, 65, 90, 70, 85, 95].map((h, i) => (
+            <div key={i} className="rounded-t" style={{ height: `${h}%`, background: i > 8 ? accent : "#CBD5E1" }} />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="bg-[#F7F8FA] rounded-lg p-2">
+            <p className="text-[10px] text-[#6B7280]">Por cobrar</p>
+            <p className="font-bold">$ 42,180</p>
+          </div>
+          <div className="bg-[#F7F8FA] rounded-lg p-2">
+            <p className="text-[10px] text-[#6B7280]">Por pagar</p>
+            <p className="font-bold text-[#EF4444]">$ 18,640</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "studio") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">FEED PREVIEW · IG</span>
+        <div className="grid grid-cols-3 gap-0.5 mt-3 rounded-lg overflow-hidden">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="aspect-square" style={{
+              background: [
+                "linear-gradient(135deg, #fbcfe8, #f9a8d4)",
+                "linear-gradient(135deg, #ddd6fe, #c4b5fd)",
+                "linear-gradient(135deg, #fed7aa, #fdba74)",
+                "linear-gradient(135deg, #fef3c7, #fde68a)",
+                "linear-gradient(135deg, #d1fae5, #a7f3d0)",
+                "linear-gradient(135deg, #bfdbfe, #93c5fd)",
+                "linear-gradient(135deg, #fbcfe8, #f9a8d4)",
+                "#F7F8FA",
+                "linear-gradient(135deg, #ddd6fe, #c4b5fd)",
+              ][i],
+            }} />
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="bg-[#F7F8FA] rounded p-1.5">
+            <p className="text-sm font-bold">24</p>
+            <p className="text-[9px] text-[#6B7280]">programados</p>
+          </div>
+          <div className="bg-[#F7F8FA] rounded p-1.5">
+            <p className="text-sm font-bold" style={{ color: accent }}>8</p>
+            <p className="text-[9px] text-[#6B7280]">listos</p>
+          </div>
+          <div className="bg-[#F7F8FA] rounded p-1.5">
+            <p className="text-sm font-bold">3</p>
+            <p className="text-[9px] text-[#6B7280]">campañas</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "event") {
+    return (
+      <div className={wrap}>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-[#6B7280]">RUN OF SHOW · BODA M&L</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: accent + "22", color: accent }}>120 invitados</span>
+        </div>
+        <div className="mt-3 space-y-2">
+          {[
+            { t: "16:00", d: "Llegada de invitados", st: "done" },
+            { t: "16:30", d: "Ceremonia", st: "done" },
+            { t: "17:30", d: "Cocktail · Jardín", st: "live" },
+            { t: "19:00", d: "Cena emplatada", st: "next" },
+            { t: "21:30", d: "Pista · DJ Lobo", st: "next" },
+          ].map((s) => (
+            <div key={s.t} className="flex items-center gap-3">
+              <span className="text-xs font-mono text-[#6B7280] w-10">{s.t}</span>
+              <div className={`w-2 h-2 rounded-full ${s.st === "live" ? "ring-2 ring-offset-1" : ""}`} style={{
+                background: s.st === "done" ? "#10B981" : s.st === "live" ? accent : "#CBD5E1",
+                ringColor: accent,
+              }} />
+              <span className={`text-xs flex-1 ${s.st === "done" ? "text-[#94A3B8] line-through" : "font-medium"}`}>{s.d}</span>
+              {s.st === "live" && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: accent, color: "white" }}>EN VIVO</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "culinary") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">RECETA · Sancocho 7 Carnes</span>
+        <div className="flex items-baseline gap-2 mt-1">
+          <span className="text-xl font-bold">$ 142.50</span>
+          <span className="text-[11px] text-[#6B7280]">/porción · 12pp</span>
+        </div>
+        <div className="mt-3 space-y-1.5">
+          {[
+            { i: "Carne res", c: "$32.10", p: 22 },
+            { i: "Pollo entero", c: "$18.40", p: 13 },
+            { i: "Cerdo", c: "$24.80", p: 17 },
+            { i: "Víveres mix", c: "$28.30", p: 20 },
+            { i: "Mano de obra", c: "$18.90", p: 13 },
+          ].map((r) => (
+            <div key={r.i} className="flex items-center gap-2 text-xs">
+              <span className="flex-1 truncate">{r.i}</span>
+              <span className="text-[#6B7280] w-14 text-right">{r.c}</span>
+              <div className="w-12 h-1 rounded-full bg-[#F1F5F9] overflow-hidden">
+                <div className="h-full" style={{ width: `${r.p}%`, background: accent }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-[#F1F5F9] flex justify-between text-xs">
+          <span className="text-[#6B7280]">Margen sugerido</span>
+          <span className="font-bold" style={{ color: accent }}>62%</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "resources") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">INVENTARIO · MAYO</span>
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          {[
+            { n: "Sillas Tiffany", q: 240, max: 300, c: accent },
+            { n: "Mesas redondas", q: 38, max: 50, c: "#3B82F6" },
+            { n: "Mantelería", q: 12, max: 60, c: "#EF4444" },
+            { n: "Vajilla 8 pzs", q: 180, max: 200, c: "#10B981" },
+          ].map((r) => (
+            <div key={r.n} className="bg-[#F7F8FA] rounded-lg p-2.5">
+              <p className="text-[10px] text-[#6B7280] truncate">{r.n}</p>
+              <p className="text-base font-bold">{r.q}<span className="text-[10px] text-[#94A3B8]">/{r.max}</span></p>
+              <div className="h-1 rounded-full bg-white mt-1.5 overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${(r.q / r.max) * 100}%`, background: r.c }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[11px] text-[#EF4444]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" />Mantelería bajo stock — reordenar antes del 15
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "venues") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">SALÓN PRINCIPAL · 18 ABR</span>
+        <div className="relative mt-3 bg-[#F7F8FA] rounded-lg p-4 h-44 overflow-hidden">
+          {/* Stage */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 w-32 h-3 rounded" style={{ background: accent }} />
+          <p className="absolute top-2 left-1/2 -translate-x-1/2 text-[8px] text-white font-bold">ESCENARIO</p>
+          {/* Round tables */}
+          {[
+            [25, 30], [55, 30], [85, 30],
+            [15, 55], [45, 55], [75, 55],
+            [25, 80], [55, 80], [85, 80],
+          ].map(([x, y], i) => (
+            <div key={i} className="absolute w-7 h-7 rounded-full border-2 flex items-center justify-center text-[8px] font-bold" style={{
+              left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)", borderColor: accent, color: accent,
+            }}>{i + 1}</div>
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+          <div><p className="font-bold">120</p><p className="text-[9px] text-[#6B7280]">capacidad</p></div>
+          <div><p className="font-bold">12</p><p className="text-[9px] text-[#6B7280]">mesas</p></div>
+          <div><p className="font-bold" style={{ color: accent }}>OK</p><p className="text-[9px] text-[#6B7280]">disponible</p></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "team") {
+    return (
+      <div className={wrap}>
+        <span className="text-xs font-semibold text-[#6B7280]">EQUIPO · ESTA SEMANA</span>
+        <div className="space-y-2 mt-3">
+          {[
+            { n: "Andrea Pérez", r: "Coordinadora", h: 38, c: "#EC4899" },
+            { n: "José Ramírez", r: "Chef", h: 42, c: "#F97316" },
+            { n: "Pamela Ortiz", r: "Marketing", h: 32, c: "#8B5CF6" },
+            { n: "Luis Vargas", r: "Logística", h: 40, c: "#3B82F6" },
+          ].map((p) => (
+            <div key={p.n} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full text-[11px] font-bold text-white flex items-center justify-center" style={{ background: p.c }}>
+                {p.n.split(" ").map((s) => s.charAt(0)).join("")}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold truncate">{p.n}</p>
+                <p className="text-[10px] text-[#6B7280]">{p.r}</p>
+              </div>
+              <span className="text-[11px] font-bold">{p.h}h</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-[#F1F5F9] flex justify-between text-xs">
+          <span className="text-[#6B7280]">Nómina semana</span>
+          <span className="font-bold" style={{ color: accent }}>$ 4,820</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// =============================================================
+// FOUNDING WAITLIST FORM
+// =============================================================
+function WaitlistForm({ source = "landing", onSuccess, isEs }) {
+  const [form, setForm] = useState({ name: "", email: "", company: "", interest: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const res = await axios.post(`${API}/api/launch/waitlist`, { ...form, source });
+      setResult(res.data);
+      onSuccess && onSuccess(res.data);
+    } catch (err) {
+      setError(err?.response?.data?.detail || (isEs ? "Algo salió mal. Intenta de nuevo." : "Something went wrong."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <div className="bg-white rounded-2xl p-6 text-center" data-testid="waitlist-success">
+        <div className="w-14 h-14 mx-auto rounded-full bg-[#AED768]/20 flex items-center justify-center mb-3">
+          <Check className="w-8 h-8 text-[#AED768]" />
+        </div>
+        {result.is_founding ? (
+          <>
+            <h3 className="font-heading text-xl font-bold mb-2">
+              {isEs ? "¡Eres Founder #" : "You're Founder #"}{result.founding_position}{isEs ? "!" : "!"}
+            </h3>
+            <p className="text-sm text-[#6B7280]">
+              {isEs
+                ? "30% off año 1 reservado. Te escribimos antes del evento con tu acceso anticipado."
+                : "30% off year 1 secured. We'll email you before the event with early access."}
+            </p>
+          </>
+        ) : (
+          <>
+            <h3 className="font-heading text-xl font-bold mb-2">{isEs ? "Estás en la lista" : "You're on the list"}</h3>
+            <p className="text-sm text-[#6B7280]">
+              {isEs ? "Las 100 plazas Founder ya se agotaron, pero tendrás acceso al lanzamiento." : "Founder spots are gone, but you'll get launch access."}
+            </p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3" data-testid="waitlist-form">
+      <Input
+        required
+        placeholder={isEs ? "Tu nombre" : "Your name"}
+        value={form.name}
+        onChange={(e) => setForm({ ...form, name: e.target.value })}
+        className="h-11 rounded-xl bg-white"
+        data-testid="waitlist-name"
+      />
+      <Input
+        required
+        type="email"
+        placeholder={isEs ? "Email de trabajo" : "Work email"}
+        value={form.email}
+        onChange={(e) => setForm({ ...form, email: e.target.value })}
+        className="h-11 rounded-xl bg-white"
+        data-testid="waitlist-email"
+      />
+      <Input
+        placeholder={isEs ? "Empresa (opcional)" : "Company (optional)"}
+        value={form.company}
+        onChange={(e) => setForm({ ...form, company: e.target.value })}
+        className="h-11 rounded-xl bg-white"
+        data-testid="waitlist-company"
+      />
+      <Textarea
+        placeholder={isEs ? "¿Qué te gustaría ver en la demo? (opcional)" : "What do you want to see in the demo? (optional)"}
+        value={form.interest}
+        onChange={(e) => setForm({ ...form, interest: e.target.value })}
+        className="rounded-xl bg-white min-h-[60px]"
+        rows={2}
+        data-testid="waitlist-interest"
+      />
+      {error && <p className="text-sm text-red-500" data-testid="waitlist-error">{error}</p>}
+      <Button
+        type="submit"
+        disabled={submitting}
+        className="w-full h-12 rounded-full bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold"
+        data-testid="waitlist-submit"
+      >
+        {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        {isEs ? "Reservar mi 30% Founder" : "Claim my 30% Founder offer"}
+        <ArrowRight className="w-4 h-4 ml-2" />
+      </Button>
+    </form>
+  );
+}
+
+// =============================================================
+// PAGE
+// =============================================================
 export default function LandingPage() {
   const { language, changeLanguage } = useLanguage();
   const isEs = language === "es";
-  const [activeModule, setActiveModule] = useState("demand");
+  const [activeModule, setActiveModule] = useState("system_pulse");
+  const [bannerOpen, setBannerOpen] = useState(true);
+  const [stats, setStats] = useState({ founding_remaining: 100, founding_claimed: 0, founding_cap: 100 });
+  const countdown = useCountdown();
 
-  const activeModuleData = moduleHighlights.find(m => m.id === activeModule);
+  useEffect(() => {
+    axios.get(`${API}/api/launch/stats`).then((r) => setStats(r.data)).catch(() => {});
+  }, []);
+
+  const refetchStats = () => axios.get(`${API}/api/launch/stats`).then((r) => setStats(r.data)).catch(() => {});
+
+  const activeModuleData = useMemo(
+    () => moduleHighlights.find((m) => m.id === activeModule),
+    [activeModule]
+  );
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-[#E5E7EB]">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#2A2F3A] flex items-center justify-center">
-              <img src="/favicon.png" alt="Kora" className="w-8 h-8" />
-            </div>
-            <span className="font-heading text-lg font-semibold text-[#1F2937]">Kora OS</span>
+      {/* ================= LAUNCH BANNER ================= */}
+      {bannerOpen && (
+        <div className="bg-[#1F2937] text-white text-sm" data-testid="launch-banner">
+          <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-center gap-3 text-center">
+            <span className="hidden sm:inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-[#AED768] text-[#1F2937] text-xs font-bold">
+              <Sparkles className="w-3 h-3" /> LIVE LAUNCH
+            </span>
+            <span className="hidden md:inline">
+              {isEs ? "Visítanos en el evento · " : "Visit us at the event · "}
+              <strong>1–3 Mayo 2026</strong>{" · "}
+              {isEs ? "demo en vivo + caso de uso real" : "live demo + real use case"}
+            </span>
+            <span className="md:hidden">
+              {isEs ? "Mayo 1–3 · Demo en vivo" : "May 1–3 · Live demo"}
+            </span>
+            <span className="font-mono font-bold tabular-nums text-[#AED768]">
+              {countdown.days}d {String(countdown.hours).padStart(2, "0")}:{String(countdown.minutes).padStart(2, "0")}:{String(countdown.seconds).padStart(2, "0")}
+            </span>
+            <a href="#event" className="hidden sm:inline text-[#AED768] hover:text-white transition-colors">
+              {isEs ? "Más info →" : "More info →"}
+            </a>
+            <button onClick={() => setBannerOpen(false)} className="ml-2 text-white/50 hover:text-white" data-testid="banner-close">
+              ✕
+            </button>
           </div>
-          <div className="flex items-center gap-4">
+        </div>
+      )}
+
+      {/* ================= HEADER ================= */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-[#E5E7EB]">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3" data-testid="header-logo">
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#1F2937] flex items-center justify-center p-1">
+              <img src="/kora-logo.png" alt="Kora OS" className="w-full h-full object-contain" />
+            </div>
+            <div className="leading-tight">
+              <span className="block font-heading text-base font-bold text-[#1F2937]">Kora OS</span>
+              <span className="block text-[10px] text-[#AED768] font-medium">Designed for clarity</span>
+            </div>
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <a href="#event" className="hidden md:flex items-center gap-1 text-sm font-medium text-[#1F2937] hover:text-[#AED768] transition-colors">
+              <Mic2 className="w-4 h-4" />
+              {isEs ? "Evento Mayo 1-3" : "May 1-3 Event"}
+            </a>
+            <a href="#founding" className="hidden md:flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1F2937] transition-colors">
+              {isEs ? "Founding 100" : "Founding 100"}
+            </a>
             <button
               onClick={() => changeLanguage(isEs ? "en" : "es")}
               className="flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1F2937] transition-colors"
+              data-testid="lang-toggle"
             >
               <Globe className="w-4 h-4" />
               {isEs ? "EN" : "ES"}
             </button>
             <Link to="/login">
-              <Button variant="ghost" className="text-[#1F2937]" data-testid="login-nav-btn">
+              <Button variant="ghost" size="sm" className="text-[#1F2937]" data-testid="login-nav-btn">
                 {isEs ? "Iniciar Sesión" : "Login"}
               </Button>
             </Link>
             <Link to="/register">
-              <Button className="rounded-full px-6 bg-[#2A2F3A] hover:bg-[#3A4049] text-white" data-testid="get-started-btn">
+              <Button size="sm" className="rounded-full px-5 bg-[#1F2937] hover:bg-[#2A2F3A] text-white" data-testid="get-started-btn">
                 {isEs ? "Comenzar" : "Get Started"}
               </Button>
             </Link>
@@ -260,153 +781,218 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Hero Section with Video */}
-      <section className="pt-24 pb-8 px-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Hero Text - Compact */}
-          <div className="text-center max-w-3xl mx-auto mb-8">
-            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F2937] leading-tight">
-              {isEs
-                ? "El sistema para operaciones complejas."
-                : "The system for complex operations."}
-            </h1>
-            <p className="mt-4 text-lg text-[#6B7280]">
-              {isEs
-                ? "Clientes, eventos, inventario, marketing y finanzas. Todo conectado."
-                : "Clients, projects, events, inventory, marketing, and finance. All connected."}
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link to="/register">
-                <Button size="lg" className="rounded-full px-8 gap-2 bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold" data-testid="hero-cta-btn">
-                  {isEs ? "Probar Gratis" : "Try Free"}
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
+      {/* ================= HERO ================= */}
+      <section className="pt-12 pb-12 px-6">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
+          {/* Left text */}
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#AED768]/15 text-[#1F2937] text-xs font-semibold mb-5" data-testid="hero-badge">
+              <MapPin className="w-3.5 h-3.5 text-[#AED768]" />
+              {isEs ? "Búscanos en el evento · 1-3 Mayo 2026" : "Find us at the event · May 1-3, 2026"}
             </div>
+            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F2937] leading-[1.05]">
+              {isEs ? (
+                <>El sistema operativo de las<br /><span className="text-[#AED768]">operaciones complejas</span>.</>
+              ) : (
+                <>The operating system for<br /><span className="text-[#AED768]">complex operations</span>.</>
+              )}
+            </h1>
+            <p className="mt-5 text-lg text-[#6B7280] max-w-xl">
+              {isEs
+                ? "Clientes, eventos, producción, finanzas y marketing — conectados en una sola plataforma diseñada para llevar tu operación de caos a claridad."
+                : "Clients, events, production, finance and marketing — connected in one platform designed to take your operation from chaos to clarity."}
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <a href="#founding">
+                <Button size="lg" className="rounded-full px-7 gap-2 bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold shadow-lg shadow-[#AED768]/30" data-testid="hero-founding-btn">
+                  <Star className="w-4 h-4" fill="currentColor" />
+                  {isEs ? `Únete al Founding 100 · 30% off` : `Join Founding 100 · 30% off`}
+                </Button>
+              </a>
+              <a href="#event">
+                <Button size="lg" variant="outline" className="rounded-full px-7 gap-2 border-2 border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white" data-testid="hero-event-btn">
+                  <Mic2 className="w-4 h-4" />
+                  {isEs ? "Visítanos en el stand" : "Visit our stand"}
+                </Button>
+              </a>
+            </div>
+            <p className="mt-4 text-xs text-[#94A3B8]">
+              {isEs ? `Solo ${stats.founding_remaining} de ${stats.founding_cap} plazas Founder disponibles · sin tarjeta de crédito` : `Only ${stats.founding_remaining} of ${stats.founding_cap} Founder spots left · no credit card`}
+            </p>
           </div>
 
-          {/* Video/Demo Section */}
-          <div className="relative max-w-5xl mx-auto">
-            <div className="relative bg-[#2A2F3A] rounded-2xl overflow-hidden shadow-2xl aspect-video group cursor-pointer">
-              {/* Video Placeholder with Platform Preview */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#2A2F3A] to-[#1F2937]">
-                {/* Simulated dashboard preview */}
-                <div className="absolute inset-4 bg-[#F7F8FA] rounded-xl opacity-90 overflow-hidden">
-                  <div className="h-full flex">
-                    {/* Sidebar mock */}
-                    <div className="w-16 bg-[#2A2F3A] flex flex-col items-center py-4 gap-4">
-                      <div className="w-8 h-8 bg-[#AED768] rounded-lg" />
-                      <div className="w-8 h-8 bg-white/20 rounded-lg" />
-                      <div className="w-8 h-8 bg-white/20 rounded-lg" />
-                      <div className="w-8 h-8 bg-white/20 rounded-lg" />
-                    </div>
-                    {/* Main content mock */}
-                    <div className="flex-1 p-4">
-                      <div className="h-8 w-48 bg-[#E5E7EB] rounded mb-4" />
-                      <div className="grid grid-cols-3 gap-3 mb-4">
-                        <div className="h-20 bg-white rounded-lg shadow-sm border border-[#E5E7EB]" />
-                        <div className="h-20 bg-white rounded-lg shadow-sm border border-[#E5E7EB]" />
-                        <div className="h-20 bg-white rounded-lg shadow-sm border border-[#E5E7EB]" />
-                      </div>
-                      <div className="h-32 bg-white rounded-lg shadow-sm border border-[#E5E7EB]" />
-                    </div>
+          {/* Right hero mock — stack of two phone-ish cards */}
+          <div className="relative h-[480px] hidden lg:block">
+            <div className="absolute right-0 top-0 w-[78%]">
+              <div className="bg-[#1F2937] rounded-3xl p-3 shadow-2xl">
+                <div className="bg-[#F7F8FA] rounded-2xl overflow-hidden">
+                  <div className="bg-[#1F2937] px-4 py-2 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#FF5F57]" />
+                    <div className="w-2 h-2 rounded-full bg-[#FEBC2E]" />
+                    <div className="w-2 h-2 rounded-full bg-[#28C840]" />
+                    <span className="ml-2 text-[10px] text-white/50">kora.app/dashboard</span>
+                  </div>
+                  <div className="p-5">
+                    <ModuleMock type="dashboard" accent="#AED768" />
                   </div>
                 </div>
               </div>
-              
-              {/* Play Button Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-                  <Play className="w-8 h-8 text-[#2A2F3A] ml-1" fill="currentColor" />
-                </div>
-              </div>
-              
-              {/* Video Label */}
-              <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white text-sm px-3 py-1.5 rounded-full">
-                {isEs ? "Ver la plataforma en acción" : "See the platform in action"} • 2:30
+            </div>
+            <div className="absolute left-0 bottom-0 w-[58%]">
+              <div className="bg-white rounded-2xl p-3 shadow-2xl rotate-[-4deg]">
+                <ModuleMock type="crm" accent="#3B82F6" />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Module Highlights Section */}
-      <section className="py-16 px-6">
+      {/* ================= EVENT STAND ================= */}
+      <section id="event" className="py-16 px-6 bg-[#1F2937] text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: "radial-gradient(circle at 20% 50%, #AED768 0%, transparent 50%), radial-gradient(circle at 80% 80%, #AED768 0%, transparent 40%)",
+        }} />
+        <div className="max-w-6xl mx-auto relative">
+          <div className="grid lg:grid-cols-2 gap-10 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#AED768]/20 text-[#AED768] text-xs font-bold mb-4">
+                <Sparkles className="w-3.5 h-3.5" />
+                {isEs ? "EVENTO EN VIVO · MAYO 1-3, 2026" : "LIVE EVENT · MAY 1-3, 2026"}
+              </div>
+              <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+                {isEs ? (
+                  <>Pasa por nuestro stand<br />y ve <span className="text-[#AED768]">Kora OS en acción</span>.</>
+                ) : (
+                  <>Visit our stand and see<br /><span className="text-[#AED768]">Kora OS in action</span>.</>
+                )}
+              </h2>
+              <p className="mt-4 text-white/70 text-lg max-w-xl">
+                {isEs
+                  ? "3 días. Demos en vivo cada hora. Casos reales: una agencia de eventos, una empresa de catering y una agencia creativa operando en Kora OS frente a ti."
+                  : "3 days. Live demos every hour. Real cases: an events agency, a catering company and a creative shop running on Kora OS in front of you."}
+              </p>
+              <div className="grid sm:grid-cols-3 gap-3 mt-7">
+                {[
+                  { d: "01", m: isEs ? "May" : "May", t: isEs ? "Demo en vivo" : "Live demo" },
+                  { d: "02", m: isEs ? "May" : "May", t: isEs ? "Caso de uso real" : "Real use case" },
+                  { d: "03", m: isEs ? "May" : "May", t: isEs ? "Founding 100 reveal" : "Founding 100 reveal" },
+                ].map((d) => (
+                  <div key={d.d} className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+                    <p className="text-3xl font-bold text-[#AED768]">{d.d}</p>
+                    <p className="text-xs text-white/60 uppercase tracking-wider">{d.m}</p>
+                    <p className="text-sm font-medium mt-2">{d.t}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-7 flex flex-wrap gap-6 text-sm text-white/70">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#AED768]" />
+                  <span>{isEs ? "1, 2 y 3 de Mayo 2026" : "May 1, 2 & 3, 2026"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mic2 className="w-4 h-4 text-[#AED768]" />
+                  <span>{isEs ? "Demos cada hora" : "Demos every hour"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* RSVP card */}
+            <div className="bg-white rounded-3xl p-7 text-[#1F2937] shadow-2xl">
+              <div className="flex items-center gap-3 mb-1">
+                <Star className="w-5 h-5 text-[#AED768]" fill="currentColor" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#AED768]">
+                  {isEs ? "Reserva tu demo" : "Book your demo"}
+                </span>
+              </div>
+              <h3 className="font-heading text-2xl font-bold mb-1">
+                {isEs ? "Pasa por el stand · sin filas" : "Skip the line at our stand"}
+              </h3>
+              <p className="text-sm text-[#6B7280] mb-5">
+                {isEs ? "Te guardamos un slot, café y un walkthrough personalizado." : "We'll save you a slot, coffee and a personalized walkthrough."}
+              </p>
+              <WaitlistForm source="event" onSuccess={refetchStats} isEs={isEs} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= MODULES ================= */}
+      <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#1F2937]">
+          <div className="text-center mb-10 max-w-2xl mx-auto">
+            <span className="text-xs font-bold tracking-widest uppercase text-[#AED768]">
+              {isEs ? "10 módulos · una sola plataforma" : "10 modules · one platform"}
+            </span>
+            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-[#1F2937] mt-2">
               {isEs ? "Todo lo que tu operación necesita" : "Everything your operation needs"}
             </h2>
-            <p className="mt-2 text-[#6B7280]">
-              {isEs ? "Módulos especializados que trabajan juntos" : "Specialized modules that work together"}
+            <p className="mt-3 text-[#6B7280]">
+              {isEs ? "De la vista ejecutiva al detalle del stock — en el mismo orden que lo verás dentro." : "From the executive view to stock-level detail — in the same order you'll see inside."}
             </p>
           </div>
 
-          {/* Module Tabs */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
-            {moduleHighlights.map((module) => {
-              const Icon = module.icon;
+          {/* Module tabs */}
+          <div className="flex flex-wrap justify-center gap-2 mb-10">
+            {moduleHighlights.map((m) => {
+              const Icon = m.icon;
+              const active = activeModule === m.id;
               return (
                 <button
-                  key={module.id}
-                  onClick={() => setActiveModule(module.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
-                    activeModule === module.id
-                      ? "bg-[#2A2F3A] text-white shadow-lg"
+                  key={m.id}
+                  onClick={() => setActiveModule(m.id)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-medium transition-all ${
+                    active
+                      ? "bg-[#1F2937] text-white shadow-lg"
                       : "bg-white text-[#6B7280] hover:bg-[#E5E7EB] border border-[#E5E7EB]"
                   }`}
+                  data-testid={`module-tab-${m.id}`}
+                  style={active ? { boxShadow: `0 8px 24px ${m.accent}33` } : {}}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{module.title}</span>
+                  <Icon className="w-3.5 h-3.5" style={active ? { color: m.accent } : {}} />
+                  <span className="hidden sm:inline">{isEs ? m.titleEs : m.title}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Active Module Card */}
+          {/* Active module card */}
           {activeModuleData && (
-            <div className="bg-white rounded-2xl shadow-lg border border-[#E5E7EB] overflow-hidden">
+            <div className="bg-white rounded-3xl shadow-xl border border-[#E5E7EB] overflow-hidden">
               <div className="grid lg:grid-cols-2">
-                {/* Left - Info */}
-                <div className="p-8 lg:p-10">
-                  <div className={`w-12 h-12 rounded-xl ${activeModuleData.bgColor} flex items-center justify-center mb-4`}>
-                    <activeModuleData.icon className={`w-6 h-6 bg-gradient-to-r ${activeModuleData.color} bg-clip-text`} style={{color: activeModuleData.color.includes('pink') ? '#EC4899' : activeModuleData.color.includes('blue') ? '#3B82F6' : activeModuleData.color.includes('purple') ? '#8B5CF6' : activeModuleData.color.includes('orange') ? '#F97316' : activeModuleData.color.includes('emerald') ? '#10B981' : '#64748B'}} />
+                {/* Left info */}
+                <div className="p-8 lg:p-12">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
+                    style={{ background: activeModuleData.accent + "1A" }}
+                  >
+                    <activeModuleData.icon className="w-6 h-6" style={{ color: activeModuleData.accent }} />
                   </div>
-                  <h3 className="font-heading text-2xl font-bold text-[#1F2937] mb-1">
-                    {activeModuleData.title}
+                  <h3 className="font-heading text-3xl font-bold text-[#1F2937] mb-1">
+                    {isEs ? activeModuleData.titleEs : activeModuleData.title}
                   </h3>
-                  <p className="text-[#AED768] font-medium mb-6">
+                  <p className="font-medium mb-4" style={{ color: activeModuleData.accent }}>
                     {isEs ? activeModuleData.subtitleEs : activeModuleData.subtitle}
                   </p>
-                  <ul className="space-y-3">
-                    {activeModuleData.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-3 text-[#4B5563]">
-                        <div className="w-5 h-5 rounded-full bg-[#AED768]/20 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-[#AED768]" />
+                  <p className="text-[#6B7280] mb-6">
+                    {isEs ? activeModuleData.descriptionEs : activeModuleData.description}
+                  </p>
+                  <ul className="space-y-2.5">
+                    {activeModuleData.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-3 text-[#4B5563]">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: activeModuleData.accent + "22" }}>
+                          <Check className="w-3 h-3" style={{ color: activeModuleData.accent }} />
                         </div>
-                        {isEs ? feature.es : feature.en}
+                        <span className="text-sm">{isEs ? f.es : f.en}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-                
-                {/* Right - Visual */}
-                <div className={`bg-gradient-to-br ${activeModuleData.color} p-8 lg:p-10 flex items-center justify-center min-h-[300px]`}>
-                  <div className="bg-white/95 rounded-xl shadow-xl p-6 w-full max-w-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                      <activeModuleData.icon className="w-6 h-6 text-[#2A2F3A]" />
-                      <span className="font-semibold text-[#1F2937]">{activeModuleData.title}</span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-[#E5E7EB] rounded-full w-full" />
-                      <div className="h-3 bg-[#E5E7EB] rounded-full w-3/4" />
-                      <div className="h-3 bg-[#AED768] rounded-full w-1/2" />
-                    </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-16 bg-[#F7F8FA] rounded-lg" />
-                      <div className="h-16 bg-[#F7F8FA] rounded-lg" />
-                    </div>
-                  </div>
+
+                {/* Right mock */}
+                <div className="p-8 lg:p-12 flex items-center justify-center min-h-[420px]" style={{
+                  background: `linear-gradient(135deg, ${activeModuleData.accent}, ${activeModuleData.accent}cc)`,
+                }}>
+                  <ModuleMock type={activeModuleData.mockType} accent={activeModuleData.accent} />
                 </div>
               </div>
             </div>
@@ -414,204 +1000,250 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Quick Stats / Social Proof */}
-      <section className="py-12 px-6 bg-[#2A2F3A]">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      {/* ================= DIFFERENTIATORS ================= */}
+      <section className="py-16 px-6 bg-[#1F2937] text-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold">
+              {isEs ? "Por qué Kora OS es diferente" : "Why Kora OS is different"}
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {differentiators.map((d, i) => {
+              const Icon = d.icon;
+              return (
+                <div key={i} className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 hover:border-[#AED768]/50 transition-all">
+                  <div className="w-10 h-10 rounded-lg bg-[#AED768]/20 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5 text-[#AED768]" />
+                  </div>
+                  <h3 className="font-heading text-base font-bold mb-2">{isEs ? d.es : d.en}</h3>
+                  <p className="text-sm text-white/60">{isEs ? d.descEs : d.descEn}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FOUNDING 100 ================= */}
+      <section id="founding" className="py-20 px-6 bg-gradient-to-br from-[#AED768]/10 via-white to-[#AED768]/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1F2937] text-[#AED768] text-xs font-bold mb-5">
+                <Star className="w-3.5 h-3.5" fill="currentColor" />
+                {isEs ? "FOUNDING 100" : "FOUNDING 100"}
+              </div>
+              <h2 className="font-heading text-3xl sm:text-5xl font-bold text-[#1F2937] leading-tight">
+                {isEs ? (
+                  <>Sé uno de los primeros 100<br />y obtén <span className="text-[#AED768]">30% off año 1</span>.</>
+                ) : (
+                  <>Be one of the first 100<br />and get <span className="text-[#AED768]">30% off year 1</span>.</>
+                )}
+              </h2>
+              <p className="mt-5 text-[#6B7280] text-lg max-w-xl">
+                {isEs
+                  ? "Solo durante el evento del 1 al 3 de Mayo. Una vez se agoten las 100 plazas, cierran para siempre."
+                  : "Only during the May 1-3 event. Once the 100 spots are gone, they close forever."}
+              </p>
+
+              {/* Scarcity counter */}
+              <div className="mt-7 bg-white rounded-2xl p-5 border border-[#E5E7EB]">
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-sm font-semibold text-[#1F2937]">
+                    {isEs ? "Plazas Founder reservadas" : "Founder spots claimed"}
+                  </span>
+                  <span className="text-sm font-bold text-[#1F2937]">
+                    <span className="text-[#AED768]">{stats.founding_claimed}</span>
+                    <span className="text-[#94A3B8]"> / {stats.founding_cap}</span>
+                  </span>
+                </div>
+                <div className="h-3 rounded-full bg-[#F1F5F9] overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[#AED768] to-[#9BC75A] transition-all duration-700" style={{ width: `${(stats.founding_claimed / stats.founding_cap) * 100}%` }} />
+                </div>
+                <p className="text-xs text-[#6B7280] mt-2">
+                  {isEs ? `Quedan ${stats.founding_remaining} plazas con 30% de descuento` : `${stats.founding_remaining} spots left with 30% off`}
+                </p>
+              </div>
+
+              {/* Benefits */}
+              <ul className="mt-6 space-y-3">
+                {[
+                  { en: "30% off your first year on Kora Core + add-ons", es: "30% off tu primer año en Kora Core + add-ons" },
+                  { en: "Founder badge on your account, forever", es: "Badge de Founder en tu cuenta, para siempre" },
+                  { en: "Direct line to the team via private Discord", es: "Línea directa con el equipo vía Discord privado" },
+                  { en: "1:1 onboarding with the founders", es: "Onboarding 1:1 con los fundadores" },
+                  { en: "Priority on roadmap requests", es: "Prioridad en solicitudes del roadmap" },
+                ].map((b, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#AED768] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Check className="w-3.5 h-3.5 text-[#1F2937]" strokeWidth={3} />
+                    </div>
+                    <span className="text-[#1F2937]">{isEs ? b.es : b.en}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-[#1F2937] rounded-3xl p-8 text-white shadow-2xl">
+              <h3 className="font-heading text-2xl font-bold mb-2">
+                {isEs ? "Reserva tu plaza Founder" : "Claim your Founder spot"}
+              </h3>
+              <p className="text-white/60 text-sm mb-6">
+                {isEs ? "Toma 30 segundos. Sin compromiso." : "Takes 30 seconds. No commitment."}
+              </p>
+              <WaitlistForm source="founding" onSuccess={refetchStats} isEs={isEs} />
+              <p className="text-center text-white/40 text-xs mt-4">
+                {isEs ? "🔒 Tus datos solo se usan para el evento y el lanzamiento." : "🔒 Your info is only used for the event & launch."}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= INTEGRATIONS ================= */}
+      <section className="py-12 px-6 bg-white">
+        <div className="max-w-5xl mx-auto text-center">
+          <p className="text-[#6B7280] mb-6 text-sm">
+            {isEs ? "Se integra con las herramientas que ya usas" : "Integrates with tools you already use"}
+          </p>
+          <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6">
             {[
-              { value: "500+", label: isEs ? "Eventos gestionados" : "Events managed" },
-              { value: "98%", label: isEs ? "Satisfacción" : "Satisfaction" },
-              { value: "50%", label: isEs ? "Ahorro de tiempo" : "Time saved" },
-              { value: "24/7", label: isEs ? "Soporte" : "Support" }
-            ].map((stat, idx) => (
-              <div key={idx}>
-                <p className="text-3xl font-bold text-[#AED768]">{stat.value}</p>
-                <p className="text-white/70 text-sm mt-1">{stat.label}</p>
+              { src: "https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/me0osaml_Gmail_Logo_512px.png.webp", alt: "Gmail" },
+              { src: "https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/377mcwog_Google_Calendar_icon_%282020%29.svg.png", alt: "Google Calendar" },
+              { src: "https://cdn.simpleicons.org/meta", alt: "Meta" },
+              { src: "https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/g6u4qf9k_326-3265266_google-ads-logo-png-google-ads-icon.png.jpeg", alt: "Google Ads" },
+              { src: "https://cdn.simpleicons.org/stripe", alt: "Stripe" },
+              { src: "https://cdn.simpleicons.org/whatsapp", alt: "WhatsApp" },
+            ].map((i) => (
+              <div key={i.alt} className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110" title={i.alt}>
+                <img src={i.src} alt={i.alt} className="w-9 h-9 grayscale hover:grayscale-0 transition-all duration-300 object-contain" />
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Integrations - Compact */}
-      <section className="py-12 px-6">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-[#6B7280] mb-6">
-            {isEs ? "Se integra con las herramientas que ya usas" : "Integrates with tools you already use"}
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-10">
-            {/* Gmail - M multicolor */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Gmail">
-              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/me0osaml_Gmail_Logo_512px.png.webp" alt="Gmail" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain rounded-lg" />
-            </div>
-            {/* Google Calendar - Cuadrado multicolor con 31 */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Calendar">
-              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/377mcwog_Google_Calendar_icon_%282020%29.svg.png" alt="Google Calendar" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain rounded-lg" />
-            </div>
-            {/* Meta */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Meta">
-              <img src="https://cdn.simpleicons.org/meta" alt="Meta" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
-            </div>
-            {/* Google Ads - A con barras y círculo verde */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Google Ads">
-              <img src="https://customer-assets.emergentagent.com/job_c471c9f3-0c38-4c3b-9501-e7c14f67e842/artifacts/g6u4qf9k_326-3265266_google-ads-logo-png-google-ads-icon.png.jpeg" alt="Google Ads" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300 object-contain" />
-            </div>
-            {/* Stripe */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="Stripe">
-              <img src="https://cdn.simpleicons.org/stripe" alt="Stripe" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
-            </div>
-            {/* WhatsApp */}
-            <div className="opacity-60 hover:opacity-100 transition-all duration-300 hover:scale-110 cursor-pointer" title="WhatsApp">
-              <img src="https://cdn.simpleicons.org/whatsapp" alt="WhatsApp" className="w-10 h-10 grayscale hover:grayscale-0 transition-all duration-300" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing - Updated to Core + Add-ons model */}
-      <section className="py-16 px-6 bg-white" id="pricing">
+      {/* ================= PRICING ================= */}
+      <section id="pricing" className="py-16 px-6 bg-[#F7F8FA]">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#1F2937]">
-              {isEs ? "Un precio simple para manejar el núcleo de tu negocio" : "One simple price, to run the core of your business"}
+          <div className="text-center mb-10">
+            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-[#1F2937]">
+              {isEs ? "Un precio simple. Tu industria, configurada." : "Simple pricing. Your industry, ready."}
             </h2>
-            <p className="mt-2 text-[#6B7280]">
-              {isEs ? "Kora Core + módulos opcionales según tu industria" : "Kora Core + optional modules for your industry"}
+            <p className="mt-3 text-[#6B7280]">
+              {isEs ? "Empieza con Kora Core y suma los módulos que necesites." : "Start with Kora Core, add the modules you need."}
             </p>
           </div>
 
-          {/* Main Pricing Card */}
-          <div className="max-w-lg mx-auto mb-12">
-            <div className="bg-[#2A2F3A] rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+          <div className="max-w-lg mx-auto mb-10">
+            <div className="bg-[#1F2937] rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
               <div className="absolute top-4 right-4 bg-[#AED768] text-[#1F2937] text-xs font-bold px-3 py-1 rounded-full">
                 {isEs ? "7 DÍAS GRATIS" : "7 DAYS FREE"}
               </div>
               <h3 className="font-heading text-2xl font-bold mb-2">Kora Core</h3>
-              <p className="text-white/70 mb-4">
-                {isEs ? "Todo lo que necesitas para operar tu negocio" : "Everything you need to run your business"}
+              <p className="text-white/70 mb-4 text-sm">
+                {isEs ? "Lo que toda operación necesita: clientes, finanzas, equipo." : "What every operation needs: clients, finance, team."}
               </p>
-              <div className="mb-6">
-                <span className="text-5xl font-bold text-[#AED768]">$69</span>
-                <span className="text-white/60 text-lg">/{isEs ? "mes" : "mo"}</span>
+              <div className="mb-2 flex items-baseline gap-2">
+                <span className="text-5xl font-bold text-[#AED768]">$48</span>
+                <span className="text-white/60">/{isEs ? "mes" : "mo"}</span>
+                <span className="text-sm text-white/40 line-through">$69</span>
               </div>
-              <ul className="space-y-3 mb-8">
+              <p className="text-xs text-[#AED768] mb-6">
+                {isEs ? "Founder 100: 30% off año 1" : "Founder 100: 30% off year 1"}
+              </p>
+              <ul className="space-y-2.5 mb-7">
                 {[
-                  { en: "CRM & Sales Pipeline", es: "CRM y Pipeline de Ventas" },
-                  { en: "Client Management", es: "Gestión de Clientes" },
-                  { en: "Proposals & Invoicing", es: "Propuestas y Facturación" },
-                  { en: "Financial Dashboard", es: "Dashboard Financiero" },
-                  { en: "Unlimited Users", es: "Usuarios Ilimitados" },
-                  { en: "Works for any industry", es: "Funciona para cualquier industria" }
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-center gap-3 text-white/90">
-                    <Check className="w-5 h-5 text-[#AED768] flex-shrink-0" />
-                    {isEs ? feature.es : feature.en}
+                  { en: "System Pulse · executive dashboard", es: "System Pulse · dashboard ejecutivo" },
+                  { en: "Client Engagement · CRM & portal", es: "Client Engagement · CRM y portal" },
+                  { en: "Execution Hub · goals & projects", es: "Execution Hub · metas y proyectos" },
+                  { en: "Business Clarity · finance", es: "Business Clarity · finanzas" },
+                  { en: "Unlimited users · multi-language", es: "Usuarios ilimitados · multi-idioma" },
+                ].map((f, i) => (
+                  <li key={i} className="flex items-center gap-3 text-white/90 text-sm">
+                    <Check className="w-4 h-4 text-[#AED768] flex-shrink-0" />
+                    {isEs ? f.es : f.en}
                   </li>
                 ))}
               </ul>
-              <Link to="/register">
-                <Button className="w-full h-12 rounded-full bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold text-lg">
-                  {isEs ? "Comenzar Prueba Gratis" : "Start Free Trial"}
-                  <ArrowRight className="w-5 h-5 ml-2" />
+              <a href="#founding">
+                <Button className="w-full h-12 rounded-full bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold" data-testid="pricing-cta-btn">
+                  {isEs ? "Reservar 30% Founder" : "Claim 30% Founder"}
+                  <ChevronRight className="w-5 h-5 ml-1" />
                 </Button>
-              </Link>
-              <p className="text-center text-white/50 text-sm mt-4">
-                {isEs ? "Sin tarjeta de crédito requerida" : "No credit card required"}
-              </p>
+              </a>
             </div>
           </div>
 
-          {/* Add-on Modules */}
-          <div className="mb-12">
-            <h3 className="text-center font-heading text-xl font-bold text-[#1F2937] mb-6">
-              {isEs ? "Potencia tu operación con módulos especializados" : "Power up with specialized modules"}
+          {/* Add-ons */}
+          <div>
+            <h3 className="text-center font-heading text-lg font-bold text-[#1F2937] mb-5">
+              {isEs ? "Add-ons opcionales" : "Optional add-ons"}
             </h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {addonModules.map((addon) => {
-                const Icon = addon.icon;
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { i: Megaphone, n: "Demand Generation", p: "$39" },
+                { i: ClipboardList, n: "Event Orchestration", p: "$29" },
+                { i: UtensilsCrossed, n: "Culinary Intelligence", p: "$29" },
+                { i: Building2, n: "Venues", p: "$19" },
+                { i: Package, n: "Resource Mgmt.", p: "$19" },
+                { i: Users, n: "People Ops", p: "$49" },
+              ].map((a) => {
+                const Icon = a.i;
                 return (
-                  <div key={addon.name} className="bg-[#F7F8FA] rounded-xl p-5 border border-[#E5E7EB] hover:border-[#AED768] hover:shadow-md transition-all">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                        <Icon className="w-5 h-5 text-[#2A2F3A]" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-[#1F2937] text-sm">{isEs ? addon.nameEs : addon.name}</h4>
-                        <p className="text-[#AED768] text-sm font-bold">{isEs ? addon.priceEs : addon.price}</p>
-                      </div>
+                  <div key={a.n} className="bg-white rounded-xl p-4 border border-[#E5E7EB] hover:border-[#AED768] transition-all">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon className="w-4 h-4 text-[#1F2937]" />
+                      <span className="text-sm font-semibold text-[#1F2937]">{a.n}</span>
                     </div>
-                    <p className="text-[#6B7280] text-xs">{isEs ? addon.descriptionEs : addon.description}</p>
+                    <p className="text-[#AED768] text-sm font-bold">{a.p}<span className="text-[#94A3B8] text-xs font-normal">/{isEs ? "mes" : "mo"}</span></p>
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* Industries */}
-          <div className="bg-[#F7F8FA] rounded-2xl p-8">
-            <h3 className="text-center font-heading text-xl font-bold text-[#1F2937] mb-6">
-              {isEs ? "Diseñado para tu industria" : "Designed for your industry"}
-            </h3>
-            <div className="grid sm:grid-cols-3 gap-4">
-              {industries.map((industry) => {
-                const Icon = industry.icon;
-                return (
-                  <div key={industry.name} className="bg-white rounded-xl p-5 border border-[#E5E7EB] text-center">
-                    <div className={`w-12 h-12 ${industry.color} rounded-xl flex items-center justify-center mx-auto mb-3`}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    <h4 className="font-semibold text-[#1F2937] mb-1">{isEs ? industry.nameEs : industry.name}</h4>
-                    <p className="text-[#6B7280] text-sm">{isEs ? industry.descriptionEs : industry.description}</p>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-center text-[#6B7280] text-sm mt-6">
-              {isEs 
-                ? "Selecciona tu industria al registrarte y Kora se adapta automáticamente con la terminología y flujos correctos."
-                : "Select your industry when you sign up and Kora automatically adapts with the right terminology and workflows."}
-            </p>
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-16 px-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#1F2937] mb-4">
-            {isEs ? "¿Listo para simplificar tu operación?" : "Ready to simplify your operation?"}
+      {/* ================= FINAL CTA ================= */}
+      <section className="py-20 px-6 bg-[#1F2937] text-white text-center">
+        <div className="max-w-3xl mx-auto">
+          <Quote className="w-10 h-10 text-[#AED768] mx-auto mb-4 opacity-50" />
+          <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-3">
+            {isEs ? "Llega al domingo en calma." : "Reach Sunday calm."}
           </h2>
-          <p className="text-[#6B7280] mb-6">
-            {isEs ? "Empieza gratis. Sin tarjeta de crédito." : "Start free. No credit card required."}
+          <p className="text-white/70 text-lg mb-8">
+            {isEs ? "Únete a las primeras 100 empresas que están construyendo operaciones más claras con Kora OS." : "Join the first 100 companies building clearer operations with Kora OS."}
           </p>
-          <Link to="/register">
-            <Button size="lg" className="rounded-full px-10 gap-2 bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold">
-              {isEs ? "Comenzar Ahora" : "Get Started Now"}
-              <ArrowRight className="w-4 h-4" />
+          <a href="#founding">
+            <Button size="lg" className="rounded-full px-10 h-13 gap-2 bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold shadow-2xl shadow-[#AED768]/40">
+              {isEs ? `Reserva tu plaza · ${stats.founding_remaining} disponibles` : `Claim your spot · ${stats.founding_remaining} left`}
+              <ArrowRight className="w-5 h-5" />
             </Button>
-          </Link>
+          </a>
         </div>
       </section>
 
-      {/* Footer - Compact */}
-      <footer className="py-8 px-6 bg-[#2A2F3A] text-white">
+      {/* ================= FOOTER ================= */}
+      <footer className="py-10 px-6 bg-[#0F1419] text-white">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-5">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center">
-                <img src="/favicon.png" alt="Kora" className="w-6 h-6" />
+              <div className="w-9 h-9 rounded-lg overflow-hidden bg-[#1F2937] flex items-center justify-center p-1">
+                <img src="/kora-logo.png" alt="Kora OS" className="w-full h-full object-contain" />
               </div>
-              <span className="font-heading text-sm font-semibold">Kora OS</span>
-              <span className="text-white/40 text-sm">© 2026</span>
+              <div className="leading-tight">
+                <span className="block font-heading text-sm font-bold">Kora OS</span>
+                <span className="block text-[10px] text-[#AED768]">Designed for clarity</span>
+              </div>
+              <span className="text-white/30 text-sm ml-2">© 2026</span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-white/60">
-              <a href="#pricing" className="hover:text-white transition-colors">{isEs ? "Precios" : "Pricing"}</a>
-              <a href="#" className="hover:text-white transition-colors">{isEs ? "Privacidad" : "Privacy"}</a>
-              <a href="#" className="hover:text-white transition-colors">{isEs ? "Términos" : "Terms"}</a>
-              <button
-                onClick={() => changeLanguage(isEs ? "en" : "es")}
-                className="flex items-center gap-1 hover:text-white transition-colors"
-              >
+            <div className="flex items-center gap-6 text-sm text-white/50">
+              <a href="#event" className="hover:text-[#AED768] transition-colors">{isEs ? "Evento" : "Event"}</a>
+              <a href="#founding" className="hover:text-[#AED768] transition-colors">Founding 100</a>
+              <a href="#pricing" className="hover:text-[#AED768] transition-colors">{isEs ? "Precios" : "Pricing"}</a>
+              <button onClick={() => changeLanguage(isEs ? "en" : "es")} className="flex items-center gap-1 hover:text-[#AED768] transition-colors">
                 <Globe className="w-3 h-3" />
                 {isEs ? "EN" : "ES"}
               </button>
