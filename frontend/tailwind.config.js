@@ -8,7 +8,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['Playfair Display', 'serif'],
+        heading: ['Plus Jakarta Sans', 'sans-serif'],
         body: ['Manrope', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
