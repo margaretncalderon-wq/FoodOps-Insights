@@ -122,9 +122,10 @@ export default function RecipeBuilderAdvanced() {
 
   const handleSave = async () => {
     try {
+      const instr = recipeForm.instructions;
       const payload = {
         ...recipeForm,
-        instructions: recipeForm.instructions.split('\n').filter(l => l.trim())
+        instructions: typeof instr === "string" ? (instr.trim() || null) : null,
       };
       
       if (editingRecipe) {
@@ -139,7 +140,18 @@ export default function RecipeBuilderAdvanced() {
       resetForm();
       fetchData();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Error saving recipe");
+      const detail = error?.response?.data?.detail;
+      let msg;
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d) => d?.msg || JSON.stringify(d)).join(" · ");
+      } else if (detail) {
+        msg = JSON.stringify(detail);
+      } else {
+        msg = error?.message || "Error saving recipe";
+      }
+      toast.error(msg);
     }
   };
 

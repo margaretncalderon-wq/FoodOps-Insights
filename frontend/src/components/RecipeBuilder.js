@@ -709,7 +709,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     try {
       const payload = {
         ...form,
-        instructions: instructionText.split("\n").filter(l => l.trim())
+        instructions: instructionText.trim() || null,
       };
       
       if (initialRecipe) {
@@ -728,7 +728,18 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       onSave?.();
       onClose?.();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Error saving recipe");
+      const detail = error?.response?.data?.detail;
+      let msg;
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d) => d?.msg || JSON.stringify(d)).join(" · ");
+      } else if (detail) {
+        msg = JSON.stringify(detail);
+      } else {
+        msg = error?.message || (language === "es" ? "Error al guardar receta" : "Error saving recipe");
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

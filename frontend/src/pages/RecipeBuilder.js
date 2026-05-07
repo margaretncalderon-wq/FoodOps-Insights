@@ -197,7 +197,9 @@ export default function RecipeBuilder() {
     try {
       const payload = {
         ...formData,
-        instructions: formData.instructions.filter((i) => i.trim()),
+        instructions: Array.isArray(formData.instructions)
+          ? formData.instructions.filter((i) => i.trim()).join("\n") || null
+          : (formData.instructions || null),
         ingredients: ingredientsList,
       };
       
@@ -210,7 +212,18 @@ export default function RecipeBuilder() {
       }
       navigate("/recipes");
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to save recipe");
+      const detail = error?.response?.data?.detail;
+      let msg;
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d) => d?.msg || JSON.stringify(d)).join(" · ");
+      } else if (detail) {
+        msg = JSON.stringify(detail);
+      } else {
+        msg = error?.message || "Failed to save recipe";
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
