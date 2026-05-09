@@ -563,7 +563,17 @@ export default function SocialMediaPage() {
       fetchCalendarPosts();
     } catch (error) {
       console.error("Error saving post:", error);
-      const errMsg = error?.response?.data?.detail || (isEs ? "Error al guardar el post" : "Error saving post");
+      const detail = error?.response?.data?.detail;
+      let errMsg;
+      if (typeof detail === "string") {
+        errMsg = detail;
+      } else if (Array.isArray(detail)) {
+        errMsg = detail.map((d) => d?.msg || JSON.stringify(d)).join(" · ");
+      } else if (detail) {
+        errMsg = JSON.stringify(detail);
+      } else {
+        errMsg = error?.message || (isEs ? "Error al guardar el post" : "Error saving post");
+      }
       toast.error(errMsg);
     } finally {
       setPostSaving(false);
@@ -1500,11 +1510,11 @@ export default function SocialMediaPage() {
               <Wand2 className="w-4 h-4 mr-2" />
               Studio
             </Button>
-            <Button variant="outline" onClick={() => { resetIdeaForm(); setIdeaDialogOpen(true); }}>
+            <Button variant="outline" onClick={() => { setEditingIdea(null); resetIdeaForm(); setIdeaDialogOpen(true); }}>
               <Lightbulb className="w-4 h-4 mr-2" />
               {isEs ? "Nueva Idea" : "New Idea"}
             </Button>
-            <Button onClick={() => { resetPostForm(); setPostDialogOpen(true); }} data-testid="new-post-button">
+            <Button onClick={() => { setEditingPost(null); resetPostForm(); setPostDialogOpen(true); }} data-testid="new-post-button">
               <Plus className="w-4 h-4 mr-2" />
               {isEs ? "Nuevo Post" : "New Post"}
             </Button>
@@ -3137,7 +3147,14 @@ export default function SocialMediaPage() {
       </Tabs>
 
       {/* Post Dialog */}
-      <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
+      <Dialog open={postDialogOpen} onOpenChange={(open) => {
+        setPostDialogOpen(open);
+        if (!open) {
+          // Clear editing context when dialog closes (via X, outside click, or Esc)
+          // so the next "New Post" click never accidentally PUTs over an old post.
+          setEditingPost(null);
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -3867,7 +3884,10 @@ export default function SocialMediaPage() {
       </Dialog>
 
       {/* Idea Dialog */}
-      <Dialog open={ideaDialogOpen} onOpenChange={setIdeaDialogOpen}>
+      <Dialog open={ideaDialogOpen} onOpenChange={(open) => {
+        setIdeaDialogOpen(open);
+        if (!open) setEditingIdea(null);
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
