@@ -11372,6 +11372,13 @@ async def startup_init_plans():
     await create_indexes()
     # Migrate company_entities: normalize id fields
     await _migrate_company_entity_ids()
+    # Start background scheduler (daily sales alerts cron)
+    try:
+        from scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Scheduler failed to start: {e}")
 
 
 async def _migrate_company_entity_ids():
@@ -18259,6 +18266,11 @@ app.include_router(api_router)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        from scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception:
+        pass
     client.close()
 
 # TEMPORARY DEBUG ENDPOINT - DELETE AFTER FIX
