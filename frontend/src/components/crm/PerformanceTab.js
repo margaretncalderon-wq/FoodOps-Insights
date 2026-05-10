@@ -201,6 +201,28 @@ export default function PerformanceTab() {
           <Button variant="outline" size="sm" onClick={fetchPerformance} data-testid="refresh-performance">
             <RefreshCw className="w-4 h-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await axios.post(`${API}/api/crm/reports/send-weekly-newsletter?test_only_to_me=true`, null, { withCredentials: true });
+                if (res.data.demo_mode) {
+                  toast.warning(isEs ? "SMTP no configurado · revisa SMTP_USER/SMTP_PASSWORD en backend/.env" : "SMTP not configured — set SMTP_USER/SMTP_PASSWORD");
+                } else if (res.data.ok) {
+                  toast.success(isEs ? `Newsletter enviada a ti (${res.data.recipients?.[0] || ""})` : `Newsletter sent to you (${res.data.recipients?.[0] || ""})`);
+                } else {
+                  toast.error(`SMTP: ${res.data.smtp_message || res.data.message}`);
+                }
+              } catch (err) {
+                toast.error(err?.response?.data?.detail || (isEs ? "Error al enviar" : "Send error"));
+              }
+            }}
+            data-testid="send-newsletter-test"
+            title={isEs ? "Enviar newsletter de prueba a mi email" : "Send test newsletter to my email"}
+          >
+            ✉️ {isEs ? "Probar email" : "Test email"}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleCleanup} disabled={cleanupRunning} data-testid="cleanup-comm-logs" title={isEs ? "Limpiar logs sin owner/tipo" : "Clean logs without owner/type"}>
             <Sparkles className={`w-4 h-4 ${cleanupRunning ? "animate-pulse" : ""}`} />
           </Button>

@@ -46,8 +46,7 @@ async def _send_daily_performance_alerts():
 
                 # Compute current week alerts inline
                 now = datetime.now(timezone.utc)
-                cur_start, cur_end, _ = _period_bounds("week", 0, now)
-                cur_start_iso, cur_end_iso = cur_start.isoformat(), cur_end.isoformat()
+                _period_bounds("week", 0, now)  # validate granularity
 
                 # Gather salespeople activity (last 3 days for inactivity check)
                 three_days_ago = (now - timedelta(days=3)).isoformat()
@@ -67,7 +66,6 @@ async def _send_daily_performance_alerts():
                 ).to_list(200)
 
                 inactive_count = 0
-                below_goal_count = 0
                 for u in sales_users:
                     uid = u["user_id"]
                     name = u.get("name") or u.get("email", "").split("@")[0]
@@ -110,6 +108,34 @@ async def _send_daily_performance_alerts():
         logger.exception(f"[scheduler] daily-alerts top-level error: {e}")
 
 
+async def _send_weekly_newsletter_all_companies():
+    """Saturday 8am: send weekly Performance newsletter via SMTP to all org admins."""
+    from routers.crm import _send_weekly_newsletter_for_company
+    try:
+        from datetime import timedelta
+        thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        # Companies that have any sales activity in the last 30 days
+        active = set()
+        active.update(await db.leads.distinct("company_id", {"created_at": {"$gte": thirty_days_ago}}))
+        active.update(await db.comm_logs.distinct("company_id", {"created_at": {"$gte": thirty_days_ago}}))
+        # Plus any company with users (for first-week emptiness)
+        users_companies = await db.users.distinct("company_id", {"role": {"$in": ["admin", "owner", "manager"]}})
+        active.update(users_companies)
+        company_ids = [c for c in active if c]
+        logger.info(f"[scheduler] weekly-newsletter running for {len(company_ids)} companies")
+        ok = 0
+        for cid in company_ids:
+            try:
+                res = await _send_weekly_newsletter_for_company(cid)
+                if res.get("ok"):
+                    ok += 1
+            except Exception as e:
+                logger.exception(f"[scheduler] newsletter for {cid} failed: {e}")
+        logger.info(f"[scheduler] weekly-newsletter done — {ok}/{len(company_ids)} companies sent")
+    except Exception as e:
+        logger.exception(f"[scheduler] weekly-newsletter top-level error: {e}")
+
+
 def start_scheduler():
     """Initialize and start the global scheduler (idempotent)."""
     global _scheduler
@@ -124,11 +150,19 @@ def start_scheduler():
         _scheduler = AsyncIOScheduler(timezone="UTC")
         tz = "UTC"
 
-    # Daily 9:00 local time
+    # Daily 9:00 local time — alerts
     _scheduler.add_job(
         _send_daily_performance_alerts,
         trigger=CronTrigger(hour=9, minute=0),
         id="daily_sales_alerts",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    # Saturday 8:00 local time — weekly newsletter
+    _scheduler.add_job(
+        _send_weekly_newsletter_all_companies,
+        trigger=CronTrigger(day_of_week="sat", hour=8, minute=0),
+        id="weekly_performance_newsletter",
         replace_existing=True,
         misfire_grace_time=3600,
     )

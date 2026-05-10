@@ -4419,3 +4419,224 @@ async def cleanup_comm_logs(user: User = Depends(get_current_user)):
         "fixed_log_id": fixed_log_id,
     }
 
+
+# ============================================================================
+# WEEKLY NEWSLETTER — sent every Saturday 8am via SMTP
+# ============================================================================
+import os as _os_newsletter
+
+def _money_short(n):
+    if n is None:
+        return "—"
+    try:
+        n = float(n)
+    except Exception:
+        return "—"
+    if abs(n) >= 1_000_000:
+        return f"${n / 1_000_000:.1f}M"
+    if abs(n) >= 1_000:
+        return f"${n / 1_000:.1f}k"
+    return f"${int(round(n))}"
+
+
+def _delta_arrow_html(pct):
+    if pct is None or pct == 0:
+        return '<span style="color:#94a3b8;font-size:11px;">—</span>'
+    sign = "+" if pct > 0 else ""
+    color = "#16a34a" if pct > 0 else "#dc2626"
+    arrow = "▲" if pct > 0 else "▼"
+    return f'<span style="color:{color};font-weight:700;font-size:11px;">{arrow} {sign}{pct}%</span>'
+
+
+def _build_newsletter_html(report: dict, company_name: str, frontend_url: str) -> str:
+    kpis = report.get("kpis", {})
+    leaderboard = report.get("leaderboard", [])
+    alerts = report.get("alerts", [])
+    cur = report.get("current_period", {})
+
+    week_label = cur.get("label", "")
+    if "_to_" in week_label:
+        s, e = week_label.split("_to_")
+        week_label_pretty = f"{s} → {e}"
+    else:
+        week_label_pretty = week_label
+
+    def kpi_block(label, key, money=False):
+        v = kpis.get(key, {}) or {}
+        cur_v = v.get("current", 0)
+        prev_v = v.get("previous", 0)
+        delta = v.get("delta_pct")
+        cur_str = _money_short(cur_v) if money else str(cur_v)
+        prev_str = _money_short(prev_v) if money else str(prev_v)
+        return f'''
+          <td align="center" style="padding:12px 6px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;width:33%;">
+            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">{label}</div>
+            <div style="font-size:22px;font-weight:800;color:#1f2937;margin-top:4px;line-height:1;">{cur_str}</div>
+            <div style="margin-top:4px;font-size:10px;color:#9ca3af;">vs {prev_str} {_delta_arrow_html(delta)}</div>
+          </td>'''
+
+    top3 = leaderboard[:3]
+    medals = ["🥇", "🥈", "🥉"]
+    leaderboard_rows = ""
+    for i, entry in enumerate(top3):
+        medal = medals[i]
+        name = entry.get("owner_name") or "Sin Asignar"
+        score = entry.get("score", 0)
+        delta = entry.get("delta_pct")
+        m = entry.get("metrics", {})
+        pipeline = entry.get("pipeline_value", 0)
+        revenue = entry.get("revenue_closed", 0)
+        leaderboard_rows += f'''
+        <tr>
+          <td style="padding:10px 12px;border-top:1px solid #f1f5f9;">
+            <div style="font-size:14px;font-weight:700;color:#1f2937;">{medal} {name}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:3px;">
+              📞 {m.get("calls", 0)} · ✉️ {m.get("emails", 0)} · 💬 {m.get("whatsapp", 0)} · 🤝 {m.get("meetings", 0)} · ✅ {m.get("conversions", 0)}
+            </div>
+            <div style="font-size:11px;color:#6b7280;margin-top:3px;">
+              💼 {_money_short(pipeline)} pipeline · 💰 {_money_short(revenue)} cerrado
+            </div>
+          </td>
+          <td align="right" style="padding:10px 12px;border-top:1px solid #f1f5f9;vertical-align:middle;">
+            <div style="font-size:18px;font-weight:800;color:#1f2937;">{score}</div>
+            <div>{_delta_arrow_html(delta)}</div>
+          </td>
+        </tr>'''
+
+    alerts_html = ""
+    if alerts:
+        items = "".join(
+            f'<li style="margin-bottom:4px;color:#92400e;">{("💤" if a.get("type") == "inactivity" else "⚠️")} {a.get("message", "")}</li>'
+            for a in alerts[:8]
+        )
+        alerts_html = f'''
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 18px;margin-top:18px;">
+          <div style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;">⚠️ Alertas de la semana</div>
+          <ul style="margin:8px 0 0 0;padding-left:18px;font-size:13px;">{items}</ul>
+        </div>'''
+
+    pipeline_total = (kpis.get("pipeline_value") or {}).get("current", 0)
+    revenue_total = (kpis.get("revenue_closed") or {}).get("current", 0)
+    revenue_delta = (kpis.get("revenue_closed") or {}).get("delta_pct")
+
+    dashboard_link = f"{frontend_url}/client-engagement/crm/sales-report"
+
+    return f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f7f8fa;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1f2937;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f8fa;padding:24px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;">
+        <tr><td style="padding:24px 28px 16px;background:#1f2937;color:#ffffff;">
+          <div style="font-size:11px;color:#AED768;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Performance Weekly · {company_name}</div>
+          <div style="font-size:24px;font-weight:800;margin-top:6px;">Tu equipo esta semana 📊</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">{week_label_pretty}</div>
+        </td></tr>
+        <tr><td style="padding:18px 28px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center" style="padding:14px;border-radius:10px;background:#eff6ff;width:50%;border:1px solid #dbeafe;">
+                <div style="font-size:10px;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Pipeline activo</div>
+                <div style="font-size:28px;font-weight:800;color:#1d4ed8;margin-top:6px;line-height:1;">{_money_short(pipeline_total)}</div>
+              </td>
+              <td style="width:8px;"></td>
+              <td align="center" style="padding:14px;border-radius:10px;background:#f0fdf4;width:50%;border:1px solid #bbf7d0;">
+                <div style="font-size:10px;color:#166534;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Revenue cerrado</div>
+                <div style="font-size:28px;font-weight:800;color:#166534;margin-top:6px;line-height:1;">{_money_short(revenue_total)}</div>
+                <div style="margin-top:4px;">{_delta_arrow_html(revenue_delta)}</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:14px 28px 0;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:10px;">Actividad del equipo</div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-spacing:6px;">
+            <tr>{kpi_block("Llamadas", "calls")}{kpi_block("Emails", "emails")}{kpi_block("WhatsApp", "whatsapp")}</tr>
+            <tr>{kpi_block("Reuniones", "meetings")}{kpi_block("Conversiones", "conversions")}{kpi_block("Propuestas", "proposals_sent")}</tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:18px 28px 0;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:10px;">🏆 Top performers</div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #f1f5f9;border-radius:10px;">
+            {leaderboard_rows or '<tr><td style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Sin actividad esta semana</td></tr>'}
+          </table>
+        </td></tr>
+        <tr><td style="padding:0 28px;">{alerts_html}</td></tr>
+        <tr><td align="center" style="padding:24px 28px 28px;">
+          <a href="{dashboard_link}" style="display:inline-block;background:#AED768;color:#1f2937;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:14px;">Ver Dashboard completo →</a>
+        </td></tr>
+        <tr><td style="padding:18px 28px;background:#f9fafb;border-top:1px solid #f1f5f9;text-align:center;">
+          <div style="font-size:11px;color:#9ca3af;">
+            Recibes este email porque eres admin de <strong>{company_name}</strong> en Kora OS.<br>
+            Llega cada sábado a las 8:00 AM. <a href="{frontend_url}" style="color:#6b7280;">Kora OS</a>
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>'''
+
+
+@crm_router.post("/reports/send-weekly-newsletter")
+async def send_weekly_newsletter_endpoint(
+    user: User = Depends(get_current_user),
+    test_only_to_me: bool = False,
+):
+    """
+    Trigger the weekly Performance newsletter for the current company.
+    Admin only. Sends to all admins by default; if test_only_to_me=true, sends only to caller.
+    """
+    user_role = getattr(user, "role_id", None) or getattr(user, "role", None)
+    if user_role not in ("admin", "owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    target = user.user_id if test_only_to_me else None
+    return await _send_weekly_newsletter_for_company(user.company_id, target_user_id=target)
+
+
+async def _send_weekly_newsletter_for_company(company_id: str, target_user_id: Optional[str] = None) -> dict:
+    """Build and send the weekly newsletter for one company."""
+    from utils.smtp_service import send_smtp_email, is_smtp_configured
+
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "name": 1})
+    company_name = (company or {}).get("name", "tu equipo")
+
+    if target_user_id:
+        users = await db.users.find({"user_id": target_user_id, "company_id": company_id}, {"_id": 0, "email": 1, "name": 1}).to_list(2)
+    else:
+        users = await db.users.find(
+            {"company_id": company_id, "role": {"$in": ["admin", "owner", "manager"]}},
+            {"_id": 0, "email": 1, "name": 1, "user_id": 1},
+        ).to_list(50)
+
+    recipients = [u["email"] for u in users if u.get("email")]
+    if not recipients:
+        return {"ok": False, "message": "no admin emails", "sent": 0}
+
+    class _U:
+        def __init__(self, cid):
+            self.company_id = cid
+            self.user_id = None
+            self.role = "admin"
+    fake = _U(company_id)
+    report = await get_performance_report(user=fake, granularity="week", period_offset=-1, owner_id=None, include_unassigned=False, timeseries_buckets=4)
+
+    frontend_url = _os_newsletter.environ.get("FRONTEND_URL", "https://ourkora.com")
+    html = _build_newsletter_html(report, company_name, frontend_url)
+
+    if not is_smtp_configured():
+        return {"ok": False, "message": "SMTP not configured — set SMTP_USER/SMTP_PASSWORD in backend/.env", "sent": 0, "would_send_to": recipients, "demo_mode": True}
+
+    subject = f"📊 Performance Weekly · {company_name}"
+    res = send_smtp_email(to=recipients, subject=subject, html=html, text_fallback=f"Tu reporte semanal de Kora OS está listo: {frontend_url}/client-engagement/crm/sales-report")
+
+    await db.newsletter_log.insert_one({
+        "company_id": company_id,
+        "type": "weekly_performance",
+        "recipients": recipients,
+        "success": res.get("success", False),
+        "message": res.get("message", ""),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": res.get("success", False), "sent": len(recipients) if res.get("success") else 0, "recipients": recipients, "smtp_message": res.get("message", "")}
+
