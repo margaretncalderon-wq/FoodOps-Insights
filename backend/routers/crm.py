@@ -3827,3 +3827,595 @@ async def _query_leads_by_filters(company_id: str, filters: dict) -> list:
             if isinstance(val, float) and (val != val):  # NaN check
                 lead[key] = None
     return leads
+
+
+# ============================================================================
+# PERFORMANCE DASHBOARD — Activity per salesperson by day/week/month
+# ============================================================================
+
+def _period_bounds(granularity: str, offset: int, ref: datetime):
+    """
+    Compute UTC start/end ISO of a period.
+    granularity: 'day' | 'week' | 'month'
+    offset: 0 = current, -1 = previous, etc. (negative = past)
+    """
+    if granularity == "day":
+        d = ref + timedelta(days=offset)
+        start = d.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1) - timedelta(microseconds=1)
+        label = start.strftime("%Y-%m-%d")
+    elif granularity == "week":
+        # Monday is start of the week
+        weekday = ref.weekday()  # 0=Mon
+        monday_this = (ref - timedelta(days=weekday)).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = monday_this + timedelta(weeks=offset)
+        end = start + timedelta(days=7) - timedelta(microseconds=1)
+        label = f"{start.strftime('%Y-%m-%d')}_to_{end.strftime('%Y-%m-%d')}"
+    elif granularity == "month":
+        # First day of month
+        first = ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Move offset months
+        year = first.year
+        month = first.month + offset
+        while month <= 0:
+            month += 12
+            year -= 1
+        while month > 12:
+            month -= 12
+            year += 1
+        start = first.replace(year=year, month=month)
+        # End = first of next month - 1us
+        nm_year = year if month < 12 else year + 1
+        nm_month = month + 1 if month < 12 else 1
+        next_start = start.replace(year=nm_year, month=nm_month)
+        end = next_start - timedelta(microseconds=1)
+        label = start.strftime("%Y-%m")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid granularity")
+    return start, end, label
+
+
+def _bucket_key(date_iso: str, granularity: str) -> str:
+    """Group a date string into its bucket key."""
+    try:
+        d = datetime.fromisoformat(date_iso.replace("Z", "+00:00"))
+    except Exception:
+        return "unknown"
+    if granularity == "day":
+        return d.strftime("%Y-%m-%d")
+    if granularity == "week":
+        weekday = d.weekday()
+        monday = d - timedelta(days=weekday)
+        return monday.strftime("%Y-%m-%d")
+    if granularity == "month":
+        return d.strftime("%Y-%m")
+    return "unknown"
+
+
+def _delta_pct(current: float, previous: float):
+    if previous == 0:
+        return None if current == 0 else 100.0
+    return round(((current - previous) / previous) * 100, 1)
+
+
+# Weights for the salesperson score (sums to 100).
+# Conversions and revenue dominate, but base activity is rewarded too.
+SCORE_WEIGHTS = {
+    "calls": 5,
+    "emails": 5,
+    "whatsapp": 5,
+    "meetings": 10,
+    "notes": 2,
+    "new_leads": 8,
+    "conversions": 25,
+    "follow_ups_completed": 5,
+    "proposals_sent": 10,
+}
+
+
+@crm_router.get("/reports/performance")
+async def get_performance_report(
+    user: User = Depends(get_current_user),
+    granularity: str = "week",
+    period_offset: int = 0,
+    owner_id: Optional[str] = None,
+    include_unassigned: bool = True,
+    timeseries_buckets: int = 12,
+):
+    """
+    Performance Dashboard report.
+    Returns KPIs with delta vs previous period, leaderboard with score,
+    timeseries buckets, and inactivity / below-goal alerts.
+    """
+    user_role = getattr(user, "role_id", None) or getattr(user, "role", None)
+    is_sales_only = user_role == "sales"
+    if is_sales_only:
+        owner_id = user.user_id
+
+    if granularity not in ("day", "week", "month"):
+        raise HTTPException(status_code=400, detail="granularity must be day|week|month")
+
+    now = datetime.now(timezone.utc)
+    cur_start, cur_end, cur_label = _period_bounds(granularity, period_offset, now)
+    prev_start, prev_end, prev_label = _period_bounds(granularity, period_offset - 1, now)
+    cur_start_iso, cur_end_iso = cur_start.isoformat(), cur_end.isoformat()
+    prev_start_iso, prev_end_iso = prev_start.isoformat(), prev_end.isoformat()
+
+    # Range covering both periods + timeseries lookback
+    ts_start, _, _ = _period_bounds(granularity, period_offset - timeseries_buckets + 1, now)
+    full_start_iso = ts_start.isoformat()
+    full_end_iso = cur_end_iso
+
+    company_id = user.company_id
+
+    # --- Fetch raw events ---
+    base_q = {"company_id": company_id, "created_at": {"$gte": full_start_iso, "$lte": full_end_iso}}
+    if owner_id and owner_id != "all":
+        base_q["owner_id"] = owner_id
+
+    comm_logs = await db.comm_logs.find(base_q, {"_id": 0}).to_list(20000)
+    leads_in_range = await db.leads.find(base_q, {"_id": 0}).to_list(20000)
+
+    # Conversions (use updated_at since status flip happens then)
+    conv_q = {"company_id": company_id, "status": "Converted", "updated_at": {"$gte": full_start_iso, "$lte": full_end_iso}}
+    if owner_id and owner_id != "all":
+        conv_q["owner_id"] = owner_id
+    conversions = await db.leads.find(conv_q, {"_id": 0}).to_list(20000)
+
+    # Proposals sent — proposals where status changed to Sent in range; we use last_edited_at fallback to created_at
+    prop_q = {"company_id": company_id, "status": {"$in": ["Sent", "Accepted", "Rejected"]}}
+    proposals_all = await db.proposals.find(prop_q, {"_id": 0}).to_list(20000)
+    # Map proposal -> owner via event -> client.owner_id (or lead chain)
+    event_ids = list({p.get("event_id") for p in proposals_all if p.get("event_id")})
+    events_map = {}
+    if event_ids:
+        evs = await db.events.find({"event_id": {"$in": event_ids}}, {"_id": 0, "event_id": 1, "client_id": 1, "owner_id": 1}).to_list(20000)
+        events_map = {e["event_id"]: e for e in evs}
+    client_ids = list({e.get("client_id") for e in events_map.values() if e.get("client_id")})
+    clients_map = {}
+    if client_ids:
+        cls = await db.clients.find({"client_id": {"$in": client_ids}}, {"_id": 0, "client_id": 1, "owner_id": 1, "total_revenue": 1}).to_list(20000)
+        clients_map = {c["client_id"]: c for c in cls}
+
+    def proposal_owner(p):
+        ev = events_map.get(p.get("event_id"))
+        if not ev:
+            return None
+        if ev.get("owner_id"):
+            return ev["owner_id"]
+        cl = clients_map.get(ev.get("client_id"))
+        if cl:
+            return cl.get("owner_id")
+        return None
+
+    # Follow-ups completed in range
+    fu_q = {"company_id": company_id, "follow_up_completed_at": {"$gte": full_start_iso, "$lte": full_end_iso}}
+    if owner_id and owner_id != "all":
+        fu_q["owner_id"] = owner_id
+    follow_ups = await db.leads.find(fu_q, {"_id": 0, "lead_id": 1, "owner_id": 1, "follow_up_completed_at": 1}).to_list(20000)
+
+    # --- Aggregate per (owner, bucket) ---
+    def empty_metrics():
+        return {
+            "calls": 0, "emails": 0, "whatsapp": 0, "meetings": 0, "notes": 0,
+            "new_leads": 0, "conversions": 0, "follow_ups_completed": 0, "proposals_sent": 0,
+        }
+
+    by_owner_bucket = {}  # (owner_id, bucket) -> metrics
+
+    def bump(oid, ts_iso, key, n=1):
+        if not ts_iso:
+            return
+        bk = _bucket_key(ts_iso, granularity)
+        oid_key = oid or "__unassigned__"
+        if include_unassigned is False and oid_key == "__unassigned__":
+            return
+        if owner_id and owner_id != "all" and oid_key != owner_id:
+            return
+        slot = by_owner_bucket.setdefault((oid_key, bk), empty_metrics())
+        slot[key] += n
+
+    # comm_logs
+    for log in comm_logs:
+        ct = (log.get("comm_type") or "").lower()
+        oid = log.get("owner_id")
+        ts = log.get("created_at")
+        if ct == "call":
+            bump(oid, ts, "calls")
+        elif ct == "email":
+            bump(oid, ts, "emails")
+        elif ct in ("whatsapp", "message", "sms"):
+            bump(oid, ts, "whatsapp")
+        elif ct == "meeting":
+            bump(oid, ts, "meetings")
+        elif ct == "note":
+            bump(oid, ts, "notes")
+
+    for lead in leads_in_range:
+        bump(lead.get("owner_id"), lead.get("created_at"), "new_leads")
+
+    for cv in conversions:
+        bump(cv.get("owner_id"), cv.get("updated_at"), "conversions")
+
+    for fu in follow_ups:
+        bump(fu.get("owner_id"), fu.get("follow_up_completed_at"), "follow_ups_completed")
+
+    for p in proposals_all:
+        oid = proposal_owner(p)
+        # Use last_edited_at or created_at to date the proposal
+        ts = p.get("last_edited_at") or p.get("created_at")
+        if not ts or ts < full_start_iso or ts > full_end_iso:
+            continue
+        bump(oid, ts, "proposals_sent")
+
+    # --- KPIs current vs previous ---
+    def sum_in(window_start_iso, window_end_iso):
+        out = empty_metrics()
+        for (oid, bk), m in by_owner_bucket.items():
+            # bk to date: take first day of bucket
+            try:
+                if granularity == "month":
+                    d = datetime.fromisoformat(bk + "-01").replace(tzinfo=timezone.utc)
+                else:
+                    d = datetime.fromisoformat(bk).replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+            if window_start_iso <= d.isoformat() <= window_end_iso:
+                for k in out:
+                    out[k] += m[k]
+        return out
+
+    kpi_cur = sum_in(cur_start_iso, cur_end_iso)
+    kpi_prev = sum_in(prev_start_iso, prev_end_iso)
+
+    # Pipeline value = sum of estimated_value for leads not Converted/Lost as of NOW (snapshot)
+    pipeline_q = {"company_id": company_id, "status": {"$nin": ["Converted", "Lost", "Discarded"]}}
+    if owner_id and owner_id != "all":
+        pipeline_q["owner_id"] = owner_id
+    pipeline_leads = await db.leads.find(pipeline_q, {"_id": 0, "owner_id": 1, "estimated_value": 1, "lead_value": 1, "status": 1}).to_list(20000)
+    pipeline_by_owner = {}
+    for ld in pipeline_leads:
+        ev = ld.get("estimated_value") or ld.get("lead_value") or 0
+        try:
+            ev = float(ev)
+        except Exception:
+            ev = 0
+        oid = ld.get("owner_id") or "__unassigned__"
+        pipeline_by_owner[oid] = pipeline_by_owner.get(oid, 0) + ev
+    pipeline_total_cur = sum(pipeline_by_owner.values())
+
+    # Revenue closed = sum of clients.total_revenue for clients with owner_id, restricted to those created in current period (proxy)
+    rev_q = {"company_id": company_id, "created_at": {"$gte": cur_start_iso, "$lte": cur_end_iso}}
+    if owner_id and owner_id != "all":
+        rev_q["owner_id"] = owner_id
+    cur_clients = await db.clients.find(rev_q, {"_id": 0, "owner_id": 1, "total_revenue": 1}).to_list(20000)
+    revenue_by_owner_cur = {}
+    for cl in cur_clients:
+        rv = cl.get("total_revenue") or 0
+        oid = cl.get("owner_id") or "__unassigned__"
+        revenue_by_owner_cur[oid] = revenue_by_owner_cur.get(oid, 0) + (rv or 0)
+    revenue_total_cur = sum(revenue_by_owner_cur.values())
+
+    rev_q_prev = {"company_id": company_id, "created_at": {"$gte": prev_start_iso, "$lte": prev_end_iso}}
+    if owner_id and owner_id != "all":
+        rev_q_prev["owner_id"] = owner_id
+    prev_clients = await db.clients.find(rev_q_prev, {"_id": 0, "owner_id": 1, "total_revenue": 1}).to_list(20000)
+    revenue_total_prev = sum((c.get("total_revenue") or 0) for c in prev_clients)
+
+    kpis = {}
+    for k in ["calls", "emails", "whatsapp", "meetings", "notes", "new_leads", "conversions", "follow_ups_completed", "proposals_sent"]:
+        kpis[k] = {"current": kpi_cur[k], "previous": kpi_prev[k], "delta_pct": _delta_pct(kpi_cur[k], kpi_prev[k])}
+    kpis["pipeline_value"] = {"current": round(pipeline_total_cur, 2), "previous": None, "delta_pct": None}
+    kpis["revenue_closed"] = {"current": round(revenue_total_cur, 2), "previous": round(revenue_total_prev, 2), "delta_pct": _delta_pct(revenue_total_cur, revenue_total_prev)}
+
+    # --- Leaderboard ---
+    # Aggregate per owner for current period
+    owners_cur = {}
+    owners_prev = {}
+    for (oid, bk), m in by_owner_bucket.items():
+        try:
+            if granularity == "month":
+                d_iso = datetime.fromisoformat(bk + "-01").replace(tzinfo=timezone.utc).isoformat()
+            else:
+                d_iso = datetime.fromisoformat(bk).replace(tzinfo=timezone.utc).isoformat()
+        except Exception:
+            continue
+        target = None
+        if cur_start_iso <= d_iso <= cur_end_iso:
+            target = owners_cur
+        elif prev_start_iso <= d_iso <= prev_end_iso:
+            target = owners_prev
+        if target is None:
+            continue
+        slot = target.setdefault(oid, empty_metrics())
+        for k in slot:
+            slot[k] += m[k]
+
+    # Pull goals
+    goals = await db.sales_goals.find({"company_id": company_id}, {"_id": 0}).to_list(200)
+    goals_map = {g["owner_id"]: g for g in goals}
+
+    # Pull users
+    user_docs = await db.users.find({"company_id": company_id}, {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}).to_list(500)
+    user_names = {}
+    for u in user_docs:
+        nm = u.get("name")
+        if not nm:
+            nm = (u.get("first_name") or "") + " " + (u.get("last_name") or "")
+            nm = nm.strip()
+        if not nm:
+            email = u.get("email") or ""
+            nm = email.split("@")[0].replace(".", " ").title() if email else u["user_id"]
+        user_names[u["user_id"]] = nm
+
+    # Build leaderboard entries
+    all_owner_ids = set(owners_cur.keys()) | set(owners_prev.keys()) | set(pipeline_by_owner.keys()) | set(revenue_by_owner_cur.keys())
+    if include_unassigned is False:
+        all_owner_ids.discard("__unassigned__")
+
+    leaderboard = []
+    for oid in all_owner_ids:
+        cur = owners_cur.get(oid, empty_metrics())
+        prev = owners_prev.get(oid, empty_metrics())
+        pname = "Sin Asignar" if oid == "__unassigned__" else user_names.get(oid, "Usuario Eliminado")
+        # Score (weighted current activity)
+        score = sum(cur[k] * SCORE_WEIGHTS.get(k, 0) for k in cur)
+        prev_score = sum(prev[k] * SCORE_WEIGHTS.get(k, 0) for k in prev)
+        delta_pct = _delta_pct(score, prev_score)
+
+        # Goal % (weekly comparison only when granularity=week)
+        goal = goals_map.get(oid)
+        goal_pct = None
+        if goal and granularity == "week":
+            goal_keys = [
+                ("weekly_calls", "calls"),
+                ("weekly_emails", "emails"),
+                ("weekly_whatsapp", "whatsapp"),
+                ("weekly_new_leads", "new_leads"),
+                ("weekly_conversions", "conversions"),
+                ("weekly_follow_ups", "follow_ups_completed"),
+            ]
+            ratios = []
+            for gk, mk in goal_keys:
+                gv = goal.get(gk) or 0
+                if gv > 0:
+                    ratios.append((cur[mk] / gv) * 100)
+            if ratios:
+                goal_pct = round(sum(ratios) / len(ratios), 1)
+
+        # Sparkline: last `timeseries_buckets` buckets ordered ascending
+        sparkline = []
+        for n in range(-(timeseries_buckets - 1), 1):
+            s, e, _ = _period_bounds(granularity, period_offset + n, now)
+            total = 0
+            for (boid, bk), m in by_owner_bucket.items():
+                if boid != oid:
+                    continue
+                try:
+                    if granularity == "month":
+                        d_iso = datetime.fromisoformat(bk + "-01").replace(tzinfo=timezone.utc).isoformat()
+                    else:
+                        d_iso = datetime.fromisoformat(bk).replace(tzinfo=timezone.utc).isoformat()
+                except Exception:
+                    continue
+                if s.isoformat() <= d_iso <= e.isoformat():
+                    total += sum(m[k] * SCORE_WEIGHTS.get(k, 0) for k in m)
+            sparkline.append(total)
+
+        # Alerts: inactivity >=3 days (only for granularity=week or day)
+        alert = None
+        if oid != "__unassigned__":
+            three_days_ago = (now - timedelta(days=3)).isoformat()
+            recent = sum(1 for log in comm_logs if log.get("owner_id") == oid and (log.get("created_at") or "") >= three_days_ago)
+            recent += sum(1 for ld in leads_in_range if ld.get("owner_id") == oid and (ld.get("created_at") or "") >= three_days_ago)
+            if recent == 0:
+                alert = "inactivity"
+            elif goal_pct is not None and goal_pct < 50:
+                alert = "below_goal"
+
+        leaderboard.append({
+            "owner_id": None if oid == "__unassigned__" else oid,
+            "owner_name": pname,
+            "score": int(round(score)),
+            "delta_pct": delta_pct,
+            "metrics": cur,
+            "previous_metrics": prev,
+            "pipeline_value": round(pipeline_by_owner.get(oid, 0), 2),
+            "revenue_closed": round(revenue_by_owner_cur.get(oid, 0), 2),
+            "goal_pct": goal_pct,
+            "sparkline": sparkline,
+            "alert": alert,
+        })
+
+    leaderboard.sort(key=lambda x: -x["score"])
+    for i, entry in enumerate(leaderboard):
+        entry["rank"] = i + 1
+
+    # --- Timeseries (aggregate across owners for the current view) ---
+    timeseries = []
+    for n in range(-(timeseries_buckets - 1), 1):
+        s, e, lab = _period_bounds(granularity, period_offset + n, now)
+        bucket_total = empty_metrics()
+        for (boid, bk), m in by_owner_bucket.items():
+            try:
+                if granularity == "month":
+                    d_iso = datetime.fromisoformat(bk + "-01").replace(tzinfo=timezone.utc).isoformat()
+                else:
+                    d_iso = datetime.fromisoformat(bk).replace(tzinfo=timezone.utc).isoformat()
+            except Exception:
+                continue
+            if s.isoformat() <= d_iso <= e.isoformat():
+                for k in bucket_total:
+                    bucket_total[k] += m[k]
+        timeseries.append({"bucket": lab, "start": s.isoformat(), "end": e.isoformat(), **bucket_total})
+
+    # --- Alerts (separate from leaderboard) ---
+    alerts = []
+    for entry in leaderboard:
+        if entry["alert"] == "inactivity":
+            alerts.append({
+                "type": "inactivity",
+                "owner_id": entry["owner_id"],
+                "owner_name": entry["owner_name"],
+                "message": f"{entry['owner_name']} sin actividad en 3+ días",
+            })
+        elif entry["alert"] == "below_goal":
+            alerts.append({
+                "type": "below_goal",
+                "owner_id": entry["owner_id"],
+                "owner_name": entry["owner_name"],
+                "goal_pct": entry["goal_pct"],
+                "message": f"{entry['owner_name']} al {entry['goal_pct']}% de su meta semanal",
+            })
+
+    return {
+        "granularity": granularity,
+        "period_offset": period_offset,
+        "current_period": {"label": cur_label, "start": cur_start_iso, "end": cur_end_iso},
+        "previous_period": {"label": prev_label, "start": prev_start_iso, "end": prev_end_iso},
+        "kpis": kpis,
+        "leaderboard": leaderboard,
+        "timeseries": timeseries,
+        "alerts": alerts,
+        "is_sales_only": is_sales_only,
+    }
+
+
+@crm_router.post("/reports/notify-admin-alerts")
+async def notify_admin_alerts(
+    user: User = Depends(get_current_user),
+    granularity: str = "week",
+):
+    """
+    Compute current-period alerts (inactivity / below_goal) and notify all admins.
+    Idempotent per day — won't double-notify the same alert on the same day.
+    """
+    user_role = getattr(user, "role_id", None) or getattr(user, "role", None)
+    if user_role not in ("admin", "owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    # Reuse get_performance_report logic by calling it directly
+    report = await get_performance_report(user=user, granularity=granularity, period_offset=0, owner_id=None, include_unassigned=False, timeseries_buckets=4)
+    alerts = report.get("alerts", [])
+    if not alerts:
+        return {"ok": True, "alerts": 0, "notifications_sent": 0}
+
+    today_key = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    sent = 0
+    for a in alerts:
+        if not a.get("owner_id"):
+            continue
+        # Idempotency check
+        already = await db.alert_notifications_log.find_one({
+            "company_id": user.company_id,
+            "owner_id": a["owner_id"],
+            "type": a["type"],
+            "day": today_key,
+        })
+        if already:
+            continue
+        title = "⚠️ Vendedor inactivo" if a["type"] == "inactivity" else "⚠️ Vendedor bajo meta"
+        await notify_org_admins(
+            org_id=user.company_id,
+            notification_type=f"sales_{a['type']}",
+            title=title,
+            message=a["message"],
+            link="/client-engagement/crm/sales-report",
+            metadata={"owner_id": a["owner_id"], "alert_type": a["type"]},
+        )
+        await db.alert_notifications_log.insert_one({
+            "company_id": user.company_id,
+            "owner_id": a["owner_id"],
+            "type": a["type"],
+            "day": today_key,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        sent += 1
+
+    return {"ok": True, "alerts": len(alerts), "notifications_sent": sent}
+
+
+@crm_router.post("/admin/cleanup-comm-logs")
+async def cleanup_comm_logs(user: User = Depends(get_current_user)):
+    """
+    Backfill comm_logs:
+    - assign owner_id from the linked lead/client when missing
+    - infer comm_type from the subject line when empty
+    Admin only.
+    """
+    user_role = getattr(user, "role_id", None) or getattr(user, "role", None)
+    if user_role not in ("admin", "owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    company_id = user.company_id
+    # Keep _id for upserts on records missing log_id
+    logs = await db.comm_logs.find({"company_id": company_id}).to_list(50000)
+
+    fixed_owner = 0
+    fixed_type = 0
+    fixed_log_id = 0
+
+    # Build entity → owner map
+    lead_owners = {ld["lead_id"]: ld.get("owner_id") for ld in await db.leads.find({"company_id": company_id}, {"_id": 0, "lead_id": 1, "owner_id": 1}).to_list(50000)}
+    client_owners = {c["client_id"]: c.get("owner_id") for c in await db.clients.find({"company_id": company_id}, {"_id": 0, "client_id": 1, "owner_id": 1}).to_list(50000)}
+
+    type_keywords = {
+        "call": ["call", "llamada", "phone", "telefono", "teléfono"],
+        "email": ["email", "correo", "mail"],
+        "whatsapp": ["whatsapp", "wa", "wapp"],
+        "meeting": ["meeting", "reunion", "reunión", "junta", "demo", "presentation"],
+        "sms": ["sms", "text"],
+    }
+
+    for log in logs:
+        updates = {}
+        # owner_id
+        if not log.get("owner_id"):
+            entity_type = (log.get("entity_type") or "").lower()
+            entity_id = log.get("entity_id")
+            if entity_id:
+                if entity_type == "lead" and entity_id in lead_owners:
+                    if lead_owners[entity_id]:
+                        updates["owner_id"] = lead_owners[entity_id]
+                elif entity_type == "client" and entity_id in client_owners:
+                    if client_owners[entity_id]:
+                        updates["owner_id"] = client_owners[entity_id]
+                else:
+                    # Try both
+                    if entity_id in lead_owners and lead_owners[entity_id]:
+                        updates["owner_id"] = lead_owners[entity_id]
+                    elif entity_id in client_owners and client_owners[entity_id]:
+                        updates["owner_id"] = client_owners[entity_id]
+        # comm_type
+        if not (log.get("comm_type") or "").strip():
+            subject = (log.get("subject") or "") + " " + (log.get("content") or "")
+            subject_l = subject.lower()
+            for ct, kws in type_keywords.items():
+                if any(kw in subject_l for kw in kws):
+                    updates["comm_type"] = ct
+                    break
+            else:
+                updates["comm_type"] = "note"  # safe default
+
+        # Backfill log_id if missing
+        log_id = log.get("log_id")
+        if not log_id:
+            log_id = log.get("comm_log_id") or f"comm_{uuid.uuid4().hex[:12]}"
+            updates["log_id"] = log_id
+            fixed_log_id += 1
+
+        if updates:
+            await db.comm_logs.update_one({"_id": log["_id"]}, {"$set": updates})
+            if "owner_id" in updates:
+                fixed_owner += 1
+            if "comm_type" in updates:
+                fixed_type += 1
+
+    return {
+        "ok": True,
+        "scanned": len(logs),
+        "fixed_owner_id": fixed_owner,
+        "fixed_comm_type": fixed_type,
+        "fixed_log_id": fixed_log_id,
+    }
+

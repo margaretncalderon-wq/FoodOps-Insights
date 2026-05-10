@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import PerformanceTab from "./PerformanceTab";
 
 export default function SalesReportSection() {
   const { language } = useLanguage();
@@ -330,9 +331,9 @@ export default function SalesReportSection() {
             <BarChart3 className="w-3.5 h-3.5" />
             {isEs ? "Resumen" : "Overview"}
           </TabsTrigger>
-          <TabsTrigger value="daily" className="gap-1.5">
+          <TabsTrigger value="daily" className="gap-1.5" data-testid="performance-tab-trigger">
             <Activity className="w-3.5 h-3.5" />
-            {isEs ? "Actividad Diaria" : "Daily Activity"}
+            {isEs ? "Performance" : "Performance"}
           </TabsTrigger>
           <TabsTrigger value="goals" className="gap-1.5">
             <Target className="w-3.5 h-3.5" />
@@ -431,113 +432,9 @@ export default function SalesReportSection() {
           </Card>
         </TabsContent>
 
-        {/* === DAILY ACTIVITY TAB === */}
+        {/* === PERFORMANCE TAB === */}
         <TabsContent value="daily" className="space-y-4">
-          {/* Owner Totals Cards */}
-          {dailyData.owner_totals && dailyData.owner_totals.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dailyData.owner_totals.filter(o => o.owner_id).map(ot => (
-                <Card key={ot.owner_id} className="border-l-4 border-l-blue-500">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <UserCircle className="w-5 h-5 text-blue-500" />
-                      <span className="font-semibold">{ot.owner_name}</span>
-                      <Badge variant="secondary" className="ml-auto">{ot.active_days} {isEs ? "días activos" : "active days"}</Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-blue-50 rounded-lg p-2">
-                        <Phone className="w-3.5 h-3.5 mx-auto mb-1 text-blue-600" />
-                        <div className="text-lg font-bold text-blue-700">{ot.calls}</div>
-                        <div className="text-[10px] text-muted-foreground">{isEs ? "Llamadas" : "Calls"}</div>
-                      </div>
-                      <div className="bg-purple-50 rounded-lg p-2">
-                        <Mail className="w-3.5 h-3.5 mx-auto mb-1 text-purple-600" />
-                        <div className="text-lg font-bold text-purple-700">{ot.emails}</div>
-                        <div className="text-[10px] text-muted-foreground">Emails</div>
-                      </div>
-                      <div className="bg-green-50 rounded-lg p-2">
-                        <MessageCircle className="w-3.5 h-3.5 mx-auto mb-1 text-green-600" />
-                        <div className="text-lg font-bold text-green-700">{ot.whatsapp}</div>
-                        <div className="text-[10px] text-muted-foreground">WhatsApp</div>
-                      </div>
-                      <div className="bg-amber-50 rounded-lg p-2">
-                        <UserPlus className="w-3.5 h-3.5 mx-auto mb-1 text-amber-600" />
-                        <div className="text-lg font-bold text-amber-700">{ot.new_leads}</div>
-                        <div className="text-[10px] text-muted-foreground">{isEs ? "Nuevos" : "New"}</div>
-                      </div>
-                      <div className="bg-emerald-50 rounded-lg p-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 mx-auto mb-1 text-emerald-600" />
-                        <div className="text-lg font-bold text-emerald-700">{ot.conversions}</div>
-                        <div className="text-[10px] text-muted-foreground">{isEs ? "Conv." : "Conv."}</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <Activity className="w-3.5 h-3.5 mx-auto mb-1 text-gray-600" />
-                        <div className="text-lg font-bold text-gray-700">{ot.total_activities}</div>
-                        <div className="text-[10px] text-muted-foreground">Total</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* Daily Table */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                {isEs ? "Desglose Diario" : "Daily Breakdown"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
-                    <TableHead>{isEs ? "Vendedor" : "Owner"}</TableHead>
-                    <TableHead className="text-center"><Phone className="w-3.5 h-3.5 mx-auto" /></TableHead>
-                    <TableHead className="text-center"><Mail className="w-3.5 h-3.5 mx-auto" /></TableHead>
-                    <TableHead className="text-center"><MessageCircle className="w-3.5 h-3.5 mx-auto" /></TableHead>
-                    <TableHead className="text-center"><UserPlus className="w-3.5 h-3.5 mx-auto" /></TableHead>
-                    <TableHead className="text-center"><CheckCircle2 className="w-3.5 h-3.5 mx-auto" /></TableHead>
-                    <TableHead className="text-center">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dailyData.daily.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                        <Activity className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                        <p>{isEs ? "No hay actividad en este período" : "No activity in this period"}</p>
-                        <p className="text-xs mt-1">{isEs ? "Selecciona un rango de fechas con datos" : "Select a date range with data"}</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    dailyData.daily.map((row, idx) => (
-                      <TableRow key={`${row.date}-${row.owner_id}-${idx}`} className={row.total_activities === 0 ? "opacity-50" : ""}>
-                        <TableCell className="font-medium text-sm">
-                          {new Date(row.date + "T12:00:00").toLocaleDateString(isEs ? "es-ES" : "en-US", { weekday: "short", month: "short", day: "numeric" })}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <UserCircle className={`w-3.5 h-3.5 ${row.owner_id ? 'text-primary' : 'text-yellow-500'}`} />
-                            <span className="text-sm">{row.owner_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">{row.calls > 0 ? <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">{row.calls}</Badge> : <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="text-center">{row.emails > 0 ? <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">{row.emails}</Badge> : <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="text-center">{row.whatsapp > 0 ? <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">{row.whatsapp}</Badge> : <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="text-center">{row.new_leads > 0 ? <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{row.new_leads}</Badge> : <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="text-center">{row.conversions > 0 ? <Badge className="bg-green-100 text-green-700">{row.conversions}</Badge> : <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="text-center font-semibold">{row.total_activities}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <PerformanceTab />
         </TabsContent>
 
         {/* === WEEKLY GOALS TAB === */}
