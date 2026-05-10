@@ -8,8 +8,8 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Bilingual (ES default / EN) with multi-currency and ITBIS tax support.
 
 ## Core Architecture
-- **Backend**: FastAPI (`/app/backend`), MongoDB, modular routers under `/app/backend/routers`.
-- **Frontend**: React (`/app/frontend/src`), Tailwind + Shadcn UI, React Router.
+- **Backend**: FastAPI (`/app/backend`), MongoDB, modular routers under `/app/backend/routers`. APScheduler for background jobs.
+- **Frontend**: React (`/app/frontend/src`), Tailwind + Shadcn UI + Plus Jakarta Sans, React Router.
 - **Internal modules order (general → specific)**: System Pulse → Client Engagement → Execution Hub → Partners → Business Clarity → Demand Generation → Event Orchestration → Culinary Intelligence → Resource Management → Venues → People Ops → Settings.
 
 ## Sprint History (Completed)
@@ -19,54 +19,95 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 4: Email Marketing base + i18n + Locale Settings (currency/timezone).
 - Sprint 5 (Q1 2026): Demand Studio expansion (story series, calendar D/W/M, format colors, recurring posts, IG-style feed preview).
 - Sprint 6 (Apr 2026): CRM Map (react-leaflet), Dashboard funnel/pipeline alignment, in-app notifications on conversion, follow-ups dialog, Execution Hub privacy, company_entity_id migration.
+- Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
-## Latest Release — Launch Kit (Apr 29, 2026)
-**Goal**: Drive traction and exclusivity for the May 1–3, 2026 stand event.
+## Latest Releases
+
+### Performance Dashboard CRM — May 10, 2026
+**Goal**: Daily/weekly/monthly performance tracking per salesperson with deltas, leaderboard and alerts.
 
 **Backend**
-- `routers/launch.py` — Waitlist + Founding 100 logic.
-  - `POST /api/launch/waitlist` (email validation, idempotent, auto-assigns founding_position 1–100).
-  - `GET /api/launch/stats` (founding_cap, founding_claimed, founding_remaining, event_dates).
-- MongoDB collection `launch_waitlist`.
+- `GET /api/crm/reports/performance` — granularity day/week/month, period_offset navigation, returns KPIs+delta, leaderboard with score, sparklines, alerts.
+- `POST /api/crm/admin/cleanup-comm-logs` — backfill owner_id, comm_type, log_id (idempotent).
+- `POST /api/crm/reports/notify-admin-alerts` — notify org admins via in-app (idempotent per day).
+- `scheduler.py` — APScheduler running daily 9am `America/Santo_Domingo` to send alerts automatically.
+
+**Frontend**
+- `components/crm/PerformanceTab.js` — replaces "Daily Activity" tab in Sales Report.
+- Day/Week/Month tabs + `< Now >` period navigation.
+- 12 KPI cards (calls, emails, whatsapp, meetings, notes, new_leads, conversions, follow_ups, proposals, pipeline_value, revenue_closed) each with delta %.
+- Team Leaderboard with podium 🥇🥈🥉, sparklines per owner, score bar, goal_pct badge, alert badges.
+- Alerts banner with "Notify admins" button.
+- Cleanup button integrated.
+- Auto "Mi Performance" view for sales role users.
+
+### Bug Fixes — May 7-10, 2026
+- **Recipe whitescreen fix**: `RecipeBuilder.js` (3 files) — instructions sent as string (not array), error handler safely stringifies pydantic 422 array errors.
+- **Demand Studio post overwrite fix**: `SocialMediaPage.js` — clear `editingPost` state in dialog onOpenChange + on "New Post" button click. Prevents PUT on stale post when user closed edit dialog with X then created a new post.
+
+### Launch Kit — Apr 29, 2026
+**Backend**
+- `routers/launch.py` — `POST /api/launch/waitlist` + `GET /api/launch/stats` for Founding 100.
 
 **Frontend** — `pages/LandingPage.js` rebuilt:
-- Sticky **launch banner** with live countdown to May 1, 2026 09:00 EST.
-- New **Kora OS logo** (`/public/kora-logo.png`) in header + footer.
-- Hero: dual CTA (Founding 100 / Visit our stand) + interactive mockup stack.
-- **Event section** (`#event`): stand context, 3-day card grid, RSVP form bound to `/api/launch/waitlist`.
-- **Modules tabs** (10) in the same order as the in-app sidebar, each with a unique realistic mock visual (KPIs, pipeline, OKRs, cash flow, IG grid, run-of-show, recipe cost, inventory, venue layout, team).
-- **Differentiators** (4) replace vanity stats.
-- **Founding 100 section** (`#founding`): live scarcity counter, 5 benefits, 30% off year 1 offer + form.
-- Pricing: $48/mo strikethrough $69 + Founder 100 banner.
+- New Kora OS logo, sticky launch banner with countdown to May 1, 2026 09:00 EST.
+- Hero with dual CTA + interactive mockup stack.
+- Event section with stand info + RSVP form.
+- 10 module tabs in same order as in-app sidebar with realistic mock visuals.
+- Differentiators replacing vanity stats.
+- Founding 100 with live scarcity counter, 30% off year 1 offer.
+- Pricing $48/mo strikethrough $69 + Founder 100 banner.
+
+### Typography — May 7, 2026
+- Title font changed from Playfair Display (serif) to Plus Jakarta Sans (sans-serif).
+- Letter-spacing tightened to -0.035em for modern feel.
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
 
 ## Key Endpoints
-- `POST /api/launch/waitlist`
-- `GET /api/launch/stats`
+- `GET /api/crm/reports/performance`
+- `POST /api/crm/admin/cleanup-comm-logs`
+- `POST /api/crm/reports/notify-admin-alerts`
+- `POST /api/launch/waitlist` · `GET /api/launch/stats`
 - `GET /api/studio/feed/planned`, `GET /api/studio/feed/mixed`
 - `POST /api/crm/leads`, `GET /api/crm/pipeline`
 - `POST /api/auth/login`, `POST /api/auth/register`
 
 ## Backlog (Prioritized)
-**P1**
+
+### P1
+- Auto-update `clients.total_revenue` when an event is closed/confirmed.
+- Backfill historical `clients.total_revenue` from confirmed events.
+- Conversion-by-source report with revenue per channel.
 - Logo image upload via Object Storage for guest flow.
 - Unified Contact Model (merge Lead + Client into single lifecycle entity).
 - Unify Communications components.
-- Email confirmation drip (post-waitlist) — SendGrid/Resend.
+- Email confirmation drip post-waitlist (SendGrid/Resend).
 
-**P2**
-- Refactor `SocialMediaPage.js` (~4300 lines).
+### P2
+- Refactor `SocialMediaPage.js` (~4400 lines).
 - Staffdo.com / Meta IG / TikTok APIs.
 - WhatsApp Business API integration.
+- Cohort retention analysis (leads by month → conversion at 30/60/90d).
+- Forecast based on weighted pipeline.
 - Founder Discord auto-invite via webhook.
 - Admin dashboard view of `launch_waitlist` (export CSV, mark contacted).
 
-**P3**
+### P3
 - A/B test Founding 100 copy.
 - Add testimonials section once 3+ beta clients live.
 - Conference QR code routing → `/launch?source=qr-stand`.
+- Heatmap of activity (calendar tipo GitHub) per salesperson.
+
+## Deployments
+- PREVIEW: Auto-deployed to Emergent preview env on every change.
+- PRODUCTION: https://ourkora.com (manual redeploy required after preview validation).
+
+## Testing Status
+- Latest test report: `/app/test_reports/iteration_149.json`
+- Backend: 100% (15/15 tests passed)
+- Frontend: 100% (all features verified)
 
 ## Last Working Item
-Launch Kit complete (Apr 29, 2026). Backend tested with curl (founder, idempotency, email validation). Frontend visually verified ES + EN, all sections rendering.
+Performance Dashboard CRM + APScheduler daily cron + regression validation complete (May 10, 2026).
