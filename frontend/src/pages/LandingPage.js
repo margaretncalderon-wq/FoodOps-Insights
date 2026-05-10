@@ -235,16 +235,16 @@ const differentiators = [
 ];
 
 // =============================================================
-// HOOK: Countdown to May 1, 2026 (event start)
+// HOOK: Countdown to launch offer deadline (May 31, 2026)
 // =============================================================
-const EVENT_START = new Date("2026-05-01T09:00:00-04:00").getTime(); // DR / EST
+const OFFER_DEADLINE = new Date("2026-05-31T23:59:00-04:00").getTime(); // DR / EST
 function useCountdown() {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const diff = Math.max(0, EVENT_START - now);
+  const diff = Math.max(0, OFFER_DEADLINE - now);
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
   const minutes = Math.floor((diff / (1000 * 60)) % 60);
@@ -618,19 +618,19 @@ function WaitlistForm({ source = "landing", onSuccess, isEs }) {
         {result.is_founding ? (
           <>
             <h3 className="font-heading text-xl font-bold mb-2">
-              {isEs ? "¡Eres Founder #" : "You're Founder #"}{result.founding_position}{isEs ? "!" : "!"}
+              {isEs ? `¡Eres Early-Adopter #${result.founding_position}!` : `You're Early-Adopter #${result.founding_position}!`}
             </h3>
             <p className="text-sm text-[#6B7280]">
               {isEs
-                ? "30% off año 1 reservado. Te escribimos antes del evento con tu acceso anticipado."
-                : "30% off year 1 secured. We'll email you before the event with early access."}
+                ? "30% off año 1 reservado. Te escribimos en menos de 24h con los siguientes pasos."
+                : "30% off year 1 secured. We'll email you within 24h with next steps."}
             </p>
           </>
         ) : (
           <>
             <h3 className="font-heading text-xl font-bold mb-2">{isEs ? "Estás en la lista" : "You're on the list"}</h3>
             <p className="text-sm text-[#6B7280]">
-              {isEs ? "Las 100 plazas Founder ya se agotaron, pero tendrás acceso al lanzamiento." : "Founder spots are gone, but you'll get launch access."}
+              {isEs ? "Las plazas Launch Special ya se agotaron, pero seguirás teniendo acceso prioritario." : "Launch Special spots are gone, but you'll have priority access."}
             </p>
           </>
         )}
@@ -680,7 +680,9 @@ function WaitlistForm({ source = "landing", onSuccess, isEs }) {
         data-testid="waitlist-submit"
       >
         {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-        {isEs ? "Reservar mi 30% Founder" : "Claim my 30% Founder offer"}
+        {source === "demo"
+          ? (isEs ? "Reservar mi demo" : "Book my demo")
+          : (isEs ? "Reclamar mi 30% off" : "Claim my 30% off")}
         <ArrowRight className="w-4 h-4 ml-2" />
       </Button>
     </form>
@@ -716,21 +718,19 @@ export default function LandingPage() {
         <div className="bg-[#1F2937] text-white text-sm" data-testid="launch-banner">
           <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-center gap-3 text-center">
             <span className="hidden sm:inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-[#AED768] text-[#1F2937] text-xs font-bold">
-              <Sparkles className="w-3 h-3" /> LIVE LAUNCH
+              <Sparkles className="w-3 h-3" /> {isEs ? "RECIÉN LANZADO" : "JUST LAUNCHED"}
             </span>
             <span className="hidden md:inline">
-              {isEs ? "Visítanos en el evento · " : "Visit us at the event · "}
-              <strong>1–3 Mayo 2026</strong>{" · "}
-              {isEs ? "demo en vivo + caso de uso real" : "live demo + real use case"}
+              {isEs ? "Oferta de lanzamiento · 30% off año 1 · termina en" : "Launch offer · 30% off year 1 · ends in"}
             </span>
             <span className="md:hidden">
-              {isEs ? "Mayo 1–3 · Demo en vivo" : "May 1–3 · Live demo"}
+              {isEs ? "Oferta · 30% off · termina en" : "Offer · 30% off · ends in"}
             </span>
             <span className="font-mono font-bold tabular-nums text-[#AED768]">
               {countdown.days}d {String(countdown.hours).padStart(2, "0")}:{String(countdown.minutes).padStart(2, "0")}:{String(countdown.seconds).padStart(2, "0")}
             </span>
-            <a href="#event" className="hidden sm:inline text-[#AED768] hover:text-white transition-colors">
-              {isEs ? "Más info →" : "More info →"}
+            <a href="#founding" className="hidden sm:inline text-[#AED768] hover:text-white transition-colors">
+              {isEs ? "Reclamar →" : "Claim →"}
             </a>
             <button onClick={() => setBannerOpen(false)} className="ml-2 text-white/50 hover:text-white" data-testid="banner-close">
               ✕
@@ -752,12 +752,12 @@ export default function LandingPage() {
             </div>
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
-            <a href="#event" className="hidden md:flex items-center gap-1 text-sm font-medium text-[#1F2937] hover:text-[#AED768] transition-colors">
-              <Mic2 className="w-4 h-4" />
-              {isEs ? "Evento Mayo 1-3" : "May 1-3 Event"}
+            <a href="#founding" className="hidden md:flex items-center gap-1 text-sm font-medium text-[#1F2937] hover:text-[#AED768] transition-colors">
+              <Sparkles className="w-4 h-4" />
+              {isEs ? "Oferta de lanzamiento" : "Launch Offer"}
             </a>
-            <a href="#founding" className="hidden md:flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1F2937] transition-colors">
-              {isEs ? "Founding 100" : "Founding 100"}
+            <a href="#pricing" className="hidden md:flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1F2937] transition-colors">
+              {isEs ? "Precios" : "Pricing"}
             </a>
             <button
               onClick={() => changeLanguage(isEs ? "en" : "es")}
@@ -787,8 +787,8 @@ export default function LandingPage() {
           {/* Left text */}
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#AED768]/15 text-[#1F2937] text-xs font-semibold mb-5" data-testid="hero-badge">
-              <MapPin className="w-3.5 h-3.5 text-[#AED768]" />
-              {isEs ? "Búscanos en el evento · 1-3 Mayo 2026" : "Find us at the event · May 1-3, 2026"}
+              <Sparkles className="w-3.5 h-3.5 text-[#AED768]" />
+              {isEs ? "🚀 Recién lanzado · disponible ahora" : "🚀 Just launched · available now"}
             </div>
             <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F2937] leading-[1.05]">
               {isEs ? (
@@ -806,18 +806,18 @@ export default function LandingPage() {
               <a href="#founding">
                 <Button size="lg" className="rounded-full px-7 gap-2 bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold shadow-lg shadow-[#AED768]/30" data-testid="hero-founding-btn">
                   <Star className="w-4 h-4" fill="currentColor" />
-                  {isEs ? `Únete al Founding 100 · 30% off` : `Join Founding 100 · 30% off`}
+                  {isEs ? `Reclamar 30% off año 1` : `Claim 30% off year 1`}
                 </Button>
               </a>
-              <a href="#event">
-                <Button size="lg" variant="outline" className="rounded-full px-7 gap-2 border-2 border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white" data-testid="hero-event-btn">
-                  <Mic2 className="w-4 h-4" />
-                  {isEs ? "Visítanos en el stand" : "Visit our stand"}
+              <Link to="/register">
+                <Button size="lg" variant="outline" className="rounded-full px-7 gap-2 border-2 border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white" data-testid="hero-trial-btn">
+                  <Zap className="w-4 h-4" />
+                  {isEs ? "Comenzar gratis 7 días" : "Start 7-day free trial"}
                 </Button>
-              </a>
+              </Link>
             </div>
             <p className="mt-4 text-xs text-[#94A3B8]">
-              {isEs ? `Solo ${stats.founding_remaining} de ${stats.founding_cap} plazas Founder disponibles · sin tarjeta de crédito` : `Only ${stats.founding_remaining} of ${stats.founding_cap} Founder spots left · no credit card`}
+              {isEs ? `Quedan ${stats.founding_remaining} de ${stats.founding_cap} plazas Launch Special · sin tarjeta de crédito` : `${stats.founding_remaining} of ${stats.founding_cap} Launch Special spots left · no credit card`}
             </p>
           </div>
 
@@ -847,8 +847,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ================= EVENT STAND ================= */}
-      <section id="event" className="py-16 px-6 bg-[#1F2937] text-white relative overflow-hidden">
+      {/* ================= LAUNCHED · DEMO CTA ================= */}
+      <section id="event" className="py-14 px-6 bg-[#1F2937] text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: "radial-gradient(circle at 20% 50%, #AED768 0%, transparent 50%), radial-gradient(circle at 80% 80%, #AED768 0%, transparent 40%)",
         }} />
@@ -857,60 +857,49 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#AED768]/20 text-[#AED768] text-xs font-bold mb-4">
                 <Sparkles className="w-3.5 h-3.5" />
-                {isEs ? "EVENTO EN VIVO · MAYO 1-3, 2026" : "LIVE EVENT · MAY 1-3, 2026"}
+                {isEs ? "🎉 KORA OS YA ESTÁ DISPONIBLE" : "🎉 KORA OS IS LIVE"}
               </div>
               <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
                 {isEs ? (
-                  <>Pasa por nuestro stand<br />y ve <span className="text-[#AED768]">Kora OS en acción</span>.</>
+                  <>Tu operación,<br /><span className="text-[#AED768]">en una sola plataforma</span>.</>
                 ) : (
-                  <>Visit our stand and see<br /><span className="text-[#AED768]">Kora OS in action</span>.</>
+                  <>Your operation,<br /><span className="text-[#AED768]">on one platform</span>.</>
                 )}
               </h2>
               <p className="mt-4 text-white/70 text-lg max-w-xl">
                 {isEs
-                  ? "3 días. Demos en vivo cada hora. Casos reales: una agencia de eventos, una empresa de catering y una agencia creativa operando en Kora OS frente a ti."
-                  : "3 days. Live demos every hour. Real cases: an events agency, a catering company and a creative shop running on Kora OS in front of you."}
+                  ? "Reserva un walkthrough personalizado de 20 minutos. Te mostramos exactamente cómo Kora OS resolvería tu operación específica — agencia, catering, eventos o servicios."
+                  : "Book a 20-minute personalized walkthrough. We'll show you exactly how Kora OS would solve your specific operation — agency, catering, events or services."}
               </p>
-              <div className="grid sm:grid-cols-3 gap-3 mt-7">
+              <ul className="mt-6 space-y-2.5">
                 {[
-                  { d: "01", m: isEs ? "May" : "May", t: isEs ? "Demo en vivo" : "Live demo" },
-                  { d: "02", m: isEs ? "May" : "May", t: isEs ? "Caso de uso real" : "Real use case" },
-                  { d: "03", m: isEs ? "May" : "May", t: isEs ? "Founding 100 reveal" : "Founding 100 reveal" },
-                ].map((d) => (
-                  <div key={d.d} className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-                    <p className="text-3xl font-bold text-[#AED768]">{d.d}</p>
-                    <p className="text-xs text-white/60 uppercase tracking-wider">{d.m}</p>
-                    <p className="text-sm font-medium mt-2">{d.t}</p>
-                  </div>
+                  { en: "Demo adaptada a tu industria", es: "Demo adaptada a tu industria" },
+                  { en: "Walkthrough sin scripts ni filtros", es: "Walkthrough sin scripts ni filtros" },
+                  { en: "30% off año 1 si entras al Launch Special", es: "30% off año 1 si entras al Launch Special" },
+                ].map((b, i) => (
+                  <li key={i} className="flex items-start gap-3 text-white/85">
+                    <Check className="w-5 h-5 text-[#AED768] flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">{isEs ? b.es : b.en}</span>
+                  </li>
                 ))}
-              </div>
-              <div className="mt-7 flex flex-wrap gap-6 text-sm text-white/70">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#AED768]" />
-                  <span>{isEs ? "1, 2 y 3 de Mayo 2026" : "May 1, 2 & 3, 2026"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mic2 className="w-4 h-4 text-[#AED768]" />
-                  <span>{isEs ? "Demos cada hora" : "Demos every hour"}</span>
-                </div>
-              </div>
+              </ul>
             </div>
 
-            {/* RSVP card */}
+            {/* Demo card */}
             <div className="bg-white rounded-3xl p-7 text-[#1F2937] shadow-2xl">
               <div className="flex items-center gap-3 mb-1">
-                <Star className="w-5 h-5 text-[#AED768]" fill="currentColor" />
+                <Mic2 className="w-5 h-5 text-[#AED768]" />
                 <span className="text-xs font-bold uppercase tracking-wider text-[#AED768]">
-                  {isEs ? "Reserva tu demo" : "Book your demo"}
+                  {isEs ? "Reserva tu demo personalizada" : "Book your personalized demo"}
                 </span>
               </div>
               <h3 className="font-heading text-2xl font-bold mb-1">
-                {isEs ? "Pasa por el stand · sin filas" : "Skip the line at our stand"}
+                {isEs ? "20 min · 1-on-1 con el equipo" : "20 min · 1-on-1 with the team"}
               </h3>
               <p className="text-sm text-[#6B7280] mb-5">
-                {isEs ? "Te guardamos un slot, café y un walkthrough personalizado." : "We'll save you a slot, coffee and a personalized walkthrough."}
+                {isEs ? "Te respondemos en menos de 24h con horarios disponibles." : "We'll respond within 24h with available slots."}
               </p>
-              <WaitlistForm source="event" onSuccess={refetchStats} isEs={isEs} />
+              <WaitlistForm source="demo" onSuccess={refetchStats} isEs={isEs} />
             </div>
           </div>
         </div>
@@ -1031,27 +1020,35 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1F2937] text-[#AED768] text-xs font-bold mb-5">
-                <Star className="w-3.5 h-3.5" fill="currentColor" />
-                {isEs ? "FOUNDING 100" : "FOUNDING 100"}
+                <Sparkles className="w-3.5 h-3.5" />
+                {isEs ? "LAUNCH SPECIAL · OFERTA LIMITADA" : "LAUNCH SPECIAL · LIMITED OFFER"}
               </div>
               <h2 className="font-heading text-3xl sm:text-5xl font-bold text-[#1F2937] leading-tight">
                 {isEs ? (
-                  <>Sé uno de los primeros 100<br />y obtén <span className="text-[#AED768]">30% off año 1</span>.</>
+                  <>Primeras 50 empresas:<br /><span className="text-[#AED768]">30% off año 1</span>.</>
                 ) : (
-                  <>Be one of the first 100<br />and get <span className="text-[#AED768]">30% off year 1</span>.</>
+                  <>First 50 companies:<br /><span className="text-[#AED768]">30% off year 1</span>.</>
                 )}
               </h2>
               <p className="mt-5 text-[#6B7280] text-lg max-w-xl">
                 {isEs
-                  ? "Solo durante el evento del 1 al 3 de Mayo. Una vez se agoten las 100 plazas, cierran para siempre."
-                  : "Only during the May 1-3 event. Once the 100 spots are gone, they close forever."}
+                  ? "Oferta de lanzamiento por tiempo limitado. Cuando se llenen las 50 plazas o llegue el 31 de Mayo (lo que ocurra primero), cierra."
+                  : "Limited-time launch offer. When the 50 spots fill up or May 31 arrives (whichever comes first), it closes."}
               </p>
 
+              {/* Countdown to deadline */}
+              <div className="mt-5 inline-flex items-center gap-2 text-sm text-[#1F2937] font-mono bg-white border border-[#E5E7EB] rounded-full px-4 py-1.5">
+                <span className="text-xs text-[#6B7280] font-sans">{isEs ? "Termina en" : "Ends in"}</span>
+                <span className="font-bold tabular-nums text-[#AED768]">
+                  {countdown.days}d {String(countdown.hours).padStart(2, "0")}:{String(countdown.minutes).padStart(2, "0")}:{String(countdown.seconds).padStart(2, "0")}
+                </span>
+              </div>
+
               {/* Scarcity counter */}
-              <div className="mt-7 bg-white rounded-2xl p-5 border border-[#E5E7EB]">
+              <div className="mt-5 bg-white rounded-2xl p-5 border border-[#E5E7EB]">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-sm font-semibold text-[#1F2937]">
-                    {isEs ? "Plazas Founder reservadas" : "Founder spots claimed"}
+                    {isEs ? "Plazas Launch Special reservadas" : "Launch Special spots claimed"}
                   </span>
                   <span className="text-sm font-bold text-[#1F2937]">
                     <span className="text-[#AED768]">{stats.founding_claimed}</span>
@@ -1059,7 +1056,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <div className="h-3 rounded-full bg-[#F1F5F9] overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#AED768] to-[#9BC75A] transition-all duration-700" style={{ width: `${(stats.founding_claimed / stats.founding_cap) * 100}%` }} />
+                  <div className="h-full bg-gradient-to-r from-[#AED768] to-[#9BC75A] transition-all duration-700" style={{ width: `${(stats.founding_claimed / Math.max(stats.founding_cap, 1)) * 100}%` }} />
                 </div>
                 <p className="text-xs text-[#6B7280] mt-2">
                   {isEs ? `Quedan ${stats.founding_remaining} plazas con 30% de descuento` : `${stats.founding_remaining} spots left with 30% off`}
@@ -1070,9 +1067,9 @@ export default function LandingPage() {
               <ul className="mt-6 space-y-3">
                 {[
                   { en: "30% off your first year on Kora Core + add-ons", es: "30% off tu primer año en Kora Core + add-ons" },
-                  { en: "Founder badge on your account, forever", es: "Badge de Founder en tu cuenta, para siempre" },
+                  { en: "Early-adopter badge on your account, forever", es: "Badge de Early-adopter en tu cuenta, para siempre" },
                   { en: "Direct line to the team via private Discord", es: "Línea directa con el equipo vía Discord privado" },
-                  { en: "1:1 onboarding with the founders", es: "Onboarding 1:1 con los fundadores" },
+                  { en: "1:1 onboarding with the team", es: "Onboarding 1:1 con el equipo" },
                   { en: "Priority on roadmap requests", es: "Prioridad en solicitudes del roadmap" },
                 ].map((b, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -1087,14 +1084,14 @@ export default function LandingPage() {
 
             <div className="bg-[#1F2937] rounded-3xl p-8 text-white shadow-2xl">
               <h3 className="font-heading text-2xl font-bold mb-2">
-                {isEs ? "Reserva tu plaza Founder" : "Claim your Founder spot"}
+                {isEs ? "Reserva tu plaza Launch Special" : "Claim your Launch Special spot"}
               </h3>
               <p className="text-white/60 text-sm mb-6">
                 {isEs ? "Toma 30 segundos. Sin compromiso." : "Takes 30 seconds. No commitment."}
               </p>
-              <WaitlistForm source="founding" onSuccess={refetchStats} isEs={isEs} />
+              <WaitlistForm source="launch_special" onSuccess={refetchStats} isEs={isEs} />
               <p className="text-center text-white/40 text-xs mt-4">
-                {isEs ? "🔒 Tus datos solo se usan para el evento y el lanzamiento." : "🔒 Your info is only used for the event & launch."}
+                {isEs ? "🔒 Tus datos solo se usan para activarte el descuento." : "🔒 Your info is only used to activate your discount."}
               </p>
             </div>
           </div>
@@ -1151,7 +1148,7 @@ export default function LandingPage() {
                 <span className="text-sm text-white/40 line-through">$69</span>
               </div>
               <p className="text-xs text-[#AED768] mb-6">
-                {isEs ? "Founder 100: 30% off año 1" : "Founder 100: 30% off year 1"}
+                {isEs ? "Launch Special: 30% off año 1" : "Launch Special: 30% off year 1"}
               </p>
               <ul className="space-y-2.5 mb-7">
                 {[
@@ -1169,7 +1166,7 @@ export default function LandingPage() {
               </ul>
               <a href="#founding">
                 <Button className="w-full h-12 rounded-full bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold" data-testid="pricing-cta-btn">
-                  {isEs ? "Reservar 30% Founder" : "Claim 30% Founder"}
+                  {isEs ? "Reclamar 30% Launch Special" : "Claim 30% Launch Special"}
                   <ChevronRight className="w-5 h-5 ml-1" />
                 </Button>
               </a>
@@ -1214,7 +1211,7 @@ export default function LandingPage() {
             {isEs ? "Llega al domingo en calma." : "Reach Sunday calm."}
           </h2>
           <p className="text-white/70 text-lg mb-8">
-            {isEs ? "Únete a las primeras 100 empresas que están construyendo operaciones más claras con Kora OS." : "Join the first 100 companies building clearer operations with Kora OS."}
+            {isEs ? "Únete a las primeras empresas que están construyendo operaciones más claras con Kora OS." : "Join the first companies building clearer operations with Kora OS."}
           </p>
           <a href="#founding">
             <Button size="lg" className="rounded-full px-10 h-13 gap-2 bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold shadow-2xl shadow-[#AED768]/40">
@@ -1240,8 +1237,8 @@ export default function LandingPage() {
               <span className="text-white/30 text-sm ml-2">© 2026</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-white/50">
-              <a href="#event" className="hover:text-[#AED768] transition-colors">{isEs ? "Evento" : "Event"}</a>
-              <a href="#founding" className="hover:text-[#AED768] transition-colors">Founding 100</a>
+              <a href="#event" className="hover:text-[#AED768] transition-colors">{isEs ? "Demo" : "Demo"}</a>
+              <a href="#founding" className="hover:text-[#AED768] transition-colors">{isEs ? "Launch Special" : "Launch Special"}</a>
               <a href="#pricing" className="hover:text-[#AED768] transition-colors">{isEs ? "Precios" : "Pricing"}</a>
               <button onClick={() => changeLanguage(isEs ? "en" : "es")} className="flex items-center gap-1 hover:text-[#AED768] transition-colors">
                 <Globe className="w-3 h-3" />

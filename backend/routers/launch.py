@@ -18,7 +18,12 @@ db = _client[_db_name]
 
 launch_router = APIRouter(prefix="/launch", tags=["launch"])
 
-FOUNDING_CAP = 100  # Total spots for Founding 100 offer
+# Launch Special offer (post-event):
+# - Cap: first 50 companies after launch
+# - Deadline: May 31, 2026 23:59 EST (whichever comes first)
+FOUNDING_CAP = 50
+LAUNCH_OFFER_DEADLINE = "2026-05-31T23:59:00-04:00"
+LAUNCH_OFFER_LABEL = "Launch Special"
 
 
 class WaitlistEntry(BaseModel):
@@ -32,14 +37,15 @@ class WaitlistEntry(BaseModel):
 
 @launch_router.get("/stats")
 async def get_launch_stats():
-    """Public counter — how many founding spots remain."""
+    """Public counter — how many launch-special spots remain."""
     count = await db.launch_waitlist.count_documents({"is_founding": True})
     remaining = max(0, FOUNDING_CAP - count)
     return {
         "founding_cap": FOUNDING_CAP,
         "founding_claimed": count,
         "founding_remaining": remaining,
-        "event_dates": ["2026-05-01", "2026-05-02", "2026-05-03"],
+        "offer_label": LAUNCH_OFFER_LABEL,
+        "offer_deadline": LAUNCH_OFFER_DEADLINE,
     }
 
 
