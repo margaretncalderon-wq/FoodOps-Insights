@@ -73,6 +73,7 @@ const ClientDeliveryNote = lazy(() => import("./pages/ClientDeliveryNote"));
 const ClientEventPortal = lazy(() => import("./pages/ClientEventPortal"));
 const ClientPortalMain = lazy(() => import("./pages/ClientPortalMain"));
 const LeadFormPage = lazy(() => import("./pages/LeadFormPage"));
+const PublicCatalogPage = lazy(() => import("./pages/PublicCatalogPage"));
 const BusinessClarityPage = lazy(() => import("./pages/BusinessClarityPage"));
 const EventOrchestrationPage = lazy(() => import("./pages/EventOrchestrationPage"));
 const ClientEngagementPage = lazy(() => import("./pages/ClientEngagementPage"));
@@ -344,6 +345,7 @@ function AppRouter() {
       <Route path="/portal/client/:clientId" element={<ClientPortalMain />} />
       <Route path="/shared/social/:token" element={<SharedSocialPage />} />
       <Route path="/forms/:formId" element={<LeadFormPage />} />
+      <Route path="/catalog/:slug" element={<PublicCatalogPage />} />
       
       {/* Guest Flow - Public Pages */}
       <Route path="/guest/join/:activationId" element={<GuestJoinPage />} />

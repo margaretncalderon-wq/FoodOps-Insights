@@ -6,6 +6,7 @@ from starlette.middleware.gzip import GZipMiddleware
 import os
 import logging
 import io
+import re
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
@@ -157,6 +158,7 @@ documents_router = APIRouter(prefix="/documents", tags=["Documents"])
 finance_router = APIRouter(prefix="/finance", tags=["Finance"])
 settings_router = APIRouter(prefix="/settings", tags=["Settings"])
 portal_router = APIRouter(prefix="/portal", tags=["Client Portal"])
+public_catalog_router = APIRouter(prefix="/public", tags=["Public Catalog"])
 reports_router = APIRouter(prefix="/reports", tags=["Reports"])
 event_order_router = APIRouter(prefix="/event-orders", tags=["Event Orders"])
 proposals_router = APIRouter(prefix="/proposals", tags=["Proposals"])
@@ -266,6 +268,13 @@ class Company(BaseModel):
     bank_routing_number: Optional[str] = None  # SWIFT/Routing number
     bank_beneficiary: Optional[str] = None  # Nombre del beneficiario
     bank_notes: Optional[str] = None  # Notas adicionales de pago
+    # Public Catalog
+    catalog_slug: Optional[str] = None  # Public URL slug, e.g. "/catalog/{slug}"
+    catalog_published: bool = False  # Show the public catalog page
+    catalog_headline: Optional[str] = None  # Tagline shown at top
+    catalog_description: Optional[str] = None  # Longer description / bio
+    catalog_hero_image_url: Optional[str] = None  # Optional cover image
+    catalog_show_prices: bool = True  # If false, prices are hidden (request-only)
 
 # ============== SAAS MULTI-TENANT MODELS ==============
 
@@ -4540,9 +4549,26 @@ async def update_company_settings(data: dict, user: User = Depends(get_current_u
         "terms_contract_es", "terms_contract_en", "payment_terms_default",
         # Bank Account Information
         "bank_name", "bank_account_number", "bank_account_type", "bank_routing_number",
-        "bank_beneficiary", "bank_notes"
+        "bank_beneficiary", "bank_notes",
+        # Public Catalog
+        "catalog_slug", "catalog_published", "catalog_headline",
+        "catalog_description", "catalog_hero_image_url", "catalog_show_prices",
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+    # Normalize / validate catalog_slug (lowercase, alphanumeric+dashes only) and uniqueness
+    if "catalog_slug" in update_data and update_data["catalog_slug"]:
+        slug = (update_data["catalog_slug"] or "").strip().lower()
+        slug = re.sub(r"[^a-z0-9-]+", "-", slug).strip("-")
+        if len(slug) < 3:
+            raise HTTPException(status_code=400, detail="catalog_slug must be at least 3 chars")
+        existing = await db.companies.find_one(
+            {"catalog_slug": slug, "company_id": {"$ne": user.company_id}},
+            {"_id": 0, "company_id": 1},
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Slug '{slug}' is already taken")
+        update_data["catalog_slug"] = slug
     
     # Auto-sync the company display name with trade_name or legal_name
     if "trade_name" in update_data and update_data["trade_name"]:
@@ -4648,6 +4674,153 @@ async def get_document_types(user: User = Depends(get_current_user)):
     }
 
 # ============== CLIENT PORTAL ROUTES ==============
+
+# ============== PUBLIC CATALOG ROUTES (no auth required) ==============
+
+@public_catalog_router.get("/catalog/{slug}")
+async def get_public_catalog(slug: str):
+    """Public catalog page — returns company info, recipes on menu, and active packages.
+    No authentication required. Only published catalogs are exposed."""
+    company = await db.companies.find_one(
+        {"catalog_slug": slug, "catalog_published": True},
+        {"_id": 0},
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Catalog not found or not published")
+
+    cid = company["company_id"]
+    # Recipes on the base menu (with photos + portion formats for richer cards)
+    recipes_cursor = db.recipes.find(
+        {"company_id": cid, "is_on_menu": True},
+        {
+            "_id": 0, "recipe_id": 1, "name": 1, "name_es": 1, "description": 1, "description_es": 1,
+            "category": 1, "work_category": 1, "photo_url": 1, "image_url": 1, "allergens": 1,
+            "dietary_tags": 1, "cost_per_portion": 1, "default_portion_price": 1, "sell_price": 1,
+            "yield_unit": 1, "portion_unit": 1,
+        },
+    ).sort("name", 1)
+    recipes = await recipes_cursor.to_list(200)
+
+    # Enrich each recipe with its portion formats for size + price tiers
+    enriched_recipes = []
+    for r in recipes:
+        formats = await db.recipe_portion_formats.find(
+            {"recipe_id": r["recipe_id"], "company_id": cid},
+            {"_id": 0, "format_id": 1, "format_name": 1, "portion_unit": 1, "sell_price": 1, "suggested_price": 1, "is_default": 1},
+        ).sort("is_default", -1).to_list(20)
+        r["portion_formats"] = formats
+        # Hide internal cost
+        r.pop("cost_per_portion", None)
+        enriched_recipes.append(r)
+
+    # Active menus / packages
+    menus = await db.menus.find(
+        {"company_id": cid, "is_active": True},
+        {
+            "_id": 0, "menu_id": 1, "name": 1, "name_es": 1, "description": 1, "description_es": 1,
+            "menu_type": 1, "items": 1, "variants": 1, "default_price": 1, "is_fixed_price": 1,
+            "total_price": 1, "total_cost": 1,
+        },
+    ).to_list(50)
+    # Hide total_cost (internal)
+    for m in menus:
+        m.pop("total_cost", None)
+
+    # Allergen reference for display
+    allergen_ids = set()
+    for r in enriched_recipes:
+        for aid in r.get("allergens", []) or []:
+            allergen_ids.add(aid)
+    allergen_docs = []
+    if allergen_ids:
+        allergen_docs = await db.allergen_configs.find(
+            {"allergen_id": {"$in": list(allergen_ids)}},
+            {"_id": 0, "allergen_id": 1, "name": 1, "name_es": 1, "icon": 1},
+        ).to_list(50)
+
+    show_prices = company.get("catalog_show_prices", True)
+
+    return {
+        "company": {
+            "name": company.get("trade_name") or company.get("name"),
+            "legal_name": company.get("legal_name"),
+            "logo_url": company.get("logo_url"),
+            "primary_color": company.get("primary_color"),
+            "secondary_color": company.get("secondary_color"),
+            "email": company.get("email"),
+            "phone": company.get("phone"),
+            "website": company.get("website"),
+            "address": company.get("address"),
+            "city": company.get("city"),
+            "country": company.get("country"),
+            "default_language": company.get("default_language") or "en",
+        },
+        "catalog": {
+            "headline": company.get("catalog_headline"),
+            "description": company.get("catalog_description"),
+            "hero_image_url": company.get("catalog_hero_image_url"),
+            "show_prices": show_prices,
+            "slug": slug,
+        },
+        "recipes": enriched_recipes,
+        "menus": menus,
+        "allergens": allergen_docs,
+    }
+
+
+@public_catalog_router.post("/catalog/{slug}/quote-request")
+async def submit_public_quote_request(slug: str, payload: Dict[str, Any]):
+    """Create a Lead in the catalog owner's CRM from a public visitor request."""
+    company = await db.companies.find_one(
+        {"catalog_slug": slug, "catalog_published": True},
+        {"_id": 0, "company_id": 1, "name": 1},
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Catalog not found")
+
+    name = (payload.get("name") or "").strip()
+    email = (payload.get("email") or "").strip().lower()
+    phone = (payload.get("phone") or "").strip()
+    if not name or not email:
+        raise HTTPException(status_code=400, detail="name and email are required")
+
+    now = datetime.now(timezone.utc)
+    lead_id = f"lead_{uuid.uuid4().hex[:12]}"
+    interest_items = payload.get("interest_items") or []  # [{type:'recipe'|'menu', id, name}]
+    notes_parts = [
+        f"Solicitud desde Catálogo Público ({slug})",
+        f"Fecha del evento: {payload.get('event_date') or 'No especificada'}",
+        f"# de invitados: {payload.get('guest_count') or 'N/A'}",
+        f"Tipo de evento: {payload.get('event_type') or 'N/A'}",
+        f"Mensaje: {payload.get('message') or '—'}",
+    ]
+    if interest_items:
+        names = ", ".join([i.get("name", "?") for i in interest_items[:8]])
+        notes_parts.append(f"Interesado en: {names}")
+
+    doc = {
+        "lead_id": lead_id,
+        "company_id": company["company_id"],
+        "name": name,
+        "email": email,
+        "phone": phone or None,
+        "company_name": payload.get("company_name") or None,
+        "source": "public_catalog",
+        "source_detail": slug,
+        "stage": "new",
+        "status": "active",
+        "estimated_value": None,
+        "event_date_tbd": True,
+        "notes": "\n".join(notes_parts),
+        "tags": ["catalog"],
+        "interest_items": interest_items,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    await db.leads.insert_one(doc)
+    doc.pop("_id", None)
+    return {"ok": True, "message": "Quote request received", "lead_id": lead_id}
+
 
 @portal_router.get("/document/{document_id}")
 async def get_portal_document(document_id: str, token: Optional[str] = None):
@@ -11283,6 +11456,7 @@ api_router.include_router(documents_router)
 api_router.include_router(finance_router)
 api_router.include_router(settings_router)
 api_router.include_router(portal_router)
+api_router.include_router(public_catalog_router)
 api_router.include_router(reports_router)
 api_router.include_router(event_order_router)
 api_router.include_router(proposals_router)

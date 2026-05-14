@@ -4,7 +4,7 @@ import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTerminology } from "../hooks/useTerminology";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -152,6 +152,13 @@ export default function SettingsPage() {
     bank_routing_number: "",
     bank_beneficiary: "",
     bank_notes: "",
+    // Public Catalog
+    catalog_slug: "",
+    catalog_published: false,
+    catalog_headline: "",
+    catalog_description: "",
+    catalog_hero_image_url: "",
+    catalog_show_prices: true,
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [activeTermsTab, setActiveTermsTab] = useState("proposal");
@@ -284,6 +291,13 @@ export default function SettingsPage() {
         bank_routing_number: response.data.bank_routing_number || "",
         bank_beneficiary: response.data.bank_beneficiary || "",
         bank_notes: response.data.bank_notes || "",
+        // Public Catalog
+        catalog_slug: response.data.catalog_slug || "",
+        catalog_published: response.data.catalog_published || false,
+        catalog_headline: response.data.catalog_headline || "",
+        catalog_description: response.data.catalog_description || "",
+        catalog_hero_image_url: response.data.catalog_hero_image_url || "",
+        catalog_show_prices: response.data.catalog_show_prices !== false,
       });
     } catch (error) {
       console.error("Failed to fetch company:", error);
@@ -2321,7 +2335,119 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Preview & Save Actions */}
+              {/* Public Catalog Card */}
+              <Card data-testid="catalog-settings-card">
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg flex items-center gap-2">
+                    <Globe className="w-5 h-5" />
+                    {language === "es" ? "Catálogo Público" : "Public Catalog"}
+                  </CardTitle>
+                  <CardDescription>
+                    {language === "es"
+                      ? "Una página pública con tu menú base y paquetes. Comparte el enlace con clientes — cada solicitud crea un Lead en tu CRM."
+                      : "A public page with your base menu and packages. Share the link with clients — each request creates a Lead in your CRM."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <Switch
+                      checked={!!formData.catalog_published}
+                      onCheckedChange={(v) => setFormData({ ...formData, catalog_published: !!v })}
+                      data-testid="catalog-publish-toggle"
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">
+                        {formData.catalog_published
+                          ? (language === "es" ? "Publicado" : "Published")
+                          : (language === "es" ? "No publicado" : "Not published")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es"
+                          ? "Al publicar, cualquier persona con el enlace puede ver tu catálogo."
+                          : "When published, anyone with the link can view your catalog."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>{language === "es" ? "URL pública (slug)" : "Public URL (slug)"}</Label>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{window.location.origin}/catalog/</span>
+                      <Input
+                        value={formData.catalog_slug}
+                        onChange={(e) => setFormData({ ...formData, catalog_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-") })}
+                        placeholder="mi-empresa"
+                        data-testid="catalog-slug-input"
+                      />
+                      {formData.catalog_slug && formData.catalog_published && (
+                        <Button
+                          type="button" variant="outline" size="sm"
+                          onClick={() => window.open(`/catalog/${formData.catalog_slug}`, "_blank")}
+                          data-testid="catalog-preview-btn"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" />
+                          {language === "es" ? "Ver" : "View"}
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {language === "es"
+                        ? "Solo letras, números y guiones. Mínimo 3 caracteres."
+                        : "Lowercase letters, numbers and hyphens only. Min 3 chars."}
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>{language === "es" ? "Titular / Tagline" : "Headline / Tagline"}</Label>
+                    <Input
+                      value={formData.catalog_headline}
+                      onChange={(e) => setFormData({ ...formData, catalog_headline: e.target.value })}
+                      placeholder={language === "es" ? "Ej: Catering artesanal con sabor casero" : "E.g., Artisanal catering with home-style flavor"}
+                      data-testid="catalog-headline-input"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>{language === "es" ? "Descripción" : "Description"}</Label>
+                    <Textarea
+                      rows={3}
+                      value={formData.catalog_description}
+                      onChange={(e) => setFormData({ ...formData, catalog_description: e.target.value })}
+                      placeholder={language === "es"
+                        ? "Cuenta tu historia, qué te hace especial, años de experiencia, especialidades..."
+                        : "Tell your story, what makes you unique, years of experience, specialties..."}
+                      data-testid="catalog-description-input"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>{language === "es" ? "Imagen de portada (URL)" : "Hero image (URL)"}</Label>
+                    <Input
+                      value={formData.catalog_hero_image_url}
+                      onChange={(e) => setFormData({ ...formData, catalog_hero_image_url: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 border rounded-lg">
+                    <Switch
+                      checked={!!formData.catalog_show_prices}
+                      onCheckedChange={(v) => setFormData({ ...formData, catalog_show_prices: !!v })}
+                      data-testid="catalog-show-prices-toggle"
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">
+                        {language === "es" ? "Mostrar precios" : "Show prices"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "es"
+                          ? "Si lo apagas, los visitantes verán \"Bajo cotización\" en lugar de precios."
+                          : "If off, visitors see \"On request\" instead of prices."}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
               <div className="flex justify-between items-center">
                 <Button type="button" variant="outline" onClick={() => setShowDocPreview(true)} className="gap-2">
                   <Eye className="w-4 h-4" />
