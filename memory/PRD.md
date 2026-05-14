@@ -124,17 +124,21 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Cost Health Dashboard + Margin Policy Fase 1 (May 14, 2026):
-- Backend `/cost-health/overview` ahora incluye `effective_min_margin` (promedio ponderado por revenue de los umbrales resueltos por ítem) y `below_threshold: bool`.
-- Política de margen jerárquica en `company_settings.margin_policy`:
-  - Defaults sembrados: Food 35 / Service 40 / Rental 50 / Fee 60 / Other 30
-  - Cascada: `min_margin_pct` del ítem → regla por categoría → default del tipo
-  - `GET/PUT /api/settings/margin-policy` operativos
-- `Recipe` y `PicklistItem` aceptan `min_margin_pct` opcional (override por ítem). PUT del PicklistItem permite limpiar el override enviando `null`.
-- Frontend:
-  - Settings → Catálogos → **Política de Margen** (5 inputs por tipo + tabla de reglas por categoría con add/remove + save)
-  - `RecipeBuilder` y dialog de PicklistItem con input `min_margin_pct` opcional
-  - CostHealthDashboard: badge **"Bajo margen / Below threshold"** en card y section cuando `below_threshold=true`, proyectado en rojo + texto "(mín X%)" como referencia
-- Testing iteration_164: Backend 12/12 PASS, Frontend 100% (badge no visible cuando no hay stale — esperado).
+Bug fix — Auto-recovery de 401 + cookie domain dinámico (May 14, 2026):
+- **Reporte original**: Usuarios en producción (`ourkora.com`) eran enviados al `/login` al hacer "Nuevo Evento". Síntoma reportado: token aparentemente válido pero algún endpoint devolvía 401 y disparaba el interceptor.
+- **Fix 1 (defensivo cookie)**: `get_cookie_domain()` en `auth.py` ahora deriva el dominio del request (Origin/Referer/Host) y solo cae al env var como fallback. Funciona en preview y producción sin necesidad de tocar el .env.
+- **Fix 2 (UX)**: El interceptor de 401 en `frontend/src/utils/api.js` ahora:
+  1. Intenta `POST /auth/refresh` silenciosamente
+  2. Si refresca con éxito → reintenta la request original 1 vez (`_retry` flag)
+  3. Solo redirige a `/login?expired=1` si el refresh también falla
+  - Usa `refreshInFlight` (promesa compartida) para evitar refreshes concurrentes
+- **Testing iteration_165**: Backend 13/13 PASS, Frontend regresión completa OK. No requiere acción del usuario final (sin limpiar cookies, sin re-login).
 
-Pendiente Fase 2: breakdown por tipo en cada fila del dashboard. Fase 3: gating de refresh masivo solo para Admin/Owner cuando below_threshold.
+Cost Health Dashboard + Margin Policy Fase 1 (May 14, 2026):
+- Política de margen jerárquica (ítem → categoría → tipo) en `company_settings.margin_policy` con defaults sembrados.
+- `Recipe` y `PicklistItem` aceptan `min_margin_pct` opcional (override).
+- `/cost-health/overview` expone `effective_min_margin` y `below_threshold`.
+- Settings UI nueva: **Política de Margen** (Catálogos dropdown).
+- CostHealthDashboard muestra badge "Bajo margen" en card y section.
+
+Next: Fase 2 Margin (breakdown por tipo) · Fase 3 (gating Admin) · Logo upload Guest Flow · Unified Contact Model · Recipe scaling · Filterable recipe tags.
