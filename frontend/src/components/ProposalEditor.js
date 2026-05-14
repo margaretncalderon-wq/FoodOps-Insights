@@ -85,6 +85,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const clientLabel = term("events", "client");
   
   const [proposal, setProposal] = useState(null);
+  const [staleness, setStaleness] = useState(null); // { is_stale, stale_count, can_refresh, stale_items }
+  const [refreshingCosts, setRefreshingCosts] = useState(false);
   const [categories, setCategories] = useState([]);
   const [taxRates, setTaxRates] = useState([]);
   const [picklist, setPicklist] = useState([]);
@@ -235,8 +237,32 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         if (item.item_type) expanded[item.item_type] = true;
       });
       setExpandedCategories(expanded);
+      // Detect stale costs (read-only, never mutates)
+      try {
+        const stale = await axios.get(`${API}/proposals/${response.data.proposal_id}/cost-staleness`, { withCredentials: true });
+        setStaleness(stale.data);
+      } catch { /* ignore — staleness is informational */ }
     } catch (error) {
       console.error("Failed to fetch proposal:", error);
+    }
+  };
+
+  const handleRefreshCosts = async () => {
+    if (!proposal?.proposal_id) return;
+    setRefreshingCosts(true);
+    try {
+      const res = await axios.post(`${API}/proposals/${proposal.proposal_id}/refresh-costs`, {}, { withCredentials: true });
+      toast.success(
+        language === "es"
+          ? `${res.data.refreshed_count} ítem${res.data.refreshed_count === 1 ? "" : "s"} actualizado${res.data.refreshed_count === 1 ? "" : "s"}`
+          : `${res.data.refreshed_count} item${res.data.refreshed_count === 1 ? "" : "s"} refreshed`,
+      );
+      await fetchProposal();
+      await fetchFinancials();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Error");
+    } finally {
+      setRefreshingCosts(false);
     }
   };
 
@@ -785,6 +811,62 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 : "This event is closed. No changes can be made."}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Cost Staleness Banner — DRAFT proposals only */}
+      {staleness?.is_stale && !isLocked && (
+        <div
+          className={`rounded-lg p-4 flex items-start gap-3 ${
+            staleness.can_refresh
+              ? "bg-amber-50 border border-amber-200"
+              : "bg-slate-100 border border-slate-200"
+          }`}
+          data-testid="cost-staleness-banner"
+        >
+          <AlertTriangle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${staleness.can_refresh ? "text-amber-600" : "text-slate-500"}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`font-semibold text-sm ${staleness.can_refresh ? "text-amber-900" : "text-slate-700"}`}>
+              {language === "es"
+                ? `${staleness.stale_count} ítem${staleness.stale_count === 1 ? "" : "s"} con costos desactualizados`
+                : `${staleness.stale_count} item${staleness.stale_count === 1 ? "" : "s"} with outdated costs`}
+            </p>
+            <p className={`text-xs mt-0.5 ${staleness.can_refresh ? "text-amber-800" : "text-slate-600"}`}>
+              {staleness.can_refresh
+                ? (language === "es"
+                  ? "Los precios de ingredientes cambiaron desde que se creó esta cotización. Puedes actualizar los costos internos antes de enviar al cliente. El precio al cliente NO cambiará."
+                  : "Ingredient prices changed since this quote was created. You can refresh internal costs before sending it. The client price will NOT change.")
+                : (language === "es"
+                  ? "Esta cotización ya no es Draft, los costos quedan congelados."
+                  : "This proposal is past Draft — costs are frozen.")}
+            </p>
+            {/* Top 3 affected items */}
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(staleness.stale_items || []).slice(0, 3).map((it) => (
+                <Badge key={it.item_id} variant="outline" className={`text-[10px] ${staleness.can_refresh ? "border-amber-300 text-amber-700" : "border-slate-300 text-slate-600"}`}>
+                  {it.recipe_name}: ${it.snapshot_cost.toFixed(2)} → ${it.current_cost.toFixed(2)} ({it.diff_pct > 0 ? "+" : ""}{it.diff_pct.toFixed(0)}%)
+                </Badge>
+              ))}
+              {staleness.stale_count > 3 && (
+                <Badge variant="outline" className="text-[10px]">+{staleness.stale_count - 3}</Badge>
+              )}
+            </div>
+          </div>
+          {staleness.can_refresh && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-300 hover:bg-amber-100 flex-shrink-0"
+              onClick={handleRefreshCosts}
+              disabled={refreshingCosts}
+              data-testid="refresh-costs-btn"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1 ${refreshingCosts ? "animate-spin" : ""}`} />
+              {refreshingCosts
+                ? (language === "es" ? "Actualizando..." : "Refreshing...")
+                : (language === "es" ? "Actualizar costos" : "Refresh costs")}
+            </Button>
+          )}
         </div>
       )}
 

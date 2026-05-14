@@ -6958,6 +6958,109 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
     return {"items_added": len(inserted), "menu_name": menu.get("name"), "items": inserted}
 
 
+@proposals_router.get("/{proposal_id}/cost-staleness")
+async def proposal_cost_staleness(proposal_id: str, user: User = Depends(get_current_user)):
+    """Detect Food OrderItems whose internal_cost no longer matches the recipe's current cost.
+    Read-only — never modifies any item. Useful to flag DRAFT proposals that may be quoting
+    with outdated costs."""
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    items = await db.order_items.find(
+        {"proposal_id": proposal_id, "company_id": user.company_id, "item_type": "Food"},
+        {"_id": 0},
+    ).to_list(500)
+
+    stale_items = []
+    for it in items:
+        rid = it.get("reference_id")
+        if not rid:
+            continue
+        recipe = await db.recipes.find_one({"recipe_id": rid, "company_id": user.company_id}, {"_id": 0, "name": 1, "cost_per_portion": 1, "total_cost": 1})
+        if not recipe:
+            continue
+        # Source of truth = cost_per_portion (fallback to total_cost for legacy)
+        current_cost = float(recipe.get("cost_per_portion") or recipe.get("total_cost") or 0)
+        snapshot_cost = float(it.get("internal_cost") or 0)
+        if abs(current_cost - snapshot_cost) < 0.005:
+            continue
+        diff = current_cost - snapshot_cost
+        diff_pct = (diff / snapshot_cost * 100) if snapshot_cost > 0 else (100 if current_cost > 0 else 0)
+        stale_items.append({
+            "item_id": it["item_id"],
+            "description": it.get("description"),
+            "recipe_id": rid,
+            "recipe_name": recipe.get("name"),
+            "snapshot_cost": round(snapshot_cost, 4),
+            "current_cost": round(current_cost, 4),
+            "diff_amount": round(diff, 4),
+            "diff_pct": round(diff_pct, 2),
+            "quantity": float(it.get("quantity") or 0),
+            "unit_price": float(it.get("unit_price") or 0),
+        })
+
+    stale_items.sort(key=lambda x: abs(x["diff_pct"]), reverse=True)
+    return {
+        "proposal_id": proposal_id,
+        "status": proposal.get("status"),
+        "is_stale": len(stale_items) > 0,
+        "stale_count": len(stale_items),
+        "can_refresh": proposal.get("status", "Draft") == "Draft",
+        "stale_items": stale_items,
+    }
+
+
+@proposals_router.post("/{proposal_id}/refresh-costs")
+async def refresh_proposal_costs(proposal_id: str, user: User = Depends(get_current_user)):
+    """Update internal_cost (NOT unit_price) on each Food OrderItem to match the recipe's
+    current cost_per_portion. Only allowed for DRAFT proposals to protect signed/accepted quotes."""
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    if proposal.get("status", "Draft") != "Draft":
+        raise HTTPException(status_code=400, detail="Only Draft proposals can refresh costs")
+
+    items = await db.order_items.find(
+        {"proposal_id": proposal_id, "company_id": user.company_id, "item_type": "Food"},
+        {"_id": 0},
+    ).to_list(500)
+
+    updated_count = 0
+    now = datetime.now(timezone.utc).isoformat()
+    for it in items:
+        rid = it.get("reference_id")
+        if not rid:
+            continue
+        recipe = await db.recipes.find_one({"recipe_id": rid, "company_id": user.company_id}, {"_id": 0, "cost_per_portion": 1, "total_cost": 1})
+        if not recipe:
+            continue
+        current_cost = float(recipe.get("cost_per_portion") or recipe.get("total_cost") or 0)
+        snapshot_cost = float(it.get("internal_cost") or 0)
+        if abs(current_cost - snapshot_cost) < 0.005:
+            continue
+        qty = float(it.get("quantity") or 0)
+        unit_price = float(it.get("unit_price") or 0)
+        total_cost = qty * current_cost
+        total_price = qty * unit_price
+        margin_amount = total_price - total_cost
+        margin_pct = (margin_amount / total_price * 100) if total_price > 0 else None
+        await db.order_items.update_one(
+            {"item_id": it["item_id"], "company_id": user.company_id},
+            {"$set": {
+                "internal_cost": current_cost,
+                "total_cost": total_cost,
+                "margin_amount": margin_amount,
+                "margin_percentage": margin_pct,
+                "updated_at": now,
+                "last_cost_refresh_at": now,
+            }},
+        )
+        updated_count += 1
+
+    return {"refreshed_count": updated_count, "proposal_id": proposal_id}
+
+
 @proposals_router.put("/{proposal_id}/items/{item_id}")
 async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdate, user: User = Depends(get_current_user)):
     """Update an order item"""
