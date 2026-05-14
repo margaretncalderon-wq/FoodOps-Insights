@@ -41,35 +41,86 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor - handle 401 globally and redirect to login
-// ONLY redirect if user HAD a token (was authenticated) and it expired
+// Response interceptor - handle 401 globally.
+// Strategy: when ANY protected endpoint returns 401 for an authenticated user,
+//   1) attempt a silent token refresh via POST /auth/refresh
+//   2) if refresh succeeds, retry the original request transparently (user sees nothing)
+//   3) if refresh fails (truly expired), then redirect to /login
+// This eliminates the "you got kicked to login while clicking around" UX bug.
 let isRedirectingToLogin = false;
+let refreshInFlight = null; // shared promise so concurrent 401s share the same refresh call
+
+const performRefresh = () => {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = axios
+    .post(`${API}/auth/refresh`, {}, { withCredentials: true })
+    .then((res) => {
+      const newToken = res?.data?.access_token;
+      if (newToken) {
+        setAuthToken(newToken);
+      }
+      return res?.data;
+    })
+    .finally(() => {
+      // Allow subsequent refresh attempts once the current one settles
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+};
+
+const isAuthEndpoint = (url = "") =>
+  url.includes("/auth/login") ||
+  url.includes("/auth/me") ||
+  url.includes("/auth/refresh") ||
+  url.includes("/auth/register") ||
+  url.includes("/auth/logout");
+
 axios.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const status = error.response?.status;
+    const originalConfig = error.config || {};
+
+    // Only handle 401 from non-auth endpoints, once per request.
     if (
-      error.response?.status === 401 &&
-      !isRedirectingToLogin &&
-      !error.config?.url?.includes("/auth/login") &&
-      !error.config?.url?.includes("/auth/me") &&
-      !error.config?.url?.includes("/auth/refresh") &&
-      !error.config?.url?.includes("/auth/register")
+      status === 401 &&
+      !originalConfig._retry &&
+      !isAuthEndpoint(originalConfig.url) &&
+      !isRedirectingToLogin
     ) {
-      // Only redirect if user was previously authenticated
       const hadToken = !!_authToken || !!localStorage.getItem("kora_auth_token");
       if (hadToken) {
-        isRedirectingToLogin = true;
         try {
-          localStorage.removeItem("kora_auth_token");
-          localStorage.removeItem("kora_auth_user");
-        } catch (e) { /* ignore */ }
-        _authToken = null;
-        setTimeout(() => {
-          if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
-            window.location.href = "/login?expired=1";
+          // Try a silent refresh first.
+          const refreshed = await performRefresh();
+          // Mark and retry the original request (with new Authorization header if applicable).
+          originalConfig._retry = true;
+          const freshToken = refreshed?.access_token || getAuthToken();
+          if (freshToken) {
+            originalConfig.headers = {
+              ...(originalConfig.headers || {}),
+              Authorization: `Bearer ${freshToken}`,
+            };
           }
-          isRedirectingToLogin = false;
-        }, 100);
+          return axios(originalConfig);
+        } catch (refreshErr) {
+          // Refresh truly failed — user must log in again.
+          isRedirectingToLogin = true;
+          try {
+            localStorage.removeItem("kora_auth_token");
+            localStorage.removeItem("kora_auth_user");
+          } catch (e) { /* ignore */ }
+          _authToken = null;
+          setTimeout(() => {
+            if (
+              window.location.pathname !== "/login" &&
+              window.location.pathname !== "/register"
+            ) {
+              window.location.href = "/login?expired=1";
+            }
+            isRedirectingToLogin = false;
+          }, 100);
+        }
       }
     }
     return Promise.reject(error);

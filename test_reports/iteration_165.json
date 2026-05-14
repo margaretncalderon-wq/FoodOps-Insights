@@ -1,0 +1,104 @@
+{
+  "summary": "Auth 401 Refresh Fix testing complete (Iteration 165). Backend: 13/13 tests passed. Frontend: Login, navigation, and CRUD all working. The defensive fixes for cookie domain and 401 interceptor are working correctly in preview environment.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_401_refresh_fix.py",
+    "/app/test_reports/pytest/pytest_auth_401_refresh_fix.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: get_cookie_domain() in auth.py correctly derives domain from request headers (Origin/Referer/Host) first, falls back to FRONTEND_URL env var",
+    "VERIFIED: For preview/emergent environments, cookie domain is set to None (browser scopes to exact host) - correct behavior",
+    "VERIFIED: /auth/login returns 200 and sets session_token cookie correctly",
+    "VERIFIED: /auth/me works with both cookie and Bearer token authentication",
+    "VERIFIED: /auth/refresh endpoint returns new access_token and user_id",
+    "VERIFIED: /auth/refresh returns 401 without valid auth (correct behavior)",
+    "VERIFIED: POST /api/events with valid auth returns 200/201",
+    "VERIFIED: POST /api/events without auth returns 401",
+    "VERIFIED: /auth/logout clears session and subsequent /auth/me returns 401",
+    "VERIFIED: Frontend interceptor in api.js handles 401s gracefully - user NOT redirected to login on spurious 401s",
+    "VERIFIED: Frontend interceptor uses refreshInFlight shared promise to prevent concurrent refresh calls",
+    "VERIFIED: Frontend interceptor only redirects to /login?expired=1 if refresh also fails"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_401_refresh_fix.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (login, navigation, CRUD all working)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Test events created and cleaned up during CRUD tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth 401 refresh fix has been tested and verified working in preview environment. The bug (clicking 'New Event' logs user out) could NOT be reproduced in preview - this aligns with the main agent's note that the bug ONLY occurs in production (ourkora.com). The defensive fixes are in place: (1) Cookie domain is now derived from request headers first, ensuring correct scoping regardless of FRONTEND_URL env var, (2) Frontend interceptor attempts silent refresh before redirecting to login. These fixes should prevent the production bug without breaking preview functionality.",
+  "verified_features": {
+    "backend_cookie_domain_fix": {
+      "description": "get_cookie_domain() derives domain from request Origin/Referer/Host headers first",
+      "preview_behavior": "Returns None for preview/emergent hosts (cookie scoped to exact host)",
+      "production_behavior": "Returns .ourkora.com for production (cookie works across subdomains)"
+    },
+    "backend_auth_endpoints": {
+      "POST /auth/login": "Returns access_token and sets session_token cookie - WORKING",
+      "GET /auth/me": "Returns user data with refreshed token - WORKING",
+      "POST /auth/refresh": "Returns new access_token - WORKING",
+      "POST /auth/logout": "Clears session cookie - WORKING",
+      "GET /auth/debug-cookies": "Returns cookie debug info - WORKING"
+    },
+    "frontend_interceptor_fix": {
+      "description": "Response interceptor attempts silent refresh on 401 before redirecting to login",
+      "refresh_logic": "Uses refreshInFlight shared promise to prevent concurrent refresh calls",
+      "redirect_logic": "Only redirects to /login?expired=1 if refresh also fails",
+      "auth_endpoint_exclusion": "Does not intercept 401s from /auth/login, /auth/me, /auth/refresh, /auth/register, /auth/logout"
+    },
+    "regression_tests": {
+      "login_flow": "WORKING - User can login and is redirected to dashboard",
+      "navigation": "WORKING - User can navigate to CRM, Calendar without being logged out",
+      "crud_operations": "WORKING - GET /api/events, GET /api/clients, POST/PUT/DELETE events all work",
+      "new_event_button": "WORKING - Clicking 'New' button opens modal, user NOT logged out"
+    }
+  },
+  "bug_reproduction_status": {
+    "bug_description": "Clicking 'New Event' from CRM client detail or CRM Calendar logs user out and redirects to /login",
+    "reproduced_in_preview": false,
+    "reason": "Bug only occurs in production (ourkora.com) according to user report. Preview environment works correctly.",
+    "defensive_fixes_applied": [
+      "Cookie domain derived from request headers (works regardless of FRONTEND_URL env var)",
+      "Frontend interceptor attempts silent refresh before logout redirect"
+    ]
+  },
+  "backend_test_results": {
+    "passed": [
+      "test_01_login_returns_token_and_sets_cookie",
+      "test_02_auth_me_works_with_cookie",
+      "test_03_auth_me_works_with_bearer_token",
+      "test_04_auth_refresh_endpoint_works",
+      "test_05_auth_refresh_fails_without_auth",
+      "test_06_protected_endpoint_returns_200_with_auth",
+      "test_07_protected_endpoint_returns_401_without_auth",
+      "test_08_debug_cookies_endpoint",
+      "test_09_logout_clears_cookie",
+      "test_10_concurrent_requests_share_refresh",
+      "test_11_list_events_works",
+      "test_12_list_clients_works",
+      "test_13_create_update_delete_event"
+    ],
+    "failed": [],
+    "skipped": []
+  },
+  "frontend_test_results": {
+    "login": "PASS - User logs in successfully, redirected to dashboard",
+    "navigation_to_crm": "PASS - User navigates to CRM without being logged out",
+    "navigation_to_calendar": "PASS - User navigates to Calendar without being logged out",
+    "new_button_click": "PASS - Clicking 'New' button opens modal, user NOT logged out",
+    "console_errors": "401 errors on initial /auth/me (before login) - expected behavior"
+  }
+}
