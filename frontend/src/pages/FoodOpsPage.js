@@ -1099,6 +1099,7 @@ function InventorySection() {
 
       {/* Ingredient Creation/Repair Wizard */}
       <IngredientWizard
+        key={wizardInitial?.ingredient_id || (wizardOpen ? "new-open" : "new-closed")}
         open={wizardOpen}
         initial={wizardInitial}
         categories={categories}

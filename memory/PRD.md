@@ -23,6 +23,20 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 
 ## Latest Releases
 
+### Culinary UX — Live Cost Preview + Wizard + Review Banner (Feb 14, 2026)
+**Goal**: Real-time recipe costing + chef-friendly tools to repair inconsistent ingredient data.
+
+**Backend**
+- `POST /api/inventory/ingredients/cost-preview` — Live cost computation per recipe line. Returns `{cost, compatible, base_unit, quantity_in_base, ingredient_unit_kind, message}`. Handles unit conversions (weight↔weight, volume↔volume, weight↔volume via density).
+- `IngredientCreate`/`Ingredient` models exposed v2 fields: `base_unit`, `cost_per_base_unit`, `density_g_per_ml`, `purchase_unit`, `purchase_quantity_per_unit`, `purchase_cost`, `needs_review`.
+
+**Frontend**
+- `RecipeBuilder.js` → new `IngredientRow` sub-component shows live cost with 4-decimal precision, ⚠️ warning + amber styling for incompatible units, base-unit conversion line below cost.
+- `IngredientWizard.js` (new): 4-step guided dialog (Identity → Purchase → Base Unit & Density → Review) with smart defaults (base_unit suggested from category, density auto-hint for oils/water/honey/milk/etc.).
+- `FoodOpsPage.js` → Items tab: amber `Review Banner` showing count of ingredients needing repair, opens drawer listing them with per-row "Fix" button that pre-loads the wizard in repair mode. "Wizard" button next to Import/Add Item for guided new-ingredient creation.
+
+**Tests**: Backend 100% (10/10 cost-preview + 8/8 wizard API). Frontend 100% (all wizard flows + banner + drawer verified, name pre-load fixed via component key).
+
 ### Performance Dashboard CRM — May 10, 2026
 **Goal**: Daily/weekly/monthly performance tracking per salesperson with deltas, leaderboard and alerts.
 
@@ -105,9 +119,9 @@ See `/app/memory/test_credentials.md`.
 - PRODUCTION: https://ourkora.com (manual redeploy required after preview validation).
 
 ## Testing Status
-- Latest test report: `/app/test_reports/iteration_149.json`
-- Backend: 100% (15/15 tests passed)
-- Frontend: 100% (all features verified)
+- Latest test reports: `/app/test_reports/iteration_151.json` (Cost Preview API 10/10), `/app/test_reports/iteration_152.json` (Wizard + Banner 8/8 + frontend full pass)
+- Backend: 100%
+- Frontend: 100% (minor pre-load bug fixed post-test via parent `key` prop)
 
 ## Last Working Item
-Performance Dashboard CRM + APScheduler daily cron + regression validation complete (May 10, 2026).
+Culinary UX — IngredientWizard + Review Banner shipped (Feb 14, 2026). Live Cost Preview verified end-to-end. Next: Auto-update `clients.total_revenue` on event close, or Unified Contact Model.
