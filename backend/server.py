@@ -612,6 +612,7 @@ class IngredientCreate(BaseModel):
     purchase_quantity_per_unit: Optional[float] = None
     purchase_cost: Optional[float] = None
     custom_conversions: Optional[Dict[str, float]] = None
+    is_discrete_unit: Optional[bool] = None  # True for items that should be rounded up when scaled (eggs, garlic cloves, etc.)
 
 class Ingredient(BaseModel):
     ingredient_id: str
@@ -654,6 +655,7 @@ class Ingredient(BaseModel):
     purchase_quantity_per_unit: Optional[float] = None  # base_units per purchase_unit
     purchase_cost: Optional[float] = None       # $ per purchase_unit
     custom_conversions: Optional[Dict[str, float]] = None  # Per-ingredient overrides {unit: factor_in_base}
+    is_discrete_unit: Optional[bool] = None  # True = round-up when scaling (eggs, garlic cloves)
     needs_review: bool = False                  # Migration flag for ambiguous data
     created_at: datetime
 
@@ -2967,6 +2969,203 @@ async def duplicate_recipe(recipe_id: str, user: User = Depends(get_current_user
     
     await db.recipes.insert_one(new_recipe)
     return new_recipe
+
+
+# ============== RECIPE SCALING ==============
+# Units that imply a discrete countable item (eggs, garlic cloves, lemons, etc.)
+DISCRETE_UNIT_HINTS = {"unit", "units", "unidad", "unidades", "pieza", "piezas",
+                       "ea", "each", "un", "u", "pza", "pzs", "pc", "pcs"}
+
+
+def is_discrete_unit_for_ingredient(ingredient: dict) -> bool:
+    """Decide whether an ingredient should round-up when scaled.
+    Per-ingredient override wins; otherwise infer from unit name.
+    """
+    explicit = ingredient.get("is_discrete_unit")
+    if explicit is True:
+        return True
+    if explicit is False:
+        return False
+    unit = str(ingredient.get("unit") or "").strip().lower()
+    return unit in DISCRETE_UNIT_HINTS
+
+
+def _scale_ingredient_line(ing: dict, factor: float) -> dict:
+    qty = float(ing.get("quantity") or 0)
+    scaled_raw = qty * factor
+    discrete = is_discrete_unit_for_ingredient(ing)
+    scaled_final = math.ceil(scaled_raw) if discrete and scaled_raw > 0 else round(scaled_raw, 3)
+    unit_cost = float(ing.get("cost_per_unit") or ing.get("unit_cost") or 0)
+    line_cost = scaled_final * unit_cost
+    return {
+        "ingredient_id": ing.get("ingredient_id"),
+        "name": ing.get("name"),
+        "unit": ing.get("unit"),
+        "is_discrete_unit": discrete,
+        "quantity_original": qty,
+        "quantity_scaled_raw": round(scaled_raw, 4),
+        "quantity_scaled": scaled_final,
+        "cost_per_unit": unit_cost,
+        "line_cost": round(line_cost, 4),
+        "prep_method": ing.get("prep_method"),
+        "yield_waste_percent": ing.get("yield_waste_percent") or 0,
+    }
+
+
+class RecipeScalePreview(BaseModel):
+    target_portions: float
+    # Optional event_id used by the UI to default target_portions to guest_count
+    event_id: Optional[str] = None
+
+
+@recipes_router.post("/{recipe_id}/scale")
+async def scale_recipe_preview(recipe_id: str, data: RecipeScalePreview, user: User = Depends(get_current_user)):
+    """Return a scaled preview of a recipe without persisting anything.
+
+    Linear scale for ingredients (and recursive for sub-recipes). Discrete-unit
+    ingredients (eggs, lemons, etc.) round up. Per-ingredient override available
+    via Ingredient.is_discrete_unit.
+    """
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id},
+        {"_id": 0},
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    if data.target_portions <= 0:
+        raise HTTPException(status_code=400, detail="target_portions must be > 0")
+
+    portions_per_yield = float(recipe.get("portions_per_yield") or recipe.get("yield_quantity") or 1) or 1
+    factor = data.target_portions / portions_per_yield
+
+    # Enrich each ingredient line with current ingredient master data so cost reflects truth.
+    ingredient_ids = [i.get("ingredient_id") for i in recipe.get("ingredients", []) if i.get("ingredient_id")]
+    ing_master = {}
+    if ingredient_ids:
+        cursor = db.ingredients.find(
+            {"ingredient_id": {"$in": ingredient_ids}, "company_id": user.company_id},
+            {"_id": 0, "ingredient_id": 1, "name": 1, "unit": 1, "cost_per_unit": 1, "is_discrete_unit": 1, "yield_waste_percent": 1},
+        )
+        async for doc in cursor:
+            ing_master[doc["ingredient_id"]] = doc
+
+    scaled_ingredients = []
+    for ing in recipe.get("ingredients", []):
+        merged = {**ing}
+        master = ing_master.get(ing.get("ingredient_id"))
+        if master:
+            # Master is source of truth for cost and discrete flag
+            merged["cost_per_unit"] = master.get("cost_per_unit") or merged.get("cost_per_unit")
+            merged["unit"] = merged.get("unit") or master.get("unit")
+            if "is_discrete_unit" not in merged or merged.get("is_discrete_unit") is None:
+                merged["is_discrete_unit"] = master.get("is_discrete_unit")
+            if not merged.get("name"):
+                merged["name"] = master.get("name")
+        scaled_ingredients.append(_scale_ingredient_line(merged, factor))
+
+    # Sub-recipes scale recursively (one level — UI rarely needs deeper)
+    scaled_sub_recipes = []
+    for sub in recipe.get("sub_recipes", []):
+        sub_qty = float(sub.get("quantity") or 0) * factor
+        scaled_sub_recipes.append({
+            "child_recipe_id": sub.get("child_recipe_id"),
+            "name": sub.get("name"),
+            "unit": sub.get("unit"),
+            "quantity_original": float(sub.get("quantity") or 0),
+            "quantity_scaled": round(sub_qty, 3),
+        })
+
+    total_cost_scaled = sum((x["line_cost"] for x in scaled_ingredients), 0.0)
+    cost_per_portion_scaled = (total_cost_scaled / data.target_portions) if data.target_portions > 0 else 0
+
+    return {
+        "recipe_id": recipe_id,
+        "recipe_name": recipe.get("name"),
+        "portions_per_yield": portions_per_yield,
+        "target_portions": data.target_portions,
+        "scale_factor": round(factor, 4),
+        "ingredients": scaled_ingredients,
+        "sub_recipes": scaled_sub_recipes,
+        "total_cost_scaled": round(total_cost_scaled, 4),
+        "cost_per_portion_scaled": round(cost_per_portion_scaled, 4),
+        "original_cost_per_portion": float(recipe.get("cost_per_portion") or 0),
+    }
+
+
+class SaveScaledMenuRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    event_id: Optional[str] = None
+    recipes: List[Dict[str, Any]]  # [{recipe_id, target_portions, unit_price?}]
+
+
+@recipes_router.post("/save-scaled-menu")
+async def save_scaled_menu(data: SaveScaledMenuRequest, user: User = Depends(get_current_user)):
+    """Persist a Menu doc that snapshots scaled recipe(s). The base recipes are NOT modified.
+
+    Output Menu shape mirrors base_menus so existing PackagePicker / ProposalEditor flows work.
+    """
+    if not data.recipes:
+        raise HTTPException(status_code=400, detail="At least one recipe is required")
+
+    now = datetime.now(timezone.utc)
+    menu_id = f"menu_{uuid.uuid4().hex[:12]}"
+
+    items = []
+    total_cost = 0.0
+    total_price = 0.0
+    for entry in data.recipes:
+        recipe_id = entry.get("recipe_id")
+        target_portions = float(entry.get("target_portions") or 0)
+        if not recipe_id or target_portions <= 0:
+            continue
+        # Reuse the preview logic
+        preview = await scale_recipe_preview(
+            recipe_id,
+            RecipeScalePreview(target_portions=target_portions, event_id=data.event_id),
+            user,
+        )
+        item_cost = preview["total_cost_scaled"]
+        unit_price = float(entry.get("unit_price") or 0)
+        line_price = unit_price if unit_price > 0 else item_cost
+        items.append({
+            "item_id": f"mi_{uuid.uuid4().hex[:10]}",
+            "recipe_id": recipe_id,
+            "name": preview["recipe_name"],
+            "target_portions": target_portions,
+            "scale_factor": preview["scale_factor"],
+            "cost_per_portion_scaled": preview["cost_per_portion_scaled"],
+            "total_cost_scaled": item_cost,
+            "unit_price": line_price,
+            "ingredients_snapshot": preview["ingredients"],
+        })
+        total_cost += item_cost
+        total_price += line_price
+
+    if not items:
+        raise HTTPException(status_code=400, detail="No valid recipes to save")
+
+    menu_doc = {
+        "menu_id": menu_id,
+        "company_id": user.company_id,
+        "name": data.name,
+        "description": data.description,
+        "event_id": data.event_id,
+        "menu_type": "scaled",  # distinguishes from base_menu
+        "items": items,
+        "total_cost": round(total_cost, 4),
+        "total_price": round(total_price, 4),
+        "is_fixed_price": False,
+        "variants": [],
+        "is_active": True,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "created_by": user.user_id,
+    }
+    await db.base_menus.insert_one(menu_doc)
+    menu_doc.pop("_id", None)
+    return menu_doc
+
 
 @recipes_router.get("/{recipe_id}/cost-history")
 async def get_recipe_cost_history(recipe_id: str, user: User = Depends(get_current_user)):

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import RecipeScalePanel from "./RecipeScalePanel";
 import { ScrollArea } from "./ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Checkbox } from "./ui/checkbox";
@@ -1021,11 +1022,14 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       {/* Header with PDF Export */}
       <div className="flex items-center justify-between">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="basic">{t("basic")}</TabsTrigger>
             <TabsTrigger value="costing">{t("costing")}</TabsTrigger>
             <TabsTrigger value="details">{t("details")}</TabsTrigger>
             <TabsTrigger value="packaging" disabled={!initialRecipe}>{t("packaging")}</TabsTrigger>
+            <TabsTrigger value="scale" disabled={!initialRecipe} data-testid="recipe-scale-tab">
+              {language === "es" ? "Escalar" : "Scale"}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
         {initialRecipe && (
@@ -1042,6 +1046,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           <TabsTrigger value="costing" />
           <TabsTrigger value="details" />
           <TabsTrigger value="packaging" />
+          <TabsTrigger value="scale" />
         </TabsList>
 
         {/* BASIC TAB */}
@@ -1559,6 +1564,11 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
               )}
             </div>
           )}
+        </TabsContent>
+
+        {/* SCALE TAB */}
+        <TabsContent value="scale" className="space-y-4 mt-4">
+          <RecipeScalePanel recipe={initialRecipe ? { ...initialRecipe, ...form, recipe_id: initialRecipe.recipe_id } : null} />
         </TabsContent>
       </Tabs>
 
