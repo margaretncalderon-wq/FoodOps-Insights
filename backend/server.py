@@ -1771,6 +1771,45 @@ async def create_ingredient(data: IngredientCreate, user: User = Depends(get_cur
     ingredient_doc["updated_at"] = now
     return Ingredient(**ingredient_doc)
 
+@inventory_router.post("/ingredients/cost-preview")
+async def preview_ingredient_cost(payload: dict, user: User = Depends(get_current_user)):
+    """Live cost preview for a recipe line."""
+    from utils.units import cost_for_recipe_line, convert, normalize_unit, unit_kind, is_compatible
+    ingredient_id = payload.get("ingredient_id")
+    quantity = float(payload.get("quantity") or 0)
+    line_unit = normalize_unit(payload.get("unit") or "")
+    waste = float(payload.get("waste_factor_pct") or 0)
+
+    if not ingredient_id:
+        raise HTTPException(status_code=400, detail="ingredient_id required")
+
+    ingredient = await db.ingredients.find_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not ingredient:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+
+    base_unit = normalize_unit(ingredient.get("base_unit") or ingredient.get("unit") or "")
+    qty_in_base = convert(quantity, line_unit, base_unit, ingredient) if (quantity and line_unit and base_unit) else None
+    compatible = is_compatible(line_unit, base_unit, ingredient) if (line_unit and base_unit) else False
+
+    message = None
+    if line_unit and base_unit and not compatible:
+        message = f"La unidad '{line_unit}' no es compatible con la base '{base_unit}' de este ingrediente"
+
+    effective_qty = quantity * (1 + waste / 100) if waste > 0 else quantity
+    cost = cost_for_recipe_line(effective_qty, line_unit, ingredient) if quantity else 0
+
+    return {
+        "cost": round(cost, 4),
+        "compatible": compatible,
+        "base_unit": base_unit,
+        "quantity_in_base": round(qty_in_base, 4) if qty_in_base is not None else None,
+        "ingredient_unit_kind": unit_kind(base_unit),
+        "message": message,
+    }
+
+
 @inventory_router.get("/ingredients/{ingredient_id}", response_model=Ingredient)
 async def get_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):
     ingredient = await db.ingredients.find_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"_id": 0})

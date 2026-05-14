@@ -23,7 +23,7 @@ import {
   Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle,
   Link2, DollarSign, History, Percent, Info, Layers, Utensils,
   Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package,
-  AlertOctagon, Tag, Upload, Image, FileText
+  AlertOctagon, Tag, Upload, Image, FileText, Loader2
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
@@ -61,8 +61,119 @@ const VERIFIED_STATUSES = [
   { value: "Verified", label: "Verified", labelEs: "Verificado" },
 ];
 
-const UNITS = ["g", "kg", "ml", "L", "oz", "lb", "unit", "portion", "serving", "cup", "tbsp", "tsp"];
+const UNITS = ["g", "kg", "ml", "L", "oz", "lb", "oz_fl", "cup", "tbsp", "tsp", "unit", "portion", "serving", "dozen"];
 const PORTION_UNITS = ["serving", "plate", "bowl", "tray", "piece", "ml", "oz", "g", "portion"];
+
+// Group units for the unit picker (helps the chef see compatible options)
+const UNIT_GROUPS = [
+  { label: "Peso", units: ["g", "kg", "mg", "oz", "lb"] },
+  { label: "Volumen", units: ["ml", "L", "oz_fl", "cup", "tbsp", "tsp", "gal"] },
+  { label: "Unidad", units: ["unit", "dozen", "portion", "serving"] },
+];
+
+/**
+ * IngredientRow — Renders one recipe ingredient line with:
+ * - Editable quantity + unit
+ * - Live cost preview (calls /api/inventory/ingredients/cost-preview)
+ * - Visual warning if the unit is incompatible with the ingredient's base unit
+ */
+function IngredientRow({ ing, onChange, onRemove, isEs }) {
+  const [preview, setPreview] = useState({ cost: ing.total_cost || ing.cost || 0, compatible: true, message: null });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!ing.item_id || !ing.quantity || ing.quantity <= 0) {
+      setPreview({ cost: 0, compatible: true, message: null });
+      return;
+    }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await axios.post(`${API}/api/inventory/ingredients/cost-preview`, {
+          ingredient_id: ing.item_id,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          waste_factor_pct: ing.waste_factor_pct || 0,
+        }, { withCredentials: true });
+        setPreview(res.data);
+        if (typeof res.data.cost === "number") {
+          onChange("total_cost", res.data.cost);
+          onChange("cost", res.data.cost);
+        }
+      } catch {
+        // ignore — keep last preview
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ing.item_id, ing.quantity, ing.unit, ing.waste_factor_pct]);
+
+  const showWarning = !preview.compatible && ing.quantity > 0;
+
+  return (
+    <TableRow data-testid={`ingredient-row-${ing.item_id}`} className={showWarning ? "bg-amber-50/50" : ""}>
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-1.5">
+          {ing.item_name}
+          {showWarning && (
+            <span title={preview.message || ""} className="text-amber-600 text-xs">⚠️</span>
+          )}
+        </div>
+        {showWarning && (
+          <p className="text-[10px] text-amber-700 mt-0.5">{preview.message}</p>
+        )}
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number" min="0" step="0.01" className="w-20 text-right"
+          value={ing.quantity}
+          onChange={(e) => onChange("quantity", parseFloat(e.target.value) || 0)}
+          data-testid={`ingredient-qty-${ing.item_id}`}
+        />
+      </TableCell>
+      <TableCell>
+        <Select value={ing.unit} onValueChange={(v) => onChange("unit", v)}>
+          <SelectTrigger className="h-9 w-24"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {UNIT_GROUPS.map((grp) => (
+              <div key={grp.label}>
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{grp.label}</div>
+                {grp.units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </div>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number" min="0" max="99" step="1" className="w-20 text-right"
+          value={ing.waste_factor_pct || 0}
+          onChange={(e) => onChange("waste_factor_pct", parseFloat(e.target.value) || 0)}
+        />
+      </TableCell>
+      <TableCell className="text-right font-mono">
+        <div className="flex items-center justify-end gap-1.5">
+          {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+          <span className={showWarning ? "text-amber-700" : "text-foreground"}>
+            ${(preview.cost || 0).toFixed(4)}
+          </span>
+        </div>
+        {preview.quantity_in_base != null && preview.compatible && (
+          <p className="text-[9px] text-muted-foreground" data-testid={`ingredient-conversion-${ing.item_id}`}>
+            = {preview.quantity_in_base} {preview.base_unit}
+          </p>
+        )}
+      </TableCell>
+      <TableCell>
+        <Button variant="ghost" size="icon" onClick={onRemove}>
+          <X className="w-4 h-4 text-red-500" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, ingredients = [], allRecipes = [] }) {
   const { language } = useLanguage();
@@ -938,22 +1049,21 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <TableRow>
                     <TableHead>{language === "es" ? "Ingrediente" : "Ingredient"}</TableHead>
                     <TableHead className="w-24 text-right">{t("quantity")}</TableHead>
-                    <TableHead className="w-20">{t("unit")}</TableHead>
+                    <TableHead className="w-28">{t("unit")}</TableHead>
                     <TableHead className="w-24 text-right">{t("wasteFactor")}</TableHead>
-                    <TableHead className="w-24 text-right">{t("cost")}</TableHead>
+                    <TableHead className="w-28 text-right">{t("cost")}</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {form.ingredients.map(ing => (
-                    <TableRow key={ing.item_id}>
-                      <TableCell className="font-medium">{ing.item_name}</TableCell>
-                      <TableCell><Input type="number" min="0" step="0.01" className="w-20 text-right" value={ing.quantity} onChange={(e) => updateIngredient(ing.item_id, "quantity", parseFloat(e.target.value) || 0)} /></TableCell>
-                      <TableCell className="text-muted-foreground">{ing.unit}</TableCell>
-                      <TableCell><Input type="number" min="0" max="99" step="1" className="w-20 text-right" value={ing.waste_factor_pct || 0} onChange={(e) => updateIngredient(ing.item_id, "waste_factor_pct", parseFloat(e.target.value) || 0)} /></TableCell>
-                      <TableCell className="text-right font-mono">${(ing.total_cost || 0).toFixed(2)}</TableCell>
-                      <TableCell><Button variant="ghost" size="icon" onClick={() => removeIngredient(ing.item_id)}><X className="w-4 h-4 text-red-500" /></Button></TableCell>
-                    </TableRow>
+                    <IngredientRow
+                      key={ing.item_id}
+                      ing={ing}
+                      onChange={(field, value) => updateIngredient(ing.item_id, field, value)}
+                      onRemove={() => removeIngredient(ing.item_id)}
+                      isEs={language === "es"}
+                    />
                   ))}
                 </TableBody>
               </Table>
