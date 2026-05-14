@@ -595,6 +595,14 @@ class IngredientCreate(BaseModel):
     sku: Optional[str] = None  # Código de producto
     barcode: Optional[str] = None  # Código de barras
     notes: Optional[str] = None  # Notas adicionales
+    # === New unit system fields (v2) ===
+    base_unit: Optional[str] = None
+    cost_per_base_unit: Optional[float] = None
+    density_g_per_ml: Optional[float] = None
+    purchase_unit: Optional[str] = None
+    purchase_quantity_per_unit: Optional[float] = None
+    purchase_cost: Optional[float] = None
+    custom_conversions: Optional[Dict[str, float]] = None
 
 class Ingredient(BaseModel):
     ingredient_id: str
@@ -629,6 +637,15 @@ class Ingredient(BaseModel):
     sku: Optional[str] = None
     barcode: Optional[str] = None
     notes: Optional[str] = None
+    # === New unit system fields (v2) ===
+    base_unit: Optional[str] = None             # Canonical unit for costing (e.g., 'g', 'ml', 'unit')
+    cost_per_base_unit: Optional[float] = None  # $ per base_unit, derived from purchase data
+    density_g_per_ml: Optional[float] = None    # Optional: enables weight↔volume conversion
+    purchase_unit: Optional[str] = None         # How vendor sells it (e.g., 'box', 'l')
+    purchase_quantity_per_unit: Optional[float] = None  # base_units per purchase_unit
+    purchase_cost: Optional[float] = None       # $ per purchase_unit
+    custom_conversions: Optional[Dict[str, float]] = None  # Per-ingredient overrides {unit: factor_in_base}
+    needs_review: bool = False                  # Migration flag for ambiguous data
     created_at: datetime
 
 # Recipe Models - Enhanced for detailed costing
@@ -1719,13 +1736,30 @@ async def get_ingredients(inventory_type: Optional[str] = None, user: User = Dep
 
 @inventory_router.post("/ingredients", response_model=Ingredient)
 async def create_ingredient(data: IngredientCreate, user: User = Depends(get_current_user)):
+    from utils.units import derive_base_unit, normalize_unit, convert as unit_convert
     now = datetime.now(timezone.utc)
     ingredient_id = f"ing_{uuid.uuid4().hex[:12]}"
-    
+
+    payload = data.model_dump()
+    # Auto-derive base_unit if not provided
+    if not payload.get("base_unit"):
+        payload["base_unit"] = derive_base_unit(payload.get("category", ""))
+    # Auto-derive cost_per_base_unit from the legacy unit + cost
+    if not payload.get("cost_per_base_unit"):
+        legacy_unit = normalize_unit(payload.get("unit") or "")
+        base_unit = normalize_unit(payload["base_unit"])
+        legacy_cost = float(payload.get("cost_per_unit") or 0)
+        if legacy_unit and base_unit:
+            # cost_per_base = legacy_cost * (qty of base_unit in 1 legacy_unit) -- inverse direction
+            ratio = unit_convert(1.0, legacy_unit, base_unit, payload)
+            payload["cost_per_base_unit"] = round(legacy_cost / ratio, 6) if ratio else legacy_cost
+        else:
+            payload["cost_per_base_unit"] = legacy_cost
+
     ingredient_doc = {
         "ingredient_id": ingredient_id,
         "company_id": user.company_id,
-        **data.model_dump(),
+        **payload,
         "average_cost": data.cost_per_unit,
         "price_history": [{"price": data.cost_per_unit, "date": now.isoformat()}],
         "created_at": now.isoformat(),
@@ -2503,76 +2537,89 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
     return recipes
 
 async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes: List[Dict] = None, company_id: str = "") -> tuple:
-    """Calculate total cost for a recipe's ingredients and sub-recipes, including merma (waste)"""
+    """Calculate total cost for a recipe's ingredients and sub-recipes, with proper unit conversion.
+
+    Accepts both NEW format (item_id + item_type='ingredient') and LEGACY format
+    (ingredient_id directly, no item_type). Uses utils.units to do real unit→base conversion.
+    """
+    from utils.units import cost_for_recipe_line, normalize_unit
     total_cost = 0.0
     updated_ingredients = []
     updated_sub_recipes = []
-    
-    # Calculate ingredient costs with waste factor (merma)
+
     for ing in ingredients:
         ing_dict = ing.model_dump() if hasattr(ing, 'model_dump') else dict(ing)
-        
-        if ing_dict.get("item_type") == "ingredient":
-            # Get ingredient cost from inventory
+
+        # Resolve ingredient/recipe reference: new vs legacy formats
+        item_type = ing_dict.get("item_type")
+        item_id = ing_dict.get("item_id") or ing_dict.get("ingredient_id")
+        is_recipe_ref = item_type == "recipe"
+
+        if not item_id:
+            updated_ingredients.append(ing_dict)
+            continue
+
+        if not is_recipe_ref:
+            # Try ingredient first
             ingredient = await db.ingredients.find_one(
-                {"ingredient_id": ing_dict.get("item_id"), "company_id": company_id},
+                {"ingredient_id": item_id, "company_id": company_id},
                 {"_id": 0}
             )
             if ingredient:
-                base_cost_per_unit = ingredient.get("cost_per_unit", 0)
-                waste_factor = ing_dict.get("waste_factor_pct", 0)
-                
-                # Apply waste factor (merma): if 10% waste, you need 10% more product
-                # Effective cost = base_cost / (1 - waste_factor/100)
-                if waste_factor > 0 and waste_factor < 100:
-                    effective_cost_per_unit = base_cost_per_unit / (1 - waste_factor / 100)
-                else:
-                    effective_cost_per_unit = base_cost_per_unit
-                
-                # Calculate net quantity (what you actually use after waste)
-                net_quantity = ing_dict.get("quantity", 0) * (1 + waste_factor / 100) if waste_factor > 0 else ing_dict.get("quantity", 0)
-                line_cost = ing_dict.get("quantity", 0) * effective_cost_per_unit
-                
+                quantity = float(ing_dict.get("quantity", 0) or 0)
+                line_unit = ing_dict.get("unit") or ingredient.get("base_unit") or ingredient.get("unit") or "g"
+                waste_factor = float(ing_dict.get("waste_factor_pct", 0) or 0)
+                effective_qty = quantity * (1 + waste_factor / 100) if waste_factor > 0 else quantity
+                line_cost = cost_for_recipe_line(effective_qty, line_unit, ingredient)
+
                 updated_ingredients.append({
                     **ing_dict,
-                    "cost_per_unit": effective_cost_per_unit,
+                    "item_type": item_type or "ingredient",
+                    "item_id": item_id,
+                    "ingredient_id": item_id,  # keep legacy field for backwards compat
+                    "unit": normalize_unit(line_unit),
+                    "cost_per_unit": round(line_cost / quantity, 6) if quantity > 0 else 0,
+                    "cost": round(line_cost, 4),         # legacy field name
                     "total_cost": round(line_cost, 4),
-                    "net_quantity": round(net_quantity, 4)
+                    "net_quantity": round(effective_qty, 4),
                 })
                 total_cost += line_cost
-            else:
-                updated_ingredients.append(ing_dict)
+                continue
+
+        # Sub-recipe reference (legacy item_type=recipe inline)
+        sub_recipe = await db.recipes.find_one(
+            {"recipe_id": item_id, "company_id": company_id},
+            {"_id": 0}
+        )
+        if sub_recipe:
+            cost_per_yield = sub_recipe.get("cost_per_yield", 0) or 0
+            quantity = float(ing_dict.get("quantity", 0) or 0)
+            line_cost = quantity * cost_per_yield
+            updated_ingredients.append({
+                **ing_dict,
+                "item_type": "recipe",
+                "item_id": item_id,
+                "cost_per_unit": cost_per_yield,
+                "cost": round(line_cost, 4),
+                "total_cost": round(line_cost, 4),
+            })
+            total_cost += line_cost
         else:
-            # Get sub-recipe cost (legacy support for item_type="recipe")
-            sub_recipe = await db.recipes.find_one(
-                {"recipe_id": ing_dict.get("item_id"), "company_id": company_id},
-                {"_id": 0}
-            )
-            if sub_recipe:
-                cost_per_yield = sub_recipe.get("cost_per_yield", 0)
-                line_cost = ing_dict.get("quantity", 0) * cost_per_yield
-                updated_ingredients.append({
-                    **ing_dict,
-                    "cost_per_unit": cost_per_yield,
-                    "total_cost": round(line_cost, 4)
-                })
-                total_cost += line_cost
-            else:
-                updated_ingredients.append(ing_dict)
-    
-    # Calculate sub-recipe costs (new structure)
+            updated_ingredients.append(ing_dict)
+
+    # Sub-recipes block (new structure)
     if sub_recipes:
         for sub in sub_recipes:
             sub_dict = sub if isinstance(sub, dict) else sub.model_dump()
             child_recipe_id = sub_dict.get("child_recipe_id")
-            
+
             child_recipe = await db.recipes.find_one(
                 {"recipe_id": child_recipe_id, "company_id": company_id},
                 {"_id": 0}
             )
             if child_recipe:
-                cost_per_yield = child_recipe.get("cost_per_yield", 0)
-                line_cost = sub_dict.get("quantity_used", 0) * cost_per_yield
+                cost_per_yield = child_recipe.get("cost_per_yield", 0) or 0
+                line_cost = float(sub_dict.get("quantity_used", 0) or 0) * cost_per_yield
                 updated_sub_recipes.append({
                     **sub_dict,
                     "cost_per_unit": cost_per_yield,
@@ -2581,8 +2628,8 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                 total_cost += line_cost
             else:
                 updated_sub_recipes.append(sub_dict)
-    
-    return round(total_cost, 2), updated_ingredients, updated_sub_recipes
+
+    return round(total_cost, 4), updated_ingredients, updated_sub_recipes
 
 async def check_circular_dependency(parent_id: str, child_id: str, company_id: str, visited: set = None) -> bool:
     """Check if adding child_id as sub-recipe of parent_id would create a circular dependency"""
