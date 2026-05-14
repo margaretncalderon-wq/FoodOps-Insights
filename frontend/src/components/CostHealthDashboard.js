@@ -62,6 +62,12 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
 
   const fmtMoney = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
   const fmtPct = (n) => `${n > 0 ? "+" : ""}${(n || 0).toFixed(1)}%`;
+  const marginColor = (pct) => {
+    if (pct == null) return "text-muted-foreground";
+    if (pct < 20) return "text-red-600";
+    if (pct < 30) return "text-amber-600";
+    return "text-emerald-700";
+  };
 
   const handleRefresh = async () => {
     setApplying(true);
@@ -191,6 +197,26 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                       </span>
                       <span className="text-muted-foreground"> · {p.stale_count} {isEs ? "ítems" : "items"}</span>
                     </p>
+                    {p.current_margin_pct != null && p.projected_margin_pct != null && (
+                      <p
+                        className="text-[11px] mt-0.5 flex items-center gap-1"
+                        data-testid={`cost-health-card-margin-${p.proposal_id}`}
+                      >
+                        <span className="text-muted-foreground">{isEs ? "Margen" : "Margin"}:</span>
+                        <span className={marginColor(p.current_margin_pct)}>
+                          {p.current_margin_pct.toFixed(1)}%
+                        </span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className={`font-semibold ${marginColor(p.projected_margin_pct)}`}>
+                          {p.projected_margin_pct.toFixed(1)}%
+                        </span>
+                        {p.projected_margin_pct < 20 && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 ml-1 border-red-300 text-red-700">
+                            {isEs ? "Crítico" : "Critical"}
+                          </Badge>
+                        )}
+                      </p>
+                    )}
                   </div>
                   <Button
                     size="sm"
@@ -360,6 +386,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                       <th className="px-3 py-2 text-right">{isEs ? "Ítems stale" : "Stale items"}</th>
                       <th className="px-3 py-2 text-right">{isEs ? "Máx %" : "Max %"}</th>
                       <th className="px-3 py-2 text-right">{isEs ? "Δ Costo" : "Δ Cost"}</th>
+                      <th className="px-3 py-2 text-right">{isEs ? "Margen" : "Margin"}</th>
                       <th className="px-3 py-2 text-right">{isEs ? "Total" : "Total"}</th>
                       <th className="px-3 py-2 w-12"></th>
                     </tr>
@@ -404,6 +431,21 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                         </td>
                         <td className={`px-3 py-2.5 text-right font-mono text-xs ${p.delta_total >= 0 ? "text-amber-700" : "text-emerald-700"}`}>
                           {fmtMoney(p.delta_total)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs font-mono whitespace-nowrap" data-testid={`cost-health-row-margin-${p.proposal_id}`}>
+                          {p.current_margin_pct != null && p.projected_margin_pct != null ? (
+                            <span className="inline-flex items-center gap-1">
+                              <span className={marginColor(p.current_margin_pct)}>
+                                {p.current_margin_pct.toFixed(1)}%
+                              </span>
+                              <span className="text-muted-foreground">→</span>
+                              <span className={`font-semibold ${marginColor(p.projected_margin_pct)}`}>
+                                {p.projected_margin_pct.toFixed(1)}%
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">
                           ${(p.total_amount || 0).toFixed(2)}

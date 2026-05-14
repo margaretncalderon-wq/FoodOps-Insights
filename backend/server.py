@@ -7111,35 +7111,48 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
     for prop in draft_props:
         items = await db.order_items.find(
             {"proposal_id": prop["proposal_id"], "company_id": user.company_id},
-            {"_id": 0, "item_id": 1, "item_type": 1, "reference_id": 1, "internal_cost": 1, "quantity": 1, "description": 1},
+            {"_id": 0, "item_id": 1, "item_type": 1, "reference_id": 1, "internal_cost": 1, "quantity": 1, "unit_price": 1, "description": 1},
         ).to_list(500)
         stale_count = 0
         max_pct = 0.0
         delta_total = 0.0
+        total_price = 0.0
+        total_cost_current = 0.0  # current snapshot
+        total_cost_projected = 0.0  # after refresh
         for it in items:
-            rid = it.get("reference_id")
-            if not rid:
-                continue
-            snap = float(it.get("internal_cost") or 0)
-            current = None
-            if it.get("item_type") == "Food":
-                rec = await db.recipes.find_one({"recipe_id": rid, "company_id": user.company_id}, {"_id": 0, "cost_per_portion": 1, "total_cost": 1})
-                if rec:
-                    current = float(rec.get("cost_per_portion") or rec.get("total_cost") or 0)
-            else:
-                pli = await db.picklist_items.find_one({"item_id": rid, "company_id": user.company_id}, {"_id": 0, "internal_cost": 1})
-                if pli and pli.get("internal_cost") is not None:
-                    current = float(pli.get("internal_cost") or 0)
-            if current is None or abs(current - snap) < 0.005:
-                continue
-            stale_count += 1
             qty = float(it.get("quantity") or 0)
-            delta_total += (current - snap) * qty
-            pct = ((current - snap) / snap * 100) if snap > 0 else 100
-            if abs(pct) > abs(max_pct):
-                max_pct = pct
+            unit_price = float(it.get("unit_price") or 0)
+            snap = float(it.get("internal_cost") or 0)
+            total_price += qty * unit_price
+            total_cost_current += qty * snap
+
+            rid = it.get("reference_id")
+            current_for_proj = snap  # default: no change
+            if rid:
+                current = None
+                if it.get("item_type") == "Food":
+                    rec = await db.recipes.find_one({"recipe_id": rid, "company_id": user.company_id}, {"_id": 0, "cost_per_portion": 1, "total_cost": 1})
+                    if rec:
+                        current = float(rec.get("cost_per_portion") or rec.get("total_cost") or 0)
+                else:
+                    pli = await db.picklist_items.find_one({"item_id": rid, "company_id": user.company_id}, {"_id": 0, "internal_cost": 1})
+                    if pli and pli.get("internal_cost") is not None:
+                        current = float(pli.get("internal_cost") or 0)
+                if current is not None and abs(current - snap) >= 0.005:
+                    stale_count += 1
+                    delta_total += (current - snap) * qty
+                    pct = ((current - snap) / snap * 100) if snap > 0 else 100
+                    if abs(pct) > abs(max_pct):
+                        max_pct = pct
+                    current_for_proj = current
+            total_cost_projected += qty * current_for_proj
+
         if stale_count == 0:
             continue
+
+        # Margin calculations (None when total_price <= 0 to avoid divide-by-zero)
+        current_margin_pct = ((total_price - total_cost_current) / total_price * 100) if total_price > 0 else None
+        projected_margin_pct = ((total_price - total_cost_projected) / total_price * 100) if total_price > 0 else None
 
         # Resolve client + event for display
         event = await db.events.find_one({"event_id": prop["event_id"], "company_id": user.company_id}, {"_id": 0, "name": 1, "event_date": 1, "client_id": 1})
@@ -7155,6 +7168,8 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
             "max_diff_pct": round(max_pct, 2),
             "delta_total": round(delta_total, 2),
             "total_amount": float(prop.get("total_amount") or 0),
+            "current_margin_pct": round(current_margin_pct, 2) if current_margin_pct is not None else None,
+            "projected_margin_pct": round(projected_margin_pct, 2) if projected_margin_pct is not None else None,
         })
     # Sort: biggest |delta_total| first
     rows.sort(key=lambda r: abs(r["delta_total"]), reverse=True)

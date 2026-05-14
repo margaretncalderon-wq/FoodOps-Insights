@@ -1,0 +1,81 @@
+{
+  "summary": "Completed testing of Cost Health Dashboard Margin Micro-Indicator feature (Iteration 163). Backend: 6/6 tests passed - margin calculation verified with controlled data (current_margin=30%, projected_margin=15%). Frontend: Card mode margin display working correctly with color coding and Critical badge.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Food Ops section mode",
+        "issue": "Cannot test section mode - user redirected to dashboard when accessing /food-ops/recipes",
+        "affected_selectors": ["[data-testid='cost-health-section']", "[data-testid^='cost-health-row-margin-']"],
+        "priority": "LOW",
+        "note": "Expected behavior - demo.agency@kora.com doesn't have module_culinary_intelligence enabled. Section mode code review verified correct implementation."
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cost_health_margin.py",
+    "/app/test_reports/pytest/pytest_cost_health_margin.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: Backend GET /api/proposals/cost-health/overview returns current_margin_pct and projected_margin_pct fields",
+    "VERIFIED: Margin math correct - current_margin = (total_price - total_cost_current) / total_price * 100",
+    "VERIFIED: Margin math correct - projected_margin uses current_source_cost for stale items + snapshot for non-stale",
+    "VERIFIED: Margin returns null when total_price = 0 (divide-by-zero protection)",
+    "VERIFIED: Margin values rounded to 2 decimal places",
+    "VERIFIED: All existing fields still present (regression check passed)",
+    "VERIFIED: Frontend card mode shows 'Margin: X% → Y%' with data-testid='cost-health-card-margin-{proposal_id}'",
+    "VERIFIED: Frontend color coding works - red (<20%), amber (<30%), emerald (≥30%)",
+    "VERIFIED: Frontend Critical badge appears when projected_margin_pct < 20%",
+    "VERIFIED: Frontend section mode has Margen column with data-testid='cost-health-row-margin-{proposal_id}' (code review)",
+    "VERIFIED: Margin row hidden when current_margin_pct or projected_margin_pct is null (defensive, code review)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_cost_health_margin.py"
+  ],
+  "success_rate": {
+    "backend": "100% (6/6 tests passed)",
+    "frontend": "90% (Card mode fully tested, Section mode not testable due to module access)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created and cleaned up: TEST_FE_MARGIN_Service picklist item (internal_cost $70→$85), linked OrderItem (qty=5, unit_price=$100) for margin testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Margin micro-indicator feature fully tested. Key findings: (1) Backend returns current_margin_pct and projected_margin_pct correctly calculated and rounded to 2 decimals, (2) Frontend card mode displays margin with color coding (red <20%, amber <30%, emerald ≥30%) and Critical badge when projected <20%, (3) Section mode (Food Ops) not testable because demo user doesn't have module_culinary_intelligence - code review verified implementation is correct. To test section mode, need a user with Food Ops module enabled.",
+  "verified_features": {
+    "backend_margin_fields": "current_margin_pct and projected_margin_pct in cost-health/overview response",
+    "backend_margin_math": "Verified with controlled data: qty=5, unit_price=$100, internal_cost=$70→$85 produces current=30%, projected=15%",
+    "backend_null_handling": "Returns null when total_price = 0",
+    "backend_rounding": "Values rounded to 2 decimal places",
+    "backend_regression": "All existing fields (stale_count, max_diff_pct, delta_total, total_amount, etc.) still present",
+    "frontend_card_margin_display": "Shows 'Margin: X% → Y%' with data-testid='cost-health-card-margin-{proposal_id}'",
+    "frontend_color_coding": "Red (<20%), amber (<30%), emerald (≥30%)",
+    "frontend_critical_badge": "Shows 'Crítico'/'Critical' badge when projected_margin < 20%",
+    "frontend_section_margin_column": "Code review verified - Margen column with data-testid='cost-health-row-margin-{proposal_id}'"
+  },
+  "backend_test_results": {
+    "passed": [
+      "test_01_overview_returns_margin_fields_in_schema",
+      "test_02_margin_calculation_math",
+      "test_03_margin_null_when_total_price_zero",
+      "test_04_margin_rounded_to_2_decimals",
+      "test_05_existing_fields_present",
+      "test_06_stale_count_still_correct"
+    ],
+    "skipped": [],
+    "failed": []
+  },
+  "frontend_test_results": {
+    "cost_health_card_visible": "PASS - Shows when stale_proposals > 0",
+    "margin_display": "PASS - Shows 'Margin: 30.0% → 15.0%'",
+    "color_coding": "PASS - 30.0% in emerald (≥30%), 15.0% in red (<20%)",
+    "critical_badge": "PASS - Shows 'Critical' badge when projected < 20%",
+    "data_testid": "PASS - data-testid='cost-health-card-margin-prop_7232e3193891'",
+    "section_mode": "NOT TESTED - User doesn't have Food Ops module access"
+  }
+}
