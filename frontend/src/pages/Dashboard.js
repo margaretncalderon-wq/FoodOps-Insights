@@ -14,9 +14,12 @@ import {
   GitBranch, Lock, Unlock, Target, FolderKanban, BarChart3, TrendingUp, UserCircle,
   ArrowUpRight, ArrowDownLeft, Phone, Mail, User as UserIcon
 } from "lucide-react";
+import CostHealthDashboard from "../components/CostHealthDashboard";
+import { useNavigate } from "react-router-dom";
 
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
+  const navigate = useNavigate();
   const { language, t } = useLanguage();
   const { industry, isProfessionalServices, isEventsIndustry, getProgramOrchestrationConfig, isModuleEnabled } = useModules();
   const { term } = useTerminology();
@@ -395,6 +398,12 @@ export default function SystemPulse() {
             </CardContent>
           </Card>
         )}
+
+        {/* ==================== COST HEALTH (auto-hides when nothing stale) ==================== */}
+        <CostHealthDashboard
+          mode="card"
+          onNavigate={() => navigate("/food-ops/recipes#cost-health")}
+        />
 
         {/* ==================== PERMANENT CORE ==================== */}
         <div className="grid lg:grid-cols-2 gap-6">

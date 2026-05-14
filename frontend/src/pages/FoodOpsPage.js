@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import RecipeBuilder from "../components/RecipeBuilder";
 import PlatedMenuBuilder from "../components/PlatedMenuBuilder";
 import IngredientWizard from "../components/culinary/IngredientWizard";
+import CostHealthDashboard from "../components/CostHealthDashboard";
 
 // Icons
 import { 
@@ -1305,6 +1306,11 @@ function RecipesSection() {
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-blue-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Componentes" : "Components"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "component").length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Utensils className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Platos" : "Dishes"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "final_dish" || !r.recipe_type).length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><ChefHat className="h-8 w-8 text-primary" /><div><p className="text-sm text-muted-foreground">Total</p><p className="text-2xl font-bold">{recipes.length}</p></div></div></CardContent></Card>
+      </div>
+
+      {/* Cost Health (auto-hides when nothing stale) */}
+      <div id="cost-health">
+        <CostHealthDashboard mode="section" />
       </div>
 
       {/* Header */}
