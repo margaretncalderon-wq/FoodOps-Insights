@@ -11,6 +11,7 @@ import {
 } from "./ui/dialog";
 import { AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ExternalLink, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { useModules } from "../contexts/ModulesContext";
 
 /**
  * Cost Health Dashboard
@@ -26,6 +27,8 @@ import { toast } from "sonner";
 export default function CostHealthDashboard({ mode = "section", onNavigate }) {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const { isModuleEnabled } = useModules();
+  const hasFoodOps = isModuleEnabled("module_culinary_intelligence");
 
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState(null);
@@ -147,7 +150,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
               size="sm"
               variant="outline"
               className="border-amber-300 text-amber-900 hover:bg-amber-100"
-              onClick={() => onNavigate ? onNavigate() : window.location.assign("/food-ops/recipes#cost-health")}
+              onClick={() => onNavigate ? onNavigate() : window.location.assign(hasFoodOps ? "/food-ops/recipes#cost-health" : "/crm/proposals")}
               data-testid="cost-health-card-open-btn"
             >
               {isEs ? "Revisar" : "Review"}

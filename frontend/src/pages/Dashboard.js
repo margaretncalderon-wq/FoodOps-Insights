@@ -402,7 +402,7 @@ export default function SystemPulse() {
         {/* ==================== COST HEALTH (auto-hides when nothing stale) ==================== */}
         <CostHealthDashboard
           mode="card"
-          onNavigate={() => navigate("/food-ops/recipes#cost-health")}
+          onNavigate={() => navigate(isModuleEnabled("module_culinary_intelligence") ? "/food-ops/recipes#cost-health" : "/crm/proposals")}
         />
 
         {/* ==================== PERMANENT CORE ==================== */}

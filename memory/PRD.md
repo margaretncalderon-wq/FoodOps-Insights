@@ -119,9 +119,16 @@ See `/app/memory/test_credentials.md`.
 - PRODUCTION: https://ourkora.com (manual redeploy required after preview validation).
 
 ## Testing Status
-- Latest test reports: `/app/test_reports/iteration_151.json` (Cost Preview API 10/10), `/app/test_reports/iteration_152.json` (Wizard + Banner 8/8 + frontend full pass)
+- Latest test reports: `/app/test_reports/iteration_161.json` (Cost Health Dashboard + PicklistItem Staleness — backend 10/10 executed, frontend 6/6 testable; Food Ops section mode untested only because demo admin lacks Culinary module)
 - Backend: 100%
-- Frontend: 100% (minor pre-load bug fixed post-test via parent `key` prop)
+- Frontend: 100% (testable surface)
 
 ## Last Working Item
-Culinary UX — IngredientWizard + Review Banner shipped (Feb 14, 2026). Live Cost Preview verified end-to-end. Next: Auto-update `clients.total_revenue` on event close, or Unified Contact Model.
+Cost Health Dashboard + PicklistItem Staleness Extension shipped (May 14, 2026):
+- Backend `/api/proposals/cost-health/overview` and `/refresh-all` (routes verified not shadowed by `/{proposal_id}/...`).
+- `/cost-staleness` and `/refresh-costs` now diff non-Food OrderItems against `picklist_items.internal_cost` (Services / Rentals / Fees).
+- New reusable `CostHealthDashboard.js` with `card` mode (System Pulse, auto-hides when nothing stale) and `section` mode (Food Ops → Recipes, summary strip + checkbox table + preview-confirm refresh dialog).
+- Selective refresh via per-proposal `/refresh-costs`, bulk via `/refresh-all`. `unit_price` never modified — only internal cost & margin.
+- Card "Review" button respects module access (routes to Food Ops if enabled, else CRM Proposals).
+
+Next: Logo image upload via Object Storage for Guest Flow, Unified Contact Model (merge Lead + Client lifecycle), Recipe scaling, Filterable recipe tags.
