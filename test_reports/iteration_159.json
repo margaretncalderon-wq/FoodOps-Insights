@@ -1,0 +1,68 @@
+{
+  "summary": "Completed testing of auto-recalculation feature for PUT /api/inventory/ingredients/{id} (Iteration 159). All 12 backend tests passed (100%). The auto-recalc feature correctly triggers recipe cost recalculation when ingredient cost_per_unit or yield_waste_percent changes, while protecting OrderItem snapshots in proposals.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auto_recalc_ingredient_update.py",
+    "/app/test_reports/pytest/pytest_auto_recalc_ingredient.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: PUT /api/inventory/ingredients/{id} with cost_per_unit change triggers auto-recalc on recipes using that ingredient",
+    "VERIFIED: PUT with yield_waste_percent change (no price change) also triggers auto-recalc",
+    "VERIFIED: PUT with non-cost changes (name, brand, sku) does NOT trigger auto-recalc (last_cost_recalc_at unchanged)",
+    "VERIFIED: OrderItems in proposals maintain their original unit_price and internal_cost after ingredient cost change (snapshot protection)",
+    "VERIFIED: Sub-recipe cascade works - child recipe using ingredient gets recalculated when ingredient changes",
+    "VERIFIED: Multiple recipes (3) using same ingredient all get recalculated with last_cost_recalc_at set",
+    "VERIFIED: PUT works normally when no recipes use the ingredient (no error)",
+    "VERIFIED: Recipe fields populated after recalc: total_cost, last_cost_recalc_at, last_cost_recalc_trigger='ingredient:{id}'",
+    "REGRESSION PASSED: Recipe CRUD, Production batches GET, Purchase orders GET, Proposals GET, Cost preview all working"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auto_recalc_ingredient_update.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "Not tested - backend only testing requested"
+  },
+  "test_credentials": "margaret.n.calderon@gmail.com / Evoque2024!",
+  "seed_data_creation": "Created and cleaned up test ingredients/recipes with 'AutoRecalc_' prefix during tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auto-recalc feature fully tested. Key implementation details: (1) update_ingredient detects cost_changed (cost_per_unit, cost_per_base_unit, purchase_cost) and waste_changed (yield_waste_percent), (2) _recalc_recipes_using_ingredient() finds recipes using ingredient via ingredients.item_id or ingredients.ingredient_id, (3) One level of sub-recipe cascade via sub_recipes.child_recipe_id, (4) OrderItems are NOT modified - they store internal_cost as static snapshot at creation time.",
+  "verified_features": {
+    "cost_change_triggers_recalc": "PUT with cost_per_unit change triggers auto-recalc, recipe.total_cost updated",
+    "waste_change_triggers_recalc": "PUT with yield_waste_percent change triggers auto-recalc",
+    "non_cost_change_no_recalc": "PUT with name/brand/sku changes does NOT trigger recalc",
+    "order_item_snapshot_protection": "OrderItems maintain original unit_price/internal_cost after ingredient change",
+    "sub_recipe_cascade": "Child recipes using ingredient get recalculated",
+    "multiple_recipes_recalc": "All recipes using ingredient get recalculated with last_cost_recalc_at",
+    "no_recipes_no_error": "PUT works normally when no recipes use ingredient",
+    "recalc_fields_populated": "last_cost_recalc_at and last_cost_recalc_trigger='ingredient:{id}' set on recipes"
+  },
+  "backend_test_results": {
+    "passed": [
+      "test_01_cost_change_triggers_auto_recalc",
+      "test_02_waste_change_triggers_auto_recalc",
+      "test_03_non_cost_change_does_not_trigger_recalc",
+      "test_04_no_recipes_using_ingredient_works_normally",
+      "test_05_order_items_maintain_snapshot_after_ingredient_change",
+      "test_06_sub_recipe_cascade_recalc",
+      "test_07_multiple_recipes_all_recalculated",
+      "test_08_recipes_crud_intact",
+      "test_09_production_batches_intact",
+      "test_10_purchase_orders_intact",
+      "test_11_proposals_crud_intact",
+      "test_12_cost_preview_with_waste_intact"
+    ],
+    "failed": [],
+    "skipped": []
+  }
+}

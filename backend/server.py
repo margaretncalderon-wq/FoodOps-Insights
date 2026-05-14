@@ -1887,14 +1887,104 @@ async def update_ingredient(ingredient_id: str, data: IngredientCreate, user: Us
     
     update_data = {**data.model_dump(), "updated_at": now.isoformat()}
     
+    # Detect changes that affect recipe cost — price OR waste — to trigger downstream recalc
+    cost_changed = (
+        current.get("cost_per_unit", 0) != data.cost_per_unit
+        or current.get("cost_per_base_unit", 0) != getattr(data, "cost_per_base_unit", current.get("cost_per_base_unit", 0))
+        or current.get("purchase_cost", 0) != getattr(data, "purchase_cost", current.get("purchase_cost", 0))
+    )
+    waste_changed = (
+        float(current.get("yield_waste_percent") or 0)
+        != float(getattr(data, "yield_waste_percent", current.get("yield_waste_percent")) or 0)
+    )
+    
     # Log price change
-    if current.get("cost_per_unit", 0) != data.cost_per_unit:
+    if cost_changed:
         price_history = current.get("price_history", [])
         price_history.append({"price": data.cost_per_unit, "date": now.isoformat(), "previous": current.get("cost_per_unit")})
         update_data["price_history"] = price_history
     
     await db.ingredients.update_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"$set": update_data})
+    
+    # Auto-recalc downstream recipes that use this ingredient.
+    # SAFETY: this only touches the recipes collection (snapshot per recipe of total_cost/cost_per_portion).
+    # Proposals/OrderItems already in DB are NOT touched — they store internal_cost as a static snapshot
+    # at the moment the line was added to the quote. Confirmed/accepted prices remain intact.
+    if cost_changed or waste_changed:
+        try:
+            await _recalc_recipes_using_ingredient(ingredient_id, user.company_id)
+        except Exception as e:
+            logger.warning(f"Auto-recalc on ingredient {ingredient_id} change failed: {e}")
+    
     return await get_ingredient(ingredient_id, user)
+
+
+async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) -> dict:
+    """Recalculate cost for every recipe that references this ingredient (direct or via sub-recipes).
+    Returns {recalculated, affected_recipe_ids}. Does NOT touch proposals/order_items."""
+    # Find direct uses
+    recipes_to_recalc_ids: set = set()
+    direct = await db.recipes.find(
+        {
+            "company_id": company_id,
+            "$or": [
+                {"ingredients.item_id": ingredient_id},
+                {"ingredients.ingredient_id": ingredient_id},
+            ],
+        },
+        {"_id": 0, "recipe_id": 1},
+    ).to_list(2000)
+    for r in direct:
+        recipes_to_recalc_ids.add(r["recipe_id"])
+    # Transitively expand via sub-recipes (one extra hop is enough for most kitchens)
+    if recipes_to_recalc_ids:
+        parents = await db.recipes.find(
+            {
+                "company_id": company_id,
+                "sub_recipes.child_recipe_id": {"$in": list(recipes_to_recalc_ids)},
+            },
+            {"_id": 0, "recipe_id": 1},
+        ).to_list(2000)
+        for r in parents:
+            recipes_to_recalc_ids.add(r["recipe_id"])
+
+    if not recipes_to_recalc_ids:
+        return {"recalculated": 0, "affected_recipe_ids": []}
+
+    affected = []
+    for rid in recipes_to_recalc_ids:
+        recipe = await db.recipes.find_one({"recipe_id": rid, "company_id": company_id}, {"_id": 0})
+        if not recipe:
+            continue
+        try:
+            ingredients = [RecipeIngredient(**i) for i in recipe.get("ingredients", [])]
+        except Exception:
+            continue
+        sub_recipes = recipe.get("sub_recipes", [])
+        new_total, updated_ings, updated_subs = await calculate_recipe_cost(
+            ingredients, sub_recipes, company_id,
+        )
+        yield_qty = float(recipe.get("yield_quantity") or 1) or 1
+        portion_size = float(recipe.get("portion_size") or 1) or 1
+        sell_price = float(recipe.get("sell_price") or 0)
+        new_per_yield = new_total / yield_qty if yield_qty > 0 else 0
+        new_per_portion = new_per_yield / portion_size if portion_size > 0 else new_per_yield
+        new_food_cost_pct = (new_per_portion / sell_price * 100) if sell_price > 0 else 0
+        await db.recipes.update_one(
+            {"recipe_id": rid, "company_id": company_id},
+            {"$set": {
+                "ingredients": updated_ings,
+                "sub_recipes": updated_subs,
+                "total_cost": new_total,
+                "cost_per_yield": new_per_yield,
+                "cost_per_portion": new_per_portion,
+                "food_cost_percent": new_food_cost_pct,
+                "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
+                "last_cost_recalc_trigger": f"ingredient:{ingredient_id}",
+            }},
+        )
+        affected.append(rid)
+    return {"recalculated": len(affected), "affected_recipe_ids": affected}
 
 @inventory_router.delete("/ingredients/{ingredient_id}")
 async def delete_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):
