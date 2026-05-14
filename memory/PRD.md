@@ -124,11 +124,11 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Cost Health Dashboard + PicklistItem Staleness Extension shipped (May 14, 2026):
-- Backend `/api/proposals/cost-health/overview` and `/refresh-all` (routes verified not shadowed by `/{proposal_id}/...`).
-- `/cost-staleness` and `/refresh-costs` now diff non-Food OrderItems against `picklist_items.internal_cost` (Services / Rentals / Fees).
-- New reusable `CostHealthDashboard.js` with `card` mode (System Pulse, auto-hides when nothing stale) and `section` mode (Food Ops → Recipes, summary strip + checkbox table + preview-confirm refresh dialog).
-- Selective refresh via per-proposal `/refresh-costs`, bulk via `/refresh-all`. `unit_price` never modified — only internal cost & margin.
-- Card "Review" button respects module access (routes to Food Ops if enabled, else CRM Proposals).
+Cost Health Dashboard + Top-3 inline refresh (May 14, 2026):
+- Backend `/api/proposals/cost-health/overview` y `/refresh-all` operativos. `/cost-staleness` y `/refresh-costs` ahora diffean items no-Food contra `picklist_items.internal_cost`.
+- `CostHealthDashboard.js` con dos modos:
+  - **card** (System Pulse, auto-oculta cuando 0 stale): muestra resumen + **mini-lista de top 3 quotes** ordenadas por |delta_total|↓ con botón inline "Refrescar" por fila, label "+N más" si hay >3, y "Revisar todo" al final. Disabled state durante refresh evita llamadas concurrentes.
+  - **section** (Food Ops → Recetas): summary strip + tabla con checkboxes + diálogo preview-confirm para refrescar todo o selección.
+- `unit_price` jamás se modifica — solo internal_cost y margen. Quotes firmadas/aceptadas protegidas.
 
-Next: Logo image upload via Object Storage for Guest Flow, Unified Contact Model (merge Lead + Client lifecycle), Recipe scaling, Filterable recipe tags.
+Next: Logo image upload via Object Storage for Guest Flow, Unified Contact Model (merge Lead + Client), Recipe scaling, Filterable recipe tags.
