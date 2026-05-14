@@ -124,20 +124,24 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Margin Policy Fase 2 — Breakdown por tipo (May 14, 2026):
-- Backend `/cost-health/overview`: cada proposal incluye nuevo array `type_breakdown` con entradas {item_type, current_margin_pct, projected_margin_pct, min_margin_pct, below_threshold, stale_count, revenue_share_pct}. Ordenado por `abs(projected - current)` descendente.
-- Frontend `CostHealthDashboard`:
-  - Card mode: chips por tipo debajo del margen (`<ChefHat/> 40%→20%` etc.) cuando hay >1 tipo. Tipos bajo umbral en borde rojo.
-  - Section mode: mismas chips en columna Margen (max-width 260px, flex-wrap).
-  - Icons (lucide): ChefHat/Wrench/Package/Receipt/Box.
-- Bug fix HTML: `<p>` → `<div>` para permitir `<Badge>` (div) anidado correctamente.
-- Testing iteration_166: Backend 6/6 nuevos + 12/12 regresión, Frontend chips card 100% (section live testing limitado por módulo).
+Recipe Scaling MVP (May 14, 2026):
+- Backend nuevos endpoints:
+  - `POST /api/recipes/{id}/scale` — vista previa read-only. Devuelve factor, ingredientes escalados (con `quantity_scaled_raw` y `quantity_scaled` redondeado), sub-recipes, total_cost_scaled, cost_per_portion_scaled.
+  - `POST /api/recipes/save-scaled-menu` — persiste un Menu en `base_menus` con `menu_type='scaled'` y snapshot de ingredientes. **La receta base NUNCA se modifica.**
+- Detección discrete-unit: `DISCRETE_UNIT_HINTS` (unit/unidad/pieza/ea/each/etc.) auto-detectan items contables. Override por ingrediente vía `Ingredient.is_discrete_unit`. Discretos hacen `math.ceil` al escalar (compra 2 huevos no 1.5).
+- Frontend `RecipeScalePanel.js`:
+  - Nuevo tab "Escalar" en RecipeBuilder (sólo activo si la receta ya está guardada).
+  - Input "Porciones objetivo" + dropdown de eventos (auto-carga guest_count del evento seleccionado).
+  - Summary cards: factor, costo total, $/porción, original.
+  - Tabla de ingredientes con indicador "↑" cuando un item discreto se redondeó arriba.
+  - Botón "Guardar como Menú" → dialog de confirmación → crea Menu nuevo sin tocar receta base.
+- Sub-recetas escalan recursivamente (1 nivel).
+- Testing iteration_167: Backend 15/15 PASS, base recipe verificada NO modificada después de save. Frontend code review 100% (UI live limitada por acceso al módulo Culinary del usuario demo).
 
-Bug fix auto-recovery de 401 (May 14, 2026):
-- `get_cookie_domain()` deriva del request en vez de env var FRONTEND_URL — funciona automáticamente en cualquier entorno.
-- Interceptor frontend hace `POST /auth/refresh` silencioso antes de redirigir; reintenta la request original con nuevo token. Solo redirige si refresh también falla. `refreshInFlight` evita refreshes concurrentes.
-- Testing iteration_165: Backend 13/13 PASS, sin regresión en login/CRUD.
+Margin Policy Fase 2 — Breakdown por tipo (May 14, 2026): chips por tipo en card y section del CostHealthDashboard.
+
+Bug fix auto-recovery de 401 (May 14, 2026): cookie domain dinámico + interceptor refresh-then-retry.
 
 Cost Health Dashboard + Margin Policy Fase 1 — completo (ver historial).
 
-Next: Fase 3 (gating Admin/Owner refresh masivo) · Logo Guest Flow · Unified Contact Model · Recipe scaling · Filterable recipe tags.
+Next: Fase 3 Margin (gating Admin) · Production Plan view (compras agregadas por evento) · Logo Guest Flow · Unified Contact Model · Filterable recipe tags.
