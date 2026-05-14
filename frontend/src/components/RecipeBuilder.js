@@ -347,7 +347,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     portions_per_yield: 1, prep_time_minutes: 0, cook_time_minutes: 0, labor_minutes: 0,
     ingredients: [], sub_recipes: [], instructions: [], notes: "", sell_price: 0,
     allergens: [], work_category: "", recipe_code: "", verified_status: "Draft",
-    is_on_menu: false,
+    is_on_menu: false, min_margin_pct: "",
   });
 
   const [instructionText, setInstructionText] = useState("");
@@ -416,6 +416,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         recipe_code: initialRecipe.recipe_code || "",
         verified_status: initialRecipe.verified_status || "Draft",
         is_on_menu: initialRecipe.is_on_menu || false,
+        min_margin_pct: initialRecipe.min_margin_pct != null ? initialRecipe.min_margin_pct : "",
       });
       // Load image
       if (initialRecipe.image_url) {
@@ -964,6 +965,9 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       const payload = {
         ...form,
         instructions: instructionText.trim() || null,
+        min_margin_pct: form.min_margin_pct === "" || form.min_margin_pct == null
+          ? null
+          : Number(form.min_margin_pct),
       };
       
       if (initialRecipe) {
@@ -1168,6 +1172,37 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
             <div>
               <Label>{t("sellPrice")}</Label>
               <Input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))} />
+            </div>
+          </div>
+
+          {/* Margin policy override */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="flex items-center gap-1.5">
+                {language === "es" ? "Margen mínimo (override)" : "Min margin (override)"}
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  {language === "es" ? "opcional" : "optional"}
+                </span>
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={form.min_margin_pct}
+                  onChange={(e) => setForm(prev => ({ ...prev, min_margin_pct: e.target.value }))}
+                  placeholder={language === "es" ? "Usa la política de la compañía" : "Use company policy"}
+                  className="pr-8"
+                  data-testid="recipe-min-margin-pct"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {language === "es"
+                  ? "Si lo dejas vacío, hereda del tipo/categoría en Settings → Política de Margen."
+                  : "Leave empty to inherit from type/category in Settings → Margin Policy."}
+              </p>
             </div>
           </div>
 

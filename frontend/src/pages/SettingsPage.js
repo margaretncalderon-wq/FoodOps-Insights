@@ -48,6 +48,7 @@ import PartnerCapabilitiesSection from "../components/settings/PartnerCapabiliti
 import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
 import CrmConfigSection from "../components/settings/CrmConfigSection";
 import LocaleSettingsSection from "../components/settings/LocaleSettingsSection";
+import MarginPolicySection from "../components/settings/MarginPolicySection";
 import { BillingSection, TeamSection } from "../components/org";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
@@ -179,7 +180,8 @@ export default function SettingsPage() {
     recipe_id: "", 
     inventory_item_id: "",
     unit: "unit",
-    is_active: true
+    is_active: true,
+    min_margin_pct: ""
   });
   const [editingPicklist, setEditingPicklist] = useState(null);
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
@@ -753,11 +755,17 @@ export default function SettingsPage() {
   const handleAddPicklist = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...newPicklist,
+        min_margin_pct: newPicklist.min_margin_pct === "" || newPicklist.min_margin_pct == null
+          ? null
+          : Number(newPicklist.min_margin_pct),
+      };
       if (editingPicklist) {
-        await axios.put(`${API}/settings/picklist/${editingPicklist.item_id}`, newPicklist, { withCredentials: true });
+        await axios.put(`${API}/settings/picklist/${editingPicklist.item_id}`, payload, { withCredentials: true });
         toast.success(language === "es" ? "Ítem actualizado" : "Item updated");
       } else {
-        await axios.post(`${API}/settings/picklist`, newPicklist, { withCredentials: true });
+        await axios.post(`${API}/settings/picklist`, payload, { withCredentials: true });
         toast.success(language === "es" ? "Ítem creado" : "Item created");
       }
       fetchPicklist();
@@ -780,7 +788,8 @@ export default function SettingsPage() {
       recipe_id: item.recipe_id || "",
       inventory_item_id: item.inventory_item_id || "",
       unit: item.unit || "unit",
-      is_active: item.is_active !== false
+      is_active: item.is_active !== false,
+      min_margin_pct: item.min_margin_pct != null ? item.min_margin_pct : ""
     });
     setPicklistDialogOpen(true);
   };
@@ -797,7 +806,8 @@ export default function SettingsPage() {
       recipe_id: "", 
       inventory_item_id: "",
       unit: "unit",
-      is_active: true
+      is_active: true,
+      min_margin_pct: ""
     });
   };
 
@@ -1193,7 +1203,7 @@ export default function SettingsPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    ["categories", "picklist", "inventory-categories"].includes(activeSettingsTab)
+                    ["categories", "picklist", "inventory-categories", "margin-policy"].includes(activeSettingsTab)
                       ? "border-emerald-600 text-emerald-600"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                   }`}>
@@ -1218,6 +1228,10 @@ export default function SettingsPage() {
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("inventory-categories")} className={activeSettingsTab === "inventory-categories" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <Package className="w-4 h-4 mr-2" />
                     {language === "es" ? "Categorías Inventario" : "Inventory Categories"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("margin-policy")} className={activeSettingsTab === "margin-policy" ? "bg-emerald-50 text-emerald-700" : ""} data-testid="settings-tab-margin-policy">
+                    <Percent className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Política de Margen" : "Margin Policy"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -3000,6 +3014,24 @@ export default function SettingsPage() {
                       />
                     </div>
 
+                    <div>
+                      <Label>{language === "es" ? "Margen mínimo (override)" : "Min margin (override)"}</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          value={newPicklist.min_margin_pct}
+                          onChange={(e) => setNewPicklist({ ...newPicklist, min_margin_pct: e.target.value })}
+                          placeholder={language === "es" ? "Hereda de la política" : "Inherit from policy"}
+                          className="pr-7"
+                          data-testid="picklist-min-margin-pct"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+
                     {/* Recipe Link (for Food) */}
                     <div className="col-span-2">
                       <Label>{language === "es" ? "Vincular Receta (para cálculo de costo automático)" : "Link Recipe (for auto cost calculation)"}</Label>
@@ -4216,6 +4248,11 @@ Mantel Blanco, , 10, 3`}
           {/* Inventory Categories Tab */}
           <TabsContent value="inventory-categories">
             <InventoryCategoriesSection language={language} />
+          </TabsContent>
+
+          {/* Margin Policy Tab */}
+          <TabsContent value="margin-policy">
+            <MarginPolicySection />
           </TabsContent>
 
           {/* Data Admin Tab */}

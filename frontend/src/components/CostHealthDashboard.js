@@ -199,7 +199,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                     </p>
                     {p.current_margin_pct != null && p.projected_margin_pct != null && (
                       <p
-                        className="text-[11px] mt-0.5 flex items-center gap-1"
+                        className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap"
                         data-testid={`cost-health-card-margin-${p.proposal_id}`}
                       >
                         <span className="text-muted-foreground">{isEs ? "Margen" : "Margin"}:</span>
@@ -207,12 +207,17 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                           {p.current_margin_pct.toFixed(1)}%
                         </span>
                         <span className="text-muted-foreground">→</span>
-                        <span className={`font-semibold ${marginColor(p.projected_margin_pct)}`}>
+                        <span className={`font-semibold ${p.below_threshold ? "text-red-600" : marginColor(p.projected_margin_pct)}`}>
                           {p.projected_margin_pct.toFixed(1)}%
                         </span>
-                        {p.projected_margin_pct < 20 && (
-                          <Badge variant="outline" className="text-[9px] py-0 px-1 ml-1 border-red-300 text-red-700">
-                            {isEs ? "Crítico" : "Critical"}
+                        {p.effective_min_margin != null && (
+                          <span className="text-[10px] text-muted-foreground">
+                            ({isEs ? "mín" : "min"} {p.effective_min_margin.toFixed(0)}%)
+                          </span>
+                        )}
+                        {p.below_threshold && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 ml-1 border-red-300 text-red-700 bg-red-50" data-testid={`cost-health-card-below-${p.proposal_id}`}>
+                            {isEs ? "Bajo margen" : "Below threshold"}
                           </Badge>
                         )}
                       </p>
@@ -434,15 +439,22 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs font-mono whitespace-nowrap" data-testid={`cost-health-row-margin-${p.proposal_id}`}>
                           {p.current_margin_pct != null && p.projected_margin_pct != null ? (
-                            <span className="inline-flex items-center gap-1">
-                              <span className={marginColor(p.current_margin_pct)}>
-                                {p.current_margin_pct.toFixed(1)}%
+                            <div className="inline-flex flex-col items-end gap-0.5">
+                              <span className="inline-flex items-center gap-1">
+                                <span className={marginColor(p.current_margin_pct)}>
+                                  {p.current_margin_pct.toFixed(1)}%
+                                </span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className={`font-semibold ${p.below_threshold ? "text-red-600" : marginColor(p.projected_margin_pct)}`}>
+                                  {p.projected_margin_pct.toFixed(1)}%
+                                </span>
                               </span>
-                              <span className="text-muted-foreground">→</span>
-                              <span className={`font-semibold ${marginColor(p.projected_margin_pct)}`}>
-                                {p.projected_margin_pct.toFixed(1)}%
-                              </span>
-                            </span>
+                              {p.below_threshold && (
+                                <Badge variant="outline" className="text-[9px] py-0 px-1 border-red-300 text-red-700 bg-red-50" data-testid={`cost-health-row-below-${p.proposal_id}`}>
+                                  {isEs ? `Bajo ${p.effective_min_margin?.toFixed(0) ?? ""}%` : `Below ${p.effective_min_margin?.toFixed(0) ?? ""}%`}
+                                </Badge>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}

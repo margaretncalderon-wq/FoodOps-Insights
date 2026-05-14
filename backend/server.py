@@ -700,6 +700,7 @@ class RecipeCreate(BaseModel):
     recipe_type: str = "Final"  # Base, Component, Final - for recipe composition
     is_public: bool = False  # Can be used in menus
     is_on_menu: bool = False  # Mark this as part of the company's base / signature menu
+    min_margin_pct: Optional[float] = None  # Per-recipe override for margin policy
     # Sub-recipes (composition)
     sub_recipes: List[Dict[str, Any]] = []  # [{recipe_id, quantity, unit}]
     # Allow other extra fields the FE may emit (work_category, recipe_code…) so saving never crashes
@@ -731,6 +732,7 @@ class Recipe(BaseModel):
     is_public: bool = False
     is_on_menu: bool = False
     sub_recipes: List[Dict[str, Any]] = []
+    min_margin_pct: Optional[float] = None  # Per-recipe override for margin policy
     # Calculated fields
     total_cost: float = 0.0
     cost_per_portion: float = 0.0
@@ -1450,6 +1452,7 @@ class PicklistItemCreate(BaseModel):
     inventory_item_id: Optional[str] = None  # Link to inventory for disposables
     unit: str = "unit"
     is_active: bool = True
+    min_margin_pct: Optional[float] = None  # Per-item override for margin policy
 
 class PicklistItemUpdate(BaseModel):
     name: Optional[str] = None
@@ -1462,6 +1465,7 @@ class PicklistItemUpdate(BaseModel):
     inventory_item_id: Optional[str] = None
     unit: Optional[str] = None
     is_active: Optional[bool] = None
+    min_margin_pct: Optional[float] = None
 
 class PicklistItem(BaseModel):
     item_id: str
@@ -1478,6 +1482,7 @@ class PicklistItem(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+    min_margin_pct: Optional[float] = None
 
 # Bulk Add Picklist Items
 class PicklistBulkCreate(BaseModel):
@@ -5498,6 +5503,128 @@ async def save_ops_categories(data: OpsCategoriesUpdate, user: User = Depends(ge
     
     return {"message": "Categories saved", "count": len(data.categories)}
 
+
+# ============== MARGIN POLICY ==============
+# Hierarchical resolution: item-specific override > category > type > default seed
+# Stored in company_settings as a single doc per company.
+
+DEFAULT_MARGIN_BY_TYPE = {
+    "Food": 35.0,
+    "Service": 40.0,
+    "Rental": 50.0,
+    "Fee": 60.0,
+    "Other": 30.0,
+}
+
+
+class MarginCategoryRule(BaseModel):
+    item_type: str  # Food / Service / Rental / Fee / Other
+    category: str   # category_id OR category label
+    min_margin_pct: float
+
+
+class MarginPolicyUpdate(BaseModel):
+    by_type: Dict[str, float] = {}  # {"Food": 35, "Service": 40, ...}
+    by_category: List[MarginCategoryRule] = []
+
+
+async def get_margin_policy_doc(company_id: str) -> dict:
+    """Load margin policy for a company, falling back to defaults when missing."""
+    doc = await db.company_settings.find_one(
+        {"company_id": company_id, "setting_type": "margin_policy"},
+        {"_id": 0},
+    )
+    by_type = dict(DEFAULT_MARGIN_BY_TYPE)
+    by_category: list = []
+    if doc:
+        # Merge so missing types still get the default
+        stored = doc.get("by_type") or {}
+        for k, v in stored.items():
+            try:
+                by_type[k] = float(v)
+            except (TypeError, ValueError):
+                pass
+        by_category = doc.get("by_category") or []
+    return {"by_type": by_type, "by_category": by_category}
+
+
+def resolve_min_margin(
+    policy: dict,
+    item_type: Optional[str],
+    category: Optional[str] = None,
+    item_specific: Optional[float] = None,
+) -> Optional[float]:
+    """Resolve effective minimum margin for an item.
+    Priority: item_specific > by_category match > by_type > None.
+    """
+    if item_specific is not None:
+        try:
+            return float(item_specific)
+        except (TypeError, ValueError):
+            pass
+    # Category rule
+    if category:
+        for rule in policy.get("by_category", []):
+            if (rule.get("item_type") == item_type or not rule.get("item_type")) and rule.get("category") == category:
+                try:
+                    return float(rule.get("min_margin_pct"))
+                except (TypeError, ValueError):
+                    continue
+    # By type
+    if item_type and item_type in policy.get("by_type", {}):
+        return float(policy["by_type"][item_type])
+    return None
+
+
+@settings_router.get("/margin-policy")
+async def get_margin_policy(user: User = Depends(get_current_user)):
+    """Return the company margin policy. Falls back to seed defaults if not yet configured."""
+    policy = await get_margin_policy_doc(user.company_id)
+    return {
+        "by_type": policy["by_type"],
+        "by_category": policy["by_category"],
+        "defaults": DEFAULT_MARGIN_BY_TYPE,
+    }
+
+
+@settings_router.put("/margin-policy")
+async def update_margin_policy(data: MarginPolicyUpdate, user: User = Depends(get_current_user)):
+    """Upsert the company margin policy."""
+    now = datetime.now(timezone.utc).isoformat()
+    # Normalize by_type — keep only known types and float coerce
+    clean_by_type: Dict[str, float] = {}
+    for k, v in (data.by_type or {}).items():
+        try:
+            clean_by_type[k] = float(v)
+        except (TypeError, ValueError):
+            continue
+    clean_rules = [
+        {
+            "item_type": r.item_type,
+            "category": r.category,
+            "min_margin_pct": float(r.min_margin_pct),
+        }
+        for r in (data.by_category or [])
+    ]
+    await db.company_settings.update_one(
+        {"company_id": user.company_id, "setting_type": "margin_policy"},
+        {
+            "$set": {
+                "by_type": clean_by_type,
+                "by_category": clean_rules,
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "company_id": user.company_id,
+                "setting_type": "margin_policy",
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
+    return await get_margin_policy(user)
+
+
 # ============== PICKLIST ITEMS ROUTES ==============
 
 @settings_router.get("/picklist")
@@ -7107,6 +7234,9 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
         {"_id": 0, "proposal_id": 1, "event_id": 1, "proposal_number": 1, "created_at": 1, "total_amount": 1},
     ).sort("updated_at", -1).to_list(500)
 
+    # Load margin policy once for the whole scan
+    policy = await get_margin_policy_doc(user.company_id)
+
     rows = []
     for prop in draft_props:
         items = await db.order_items.find(
@@ -7119,25 +7249,41 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
         total_price = 0.0
         total_cost_current = 0.0  # current snapshot
         total_cost_projected = 0.0  # after refresh
+        weighted_min_num = 0.0  # sum(line_revenue * resolved_min_margin) for weighted avg
+        weighted_min_den = 0.0  # sum(line_revenue) where min was resolvable
+        any_below_projected = False  # at least one stale item projects below its own min
         for it in items:
             qty = float(it.get("quantity") or 0)
             unit_price = float(it.get("unit_price") or 0)
             snap = float(it.get("internal_cost") or 0)
-            total_price += qty * unit_price
+            line_revenue = qty * unit_price
+            total_price += line_revenue
             total_cost_current += qty * snap
 
             rid = it.get("reference_id")
             current_for_proj = snap  # default: no change
+            item_category: Optional[str] = None
+            item_specific_min: Optional[float] = None
             if rid:
                 current = None
                 if it.get("item_type") == "Food":
-                    rec = await db.recipes.find_one({"recipe_id": rid, "company_id": user.company_id}, {"_id": 0, "cost_per_portion": 1, "total_cost": 1})
+                    rec = await db.recipes.find_one(
+                        {"recipe_id": rid, "company_id": user.company_id},
+                        {"_id": 0, "cost_per_portion": 1, "total_cost": 1, "category": 1, "min_margin_pct": 1},
+                    )
                     if rec:
                         current = float(rec.get("cost_per_portion") or rec.get("total_cost") or 0)
+                        item_category = rec.get("category")
+                        item_specific_min = rec.get("min_margin_pct")
                 else:
-                    pli = await db.picklist_items.find_one({"item_id": rid, "company_id": user.company_id}, {"_id": 0, "internal_cost": 1})
+                    pli = await db.picklist_items.find_one(
+                        {"item_id": rid, "company_id": user.company_id},
+                        {"_id": 0, "internal_cost": 1, "category_id": 1, "min_margin_pct": 1},
+                    )
                     if pli and pli.get("internal_cost") is not None:
                         current = float(pli.get("internal_cost") or 0)
+                        item_category = pli.get("category_id")
+                        item_specific_min = pli.get("min_margin_pct")
                 if current is not None and abs(current - snap) >= 0.005:
                     stale_count += 1
                     delta_total += (current - snap) * qty
@@ -7147,12 +7293,34 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
                     current_for_proj = current
             total_cost_projected += qty * current_for_proj
 
+            # Resolve per-item min_margin and accumulate weighted average
+            resolved_min = resolve_min_margin(
+                policy,
+                item_type=it.get("item_type"),
+                category=item_category,
+                item_specific=item_specific_min,
+            )
+            if resolved_min is not None and line_revenue > 0:
+                weighted_min_num += line_revenue * resolved_min
+                weighted_min_den += line_revenue
+                # Per-item projected margin check
+                line_proj_cost = qty * current_for_proj
+                line_proj_margin_pct = ((line_revenue - line_proj_cost) / line_revenue * 100) if line_revenue > 0 else None
+                if line_proj_margin_pct is not None and line_proj_margin_pct < resolved_min:
+                    any_below_projected = True
+
         if stale_count == 0:
             continue
 
         # Margin calculations (None when total_price <= 0 to avoid divide-by-zero)
         current_margin_pct = ((total_price - total_cost_current) / total_price * 100) if total_price > 0 else None
         projected_margin_pct = ((total_price - total_cost_projected) / total_price * 100) if total_price > 0 else None
+        effective_min_margin = (weighted_min_num / weighted_min_den) if weighted_min_den > 0 else None
+        below_threshold = bool(any_below_projected) or (
+            effective_min_margin is not None
+            and projected_margin_pct is not None
+            and projected_margin_pct < effective_min_margin
+        )
 
         # Resolve client + event for display
         event = await db.events.find_one({"event_id": prop["event_id"], "company_id": user.company_id}, {"_id": 0, "name": 1, "event_date": 1, "client_id": 1})
@@ -7170,6 +7338,8 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
             "total_amount": float(prop.get("total_amount") or 0),
             "current_margin_pct": round(current_margin_pct, 2) if current_margin_pct is not None else None,
             "projected_margin_pct": round(projected_margin_pct, 2) if projected_margin_pct is not None else None,
+            "effective_min_margin": round(effective_min_margin, 2) if effective_min_margin is not None else None,
+            "below_threshold": below_threshold,
         })
     # Sort: biggest |delta_total| first
     rows.sort(key=lambda r: abs(r["delta_total"]), reverse=True)

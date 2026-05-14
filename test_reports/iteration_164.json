@@ -1,0 +1,61 @@
+{
+  "summary": "Margin Policy Phase 1 testing complete. All backend tests pass (12/12). Frontend UI verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/settings/picklist/{item_id}",
+        "issue": "Cannot clear min_margin_pct to null via PUT - the endpoint filters out None values. To remove override, user would need to delete and recreate the item.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_margin_policy_phase1.py",
+    "/app/test_reports/pytest/pytest_margin_policy_phase1.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Fix PUT /api/settings/picklist/{item_id} to allow clearing min_margin_pct to null (currently filters out None values)"
+  ],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_margin_policy_phase1.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Test created and cleaned up: picklist items, events, clients, proposals for stale scenario testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Margin Policy Phase 1 is complete. Phase 2 (per-type breakdown in dashboard rows) and Phase 3 (refresh override gated by admin role) will follow. The CostHealthDashboard hides itself when there are no stale proposals, so below_threshold badges won't be visible unless there are actual stale proposals with projected margin below the policy threshold.",
+  "features_verified": {
+    "backend": {
+      "GET /api/settings/margin-policy": "Returns {by_type, by_category, defaults} with seed defaults: Food=35, Service=40, Rental=50, Fee=60, Other=30",
+      "PUT /api/settings/margin-policy": "Persists by_type and by_category rules correctly",
+      "Partial by_type merge": "Missing types are filled with defaults on next GET",
+      "PicklistItem min_margin_pct": "POST and PUT persist the override value correctly",
+      "Recipe min_margin_pct": "POST and PUT persist the override value correctly",
+      "cost-health/overview new fields": "Returns effective_min_margin (float) and below_threshold (bool) for stale proposals",
+      "Resolution math": "Verified stale scenario with Service item: projected_margin < policy threshold triggers below_threshold=true",
+      "Resolution priority": "Item override (min_margin_pct on picklist) wins over type default"
+    },
+    "frontend": {
+      "Settings > Catalogs > Margin Policy tab": "data-testid='settings-tab-margin-policy' - WORKING",
+      "MarginPolicySection": "data-testid='margin-policy-section' - WORKING",
+      "Type inputs": "data-testid='margin-policy-type-{food/service/rental/fee/other}' - ALL PRESENT",
+      "Add rule button": "data-testid='margin-policy-add-rule-btn' - WORKING",
+      "Category rule inputs": "Type select, category input, percent input, remove button - ALL WORKING",
+      "Save button": "data-testid='margin-policy-save-btn' - WORKING, shows 'Policy saved' toast",
+      "PicklistItem dialog": "data-testid='picklist-min-margin-pct' - PRESENT with 'Inherit from policy' placeholder",
+      "RecipeBuilder dialog": "data-testid='recipe-min-margin-pct' - PRESENT (code verified)",
+      "CostHealthDashboard badges": "data-testid='cost-health-card-below-{id}' and 'cost-health-row-below-{id}' - IMPLEMENTED (not visible when no stale proposals)"
+    }
+  }
+}
