@@ -95,6 +95,7 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
     purchase_cost: initial?.purchase_cost || initial?.cost_per_unit || 0,
     base_unit: initial?.base_unit || suggestBaseUnit(initial?.category || "produce"),
     density_g_per_ml: initial?.density_g_per_ml || null,
+    yield_waste_percent: initial?.yield_waste_percent || 0,
     par_level: initial?.par_level || 0,
     stock_quantity: initial?.stock_quantity || 0,
   }));
@@ -189,6 +190,7 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
         purchase_unit: form.purchase_unit,
         purchase_quantity_per_unit: parseFloat(form.purchase_quantity_per_unit) || 1,
         purchase_cost: parseFloat(form.purchase_cost) || 0,
+        yield_waste_percent: parseFloat(form.yield_waste_percent) || 0,
       };
       if (initial?.ingredient_id) {
         await axios.put(`${API}/api/inventory/ingredients/${initial.ingredient_id}`, payload, { withCredentials: true });
@@ -407,6 +409,28 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
           />
         </div>
       </div>
+
+      {/* Merma / yield waste — default % applied across all recipes using this ingredient */}
+      <div className="p-3 rounded-lg border bg-amber-50/40">
+        <Label className="flex items-center gap-2">
+          <span>{t("Merma / Desperdicio (%)", "Yield waste (%)")}</span>
+          <span className="text-[10px] text-muted-foreground font-normal">{t("opcional", "optional")}</span>
+        </Label>
+        <div className="flex items-center gap-3 mt-1">
+          <Input
+            type="number" min="0" max="100" step="0.5" value={form.yield_waste_percent}
+            onChange={(e) => updateField("yield_waste_percent", parseFloat(e.target.value) || 0)}
+            className="w-32"
+            data-testid="wizard-merma-input"
+          />
+          <p className="text-[11px] text-muted-foreground flex-1">
+            {t(
+              "% que se pierde al limpiar/pelar/recortar. Ej: tomate 8%, lechuga 25%, papa 15%. Aplica por defecto a todas las recetas que usen este ingrediente.",
+              "% lost during cleaning/peeling/trimming. E.g., tomato 8%, lettuce 25%, potato 15%. Default applied to every recipe using this ingredient.",
+            )}
+          </p>
+        </div>
+      </div>
     </div>
   );
 
@@ -438,6 +462,13 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
             <>
               <div className="text-muted-foreground">{t("Densidad", "Density")}</div>
               <div className="text-right font-medium">{form.density_g_per_ml} g/ml</div>
+            </>
+          ) : null}
+
+          {form.yield_waste_percent > 0 ? (
+            <>
+              <div className="text-muted-foreground">{t("Merma", "Yield waste")}</div>
+              <div className="text-right font-medium">{form.yield_waste_percent}%</div>
             </>
           ) : null}
 

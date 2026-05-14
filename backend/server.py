@@ -1818,7 +1818,14 @@ async def preview_ingredient_cost(payload: dict, user: User = Depends(get_curren
     if line_unit and base_unit and not compatible:
         message = f"La unidad '{line_unit}' no es compatible con la base '{base_unit}' de este ingrediente"
 
-    effective_qty = quantity * (1 + waste / 100) if waste > 0 else quantity
+    # Apply waste: line override wins, otherwise fall back to ingredient default (yield_waste_percent).
+    # If payload explicitly sends waste_factor_pct=0, treat it as "no waste" and skip the ingredient default.
+    raw_waste = payload.get("waste_factor_pct")
+    if raw_waste is None:
+        applied_waste = float(ingredient.get("yield_waste_percent") or 0)
+    else:
+        applied_waste = float(raw_waste or 0)
+    effective_qty = quantity * (1 + applied_waste / 100) if applied_waste > 0 else quantity
     cost = cost_for_recipe_line(effective_qty, line_unit, ingredient) if quantity else 0
 
     return {
@@ -1827,6 +1834,8 @@ async def preview_ingredient_cost(payload: dict, user: User = Depends(get_curren
         "base_unit": base_unit,
         "quantity_in_base": round(qty_in_base, 4) if qty_in_base is not None else None,
         "ingredient_unit_kind": unit_kind(base_unit),
+        "applied_waste_pct": applied_waste,
+        "default_waste_pct": float(ingredient.get("yield_waste_percent") or 0),
         "message": message,
     }
 

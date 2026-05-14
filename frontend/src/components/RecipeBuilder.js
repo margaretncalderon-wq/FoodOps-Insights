@@ -202,12 +202,17 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await axios.post(`${API}/api/inventory/ingredients/cost-preview`, {
+        const body = {
           ingredient_id: ing.item_id,
           quantity: ing.quantity,
           unit: ing.unit,
-          waste_factor_pct: ing.waste_factor_pct || 0,
-        }, { withCredentials: true });
+        };
+        // Only send waste_factor_pct if the chef explicitly set one (number, not undefined/null).
+        // This lets the backend fall back to the ingredient's default yield_waste_percent.
+        if (typeof ing.waste_factor_pct === "number") {
+          body.waste_factor_pct = ing.waste_factor_pct;
+        }
+        const res = await axios.post(`${API}/api/inventory/ingredients/cost-preview`, body, { withCredentials: true });
         setPreview(res.data);
         if (typeof res.data.cost === "number") {
           onChange("total_cost", res.data.cost);
@@ -224,6 +229,7 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
   }, [ing.item_id, ing.quantity, ing.unit, ing.waste_factor_pct]);
 
   const showWarning = !preview.compatible && ing.quantity > 0;
+  const usingDefaultWaste = typeof ing.waste_factor_pct !== "number" && (preview.default_waste_pct || 0) > 0;
 
   return (
     <TableRow data-testid={`ingredient-row-${ing.item_id}`} className={showWarning ? "bg-amber-50/50" : ""}>
@@ -260,11 +266,25 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
         </Select>
       </TableCell>
       <TableCell>
-        <Input
-          type="number" min="0" max="99" step="1" className="w-20 text-right"
-          value={ing.waste_factor_pct || 0}
-          onChange={(e) => onChange("waste_factor_pct", parseFloat(e.target.value) || 0)}
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            type="number" min="0" max="99" step="1"
+            className={`w-20 text-right ${usingDefaultWaste ? "border-dashed border-amber-300" : ""}`}
+            value={typeof ing.waste_factor_pct === "number" ? ing.waste_factor_pct : ""}
+            placeholder={usingDefaultWaste ? `${preview.default_waste_pct}` : "0"}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange("waste_factor_pct", v === "" ? null : parseFloat(v) || 0);
+            }}
+            data-testid={`ingredient-waste-${ing.item_id}`}
+            title={usingDefaultWaste
+              ? (isEs ? `Usando merma por defecto del ingrediente: ${preview.default_waste_pct}%` : `Using ingredient default waste: ${preview.default_waste_pct}%`)
+              : (isEs ? "Sobrescribe la merma del ingrediente para esta receta" : "Overrides the ingredient default for this recipe")}
+          />
+          {usingDefaultWaste && (
+            <span className="text-[9px] text-amber-600 leading-none" title={isEs ? "Default del ingrediente" : "Ingredient default"}>★</span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-right font-mono">
         <div className="flex items-center justify-end gap-1.5">
