@@ -1,0 +1,96 @@
+{
+  "summary": "Completed comprehensive testing of WhatsApp click-to-chat integration for Public Catalog (Iteration 156). All 15 backend tests passed (100%). Frontend tests verified public catalog quote form, WhatsApp button display, and Performance Dashboard. CRITICAL regression tests confirmed: WhatsApp KPI count does NOT increase when quote requests are submitted, and NO Communications are auto-created.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "component": "CRM Lead Detail (Inbound Section)",
+        "issue": "data-testid='lead-whatsapp-link' and data-testid='lead-interest-items' not found in LeadInboundSection component. The WhatsApp functionality works (wa.me links are present) but uses different component than CRMPage.js",
+        "selector": "[data-testid='lead-whatsapp-link'], [data-testid='lead-interest-items']",
+        "priority": "LOW"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_whatsapp_integration.py",
+    "/app/test_reports/pytest/pytest_whatsapp_integration.xml"
+  ],
+  "action_items": [
+    "Consider adding data-testid='lead-whatsapp-link' and data-testid='lead-interest-items' to LeadInboundSection component for consistency with CRMPage.js (LOW priority - functionality works)"
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL REGRESSION PASSED: WhatsApp KPI count does NOT increase when quote requests are submitted - verified by submitting 3 quote requests and checking KPI before/after",
+    "CRITICAL REGRESSION PASSED: No Communications are auto-created for public_catalog leads - verified by checking lead communications after quote request",
+    "Quote request correctly returns {ok, lead_id, whatsapp:{visitor_link, owner_link}} structure",
+    "visitor_link correctly uses company.whatsapp or company.phone (wa.me/18095557000)",
+    "owner_link correctly uses visitor's phone when provided, null when not provided",
+    "Lead created with interest_items[] and whatsapp field pre-filled from visitor phone",
+    "Admin notification created with type='catalog_quote_request', priority='high', metadata includes lead_id and owner_wa_link",
+    "Performance Dashboard tab working correctly with all KPIs (Calls, Emails, WhatsApp, Meetings, New Leads, Conversions, etc.)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_whatsapp_integration.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% (all flows verified)"
+  },
+  "test_credentials": "margaret.n.calderon@gmail.com / Evoque2024!",
+  "seed_data_creation": "Created multiple test leads via quote-request endpoint during testing (with unique emails for isolation): test_wa_kpi_*, test_comm_check_*, test_wa_links_*, test_no_phone_*, test_interest_*, test_wa_field_*, test_notif_*, test_wa_ui_*",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "WhatsApp click-to-chat integration fully tested and working. Backend endpoint POST /api/public/catalog/{slug}/quote-request returns whatsapp links. Public catalog page shows 'Continue on WhatsApp' button after successful quote submission. Performance Dashboard KPIs are NOT inflated by catalog quote requests. Margaret's company has phone/whatsapp set to +18095557000. 22+ leads from public_catalog source exist in the system.",
+  "backend_test_results": {
+    "passed": [
+      "test_performance_dashboard_whatsapp_kpi_not_inflated",
+      "test_communications_collection_not_inflated",
+      "test_quote_request_returns_whatsapp_links",
+      "test_quote_request_without_phone_owner_link_null",
+      "test_lead_includes_interest_items",
+      "test_lead_whatsapp_field_prefilled",
+      "test_admin_notification_created",
+      "test_performance_dashboard_still_works",
+      "test_production_batches_still_work",
+      "test_recipes_crud_still_works",
+      "test_ingredients_crud_still_works",
+      "test_leads_listing_still_works",
+      "test_leads_detail_still_works",
+      "test_cost_preview_still_works",
+      "test_purchase_orders_still_work"
+    ],
+    "failed": [],
+    "skipped": []
+  },
+  "frontend_test_results": {
+    "public_catalog_quote_form": {
+      "status": "PASSED",
+      "details": "Quote form opens, fills correctly, submits successfully, shows 'Request sent!' success message with green CheckCircle icon"
+    },
+    "whatsapp_button_display": {
+      "status": "PASSED",
+      "details": "Continue on WhatsApp button visible with green WhatsApp color (#25D366), href points to wa.me/18095557000?text=..., target='_blank'"
+    },
+    "crm_inbound_leads": {
+      "status": "PASSED",
+      "details": "Inbound leads page shows 23 leads, public_catalog source leads visible, lead detail dialog shows WhatsApp button with wa.me links"
+    },
+    "performance_dashboard": {
+      "status": "PASSED",
+      "details": "Performance tab shows all KPIs (Calls, Emails, WhatsApp, Meetings, New Leads, Conversions, Follow-ups, Proposals, Pipeline$, Closed revenue), Team Leaderboard visible, no errors"
+    }
+  },
+  "verified_features": {
+    "POST /api/public/catalog/{slug}/quote-request": "Returns {ok, lead_id, whatsapp:{visitor_link, owner_link}}. visitor_link uses company phone, owner_link uses visitor phone (null if not provided)",
+    "WhatsApp KPI regression": "PASSED - KPI count does NOT increase when quote requests are submitted",
+    "Communications regression": "PASSED - No Communications auto-created for catalog leads",
+    "Lead interest_items": "Lead created with interest_items[] from payload",
+    "Lead whatsapp field": "Pre-filled with visitor's phone",
+    "Admin notification": "Created with type='catalog_quote_request', priority='high', metadata includes lead_id and owner_wa_link",
+    "Frontend WhatsApp button": "Displayed on success screen with correct styling and wa.me link"
+  }
+}

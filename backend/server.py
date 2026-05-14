@@ -4770,10 +4770,14 @@ async def get_public_catalog(slug: str):
 
 @public_catalog_router.post("/catalog/{slug}/quote-request")
 async def submit_public_quote_request(slug: str, payload: Dict[str, Any]):
-    """Create a Lead in the catalog owner's CRM from a public visitor request."""
+    """Create a Lead in the catalog owner's CRM from a public visitor request.
+    Also returns WhatsApp click-to-chat links (visitor→company and company→visitor)
+    so both sides can continue the conversation instantly. NO Communications are
+    auto-created — that would inflate the salesperson's Performance Dashboard.
+    """
     company = await db.companies.find_one(
         {"catalog_slug": slug, "catalog_published": True},
-        {"_id": 0, "company_id": 1, "name": 1},
+        {"_id": 0, "company_id": 1, "name": 1, "trade_name": 1, "phone": 1, "whatsapp": 1},
     )
     if not company:
         raise HTTPException(status_code=404, detail="Catalog not found")
@@ -4804,6 +4808,7 @@ async def submit_public_quote_request(slug: str, payload: Dict[str, Any]):
         "name": name,
         "email": email,
         "phone": phone or None,
+        "whatsapp": phone or None,  # let the user choose later but pre-fill from form
         "company_name": payload.get("company_name") or None,
         "source": "public_catalog",
         "source_detail": slug,
@@ -4818,8 +4823,64 @@ async def submit_public_quote_request(slug: str, payload: Dict[str, Any]):
         "updated_at": now.isoformat(),
     }
     await db.leads.insert_one(doc)
-    doc.pop("_id", None)
-    return {"ok": True, "message": "Quote request received", "lead_id": lead_id}
+
+    # Helpers — build wa.me links without external dependencies
+    def _wa_link(number: Optional[str], message: str) -> Optional[str]:
+        if not number:
+            return None
+        digits = "".join(c for c in str(number) if c.isdigit())
+        if not digits:
+            return None
+        encoded = message.replace(" ", "%20").replace("\n", "%0A")
+        return f"https://wa.me/{digits}?text={encoded}"
+
+    company_display = company.get("trade_name") or company.get("name") or "us"
+    visitor_to_company_msg = (
+        f"Hola {company_display}, soy {name}. "
+        f"Acabo de enviar una solicitud de cotización por su catálogo en línea"
+        f"{(' para el ' + payload.get('event_date')) if payload.get('event_date') else ''}"
+        f". ¿Podemos coordinar?"
+    )
+    company_to_visitor_msg = (
+        f"Hola {name}, soy de {company_display}. Recibimos tu solicitud de cotización"
+        f"{(' para el ' + payload.get('event_date')) if payload.get('event_date') else ''}"
+        f". ¡Gracias! Te contactamos pronto."
+    )
+    visitor_wa_link = _wa_link(company.get("whatsapp") or company.get("phone"), visitor_to_company_msg)
+    owner_wa_link = _wa_link(phone, company_to_visitor_msg)
+
+    # Notify the company's admins inside the app (NO communications row created)
+    try:
+        from routers.notifications import notify_org_admins
+        await notify_org_admins(
+            org_id=company["company_id"],
+            notification_type="catalog_quote_request",
+            title=f"Nueva solicitud desde el catálogo — {name}",
+            message=f"{name} ({email}{', ' + phone if phone else ''}) solicitó cotización"
+                    + (f" para {payload.get('guest_count')} invitados" if payload.get("guest_count") else "")
+                    + (f" el {payload.get('event_date')}" if payload.get("event_date") else "")
+                    + ".",
+            link=f"/client-engagement?lead={lead_id}",
+            metadata={
+                "lead_id": lead_id,
+                "source": "public_catalog",
+                "owner_wa_link": owner_wa_link,
+                "interest_count": len(interest_items),
+            },
+            priority="high",
+        )
+    except Exception as _e:
+        logger.warning(f"Catalog notification failed (non-fatal): {_e}")
+
+    return {
+        "ok": True,
+        "message": "Quote request received",
+        "lead_id": lead_id,
+        "whatsapp": {
+            "visitor_link": visitor_wa_link,  # visitor → company (shown on the public page)
+            "owner_link": owner_wa_link,       # company admin → visitor (shown inside CRM)
+        },
+    }
 
 
 @portal_router.get("/document/{document_id}")
