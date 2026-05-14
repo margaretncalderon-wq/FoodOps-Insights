@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Checkbox } from "./ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "./ui/command";
 
 // Icons
 import { 
@@ -70,6 +72,105 @@ const UNIT_GROUPS = [
   { label: "Volumen", units: ["ml", "L", "oz_fl", "cup", "tbsp", "tsp", "gal"] },
   { label: "Unidad", units: ["unit", "dozen", "portion", "serving"] },
 ];
+
+/**
+ * IngredientPicker — Searchable combobox to add an ingredient to a recipe.
+ * - Type to filter by name, brand, SKU, or category.
+ * - Shows price + base unit so chefs pick the right item fast.
+ * - Disabled items already added are hidden from the list (avoids dupes).
+ */
+function IngredientPicker({ ingredients, alreadyAddedIds, onPick, isEs, type = "ingredient" }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const available = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return ingredients.filter((ing) => {
+      if (alreadyAddedIds.includes(ing.ingredient_id || ing.recipe_id)) return false;
+      if (!q) return true;
+      const haystack = [
+        ing.name, ing.brand, ing.sku, ing.category,
+        ing.base_unit, ing.unit,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(q);
+    }).slice(0, 80); // cap rows for snappy rendering with 800+ items
+  }, [ingredients, alreadyAddedIds, query]);
+
+  const handlePick = (id) => {
+    onPick(id);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const triggerLabel = isEs
+    ? (type === "recipe" ? "+ Buscar sub-receta..." : "+ Buscar ingrediente...")
+    : (type === "recipe" ? "+ Search sub-recipe..." : "+ Search ingredient...");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-64 justify-between font-normal text-muted-foreground hover:text-foreground"
+          data-testid={type === "recipe" ? "sub-recipe-picker-trigger" : "ingredient-picker-trigger"}
+        >
+          <span className="flex items-center gap-2 truncate">
+            <Search className="w-4 h-4 opacity-60" />
+            {triggerLabel}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[420px] p-0" align="end" data-testid="ingredient-picker-content">
+        <Command shouldFilter={false}>
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder={isEs ? "Escribe para buscar (nombre, marca, SKU)..." : "Type to search (name, brand, SKU)..."}
+            data-testid="ingredient-picker-search"
+          />
+          <CommandList>
+            <CommandEmpty>{isEs ? "Sin resultados" : "No results"}</CommandEmpty>
+            <CommandGroup>
+              {available.map((ing) => {
+                const id = ing.ingredient_id || ing.recipe_id;
+                const baseUnit = ing.base_unit || ing.unit || ing.yield_unit || "—";
+                const cost = ing.cost_per_base_unit || ing.cost_per_unit || ing.cost_per_yield || 0;
+                const needsReview = type === "ingredient" && (!ing.base_unit || !ing.cost_per_base_unit);
+                return (
+                  <CommandItem
+                    key={id}
+                    value={id}
+                    onSelect={() => handlePick(id)}
+                    className="flex items-start gap-3 py-2 cursor-pointer"
+                    data-testid={`ingredient-picker-option-${id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{ing.name}</p>
+                        {needsReview && (
+                          <span title={isEs ? "Necesita revisión" : "Needs review"} className="text-amber-600 text-xs flex-shrink-0">⚠️</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {ing.brand ? `${ing.brand} · ` : ""}{ing.category || ""}{ing.sku ? ` · ${ing.sku}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-mono">${cost.toFixed(2)}</p>
+                      <p className="text-[10px] text-muted-foreground">/ {baseUnit}</p>
+                    </div>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /**
  * IngredientRow — Renders one recipe ingredient line with:
@@ -1029,16 +1130,13 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 <h3 className="font-semibold">{t("ingredients")}</h3>
                 <Badge variant="outline">{form.ingredients.length}</Badge>
               </div>
-              <Select onValueChange={addIngredient}>
-                <SelectTrigger className="w-64"><SelectValue placeholder={t("selectIngredient")} /></SelectTrigger>
-                <SelectContent>
-                  {ingredients.filter(i => i.inventory_type === "food").map(ing => (
-                    <SelectItem key={ing.ingredient_id} value={ing.ingredient_id}>
-                      {ing.name} (${ing.cost_per_unit?.toFixed(2)}/{ing.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <IngredientPicker
+                ingredients={ingredients.filter(i => i.inventory_type === "food")}
+                alreadyAddedIds={form.ingredients.map(i => i.item_id)}
+                onPick={addIngredient}
+                isEs={language === "es"}
+                type="ingredient"
+              />
             </div>
 
             {form.ingredients.length === 0 ? (
@@ -1078,20 +1176,13 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <h3 className="font-semibold">{t("subRecipes")}</h3>
                   <Badge variant="outline">{form.sub_recipes.length}</Badge>
                 </div>
-                <Select onValueChange={addSubRecipe} disabled={availableSubRecipes.length === 0}>
-                  <SelectTrigger className="w-64"><SelectValue placeholder={t("selectSubRecipe")} /></SelectTrigger>
-                  <SelectContent>
-                    {availableSubRecipes.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">{language === "es" ? "Crea primero recetas Base o Componentes" : "Create Base or Component recipes first"}</div>
-                    ) : (
-                      availableSubRecipes.map(recipe => (
-                        <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
-                          {recipe.name} (${recipe.cost_per_yield?.toFixed(2)}/{recipe.yield_unit})
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <IngredientPicker
+                  ingredients={availableSubRecipes}
+                  alreadyAddedIds={form.sub_recipes.map(s => s.child_recipe_id)}
+                  onPick={addSubRecipe}
+                  isEs={language === "es"}
+                  type="recipe"
+                />
               </div>
 
               {form.sub_recipes.length === 0 ? (
