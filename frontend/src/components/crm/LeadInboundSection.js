@@ -1011,7 +1011,7 @@ export default function LeadInboundSection() {
                 {/* Quick Contact Links */}
                 <div className="flex flex-wrap gap-2">
                   {selectedLead.whatsapp && (
-                    <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer">
+                    <a href={getWhatsAppLink(selectedLead.whatsapp)} target="_blank" rel="noopener noreferrer" data-testid="lead-whatsapp-link">
                       <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
                         <MessageCircle className="w-4 h-4 mr-2" />
                         WhatsApp
@@ -1137,6 +1137,20 @@ export default function LeadInboundSection() {
                   <div className="text-sm">
                     <p className="text-muted-foreground text-xs">{isEs ? "Mensaje del Cliente" : "Client Message"}</p>
                     <p className="mt-1 p-2 bg-muted rounded text-xs whitespace-pre-wrap">{selectedLead.message}</p>
+                  </div>
+                )}
+
+                {/* Interest items from public catalog */}
+                {Array.isArray(selectedLead.interest_items) && selectedLead.interest_items.length > 0 && (
+                  <div className="text-sm" data-testid="lead-interest-items">
+                    <p className="text-muted-foreground text-xs">{isEs ? "Items de interés (del catálogo)" : "Interest items (from catalog)"}</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {selectedLead.interest_items.map((it, idx) => (
+                        <Badge key={`${it.type}-${it.id}-${idx}`} variant="secondary" className="text-[10px]">
+                          {it.type === "recipe" ? "🍽" : "📦"} {it.name}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
 
