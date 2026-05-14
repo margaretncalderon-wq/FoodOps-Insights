@@ -207,7 +207,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                       <span className="text-muted-foreground"> · {p.stale_count} {isEs ? "ítems" : "items"}</span>
                     </p>
                     {p.current_margin_pct != null && p.projected_margin_pct != null && (
-                      <p
+                      <div
                         className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap"
                         data-testid={`cost-health-card-margin-${p.proposal_id}`}
                       >
@@ -229,7 +229,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                             {isEs ? "Bajo margen" : "Below threshold"}
                           </Badge>
                         )}
-                      </p>
+                      </div>
                     )}
                     {Array.isArray(p.type_breakdown) && p.type_breakdown.length > 1 && (
                       <div

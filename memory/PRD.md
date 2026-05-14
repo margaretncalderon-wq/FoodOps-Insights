@@ -124,21 +124,20 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Bug fix — Auto-recovery de 401 + cookie domain dinámico (May 14, 2026):
-- **Reporte original**: Usuarios en producción (`ourkora.com`) eran enviados al `/login` al hacer "Nuevo Evento". Síntoma reportado: token aparentemente válido pero algún endpoint devolvía 401 y disparaba el interceptor.
-- **Fix 1 (defensivo cookie)**: `get_cookie_domain()` en `auth.py` ahora deriva el dominio del request (Origin/Referer/Host) y solo cae al env var como fallback. Funciona en preview y producción sin necesidad de tocar el .env.
-- **Fix 2 (UX)**: El interceptor de 401 en `frontend/src/utils/api.js` ahora:
-  1. Intenta `POST /auth/refresh` silenciosamente
-  2. Si refresca con éxito → reintenta la request original 1 vez (`_retry` flag)
-  3. Solo redirige a `/login?expired=1` si el refresh también falla
-  - Usa `refreshInFlight` (promesa compartida) para evitar refreshes concurrentes
-- **Testing iteration_165**: Backend 13/13 PASS, Frontend regresión completa OK. No requiere acción del usuario final (sin limpiar cookies, sin re-login).
+Margin Policy Fase 2 — Breakdown por tipo (May 14, 2026):
+- Backend `/cost-health/overview`: cada proposal incluye nuevo array `type_breakdown` con entradas {item_type, current_margin_pct, projected_margin_pct, min_margin_pct, below_threshold, stale_count, revenue_share_pct}. Ordenado por `abs(projected - current)` descendente.
+- Frontend `CostHealthDashboard`:
+  - Card mode: chips por tipo debajo del margen (`<ChefHat/> 40%→20%` etc.) cuando hay >1 tipo. Tipos bajo umbral en borde rojo.
+  - Section mode: mismas chips en columna Margen (max-width 260px, flex-wrap).
+  - Icons (lucide): ChefHat/Wrench/Package/Receipt/Box.
+- Bug fix HTML: `<p>` → `<div>` para permitir `<Badge>` (div) anidado correctamente.
+- Testing iteration_166: Backend 6/6 nuevos + 12/12 regresión, Frontend chips card 100% (section live testing limitado por módulo).
 
-Cost Health Dashboard + Margin Policy Fase 1 (May 14, 2026):
-- Política de margen jerárquica (ítem → categoría → tipo) en `company_settings.margin_policy` con defaults sembrados.
-- `Recipe` y `PicklistItem` aceptan `min_margin_pct` opcional (override).
-- `/cost-health/overview` expone `effective_min_margin` y `below_threshold`.
-- Settings UI nueva: **Política de Margen** (Catálogos dropdown).
-- CostHealthDashboard muestra badge "Bajo margen" en card y section.
+Bug fix auto-recovery de 401 (May 14, 2026):
+- `get_cookie_domain()` deriva del request en vez de env var FRONTEND_URL — funciona automáticamente en cualquier entorno.
+- Interceptor frontend hace `POST /auth/refresh` silencioso antes de redirigir; reintenta la request original con nuevo token. Solo redirige si refresh también falla. `refreshInFlight` evita refreshes concurrentes.
+- Testing iteration_165: Backend 13/13 PASS, sin regresión en login/CRUD.
 
-Next: Fase 2 Margin (breakdown por tipo) · Fase 3 (gating Admin) · Logo upload Guest Flow · Unified Contact Model · Recipe scaling · Filterable recipe tags.
+Cost Health Dashboard + Margin Policy Fase 1 — completo (ver historial).
+
+Next: Fase 3 (gating Admin/Owner refresh masivo) · Logo Guest Flow · Unified Contact Model · Recipe scaling · Filterable recipe tags.
