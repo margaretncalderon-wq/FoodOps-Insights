@@ -3899,6 +3899,36 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     # Check if multi-day event
     is_multiday = event.get("end_date") and event.get("event_date") != event.get("end_date")
     
+    # Aggregate allergens across all recipe-linked Food items (for proposal/quote/contract PDFs)
+    aggregated_allergen_ids = set()
+    for item in order_items:
+        if item.get("item_type") != "Food" or not item.get("reference_id"):
+            continue
+        rec = await db.recipes.find_one(
+            {"recipe_id": item["reference_id"], "company_id": user.company_id},
+            {"_id": 0, "allergens": 1},
+        )
+        for aid in (rec or {}).get("allergens", []) or []:
+            aggregated_allergen_ids.add(aid)
+    # Also include legacy recipes pulled from event.menu_items
+    for rec in recipes:
+        for aid in rec.get("allergens", []) or []:
+            aggregated_allergen_ids.add(aid)
+    
+    # Resolve allergen ids → names for display in the PDF
+    allergen_list = []
+    if aggregated_allergen_ids:
+        allergen_docs = await db.allergen_configs.find(
+            {"allergen_id": {"$in": list(aggregated_allergen_ids)}},
+            {"_id": 0, "allergen_id": 1, "name": 1, "name_es": 1, "icon": 1},
+        ).to_list(50)
+        allergen_list = [{
+            "allergen_id": a.get("allergen_id"),
+            "name": a.get("name"),
+            "name_es": a.get("name_es") or a.get("name"),
+            "icon": a.get("icon"),
+        } for a in allergen_docs]
+    
     content = {
         "event": event,
         "client": client,
@@ -3910,6 +3940,7 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
         "is_multiday": is_multiday,
         "template_settings": template_settings,
         "section_titles": section_titles,
+        "allergens": allergen_list,  # NEW: aggregated allergens across all recipes
         "financials": {
             "subtotal": subtotal,
             "discount_percent": discount_percent,

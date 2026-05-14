@@ -1,0 +1,64 @@
+{
+  "summary": "Sprint 1 Recipe Picker & Allergen Testing - All features working correctly. Fixed critical bug in allergen aggregation (db.allergens → db.allergen_configs). Backend: 12/12 tests passed. Frontend: Recipe picker, format selector, margin badges, and allergen propagation all verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [],
+    "fixed": [
+      {
+        "endpoint": "POST /api/documents/generate/{event_id}/proposal",
+        "issue": "Allergen aggregation was querying wrong collection (db.allergens instead of db.allergen_configs)",
+        "fix": "Changed line 3921 in server.py from db.allergens to db.allergen_configs",
+        "priority": "HIGH"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint1_recipe_picker.py",
+    "/app/test_reports/pytest/pytest_sprint1_recipe_picker.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/server.py (line 3921: db.allergens → db.allergen_configs)",
+    "/app/backend/tests/test_sprint1_recipe_picker.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": "margaret.n.calderon@gmail.com / Evoque2024!",
+  "seed_data_creation": "Test events created and cleaned up during testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sprint 1 features fully tested: (1) Searchable recipe picker with data-testid='proposal-recipe-picker' replaces old Select, (2) Portion format selector (Stage B) shows formats with cost/price/margin, (3) Margin badge with color coding (green >=40%, amber 20-40%, red <20%) - verified 63% margin shows green, (4) Recipe meta badges show portion format name, (5) Allergen propagation to PDF document working after fix. All data-testids verified: proposal-recipe-picker, recipe-picker-search, recipe-picker-option-*, recipe-format-picker, format-picker-option-*, format-picker-default, margin-badge, recipe-meta-badges.",
+  "features_verified": {
+    "backend_regression": {
+      "production_batches_list": "PASS",
+      "purchase_orders_list": "PASS",
+      "recipes_list": "PASS",
+      "inventory_ingredients_crud": "PASS",
+      "cost_preview_endpoint": "PASS"
+    },
+    "recipe_portion_formats": {
+      "get_portion_formats": "PASS - Returns formats with cost_per_portion, sell_price, margin_pct, format_name, portions_obtained, is_default"
+    },
+    "proposal_allergens": {
+      "allergen_aggregation": "PASS - After fix, allergens properly aggregated from recipes to document content",
+      "add_food_item_with_reference": "PASS - Items with reference_id correctly link to recipes"
+    },
+    "frontend_recipe_picker": {
+      "searchable_picker": "PASS - data-testid='proposal-recipe-picker' opens popover with search",
+      "recipe_search": "PASS - Filters recipes, shows name/code/cost/allergen warning",
+      "format_picker_stage_b": "PASS - Shows 'Pick a portion format' with format options",
+      "no_formats_banner": "PASS - Shows 'No formats defined' + 'Use base cost' button",
+      "form_auto_fill": "PASS - Description, unit_price, internal_cost filled from format",
+      "margin_badge": "PASS - Shows percentage with color coding (green for 63%)",
+      "recipe_meta_badges": "PASS - Shows portion format name badge"
+    }
+  }
+}

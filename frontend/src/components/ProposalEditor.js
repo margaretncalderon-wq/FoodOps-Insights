@@ -48,13 +48,15 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { toast } from "sonner";
-import { 
+import {
   Plus, Trash2, FileText, Download, Eye, Utensils, Wine, 
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
   Edit, Clock, Calculator, Link2, RefreshCw, CreditCard
 } from "lucide-react";
+
+import RecipePicker from "./RecipePicker";
 
 
 const CATEGORY_ICONS = {
@@ -141,6 +143,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     event_date: "",
     section_title: "",
     section_time: "",
+    // UI-only fields (not sent to backend) — used for badges in the Add Item form
+    _recipe_allergens: [],
+    _portion_format_name: null,
   });
 
   // Fetch all data on mount
@@ -325,7 +330,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
 
     try {
-      await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, newItem, { withCredentials: true });
+      // Strip UI-only fields (prefixed with _) before sending to backend
+      const payload = Object.fromEntries(
+        Object.entries(newItem).filter(([k]) => !k.startsWith("_")),
+      );
+      await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, payload, { withCredentials: true });
       toast.success(language === "es" ? "Ítem agregado" : "Item added");
       fetchProposal();
       fetchFinancials();
@@ -350,6 +359,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       event_date: "",
       section_title: "",
       section_time: "",
+      _recipe_allergens: [],
+      _portion_format_name: null,
     });
   };
 
@@ -722,24 +733,29 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
-  const handleRecipeSelect = (recipe) => {
-    const recipeCost = recipe.cost_per_portion || recipe.cost_per_serving || 0;
-    const suggestedPrice = recipeCost * 3; // 33% food cost target
-    
+  const handleRecipeSelect = (pick) => {
+    // pick comes from RecipePicker.onPick: { recipe, portionFormat, internal_cost, unit_price, suggested_price, allergens, description }
+    const { recipe, portionFormat, internal_cost, unit_price, allergens, description } = pick;
+
     setNewItem({
       ...newItem,
       item_type: "Food",
-      description: recipe.name,
+      description,
       category_id: "cat_food",
-      unit_price: suggestedPrice,
-      internal_cost: recipeCost,
+      unit_price: Math.round(unit_price * 100) / 100,
+      internal_cost,
       reference_id: recipe.recipe_id,
+      _recipe_allergens: allergens || [],
+      _portion_format_name: portionFormat ? portionFormat.format_name : null,
     });
 
+    const fmtMsg = portionFormat
+      ? (language === "es" ? `Formato: ${portionFormat.format_name}` : `Format: ${portionFormat.format_name}`)
+      : (language === "es" ? "Costo base" : "Base cost");
     toast.info(
-      language === "es" 
-        ? `Costo: $${recipeCost.toFixed(2)} | Precio sugerido: $${suggestedPrice.toFixed(2)} (33% food cost)`
-        : `Cost: $${recipeCost.toFixed(2)} | Suggested: $${suggestedPrice.toFixed(2)} (33% food cost)`
+      language === "es"
+        ? `${fmtMsg} · Costo: $${internal_cost.toFixed(2)} | Precio: $${unit_price.toFixed(2)}`
+        : `${fmtMsg} · Cost: $${internal_cost.toFixed(2)} | Price: $${unit_price.toFixed(2)}`,
     );
   };
 
@@ -1651,29 +1667,18 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             </div>
           )}
 
-          {/* Recipes Section (for food items) - Only show DISH/final_dish recipes for sales */}
+          {/* Recipes Section (for food items) - Searchable picker with portion format + margin awareness */}
           {featureFlags?.is_food_ops_enabled && recipes.length > 0 && (
             <div className="mb-4">
               <Label className="mb-2 block text-sm">
-                {language === "es" ? "Desde Receta (con cálculo de costo)" : "From Recipe (with cost calculation)"}
+                {language === "es" ? "Desde Receta (con costos en vivo)" : "From Recipe (with live costs)"}
               </Label>
-              <Select onValueChange={(id) => {
-                const recipe = recipes.find(r => r.recipe_id === id);
-                if (recipe) handleRecipeSelect(recipe);
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "es" ? "Seleccionar receta..." : "Select recipe..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {recipes
-                    .filter(recipe => recipe.recipe_type === "final_dish" || recipe.recipe_type === "dish")
-                    .map(recipe => (
-                      <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
-                        {recipe.name} - ${(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)} {language === "es" ? "costo" : "cost"}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <RecipePicker
+                recipes={recipes}
+                onPick={handleRecipeSelect}
+                triggerLabel={language === "es" ? "+ Buscar receta y elegir formato..." : "+ Search recipe & pick format..."}
+                triggerTestId="proposal-recipe-picker"
+              />
             </div>
           )}
 
@@ -1780,12 +1785,39 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     value={newItem.internal_cost || ""}
                     onChange={(e) => setNewItem({ ...newItem, internal_cost: e.target.value ? parseFloat(e.target.value) : null })}
                     placeholder={language === "es" ? "Oculto al cliente" : "Hidden from client"}
+                    data-testid="item-internal-cost-input"
                   />
-                  {newItem.internal_cost !== null && newItem.unit_price > 0 && (
-                    <p className={`text-xs mt-1 ${((newItem.unit_price - newItem.internal_cost) / newItem.unit_price * 100) < 20 ? 'text-destructive' : 'text-success'}`}>
-                      {language === "es" ? "Margen" : "Margin"}: {((newItem.unit_price - newItem.internal_cost) / newItem.unit_price * 100).toFixed(0)}%
-                    </p>
+                  {newItem.internal_cost !== null && newItem.unit_price > 0 && (() => {
+                    const marginPct = (newItem.unit_price - newItem.internal_cost) / newItem.unit_price * 100;
+                    const isLow = marginPct < 20;
+                    const isHealthy = marginPct >= 30;
+                    const cls = isLow ? "bg-red-100 text-red-700 border-red-200" : isHealthy ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-amber-100 text-amber-700 border-amber-200";
+                    return (
+                      <div className={`mt-1.5 inline-flex items-center gap-1.5 px-2 py-1 rounded border text-xs ${cls}`} data-testid="margin-badge">
+                        {isLow && <AlertTriangle className="w-3 h-3" />}
+                        <span className="font-semibold">{marginPct.toFixed(0)}%</span>
+                        <span className="opacity-80">{language === "es" ? "margen" : "margin"}</span>
+                        {isLow && <span className="opacity-90">· {language === "es" ? "muy bajo" : "very low"}</span>}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Recipe metadata: portion format + allergens badges */}
+              {(newItem._portion_format_name || (newItem._recipe_allergens && newItem._recipe_allergens.length > 0)) && (
+                <div className="col-span-2 flex flex-wrap items-center gap-1.5 -mt-2" data-testid="recipe-meta-badges">
+                  {newItem._portion_format_name && (
+                    <Badge variant="secondary" className="text-[10px] gap-1">
+                      <Utensils className="w-3 h-3" />
+                      {newItem._portion_format_name}
+                    </Badge>
                   )}
+                  {(newItem._recipe_allergens || []).map((a) => (
+                    <Badge key={a} variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">
+                      ⚠ {a}
+                    </Badge>
+                  ))}
                 </div>
               )}
 

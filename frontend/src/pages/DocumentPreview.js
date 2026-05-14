@@ -356,6 +356,29 @@ export default function DocumentPreview() {
           </div>
         )}
 
+        {/* Allergen Disclosure (aggregated across all recipes in this proposal) */}
+        {Array.isArray(content.allergens) && content.allergens.length > 0 && (
+          <div className="mb-8 p-4 bg-orange-50 border border-orange-200 rounded-lg" data-testid="proposal-allergens">
+            <p className="font-semibold text-sm text-orange-900 mb-2 flex items-center gap-2">
+              <span>⚠️</span>
+              {language === "es" ? "Información de Alérgenos" : "Allergen Disclosure"}
+            </p>
+            <p className="text-xs text-orange-800 mb-2">
+              {language === "es"
+                ? "Esta propuesta incluye platos con los siguientes alérgenos. Por favor notifíquenos cualquier restricción alimentaria con anticipación."
+                : "This proposal includes dishes containing the following allergens. Please notify us of any dietary restrictions in advance."}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {content.allergens.map((a) => (
+                <span key={a.allergen_id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-white border border-orange-300 text-orange-800">
+                  {a.icon && <span>{a.icon}</span>}
+                  {language === "es" ? (a.name_es || a.name) : (a.name || a.name_es)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Payment Terms & Client Notes */}
         {(content.payment_terms || content.client_notes) && (
           <div className="mb-8 p-4 bg-muted/30 rounded-lg">
