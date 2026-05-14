@@ -664,22 +664,33 @@ class RecipeCreate(BaseModel):
     category: str
     yield_quantity: float = 1.0
     yield_unit: str = "portion"  # portion, kg, L, unit
-    prep_time: int = 0  # minutes
-    cook_time: int = 0  # minutes
+    portion_size: Optional[float] = 1.0
+    portion_unit: Optional[str] = "serving"
+    portions_per_yield: Optional[float] = 1.0
+    prep_time: int = 0  # minutes (legacy)
+    cook_time: int = 0  # minutes (legacy)
+    prep_time_minutes: Optional[int] = 0
+    cook_time_minutes: Optional[int] = 0
+    labor_minutes: Optional[int] = 0
     difficulty: str = "medium"  # easy, medium, hard
     ingredients: List[RecipeIngredient] = []
-    instructions: Optional[str] = None
+    instructions: Optional[Any] = None  # accepts str or list (legacy step arrays)
     instructions_es: Optional[str] = None
     presentation_notes: Optional[str] = None
     chef_notes: Optional[str] = None
     photo_url: Optional[str] = None
+    notes: Optional[str] = None
     allergens: List[str] = []
     dietary_tags: List[str] = []  # vegetarian, vegan, gluten-free, etc.
     default_portion_price: float = 0.0  # Default selling price per portion
+    sell_price: Optional[float] = 0.0
     recipe_type: str = "Final"  # Base, Component, Final - for recipe composition
     is_public: bool = False  # Can be used in menus
+    is_on_menu: bool = False  # Mark this as part of the company's base / signature menu
     # Sub-recipes (composition)
     sub_recipes: List[Dict[str, Any]] = []  # [{recipe_id, quantity, unit}]
+    # Allow other extra fields the FE may emit (work_category, recipe_code…) so saving never crashes
+    model_config = {"extra": "allow"}
 
 class Recipe(BaseModel):
     recipe_id: str
@@ -695,7 +706,7 @@ class Recipe(BaseModel):
     cook_time: Optional[int] = 0
     difficulty: Optional[str] = "medium"
     ingredients: List[Dict[str, Any]] = []
-    instructions: Optional[str] = None
+    instructions: Optional[Any] = None  # str or legacy list of step dicts
     instructions_es: Optional[str] = None
     presentation_notes: Optional[str] = None
     chef_notes: Optional[str] = None
@@ -705,6 +716,7 @@ class Recipe(BaseModel):
     default_portion_price: float = 0.0
     recipe_type: str = "Final"
     is_public: bool = False
+    is_on_menu: bool = False
     sub_recipes: List[Dict[str, Any]] = []
     # Calculated fields
     total_cost: float = 0.0
@@ -6427,6 +6439,117 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
         })
     
     return item_doc
+
+@proposals_router.post("/{proposal_id}/items/bulk-from-menu")
+async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Load a saved Menu/Package (with optional variant) into a proposal as multiple OrderItems."""
+    menu_id = body.get("menu_id")
+    variant_id = body.get("variant_id")
+    quantity_multiplier = float(body.get("quantity_multiplier") or 1.0)
+    section_title = body.get("section_title")
+    if not menu_id:
+        raise HTTPException(status_code=400, detail="menu_id is required")
+
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot add items to a closed event")
+
+    menu = await db.menus.find_one({"menu_id": menu_id, "company_id": user.company_id}, {"_id": 0})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+
+    # Compute variant discount (if any)
+    variant_discount = 0.0
+    variant_discount_type = "percentage"
+    if variant_id:
+        v = next((vv for vv in (menu.get("variants") or []) if vv.get("variant_id") == variant_id), None)
+        if v:
+            variant_discount = float(v.get("discount_value") or 0)
+            variant_discount_type = v.get("discount_type") or "percentage"
+
+    now = datetime.now(timezone.utc)
+    inserted = []
+    food_cat = await db.item_categories.find_one({"company_id": user.company_id, "key": "Food"}, {"_id": 0, "category_id": 1, "name": 1}) or {}
+
+    for entry in (menu.get("items") or []):
+        qty = float(entry.get("quantity") or 1.0) * quantity_multiplier
+        # Resolve recipe or picklist item
+        recipe_id = entry.get("recipe_id")
+        picklist_item_id = entry.get("picklist_item_id")
+        description = entry.get("custom_name") or ""
+        unit_price = entry.get("unit_price_override")
+        internal_cost = entry.get("internal_cost_override")
+        item_type = "Service"
+        reference_id = None
+        category_id = entry.get("category_id") or food_cat.get("category_id")
+        category_name = food_cat.get("name")
+
+        if recipe_id:
+            rec = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0})
+            if rec:
+                description = description or rec.get("name") or "Item"
+                if internal_cost is None:
+                    internal_cost = rec.get("cost_per_portion") or 0
+                if unit_price is None:
+                    unit_price = rec.get("default_portion_price") or (internal_cost * 3 if internal_cost else 0)
+                item_type = "Food"
+                reference_id = recipe_id
+        elif picklist_item_id:
+            pli = await db.picklist_items.find_one({"item_id": picklist_item_id, "company_id": user.company_id}, {"_id": 0})
+            if pli:
+                description = description or pli.get("name") or "Item"
+                if unit_price is None:
+                    unit_price = pli.get("default_price") or 0
+                if internal_cost is None:
+                    internal_cost = pli.get("internal_cost")
+                item_type = pli.get("item_type") or "Service"
+                reference_id = pli.get("recipe_id") or pli.get("inventory_item_id")
+
+        # Apply variant discount to unit_price
+        if unit_price and variant_discount:
+            if variant_discount_type == "percentage":
+                unit_price = max(0.0, unit_price * (1 - variant_discount / 100))
+            else:  # fixed_amount applied proportionally across items based on count
+                unit_price = max(0.0, unit_price - 0)  # we keep fixed_amount as a separate proposal-level discount instead
+
+        total_price = qty * (unit_price or 0)
+        total_cost = qty * internal_cost if internal_cost is not None else None
+        margin_amount = total_price - total_cost if total_cost is not None else None
+        margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
+
+        item_id = f"oi_{uuid.uuid4().hex[:12]}"
+        doc = {
+            "item_id": item_id,
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "item_type": item_type,
+            "reference_id": reference_id,
+            "description": description or "Item",
+            "quantity": qty,
+            "unit_price": float(unit_price or 0),
+            "internal_cost": internal_cost,
+            "total_price": total_price,
+            "total_cost": total_cost,
+            "margin_amount": margin_amount,
+            "margin_percentage": margin_pct,
+            "category_id": category_id,
+            "category_name": category_name,
+            "section_title": section_title or menu.get("name"),
+            "sort_order": int(entry.get("sort_order") or 0),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "loaded_from_menu_id": menu_id,
+        }
+        await db.order_items.insert_one(doc)
+        doc.pop("_id", None)
+        inserted.append(doc)
+
+    return {"items_added": len(inserted), "menu_name": menu.get("name"), "items": inserted}
+
 
 @proposals_router.put("/{proposal_id}/items/{item_id}")
 async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdate, user: User = Depends(get_current_user)):

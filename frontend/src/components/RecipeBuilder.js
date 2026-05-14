@@ -25,7 +25,7 @@ import {
   Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle,
   Link2, DollarSign, History, Percent, Info, Layers, Utensils,
   Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package,
-  AlertOctagon, Tag, Upload, Image, FileText, Loader2
+  AlertOctagon, Tag, Upload, Image, FileText, Loader2, BookOpen
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
@@ -326,7 +326,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     yield_quantity: 1, yield_unit: "portion", portion_size: 1, portion_unit: "serving",
     portions_per_yield: 1, prep_time_minutes: 0, cook_time_minutes: 0, labor_minutes: 0,
     ingredients: [], sub_recipes: [], instructions: [], notes: "", sell_price: 0,
-    allergens: [], work_category: "", recipe_code: "", verified_status: "Draft"
+    allergens: [], work_category: "", recipe_code: "", verified_status: "Draft",
+    is_on_menu: false,
   });
 
   const [instructionText, setInstructionText] = useState("");
@@ -390,7 +391,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         allergens: initialRecipe.allergens || [],
         work_category: initialRecipe.work_category || "",
         recipe_code: initialRecipe.recipe_code || "",
-        verified_status: initialRecipe.verified_status || "Draft"
+        verified_status: initialRecipe.verified_status || "Draft",
+        is_on_menu: initialRecipe.is_on_menu || false,
       });
       // Load image
       if (initialRecipe.image_url) {
@@ -1035,6 +1037,35 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
               ))}
             </div>
           </div>
+
+          {/* Base Menu Toggle — only for sellable dishes */}
+          {(form.recipe_type === "final_dish" || form.recipe_type === "dish") && (
+            <div
+              className="flex items-center justify-between p-3 rounded-lg border bg-gradient-to-r from-emerald-50/60 to-white"
+              data-testid="is-on-menu-toggle-row"
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">
+                    {language === "es" ? "En mi menú base" : "On my base menu"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "es"
+                      ? "Marca esta receta como parte de tu carta estándar para que aparezca primero al cotizar."
+                      : "Mark this recipe as part of your signature menu — it'll surface first in proposals."}
+                  </p>
+                </div>
+              </div>
+              <Checkbox
+                checked={!!form.is_on_menu}
+                onCheckedChange={(v) => setForm((prev) => ({ ...prev, is_on_menu: !!v }))}
+                data-testid="is-on-menu-checkbox"
+              />
+            </div>
+          )}
 
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

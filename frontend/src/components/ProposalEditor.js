@@ -365,50 +365,30 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   };
 
   const handleAddMenu = async (menu, variant = null) => {
-    // Add all items from the menu to the proposal
     try {
-      let addedCount = 0;
+      const res = await axios.post(
+        `${API}/proposals/${proposal.proposal_id}/items/bulk-from-menu`,
+        {
+          menu_id: menu.menu_id,
+          variant_id: variant?.variant_id || null,
+          quantity_multiplier: 1,
+          section_title: menu.name,
+        },
+        { withCredentials: true },
+      );
+      const addedCount = res.data?.items_added || 0;
       const variantLabel = variant ? ` (${variant.name})` : "";
-      
-      for (const item of menu.items) {
-        // Calculate price with variant discount
-        let itemPrice = item.unit_price || (item.calculated_price / (item.quantity || 1)) || 0;
-        
-        if (variant && variant.discount_value > 0) {
-          if (variant.discount_type === "percentage") {
-            itemPrice = itemPrice * (1 - variant.discount_value / 100);
-          } else {
-            // Distribute fixed discount across items
-            const totalItems = menu.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
-            itemPrice = itemPrice - (variant.discount_value / totalItems);
-          }
-        }
-        
-        const orderItem = {
-          item_type: item.picklist_item?.item_type || "Service",
-          description: item.custom_name || item.picklist_item?.name || item.recipe?.name || "Item",
-          quantity: item.quantity || 1,
-          unit_price: Math.max(0, itemPrice),
-          internal_cost: item.unit_cost || null,
-          reference_id: item.recipe_id || item.picklist_item?.recipe_id || null,
-          category_id: item.picklist_item?.category_id || null,
-          internal_notes: `From: ${menu.name}${variantLabel}`,
-        };
-        await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, orderItem, { withCredentials: true });
-        addedCount++;
-      }
-      
       toast.success(
-        language === "es" 
+        language === "es"
           ? `${addedCount} ítems agregados desde "${menu.name}${variantLabel}"`
-          : `${addedCount} items added from "${menu.name}${variantLabel}"`
+          : `${addedCount} items added from "${menu.name}${variantLabel}"`,
       );
       fetchProposal();
       fetchFinancials();
       setAddMenuOpen(false);
     } catch (error) {
       const msg = error.response?.data?.detail || "Failed to add menu items";
-      toast.error(msg);
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     }
   };
 
@@ -1622,50 +1602,83 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             </DialogTitle>
           </DialogHeader>
           
-          {/* Category Tabs for Picklist */}
-          {picklist.length > 0 && (
-            <div className="mb-4 border rounded-lg p-4 bg-muted/30">
-              <Label className="mb-3 block text-sm font-medium">
-                {language === "es" ? "Selección Rápida" : "Quick Select"}
-              </Label>
-              
-              {/* Search */}
-              <Input
-                placeholder={language === "es" ? "Buscar ítem..." : "Search item..."}
-                value={picklistSearch}
-                onChange={(e) => setPicklistSearch(e.target.value)}
-                className="mb-3"
-              />
+          {/* Quick Picks: categorized picklist (Snacks, Rentals, Services, Food) */}
+          <div className="mb-4 border rounded-lg p-4 bg-muted/30 space-y-3">
+            <Label className="block text-sm font-medium">
+              {language === "es" ? "Atajos rápidos" : "Quick Picks"}
+            </Label>
 
-              {/* Filtered Items */}
-              <div className="max-h-40 overflow-y-auto space-y-1">
-                {picklist
-                  .filter(item => {
-                    const matchesSearch = !picklistSearch || item.name.toLowerCase().includes(picklistSearch.toLowerCase());
-                    return matchesSearch;
-                  })
-                  .slice(0, 10)
-                  .map(item => (
-                    <div
-                      key={item.item_id}
-                      className="flex items-center justify-between p-2 rounded-md hover:bg-background cursor-pointer border border-transparent hover:border-border"
-                      onClick={() => {
-                        handlePicklistSelect(item);
-                        setPicklistSearch("");
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.name}</span>
-                        {item.recipe_id && (
-                          <Badge variant="outline" className="text-xs">Food</Badge>
-                        )}
-                      </div>
-                      <span className="text-sm font-mono">${item.default_price.toFixed(2)}</span>
+            {/* Categorized Picklist items (Food/Snacks, Rentals, Services, Fees) */}
+            {picklist.length > 0 ? (
+              <div>
+                <Input
+                  placeholder={language === "es" ? "Buscar bocadillo, alquiler, servicio..." : "Search snack, rental, service..."}
+                  value={picklistSearch}
+                  onChange={(e) => setPicklistSearch(e.target.value)}
+                  className="mb-2"
+                  data-testid="picklist-search-input"
+                />
+                {(() => {
+                  // Group picklist items by item_type (Food/Service/Rental/Fee)
+                  const q = picklistSearch.toLowerCase();
+                  const matching = picklist.filter((i) => !q || i.name.toLowerCase().includes(q) || (i.description || "").toLowerCase().includes(q));
+                  const groups = matching.reduce((acc, i) => {
+                    const k = i.item_type || "Other";
+                    (acc[k] = acc[k] || []).push(i);
+                    return acc;
+                  }, {});
+                  const labelFor = (k) => {
+                    const map = language === "es"
+                      ? { Food: "Bocadillos & Alimentos", Service: "Servicios", Rental: "Alquileres", Fee: "Cargos", Other: "Otros" }
+                      : { Food: "Food & Snacks", Service: "Services", Rental: "Rentals", Fee: "Fees", Other: "Other" };
+                    return map[k] || k;
+                  };
+                  const order = ["Food", "Service", "Rental", "Fee", "Other"];
+                  const sortedKeys = order.filter((k) => groups[k]?.length > 0).concat(Object.keys(groups).filter((k) => !order.includes(k)));
+                  if (sortedKeys.length === 0) {
+                    return <p className="text-xs text-muted-foreground text-center py-2">{language === "es" ? "Sin resultados" : "No results"}</p>;
+                  }
+                  return (
+                    <div className="max-h-60 overflow-y-auto space-y-2" data-testid="picklist-grouped">
+                      {sortedKeys.map((k) => (
+                        <div key={k}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{labelFor(k)}</p>
+                          <div className="space-y-0.5">
+                            {groups[k].slice(0, 12).map((item) => (
+                              <div
+                                key={item.item_id}
+                                className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-background cursor-pointer border border-transparent hover:border-border"
+                                onClick={() => { handlePicklistSelect(item); setPicklistSearch(""); }}
+                                data-testid={`picklist-item-${item.item_id}`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="font-medium text-sm truncate">{item.name}</span>
+                                  {item.recipe_id && <Badge variant="outline" className="text-[9px] h-4 px-1">Recipe</Badge>}
+                                  {item.inventory_item_id && <Badge variant="outline" className="text-[9px] h-4 px-1">Inv</Badge>}
+                                </div>
+                                <span className="text-xs font-mono text-muted-foreground flex-shrink-0">${(item.default_price || 0).toFixed(2)}</span>
+                              </div>
+                            ))}
+                            {groups[k].length > 12 && (
+                              <p className="text-[10px] text-muted-foreground px-2">
+                                +{groups[k].length - 12} {language === "es" ? "más" : "more"}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  );
+                })()}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                {language === "es"
+                  ? "Configura tu picklist en Ajustes → Menús para tener atajos rápidos."
+                  : "Configure your picklist in Settings → Menus for quick shortcuts."}
+              </p>
+            )}
+          </div>
 
           {/* Recipes Section (for food items) - Searchable picker with portion format + margin awareness */}
           {featureFlags?.is_food_ops_enabled && recipes.length > 0 && (

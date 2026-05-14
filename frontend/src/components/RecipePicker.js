@@ -35,12 +35,20 @@ export default function RecipePicker({
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [portionFormats, setPortionFormats] = useState([]);
   const [loadingFormats, setLoadingFormats] = useState(false);
+  // True = only show recipes flagged as part of the company's base menu (default ON)
+  const [onlyBaseMenu, setOnlyBaseMenu] = useState(true);
+
+  const baseMenuCount = useMemo(
+    () => recipes.filter((r) => r.is_on_menu && filterTypes.includes(r.recipe_type)).length,
+    [recipes, filterTypes],
+  );
 
   // Filter recipes to dishes only (or per filterTypes)
   const filteredRecipes = useMemo(() => {
     const q = query.trim().toLowerCase();
     return recipes
       .filter((r) => filterTypes.includes(r.recipe_type))
+      .filter((r) => !onlyBaseMenu || r.is_on_menu || baseMenuCount === 0)
       .filter((r) => {
         if (!q) return true;
         const hay = [r.name, r.recipe_code, r.category, r.work_category, ...(r.allergens || [])]
@@ -48,7 +56,7 @@ export default function RecipePicker({
         return hay.includes(q);
       })
       .slice(0, 80);
-  }, [recipes, query, filterTypes]);
+  }, [recipes, query, filterTypes, onlyBaseMenu, baseMenuCount]);
 
   // Fetch portion formats when a recipe is picked
   useEffect(() => {
@@ -125,6 +133,25 @@ export default function RecipePicker({
               placeholder={isEs ? "Buscar receta por nombre, código, categoría..." : "Search recipe by name, code, category..."}
               data-testid="recipe-picker-search"
             />
+            {baseMenuCount > 0 && (
+              <div className="px-2 py-1.5 border-b flex items-center justify-between bg-muted/30">
+                <span className="text-[11px] text-muted-foreground">
+                  {onlyBaseMenu
+                    ? (isEs ? `Mostrando solo menú base (${baseMenuCount})` : `Showing base menu only (${baseMenuCount})`)
+                    : (isEs ? "Mostrando todas" : "Showing all")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOnlyBaseMenu((v) => !v)}
+                  className="text-[11px] font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                  data-testid="recipe-picker-toggle-base"
+                >
+                  {onlyBaseMenu
+                    ? (isEs ? "Ver todas" : "See all")
+                    : (isEs ? "Solo mi menú base" : "Base menu only")}
+                </button>
+              </div>
+            )}
             <CommandList>
               <CommandEmpty>{isEs ? "Sin resultados" : "No results"}</CommandEmpty>
               <CommandGroup>
