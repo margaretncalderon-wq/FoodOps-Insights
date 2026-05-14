@@ -26,31 +26,52 @@ auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 # ============== COOKIE CONFIGURATION ==============
 
 def get_cookie_domain(request: Request = None):
-    """Extract domain for cookie setting - handles both production and preview environments"""
-    # For ourkora.com, we need to set domain as .ourkora.com to work across subdomains
-    frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
-    parsed = urlparse(frontend_url)
-    domain = parsed.netloc
-    
-    # Remove port if present
-    if ":" in domain:
-        domain = domain.split(":")[0]
-    
-    # Check request headers for preview environments
+    """Extract domain for cookie setting - handles both production and preview environments.
+
+    Strategy: derive the domain from the incoming request (Origin/Referer/Host) so it
+    works correctly regardless of FRONTEND_URL env var configuration. Falls back to
+    FRONTEND_URL only when no request context is available.
+    """
+    # 1. Try to derive from the request itself — this is the source of truth.
+    request_domain = None
     if request:
-        origin = request.headers.get("origin", "") or request.headers.get("referer", "")
-        host = request.headers.get("host", "")
-        
-        # For preview/localhost environments, don't set domain
-        if any(x in (origin + host).lower() for x in ["preview", "emergent", "localhost", "127.0"]):
-            return None
-    
-    # For production domains, set cookie for the root domain
-    if domain and not domain.startswith("localhost") and not domain.startswith("127."):
-        # Return domain with leading dot for subdomain support
-        return f".{domain}" if not domain.startswith(".") else domain
-    
-    return None
+        # Prefer Origin (set by browser), fall back to Referer, then Host header.
+        candidate = (
+            request.headers.get("origin")
+            or request.headers.get("referer")
+            or request.headers.get("host", "")
+        )
+        if candidate:
+            # If it's a full URL, parse it; otherwise treat as a host.
+            if "://" in candidate:
+                request_domain = urlparse(candidate).netloc
+            else:
+                request_domain = candidate
+            # Strip port if any
+            if request_domain and ":" in request_domain:
+                request_domain = request_domain.split(":")[0]
+
+    # 2. Fallback to env var only if request didn't give us a domain.
+    if not request_domain:
+        frontend_url = os.environ.get("FRONTEND_URL", "https://ourkora.com")
+        parsed = urlparse(frontend_url)
+        request_domain = parsed.netloc
+        if request_domain and ":" in request_domain:
+            request_domain = request_domain.split(":")[0]
+
+    if not request_domain:
+        return None
+
+    lower = request_domain.lower()
+
+    # 3. For preview / localhost / IP environments, don't set a cookie domain — the
+    #    browser will scope it to the exact host, which is what we want.
+    if any(x in lower for x in ["preview", "emergent", "localhost", "127.0", "0.0.0.0"]):
+        return None
+
+    # 4. For production: scope cookie to the root domain (leading dot) so it works
+    #    across subdomains (www.ourkora.com, app.ourkora.com, etc.).
+    return f".{request_domain}" if not request_domain.startswith(".") else request_domain
 
 
 def set_auth_cookie(response: Response, token: str, request: Request = None):
