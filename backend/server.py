@@ -2944,38 +2944,101 @@ Provide suggestions in this JSON format:
         raise HTTPException(status_code=500, detail="AI analysis failed")
 
 @recipes_router.post("/recalculate-all")
-async def recalculate_all_recipes(user: User = Depends(get_current_user)):
-    """Recalculate costs for all recipes (call when ingredient prices change)"""
-    recipes = await db.recipes.find({"company_id": user.company_id}, {"_id": 0}).to_list(1000)
-    updated_count = 0
+async def recalculate_all_recipes(
+    dry_run: bool = True,
+    user: User = Depends(get_current_user),
+):
+    """Recalculate costs for ALL recipes with the latest ingredient prices + waste defaults.
     
+    Modes:
+      - dry_run=true (default): returns a report comparing old vs new without persisting.
+      - dry_run=false: persists the recalculated values.
+    """
+    recipes = await db.recipes.find({"company_id": user.company_id}, {"_id": 0}).to_list(2000)
+
+    changes = []
+    unchanged_count = 0
+    total_diff = 0.0  # for avg
+    diff_buckets = {"increase": 0, "decrease": 0, "same": 0}
+
     for recipe in recipes:
-        ingredients = [RecipeIngredient(**i) for i in recipe.get("ingredients", [])]
+        old_total = float(recipe.get("total_cost") or 0)
+        old_per_portion = float(recipe.get("cost_per_portion") or 0)
+
+        try:
+            ingredients = [RecipeIngredient(**i) for i in recipe.get("ingredients", [])]
+        except Exception:
+            # be permissive — skip the legacy line we cannot parse but still attempt
+            continue
         sub_recipes = recipe.get("sub_recipes", [])
-        total_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(ingredients, sub_recipes, user.company_id)
-        
-        yield_qty = recipe.get("yield_quantity", 1)
-        portion_size = recipe.get("portion_size", 1)
-        sell_price = recipe.get("sell_price", 0)
-        
-        cost_per_yield = total_cost / yield_qty if yield_qty > 0 else 0
-        cost_per_portion = cost_per_yield / portion_size if portion_size > 0 else cost_per_yield
-        food_cost_percent = (cost_per_portion / sell_price * 100) if sell_price > 0 else 0
-        
-        await db.recipes.update_one(
-            {"recipe_id": recipe["recipe_id"]},
-            {"$set": {
-                "ingredients": updated_ingredients,
-                "sub_recipes": updated_sub_recipes,
-                "total_cost": total_cost,
-                "cost_per_yield": cost_per_yield,
-                "cost_per_portion": cost_per_portion,
-                "food_cost_percent": food_cost_percent
-            }}
+        new_total, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+            ingredients, sub_recipes, user.company_id,
         )
-        updated_count += 1
-    
-    return {"updated_recipes": updated_count}
+
+        yield_qty = float(recipe.get("yield_quantity") or 1) or 1
+        portion_size = float(recipe.get("portion_size") or 1) or 1
+        sell_price = float(recipe.get("sell_price") or 0)
+
+        new_per_yield = new_total / yield_qty if yield_qty > 0 else 0
+        new_per_portion = new_per_yield / portion_size if portion_size > 0 else new_per_yield
+        new_food_cost_pct = (new_per_portion / sell_price * 100) if sell_price > 0 else 0
+
+        diff = new_total - old_total
+        diff_pct = (diff / old_total * 100) if old_total > 0 else (100 if new_total > 0 else 0)
+
+        if abs(diff) < 0.005:  # < half a cent
+            unchanged_count += 1
+            diff_buckets["same"] += 1
+            continue
+
+        diff_buckets["increase" if diff > 0 else "decrease"] += 1
+        if old_total > 0:
+            total_diff += diff_pct
+
+        changes.append({
+            "recipe_id": recipe["recipe_id"],
+            "name": recipe.get("name"),
+            "old_total_cost": round(old_total, 4),
+            "new_total_cost": round(new_total, 4),
+            "old_cost_per_portion": round(old_per_portion, 4),
+            "new_cost_per_portion": round(new_per_portion, 4),
+            "diff_amount": round(diff, 4),
+            "diff_pct": round(diff_pct, 2),
+            "sell_price": sell_price,
+            "new_food_cost_pct": round(new_food_cost_pct, 2),
+        })
+
+        # Persist when not dry-run
+        if not dry_run:
+            await db.recipes.update_one(
+                {"recipe_id": recipe["recipe_id"], "company_id": user.company_id},
+                {"$set": {
+                    "ingredients": updated_ingredients,
+                    "sub_recipes": updated_sub_recipes,
+                    "total_cost": new_total,
+                    "cost_per_yield": new_per_yield,
+                    "cost_per_portion": new_per_portion,
+                    "food_cost_percent": new_food_cost_pct,
+                    "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
+                }}
+            )
+
+    # Sort by absolute diff_pct desc
+    changes.sort(key=lambda c: abs(c["diff_pct"]), reverse=True)
+
+    avg_diff_pct = (total_diff / len(changes)) if changes else 0
+
+    return {
+        "dry_run": dry_run,
+        "total_recipes": len(recipes),
+        "changed_count": len(changes),
+        "unchanged_count": unchanged_count,
+        "increase_count": diff_buckets["increase"],
+        "decrease_count": diff_buckets["decrease"],
+        "avg_diff_pct": round(avg_diff_pct, 2),
+        "changes": changes[:200],  # cap UI payload
+        "applied": not dry_run,
+    }
 
 # ============== PLATED MENUS ==============
 

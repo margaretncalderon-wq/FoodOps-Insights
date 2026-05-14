@@ -1229,16 +1229,45 @@ function RecipesSection() {
     }
   };
 
+  const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
+  const [recalcReport, setRecalcReport] = useState(null);
+  const [recalcApplying, setRecalcApplying] = useState(false);
+
   const handleRecalculateAll = async () => {
     setRecalculating(true);
     try {
-      await axios.post(`${API}/api/recipes/recalculate-all`, {}, { withCredentials: true });
-      toast.success(language === "es" ? "Costos recalculados" : "Costs recalculated");
-      fetchData();
+      const res = await axios.post(
+        `${API}/api/recipes/recalculate-all?dry_run=true`, {},
+        { withCredentials: true },
+      );
+      setRecalcReport(res.data);
+      setRecalcDialogOpen(true);
     } catch (error) {
-      toast.error("Error");
+      toast.error(error?.response?.data?.detail || "Error");
     } finally {
       setRecalculating(false);
+    }
+  };
+
+  const handleApplyRecalc = async () => {
+    setRecalcApplying(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/recipes/recalculate-all?dry_run=false`, {},
+        { withCredentials: true },
+      );
+      toast.success(
+        language === "es"
+          ? `${res.data.changed_count} receta${res.data.changed_count === 1 ? "" : "s"} actualizada${res.data.changed_count === 1 ? "" : "s"}`
+          : `${res.data.changed_count} recipe${res.data.changed_count === 1 ? "" : "s"} updated`,
+      );
+      setRecalcDialogOpen(false);
+      setRecalcReport(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Error");
+    } finally {
+      setRecalcApplying(false);
     }
   };
 
@@ -1387,6 +1416,91 @@ function RecipesSection() {
             ingredients={ingredients}
             allRecipes={recipes}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Recalculate Costs Preview Dialog */}
+      <Dialog open={recalcDialogOpen} onOpenChange={(o) => { if (!o && !recalcApplying) { setRecalcDialogOpen(false); setRecalcReport(null); } }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="recalc-preview-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-emerald-600" />
+              {language === "es" ? "Vista previa: Recálculo de costos" : "Preview: Cost Recalculation"}
+            </DialogTitle>
+          </DialogHeader>
+          {recalcReport && (
+            <>
+              <div className="grid grid-cols-4 gap-3 py-3">
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{language === "es" ? "Recetas evaluadas" : "Recipes scanned"}</p>
+                  <p className="text-2xl font-bold">{recalcReport.total_recipes}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-amber-50">
+                  <p className="text-[10px] uppercase tracking-wide text-amber-700">{language === "es" ? "Con cambios" : "Changed"}</p>
+                  <p className="text-2xl font-bold text-amber-900" data-testid="recalc-changed-count">{recalcReport.changed_count}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-emerald-50">
+                  <p className="text-[10px] uppercase tracking-wide text-emerald-700">{language === "es" ? "Subieron" : "Increased"}</p>
+                  <p className="text-2xl font-bold text-emerald-900">{recalcReport.increase_count}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-red-50">
+                  <p className="text-[10px] uppercase tracking-wide text-red-700">{language === "es" ? "Bajaron" : "Decreased"}</p>
+                  <p className="text-2xl font-bold text-red-900">{recalcReport.decrease_count}</p>
+                </div>
+              </div>
+              {recalcReport.changed_count === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
+                  <CheckCircle className="w-12 h-12 text-emerald-500 mb-2" />
+                  <p className="font-semibold">{language === "es" ? "Todo está al día" : "Everything is up to date"}</p>
+                  <p className="text-xs text-muted-foreground">{language === "es" ? "Los costos guardados ya reflejan los ingredientes y mermas actuales." : "Saved costs already reflect current ingredients and waste defaults."}</p>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto -mx-6 px-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === "es" ? "Receta" : "Recipe"}</TableHead>
+                        <TableHead className="text-right">{language === "es" ? "Costo anterior" : "Old cost"}</TableHead>
+                        <TableHead className="text-right">{language === "es" ? "Costo nuevo" : "New cost"}</TableHead>
+                        <TableHead className="text-right">{language === "es" ? "Diferencia" : "Difference"}</TableHead>
+                        <TableHead className="text-right">{language === "es" ? "Food cost %" : "Food cost %"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recalcReport.changes.map((c) => {
+                        const isUp = c.diff_pct > 0;
+                        return (
+                          <TableRow key={c.recipe_id}>
+                            <TableCell className="font-medium">{c.name}</TableCell>
+                            <TableCell className="text-right font-mono text-xs text-muted-foreground">${c.old_total_cost.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs font-semibold">${c.new_total_cost.toFixed(2)}</TableCell>
+                            <TableCell className={`text-right font-mono text-xs font-semibold ${isUp ? "text-amber-700" : "text-red-600"}`}>
+                              {isUp ? "+" : ""}${c.diff_amount.toFixed(2)} <span className="opacity-60">({isUp ? "+" : ""}{c.diff_pct.toFixed(1)}%)</span>
+                            </TableCell>
+                            <TableCell className="text-right text-xs">
+                              {c.sell_price > 0 ? `${c.new_food_cost_pct.toFixed(1)}%` : "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              <DialogFooter className="border-t pt-3">
+                <Button variant="outline" onClick={() => { setRecalcDialogOpen(false); setRecalcReport(null); }} disabled={recalcApplying}>
+                  {language === "es" ? "Cancelar" : "Cancel"}
+                </Button>
+                {recalcReport.changed_count > 0 && (
+                  <Button onClick={handleApplyRecalc} disabled={recalcApplying} data-testid="recalc-apply-btn">
+                    {recalcApplying
+                      ? (language === "es" ? "Aplicando..." : "Applying...")
+                      : (language === "es" ? `Aplicar ${recalcReport.changed_count} cambios` : `Apply ${recalcReport.changed_count} changes`)}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
