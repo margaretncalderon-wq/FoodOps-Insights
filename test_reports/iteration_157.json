@@ -1,0 +1,80 @@
+{
+  "summary": "Completed comprehensive testing of Merma (Waste) Propagation in Recipe Cost Calculations (Iteration 157). All 13 backend tests passed (100%). Critical validation confirmed: (1) Recipe POST without waste_factor_pct uses ingredient's yield_waste_percent as fallback (8% → $0.54), (2) Recipe with explicit waste_factor_pct=0 overrides to no waste ($0.50), (3) Recipe with waste_factor_pct=15 overrides to 15% ($0.575). cost-preview endpoint also correctly handles all waste scenarios.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "component": "Login",
+        "issue": "Google OAuth redirect_uri_mismatch error in preview environment - cannot test frontend UI via Playwright",
+        "selector": "N/A",
+        "priority": "LOW - expected in preview environment"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_merma_propagation.py",
+    "/app/test_reports/pytest/pytest_merma_propagation.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CRITICAL TEST PASSED: Recipe POST with ingredient yield_waste_percent=8, no waste_factor_pct in line → total_cost=$0.54 (100g × $0.005/g × 1.08), applied_waste_pct=8, net_quantity=108",
+    "CRITICAL TEST PASSED: Recipe with explicit waste_factor_pct=0 → total_cost=$0.50 (no waste), applied_waste_pct=0",
+    "CRITICAL TEST PASSED: Recipe with explicit waste_factor_pct=15 → total_cost=$0.575 (15% waste), applied_waste_pct=15",
+    "CRITICAL TEST PASSED: cost_per_portion = total_cost / portions_per_yield consistency verified",
+    "CRITICAL TEST PASSED: Ingredient with yield_waste_percent=0 → recipes do NOT apply merma",
+    "REGRESSION PASSED: cost-preview endpoint correctly handles: (1) no waste_factor_pct → uses ingredient default, (2) waste_factor_pct=0 → no waste, (3) waste_factor_pct=20 → override",
+    "REGRESSION PASSED: Legacy recipe fields (instructions array, sub_recipes, allergens) work without 422/500",
+    "REGRESSION PASSED: Production batches, leads CRUD, public catalog endpoints unaffected by RecipeIngredient model changes",
+    "Code review: calculate_recipe_cost function (lines 2620-2700) correctly implements waste fallback logic with raw_line_waste check for None/empty string"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_merma_propagation.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "Not tested - Google OAuth redirect_uri_mismatch in preview environment"
+  },
+  "test_credentials": "margaret.n.calderon@gmail.com / Evoque2024!",
+  "seed_data_creation": "Created and cleaned up test ingredients (Test E2E Merma v*, Test E2E NoWaste v*) and test recipes during testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Merma propagation fully tested and working. Key logic in server.py lines 2644-2665: if raw_line_waste is None or empty string, uses ingredient.yield_waste_percent as fallback; otherwise uses explicit value (including 0). cost-preview endpoint (lines 1825-1831) has same logic. Frontend IngredientRow component (RecipeBuilder.js lines 193-300) correctly sends waste_factor_pct only when explicitly set by chef.",
+  "backend_test_results": {
+    "passed": [
+      "test_recipe_post_with_ingredient_default_waste",
+      "test_recipe_with_explicit_zero_waste",
+      "test_recipe_with_explicit_15_percent_waste",
+      "test_cost_per_portion_consistency",
+      "test_ingredient_with_zero_waste_no_merma_applied",
+      "test_cost_preview_without_waste_uses_ingredient_default",
+      "test_cost_preview_with_explicit_zero_waste",
+      "test_cost_preview_with_explicit_waste_override",
+      "test_recipe_with_instructions_array",
+      "test_recipe_with_sub_recipes",
+      "test_production_batches_list",
+      "test_leads_crud_not_affected",
+      "test_public_catalog_not_affected"
+    ],
+    "failed": [],
+    "skipped": []
+  },
+  "verified_features": {
+    "Recipe POST with default waste": "100g × $0.005/g × 1.08 = $0.54, applied_waste_pct=8, net_quantity=108",
+    "Recipe with waste_factor_pct=0": "100g × $0.005/g = $0.50, applied_waste_pct=0 (override)",
+    "Recipe with waste_factor_pct=15": "100g × $0.005/g × 1.15 = $0.575, applied_waste_pct=15 (override)",
+    "cost_per_portion consistency": "total_cost / portions_per_yield verified",
+    "Ingredient with 0% waste": "No merma applied to recipes",
+    "cost-preview without waste": "Uses ingredient default (8%)",
+    "cost-preview with waste=0": "Override to no waste",
+    "cost-preview with waste=20": "Override to 20%",
+    "Legacy recipe fields": "instructions array, sub_recipes, allergens work correctly",
+    "Production batches": "Unaffected by changes",
+    "Leads CRUD": "Unaffected by changes",
+    "Public catalog": "Unaffected by changes"
+  }
+}

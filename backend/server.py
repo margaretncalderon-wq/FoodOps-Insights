@@ -659,11 +659,15 @@ class Ingredient(BaseModel):
 
 # Recipe Models - Enhanced for detailed costing
 class RecipeIngredient(BaseModel):
-    ingredient_id: str
-    name: str
+    ingredient_id: Optional[str] = None  # legacy field
+    item_id: Optional[str] = None        # new canonical field
+    item_type: Optional[str] = "ingredient"  # 'ingredient' or 'recipe'
+    name: Optional[str] = None
     quantity: float
     unit: str
     cost: float = 0.0
+    waste_factor_pct: Optional[float] = None  # explicit override; None = use ingredient default
+    model_config = {"extra": "allow"}
 
 class RecipeCreate(BaseModel):
     name: str
@@ -2637,8 +2641,14 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
             if ingredient:
                 quantity = float(ing_dict.get("quantity", 0) or 0)
                 line_unit = ing_dict.get("unit") or ingredient.get("base_unit") or ingredient.get("unit") or "g"
-                waste_factor = float(ing_dict.get("waste_factor_pct", 0) or 0)
-                effective_qty = quantity * (1 + waste_factor / 100) if waste_factor > 0 else quantity
+                # Waste: explicit line override wins; otherwise fall back to ingredient default.
+                # If chef sets the line to 0 explicitly, we keep 0 (no waste for this line).
+                raw_line_waste = ing_dict.get("waste_factor_pct")
+                if raw_line_waste is None or raw_line_waste == "":
+                    applied_waste = float(ingredient.get("yield_waste_percent") or 0)
+                else:
+                    applied_waste = float(raw_line_waste or 0)
+                effective_qty = quantity * (1 + applied_waste / 100) if applied_waste > 0 else quantity
                 line_cost = cost_for_recipe_line(effective_qty, line_unit, ingredient)
 
                 updated_ingredients.append({
@@ -2651,6 +2661,7 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                     "cost": round(line_cost, 4),         # legacy field name
                     "total_cost": round(line_cost, 4),
                     "net_quantity": round(effective_qty, 4),
+                    "applied_waste_pct": round(applied_waste, 2),
                 })
                 total_cost += line_cost
                 continue
