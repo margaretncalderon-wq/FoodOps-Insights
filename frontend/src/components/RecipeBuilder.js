@@ -373,7 +373,10 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       setForm({
         name: initialRecipe.name || "",
         description: initialRecipe.description || "",
-        recipe_type: initialRecipe.recipe_type || "final_dish",
+        recipe_type: (initialRecipe.recipe_type === "Final" ? "final_dish"
+                    : initialRecipe.recipe_type === "Base" ? "base"
+                    : initialRecipe.recipe_type === "Component" ? "component"
+                    : initialRecipe.recipe_type) || "final_dish",
         category: initialRecipe.category || "main",
         yield_quantity: initialRecipe.yield_quantity || 1,
         yield_unit: initialRecipe.yield_unit || "portion",
@@ -1039,7 +1042,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           </div>
 
           {/* Base Menu Toggle — only for sellable dishes */}
-          {(form.recipe_type === "final_dish" || form.recipe_type === "dish") && (
+          {(["final_dish", "dish", "Final"].includes(form.recipe_type)) && (
             <div
               className="flex items-center justify-between p-3 rounded-lg border bg-gradient-to-r from-emerald-50/60 to-white"
               data-testid="is-on-menu-toggle-row"

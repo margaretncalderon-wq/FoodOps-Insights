@@ -25,7 +25,7 @@ export default function RecipePicker({
   triggerLabel,
   triggerTestId = "recipe-picker-trigger",
   disabled = false,
-  filterTypes = ["final_dish", "dish"],
+  filterTypes = ["final_dish", "dish", "Final"],
 }) {
   const { language } = useLanguage();
   const isEs = language === "es";
