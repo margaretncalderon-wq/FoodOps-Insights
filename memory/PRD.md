@@ -124,12 +124,17 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Cost Health Dashboard + Margin Indicator (May 14, 2026):
-- Backend `/api/proposals/cost-health/overview` ahora calcula y devuelve `current_margin_pct` y `projected_margin_pct` por proposal (matemática verificada: qty=5 × $100 unit_price, costo $70→$85 ⇒ 30% → 15%). Null cuando total_price = 0.
-- `/cost-staleness` y `/refresh-costs` ya manejan items no-Food enlazados a `PicklistItem` (Servicios/Rentas).
-- `CostHealthDashboard.js` con dos modos:
-  - **card** (System Pulse, auto-oculta): resumen + **mini-lista top 3** ordenadas por |Δ|↓ con "Refrescar" inline + **micro-indicador "Margen 30% → 15%"** con color rojo/ámbar/verde + badge "Crítico" si margen proyectado <20%.
-  - **section** (Food Ops): summary strip + tabla con checkboxes + columna **Margen** con mismo formato + diálogo preview-confirm para refresh masivo o selectivo.
-- `unit_price` jamás se modifica — solo internal_cost y margen. Quotes firmadas/aceptadas protegidas.
+Cost Health Dashboard + Margin Policy Fase 1 (May 14, 2026):
+- Backend `/cost-health/overview` ahora incluye `effective_min_margin` (promedio ponderado por revenue de los umbrales resueltos por ítem) y `below_threshold: bool`.
+- Política de margen jerárquica en `company_settings.margin_policy`:
+  - Defaults sembrados: Food 35 / Service 40 / Rental 50 / Fee 60 / Other 30
+  - Cascada: `min_margin_pct` del ítem → regla por categoría → default del tipo
+  - `GET/PUT /api/settings/margin-policy` operativos
+- `Recipe` y `PicklistItem` aceptan `min_margin_pct` opcional (override por ítem). PUT del PicklistItem permite limpiar el override enviando `null`.
+- Frontend:
+  - Settings → Catálogos → **Política de Margen** (5 inputs por tipo + tabla de reglas por categoría con add/remove + save)
+  - `RecipeBuilder` y dialog de PicklistItem con input `min_margin_pct` opcional
+  - CostHealthDashboard: badge **"Bajo margen / Below threshold"** en card y section cuando `below_threshold=true`, proyectado en rojo + texto "(mín X%)" como referencia
+- Testing iteration_164: Backend 12/12 PASS, Frontend 100% (badge no visible cuando no hay stale — esperado).
 
-Next: Logo image upload via Object Storage for Guest Flow, Unified Contact Model (merge Lead + Client), Recipe scaling, Filterable recipe tags.
+Pendiente Fase 2: breakdown por tipo en cada fila del dashboard. Fase 3: gating de refresh masivo solo para Admin/Owner cuando below_threshold.

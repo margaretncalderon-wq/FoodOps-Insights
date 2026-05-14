@@ -5722,7 +5722,10 @@ async def create_picklist_items_bulk(data: PicklistBulkCreate, user: User = Depe
 @settings_router.put("/picklist/{item_id}")
 async def update_picklist_item(item_id: str, data: PicklistItemUpdate, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    raw = data.model_dump(exclude_unset=True)
+    # Allow explicit null only for fields that represent optional overrides.
+    nullable_fields = {"min_margin_pct", "internal_cost", "recipe_id", "inventory_item_id", "description"}
+    update_data = {k: v for k, v in raw.items() if v is not None or k in nullable_fields}
     update_data["updated_at"] = now.isoformat()
     
     result = await db.picklist_items.update_one(
