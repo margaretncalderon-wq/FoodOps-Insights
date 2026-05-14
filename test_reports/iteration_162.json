@@ -1,0 +1,63 @@
+{
+  "summary": "Completed frontend testing of Cost Health Dashboard card mode mini-list feature (Iteration 162). All new features working correctly: mini-list shows top 3 stale quotes sorted by |delta_total|, per-row refresh buttons with proper disabled state during refresh, '+N more' label when stale_count > 3, and 'Review all' button.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_162.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: data-testid='cost-health-card' present on card component",
+    "VERIFIED: data-testid='cost-health-card-top-list' present on mini-list container",
+    "VERIFIED: data-testid='cost-health-card-row-{proposal_id}' present on each row",
+    "VERIFIED: data-testid='cost-health-card-refresh-one-{proposal_id}' present on per-row refresh buttons",
+    "VERIFIED: data-testid='cost-health-card-open-btn' present on 'Review all' button",
+    "VERIFIED: Mini-list shows max 3 rows (proposals.slice(0, 3))",
+    "VERIFIED: Rows display client_name, proposal_number, event_name, delta_total (formatted as $), stale_count",
+    "VERIFIED: '+N more' label shows when staleCount > 3 with correct pluralization (ES/EN)",
+    "VERIFIED: refreshingId state correctly disables ALL other refresh buttons during refresh",
+    "VERIFIED: refreshOne() calls POST /api/proposals/{proposal_id}/refresh-costs",
+    "VERIFIED: Toast notification shows after successful refresh",
+    "VERIFIED: Card reloads data after refresh (calls load() which fetches /api/proposals/cost-health/overview)",
+    "VERIFIED: Card auto-hides when stale_proposals = 0 (line 122: if (loading || staleCount === 0) return null)"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (backend testing skipped per request)",
+    "frontend": "100% - All new card mode features working correctly"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created TEST_STALE_Service picklist item and linked order items in 5 Draft proposals to create stale scenario. Cleaned up after testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Cost Health Dashboard card mode mini-list feature fully tested. Key findings: (1) Mini-list shows top 3 stale quotes sorted by |delta_total| descending, (2) Per-row refresh buttons work correctly with disabled state during refresh, (3) '+N more' label shows when stale_count > 3, (4) Toast notifications work, (5) Card auto-hides when no stale proposals. Note: To test this feature, you need to create stale data by: (a) creating a picklist item with internal_cost, (b) adding an order item to a Draft proposal linked to that picklist item, (c) updating the picklist item's internal_cost to a different value.",
+  "verified_features": {
+    "card_mode_mini_list": "Shows top 3 stale quotes with data-testid='cost-health-card-top-list'",
+    "per_row_refresh_button": "Each row has refresh button with data-testid='cost-health-card-refresh-one-{proposal_id}'",
+    "refresh_button_disabled_state": "All other refresh buttons disabled during refresh (refreshingId state)",
+    "plus_n_more_label": "Shows '+N more quote(s)' when stale_count > 3",
+    "review_all_button": "Present with data-testid='cost-health-card-open-btn'",
+    "row_data_display": "Shows client_name, proposal_number, event_name, delta_total ($), stale_count",
+    "toast_notification": "Shows success message after refresh",
+    "card_auto_hide": "Card hides when stale_proposals = 0"
+  },
+  "frontend_test_results": {
+    "cost_health_card_visible": "PASS - Shows when stale_proposals > 0",
+    "mini_list_present": "PASS - data-testid='cost-health-card-top-list' found",
+    "max_3_rows": "PASS - Shows exactly 3 rows when 5 stale proposals exist",
+    "per_row_refresh_buttons": "PASS - All 3 rows have refresh buttons with correct data-testid",
+    "plus_n_more_label": "PASS - Shows '+2 more quotes' when 5 stale proposals exist",
+    "review_all_button": "PASS - Button present with correct data-testid",
+    "refresh_button_click": "PASS - Calls API and shows toast",
+    "disabled_during_refresh": "PASS - Other buttons disabled during refresh (confirmed by DOM inspection)",
+    "card_reload_after_refresh": "PASS - Card reloads and updates data",
+    "card_auto_hide": "PASS - Card hides when all stale proposals refreshed"
+  }
+}

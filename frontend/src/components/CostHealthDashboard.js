@@ -36,6 +36,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [scope, setScope] = useState("all"); // "all" or "selected"
   const [applying, setApplying] = useState(false);
+  const [refreshingId, setRefreshingId] = useState(null); // for inline single-quote refresh
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,6 +98,25 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
     }
   };
 
+  // Refresh a single proposal inline (used by mini-list in card mode)
+  const refreshOne = async (proposalId) => {
+    setRefreshingId(proposalId);
+    try {
+      const res = await axios.post(`${API}/proposals/${proposalId}/refresh-costs`, {}, { withCredentials: true });
+      const count = res.data?.refreshed_count || 0;
+      toast.success(
+        isEs
+          ? `${count} ítem${count === 1 ? "" : "s"} actualizado${count === 1 ? "" : "s"}`
+          : `${count} item${count === 1 ? "" : "s"} updated`,
+      );
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || (isEs ? "Error al refrescar" : "Refresh failed"));
+    } finally {
+      setRefreshingId(null);
+    }
+  };
+
   // ----------------- Compact Card Mode (System Pulse) -----------------
   if (mode === "card") {
     if (loading || staleCount === 0) return null; // hide when nothing to do
@@ -127,25 +147,75 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs text-amber-800/80">
+        <CardContent className="pt-0 space-y-3">
+          <div>
+            <p className="text-xs text-amber-800/80">
+              {isEs
+                ? `Si refrescas todas, el costo interno cambiará ${fmtMoney(totalDelta)} en total`
+                : `Refreshing all would shift internal cost by ${fmtMoney(totalDelta)}`}
+            </p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-amber-900/80">
+              {totalDelta >= 0
+                ? <TrendingUp className="w-3.5 h-3.5" />
+                : <TrendingDown className="w-3.5 h-3.5" />}
+              <span>
                 {isEs
-                  ? `Si refrescas todas, el costo interno cambiará ${fmtMoney(totalDelta)} en total`
-                  : `Refreshing all would shift internal cost by ${fmtMoney(totalDelta)}`}
-              </p>
-              <div className="mt-1 flex items-center gap-2 text-xs text-amber-900/80">
-                {totalDelta >= 0
-                  ? <TrendingUp className="w-3.5 h-3.5" />
-                  : <TrendingDown className="w-3.5 h-3.5" />}
-                <span>
-                  {isEs
-                    ? `${staleCount} cotización${staleCount === 1 ? "" : "es"} en Draft afectada${staleCount === 1 ? "" : "s"}`
-                    : `${staleCount} Draft quote${staleCount === 1 ? "" : "s"} affected`}
-                </span>
-              </div>
+                  ? `${staleCount} cotización${staleCount === 1 ? "" : "es"} en Draft afectada${staleCount === 1 ? "" : "s"}`
+                  : `${staleCount} Draft quote${staleCount === 1 ? "" : "s"} affected`}
+              </span>
             </div>
+          </div>
+
+          {/* Top 3 stale quotes — inline refresh */}
+          <div className="space-y-1.5" data-testid="cost-health-card-top-list">
+            {proposals.slice(0, 3).map((p) => {
+              const isRefreshing = refreshingId === p.proposal_id;
+              return (
+                <div
+                  key={p.proposal_id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-amber-200/70 bg-white/60 px-2.5 py-1.5"
+                  data-testid={`cost-health-card-row-${p.proposal_id}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      {p.client_name || "—"}
+                      <span className="text-muted-foreground font-normal ml-1.5">
+                        · {p.proposal_number || p.proposal_id.slice(0, 6)}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {p.event_name || (isEs ? "Sin evento" : "No event")}
+                      {" · "}
+                      <span className={p.delta_total >= 0 ? "text-amber-700" : "text-emerald-700"}>
+                        {fmtMoney(p.delta_total)}
+                      </span>
+                      <span className="text-muted-foreground"> · {p.stale_count} {isEs ? "ítems" : "items"}</span>
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-amber-900 hover:bg-amber-100"
+                    onClick={() => refreshOne(p.proposal_id)}
+                    disabled={isRefreshing || refreshingId !== null}
+                    data-testid={`cost-health-card-refresh-one-${p.proposal_id}`}
+                  >
+                    <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
+                    {isEs ? "Refrescar" : "Refresh"}
+                  </Button>
+                </div>
+              );
+            })}
+            {staleCount > 3 && (
+              <p className="text-[11px] text-amber-800/70 px-1">
+                {isEs
+                  ? `+${staleCount - 3} cotización${staleCount - 3 === 1 ? "" : "es"} más`
+                  : `+${staleCount - 3} more quote${staleCount - 3 === 1 ? "" : "s"}`}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end">
             <Button
               size="sm"
               variant="outline"
@@ -153,7 +223,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
               onClick={() => onNavigate ? onNavigate() : window.location.assign(hasFoodOps ? "/food-ops/recipes#cost-health" : "/crm/proposals")}
               data-testid="cost-health-card-open-btn"
             >
-              {isEs ? "Revisar" : "Review"}
+              {isEs ? "Revisar todo" : "Review all"}
               <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
             </Button>
           </div>
