@@ -65,7 +65,7 @@ export default function RecipeBuilder() {
         servings: recipe.servings,
         prep_time_minutes: recipe.prep_time_minutes,
         cook_time_minutes: recipe.cook_time_minutes,
-        instructions: recipe.instructions.length > 0 ? recipe.instructions : [""],
+        instructions: recipe.instructions && recipe.instructions.length > 0 ? recipe.instructions : [""],
         image_url: recipe.image_url || "",
       });
       setIngredientsList(recipe.ingredients || []);
