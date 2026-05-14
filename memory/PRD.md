@@ -124,11 +124,12 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Cost Health Dashboard + Top-3 inline refresh (May 14, 2026):
-- Backend `/api/proposals/cost-health/overview` y `/refresh-all` operativos. `/cost-staleness` y `/refresh-costs` ahora diffean items no-Food contra `picklist_items.internal_cost`.
+Cost Health Dashboard + Margin Indicator (May 14, 2026):
+- Backend `/api/proposals/cost-health/overview` ahora calcula y devuelve `current_margin_pct` y `projected_margin_pct` por proposal (matemática verificada: qty=5 × $100 unit_price, costo $70→$85 ⇒ 30% → 15%). Null cuando total_price = 0.
+- `/cost-staleness` y `/refresh-costs` ya manejan items no-Food enlazados a `PicklistItem` (Servicios/Rentas).
 - `CostHealthDashboard.js` con dos modos:
-  - **card** (System Pulse, auto-oculta cuando 0 stale): muestra resumen + **mini-lista de top 3 quotes** ordenadas por |delta_total|↓ con botón inline "Refrescar" por fila, label "+N más" si hay >3, y "Revisar todo" al final. Disabled state durante refresh evita llamadas concurrentes.
-  - **section** (Food Ops → Recetas): summary strip + tabla con checkboxes + diálogo preview-confirm para refrescar todo o selección.
+  - **card** (System Pulse, auto-oculta): resumen + **mini-lista top 3** ordenadas por |Δ|↓ con "Refrescar" inline + **micro-indicador "Margen 30% → 15%"** con color rojo/ámbar/verde + badge "Crítico" si margen proyectado <20%.
+  - **section** (Food Ops): summary strip + tabla con checkboxes + columna **Margen** con mismo formato + diálogo preview-confirm para refresh masivo o selectivo.
 - `unit_price` jamás se modifica — solo internal_cost y margen. Quotes firmadas/aceptadas protegidas.
 
 Next: Logo image upload via Object Storage for Guest Flow, Unified Contact Model (merge Lead + Client), Recipe scaling, Filterable recipe tags.
