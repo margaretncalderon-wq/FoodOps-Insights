@@ -9,9 +9,18 @@ import { Checkbox } from "./ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "./ui/dialog";
-import { AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ExternalLink, ShieldCheck } from "lucide-react";
+import { AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ExternalLink, ShieldCheck, ChefHat, Wrench, Package, Receipt, Box } from "lucide-react";
 import { toast } from "sonner";
 import { useModules } from "../contexts/ModulesContext";
+
+// Icon + label per item type — keeps the breakdown readable without emojis
+const ITEM_TYPE_META = {
+  Food: { Icon: ChefHat, labelEs: "Comida", labelEn: "Food" },
+  Service: { Icon: Wrench, labelEs: "Servicio", labelEn: "Service" },
+  Rental: { Icon: Package, labelEs: "Renta", labelEn: "Rental" },
+  Fee: { Icon: Receipt, labelEs: "Cargo", labelEn: "Fee" },
+  Other: { Icon: Box, labelEs: "Otro", labelEn: "Other" },
+};
 
 /**
  * Cost Health Dashboard
@@ -221,6 +230,37 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                           </Badge>
                         )}
                       </p>
+                    )}
+                    {Array.isArray(p.type_breakdown) && p.type_breakdown.length > 1 && (
+                      <div
+                        className="mt-1 flex flex-wrap gap-1"
+                        data-testid={`cost-health-card-breakdown-${p.proposal_id}`}
+                      >
+                        {p.type_breakdown.map((b) => {
+                          const meta = ITEM_TYPE_META[b.item_type] || ITEM_TYPE_META.Other;
+                          const IconC = meta.Icon;
+                          const projColor = b.below_threshold ? "text-red-600" : marginColor(b.projected_margin_pct);
+                          return (
+                            <span
+                              key={b.item_type}
+                              className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] ${b.below_threshold ? "border-red-200 bg-red-50/60" : "border-slate-200 bg-white/50"}`}
+                              data-testid={`cost-health-card-breakdown-chip-${p.proposal_id}-${b.item_type}`}
+                              title={isEs ? `${meta.labelEs}${b.stale_count ? ` · ${b.stale_count} stale` : ""}` : `${meta.labelEn}${b.stale_count ? ` · ${b.stale_count} stale` : ""}`}
+                            >
+                              <IconC className="w-2.5 h-2.5 text-muted-foreground" />
+                              {b.current_margin_pct != null && b.projected_margin_pct != null ? (
+                                <>
+                                  <span className={marginColor(b.current_margin_pct)}>{b.current_margin_pct.toFixed(0)}%</span>
+                                  <span className="text-muted-foreground">→</span>
+                                  <span className={`font-semibold ${projColor}`}>{b.projected_margin_pct.toFixed(0)}%</span>
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                   <Button
@@ -453,6 +493,37 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                                 <Badge variant="outline" className="text-[9px] py-0 px-1 border-red-300 text-red-700 bg-red-50" data-testid={`cost-health-row-below-${p.proposal_id}`}>
                                   {isEs ? `Bajo ${p.effective_min_margin?.toFixed(0) ?? ""}%` : `Below ${p.effective_min_margin?.toFixed(0) ?? ""}%`}
                                 </Badge>
+                              )}
+                              {Array.isArray(p.type_breakdown) && p.type_breakdown.length > 1 && (
+                                <div
+                                  className="flex flex-wrap justify-end gap-1 mt-0.5 max-w-[260px]"
+                                  data-testid={`cost-health-row-breakdown-${p.proposal_id}`}
+                                >
+                                  {p.type_breakdown.map((b) => {
+                                    const meta = ITEM_TYPE_META[b.item_type] || ITEM_TYPE_META.Other;
+                                    const IconC = meta.Icon;
+                                    const projColor = b.below_threshold ? "text-red-600" : marginColor(b.projected_margin_pct);
+                                    return (
+                                      <span
+                                        key={b.item_type}
+                                        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] ${b.below_threshold ? "border-red-200 bg-red-50/60" : "border-slate-200 bg-white/50"}`}
+                                        data-testid={`cost-health-row-breakdown-chip-${p.proposal_id}-${b.item_type}`}
+                                        title={isEs ? meta.labelEs : meta.labelEn}
+                                      >
+                                        <IconC className="w-2.5 h-2.5 text-muted-foreground" />
+                                        {b.current_margin_pct != null && b.projected_margin_pct != null ? (
+                                          <>
+                                            <span className={marginColor(b.current_margin_pct)}>{b.current_margin_pct.toFixed(0)}%</span>
+                                            <span className="text-muted-foreground">→</span>
+                                            <span className={`font-semibold ${projColor}`}>{b.projected_margin_pct.toFixed(0)}%</span>
+                                          </>
+                                        ) : (
+                                          <span className="text-muted-foreground">—</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
                               )}
                             </div>
                           ) : (

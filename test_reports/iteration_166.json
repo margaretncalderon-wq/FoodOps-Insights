@@ -1,0 +1,88 @@
+{
+  "summary": "Margin Policy Phase 2 (per-type breakdown) testing complete. Backend: 6/6 new tests passed + 12/12 regression tests passed. Frontend: Card mode chips verified working with correct data-testid attributes and styling.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CostHealthDashboard",
+        "issue": "HTML nesting warning: <div> cannot be a descendant of <p>. Badge component renders as div inside p element.",
+        "selector": "[data-testid='cost-health-card-margin-*']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_margin_policy_phase2_type_breakdown.py",
+    "/app/test_reports/pytest/pytest_margin_policy_phase2.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Fix HTML nesting warning - Badge inside <p> tag should be changed to <span> or parent should be <div>"
+  ],
+  "critical_code_review_comments": [
+    "VERIFIED: Backend type_breakdown array is always present (may be empty list)",
+    "VERIFIED: type_breakdown contains all required fields: item_type, current_margin_pct, projected_margin_pct, min_margin_pct, below_threshold, stale_count, revenue_share_pct",
+    "VERIFIED: type_breakdown sorted by abs(projected - current) descending",
+    "VERIFIED: Backend math correct - Food: current=40%, projected=20%, below_threshold=true (20<35)",
+    "VERIFIED: Backend math correct - Service: current=50%, projected=50%, below_threshold=false (50>=40)",
+    "VERIFIED: Frontend card mode chips render with correct data-testid='cost-health-card-breakdown-chip-{proposal_id}-{item_type}'",
+    "VERIFIED: Frontend section mode chips have data-testid='cost-health-row-breakdown-chip-{proposal_id}-{item_type}'",
+    "VERIFIED: Below-threshold types render with red border (border-red-200 bg-red-50/60) and red projected number",
+    "VERIFIED: Defensive check: Array.isArray(p.type_breakdown) && p.type_breakdown.length > 1 before rendering chips",
+    "VERIFIED: All existing fields from iteration_164 still present (regression check passed)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_margin_policy_phase2_type_breakdown.py"
+  ],
+  "success_rate": {
+    "backend": "100% (6/6 new tests + 12/12 regression tests)",
+    "frontend": "100% (card mode chips verified)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Test created and cleaned up: recipe with ingredient, picklist item, event, client, proposal with Food+Service items",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Margin Policy Phase 2 complete. type_breakdown array now included in cost-health/overview response. Frontend chips render in both card and section modes. Section mode requires Culinary module which demo user lacks - code review verified implementation but live testing focused on card mode. Phase 3 (refresh override gated by admin role) may follow.",
+  "features_verified": {
+    "backend": {
+      "GET /api/proposals/cost-health/overview": "Returns type_breakdown array for each stale proposal",
+      "type_breakdown structure": "Each entry has: item_type, current_margin_pct, projected_margin_pct, min_margin_pct, below_threshold, stale_count, revenue_share_pct",
+      "type_breakdown sorting": "Sorted by abs(projected - current) descending - biggest impact first",
+      "Math verification": "Food: revenue=$500, cost_current=$300, cost_projected=$400 → current=40%, projected=20%, below_threshold=true",
+      "Math verification": "Service: revenue=$200, cost=$100 → current=50%, projected=50%, below_threshold=false",
+      "revenue_share_pct": "Food=71.43%, Service=28.57% (sums to 100%)",
+      "Regression": "All existing fields (current_margin_pct, projected_margin_pct, effective_min_margin, below_threshold, stale_count, delta_total) still present"
+    },
+    "frontend": {
+      "Card mode breakdown container": "data-testid='cost-health-card-breakdown-{proposal_id}' - WORKING",
+      "Card mode chips": "data-testid='cost-health-card-breakdown-chip-{proposal_id}-{item_type}' - WORKING",
+      "Section mode breakdown container": "data-testid='cost-health-row-breakdown-{proposal_id}' - CODE VERIFIED",
+      "Section mode chips": "data-testid='cost-health-row-breakdown-chip-{proposal_id}-{item_type}' - CODE VERIFIED",
+      "Below-threshold styling": "Red border (border-red-200) and red projected number (text-red-600) - WORKING",
+      "Defensive check": "Chips hidden when type_breakdown.length <= 1 - IMPLEMENTED",
+      "ITEM_TYPE_META icons": "ChefHat (Food), Wrench (Service), Package (Rental), Receipt (Fee), Box (Other) - IMPLEMENTED"
+    }
+  },
+  "backend_test_results": {
+    "passed": [
+      "test_01_overview_returns_type_breakdown_array",
+      "test_02_existing_fields_regression",
+      "test_03_create_mixed_type_scenario",
+      "test_04_type_breakdown_empty_for_single_type",
+      "test_05_revenue_share_pct_calculation",
+      "test_06_type_breakdown_always_present"
+    ],
+    "failed": [],
+    "skipped": []
+  },
+  "regression_test_results": {
+    "test_file": "/app/backend/tests/test_margin_policy_phase1.py",
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0
+  }
+}

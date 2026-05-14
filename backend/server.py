@@ -7255,6 +7255,8 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
         weighted_min_num = 0.0  # sum(line_revenue * resolved_min_margin) for weighted avg
         weighted_min_den = 0.0  # sum(line_revenue) where min was resolvable
         any_below_projected = False  # at least one stale item projects below its own min
+        # Per-type breakdown: { item_type: {revenue, cost_current, cost_projected, min_num, min_den, stale_count} }
+        by_type: Dict[str, Dict[str, float]] = {}
         for it in items:
             qty = float(it.get("quantity") or 0)
             unit_price = float(it.get("unit_price") or 0)
@@ -7262,6 +7264,13 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
             line_revenue = qty * unit_price
             total_price += line_revenue
             total_cost_current += qty * snap
+            item_type = (it.get("item_type") or "Other")
+            bucket = by_type.setdefault(item_type, {
+                "revenue": 0.0, "cost_current": 0.0, "cost_projected": 0.0,
+                "min_num": 0.0, "min_den": 0.0, "stale_count": 0,
+            })
+            bucket["revenue"] += line_revenue
+            bucket["cost_current"] += qty * snap
 
             rid = it.get("reference_id")
             current_for_proj = snap  # default: no change
@@ -7269,7 +7278,7 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
             item_specific_min: Optional[float] = None
             if rid:
                 current = None
-                if it.get("item_type") == "Food":
+                if item_type == "Food":
                     rec = await db.recipes.find_one(
                         {"recipe_id": rid, "company_id": user.company_id},
                         {"_id": 0, "cost_per_portion": 1, "total_cost": 1, "category": 1, "min_margin_pct": 1},
@@ -7289,23 +7298,27 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
                         item_specific_min = pli.get("min_margin_pct")
                 if current is not None and abs(current - snap) >= 0.005:
                     stale_count += 1
+                    bucket["stale_count"] += 1
                     delta_total += (current - snap) * qty
                     pct = ((current - snap) / snap * 100) if snap > 0 else 100
                     if abs(pct) > abs(max_pct):
                         max_pct = pct
                     current_for_proj = current
             total_cost_projected += qty * current_for_proj
+            bucket["cost_projected"] += qty * current_for_proj
 
             # Resolve per-item min_margin and accumulate weighted average
             resolved_min = resolve_min_margin(
                 policy,
-                item_type=it.get("item_type"),
+                item_type=item_type,
                 category=item_category,
                 item_specific=item_specific_min,
             )
             if resolved_min is not None and line_revenue > 0:
                 weighted_min_num += line_revenue * resolved_min
                 weighted_min_den += line_revenue
+                bucket["min_num"] += line_revenue * resolved_min
+                bucket["min_den"] += line_revenue
                 # Per-item projected margin check
                 line_proj_cost = qty * current_for_proj
                 line_proj_margin_pct = ((line_revenue - line_proj_cost) / line_revenue * 100) if line_revenue > 0 else None
@@ -7323,6 +7336,31 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
             effective_min_margin is not None
             and projected_margin_pct is not None
             and projected_margin_pct < effective_min_margin
+        )
+
+        # Build per-type breakdown rows (only types that have revenue in this proposal)
+        type_breakdown = []
+        for t, b in by_type.items():
+            rev = b["revenue"]
+            if rev <= 0:
+                continue
+            t_current = ((rev - b["cost_current"]) / rev * 100) if rev > 0 else None
+            t_projected = ((rev - b["cost_projected"]) / rev * 100) if rev > 0 else None
+            t_min = (b["min_num"] / b["min_den"]) if b["min_den"] > 0 else None
+            t_below = bool(t_min is not None and t_projected is not None and t_projected < t_min)
+            type_breakdown.append({
+                "item_type": t,
+                "current_margin_pct": round(t_current, 2) if t_current is not None else None,
+                "projected_margin_pct": round(t_projected, 2) if t_projected is not None else None,
+                "min_margin_pct": round(t_min, 2) if t_min is not None else None,
+                "below_threshold": t_below,
+                "stale_count": int(b["stale_count"]),
+                "revenue_share_pct": round(rev / total_price * 100, 2) if total_price > 0 else None,
+            })
+        # Sort by absolute margin change descending so biggest impact shows first
+        type_breakdown.sort(
+            key=lambda x: abs((x.get("projected_margin_pct") or 0) - (x.get("current_margin_pct") or 0)),
+            reverse=True,
         )
 
         # Resolve client + event for display
@@ -7343,6 +7381,7 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
             "projected_margin_pct": round(projected_margin_pct, 2) if projected_margin_pct is not None else None,
             "effective_min_margin": round(effective_min_margin, 2) if effective_min_margin is not None else None,
             "below_threshold": below_threshold,
+            "type_breakdown": type_breakdown,
         })
     # Sort: biggest |delta_total| first
     rows.sort(key=lambda r: abs(r["delta_total"]), reverse=True)
