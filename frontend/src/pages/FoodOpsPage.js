@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 // Custom Components
 import RecipeBuilder from "../components/RecipeBuilder";
 import PlatedMenuBuilder from "../components/PlatedMenuBuilder";
+import IngredientWizard from "../components/culinary/IngredientWizard";
 
 // Icons
 import { 
@@ -28,7 +29,7 @@ import {
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
   Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList, FileUp
+  Factory, ClipboardList, FileUp, Sparkles, Wand2
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -77,6 +78,11 @@ function InventorySection() {
   const [importResult, setImportResult] = useState(null);
   const [updateExisting, setUpdateExisting] = useState(false);
   const [importStep, setImportStep] = useState("select"); // "select", "preview", "result"
+  
+  // Ingredient Wizard
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardInitial, setWizardInitial] = useState(null);
+  const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
   
   // Forms
   const [itemForm, setItemForm] = useState({
@@ -379,6 +385,15 @@ function InventorySection() {
   });
 
   const lowStockItems = items.filter(item => item.par_level > 0 && (item.stock_quantity || 0) < item.par_level);
+  // Ingredients flagged for chef review: explicit needs_review flag, or missing the new v2 cost axis fields.
+  const needsReviewItems = items.filter(item =>
+    item.inventory_type === "food" && (
+      item.needs_review === true ||
+      !item.base_unit ||
+      !item.cost_per_base_unit ||
+      item.cost_per_base_unit === 0
+    )
+  );
   const getSupplierName = (id) => suppliers.find(s => s.supplier_id === id)?.name || "-";
   const getItemName = (id) => items.find(i => i.ingredient_id === id)?.name || "Unknown";
 
@@ -425,6 +440,39 @@ function InventorySection() {
         </CardContent>
       </Card>
 
+      {/* Ingredient Review Banner — pushes chefs to fix data quality issues */}
+      {needsReviewItems.length > 0 && (
+        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50" data-testid="ingredient-review-banner">
+          <CardContent className="py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900 text-sm">
+                  {language === "es"
+                    ? `${needsReviewItems.length} ingrediente${needsReviewItems.length === 1 ? "" : "s"} necesita${needsReviewItems.length === 1 ? "" : "n"} revisión`
+                    : `${needsReviewItems.length} ingredient${needsReviewItems.length === 1 ? "" : "s"} need${needsReviewItems.length === 1 ? "s" : ""} review`}
+                </p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  {language === "es"
+                    ? "Sin unidad base o costo por unidad base, las recetas no podrán calcular costos en tiempo real."
+                    : "Without a base unit or cost-per-base-unit, recipes cannot compute live costs."}
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm" variant="outline" className="border-amber-300 hover:bg-amber-100"
+              onClick={() => setReviewDrawerOpen(true)}
+              data-testid="open-review-drawer-btn"
+            >
+              <Wand2 className="w-4 h-4 mr-1" />
+              {language === "es" ? "Revisar y reparar" : "Review & fix"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
@@ -443,6 +491,10 @@ function InventorySection() {
                 <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={t("search")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
                 <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("all")}</SelectItem>{INVENTORY_TYPES.map(type => (<SelectItem key={type.value} value={type.value}>{language === "es" ? type.labelEs : type.label}</SelectItem>))}</SelectContent></Select>
                 <Button variant="outline" onClick={() => { resetImport(); setImportDialogOpen(true); }} data-testid="import-inventory-btn"><FileUp className="w-4 h-4 mr-2" />{language === "es" ? "Importar" : "Import"}</Button>
+                <Button variant="outline" onClick={() => { setWizardInitial(null); setWizardOpen(true); }} data-testid="open-wizard-btn">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {language === "es" ? "Asistente" : "Wizard"}
+                </Button>
                 <Button onClick={() => { setEditingItem(null); setItemForm({ name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "", sku: "", notes: "" }); setBrandSearch(""); setItemDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{t("addItem")}</Button>
               </div>
             </CardHeader>
@@ -1041,6 +1093,84 @@ function InventorySection() {
                 {language === "es" ? "Cerrar" : "Close"}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ingredient Creation/Repair Wizard */}
+      <IngredientWizard
+        open={wizardOpen}
+        initial={wizardInitial}
+        categories={categories}
+        onClose={() => { setWizardOpen(false); setWizardInitial(null); }}
+        onSaved={() => { fetchData(); setWizardOpen(false); setWizardInitial(null); }}
+      />
+
+      {/* Review Drawer — lists ingredients needing repair, opens wizard on click */}
+      <Dialog open={reviewDrawerOpen} onOpenChange={setReviewDrawerOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col" data-testid="review-drawer">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+              {language === "es" ? "Ingredientes que necesitan revisión" : "Ingredients needing review"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto -mx-6 px-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === "es" ? "Nombre" : "Name"}</TableHead>
+                  <TableHead>{language === "es" ? "Unidad base" : "Base unit"}</TableHead>
+                  <TableHead className="text-right">{language === "es" ? "Costo/base" : "Cost/base"}</TableHead>
+                  <TableHead>{language === "es" ? "Problema" : "Issue"}</TableHead>
+                  <TableHead className="w-24"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {needsReviewItems.map(item => {
+                  const issues = [];
+                  if (!item.base_unit) issues.push(language === "es" ? "Sin unidad base" : "No base unit");
+                  if (!item.cost_per_base_unit || item.cost_per_base_unit === 0) issues.push(language === "es" ? "Sin costo base" : "No base cost");
+                  if (item.needs_review) issues.push(language === "es" ? "Marcado para revisión" : "Flagged");
+                  return (
+                    <TableRow key={item.ingredient_id}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{item.base_unit || "—"}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {item.cost_per_base_unit ? `$${item.cost_per_base_unit.toFixed(4)}` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {issues.map(i => <Badge key={i} variant="outline" className="text-[10px] border-amber-300 text-amber-700">{i}</Badge>)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm" variant="outline"
+                          onClick={() => { setWizardInitial(item); setReviewDrawerOpen(false); setWizardOpen(true); }}
+                          data-testid={`repair-btn-${item.ingredient_id}`}
+                        >
+                          <Wand2 className="w-3.5 h-3.5 mr-1" />
+                          {language === "es" ? "Reparar" : "Fix"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {needsReviewItems.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      {language === "es" ? "Todo en orden ✨" : "All clean ✨"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewDrawerOpen(false)}>
+              {language === "es" ? "Cerrar" : "Close"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
