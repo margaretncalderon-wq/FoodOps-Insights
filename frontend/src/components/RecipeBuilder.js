@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import IngredientWizard from "./culinary/IngredientWizard";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", icon: Beaker, color: "bg-purple-100 text-purple-700", description: "Salsas, fondos, masas básicas" },
@@ -79,7 +80,7 @@ const UNIT_GROUPS = [
  * - Shows price + base unit so chefs pick the right item fast.
  * - Disabled items already added are hidden from the list (avoids dupes).
  */
-function IngredientPicker({ ingredients, alreadyAddedIds, onPick, isEs, type = "ingredient" }) {
+function IngredientPicker({ ingredients, alreadyAddedIds, onPick, onRepair, isEs, type = "ingredient" }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -142,7 +143,15 @@ function IngredientPicker({ ingredients, alreadyAddedIds, onPick, isEs, type = "
                   <CommandItem
                     key={id}
                     value={id}
-                    onSelect={() => handlePick(id)}
+                    onSelect={() => {
+                      if (needsReview && onRepair) {
+                        onRepair(ing);
+                        setOpen(false);
+                        setQuery("");
+                      } else {
+                        handlePick(id);
+                      }
+                    }}
                     className="flex items-start gap-3 py-2 cursor-pointer"
                     data-testid={`ingredient-picker-option-${id}`}
                   >
@@ -150,11 +159,14 @@ function IngredientPicker({ ingredients, alreadyAddedIds, onPick, isEs, type = "
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm truncate">{ing.name}</p>
                         {needsReview && (
-                          <span title={isEs ? "Necesita revisión" : "Needs review"} className="text-amber-600 text-xs flex-shrink-0">⚠️</span>
+                          <span title={isEs ? "Necesita revisión — click para reparar" : "Needs review — click to fix"} className="text-amber-600 text-xs flex-shrink-0">⚠️</span>
                         )}
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">
                         {ing.brand ? `${ing.brand} · ` : ""}{ing.category || ""}{ing.sku ? ` · ${ing.sku}` : ""}
+                        {needsReview && (
+                          <span className="ml-1 text-amber-700">{isEs ? "· reparar antes de usar" : "· fix before use"}</span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -294,6 +306,11 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const [costHistoryOpen, setCostHistoryOpen] = useState(false);
   const [portionDialogOpen, setPortionDialogOpen] = useState(false);
   const [packagingDialogOpen, setPackagingDialogOpen] = useState(false);
+  const [repairIngredient, setRepairIngredient] = useState(null); // when set, opens IngredientWizard in repair mode
+  
+  // Local ingredients cache — refreshed after a repair so the picker sees the new base_unit/cost
+  const [localIngredients, setLocalIngredients] = useState(ingredients);
+  useEffect(() => { setLocalIngredients(ingredients); }, [ingredients]);
   
   // Form states
   const [portionForm, setPortionForm] = useState({
@@ -476,7 +493,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
 
   // Ingredient management
   const addIngredient = (ingredientId) => {
-    const ingredient = ingredients.find(i => i.ingredient_id === ingredientId);
+    const ingredient = localIngredients.find(i => i.ingredient_id === ingredientId);
     if (!ingredient) return;
     if (form.ingredients.find(i => i.item_id === ingredientId)) {
       toast.error(language === "es" ? "Ya agregado" : "Already added");
@@ -1131,9 +1148,10 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 <Badge variant="outline">{form.ingredients.length}</Badge>
               </div>
               <IngredientPicker
-                ingredients={ingredients.filter(i => i.inventory_type === "food")}
+                ingredients={localIngredients.filter(i => i.inventory_type === "food")}
                 alreadyAddedIds={form.ingredients.map(i => i.item_id)}
                 onPick={addIngredient}
+                onRepair={(ing) => setRepairIngredient(ing)}
                 isEs={language === "es"}
                 type="ingredient"
               />
@@ -1715,6 +1733,25 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Inline ingredient repair wizard — opened when user clicks a ⚠️ ingredient in the picker */}
+      <IngredientWizard
+        key={repairIngredient?.ingredient_id || "rb-wiz-none"}
+        open={!!repairIngredient}
+        initial={repairIngredient}
+        onClose={() => setRepairIngredient(null)}
+        onSaved={async () => {
+          // refresh that one ingredient so the picker shows it as repaired
+          try {
+            const id = repairIngredient?.ingredient_id;
+            if (id) {
+              const res = await axios.get(`${API}/api/inventory/ingredients/${id}`, { withCredentials: true });
+              setLocalIngredients(prev => prev.map(i => i.ingredient_id === id ? { ...i, ...res.data } : i));
+            }
+          } catch { /* swallow */ }
+          setRepairIngredient(null);
+        }}
+      />
     </div>
   );
 }
