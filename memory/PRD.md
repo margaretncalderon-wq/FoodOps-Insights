@@ -124,16 +124,27 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Bug fix — Recipe Scaling escribía en tabla huérfana (May 14, 2026):
-- **Reporte**: usuario preguntó dónde ver los menús enlazados a recetas. Auditando se descubrió que `/api/recipes/save-scaled-menu` (de Recipe Scaling MVP) escribía en `db.base_menus`, colección sin UI ni endpoint GET → menús huérfanos.
-- **Causa**: en Recipe Scaling MVP creé una colección dedicada por error. Lo correcto era usar `db.menus` (la misma que PackagePicker lee y se gestiona en `Settings → Catálogos → Menús`).
-- **Fix**:
-  - `save_scaled_menu` ahora construye el doc con shape `MenuItemEntry`-compatible (`picklist_item_id`, `recipe_id`, `custom_name`, `quantity`, `unit_price_override`, `internal_cost_override`, `sort_order`).
-  - `menu_type='Scaled'` para distinguirlos. Campos extras (`source='recipe_scaling'`, `source_event_id`, `scaled_snapshots`) van junto para la UX de detalle.
-  - Inserta en `db.menus` → automáticamente visible en `/api/settings/menus`.
-- **PackagePicker** muestra badge ámbar **"Escalado"** para `menu_type='Scaled'` (vs badge gris para regulares).
-- **Verificación end-to-end por curl**: crear menú escalado → aparece en `/api/settings/menus` → eliminable desde el mismo CRUD. 0 huérfanos en producción (base_menus vacía).
+Sprint 1 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED:
+- **P1-D Plated Menu Cost Staleness**:
+  - Backend: `GET /api/plated-menus/{id}/staleness` (returns `is_stale`, `severity` ok/warn/critical, `snapshot_cost_per_guest`, `live_cost_per_guest`, `drift_amount`, `drift_percent`, `affected_recipes`, `last_updated`).
+  - Backend: `POST /api/plated-menus/{id}/refresh-costs` (recomputes & persists cost_per_guest/cost_with_buffer with current recipe costs).
+  - Frontend: `FoodOpsPage` PlatedMenusSection fetches staleness in parallel for each menu and shows an orange (warn) / red (critical) badge on the card with drift % and a one-click refresh button (`menu-staleness-{id}` & `menu-refresh-costs-{id}` testids).
+- **P1-B Filterable Recipe Tags**:
+  - Frontend: `/recipes` page now has DIETARY_TAGS row (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Nut-Free, Kosher, Halal, Pescatarian, Keto — multi-select AND) and EXCLUDE_ALLERGENS row (Gluten, Dairy, Eggs, Soy, Nuts, Peanuts, Shellfish, Fish, Sesame — multi-select). Active-filter count + Clear filters control.
+  - Category filter migrated to dedicated `activeCategory` state (no longer hijacking searchTerm).
+  - Recipe cards display first 4 dietary tags as small badges.
+- **P1-C Recipe Scaling Panel (inline, read-only)**:
+  - New component `/app/frontend/src/components/RecipeScalingPanel.js`.
+  - Wired into `ProposalEditor` Items tab as a `<details>` collapsible (only when `featureFlags.is_food_ops_enabled && recipes.length > 0 && !isLocked`).
+  - Pre-fills target portions with event `guest_count`. Calls existing `POST /api/recipes/{id}/scale` — no DB mutation.
+  - Displays scale factor, total cost, cost/portion, ingredient table with scaled qty + cost, sub-recipes block. Read-only badge prominent.
+- **Tests**: Backend 13/13 passed (`/app/backend/tests/test_sprint1_phase2.py`). Frontend 100% (data-testids verified). Report: `/app/test_reports/iteration_170.json`.
 
-Margin Policy Fase 3 (Gating + Audit + Aprobaciones), Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard completo (ver historial).
+### Next Sprint Targets (from Phase 2 Build Prompt)
+- Sprint 2: **P1-A Production Plan View per Event** (`POST /api/production/event-plan`) + **Feature 6 Auto-Release Inventory Reservation on Event Cancellation**.
+- Sprint 3: Feature 1 Buffet Consumption Factors + Projected Event Cost; Feature 2 Kitchen BEO with allergen alerts + PDF.
+- Sprint 4: Feature 3 Menu Engineering Dashboard + What-If Simulator; Feature 4 Theoretical vs Actual Cost Variance; Feature 5 Plated Menu → Catalog Menu Conversion.
 
-Next: Production Plan view · Logo Guest Flow · Unified Contact Model · Filterable recipe tags · Reporte de Overrides de Margen en Settings.
+Previous milestones (unchanged): Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
+
+Next: Sprint 2 (P1-A + Auto-release) · Logo Guest Flow · Unified Contact Model.
