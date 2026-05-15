@@ -109,6 +109,7 @@ class EventUpdate(BaseModel):
     notes: Optional[str] = None
     status: Optional[str] = None
     stage: Optional[str] = None
+    operational_status: Optional[str] = None  # Open, In Production, Completed, Closed, Cancelled
     expected_value: Optional[float] = None
     next_followup_date: Optional[datetime] = None
     next_step: Optional[str] = None

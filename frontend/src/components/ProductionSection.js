@@ -20,10 +20,11 @@ import { Checkbox } from "./ui/checkbox";
 import { 
   Factory, Plus, ChefHat, Package, ArrowRight, CheckCircle, 
   AlertTriangle, RefreshCw, Trash2, Eye, Play, Archive,
-  Calendar, FileText, Loader2, Info
+  Calendar, FileText, Loader2, Info, Calculator
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import EventProductionPlan from "./EventProductionPlan";
 
 export default function ProductionSection() {
   const { language } = useLanguage();
@@ -49,6 +50,7 @@ export default function ProductionSection() {
   const [miseEnPlaceDialogOpen, setMiseEnPlaceDialogOpen] = useState(false);
   const [miseEnPlaceData, setMiseEnPlaceData] = useState(null);
   const [generatingMep, setGeneratingMep] = useState(false);
+  const [eventPlanOpen, setEventPlanOpen] = useState(false);
 
   const fetchBatches = useCallback(async () => {
     try {
@@ -333,6 +335,15 @@ export default function ProductionSection() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setEventPlanOpen(true)}
+            className="gap-2"
+            data-testid="open-event-plan-btn"
+          >
+            <Calculator className="w-4 h-4" />
+            {language === "es" ? "Plan por Evento" : "Event Plan"}
+          </Button>
           <Button 
             variant="outline" 
             onClick={handleGenerateMiseEnPlace}
@@ -855,6 +866,13 @@ export default function ProductionSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* P1-A — Event Production Plan modal */}
+      <EventProductionPlan
+        open={eventPlanOpen}
+        onOpenChange={setEventPlanOpen}
+        events={events}
+      />
     </div>
   );
 }

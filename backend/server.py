@@ -626,6 +626,7 @@ class Ingredient(BaseModel):
     unit: str
     cost_per_unit: float
     stock_quantity: float
+    reserved_quantity: float = 0.0  # Reserved for events (logical allocation)
     min_stock_level: float
     par_level: float = 0.0
     yield_waste_percent: float = 0.0
@@ -1875,6 +1876,8 @@ async def get_ingredient(ingredient_id: str, user: User = Depends(get_current_us
         ingredient["stock_quantity"] = 0.0
     if "min_stock_level" not in ingredient:
         ingredient["min_stock_level"] = 0.0
+    if "reserved_quantity" not in ingredient:
+        ingredient["reserved_quantity"] = 0.0
     
     # Set defaults for optional fields
     for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", ingredient.get("cost_per_unit", 0)), ("price_history", [])]:
@@ -3882,7 +3885,7 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
     # Get event name for logging
     old_event = await db.events.find_one(
         {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0, "name": 1, "stage": 1}
+        {"_id": 0, "name": 1, "stage": 1, "operational_status": 1}
     )
     
     if not old_event:
@@ -3906,6 +3909,36 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # ---- Feature 6: Auto-release inventory reservations when event is cancelled.
+    # Trigger when stage transitions into a cancellation-equivalent state
+    # (Archived / legacy "Lost") OR operational_status becomes "Cancelled".
+    try:
+        cancellation_stages = {"Archived", "Lost"}
+        old_stage = old_event.get("stage")
+        new_stage = update_data.get("stage")
+        old_op = old_event.get("operational_status")
+        new_op = update_data.get("operational_status")
+        became_cancelled = (
+            (new_stage in cancellation_stages and old_stage not in cancellation_stages)
+            or (new_op == "Cancelled" and old_op != "Cancelled")
+        )
+        if became_cancelled:
+            released = await _auto_release_event_reservations(event_id, user, reason="event_cancelled")
+            if released:
+                await log_activity(
+                    module="inventory",
+                    action="auto_release_reservations",
+                    entity_type="event",
+                    entity_id=event_id,
+                    entity_name=old_event.get("name") or "Event",
+                    event_id=event_id,
+                    metadata={"released_count": released, "trigger": "event_cancellation"},
+                    **user_info(user),
+                )
+    except Exception as e:
+        # Never block the event update if release fails — log and move on.
+        logger.warning(f"[auto-release] event {event_id}: {e}")
+
     # Log activity
     await log_activity(
         module="events",
@@ -3927,6 +3960,23 @@ async def delete_event(event_id: str, user: User = Depends(get_current_user)):
     
     event_name = event.get("name", "Event")
     
+    # ---- Feature 6: Release any active inventory reservations before deleting.
+    try:
+        released = await _auto_release_event_reservations(event_id, user, reason="event_deleted")
+        if released:
+            await log_activity(
+                module="inventory",
+                action="auto_release_reservations",
+                entity_type="event",
+                entity_id=event_id,
+                entity_name=event_name,
+                event_id=event_id,
+                metadata={"released_count": released, "trigger": "event_deletion"},
+                **user_info(user),
+            )
+    except Exception as e:
+        logger.warning(f"[auto-release] event {event_id} on delete: {e}")
+
     await db.events.delete_one({"event_id": event_id})
     await db.clients.update_one({"client_id": event["client_id"]}, {"$inc": {"events_count": -1}})
     
@@ -3942,6 +3992,47 @@ async def delete_event(event_id: str, user: User = Depends(get_current_user)):
     )
     
     return {"message": "Event deleted"}
+
+
+async def _auto_release_event_reservations(event_id: str, user: "User", reason: str = "event_cancelled") -> int:
+    """Internal helper: release every ACTIVE inventory reservation linked to this event.
+
+    Used by event cancellation/deletion hooks (Feature 6 — Auto-Release). Mirrors the
+    public POST /api/inventory/release-reservation logic but skips API plumbing.
+    Returns the count of reservations released. Never raises — caller handles errors.
+    """
+    now = datetime.now(timezone.utc)
+    query = {
+        "company_id": user.company_id,
+        "status": "active",
+        "event_ids": event_id,
+    }
+    reservations = await db.inventory_reservations.find(query, {"_id": 0}).to_list(1000)
+    released_count = 0
+
+    for res in reservations:
+        item_id = res.get("inventory_item_id")
+        qty_to_release = float(res.get("quantity_reserved") or 0)
+        if not item_id or qty_to_release <= 0:
+            continue
+
+        await db.ingredients.update_one(
+            {"ingredient_id": item_id, "company_id": user.company_id},
+            {"$inc": {"reserved_quantity": -qty_to_release},
+             "$set": {"updated_at": now.isoformat()}},
+        )
+        await db.inventory_reservations.update_one(
+            {"reservation_id": res["reservation_id"]},
+            {"$set": {
+                "status": "released",
+                "released_at": now.isoformat(),
+                "released_by": user.user_id,
+                "release_reason": reason,
+            }},
+        )
+        released_count += 1
+
+    return released_count
 
 @events_router.post("/{event_id}/tasks")
 async def add_task(event_id: str, task: dict, user: User = Depends(get_current_user)):
@@ -11684,6 +11775,203 @@ async def suggest_production_from_events(
         "suggested_lines": suggested_lines,
         "events": [{"event_id": e["event_id"], "name": e["name"]} for e in events]
     }
+
+
+@production_router.post("/event-plan")
+async def production_event_plan(data: dict, user: User = Depends(get_current_user)):
+    """P1-A — Production Plan View per Event.
+
+    READ-ONLY computation: given an event_id (and optional guest_count_override),
+    expand every recipe linked to the event's plated menu + proposal Food items,
+    aggregate the required ingredient quantities, and report shortages vs on-hand
+    and available (on_hand - reserved) inventory.
+
+    Body:
+      { "event_id": str, "guest_count_override": Optional[int] }
+
+    Returns (no DB writes):
+      {
+        event_id, event_name, guest_count, currency_estimate,
+        planned_recipes: [
+          { recipe_id, recipe_name, source ("menu" | "proposal"), portions_required,
+            scale_factor, total_cost, cost_per_portion }
+        ],
+        aggregated_ingredients: [
+          { inventory_item_id, name, unit, required_qty, on_hand, reserved,
+            available, shortage, total_cost }
+        ],
+        shortages: [ subset of aggregated_ingredients with shortage > 0 ],
+        totals: { total_input_cost, ingredients_count, shortage_count }
+      }
+    """
+    event_id = data.get("event_id")
+    if not event_id:
+        raise HTTPException(status_code=400, detail="event_id is required")
+
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    guest_count = int(data.get("guest_count_override") or event.get("guest_count") or event.get("num_guests") or 0)
+    if guest_count <= 0:
+        guest_count = 1  # fallback so math doesn't divide by zero
+
+    # ---- 1) Collect (recipe_id, portions_required, source) tuples
+    planned = []  # raw list before grouping
+    seen = {}     # recipe_id -> aggregated entry for output
+
+    # 1a) From plated menu (if linked via menu_id)
+    menu_id = event.get("menu_id")
+    if menu_id:
+        plated_menu = await db.plated_menus.find_one(
+            {"menu_id": menu_id, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if plated_menu:
+            for course in plated_menu.get("courses", []):
+                for item in course.get("items", []):
+                    rid = item.get("recipe_id")
+                    if not rid:
+                        continue
+                    portions = (item.get("portions_per_guest") or 1) * guest_count
+                    planned.append({"recipe_id": rid, "portions_required": portions, "source": "menu"})
+
+    # 1b) From proposal Food order_items (reference_id is the recipe_id)
+    proposal = await db.proposals.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0, "proposal_id": 1}
+    )
+    if proposal:
+        order_items = await db.order_items.find(
+            {
+                "proposal_id": proposal.get("proposal_id"),
+                "item_type": "Food",
+                "reference_type": {"$in": [None, "recipe", "Recipe"]},
+            },
+            {"_id": 0}
+        ).to_list(500)
+        for item in order_items:
+            rid = item.get("reference_id")
+            if not rid:
+                continue
+            # Heuristic: order item quantity is per guest unless explicitly absolute
+            qty_per_guest = item.get("quantity") or 1
+            portions = qty_per_guest * guest_count
+            planned.append({"recipe_id": rid, "portions_required": portions, "source": "proposal"})
+
+    # ---- 2) For each recipe expand ingredients with scale factor & aggregate
+    aggregated = {}    # inventory_item_id -> aggregated dict
+    total_input_cost = 0.0
+    planned_recipes_out = []
+
+    for p in planned:
+        rid = p["recipe_id"]
+        portions_required = float(p["portions_required"] or 0)
+        if portions_required <= 0:
+            continue
+
+        recipe = await db.recipes.find_one(
+            {"recipe_id": rid, "company_id": user.company_id},
+            {"_id": 0}
+        )
+        if not recipe:
+            continue
+
+        recipe_yield = float(recipe.get("portions_per_yield") or recipe.get("yield_quantity") or 1) or 1
+        scale_factor = portions_required / recipe_yield
+
+        recipe_cost_lines = 0.0
+        for ing in recipe.get("ingredients", []):
+            iid = ing.get("ingredient_id") or ing.get("item_id")
+            if not iid:
+                continue
+            inv = await db.ingredients.find_one(
+                {"ingredient_id": iid, "company_id": user.company_id},
+                {"_id": 0, "name": 1, "unit": 1, "cost_per_unit": 1,
+                 "stock_quantity": 1, "reserved_quantity": 1}
+            )
+            base_qty = float(ing.get("quantity") or 0)
+            qty_scaled = base_qty * scale_factor
+            if qty_scaled <= 0:
+                continue
+            cost_per_unit = float((inv or {}).get("cost_per_unit") or ing.get("cost_per_unit") or 0)
+            line_cost = qty_scaled * cost_per_unit
+            recipe_cost_lines += line_cost
+            total_input_cost += line_cost
+
+            entry = aggregated.get(iid)
+            if not entry:
+                entry = {
+                    "inventory_item_id": iid,
+                    "name": (inv or {}).get("name") or ing.get("name") or "Unknown",
+                    "unit": ing.get("unit") or (inv or {}).get("unit") or "unit",
+                    "required_qty": 0.0,
+                    "on_hand": float((inv or {}).get("stock_quantity") or 0),
+                    "reserved": float((inv or {}).get("reserved_quantity") or 0),
+                    "total_cost": 0.0,
+                    "cost_per_unit": cost_per_unit,
+                }
+                aggregated[iid] = entry
+            entry["required_qty"] += qty_scaled
+            entry["total_cost"] += line_cost
+
+        cost_per_portion = recipe_cost_lines / portions_required if portions_required > 0 else 0
+        # Group same recipe if it appears in both menu & proposal — sum portions
+        key = rid + ":" + p["source"]
+        if key in seen:
+            seen[key]["portions_required"] += portions_required
+            seen[key]["total_cost"] += recipe_cost_lines
+        else:
+            entry = {
+                "recipe_id": rid,
+                "recipe_name": recipe.get("name"),
+                "source": p["source"],
+                "portions_required": round(portions_required, 3),
+                "scale_factor": round(scale_factor, 4),
+                "total_cost": round(recipe_cost_lines, 4),
+                "cost_per_portion": round(cost_per_portion, 4),
+                "yield_unit": recipe.get("yield_unit", "portion"),
+            }
+            seen[key] = entry
+            planned_recipes_out.append(entry)
+
+    # Finalize aggregated ingredient list
+    agg_list = []
+    shortages = []
+    for entry in aggregated.values():
+        available = max(0.0, entry["on_hand"] - entry["reserved"])
+        shortage = max(0.0, entry["required_qty"] - available)
+        entry["required_qty"] = round(entry["required_qty"], 3)
+        entry["on_hand"] = round(entry["on_hand"], 3)
+        entry["reserved"] = round(entry["reserved"], 3)
+        entry["available"] = round(available, 3)
+        entry["shortage"] = round(shortage, 3)
+        entry["total_cost"] = round(entry["total_cost"], 4)
+        agg_list.append(entry)
+        if shortage > 0:
+            shortages.append(entry)
+
+    agg_list.sort(key=lambda x: (-x["shortage"], x["name"] or ""))
+    shortages.sort(key=lambda x: -x["shortage"])
+
+    return {
+        "event_id": event_id,
+        "event_name": event.get("name"),
+        "guest_count": guest_count,
+        "planned_recipes": planned_recipes_out,
+        "aggregated_ingredients": agg_list,
+        "shortages": shortages,
+        "totals": {
+            "total_input_cost": round(total_input_cost, 4),
+            "ingredients_count": len(agg_list),
+            "shortage_count": len(shortages),
+            "recipes_count": len(planned_recipes_out),
+        },
+    }
+
 
 # --- Experience Design ---
 # --- Event Blueprint (main event detail) ---
