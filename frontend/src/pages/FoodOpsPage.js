@@ -23,6 +23,7 @@ import RecipeBuilder from "../components/RecipeBuilder";
 import PlatedMenuBuilder from "../components/PlatedMenuBuilder";
 import IngredientWizard from "../components/culinary/IngredientWizard";
 import CostHealthDashboard from "../components/CostHealthDashboard";
+import BuffetFactorsDialog from "../components/BuffetFactorsDialog";
 
 // Icons
 import { 
@@ -30,7 +31,7 @@ import {
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
   Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2
+  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2, Sliders
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -1523,7 +1524,9 @@ function PlatedMenusSection() {
   const [editingMenu, setEditingMenu] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [stalenessByMenu, setStalenessByMenu] = useState({}); // menu_id -> staleness payload
+  const [projectedByMenu, setProjectedByMenu] = useState({}); // menu_id -> projected-cost payload
   const [refreshingMenuId, setRefreshingMenuId] = useState(null);
+  const [factorsDialogOpen, setFactorsDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1546,6 +1549,19 @@ function PlatedMenusSection() {
       const map = {};
       stalenessChecks.forEach(([id, data]) => { if (data) map[id] = data; });
       setStalenessByMenu(map);
+      // Fire projected-cost checks ONLY for buffet/cocktail menus (Feature 1)
+      const buffetMenus = (menusRes.data || []).filter((m) => ["buffet", "cocktail"].includes(m.menu_type));
+      const projChecks = await Promise.all(
+        buffetMenus.map((m) =>
+          axios
+            .get(`${API}/api/plated-menus/${m.menu_id}/projected-cost`, { withCredentials: true })
+            .then((r) => [m.menu_id, r.data])
+            .catch(() => [m.menu_id, null])
+        )
+      );
+      const pmap = {};
+      projChecks.forEach(([id, data]) => { if (data) pmap[id] = data; });
+      setProjectedByMenu(pmap);
     } catch (error) {
       toast.error("Error loading data");
     }
@@ -1599,6 +1615,10 @@ function PlatedMenusSection() {
           <CardTitle>{language === "es" ? "Menús Emplatados" : "Plated Menus"}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
+            <Button variant="outline" onClick={() => setFactorsDialogOpen(true)} className="gap-1.5" data-testid="open-buffet-factors-btn">
+              <Sliders className="w-4 h-4" />
+              {language === "es" ? "Factores Buffet" : "Buffet Factors"}
+            </Button>
             <Button onClick={() => { setEditingMenu(null); setDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />{language === "es" ? "Nuevo Menú" : "New Menu"}
             </Button>
@@ -1655,6 +1675,27 @@ function PlatedMenusSection() {
                           <span className="font-semibold">${(menu.cost_with_buffer || 0).toFixed(2)}</span>
                         </div>
                       )}
+                      {(() => {
+                        const proj = projectedByMenu[menu.menu_id];
+                        if (!proj || !["buffet", "cocktail"].includes(menu.menu_type)) return null;
+                        const overrun = proj.savings_or_overrun;
+                        const pct = proj.savings_percent;
+                        const color = overrun > 0
+                          ? "border-red-200 bg-red-50/40 dark:bg-red-950/10"
+                          : "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/10";
+                        return (
+                          <div className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${color}`} data-testid={`menu-projected-${menu.menu_id}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{language === "es" ? "Costo proyectado" : "Projected cost"}</span>
+                              <span className="font-mono font-semibold">${proj.projected_cost_per_guest.toFixed(2)}</span>
+                            </div>
+                            <div className="text-[10px] opacity-80 mt-0.5">
+                              vs ${proj.theoretical_cost_per_guest.toFixed(2)} ({language === "es" ? "teórico" : "theoretical"}) ·
+                              {overrun >= 0 ? " +" : " "}{pct.toFixed(1)}%
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {(() => {
                         const st = stalenessByMenu[menu.menu_id];
                         if (!st || !st.is_stale) return null;
@@ -1724,6 +1765,12 @@ function PlatedMenusSection() {
           />
         </DialogContent>
       </Dialog>
+
+      <BuffetFactorsDialog
+        open={factorsDialogOpen}
+        onOpenChange={setFactorsDialogOpen}
+        recipes={recipes}
+      />
     </div>
   );
 }

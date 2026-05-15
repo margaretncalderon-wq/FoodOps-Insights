@@ -169,6 +169,8 @@ allergens_router = APIRouter(prefix="/allergens", tags=["Allergens"])
 # business_clarity_router imported from routers.business_clarity
 orchestration_router = APIRouter(prefix="/orchestration", tags=["Event Orchestration"])
 production_router = APIRouter(prefix="/production", tags=["Production"])
+buffet_factors_router = APIRouter(prefix="/buffet-factors", tags=["Buffet Factors"])
+kitchen_beo_router = APIRouter(prefix="/kitchen-beo", tags=["Kitchen BEO"])
 delivery_notes_router = APIRouter(prefix="/delivery-notes", tags=["Delivery Notes"])
 org_router = APIRouter(prefix="/org", tags=["Organization & SaaS"])
 super_admin_router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
@@ -3654,6 +3656,347 @@ async def refresh_plated_menu_costs(menu_id: str, user: User = Depends(get_curre
         "cost_per_guest": live,
         "cost_with_buffer": cost_with_buffer,
         "updated_at": now_iso,
+    }
+
+
+# ============== BUFFET CONSUMPTION FACTORS (Feature 1) ==============
+# A buffet factor lets caterers say "for this recipe in a buffet, guests consume
+# X portions on average" — usually <1.0 because of variety. Used to compute a
+# Projected Event Cost in addition to the theoretical 1.0 portion/guest cost.
+
+class BuffetFactorCreate(BaseModel):
+    scope_type: str  # "recipe" | "category" | "default"
+    scope_id: Optional[str] = None  # recipe_id or category name; null for default
+    factor: float  # 0.1 .. 3.0
+    applies_to_menu_types: List[str] = ["buffet"]
+    notes: Optional[str] = None
+
+    model_config = {"extra": "allow"}
+
+
+async def _resolve_buffet_factor(recipe: Dict[str, Any], company_id: str, menu_type: str) -> float:
+    """Return the effective consumption factor for a recipe in a given menu_type.
+
+    Resolution cascade: recipe-specific → category → default → 1.0.
+    Only applies when menu_type is in `applies_to_menu_types` of the factor doc.
+    """
+    if not menu_type:
+        return 1.0
+
+    # 1) Recipe-specific
+    rec = await db.buffet_factors.find_one(
+        {
+            "company_id": company_id,
+            "scope_type": "recipe",
+            "scope_id": recipe.get("recipe_id"),
+            "applies_to_menu_types": menu_type,
+        },
+        {"_id": 0, "factor": 1},
+    )
+    if rec and rec.get("factor") is not None:
+        return float(rec["factor"])
+
+    # 2) Category
+    if recipe.get("category"):
+        cat = await db.buffet_factors.find_one(
+            {
+                "company_id": company_id,
+                "scope_type": "category",
+                "scope_id": recipe.get("category"),
+                "applies_to_menu_types": menu_type,
+            },
+            {"_id": 0, "factor": 1},
+        )
+        if cat and cat.get("factor") is not None:
+            return float(cat["factor"])
+
+    # 3) Default
+    default = await db.buffet_factors.find_one(
+        {
+            "company_id": company_id,
+            "scope_type": "default",
+            "applies_to_menu_types": menu_type,
+        },
+        {"_id": 0, "factor": 1},
+    )
+    if default and default.get("factor") is not None:
+        return float(default["factor"])
+
+    return 1.0
+
+
+@buffet_factors_router.get("")
+async def list_buffet_factors(user: User = Depends(get_current_user)):
+    factors = await db.buffet_factors.find(
+        {"company_id": user.company_id}, {"_id": 0}
+    ).sort([("scope_type", 1), ("scope_id", 1)]).to_list(500)
+    return factors
+
+
+@buffet_factors_router.post("")
+async def create_buffet_factor(data: BuffetFactorCreate, user: User = Depends(get_current_user)):
+    if data.scope_type not in ("recipe", "category", "default"):
+        raise HTTPException(status_code=400, detail="scope_type must be recipe|category|default")
+    if data.scope_type != "default" and not data.scope_id:
+        raise HTTPException(status_code=400, detail="scope_id required for scope_type != default")
+    if data.factor <= 0 or data.factor > 5:
+        raise HTTPException(status_code=400, detail="factor must be between 0 and 5")
+    if not data.applies_to_menu_types:
+        raise HTTPException(status_code=400, detail="applies_to_menu_types cannot be empty")
+
+    # Enforce uniqueness per (company, scope_type, scope_id, applies_to_menu_types[0])
+    # Using upsert pattern: if a factor with the same identity exists, update it.
+    now = datetime.now(timezone.utc)
+    factor_id = f"bfact_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "factor_id": factor_id,
+        "company_id": user.company_id,
+        "scope_type": data.scope_type,
+        "scope_id": data.scope_id,
+        "factor": float(data.factor),
+        "applies_to_menu_types": data.applies_to_menu_types,
+        "notes": data.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "created_by": user.user_id,
+    }
+    await db.buffet_factors.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@buffet_factors_router.put("/{factor_id}")
+async def update_buffet_factor(factor_id: str, data: BuffetFactorCreate, user: User = Depends(get_current_user)):
+    if data.factor <= 0 or data.factor > 5:
+        raise HTTPException(status_code=400, detail="factor must be between 0 and 5")
+    now = datetime.now(timezone.utc)
+    update = {
+        "scope_type": data.scope_type,
+        "scope_id": data.scope_id,
+        "factor": float(data.factor),
+        "applies_to_menu_types": data.applies_to_menu_types,
+        "notes": data.notes,
+        "updated_at": now.isoformat(),
+    }
+    result = await db.buffet_factors.update_one(
+        {"factor_id": factor_id, "company_id": user.company_id},
+        {"$set": update},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Factor not found")
+    doc = await db.buffet_factors.find_one(
+        {"factor_id": factor_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    return doc
+
+
+@buffet_factors_router.delete("/{factor_id}")
+async def delete_buffet_factor(factor_id: str, user: User = Depends(get_current_user)):
+    result = await db.buffet_factors.delete_one(
+        {"factor_id": factor_id, "company_id": user.company_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Factor not found")
+    return {"message": "Deleted", "factor_id": factor_id}
+
+
+@plated_menus_router.get("/{menu_id}/projected-cost")
+async def get_plated_menu_projected_cost(menu_id: str, user: User = Depends(get_current_user)):
+    """Feature 1 — Dual cost view for buffet/cocktail plated menus.
+
+    Returns:
+      {
+        menu_id, menu_type,
+        theoretical_cost_per_guest,   # all recipes treated as 1 portion/guest
+        projected_cost_per_guest,     # consumption factors applied
+        savings_or_overrun,           # projected - theoretical
+        factors_applied: [{recipe_id, recipe_name, factor, source}]
+      }
+    For non-buffet menus, projected == theoretical (factor=1.0).
+    """
+    menu = await db.plated_menus.find_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"_id": 0},
+    )
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+
+    menu_type = menu.get("menu_type", "plated")
+    theoretical = 0.0
+    projected = 0.0
+    factors_applied = []
+
+    for course in menu.get("courses", []):
+        for item in course.get("items", []):
+            rid = item.get("recipe_id")
+            if not rid:
+                continue
+            recipe = await db.recipes.find_one(
+                {"recipe_id": rid, "company_id": user.company_id},
+                {"_id": 0, "name": 1, "category": 1, "cost_per_portion": 1, "recipe_id": 1},
+            )
+            if not recipe:
+                continue
+            cpp = float(recipe.get("cost_per_portion") or 0)
+            portions = float(item.get("portions_per_guest") or 1)
+            theoretical += cpp * portions
+
+            factor = await _resolve_buffet_factor(recipe, user.company_id, menu_type)
+            projected += cpp * portions * factor
+
+            factors_applied.append({
+                "recipe_id": rid,
+                "recipe_name": recipe.get("name"),
+                "category": recipe.get("category"),
+                "factor": round(factor, 3),
+                "cost_per_portion": round(cpp, 4),
+                "applied_cost": round(cpp * portions * factor, 4),
+            })
+
+    diff = round(projected - theoretical, 4)
+    return {
+        "menu_id": menu_id,
+        "menu_type": menu_type,
+        "theoretical_cost_per_guest": round(theoretical, 4),
+        "projected_cost_per_guest": round(projected, 4),
+        "savings_or_overrun": diff,
+        "savings_percent": round((diff / theoretical * 100) if theoretical > 0 else 0, 2),
+        "factors_applied": factors_applied,
+    }
+
+
+# ============== KITCHEN BEO (Feature 2) ==============
+
+@kitchen_beo_router.get("/event/{event_id}")
+async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user)):
+    """Feature 2 — Kitchen BEO (Banquet Event Order).
+
+    Returns a print-ready structured payload for the chef:
+      - Event header (name, date, guest count, venue, menu type)
+      - Recipes scaled by guest_count + buffet factor (if applicable)
+      - Aggregated allergens across all recipes
+      - Dietary tag summary for chef awareness
+    """
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0},
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    guest_count = int(event.get("guest_count") or event.get("num_guests") or 1)
+    if guest_count <= 0:
+        guest_count = 1
+
+    menu = None
+    menu_type = "plated"
+    courses = []
+    if event.get("menu_id"):
+        menu = await db.plated_menus.find_one(
+            {"menu_id": event["menu_id"], "company_id": user.company_id},
+            {"_id": 0},
+        )
+        if menu:
+            menu_type = menu.get("menu_type", "plated")
+            courses = menu.get("courses", [])
+
+    allergens_set = set()
+    dietary_set = set()
+    recipe_breakdown = []  # one entry per recipe instance (course + item)
+    total_input_cost = 0.0
+    courses_out = []
+
+    for course in courses:
+        course_recipes = []
+        for item in course.get("items", []):
+            rid = item.get("recipe_id")
+            if not rid:
+                continue
+            recipe = await db.recipes.find_one(
+                {"recipe_id": rid, "company_id": user.company_id},
+                {"_id": 0},
+            )
+            if not recipe:
+                continue
+
+            portions_per_guest = float(item.get("portions_per_guest") or 1)
+            factor = await _resolve_buffet_factor(recipe, user.company_id, menu_type)
+            portions_required = portions_per_guest * factor * guest_count
+            yield_qty = float(recipe.get("portions_per_yield") or recipe.get("yield_quantity") or 1) or 1
+            scale_factor = portions_required / yield_qty
+
+            # Scale ingredient lines for kitchen
+            scaled_ingredients = []
+            recipe_cost = 0.0
+            for ing in recipe.get("ingredients", []):
+                base_qty = float(ing.get("quantity") or 0)
+                qty_scaled = base_qty * scale_factor
+                cpu = float(ing.get("cost_per_unit") or 0)
+                line_cost = qty_scaled * cpu
+                recipe_cost += line_cost
+                scaled_ingredients.append({
+                    "ingredient_id": ing.get("ingredient_id") or ing.get("item_id"),
+                    "name": ing.get("name") or ing.get("item_name") or "?",
+                    "quantity": round(qty_scaled, 3),
+                    "unit": ing.get("unit") or "unit",
+                    "line_cost": round(line_cost, 4),
+                })
+            total_input_cost += recipe_cost
+
+            # Aggregate allergens/diet tags
+            for a in (recipe.get("allergens") or []):
+                allergens_set.add(a)
+            for d in (recipe.get("dietary_tags") or []):
+                dietary_set.add(d)
+
+            entry = {
+                "recipe_id": rid,
+                "recipe_name": recipe.get("name"),
+                "category": recipe.get("category"),
+                "portions_required": round(portions_required, 3),
+                "yield_unit": recipe.get("yield_unit", "portion"),
+                "scale_factor": round(scale_factor, 4),
+                "consumption_factor": round(factor, 3),
+                "prep_time_minutes": recipe.get("prep_time") or recipe.get("prep_time_minutes") or 0,
+                "cook_time_minutes": recipe.get("cook_time") or recipe.get("cook_time_minutes") or 0,
+                "allergens": recipe.get("allergens") or [],
+                "dietary_tags": recipe.get("dietary_tags") or [],
+                "ingredients": scaled_ingredients,
+                "presentation_notes": recipe.get("presentation_notes"),
+                "chef_notes": recipe.get("chef_notes"),
+                "recipe_cost_total": round(recipe_cost, 4),
+            }
+            course_recipes.append(entry)
+            recipe_breakdown.append(entry)
+
+        if course_recipes:
+            courses_out.append({
+                "course_id": course.get("course_id"),
+                "course_name": course.get("course_name") or course.get("name"),
+                "course_order": course.get("course_order"),
+                "recipes": course_recipes,
+            })
+
+    return {
+        "event_id": event_id,
+        "event_name": event.get("name"),
+        "event_date": event.get("event_date"),
+        "end_date": event.get("end_date"),
+        "start_time": event.get("start_time"),
+        "venue": event.get("venue"),
+        "guest_count": guest_count,
+        "menu_id": event.get("menu_id"),
+        "menu_name": (menu or {}).get("name"),
+        "menu_type": menu_type,
+        "allergens_aggregate": sorted(allergens_set),
+        "dietary_tags_aggregate": sorted(dietary_set),
+        "courses": courses_out,
+        "totals": {
+            "recipes_count": len(recipe_breakdown),
+            "total_input_cost": round(total_input_cost, 4),
+            "total_input_cost_per_guest": round((total_input_cost / guest_count) if guest_count else 0, 4),
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -13088,6 +13431,8 @@ api_router.include_router(allergens_router)
 api_router.include_router(business_clarity_router)
 api_router.include_router(orchestration_router)
 api_router.include_router(production_router)
+api_router.include_router(buffet_factors_router)
+api_router.include_router(kitchen_beo_router)
 api_router.include_router(delivery_notes_router)
 api_router.include_router(people_ops_router)
 

@@ -20,11 +20,12 @@ import { Checkbox } from "./ui/checkbox";
 import { 
   Factory, Plus, ChefHat, Package, ArrowRight, CheckCircle, 
   AlertTriangle, RefreshCw, Trash2, Eye, Play, Archive,
-  Calendar, FileText, Loader2, Info, Calculator
+  Calendar, FileText, Loader2, Info, Calculator, Printer
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
 import EventProductionPlan from "./EventProductionPlan";
+import KitchenBEO from "./KitchenBEO";
 
 export default function ProductionSection() {
   const { language } = useLanguage();
@@ -51,6 +52,7 @@ export default function ProductionSection() {
   const [miseEnPlaceData, setMiseEnPlaceData] = useState(null);
   const [generatingMep, setGeneratingMep] = useState(false);
   const [eventPlanOpen, setEventPlanOpen] = useState(false);
+  const [beoOpen, setBeoOpen] = useState(false);
 
   const fetchBatches = useCallback(async () => {
     try {
@@ -343,6 +345,15 @@ export default function ProductionSection() {
           >
             <Calculator className="w-4 h-4" />
             {language === "es" ? "Plan por Evento" : "Event Plan"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setBeoOpen(true)}
+            className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+            data-testid="open-kitchen-beo-btn"
+          >
+            <Printer className="w-4 h-4" />
+            {language === "es" ? "BEO Cocina" : "Kitchen BEO"}
           </Button>
           <Button 
             variant="outline" 
@@ -871,6 +882,13 @@ export default function ProductionSection() {
       <EventProductionPlan
         open={eventPlanOpen}
         onOpenChange={setEventPlanOpen}
+        events={events}
+      />
+
+      {/* Feature 2 — Kitchen BEO modal */}
+      <KitchenBEO
+        open={beoOpen}
+        onOpenChange={setBeoOpen}
         events={events}
       />
     </div>
