@@ -124,24 +124,20 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Recipe Scaling MVP (May 14, 2026):
-- Backend nuevos endpoints:
-  - `POST /api/recipes/{id}/scale` — vista previa read-only. Devuelve factor, ingredientes escalados (con `quantity_scaled_raw` y `quantity_scaled` redondeado), sub-recipes, total_cost_scaled, cost_per_portion_scaled.
-  - `POST /api/recipes/save-scaled-menu` — persiste un Menu en `base_menus` con `menu_type='scaled'` y snapshot de ingredientes. **La receta base NUNCA se modifica.**
-- Detección discrete-unit: `DISCRETE_UNIT_HINTS` (unit/unidad/pieza/ea/each/etc.) auto-detectan items contables. Override por ingrediente vía `Ingredient.is_discrete_unit`. Discretos hacen `math.ceil` al escalar (compra 2 huevos no 1.5).
-- Frontend `RecipeScalePanel.js`:
-  - Nuevo tab "Escalar" en RecipeBuilder (sólo activo si la receta ya está guardada).
-  - Input "Porciones objetivo" + dropdown de eventos (auto-carga guest_count del evento seleccionado).
-  - Summary cards: factor, costo total, $/porción, original.
-  - Tabla de ingredientes con indicador "↑" cuando un item discreto se redondeó arriba.
-  - Botón "Guardar como Menú" → dialog de confirmación → crea Menu nuevo sin tocar receta base.
-- Sub-recetas escalan recursivamente (1 nivel).
-- Testing iteration_167: Backend 15/15 PASS, base recipe verificada NO modificada después de save. Frontend code review 100% (UI live limitada por acceso al módulo Culinary del usuario demo).
+Bug fix — "Field required" engañoso al crear evento (May 14, 2026):
+- **Reporte original**: usuario decía que el form pedía `venue` como obligatorio. Reproducción confirmó que el campo realmente faltante era `event_type` (no venue, `venue` siempre fue `Optional`).
+- **Causa**: el modelo `EventCreate` tenía `event_type: str` (sin default). Si el usuario cambiaba `engagement_type` a "project"/"service", el selector de event_type se ocultaba pero el valor quedaba en estado inesperado → pydantic 422. El toast del frontend mostraba solo `msg="Field required"` sin indicar QUÉ campo.
+- **Fix 1 backend** (`models/events.py`): `event_type: Optional[str] = "other"` — non-event engagement types ya no fallan.
+- **Fix 2 frontend** (`EventsPage.js handleSubmit`): garantiza `event_type: formData.event_type || "other"` en el payload.
+- **Fix 3 frontend** (`EventsPage.js handleSubmit catch`): si el detail del error es un array pydantic, lo expande a `"field: msg · field2: msg2"` para que el usuario vea exactamente qué falta.
+- Verificado por curl: POST /api/events sin event_type devuelve 200 con event_type="other".
 
-Margin Policy Fase 2 — Breakdown por tipo (May 14, 2026): chips por tipo en card y section del CostHealthDashboard.
+Recipe Scaling MVP (May 14, 2026): tab "Escalar" en RecipeBuilder + guardar como Menú sin tocar receta base.
 
-Bug fix auto-recovery de 401 (May 14, 2026): cookie domain dinámico + interceptor refresh-then-retry.
+Margin Policy Fase 1+2: política jerárquica + breakdown por tipo en CostHealthDashboard.
 
-Cost Health Dashboard + Margin Policy Fase 1 — completo (ver historial).
+Bug fix auto-recovery de 401: cookie domain dinámico + interceptor refresh-then-retry.
 
-Next: Fase 3 Margin (gating Admin) · Production Plan view (compras agregadas por evento) · Logo Guest Flow · Unified Contact Model · Filterable recipe tags.
+Cost Health Dashboard completo (ver historial).
+
+Next: Fase 3 Margin Policy (gating Admin) · Production Plan view · Logo Guest Flow · Unified Contact Model · Filterable recipe tags.

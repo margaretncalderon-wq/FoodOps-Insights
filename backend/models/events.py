@@ -19,7 +19,7 @@ class EngagementType(str, Enum):
 class EventCreate(BaseModel):
     client_id: str
     name: str
-    event_type: str
+    event_type: Optional[str] = "other"  # Was required — relaxed because non-event engagement types don't need it
     # NEW: Engagement type determines what fields/modules are relevant
     engagement_type: EngagementType = EngagementType.EVENT
     event_date: Optional[datetime] = None

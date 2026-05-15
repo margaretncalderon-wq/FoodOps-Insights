@@ -180,6 +180,7 @@ export default function EventsPage({ embedded = false }) {
       const payload = {
         ...formData,
         engagement_type: formData.engagement_type || "event",
+        event_type: formData.event_type || "other",
         event_date: formData.event_date_tbd ? null : (formData.event_date ? formData.event_date.toISOString() : null),
         end_date: formData.is_booking && formData.end_date ? formData.end_date.toISOString() : null,
         start_time: formData.start_time || null,
@@ -202,7 +203,19 @@ export default function EventsPage({ embedded = false }) {
       setDialogOpen(false);
       resetForm();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to save event");
+      // Pydantic 422 returns an array of {loc, msg, ...} — surface the actual fields.
+      const detail = error.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        const missing = detail
+          .map((d) => {
+            const field = Array.isArray(d.loc) ? d.loc.filter((x) => x !== "body").join(".") : "";
+            return field ? `${field}: ${d.msg}` : d.msg;
+          })
+          .join(" · ");
+        toast.error(missing || (language === "es" ? "Datos incompletos" : "Validation failed"));
+      } else {
+        toast.error(detail || (language === "es" ? "Error al guardar evento" : "Failed to save event"));
+      }
     }
   };
 
