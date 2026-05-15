@@ -1,137 +1,155 @@
 <analysis>**original_problem_statement:** 
-Build a comprehensive ERP application called Kora OS with modules for People Ops, Business, Demand Studio, Event Orchestration, and CRM. Recent focus has been on scaling the CRM module to be globally competitive by adding unified contact columns, geographical filtering, interactive maps, customizable tags, and lifecycle pipeline stages. 
-
-**PRODUCT REQUIREMENTS:**
-1. **CRM Scaling:** Clear separation of Leads/Companies in UI, interactive Lead map by city, custom tags, and expanded pipeline stages (New → Contacted → Qualified → Proposal → Negotiation → Won → Lost).
-2. **Settings:** dedicated CRM Config section to manage Tags, Service Areas, and Pipeline Stages.
-3. **Dashboards:** Visual sales funnel and metrics dashboard for the CRM.
+Build Phase 2 of the Culinary Intelligence module for Kora OS (an ERP app). The focus is on implementing 4 high-priority (P1) operational fixes and 6 new core capabilities, and enhancing usability so these features provide immediate daily value to the users.
 
 **User's preferred language**: Spanish (es)
-**INSTRUCT NEXT AGENT: YOU MUST RESPOND IN SPANISH ONLY.**
+INSTRUCT NEXT AGENT: YOU MUST RESPOND IN SPANISH ONLY. 
 
 **what currently exists?** 
-A highly functional CRM with fully separated but parallel Outreach and Inbound sections. The CRM now features a unified Lead column (merging Name, Company, Contact Icons, and B2B/Direct badges), Group by City functionality, a new Move to Outreach action for inbound leads, and a fully functioning Interactive Map. The Settings module now includes a CRM Config tab for managing Tags and Service Areas. 
+The entire Phase 2 of Culinary Intelligence has been built, tested, and deployed across 6 Sprints. This includes Cost Staleness, Filterable Tags, Recipe Scaling, Production Event Plans, Auto-Release Inventory, Buffet Consumption Factors, Kitchen BEOs, Menu Engineering, Cost Variance, Plated-to-Catalog conversions, a Weekly Culinary Digest, and Notification Deeplinks. However, the user feels the features currently lack utility because they are hidden behind buttons or lack real data in the empty states.
 
 **Last working item**: 
-    - **Last item agent was working**: CRM Sprint 2: Lifecycle Stages & Funnel Dashboard. The agent updated the  array in  to match the backend's 7 pipeline stages (New, Contacted, Qualified, Proposal, Negotiation, Won, Lost) and created a new file .
-    - **Status**: IN PROGRESS
-    - **Agent Testing Done**: N
-    - **Which testing method agent to use?** both (Screenshot tool for UI verification, followed by  once the dashboard is fully integrated).
+    - **Last item agent was working**: The agent successfully completed all 10 features of Phase 2 plus 2 bonus features. Following the user's feedback (I see many things but no utility), the agent proposed three new UX/Utility workstreams: A) Surface daily insights on the System Pulse dashboard, B) Smart empty states/onboarding, and C) Data capture tours. The agent is waiting for the user to choose which UX workstream to tackle first.
+    - **Status**: USER VERIFICATION PENDING
+    - **Agent Testing Done**: Y
+    - **Which testing method agent to use?** Frontend testing agent / backend testing agent (use  after implementing the chosen UX improvements).
     - **User Testing Done**: N
 
 **All Pending/In progress Issue list**: 
-  None currently broken, but UI alignment is pending for the statuses.
+  Issue 1: Address the Utility / UX Visibility Gap
+     - Attempted fixes: Proposed 3 options to the user (A: Surface daily insights, B: Empty states, C: Data capture tour).
+     - Next debug checklist: Read the user's response to Message 514. If they choose Option A, begin integrating Culinary Insights (Variance, Staleness, Low Stock) into the  dashboard or  main view.
+     - Why fix this issue and what will be achieved with the fix? The user feels the newly built features are hidden. Surfacing them will drive daily engagement and demonstrate ROI.
+     - Status: USER VERIFICATION PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: None
 
 **In progress Task List**: 
-  Task 1: CRM Funnel Dashboard & Status Alignment (Sprint 2)
-     - Where to resume: Implement the newly created  to show a visual funnel and metrics. Integrate this dashboard into the CRM view. Update  so its statuses also match the new 7 pipeline stages.
-     - What will be achieved with this? Gives the sales team a visual executive dashboard (funnel, conversion rates) and aligns all static frontend UI statuses with the dynamic backend pipeline stages.
-     - Status: IN PROGRESS
-     - Should Test frontend/backend/both after fix? Both
-     - Blocked on something: No
+None. Phase 2 implementation is strictly complete.
 
-**Upcoming and Future Tasks**
-  Upcoming Tasks:
-  - Add Logo Image Upload via Object Storage for Guest Flow (P1).
-  - Sprint 3: Unified Contact Model (Merge Lead and Client into a single lifecycle entity to prevent duplication upon conversion) (P1).
-  - Sprint 3: Unify Communications components (Currently 5 redundant comms components: , , , etc.) (P1).
+**Upcoming and Future Tasks**:
+  *UX / Utility Enhancements (Pending user choice):*
+  - **P0**: Surface daily Culinary Insights (Variance, Staleness, Low Stock) on System Pulse / FoodOps dashboard with deep-links to action items.
+  - **P1**: Smart empty states + onboarding for Menu Engineering and Cost Variance dialogs.
+  - **P1**: Data Capture Tour (wizard to quickly add prices to top recipes, post a batch).
   
-  Future Tasks:
-  - Sprint 4: Email Marketing Integration (Brevo/Resend) + Dynamic Lists (P2).
-  - Refactor  (Currently ~3700 lines, huge technical debt) (P2).
-  - Extract import/export logic from  to a dedicated router (P2).
-  - Integrate Staffdo.com, Meta (Instagram), TikTok APIs (P2).
-  - Implement full UTM tracking (P2).
-  - Complete application-wide internationalization (i18n), multi-currency, and timezone awareness (P3).
-  *(Note: User explicitly requested to KEEP Outreach and Inbound as separate sections. Do NOT merge them).*
+  *General Backlog (from previous handoff):*
+  - **P1**: Add Logo Image Upload via Object Storage for Guest Flow.
+  - **P1**: Unified Contact Model.
+  - **P1**: Unify Communications components.
+  - **P2**: Auto-repair 864 legacy ingredients using AI.
 
-**Completed work in this session**
-- CRM Lead Conversion: Implemented 3 conversion options (Solo Cliente, Cliente+Evento Existente, Cliente+Nuevo Evento) (DONE)
-- CRM Lead Import: Defaulted to outreach, deduplicated companies, and added global source parameter (DONE)
-- Unified Lead Column: Combined Lead Name + Company + Contact Icons + B2B Badge in a single cell for clarity (DONE)
-- Added Move to Outreach dropdown action in Inbound Section (DONE)
-- Added Group by City, MapPin icons, and city visibility in CRM tables (DONE)
-- Backend Endpoints: Added  and  (DONE)
-- Settings: Created  for managing tags and service areas (DONE)
-- Interactive Map: Built  and integrated it above the Outreach list (DONE)
+**Completed work in this session**:
+  - P1-D: Plated Menu Cost Staleness () (DONE)
+  - P1-B: Filterable Recipe Tags in UI (Dietary, Allergens) (DONE)
+  - P1-C: Recipe Scaling Panel in  (DONE)
+  - P1-A: Production Plan View per Event () (DONE)
+  - Feature 6: Auto-Release Inventory Reservation on Event Cancellation (DONE)
+  - Feature 1: Buffet Consumption Factors + Projected Event Cost (DONE)
+  - Feature 2: Kitchen BEO (Production BEO with scaling & allergen alerts + print HTML) (DONE)
+  - Feature 3: Menu Engineering Dashboard + What-If Cost Simulator (DONE)
+  - Feature 4: Theoretical vs Actual Cost Variance tracking (DONE)
+  - Feature 5: Plated Menu to Catalog Menu Conversion (DONE)
+  - Bonus 1: Culinary Weekly Digest via APScheduler ( + UI) (DONE)
+  - Bonus 2: Notification Deeplinks for auto-opening Dialogs (DONE)
 
-**Earlier issues found/mentioned but not fixed**
+**Earlier issues found/mentioned but not fixed**:
 None.
 
-**Known issue recurrence from previous fork**
-None.
+**Known issue recurrence from previous fork**:
+- Recurrence count: 0
+- Status: RESOLVED
 
-**Code Architecture**
+**Code Architecture**:
 
 
-**Key Technical Concepts**
-React Hooks, FastAPI routing, MongoDB (Aggregations, deduplication logic), Pipeline stages syncing between DB and static UI arrays.
+**Key Technical Concepts**:
+React Hooks, FastAPI, MongoDB (motor), Pydantic Data Validation, Snapshot vs Live Cost logic, Margin threshold resolution, HTML Print Views (), APScheduler for background cron jobs, URL Query Param Deeplinking ().
 
-**key DB schema**
-  - : {lead_id, lead_name, company_name, email, source, status, city, pipeline_stage, tags[]}
-  - : {tag_id, name, color}
-  - : {area_id, country, regions[]}
+**key DB schema**:
+  - , , , , , , , 
+  - : 
+  - : 
 
-**changes in tech stack**
-None.
+**changes in tech stack**:
+  - Implementation of  for asynchronous scheduled tasks (Weekly Digest).
+  - Use of standard  and  CSS for Kitchen BEO PDF generation (avoids heavy jsPDF dependencies).
 
-**All files of reference** 
-  -  (Created, needs implementation)
-  -  (Statuses updated, map integrated)
-  -  (Needs status updates to match Outreach)
-  -  (Pipeline stages logic)
+**All files of reference**:
+  -  (Core hub for all new dialogs and deeplinks)
+  -  (Holds most new endpoints)
+  -  (New digest logic)
+  - 
+  - 
 
-**Areas that need refactoring**: 
-  -  (~3700 lines).
-  -  contains heavy route logic for imports/exports.
-  - CRM Communications components (5 files doing similar things).
+**Areas that need refactoring**:
+  -  is nearly 21,000 lines. Major sections (Menu Engineering, Cost Variance, Plated Menus) should ideally be moved to their own routers when bandwidth allows.
 
-**key api endpoints**
+**key api endpoints**:
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
   - 
   - 
   - 
 
-**Critical Info for New Agent** 
+**Critical Info for New Agent**:
 - **LANGUAGE REQUIREMENT:** You MUST speak Spanish to the user.
-- **Sprint 2 Progress:** You are actively working on the Funnel Dashboard requested by the user. The empty file  was just created. Implement it and place it attractively in the CRM UI.
-- **Outreach vs Inbound:** Do NOT attempt to merge  and . The user explicitly chose Option C (leave them separated) because they serve different business functions.
+- **Immediate Next Action:** Read the user's latest response to your previous message (Message 514). The user raised a concern about the utility of the built features. You offered 3 options (A: Surface daily insights, B: Empty states/onboarding, C: Data capture tour). Wait for or read their response, and then execute the chosen UX strategy using  to validate if needed.
+- **Demo Mode:** SMTP emails in  are currently running in  to prevent spamming until real credentials are set.
 
-**documents and test reports created in this job** 
-  -  (CRM Conversion & Import overhaul)
-  -  (CRM Table column unification & sorting)
-  -  (CRM Tags, Service Areas, Interactive Map)
-  -  (Updated with Sprint 1 & 2 roadmap)
+**documents and test reports created in this job**:
+  -  (Sprint 1)
+  -  (Sprint 2)
+  -  (Sprint 3)
+  -  (Sprint 4)
+  -  (Sprint 5)
+  -  (Sprint 6)
+  - 
 
-**Last 10 User Messages and any pending HUMAN messages** 
- 1. **User**: ahora dice nombre y empresa no sera lo mismo? (RESOLVED - unified columns)
- 2. **User**: combinemos nombre y empresa. tipo de contacto b2b o director? (RESOLVED)
- 3. **User**: ayudame a mover los que importe que SE fueron a inbound to outbound como podria hacerse? (RESOLVED - added 'Move to Outreach' button)
- 4. **User**: me gustaria ver los leads por ciudad se puede? (RESOLVED)
- 5. **User**: ambas y que si quiero ver leads por cuidad pueda (RESOLVED - grouped by city)
- 6. **User**: analiza el client engagement... quiero entender como puedo filtrar leads por ciudad ? seria posible añadir un mapa... (RESOLVED - proposed Sprint roadmap)
- 7. **User**: c hibrido entonces cual seria el plan de trabajo? y hablando de marketing emails etc como manejamos la base de datos? (RESOLVED)
- 8. **User**: opero solo RD con miras a operar en otros países... Que mas nos falta para ser un CRM super potente? (RESOLVED - provided analysis)
- 9. **User**: no rompas nada. si ves alguna secuencia rompe otra dame opciones en fusionar Outreach/Inbound se queda entonces inbound como fuente? (RESOLVED - User chose NOT to merge Outreach/Inbound)
- 10. **User (Pending context)**: continua -> Agent started Sprint 2 (aligning pipeline stages and creating ), but stopped after creating the empty file.
+**Last 10 User Messages and any pending HUMAN messages**:
+ 1. **User**: Sprint 1 completo pero antes de hacer eso...
+ 2. **User**: ya salió olvídalo dale con sprint 1 completo
+ 3. **User**: vamos con sprint 2
+ 4. **User**: ya tenemos generar purchase list
+ 5. **User**: si
+ 6. **User**: b (Chose to skip quick button and go straight to Sprint 3)
+ 7. **User**: Sprint 4
+ 8. **User**: Sprint 5
+ 9. **User**: Sprint 6
+ 10. **User (Pending Response)**: ok que nos falta del plan inicial? veo muchas cosas pero no veo la utilidad -> Agent responded explaining the UX visibility gap and offered options A, B, and C. *Waiting for user's selection on the next prompt.*
 
 **Project Health Check:**
-- Broken: Nothing currently.
-- Mocked: Empty .
+- Broken: None.
+- Mocked: SMTP integration operates in  for the culinary digest until valid credentials are added.
 
-**3rd Party Integrations** 
-  - Emergent LLM Key — Uses Emergent LLM Key
+**3rd Party Integrations**:
+  - Emergent LLM Key — Uses Emergent LLM Key (used in  and )
   - YouTube Data API — Requires User Key
+  - SMTP (Gmail) — Requires User App Password
   - Zapier / Make — Requires User Webhooks
 
-**Testing status**
-  - Testing agent used after significant changes: YES (Iterations 135, 136, 137 all passed 100%)
+**Testing status**:
+  - Testing agent used after significant changes: YES (Tested heavily through iterations 170-175)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: , , 
-  - Known regressions: None
+  - Test files created:  to 
+  - Known regressions: None.
 
-**Credentials to test flow:**
+**Credentials to test flow**:
   - Admin User:  / 
   - Team Member:  / 
+  - Test Target (Margaret):  / 
 
-**What agent forgot to execute**
-The agent modified the  constant in  to match the 7 backend pipeline stages, but did not make the equivalent update in . The agent also created  but ran out of tokens before writing the component code and inserting it into the UI. Pick up directly by implementing the dashboard and syncing the statuses across the CRM views.</analysis>
+**What agent forgot to execute**:
+Nothing was forgotten. The core Phase 2 prompt is 100% complete. The agent proactively recognized a UX/Utility gap and paused for the user's directional input.
+
+**Debugging checklist for current issue**:
+    Issue: Wait for User's UX Choice & Implement
+    1. Read the user's latest input regarding Options A (Surface Daily), B (Empty States), or C (Data Capture Tour).
+    2. Acknowledge their choice in Spanish.
+    3. Formulate an implementation plan for the chosen option.
+    4. Validate the approach with the user using  if the scope needs to be narrowed.
+    5. Execute the UX enhancements in frontend (, , etc.) and backend if needed.</analysis>
