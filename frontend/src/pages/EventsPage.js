@@ -203,19 +203,12 @@ export default function EventsPage({ embedded = false }) {
       setDialogOpen(false);
       resetForm();
     } catch (error) {
-      // Pydantic 422 returns an array of {loc, msg, ...} — surface the actual fields.
-      const detail = error.response?.data?.detail;
-      if (Array.isArray(detail)) {
-        const missing = detail
-          .map((d) => {
-            const field = Array.isArray(d.loc) ? d.loc.filter((x) => x !== "body").join(".") : "";
-            return field ? `${field}: ${d.msg}` : d.msg;
-          })
-          .join(" · ");
-        toast.error(missing || (language === "es" ? "Datos incompletos" : "Validation failed"));
-      } else {
-        toast.error(detail || (language === "es" ? "Error al guardar evento" : "Failed to save event"));
-      }
+      // Pydantic 422 errors are already normalized to a readable string by the
+      // global axios interceptor (see utils/errorFormatter.js).
+      toast.error(
+        error.response?.data?.detail ||
+        (language === "es" ? "Error al guardar evento" : "Failed to save event")
+      );
     }
   };
 

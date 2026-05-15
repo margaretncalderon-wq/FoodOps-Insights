@@ -1,0 +1,68 @@
+{
+  "summary": "Pydantic 422 Error Formatting - Backend tests 100% passed (7/7). Frontend code review and UI testing completed. Error formatting works correctly - toasts show human-readable messages instead of [object Object] or raw JSON.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_error_formatting.py",
+    "/app/test_reports/pytest/pytest_error_formatting.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "errorFormatter.js: FIELD_LABELS map covers common fields (client_id, name, email, event_type, etc.) with Spanish/English translations",
+    "errorFormatter.js: formatPydanticDetail() correctly groups 'missing' errors into 'Falta: campo1, campo2' format",
+    "errorFormatter.js: Non-missing errors get friendly translations from ERROR_TYPE_MESSAGES or fall back to '{field}: {msg}'",
+    "api.js: Axios response interceptor correctly transforms pydantic 422 detail arrays BEFORE any consumer reads them",
+    "api.js: Original array preserved under detail_raw for advanced callers",
+    "api.js: 401 auto-refresh logic runs AFTER pydantic normalization - no regression",
+    "EventsPage.js: Simplified catch block relies on global normalizer - toast.error(error.response?.data?.detail) works correctly",
+    "Added display_name to FIELD_LABELS map for better CRM client error messages"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_error_formatting.py",
+    "/app/frontend/src/utils/errorFormatter.js"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% - UI testing verified error toasts show human-readable messages"
+  },
+  "seed_data_creation": "None",
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pydantic 422 error formatting is fully implemented. The axios interceptor in /app/frontend/src/utils/api.js transforms backend validation errors from array format to human-readable strings. FIELD_LABELS in errorFormatter.js maps snake_case field names to Spanish/English labels. To test: trigger a 422 by submitting an incomplete form (e.g., CRM New Client without name) and verify the toast shows 'Name is required' or 'Falta: nombre' instead of '[object Object]'.",
+  "features_tested": {
+    "backend_422_format": {
+      "tests_passed": [
+        "POST /api/crm/clients without display_name returns 422 with array detail",
+        "POST /api/events without required fields returns 422",
+        "POST /api/leads without required fields returns 422",
+        "Error format matches frontend expectations (loc, msg, type fields)",
+        "Plain string errors (404, 401) still work correctly"
+      ]
+    },
+    "frontend_error_formatting": {
+      "tests_passed": [
+        "formatPydanticDetail transforms [{loc,msg,type}] to 'Falta: campo' (Spanish)",
+        "Multiple missing fields combine: 'Falta: cliente, nombre'",
+        "Non-missing errors get friendly translations",
+        "Unknown fields humanized via underscore-to-space",
+        "Toast shows human-readable message, not [object Object]"
+      ]
+    },
+    "regression_tests": {
+      "tests_passed": [
+        "Plain string errors unchanged (e.g., 'Event not found')",
+        "401 auto-refresh still works (interceptor order preserved)",
+        "Network errors show 'Sin conexión con el servidor'"
+      ]
+    }
+  },
+  "cleanup_performed": "Deleted TEST_ErrorFormat_Event from events collection"
+}

@@ -1,6 +1,7 @@
 // Centralized API URL configuration
 // Dynamically determines API URL based on current domain
 import axios from "axios";
+import { formatPydanticDetail } from "./errorFormatter";
 
 export const getApiBaseUrl = () => {
   // Always use environment variable first, fallback to current origin
@@ -78,6 +79,26 @@ const isAuthEndpoint = (url = "") =>
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // ──────────────────────────────────────────────────────────────────────
+    // Normalize pydantic 422 detail BEFORE any consumer reads it.
+    // The backend returns: data.detail = [{loc, msg, type, ...}, ...]
+    // We rewrite it to a single human-readable string so legacy callers like
+    //   toast.error(error.response?.data?.detail)
+    // never display "[object Object]" or cryptic "Field required" again.
+    // We stash the original array under `data.detail_raw` for advanced callers.
+    // ──────────────────────────────────────────────────────────────────────
+    try {
+      const data = error.response?.data;
+      if (data && Array.isArray(data.detail)) {
+        const original = data.detail;
+        const friendly = formatPydanticDetail(original);
+        if (friendly) {
+          data.detail_raw = original;
+          data.detail = friendly;
+        }
+      }
+    } catch (e) { /* never let formatting throw */ }
+
     const status = error.response?.status;
     const originalConfig = error.config || {};
 
