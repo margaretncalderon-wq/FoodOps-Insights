@@ -124,27 +124,41 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Sprint 3 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED:
-- **Feature 1 — Buffet Consumption Factors + Projected Event Cost**:
-  - Backend: new `db.buffet_factors` collection. New `buffet_factors_router` with full CRUD (`GET/POST/PUT/DELETE /api/buffet-factors`). Validation: scope_type ∈ {recipe, category, default}, factor ∈ (0, 5], scope_id required if scope_type≠default, applies_to_menu_types non-empty.
-  - Helper `_resolve_buffet_factor(recipe, company_id, menu_type)` — cascade recipe → category → default → 1.0, scoped by `applies_to_menu_types`.
-  - New `GET /api/plated-menus/{id}/projected-cost` — returns `{theoretical_cost_per_guest, projected_cost_per_guest, savings_or_overrun, savings_percent, factors_applied: [...]}` for dual-cost UI.
-  - Frontend: `BuffetFactorsDialog.js` — full CRUD modal launched from "Buffet Factors" button in `/food-ops/menus`. Inline form supports recipe/category/default scopes, factor input (0–5), applies-to badges (buffet/cocktail), notes.
-  - Frontend: `PlatedMenusSection` fetches projected-cost for every buffet/cocktail menu and shows a dual-cost badge on the menu card (projected vs theoretical with % drift, red if overrun / green if savings).
-- **Feature 2 — Kitchen BEO (Banquet Event Order) with allergen alerts + print/PDF**:
-  - Backend: new `kitchen_beo_router` with `GET /api/kitchen-beo/event/{event_id}`. Returns full structured payload: event header, courses with scaled recipes (`portions_required = portions_per_guest × consumption_factor × guest_count`), per-recipe allergen/dietary tags, aggregated allergens & dietary tags across the whole event, totals (recipes_count, total_input_cost, cost_per_guest).
-  - Each recipe carries scaled ingredient list, prep/cook time, chef notes, presentation notes for the kitchen.
-  - Frontend: `KitchenBEO.js` — modal launched from "Kitchen BEO / BEO Cocina" button in `/food-ops/production`. Event picker → Generate → preview with allergen alert strip (red) + dietary tag chips. Print button opens a new window with print-friendly HTML (auto-trigger `window.print()` — pattern reused from Mise en Place). User can "Save as PDF" via browser print dialog.
-- **Tests**: Backend 25/30 passed (5 skipped — test account had menus with empty courses and events without menus). Frontend 100%. End-to-end backend curl on demo account verified the BEO returned 3 courses with full scaled ingredients (45kg filete, 7.5L aceite for 150 guests). Report: `/app/test_reports/iteration_172.json`.
+🏁 **Phase 2 Culinary Intelligence COMPLETO** — 10/10 features entregadas en 4 sprints (May 15, 2026).
 
-### Sprint 1 + 2 — Phase 2 (May 15, 2026) — Previously Completed
-- Sprint 1: P1-D Plated Menu Cost Staleness + P1-B Filterable Recipe Tags + P1-C Inline Recipe Scaling Panel. See iteration_170.json.
-- Sprint 2: P1-A Production Plan View per Event + Feature 6 Auto-Release Inventory Reservation on Event Cancellation. See iteration_171.json.
+### Sprint 4 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED
+- **Feature 3 — Menu Engineering Dashboard + What-If Simulator**:
+  - Backend: `menu_engineering_router` con `GET /api/menu-engineering/analyze?days=N` (clasifica todas las recetas con precio en cuadrantes Star/Plowhorse/Puzzle/Dog usando popularidad = #usos en order_items Food + production_batches POSTED y profit = sell_price − cost_per_portion; umbrales = promedios de la compañía) y `POST /api/menu-engineering/what-if` para simular cambios de precio/costo de una receta y mostrar quadrant antes vs después.
+  - Frontend: `MenuEngineeringDialog.js` con 4 tarjetas de cuadrantes coloreadas, tabla de recetas con badges, ventana 30/60/90/180/365 días, simulador What-If con current vs simulated side-by-side. Botón "Menu Engineering / Ingeniería de Menú" en `/food-ops/menus` header.
+- **Feature 4 — Theoretical vs Actual Cost Variance**:
+  - Backend: `cost_variance_router` con `GET /api/cost-variance?days=N&severity_filter=` (lista todos los eventos con production_batches POSTED en la ventana, ordenados por variación absoluta) y `GET /api/cost-variance/event/{id}` (detalle por evento). Bandas: <5% OK, 5–10% WARN, >10% CRITICAL. Variance = (actual − theoretical) / theoretical × 100.
+  - Frontend: `CostVarianceDialog.js` con tarjetas de severidad, tabla con TrendingUp/Down icons, filtros de ventana y severidad. Botón "Variance / Variación" en `/food-ops/menus`.
+- **Feature 5 — Plated Menu → Catalog Menu Conversion**:
+  - Backend: `POST /api/plated-menus/{id}/convert-to-catalog` crea un nuevo doc en `db.menus` con `source='plated_menu_conversion'`, `source_plated_menu_id` del original, `items[]` construidos desde courses (aplicando consumption factor si es buffet), `snapshot_cost_per_guest` y `snapshot_price_per_guest` calculados. NO modifica el plated menu original. 400 si no hay items con recipe_id.
+  - Frontend: botón `FileText` icon en cada plated menu card (`data-testid=convert-to-catalog-{menu_id}`) con confirm dialog. Toast de éxito con el nombre del nuevo menú.
+- **Tests**: Backend 36/37 (1 skip por datos vacíos), Frontend 100%. Report: `/app/test_reports/iteration_173.json`. Pytest: `/app/backend/tests/test_sprint4_culinary_phase2.py`.
 
-### Next Sprint Targets (from Phase 2 Build Prompt)
-- Sprint 4 — Feature 3 Menu Engineering Dashboard (Stars, Plowhorses, Puzzles, Dogs) + What-If Cost Simulator; Feature 4 Theoretical vs Actual Cost Variance; Feature 5 Plated Menu → Catalog Menu Conversion.
-- Mini-task: connect "Generate Purchase List" button into Event Plan modal (reuses existing `POST /api/events/{id}/generate-purchase-list`).
+### Sprints 1-3 — Phase 2 (May 15, 2026) — Previously Completed
+- Sprint 1: P1-D Plated Menu Cost Staleness + P1-B Filterable Recipe Tags + P1-C Inline Recipe Scaling Panel (iteration_170.json).
+- Sprint 2: P1-A Production Plan View per Event + Feature 6 Auto-Release Inventory Reservation on Event Cancellation (iteration_171.json).
+- Sprint 3: Feature 1 Buffet Consumption Factors + Projected Event Cost + Feature 2 Kitchen BEO with allergen alerts + Print/PDF (iteration_172.json).
 
-Previous milestones (unchanged): Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
+### Phase 2 Summary
+| Sprint | Features | Endpoints added | UI Components added |
+|---|---|---|---|
+| 1 | P1-D, P1-B, P1-C | 2 (staleness, refresh-costs) | RecipeScalingPanel.js |
+| 2 | P1-A, F6 | 1 (event-plan) + 1 hook (auto-release) | EventProductionPlan.js |
+| 3 | F1, F2 | 6 (buffet-factors CRUD, projected-cost, kitchen-beo) | BuffetFactorsDialog.js, KitchenBEO.js |
+| 4 | F3, F4, F5 | 5 (analyze, what-if, cost-variance, /event, convert-to-catalog) | MenuEngineeringDialog.js, CostVarianceDialog.js |
+| **Total** | **10/10** | **15 endpoints** | **6 components** |
 
-Next: Sprint 4 (Menu Engineering + Variance) · Logo Guest Flow · Unified Contact Model.
+### Pending Mini-tasks & Backlog
+- Mini-task: connect "Generate Purchase List" into Event Plan modal (reuses existing `POST /api/events/{id}/generate-purchase-list`).
+- Logo Image Upload via Object Storage for Guest Flow (P1).
+- Unified Contact Model (P1).
+- Refactor `server.py` (~20.8k líneas) into routers (P2).
+- Auto-repair legacy ingredients using AI (P2).
+
+Previous milestones: Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
+
+Next: Mini-task (Event Plan → Purchase List), Logo Guest Flow, Unified Contact Model.
