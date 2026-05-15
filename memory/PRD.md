@@ -124,20 +124,17 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Bug fix — "Field required" engañoso al crear evento (May 14, 2026):
-- **Reporte original**: usuario decía que el form pedía `venue` como obligatorio. Reproducción confirmó que el campo realmente faltante era `event_type` (no venue, `venue` siempre fue `Optional`).
-- **Causa**: el modelo `EventCreate` tenía `event_type: str` (sin default). Si el usuario cambiaba `engagement_type` a "project"/"service", el selector de event_type se ocultaba pero el valor quedaba en estado inesperado → pydantic 422. El toast del frontend mostraba solo `msg="Field required"` sin indicar QUÉ campo.
-- **Fix 1 backend** (`models/events.py`): `event_type: Optional[str] = "other"` — non-event engagement types ya no fallan.
-- **Fix 2 frontend** (`EventsPage.js handleSubmit`): garantiza `event_type: formData.event_type || "other"` en el payload.
-- **Fix 3 frontend** (`EventsPage.js handleSubmit catch`): si el detail del error es un array pydantic, lo expande a `"field: msg · field2: msg2"` para que el usuario vea exactamente qué falta.
-- Verificado por curl: POST /api/events sin event_type devuelve 200 con event_type="other".
+Pydantic 422 Error Formatting — Global fix (May 14, 2026):
+- **Problema**: 93 archivos del frontend mostraban `error.response?.data?.detail` directamente al usuario. Cuando era array pydantic, salía `[object Object]` o solo "Field required" sin indicar el campo.
+- **Solución centralizada (sin tocar los 93 archivos)**:
+  - Nuevo `frontend/src/utils/errorFormatter.js`: `FIELD_LABELS` (snake_case → {es,en}), `ERROR_TYPE_MESSAGES`, `formatPydanticDetail()`, `formatApiError()`.
+  - Axios response interceptor (`utils/api.js`) reescribe `data.detail` de array → string legible ANTES de que cualquier consumidor lo lea. Preserva el array original en `data.detail_raw` por si algo necesita lo crudo.
+  - Resultado: `[{loc:["body","event_type"],msg:"Field required",type:"missing"}]` → **"Falta: tipo de evento"**. Múltiples campos: **"Falta: cliente, nombre"**.
+  - Errores de tipo (value_error, email, etc.) tienen traducciones amables. Plain string errors funcionan igual.
+  - Detección de idioma: `navigator.language` o `localStorage.kora_lang`.
+- **Testing iteration_168**: Backend 7/7 PASS, Frontend 100% (toast verificado en EventsPage 422 muestra mensaje legible, no `[object Object]`).
+- Bug fix de "field required" en EventCreate también incluido (event_type Optional con default "other").
 
-Recipe Scaling MVP (May 14, 2026): tab "Escalar" en RecipeBuilder + guardar como Menú sin tocar receta base.
+Recipe Scaling MVP + Margin Policy Fase 1+2 + Bug fix 401 + Cost Health Dashboard completo (ver historial).
 
-Margin Policy Fase 1+2: política jerárquica + breakdown por tipo en CostHealthDashboard.
-
-Bug fix auto-recovery de 401: cookie domain dinámico + interceptor refresh-then-retry.
-
-Cost Health Dashboard completo (ver historial).
-
-Next: Fase 3 Margin Policy (gating Admin) · Production Plan view · Logo Guest Flow · Unified Contact Model · Filterable recipe tags.
+Next: Fase 3 Margin Policy · Production Plan view · Logo Guest Flow · Unified Contact Model · Filterable recipe tags.
