@@ -124,41 +124,59 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-🏁 **Phase 2 Culinary Intelligence COMPLETO** — 10/10 features entregadas en 4 sprints (May 15, 2026).
+Sprint 5 — Culinary Weekly Digest (May 15, 2026) ✅ COMPLETED.
 
-### Sprint 4 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED
-- **Feature 3 — Menu Engineering Dashboard + What-If Simulator**:
-  - Backend: `menu_engineering_router` con `GET /api/menu-engineering/analyze?days=N` (clasifica todas las recetas con precio en cuadrantes Star/Plowhorse/Puzzle/Dog usando popularidad = #usos en order_items Food + production_batches POSTED y profit = sell_price − cost_per_portion; umbrales = promedios de la compañía) y `POST /api/menu-engineering/what-if` para simular cambios de precio/costo de una receta y mostrar quadrant antes vs después.
-  - Frontend: `MenuEngineeringDialog.js` con 4 tarjetas de cuadrantes coloreadas, tabla de recetas con badges, ventana 30/60/90/180/365 días, simulador What-If con current vs simulated side-by-side. Botón "Menu Engineering / Ingeniería de Menú" en `/food-ops/menus` header.
-- **Feature 4 — Theoretical vs Actual Cost Variance**:
-  - Backend: `cost_variance_router` con `GET /api/cost-variance?days=N&severity_filter=` (lista todos los eventos con production_batches POSTED en la ventana, ordenados por variación absoluta) y `GET /api/cost-variance/event/{id}` (detalle por evento). Bandas: <5% OK, 5–10% WARN, >10% CRITICAL. Variance = (actual − theoretical) / theoretical × 100.
-  - Frontend: `CostVarianceDialog.js` con tarjetas de severidad, tabla con TrendingUp/Down icons, filtros de ventana y severidad. Botón "Variance / Variación" en `/food-ops/menus`.
-- **Feature 5 — Plated Menu → Catalog Menu Conversion**:
-  - Backend: `POST /api/plated-menus/{id}/convert-to-catalog` crea un nuevo doc en `db.menus` con `source='plated_menu_conversion'`, `source_plated_menu_id` del original, `items[]` construidos desde courses (aplicando consumption factor si es buffet), `snapshot_cost_per_guest` y `snapshot_price_per_guest` calculados. NO modifica el plated menu original. 400 si no hay items con recipe_id.
-  - Frontend: botón `FileText` icon en cada plated menu card (`data-testid=convert-to-catalog-{menu_id}`) con confirm dialog. Toast de éxito con el nombre del nuevo menú.
-- **Tests**: Backend 36/37 (1 skip por datos vacíos), Frontend 100%. Report: `/app/test_reports/iteration_173.json`. Pytest: `/app/backend/tests/test_sprint4_culinary_phase2.py`.
+### Sprint 5 — Culinary Weekly Digest
+Multi-channel (email + in-app) configurable digest with all 7 insight sections.
 
-### Sprints 1-3 — Phase 2 (May 15, 2026) — Previously Completed
-- Sprint 1: P1-D Plated Menu Cost Staleness + P1-B Filterable Recipe Tags + P1-C Inline Recipe Scaling Panel (iteration_170.json).
-- Sprint 2: P1-A Production Plan View per Event + Feature 6 Auto-Release Inventory Reservation on Event Cancellation (iteration_171.json).
-- Sprint 3: Feature 1 Buffet Consumption Factors + Projected Event Cost + Feature 2 Kitchen BEO with allergen alerts + Print/PDF (iteration_172.json).
+- **Backend** (`/app/backend/routers/culinary_digest.py`, new):
+  - `GET /api/culinary-digest/settings` — fetches per-company config (with defaults merged).
+  - `PUT /api/culinary-digest/settings` — persists enabled, frequency (weekly/biweekly/monthly), day_of_week (0-6), hour (0-23), recipients_roles, recipient_emails_extra, sections (7 toggles). Full validation.
+  - `GET /api/culinary-digest/preview` — read-only: computes the full digest payload + renders email HTML. No side-effects.
+  - `POST /api/culinary-digest/generate-now` — manual trigger: sends email, creates in-app notifications, records history. Used for QA + on-demand.
+  - `GET /api/culinary-digest/history` — paginated dispatch log.
+  - Helper functions compute each section: `_exec_summary`, `_stars_and_dogs` (reuses analyze_menu_engineering), `_stale_menus`, `_variance_critical` (reuses list_cost_variance), `_low_stock_affecting_events` (reuses production_event_plan), `_mise_en_place_gap`, `_ai_recommendations` (optional Emergent LLM, opt-in).
+  - `compute_digest()` orchestrates all sections respecting per-section toggles. `render_digest_html()` produces email-safe HTML.
+  - `dispatch_digest()` sends via SMTP (gracefully falls back to demo_mode if SMTP_USER/PASSWORD missing) + in-app notifications via `create_notification` + history record.
+- **Scheduler** (`/app/backend/scheduler.py`):
+  - New job `culinary_digest_dispatcher` runs every hour at minute=5. Iterates `db.culinary_digest_settings` where enabled=true, fires when day_of_week and hour match local time. Biweekly = even ISO weeks; monthly = days 1-7. Never raises (errors logged per-company).
+- **Frontend** (`/app/frontend/src/components/CulinaryDigestDialog.js`, new):
+  - Three-tab dialog (Settings / Preview / History) launched from "Weekly Digest / Resumen Semanal" button in `/food-ops/menus` header.
+  - Settings tab: enabled switch, frequency/day/hour selects, role badges (owner/admin/manager), extra emails input with Add/Remove, 7 section toggles (AI Recommendations marked with sparkle icon as "uses credits").
+  - Preview tab: Load Preview button renders email HTML in iframe.
+  - History tab: list of past dispatches with timestamps, demo/sent badges, email count, in-app count.
+  - Footer has "Send Now" (manual dispatch) + "Save" (persists settings).
+- **Storage**:
+  - `db.culinary_digest_settings`: one doc per company_id.
+  - `db.culinary_digest_history`: append-only audit trail.
+- **Tests**: Backend 32/32 passed. Frontend 100%. Report: `/app/test_reports/iteration_174.json`. Pytest: `/app/backend/tests/test_sprint5_culinary_digest.py`.
 
-### Phase 2 Summary
-| Sprint | Features | Endpoints added | UI Components added |
+### Phase 2 + Sprint 5 — Final Summary
+| Sprint | Features | Endpoints | UI |
 |---|---|---|---|
-| 1 | P1-D, P1-B, P1-C | 2 (staleness, refresh-costs) | RecipeScalingPanel.js |
-| 2 | P1-A, F6 | 1 (event-plan) + 1 hook (auto-release) | EventProductionPlan.js |
-| 3 | F1, F2 | 6 (buffet-factors CRUD, projected-cost, kitchen-beo) | BuffetFactorsDialog.js, KitchenBEO.js |
-| 4 | F3, F4, F5 | 5 (analyze, what-if, cost-variance, /event, convert-to-catalog) | MenuEngineeringDialog.js, CostVarianceDialog.js |
-| **Total** | **10/10** | **15 endpoints** | **6 components** |
+| 1 | P1-D, P1-B, P1-C | 2 | 1 component |
+| 2 | P1-A, F6 | 1 + 1 hook | 1 component |
+| 3 | F1, F2 | 6 | 2 components |
+| 4 | F3, F4, F5 | 5 | 2 components |
+| 5 | Weekly Digest | 5 + 1 scheduler job | 1 component |
+| **Total** | **11 features** | **20 endpoints** | **7 components** |
+
+🏁 **All 10 Phase 2 features + Sprint 5 Digest delivered.**
+
+### Sprints 1-4 — Phase 2 (Previously Completed)
+- Sprint 1: P1-D Staleness + P1-B Filterable Tags + P1-C Scaling Panel (iteration_170.json)
+- Sprint 2: P1-A Production Plan + Feature 6 Auto-Release (iteration_171.json)
+- Sprint 3: Feature 1 Buffet Factors + Feature 2 Kitchen BEO (iteration_172.json)
+- Sprint 4: Feature 3 Menu Engineering + Feature 4 Cost Variance + Feature 5 Plated→Catalog (iteration_173.json)
 
 ### Pending Mini-tasks & Backlog
-- Mini-task: connect "Generate Purchase List" into Event Plan modal (reuses existing `POST /api/events/{id}/generate-purchase-list`).
+- Mini-task: connect "Generate Purchase List" into Event Plan modal.
+- Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).
 - Unified Contact Model (P1).
-- Refactor `server.py` (~20.8k líneas) into routers (P2).
+- Refactor `server.py` (~21k líneas) into routers (P2).
 - Auto-repair legacy ingredients using AI (P2).
 
 Previous milestones: Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
 
-Next: Mini-task (Event Plan → Purchase List), Logo Guest Flow, Unified Contact Model.
+Next: Configurar SMTP en producción, Logo Guest Flow, Unified Contact Model.
