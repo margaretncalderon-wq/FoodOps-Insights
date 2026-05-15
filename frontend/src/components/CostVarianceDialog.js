@@ -24,13 +24,14 @@ const SEVERITY_META = {
  * Calls GET /api/cost-variance to list events with their theoretical vs actual
  * cost gap. Bands: <5% OK, 5–10% WARN, >10% CRITICAL.
  */
-export default function CostVarianceDialog({ open, onOpenChange }) {
+export default function CostVarianceDialog({ open, onOpenChange, initialEventId = null }) {
   const { language } = useLanguage();
   const isEs = language === "es";
   const [windowDays, setWindowDays] = useState(180);
   const [severityFilter, setSeverityFilter] = useState("all");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [focusedEvent, setFocusedEvent] = useState(null); // deeplinked event detail
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -49,6 +50,19 @@ export default function CostVarianceDialog({ open, onOpenChange }) {
   useEffect(() => {
     if (open) fetch();
   }, [open, fetch]);
+
+  // Deeplinked event — fetch its detail when dialog opens with initialEventId
+  useEffect(() => {
+    if (!open || !initialEventId) {
+      setFocusedEvent(null);
+      return;
+    }
+    let cancelled = false;
+    axios.get(`${API}/api/cost-variance/event/${initialEventId}`, { withCredentials: true })
+      .then((r) => { if (!cancelled) setFocusedEvent(r.data); })
+      .catch(() => { if (!cancelled) setFocusedEvent(null); });
+    return () => { cancelled = true; };
+  }, [open, initialEventId]);
 
   const summary = data?.summary || {};
   const total = (summary.ok || 0) + (summary.warn || 0) + (summary.critical || 0);
@@ -114,6 +128,38 @@ export default function CostVarianceDialog({ open, onOpenChange }) {
             </Card>
           ))}
         </div>
+
+        {focusedEvent && (
+          <Card className={`border-2 ${SEVERITY_META[focusedEvent.severity]?.cls || ""}`} data-testid="cv-focused-event">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] uppercase opacity-70">{isEs ? "Evento enlazado" : "Linked event"}</p>
+                  <p className="font-semibold text-base">{focusedEvent.event_name}</p>
+                  <p className="text-xs opacity-80">
+                    {focusedEvent.event_date ? new Date(focusedEvent.event_date).toLocaleDateString() : "—"} · {focusedEvent.guest_count} {isEs ? "invitados" : "guests"}
+                  </p>
+                </div>
+                <Badge className={`${SEVERITY_META[focusedEvent.severity]?.cls} text-xs`}>
+                  {focusedEvent.is_overrun
+                    ? <TrendingUp className="inline w-3 h-3 mr-0.5" />
+                    : <TrendingDown className="inline w-3 h-3 mr-0.5" />}
+                  {focusedEvent.variance_percent >= 0 ? "+" : ""}{focusedEvent.variance_percent}%
+                </Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div><span className="opacity-70">{isEs ? "Teórico" : "Theoretical"}:</span> <span className="font-mono font-semibold">${focusedEvent.theoretical_cost.toFixed(2)}</span></div>
+                <div><span className="opacity-70">{isEs ? "Real" : "Actual"}:</span> <span className="font-mono font-semibold">${focusedEvent.actual_cost.toFixed(2)}</span></div>
+                <div><span className="opacity-70">{isEs ? "Variación" : "Variance"}:</span> <span className="font-mono font-semibold">${focusedEvent.variance_amount.toFixed(2)}</span></div>
+              </div>
+              {focusedEvent.production_batches?.length > 0 && (
+                <p className="text-xs opacity-80">
+                  {focusedEvent.batches_count} {isEs ? "lote(s) de producción publicado(s)" : "POSTED production batch(es)"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {loading ? (
           <div className="py-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
@@ -1520,6 +1520,7 @@ function RecipesSection() {
 // ==================== PLATED MENUS SECTION ====================
 function PlatedMenusSection() {
   const { language } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [menus, setMenus] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1534,6 +1535,8 @@ function PlatedMenusSection() {
   const [varianceDialogOpen, setVarianceDialogOpen] = useState(false);
   const [digestDialogOpen, setDigestDialogOpen] = useState(false);
   const [convertingMenuId, setConvertingMenuId] = useState(null);
+  const [deeplinkEventId, setDeeplinkEventId] = useState(null);
+  const [highlightedMenuId, setHighlightedMenuId] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1576,6 +1579,37 @@ function PlatedMenusSection() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Deeplink consumer — read ?dialog=...&event_id=...&menu_id=... and open the matching dialog
+  useEffect(() => {
+    const dialog = searchParams.get("dialog");
+    if (!dialog) return;
+    const eventId = searchParams.get("event_id");
+    const menuId = searchParams.get("menu_id");
+
+    if (dialog === "variance") {
+      if (eventId) setDeeplinkEventId(eventId);
+      setVarianceDialogOpen(true);
+    } else if (dialog === "menu-engineering") {
+      setMeDialogOpen(true);
+    } else if (dialog === "digest") {
+      setDigestDialogOpen(true);
+    } else if (dialog === "staleness" && menuId) {
+      setHighlightedMenuId(menuId);
+      setTimeout(() => {
+        const el = document.querySelector(`[data-menu-id="${menuId}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 600);
+    }
+
+    // Clear the consumed params so closing the dialog doesn't re-trigger
+    const next = new URLSearchParams(searchParams);
+    next.delete("dialog");
+    next.delete("event_id");
+    next.delete("menu_id");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRefreshMenuCosts = async (menuId) => {
     setRefreshingMenuId(menuId);
@@ -1653,7 +1687,12 @@ function PlatedMenusSection() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMenus.map(menu => (
-                <Card key={menu.menu_id} className="hover:shadow-lg transition-shadow">
+                <Card
+                  key={menu.menu_id}
+                  data-menu-id={menu.menu_id}
+                  data-testid={`menu-card-${menu.menu_id}`}
+                  className={`hover:shadow-lg transition-all ${highlightedMenuId === menu.menu_id ? "ring-2 ring-amber-400 shadow-lg" : ""}`}
+                >
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
                       <div>
@@ -1832,7 +1871,8 @@ function PlatedMenusSection() {
 
       <CostVarianceDialog
         open={varianceDialogOpen}
-        onOpenChange={setVarianceDialogOpen}
+        onOpenChange={(o) => { setVarianceDialogOpen(o); if (!o) setDeeplinkEventId(null); }}
+        initialEventId={deeplinkEventId}
       />
 
       <CulinaryDigestDialog

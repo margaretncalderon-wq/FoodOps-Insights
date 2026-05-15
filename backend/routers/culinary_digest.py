@@ -508,6 +508,49 @@ async def dispatch_digest(company_id: str, user: User, settings: Optional[Dict[s
         "low_stock": len(data.get("low_stock") or []),
         "mep_gap": len(data.get("mise_en_place_gap") or []),
     }
+
+    # Compute primary action (deeplink) — priority order: variance → staleness → low_stock → mep_gap → menu_engineering
+    primary_action: Dict[str, Any] = {"type": "digest", "link": "/food-ops/menus?dialog=digest"}
+    if counts["variance"] > 0:
+        top_v = (data.get("variance") or [{}])[0]
+        eid = top_v.get("event_id")
+        primary_action = {
+            "type": "variance",
+            "event_id": eid,
+            "link": f"/food-ops/menus?dialog=variance{'&event_id=' + eid if eid else ''}",
+            "label": top_v.get("event_name") or "evento con variación crítica",
+        }
+    elif counts["stale"] > 0:
+        top_s = (data.get("staleness") or [{}])[0]
+        mid = top_s.get("menu_id")
+        primary_action = {
+            "type": "staleness",
+            "menu_id": mid,
+            "link": f"/food-ops/menus?dialog=staleness{'&menu_id=' + mid if mid else ''}",
+            "label": top_s.get("name") or "menú desactualizado",
+        }
+    elif counts["low_stock"] > 0:
+        primary_action = {
+            "type": "low_stock",
+            "link": "/food-ops/menus?dialog=event-plan",
+            "label": f"{counts['low_stock']} insumos críticos",
+        }
+    elif counts["mep_gap"] > 0:
+        top_m = (data.get("mise_en_place_gap") or [{}])[0]
+        eid = top_m.get("event_id")
+        primary_action = {
+            "type": "mise_en_place",
+            "event_id": eid,
+            "link": f"/food-ops/menus?dialog=event-plan{'&event_id=' + eid if eid else ''}",
+            "label": top_m.get("event_name") or "mise-en-place pendiente",
+        }
+    elif counts["dogs"] > 0 or counts["stars"] > 0:
+        primary_action = {
+            "type": "menu_engineering",
+            "link": "/food-ops/menus?dialog=menu-engineering",
+            "label": f"{counts['stars']} stars · {counts['dogs']} dogs",
+        }
+
     title = "📊 Culinary Weekly Digest"
     pieces = []
     if counts["stale"]:
@@ -533,8 +576,12 @@ async def dispatch_digest(company_id: str, user: User, settings: Optional[Dict[s
                     notification_type="culinary_digest",
                     title=title,
                     message=message,
-                    link="/food-ops/menus",
-                    metadata={"counts": counts, "window": data.get("window_label")},
+                    link=primary_action["link"],
+                    metadata={
+                        "counts": counts,
+                        "window": data.get("window_label"),
+                        "primary_action": primary_action,
+                    },
                     priority="normal",
                 )
                 notified_user_ids.append(u["user_id"])
@@ -550,6 +597,7 @@ async def dispatch_digest(company_id: str, user: User, settings: Optional[Dict[s
         "notified_user_ids": notified_user_ids,
         "email_result": email_result,
         "counts": counts,
+        "primary_action": primary_action,
         "window_label": data.get("window_label"),
         "dispatched_by": user.user_id,
     }
@@ -562,6 +610,7 @@ async def dispatch_digest(company_id: str, user: User, settings: Optional[Dict[s
         "notified_user_ids": notified_user_ids,
         "email_result": email_result,
         "counts": counts,
+        "primary_action": primary_action,
         "history_id": history_doc["history_id"],
     }
 
