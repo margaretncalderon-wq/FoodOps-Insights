@@ -7368,16 +7368,275 @@ async def proposal_cost_staleness(proposal_id: str, user: User = Depends(get_cur
     }
 
 
+# ============== MARGIN GUARDRAIL HELPERS (Phase 3) ==============
+
+OVERRIDE_ROLES = {"owner", "admin", "finance"}
+
+
+def _user_can_override_margin(user: User) -> bool:
+    """Only owner/admin/finance may push a quote below its resolved margin threshold."""
+    return str(getattr(user, "role", "")).lower() in OVERRIDE_ROLES
+
+
+async def _compute_proposal_below_threshold(proposal: dict, policy: dict, user: User) -> dict:
+    """Recompute current vs projected margin for a single proposal.
+    Returns {below_threshold, current_margin_pct, projected_margin_pct, effective_min_margin, delta_total}.
+    Lightweight version of cost_health_overview() restricted to one proposal.
+    """
+    items = await db.order_items.find(
+        {"proposal_id": proposal["proposal_id"], "company_id": user.company_id},
+        {"_id": 0, "item_type": 1, "reference_id": 1, "internal_cost": 1, "quantity": 1, "unit_price": 1},
+    ).to_list(500)
+
+    total_price = 0.0
+    total_cost_current = 0.0
+    total_cost_projected = 0.0
+    weighted_min_num = 0.0
+    weighted_min_den = 0.0
+    delta_total = 0.0
+    any_below = False
+    for it in items:
+        qty = float(it.get("quantity") or 0)
+        unit_price = float(it.get("unit_price") or 0)
+        snap = float(it.get("internal_cost") or 0)
+        line_revenue = qty * unit_price
+        total_price += line_revenue
+        total_cost_current += qty * snap
+
+        rid = it.get("reference_id")
+        current_for_proj = snap
+        item_category = None
+        item_specific_min = None
+        item_type = it.get("item_type") or "Other"
+        if rid:
+            current = None
+            if item_type == "Food":
+                rec = await db.recipes.find_one(
+                    {"recipe_id": rid, "company_id": user.company_id},
+                    {"_id": 0, "cost_per_portion": 1, "total_cost": 1, "category": 1, "min_margin_pct": 1},
+                )
+                if rec:
+                    current = float(rec.get("cost_per_portion") or rec.get("total_cost") or 0)
+                    item_category = rec.get("category")
+                    item_specific_min = rec.get("min_margin_pct")
+            else:
+                pli = await db.picklist_items.find_one(
+                    {"item_id": rid, "company_id": user.company_id},
+                    {"_id": 0, "internal_cost": 1, "category_id": 1, "min_margin_pct": 1},
+                )
+                if pli and pli.get("internal_cost") is not None:
+                    current = float(pli.get("internal_cost") or 0)
+                    item_category = pli.get("category_id")
+                    item_specific_min = pli.get("min_margin_pct")
+            if current is not None and abs(current - snap) >= 0.005:
+                delta_total += (current - snap) * qty
+                current_for_proj = current
+        total_cost_projected += qty * current_for_proj
+
+        resolved_min = resolve_min_margin(
+            policy,
+            item_type=item_type,
+            category=item_category,
+            item_specific=item_specific_min,
+        )
+        if resolved_min is not None and line_revenue > 0:
+            weighted_min_num += line_revenue * resolved_min
+            weighted_min_den += line_revenue
+            line_proj_cost = qty * current_for_proj
+            line_proj_margin_pct = ((line_revenue - line_proj_cost) / line_revenue * 100) if line_revenue > 0 else None
+            if line_proj_margin_pct is not None and line_proj_margin_pct < resolved_min:
+                any_below = True
+
+    current_margin_pct = ((total_price - total_cost_current) / total_price * 100) if total_price > 0 else None
+    projected_margin_pct = ((total_price - total_cost_projected) / total_price * 100) if total_price > 0 else None
+    effective_min_margin = (weighted_min_num / weighted_min_den) if weighted_min_den > 0 else None
+    below = bool(any_below) or (
+        effective_min_margin is not None
+        and projected_margin_pct is not None
+        and projected_margin_pct < effective_min_margin
+    )
+    return {
+        "below_threshold": below,
+        "current_margin_pct": round(current_margin_pct, 2) if current_margin_pct is not None else None,
+        "projected_margin_pct": round(projected_margin_pct, 2) if projected_margin_pct is not None else None,
+        "effective_min_margin": round(effective_min_margin, 2) if effective_min_margin is not None else None,
+        "delta_total": round(delta_total, 2),
+    }
+
+
+async def _record_cost_refresh_audit(
+    *,
+    user: User,
+    scope: str,  # "single" | "bulk"
+    proposal_ids: list,
+    stale_info: dict,
+    refreshed_count: int,
+    override: bool,
+) -> None:
+    """Append a row to cost_refresh_audit so admins can review margin guardrail bypasses."""
+    now = datetime.now(timezone.utc).isoformat()
+    await db.cost_refresh_audit.insert_one({
+        "audit_id": f"cra_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "user_id": user.user_id,
+        "user_email": getattr(user, "email", None),
+        "user_role": getattr(user, "role", None),
+        "scope": scope,
+        "proposal_ids": proposal_ids,
+        "refreshed_count": refreshed_count,
+        "below_threshold": bool(stale_info.get("below_threshold")),
+        "override": bool(override),
+        "current_margin_pct": stale_info.get("current_margin_pct"),
+        "projected_margin_pct": stale_info.get("projected_margin_pct"),
+        "effective_min_margin": stale_info.get("effective_min_margin"),
+        "delta_total": stale_info.get("delta_total"),
+        "created_at": now,
+    })
+
+
+async def _notify_margin_approval_request(
+    *,
+    requester: User,
+    proposal: dict,
+    stale_info: dict,
+) -> int:
+    """Drop an in-app notification on every owner/admin/finance in the company.
+    Returns the number of notifications inserted.
+    """
+    approvers_cursor = db.users.find(
+        {
+            "company_id": requester.company_id,
+            "role": {"$in": list(OVERRIDE_ROLES)},
+            "user_id": {"$ne": requester.user_id},
+        },
+        {"_id": 0, "user_id": 1},
+    )
+    approver_ids = [u["user_id"] async for u in approvers_cursor]
+    if not approver_ids:
+        return 0
+
+    now = datetime.now(timezone.utc).isoformat()
+    title = "Aprobación de margen requerida"
+    body = (
+        f"{getattr(requester, 'email', 'Un usuario')} solicita refrescar la cotización "
+        f"{proposal.get('proposal_number') or proposal.get('proposal_id')[:8]}: "
+        f"margen pasaría de {stale_info.get('current_margin_pct')}% a "
+        f"{stale_info.get('projected_margin_pct')}% (mín {stale_info.get('effective_min_margin')}%)."
+    )
+    docs = [
+        {
+            "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+            "company_id": requester.company_id,
+            "user_id": approver_id,
+            "type": "margin_approval_request",
+            "title": title,
+            "message": body,
+            "link": f"/events/{proposal.get('event_id')}?tab=proposal",
+            "metadata": {
+                "proposal_id": proposal["proposal_id"],
+                "event_id": proposal.get("event_id"),
+                "requester_id": requester.user_id,
+                "requester_email": getattr(requester, "email", None),
+                "current_margin_pct": stale_info.get("current_margin_pct"),
+                "projected_margin_pct": stale_info.get("projected_margin_pct"),
+                "effective_min_margin": stale_info.get("effective_min_margin"),
+                "delta_total": stale_info.get("delta_total"),
+            },
+            "read": False,
+            "created_at": now,
+        }
+        for approver_id in approver_ids
+    ]
+    if docs:
+        await db.notifications.insert_many(docs)
+    return len(docs)
+
+
+@proposals_router.post("/{proposal_id}/request-margin-approval")
+async def request_margin_approval(proposal_id: str, user: User = Depends(get_current_user)):
+    """Allow a non-override user (rep) to ping all admins/owners/finance asking for cost-refresh approval."""
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    if proposal.get("status", "Draft") != "Draft":
+        raise HTTPException(status_code=400, detail="Only Draft proposals can request approval")
+
+    policy = await get_margin_policy_doc(user.company_id)
+    stale_info = await _compute_proposal_below_threshold(proposal, policy, user)
+    if not stale_info["below_threshold"]:
+        raise HTTPException(status_code=400, detail="Proposal is not below threshold — no approval needed")
+    sent = await _notify_margin_approval_request(requester=user, proposal=proposal, stale_info=stale_info)
+    return {"approvers_notified": sent, "proposal_id": proposal_id}
+
+
 @proposals_router.post("/{proposal_id}/refresh-costs")
-async def refresh_proposal_costs(proposal_id: str, user: User = Depends(get_current_user)):
-    """Update internal_cost (NOT unit_price) on each OrderItem to match the current source-of-truth cost.
-    Sources: Food → recipe.cost_per_portion. Service/Rental/Fee/Other → picklist_items.internal_cost.
-    Only allowed for DRAFT proposals to protect signed/accepted quotes."""
+async def refresh_proposal_costs(
+    proposal_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    """Public endpoint — parses body and delegates to the internal helper."""
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    override = bool(body.get("override_below_threshold"))
+    return await _apply_refresh_for_proposal(proposal_id=proposal_id, override=override, user=user, scope="single")
+
+
+async def _apply_refresh_for_proposal(
+    *,
+    proposal_id: str,
+    override: bool,
+    user: User,
+    scope: str,
+) -> dict:
+    """Shared refresh logic used by both single and bulk endpoints.
+
+    Margin guardrail:
+      - If projected margin falls below the resolved minimum, only owner/admin/finance can proceed
+        AND must send `override_below_threshold=true`.
+    Returns standardized payload {refreshed_count, proposal_id, below_threshold, override_applied, skipped_reason?}.
+    """
     proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0})
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     if proposal.get("status", "Draft") != "Draft":
         raise HTTPException(status_code=400, detail="Only Draft proposals can refresh costs")
+
+    policy = await get_margin_policy_doc(user.company_id)
+    stale_info = await _compute_proposal_below_threshold(proposal, policy, user)
+
+    if stale_info["below_threshold"]:
+        if not _user_can_override_margin(user):
+            if scope == "bulk":
+                return {
+                    "refreshed_count": 0,
+                    "proposal_id": proposal_id,
+                    "below_threshold": True,
+                    "override_applied": False,
+                    "skipped_reason": "below_threshold_no_role",
+                }
+            raise HTTPException(
+                status_code=403,
+                detail=("Refrescar este costo dejaría el margen bajo el umbral. "
+                        "Pide aprobación a un Admin/Owner."),
+            )
+        if not override:
+            if scope == "bulk":
+                return {
+                    "refreshed_count": 0,
+                    "proposal_id": proposal_id,
+                    "below_threshold": True,
+                    "override_applied": False,
+                    "skipped_reason": "below_threshold_no_override",
+                }
+            raise HTTPException(
+                status_code=403,
+                detail=("La acción cruza el umbral mínimo de margen. "
+                        "Reenvía con override_below_threshold=true para confirmar."),
+            )
 
     items = await db.order_items.find(
         {"proposal_id": proposal_id, "company_id": user.company_id},
@@ -7423,7 +7682,23 @@ async def refresh_proposal_costs(proposal_id: str, user: User = Depends(get_curr
         )
         updated_count += 1
 
-    return {"refreshed_count": updated_count, "proposal_id": proposal_id}
+    # Audit only when an override actually applied
+    if stale_info["below_threshold"] and override and updated_count > 0:
+        await _record_cost_refresh_audit(
+            user=user,
+            scope=scope,
+            proposal_ids=[proposal_id],
+            stale_info=stale_info,
+            refreshed_count=updated_count,
+            override=True,
+        )
+
+    return {
+        "refreshed_count": updated_count,
+        "proposal_id": proposal_id,
+        "below_threshold": stale_info["below_threshold"],
+        "override_applied": bool(stale_info["below_threshold"] and override),
+    }
 
 
 @proposals_router.get("/cost-health/overview")
@@ -7592,23 +7867,51 @@ async def cost_health_overview(user: User = Depends(get_current_user)):
 
 
 @proposals_router.post("/cost-health/refresh-all")
-async def cost_health_refresh_all(user: User = Depends(get_current_user)):
-    """Refresh costs on ALL Draft proposals that have stale items."""
+async def cost_health_refresh_all(request: Request, user: User = Depends(get_current_user)):
+    """Refresh costs on ALL Draft proposals that have stale items.
+
+    Phase 3 gating:
+      - Below-threshold proposals are skipped for non-admin/owner/finance users.
+      - For admin/owner/finance, the body flag `override_below_threshold=true` allows
+        the bulk action to also refresh below-threshold proposals.
+    """
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    override = bool(body.get("override_below_threshold"))
+
     overview = await cost_health_overview(user)
     refreshed_proposals = 0
     refreshed_items = 0
+    skipped_below_threshold = 0
+    overridden_proposals = []
     for row in overview["proposals"]:
         try:
-            res = await refresh_proposal_costs(row["proposal_id"], user)
+            res = await _apply_refresh_for_proposal(
+                proposal_id=row["proposal_id"],
+                override=override,
+                user=user,
+                scope="bulk",
+            )
             if res.get("refreshed_count", 0) > 0:
                 refreshed_proposals += 1
                 refreshed_items += res["refreshed_count"]
+                if res.get("override_applied"):
+                    overridden_proposals.append(row["proposal_id"])
+            elif res.get("skipped_reason", "").startswith("below_threshold"):
+                skipped_below_threshold += 1
         except HTTPException:
             continue
+
     return {
         "scanned": overview["total_drafts_scanned"],
         "refreshed_proposals": refreshed_proposals,
         "refreshed_items": refreshed_items,
+        "skipped_below_threshold": skipped_below_threshold,
+        "overridden_proposals": overridden_proposals,
+        "can_override": _user_can_override_margin(user),
     }
 
 

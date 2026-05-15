@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { API } from "../utils/api";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useAuth } from "../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -36,8 +37,14 @@ const ITEM_TYPE_META = {
 export default function CostHealthDashboard({ mode = "section", onNavigate }) {
   const { language } = useLanguage();
   const isEs = language === "es";
+  const { user } = useAuth();
   const { isModuleEnabled } = useModules();
   const hasFoodOps = isModuleEnabled("module_culinary_intelligence");
+
+  // Phase 3: role-based gating for margin overrides
+  const canOverrideMargin = ["owner", "admin", "finance"].includes(
+    String(user?.role || "").toLowerCase(),
+  );
 
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState(null);
@@ -46,6 +53,8 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
   const [scope, setScope] = useState("all"); // "all" or "selected"
   const [applying, setApplying] = useState(false);
   const [refreshingId, setRefreshingId] = useState(null); // for inline single-quote refresh
+  const [overrideConfirmed, setOverrideConfirmed] = useState(false); // Phase 3
+  const [approvalLoadingId, setApprovalLoadingId] = useState(null); // proposal_id while sending approval request
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,20 +87,42 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
     return "text-emerald-700";
   };
 
+  // Phase 3: detect if the current action set contains any below-threshold proposals
+  const affectedProposals = scope === "all" ? proposals : selectedProposals;
+  const affectedHasBelow = affectedProposals.some((p) => p.below_threshold);
+  const requiresOverride = affectedHasBelow && canOverrideMargin;
+  const blockedByRole = affectedHasBelow && !canOverrideMargin;
+
   const handleRefresh = async () => {
     setApplying(true);
+    const overrideFlag = requiresOverride && overrideConfirmed;
     try {
       let refreshedProposals = 0;
       let refreshedItems = 0;
       if (scope === "all") {
-        const res = await axios.post(`${API}/proposals/cost-health/refresh-all`, {}, { withCredentials: true });
+        const res = await axios.post(
+          `${API}/proposals/cost-health/refresh-all`,
+          { override_below_threshold: overrideFlag },
+          { withCredentials: true },
+        );
         refreshedProposals = res.data?.refreshed_proposals || 0;
         refreshedItems = res.data?.refreshed_items || 0;
+        if (res.data?.skipped_below_threshold > 0 && !overrideFlag) {
+          toast.warning(
+            isEs
+              ? `${res.data.skipped_below_threshold} omitida${res.data.skipped_below_threshold === 1 ? "" : "s"} por estar bajo el umbral de margen`
+              : `${res.data.skipped_below_threshold} skipped (below margin threshold)`,
+          );
+        }
       } else {
         // Refresh only selected — loop through individual endpoint
         for (const pid of selectedIds) {
           try {
-            const r = await axios.post(`${API}/proposals/${pid}/refresh-costs`, {}, { withCredentials: true });
+            const r = await axios.post(
+              `${API}/proposals/${pid}/refresh-costs`,
+              { override_below_threshold: overrideFlag },
+              { withCredentials: true },
+            );
             if ((r.data?.refreshed_count || 0) > 0) {
               refreshedProposals += 1;
               refreshedItems += r.data.refreshed_count;
@@ -105,6 +136,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
           : `${refreshedProposals} quote${refreshedProposals === 1 ? "" : "s"} updated (${refreshedItems} item${refreshedItems === 1 ? "" : "s"})`,
       );
       setConfirmOpen(false);
+      setOverrideConfirmed(false);
       await load();
     } catch (err) {
       toast.error(err?.response?.data?.detail || (isEs ? "Error al refrescar" : "Refresh failed"));
@@ -115,9 +147,26 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
 
   // Refresh a single proposal inline (used by mini-list in card mode)
   const refreshOne = async (proposalId) => {
+    const target = proposals.find((p) => p.proposal_id === proposalId);
+    const needsOverride = !!target?.below_threshold;
+    if (needsOverride && !canOverrideMargin) {
+      toast.error(isEs
+        ? "Esta cotización quedaría bajo el umbral. Pide aprobación a un Admin/Owner."
+        : "This quote would fall below the threshold. Request approval from an Admin/Owner.");
+      return;
+    }
+    if (needsOverride && !window.confirm(
+      isEs
+        ? `Esta acción dejará el margen bajo el umbral mínimo (${target.effective_min_margin?.toFixed(0)}%). ¿Continuar?`
+        : `This action will push the margin below the minimum (${target.effective_min_margin?.toFixed(0)}%). Continue?`,
+    )) return;
     setRefreshingId(proposalId);
     try {
-      const res = await axios.post(`${API}/proposals/${proposalId}/refresh-costs`, {}, { withCredentials: true });
+      const res = await axios.post(
+        `${API}/proposals/${proposalId}/refresh-costs`,
+        { override_below_threshold: needsOverride },
+        { withCredentials: true },
+      );
       const count = res.data?.refreshed_count || 0;
       toast.success(
         isEs
@@ -129,6 +178,28 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
       toast.error(err?.response?.data?.detail || (isEs ? "Error al refrescar" : "Refresh failed"));
     } finally {
       setRefreshingId(null);
+    }
+  };
+
+  // Phase 3: rep requests admin/owner/finance approval for a below-threshold proposal
+  const requestApproval = async (proposalId) => {
+    setApprovalLoadingId(proposalId);
+    try {
+      const res = await axios.post(
+        `${API}/proposals/${proposalId}/request-margin-approval`,
+        {},
+        { withCredentials: true },
+      );
+      const sent = res.data?.approvers_notified || 0;
+      toast.success(
+        isEs
+          ? `Aprobación solicitada (${sent} responsable${sent === 1 ? "" : "s"} notificado${sent === 1 ? "" : "s"})`
+          : `Approval requested (${sent} approver${sent === 1 ? "" : "s"} notified)`,
+      );
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || (isEs ? "Error solicitando aprobación" : "Approval request failed"));
+    } finally {
+      setApprovalLoadingId(null);
     }
   };
 
@@ -184,7 +255,6 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
           {/* Top 3 stale quotes — inline refresh */}
           <div className="space-y-1.5" data-testid="cost-health-card-top-list">
             {proposals.slice(0, 3).map((p) => {
-              const isRefreshing = refreshingId === p.proposal_id;
               return (
                 <div
                   key={p.proposal_id}
@@ -263,17 +333,41 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                       </div>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-xs text-amber-900 hover:bg-amber-100"
-                    onClick={() => refreshOne(p.proposal_id)}
-                    disabled={isRefreshing || refreshingId !== null}
-                    data-testid={`cost-health-card-refresh-one-${p.proposal_id}`}
-                  >
-                    <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
-                    {isEs ? "Refrescar" : "Refresh"}
-                  </Button>
+                  {(() => {
+                    const isRefreshing = refreshingId === p.proposal_id;
+                    const isRequestingApproval = approvalLoadingId === p.proposal_id;
+                    const blocked = p.below_threshold && !canOverrideMargin;
+                    if (blocked) {
+                      return (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-red-700 hover:bg-red-50"
+                          onClick={() => requestApproval(p.proposal_id)}
+                          disabled={isRequestingApproval || approvalLoadingId !== null}
+                          data-testid={`cost-health-card-request-approval-${p.proposal_id}`}
+                        >
+                          {isRequestingApproval ? (
+                            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          ) : null}
+                          {isEs ? "Solicitar aprobación" : "Request approval"}
+                        </Button>
+                      );
+                    }
+                    return (
+                      <Button
+                        size="sm"
+                        variant={p.below_threshold ? "destructive" : "ghost"}
+                        className={p.below_threshold ? "h-7 px-2 text-xs" : "h-7 px-2 text-xs text-amber-900 hover:bg-amber-100"}
+                        onClick={() => refreshOne(p.proposal_id)}
+                        disabled={isRefreshing || refreshingId !== null}
+                        data-testid={`cost-health-card-refresh-one-${p.proposal_id}`}
+                      >
+                        <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
+                        {isEs ? "Refrescar" : "Refresh"}
+                      </Button>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -596,11 +690,49 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                 ? "Solo se actualiza el costo interno y el margen. Los precios al cliente (unit_price) no se modifican. Las cotizaciones firmadas/aceptadas están protegidas."
                 : "Only internal cost and margin are updated. Customer-facing prices (unit_price) stay the same. Signed/accepted quotes are protected."}
             </p>
+
+            {/* Phase 3: below-threshold warning + override checkbox / blocked notice */}
+            {affectedHasBelow && blockedByRole && (
+              <div
+                className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 space-y-1"
+                data-testid="cost-health-confirm-blocked-by-role"
+              >
+                <p className="font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {isEs ? "Acción bloqueada por política de margen" : "Action blocked by margin policy"}
+                </p>
+                <p>
+                  {isEs
+                    ? "Una o más cotizaciones quedarían bajo el umbral mínimo. Solo Admin / Owner / Finance pueden hacer override. Usa 'Solicitar aprobación' en la fila correspondiente."
+                    : "One or more quotes would fall below the minimum threshold. Only Admin / Owner / Finance can override. Use 'Request approval' on the affected row."}
+                </p>
+              </div>
+            )}
+            {requiresOverride && (
+              <label
+                className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 cursor-pointer select-none"
+                data-testid="cost-health-confirm-override-label"
+              >
+                <Checkbox
+                  checked={overrideConfirmed}
+                  onCheckedChange={(v) => setOverrideConfirmed(!!v)}
+                  data-testid="cost-health-confirm-override-checkbox"
+                />
+                <span>
+                  <span className="font-semibold block">
+                    {isEs ? "Confirmo bajar el margen bajo el umbral" : "I confirm pushing the margin below threshold"}
+                  </span>
+                  {isEs
+                    ? "Acepto que estas cotizaciones quedarán bajo el mínimo configurado. Esta acción quedará registrada en auditoría."
+                    : "I accept these quotes will drop below the configured minimum. This action will be logged in the audit trail."}
+                </span>
+              </label>
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setConfirmOpen(false)}
+              onClick={() => { setConfirmOpen(false); setOverrideConfirmed(false); }}
               disabled={applying}
               data-testid="cost-health-confirm-cancel-btn"
             >
@@ -608,7 +740,8 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
             </Button>
             <Button
               onClick={handleRefresh}
-              disabled={applying}
+              disabled={applying || blockedByRole || (requiresOverride && !overrideConfirmed)}
+              variant={requiresOverride ? "destructive" : "default"}
               data-testid="cost-health-confirm-apply-btn"
             >
               {applying
