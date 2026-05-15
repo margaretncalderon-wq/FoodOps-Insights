@@ -124,44 +124,33 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Sprint 5 — Culinary Weekly Digest (May 15, 2026) ✅ COMPLETED.
+Sprint 6 — Notification Deeplinks (May 15, 2026) ✅ COMPLETED.
 
-### Sprint 5 — Culinary Weekly Digest
-Multi-channel (email + in-app) configurable digest with all 7 insight sections.
+### Sprint 6 — Notification Deeplinks
+Auto-open the most-urgent dialog with preselected context from in-app notification.
 
-- **Backend** (`/app/backend/routers/culinary_digest.py`, new):
-  - `GET /api/culinary-digest/settings` — fetches per-company config (with defaults merged).
-  - `PUT /api/culinary-digest/settings` — persists enabled, frequency (weekly/biweekly/monthly), day_of_week (0-6), hour (0-23), recipients_roles, recipient_emails_extra, sections (7 toggles). Full validation.
-  - `GET /api/culinary-digest/preview` — read-only: computes the full digest payload + renders email HTML. No side-effects.
-  - `POST /api/culinary-digest/generate-now` — manual trigger: sends email, creates in-app notifications, records history. Used for QA + on-demand.
-  - `GET /api/culinary-digest/history` — paginated dispatch log.
-  - Helper functions compute each section: `_exec_summary`, `_stars_and_dogs` (reuses analyze_menu_engineering), `_stale_menus`, `_variance_critical` (reuses list_cost_variance), `_low_stock_affecting_events` (reuses production_event_plan), `_mise_en_place_gap`, `_ai_recommendations` (optional Emergent LLM, opt-in).
-  - `compute_digest()` orchestrates all sections respecting per-section toggles. `render_digest_html()` produces email-safe HTML.
-  - `dispatch_digest()` sends via SMTP (gracefully falls back to demo_mode if SMTP_USER/PASSWORD missing) + in-app notifications via `create_notification` + history record.
-- **Scheduler** (`/app/backend/scheduler.py`):
-  - New job `culinary_digest_dispatcher` runs every hour at minute=5. Iterates `db.culinary_digest_settings` where enabled=true, fires when day_of_week and hour match local time. Biweekly = even ISO weeks; monthly = days 1-7. Never raises (errors logged per-company).
-- **Frontend** (`/app/frontend/src/components/CulinaryDigestDialog.js`, new):
-  - Three-tab dialog (Settings / Preview / History) launched from "Weekly Digest / Resumen Semanal" button in `/food-ops/menus` header.
-  - Settings tab: enabled switch, frequency/day/hour selects, role badges (owner/admin/manager), extra emails input with Add/Remove, 7 section toggles (AI Recommendations marked with sparkle icon as "uses credits").
-  - Preview tab: Load Preview button renders email HTML in iframe.
-  - History tab: list of past dispatches with timestamps, demo/sent badges, email count, in-app count.
-  - Footer has "Send Now" (manual dispatch) + "Save" (persists settings).
-- **Storage**:
-  - `db.culinary_digest_settings`: one doc per company_id.
-  - `db.culinary_digest_history`: append-only audit trail.
-- **Tests**: Backend 32/32 passed. Frontend 100%. Report: `/app/test_reports/iteration_174.json`. Pytest: `/app/backend/tests/test_sprint5_culinary_digest.py`.
+- **Backend** (`/app/backend/routers/culinary_digest.py`):
+  - `dispatch_digest()` computes a top-level `primary_action: {type, link, label, event_id?, menu_id?}` using priority cascade: variance > staleness > low_stock > mise_en_place > menu_engineering > digest.
+  - `link` is `/food-ops/menus?dialog={type}&event_id|menu_id={ctx}` consumable by the FE.
+  - Stored in notification.link AND notification.metadata.primary_action AND culinary_digest_history.primary_action.
+- **Frontend**:
+  - `PlatedMenusSection` now uses `useSearchParams`. On mount, reads `dialog`/`event_id`/`menu_id` params, opens the matching dialog, scrolls to highlighted menu (data-menu-id={id}, ring-2 ring-amber-400), then clears params (no re-trigger).
+  - `CostVarianceDialog` accepts `initialEventId` prop. When present, fetches `/api/cost-variance/event/{id}` and renders a prominent "focused event" card (data-testid=cv-focused-event) above the list with theoretical/actual/variance for that event. Closing the dialog clears the state.
+- **Tests**: Backend 19/19 + frontend 100%. Report: `/app/test_reports/iteration_175.json`. Pytest: `/app/backend/tests/test_sprint6_deeplinks.py`.
 
-### Phase 2 + Sprint 5 — Final Summary
+### Sprint 5 — Culinary Weekly Digest (Previously Completed)
+Multi-channel digest with 7 toggleable sections, email+in-app, scheduler job. iteration_174.json.
+
+### Phase 2 + Enhancements — Final Tally
 | Sprint | Features | Endpoints | UI |
 |---|---|---|---|
-| 1 | P1-D, P1-B, P1-C | 2 | 1 component |
-| 2 | P1-A, F6 | 1 + 1 hook | 1 component |
-| 3 | F1, F2 | 6 | 2 components |
-| 4 | F3, F4, F5 | 5 | 2 components |
-| 5 | Weekly Digest | 5 + 1 scheduler job | 1 component |
-| **Total** | **11 features** | **20 endpoints** | **7 components** |
-
-🏁 **All 10 Phase 2 features + Sprint 5 Digest delivered.**
+| 1 | P1-D, P1-B, P1-C | 2 | 1 |
+| 2 | P1-A, F6 | 1 + 1 hook | 1 |
+| 3 | F1, F2 | 6 | 2 |
+| 4 | F3, F4, F5 | 5 | 2 |
+| 5 | Weekly Digest | 5 + 1 scheduler | 1 |
+| 6 | Deeplinks | (extends dispatch + 1 prop) | (updates 2) |
+| **Total** | **12 features** | **20 endpoints** | **7 components** |
 
 ### Sprints 1-4 — Phase 2 (Previously Completed)
 - Sprint 1: P1-D Staleness + P1-B Filterable Tags + P1-C Scaling Panel (iteration_170.json)
