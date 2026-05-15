@@ -124,27 +124,24 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Sprint 1 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED:
-- **P1-D Plated Menu Cost Staleness**:
-  - Backend: `GET /api/plated-menus/{id}/staleness` (returns `is_stale`, `severity` ok/warn/critical, `snapshot_cost_per_guest`, `live_cost_per_guest`, `drift_amount`, `drift_percent`, `affected_recipes`, `last_updated`).
-  - Backend: `POST /api/plated-menus/{id}/refresh-costs` (recomputes & persists cost_per_guest/cost_with_buffer with current recipe costs).
-  - Frontend: `FoodOpsPage` PlatedMenusSection fetches staleness in parallel for each menu and shows an orange (warn) / red (critical) badge on the card with drift % and a one-click refresh button (`menu-staleness-{id}` & `menu-refresh-costs-{id}` testids).
-- **P1-B Filterable Recipe Tags**:
-  - Frontend: `/recipes` page now has DIETARY_TAGS row (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Nut-Free, Kosher, Halal, Pescatarian, Keto — multi-select AND) and EXCLUDE_ALLERGENS row (Gluten, Dairy, Eggs, Soy, Nuts, Peanuts, Shellfish, Fish, Sesame — multi-select). Active-filter count + Clear filters control.
-  - Category filter migrated to dedicated `activeCategory` state (no longer hijacking searchTerm).
-  - Recipe cards display first 4 dietary tags as small badges.
-- **P1-C Recipe Scaling Panel (inline, read-only)**:
-  - New component `/app/frontend/src/components/RecipeScalingPanel.js`.
-  - Wired into `ProposalEditor` Items tab as a `<details>` collapsible (only when `featureFlags.is_food_ops_enabled && recipes.length > 0 && !isLocked`).
-  - Pre-fills target portions with event `guest_count`. Calls existing `POST /api/recipes/{id}/scale` — no DB mutation.
-  - Displays scale factor, total cost, cost/portion, ingredient table with scaled qty + cost, sub-recipes block. Read-only badge prominent.
-- **Tests**: Backend 13/13 passed (`/app/backend/tests/test_sprint1_phase2.py`). Frontend 100% (data-testids verified). Report: `/app/test_reports/iteration_170.json`.
+Sprint 2 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED:
+- **P1-A Production Plan View per Event**:
+  - Backend: `POST /api/production/event-plan` — accepts `{event_id, guest_count_override?}`. READ-ONLY computation that pulls the event's plated menu and Food proposal items, expands every recipe's ingredients by `scale_factor = guest_count * portions_per_guest / yield`, aggregates by ingredient, and reports shortages vs `(on_hand - reserved)`. Returns `{planned_recipes, aggregated_ingredients, shortages, totals: {total_input_cost, ingredients_count, shortage_count, recipes_count}}`. No DB writes.
+  - Frontend: New `EventProductionPlan.js` modal accessible from a `Calculator` button in `/food-ops/production` header. Read-only badge prominent. Shows summary cards (guests, recipes, cost, shortages), tables for planned recipes (source = menu vs proposal) and aggregated ingredients (rows highlighted red when shortage>0).
+- **Feature 6 Auto-Release Inventory Reservation on Event Cancellation**:
+  - Backend helper `_auto_release_event_reservations(event_id, user, reason)` releases every `inventory_reservations` doc with `status='active'` linked to the event: decrements `ingredient.reserved_quantity` and marks reservation `status='released'` with `release_reason` and `released_by`.
+  - Hook installed in `PUT /api/events/{id}` — triggers when `stage` transitions into `Archived` (or legacy `Lost`) OR `operational_status` changes to `Cancelled`. Errors are logged and never block the event update.
+  - Hook also installed in `DELETE /api/events/{id}` — releases before deletion with `release_reason='event_deleted'`.
+- **Model fixes (during testing)**: Added `reserved_quantity: float = 0.0` to `Ingredient` response model; added `operational_status: Optional[str]` to `EventUpdate` model.
+- **Tests**: Backend 14/15 passed (1 skipped — no Committed events available on that account). Frontend 100%. Report: `/app/test_reports/iteration_171.json`.
+
+### Sprint 1 — Phase 2 (May 15, 2026) — Previously Completed
+P1-D Plated Menu Cost Staleness + P1-B Filterable Recipe Tags + P1-C Inline Recipe Scaling Panel (read-only). See iteration_170.json.
 
 ### Next Sprint Targets (from Phase 2 Build Prompt)
-- Sprint 2: **P1-A Production Plan View per Event** (`POST /api/production/event-plan`) + **Feature 6 Auto-Release Inventory Reservation on Event Cancellation**.
-- Sprint 3: Feature 1 Buffet Consumption Factors + Projected Event Cost; Feature 2 Kitchen BEO with allergen alerts + PDF.
-- Sprint 4: Feature 3 Menu Engineering Dashboard + What-If Simulator; Feature 4 Theoretical vs Actual Cost Variance; Feature 5 Plated Menu → Catalog Menu Conversion.
+- Sprint 3 — Feature 1 Buffet Consumption Factors + Projected Event Cost (dual-cost view); Feature 2 Kitchen BEO with allergen alerts + PDF.
+- Sprint 4 — Feature 3 Menu Engineering Dashboard + What-If Simulator; Feature 4 Theoretical vs Actual Cost Variance; Feature 5 Plated Menu → Catalog Menu Conversion.
 
 Previous milestones (unchanged): Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
 
-Next: Sprint 2 (P1-A + Auto-release) · Logo Guest Flow · Unified Contact Model.
+Next: Sprint 3 (Buffet Factors + Kitchen BEO) · Logo Guest Flow · Unified Contact Model.
