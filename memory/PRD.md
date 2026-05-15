@@ -124,26 +124,16 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Margin Policy Fase 3 — Gating Admin/Owner/Finance + Audit + Aprobaciones (May 14, 2026):
-- **Roles que pueden override** del umbral: `owner`, `admin`, `finance`. Otros (`ops`, `viewer`) están bloqueados.
-- **Backend endpoints**:
-  - `POST /api/proposals/{id}/refresh-costs` — acepta body `{override_below_threshold: bool}`. Si la proposal está bajo umbral:
-    - Role no-override → 403 "Pide aprobación a un Admin/Owner"
-    - Role override sin flag → 403 "Reenvía con override_below_threshold=true"
-    - Role override con flag → procede + audit
-  - `POST /api/proposals/cost-health/refresh-all` — mismo gating. Para no-override skip silencioso, response incluye `{skipped_below_threshold, overridden_proposals, can_override}`.
-  - `POST /api/proposals/{id}/request-margin-approval` (NUEVO) — usuarios sin permisos pueden pedir aprobación; crea notificación in-app para cada owner/admin/finance del equipo.
-- **Persistencia**:
-  - `db.cost_refresh_audit` registra cada override (user_id, role, scope, proposal_ids, márgenes antes/después, delta_total).
-  - `db.notifications` recibe entries `type='margin_approval_request'` con metadata para deep-link.
-- **Frontend (CostHealthDashboard)**:
-  - Detecta rol via `useAuth()`.
-  - Card mode: si proposal below_threshold + role no-override → botón "Solicitar aprobación" (rojo claro). Si role override → botón refresh rojo (destructive variant) con confirmación inline.
-  - Section dialog: banner rojo "Acción bloqueada por política de margen" para no-override; checkbox "Confirmo bajar el margen bajo el umbral" para override; Apply disabled hasta marcarlo.
-  - Bulk refresh propaga `override_below_threshold` + toast "X omitidas por estar bajo el umbral".
-- **Testing iteration_169**: Backend 7/7 PASS · Frontend UI verificada en ambos roles (admin can-override, ops cannot-override) · 0 issues críticos · audit table verificada.
-- **Cambio en test_credentials.md**: `team.test@staffdo.com` password ahora es `Test123!` (rotada por testing agent durante pruebas de role gating).
+Bug fix — Recipe Scaling escribía en tabla huérfana (May 14, 2026):
+- **Reporte**: usuario preguntó dónde ver los menús enlazados a recetas. Auditando se descubrió que `/api/recipes/save-scaled-menu` (de Recipe Scaling MVP) escribía en `db.base_menus`, colección sin UI ni endpoint GET → menús huérfanos.
+- **Causa**: en Recipe Scaling MVP creé una colección dedicada por error. Lo correcto era usar `db.menus` (la misma que PackagePicker lee y se gestiona en `Settings → Catálogos → Menús`).
+- **Fix**:
+  - `save_scaled_menu` ahora construye el doc con shape `MenuItemEntry`-compatible (`picklist_item_id`, `recipe_id`, `custom_name`, `quantity`, `unit_price_override`, `internal_cost_override`, `sort_order`).
+  - `menu_type='Scaled'` para distinguirlos. Campos extras (`source='recipe_scaling'`, `source_event_id`, `scaled_snapshots`) van junto para la UX de detalle.
+  - Inserta en `db.menus` → automáticamente visible en `/api/settings/menus`.
+- **PackagePicker** muestra badge ámbar **"Escalado"** para `menu_type='Scaled'` (vs badge gris para regulares).
+- **Verificación end-to-end por curl**: crear menú escalado → aparece en `/api/settings/menus` → eliminable desde el mismo CRUD. 0 huérfanos en producción (base_menus vacía).
 
-Recipe Scaling MVP, Pydantic 422 Error Formatting global, Bug fix 401 auto-recovery, Margin Policy Fase 1+2, Cost Health Dashboard completo (ver historial).
+Margin Policy Fase 3 (Gating + Audit + Aprobaciones), Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard completo (ver historial).
 
-Next: Production Plan view · Logo Guest Flow · Unified Contact Model · Filterable recipe tags.
+Next: Production Plan view · Logo Guest Flow · Unified Contact Model · Filterable recipe tags · Reporte de Overrides de Margen en Settings.

@@ -3101,9 +3101,11 @@ class SaveScaledMenuRequest(BaseModel):
 
 @recipes_router.post("/save-scaled-menu")
 async def save_scaled_menu(data: SaveScaledMenuRequest, user: User = Depends(get_current_user)):
-    """Persist a Menu doc that snapshots scaled recipe(s). The base recipes are NOT modified.
+    """Persist a Menu (shape compatible with the standard catalog Menu used by PackagePicker)
+    that snapshots scaled recipe(s). The base recipes are NOT modified.
 
-    Output Menu shape mirrors base_menus so existing PackagePicker / ProposalEditor flows work.
+    Writes to db.menus (same collection PackagePicker reads) with menu_type='Scaled' so it
+    surfaces in Settings → Catálogos → Menús and the Proposal Editor menu dropdown automatically.
     """
     if not data.recipes:
         raise HTTPException(status_code=400, detail="At least one recipe is required")
@@ -3111,15 +3113,16 @@ async def save_scaled_menu(data: SaveScaledMenuRequest, user: User = Depends(get
     now = datetime.now(timezone.utc)
     menu_id = f"menu_{uuid.uuid4().hex[:12]}"
 
+    # Build items in the MenuItemEntry shape so enrich_menu_items() works as-is
     items = []
     total_cost = 0.0
     total_price = 0.0
+    snapshots = []  # extra metadata for the scaled UX (not used by PackagePicker)
     for entry in data.recipes:
         recipe_id = entry.get("recipe_id")
         target_portions = float(entry.get("target_portions") or 0)
         if not recipe_id or target_portions <= 0:
             continue
-        # Reuse the preview logic
         preview = await scale_recipe_preview(
             recipe_id,
             RecipeScalePreview(target_portions=target_portions, event_id=data.event_id),
@@ -3128,16 +3131,26 @@ async def save_scaled_menu(data: SaveScaledMenuRequest, user: User = Depends(get
         item_cost = preview["total_cost_scaled"]
         unit_price = float(entry.get("unit_price") or 0)
         line_price = unit_price if unit_price > 0 else item_cost
+        # Standard MenuItemEntry-compatible fields (so PackagePicker can render it)
         items.append({
             "item_id": f"mi_{uuid.uuid4().hex[:10]}",
             "recipe_id": recipe_id,
-            "name": preview["recipe_name"],
+            "picklist_item_id": None,
+            "custom_name": preview["recipe_name"],
+            "custom_description": (
+                f"Escalado para {int(target_portions)} porciones (factor ×{preview['scale_factor']})"
+            ),
+            "quantity": target_portions,
+            "unit_price_override": line_price / target_portions if target_portions > 0 else line_price,
+            "internal_cost_override": preview["cost_per_portion_scaled"],
+            "sort_order": len(items),
+        })
+        snapshots.append({
+            "recipe_id": recipe_id,
             "target_portions": target_portions,
             "scale_factor": preview["scale_factor"],
-            "cost_per_portion_scaled": preview["cost_per_portion_scaled"],
-            "total_cost_scaled": item_cost,
-            "unit_price": line_price,
             "ingredients_snapshot": preview["ingredients"],
+            "sub_recipes_snapshot": preview["sub_recipes"],
         })
         total_cost += item_cost
         total_price += line_price
@@ -3149,20 +3162,27 @@ async def save_scaled_menu(data: SaveScaledMenuRequest, user: User = Depends(get
         "menu_id": menu_id,
         "company_id": user.company_id,
         "name": data.name,
+        "name_es": data.name,
         "description": data.description,
-        "event_id": data.event_id,
-        "menu_type": "scaled",  # distinguishes from base_menu
+        "description_es": data.description,
+        "menu_type": "Scaled",  # distinguishes from regular catalog menus & PackagePicker shows a tag
+        "category_id": None,
         "items": items,
+        "variants": [],
+        "default_price": round(total_price, 4),
+        "is_fixed_price": False,
+        "is_active": True,
+        # Scaled-specific extras (extra='allow' on Menu model — fine since we never strict-parse this back)
+        "source": "recipe_scaling",
+        "source_event_id": data.event_id,
+        "scaled_snapshots": snapshots,
         "total_cost": round(total_cost, 4),
         "total_price": round(total_price, 4),
-        "is_fixed_price": False,
-        "variants": [],
-        "is_active": True,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
         "created_by": user.user_id,
     }
-    await db.base_menus.insert_one(menu_doc)
+    await db.menus.insert_one(menu_doc)
     menu_doc.pop("_id", None)
     return menu_doc
 
