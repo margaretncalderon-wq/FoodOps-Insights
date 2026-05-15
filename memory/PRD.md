@@ -124,24 +124,27 @@ See `/app/memory/test_credentials.md`.
 - Frontend: 100% (testable surface)
 
 ## Last Working Item
-Sprint 2 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED:
-- **P1-A Production Plan View per Event**:
-  - Backend: `POST /api/production/event-plan` — accepts `{event_id, guest_count_override?}`. READ-ONLY computation that pulls the event's plated menu and Food proposal items, expands every recipe's ingredients by `scale_factor = guest_count * portions_per_guest / yield`, aggregates by ingredient, and reports shortages vs `(on_hand - reserved)`. Returns `{planned_recipes, aggregated_ingredients, shortages, totals: {total_input_cost, ingredients_count, shortage_count, recipes_count}}`. No DB writes.
-  - Frontend: New `EventProductionPlan.js` modal accessible from a `Calculator` button in `/food-ops/production` header. Read-only badge prominent. Shows summary cards (guests, recipes, cost, shortages), tables for planned recipes (source = menu vs proposal) and aggregated ingredients (rows highlighted red when shortage>0).
-- **Feature 6 Auto-Release Inventory Reservation on Event Cancellation**:
-  - Backend helper `_auto_release_event_reservations(event_id, user, reason)` releases every `inventory_reservations` doc with `status='active'` linked to the event: decrements `ingredient.reserved_quantity` and marks reservation `status='released'` with `release_reason` and `released_by`.
-  - Hook installed in `PUT /api/events/{id}` — triggers when `stage` transitions into `Archived` (or legacy `Lost`) OR `operational_status` changes to `Cancelled`. Errors are logged and never block the event update.
-  - Hook also installed in `DELETE /api/events/{id}` — releases before deletion with `release_reason='event_deleted'`.
-- **Model fixes (during testing)**: Added `reserved_quantity: float = 0.0` to `Ingredient` response model; added `operational_status: Optional[str]` to `EventUpdate` model.
-- **Tests**: Backend 14/15 passed (1 skipped — no Committed events available on that account). Frontend 100%. Report: `/app/test_reports/iteration_171.json`.
+Sprint 3 — Culinary Intelligence Phase 2 (May 15, 2026) ✅ COMPLETED:
+- **Feature 1 — Buffet Consumption Factors + Projected Event Cost**:
+  - Backend: new `db.buffet_factors` collection. New `buffet_factors_router` with full CRUD (`GET/POST/PUT/DELETE /api/buffet-factors`). Validation: scope_type ∈ {recipe, category, default}, factor ∈ (0, 5], scope_id required if scope_type≠default, applies_to_menu_types non-empty.
+  - Helper `_resolve_buffet_factor(recipe, company_id, menu_type)` — cascade recipe → category → default → 1.0, scoped by `applies_to_menu_types`.
+  - New `GET /api/plated-menus/{id}/projected-cost` — returns `{theoretical_cost_per_guest, projected_cost_per_guest, savings_or_overrun, savings_percent, factors_applied: [...]}` for dual-cost UI.
+  - Frontend: `BuffetFactorsDialog.js` — full CRUD modal launched from "Buffet Factors" button in `/food-ops/menus`. Inline form supports recipe/category/default scopes, factor input (0–5), applies-to badges (buffet/cocktail), notes.
+  - Frontend: `PlatedMenusSection` fetches projected-cost for every buffet/cocktail menu and shows a dual-cost badge on the menu card (projected vs theoretical with % drift, red if overrun / green if savings).
+- **Feature 2 — Kitchen BEO (Banquet Event Order) with allergen alerts + print/PDF**:
+  - Backend: new `kitchen_beo_router` with `GET /api/kitchen-beo/event/{event_id}`. Returns full structured payload: event header, courses with scaled recipes (`portions_required = portions_per_guest × consumption_factor × guest_count`), per-recipe allergen/dietary tags, aggregated allergens & dietary tags across the whole event, totals (recipes_count, total_input_cost, cost_per_guest).
+  - Each recipe carries scaled ingredient list, prep/cook time, chef notes, presentation notes for the kitchen.
+  - Frontend: `KitchenBEO.js` — modal launched from "Kitchen BEO / BEO Cocina" button in `/food-ops/production`. Event picker → Generate → preview with allergen alert strip (red) + dietary tag chips. Print button opens a new window with print-friendly HTML (auto-trigger `window.print()` — pattern reused from Mise en Place). User can "Save as PDF" via browser print dialog.
+- **Tests**: Backend 25/30 passed (5 skipped — test account had menus with empty courses and events without menus). Frontend 100%. End-to-end backend curl on demo account verified the BEO returned 3 courses with full scaled ingredients (45kg filete, 7.5L aceite for 150 guests). Report: `/app/test_reports/iteration_172.json`.
 
-### Sprint 1 — Phase 2 (May 15, 2026) — Previously Completed
-P1-D Plated Menu Cost Staleness + P1-B Filterable Recipe Tags + P1-C Inline Recipe Scaling Panel (read-only). See iteration_170.json.
+### Sprint 1 + 2 — Phase 2 (May 15, 2026) — Previously Completed
+- Sprint 1: P1-D Plated Menu Cost Staleness + P1-B Filterable Recipe Tags + P1-C Inline Recipe Scaling Panel. See iteration_170.json.
+- Sprint 2: P1-A Production Plan View per Event + Feature 6 Auto-Release Inventory Reservation on Event Cancellation. See iteration_171.json.
 
 ### Next Sprint Targets (from Phase 2 Build Prompt)
-- Sprint 3 — Feature 1 Buffet Consumption Factors + Projected Event Cost (dual-cost view); Feature 2 Kitchen BEO with allergen alerts + PDF.
-- Sprint 4 — Feature 3 Menu Engineering Dashboard + What-If Simulator; Feature 4 Theoretical vs Actual Cost Variance; Feature 5 Plated Menu → Catalog Menu Conversion.
+- Sprint 4 — Feature 3 Menu Engineering Dashboard (Stars, Plowhorses, Puzzles, Dogs) + What-If Cost Simulator; Feature 4 Theoretical vs Actual Cost Variance; Feature 5 Plated Menu → Catalog Menu Conversion.
+- Mini-task: connect "Generate Purchase List" button into Event Plan modal (reuses existing `POST /api/events/{id}/generate-purchase-list`).
 
 Previous milestones (unchanged): Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
 
-Next: Sprint 3 (Buffet Factors + Kitchen BEO) · Logo Guest Flow · Unified Contact Model.
+Next: Sprint 4 (Menu Engineering + Variance) · Logo Guest Flow · Unified Contact Model.
